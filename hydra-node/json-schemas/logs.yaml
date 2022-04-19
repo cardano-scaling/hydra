@@ -252,7 +252,7 @@ definitions:
         onChainTxs:
           type: array
           items:
-            $ref: "#/definitions/OnChainTx"
+            $ref: "#/definitions/OnChainEvent"
         receivedTxs:
           type: array
           items:
@@ -531,6 +531,7 @@ definitions:
         - tag
         - pendingCommits
         - committed
+        - previousRecoverableState
       properties:
         tag:
           type: string
@@ -545,12 +546,15 @@ definitions:
           type: array
           items:
             $ref: "api.yaml#/components/schemas/Party"
+        previousRecoverableState:
+          $ref: "#/definitions/HeadState"
     - title: "OpenState"
       additionalProperties: false
       required:
         - tag
         - parameters
         - coordinatedHeadState
+        - previousRecoverableState
       properties:
         tag:
           type: string
@@ -559,12 +563,15 @@ definitions:
           $ref: "api.yaml#/components/schemas/HeadParameters"
         coordinatedHeadState:
           $ref: "#/definitions/CoordinatedHeadState"
+        previousRecoverableState:
+          $ref: "#/definitions/HeadState"
     - title: "ClosedState"
       additionalProperties: false
       required:
         - tag
         - parameters
         - utxos
+        - previousRecoverableState
       properties:
         tag:
           type: string
@@ -573,6 +580,8 @@ definitions:
           $ref: "api.yaml#/components/schemas/HeadParameters"
         utxos:
           $ref: "api.yaml#/components/schemas/UTxO"
+        previousRecoverableState:
+          $ref: "#/definitions/HeadState"
 
   CoordinatedHeadState:
     type: object
@@ -643,7 +652,7 @@ definitions:
       additionalProperties: false
       required:
       - tag
-      - onChainTx
+      - chainEvent
       description: >-
         An event representing the confirmation that some transaction part of the
         Head protocol has been confirmed on the main chain.
@@ -651,8 +660,8 @@ definitions:
         tag:
           type: string
           enum: ["OnChainEvent"]
-        onChainTx:
-          $ref: "#/definitions/OnChainTx"
+        chainEvent:
+          $ref: "#/definitions/OnChainEvent"
     - title: ShouldPostFanout
       type: object
       additionalProperties: false
@@ -781,6 +790,35 @@ definitions:
             enum: ["Disconnected"]
           peer:
             $ref: "api.yaml#/components/schemas/Peer"
+
+  OnChainEvent:
+    oneOf:
+      - title: Observation
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - contents
+        properties:
+          tag:
+            type: string
+            enum: ["Observation"]
+          contents:
+            $ref: "#/definitions/OnChainTx"
+
+      - title: Rollback
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - contents
+        properties:
+          tag:
+            type: string
+            enum: ["Rollback"]
+          contents:
+            type: integer
+            minimum: 0
 
   OnChainTx:
     description: >-
@@ -917,6 +955,7 @@ definitions:
             - $ref: "api.yaml#/components/messages/InvalidInput/payload"
             - $ref: "api.yaml#/components/messages/PostTxOnChainFailed/payload"
             - $ref: "api.yaml#/components/messages/CommandFailed/payload"
+            - $ref: "api.yaml#/components/messages/RolledBack/payload"
 
     - title: NetworkEffect
       type: object

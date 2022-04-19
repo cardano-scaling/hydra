@@ -1,4 +1,8 @@
 {-# LANGUAGE TypeApplications #-}
+-- Fourmolu chokes on type-applications of promoted constructors (e.g.
+-- @'StInitialized) and is unable to format properly after that. Hence this
+-- option to allow using unticked constructor and save Fourmolu from dying.
+{-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
 
 module Hydra.Chain.Direct.StateSpec where
 
@@ -6,18 +10,33 @@ import Hydra.Prelude hiding (label)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
+import Cardano.Ledger.Era (toTxSeq)
+import qualified Cardano.Ledger.Shelley.API as Ledger
+import Control.Monad.Class.MonadSTM (MonadSTM (..))
+import Control.Tracer (nullTracer)
 import qualified Data.ByteString.Lazy as LBS
-import Data.List (elemIndex, intersect, (!!))
+import Data.List (elemIndex, intersect, (!!), (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.Type.Equality (testEquality, (:~:) (..))
 import Hydra.Cardano.Api (
   ExecutionUnits (..),
+  SlotNo (..),
   Tx,
+  blockSlotNo,
+  toLedgerTx,
   txInputSet,
   txOutValue,
   valueSize,
+ )
+import Hydra.Chain (ChainEvent (..))
+import Hydra.Chain.Direct (
+  ChainSyncHandler (..),
+  RecordedAt (..),
+  SomeOnChainHeadStateAt (..),
+  chainSyncHandler,
  )
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
@@ -46,9 +65,11 @@ import Hydra.Chain.Direct.State (
   collect,
   fanout,
   getKnownUTxO,
+  idleOnChainHeadState,
   initialize,
   observeSomeTx,
  )
+import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (
   genTxIn,
   genUTxO,
@@ -57,6 +78,10 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
 import Hydra.Snapshot (isInitialSnapshot)
+import Ouroboros.Consensus.Block (Point, blockPoint)
+import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
+import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
+import Test.Hspec (shouldBe)
 import Test.Hydra.Prelude (
   Spec,
   SpecWith,
@@ -70,16 +95,25 @@ import Test.QuickCheck (
   Property,
   Testable (property),
   checkCoverage,
+  choose,
   classify,
   counterexample,
   elements,
   expectFailure,
   forAll,
   forAllBlind,
+  forAllShow,
   label,
   resize,
   sublistOf,
   (==>),
+ )
+import Test.QuickCheck.Monadic (
+  PropertyM,
+  assert,
+  monadicIO,
+  monitor,
+  run,
  )
 import Type.Reflection (typeOf)
 import qualified Prelude
@@ -105,14 +139,14 @@ spec = parallel $ do
                       (ctxVerificationKeys ctxA)
                       seedInput
                       stIdleA
-               in isNothing (observeTx @_ @ 'StInitialized tx stIdleB)
+               in isNothing (observeTx @_ @StInitialized tx stIdleB)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
 
     prop "consumes all inputs that are committed" $
       forAllCommit $ \st tx ->
-        case observeTx @_ @ 'StInitialized tx st of
+        case observeTx @_ @StInitialized tx st of
           Just (_, st') ->
             let knownInputs = UTxO.inputSet (getKnownUTxO st')
              in knownInputs `Set.disjoint` txInputSet tx
@@ -121,9 +155,9 @@ spec = parallel $ do
 
     prop "can only be applied / observed once" $
       forAllCommit $ \st tx ->
-        case observeTx @_ @ 'StInitialized tx st of
+        case observeTx @_ @StInitialized tx st of
           Just (_, st') ->
-            case observeTx @_ @ 'StInitialized tx st' of
+            case observeTx @_ @StInitialized tx st' of
               Just{} -> False
               Nothing -> True
           Nothing ->
@@ -144,11 +178,152 @@ spec = parallel $ do
     -- TODO: look into why this is failing
     propIsValid maxTxExecutionUnits (expectFailure . forAllFanout)
 
+  describe "ChainSyncHandler" $ do
+    prop "yields observed transactions rolling forward" $ do
+      forAllSt $ \(SomeOnChainHeadState -> st) tx -> do
+        let callback = \case
+              Rollback{} ->
+                fail "rolled back but expected roll forward."
+              Observation onChainTx ->
+                fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
+        forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
+          headState <- run $ newTVarIO $ stAtGenesis st
+          let handler = chainSyncHandler nullTracer callback headState
+          run $ onRollForward handler blk
+
+    prop "can replay chain on (benign) rollback" $
+      forAllBlind genSequenceOfObservableBlocks $ \(st, blks) ->
+        forAllShow (genRollbackPoint blks) showRollbackInfo $ \(rollbackDepth, rollbackPoint) -> do
+          let callback = \case
+                Observation{} -> do
+                  pure ()
+                Rollback n -> n `shouldBe` rollbackDepth
+
+          monadicIO $ do
+            monitor $ label ("Rollback depth: " <> show rollbackDepth)
+            headState <- run $ newTVarIO st
+            let handler = chainSyncHandler nullTracer callback headState
+
+            -- 1/ Simulate some chain following
+            st' <- run $ mapM_ (onRollForward handler) blks *> readTVarIO headState
+
+            -- 2/ Inject a rollback to somewhere between any of the previous state
+            result <- withCounterExample blks headState $ do
+              try @_ @SomeException $ onRollBackward handler rollbackPoint
+            assert (isRight result)
+
+            -- 3/ Simulate chain-following replaying rolled back blocks, should re-apply
+            let toReplay = blks \\ [blk | blk <- blks, blockPoint blk <= rollbackPoint]
+            st'' <- run $ mapM_ (onRollForward handler) toReplay *> readTVarIO headState
+            assert (st' == st'')
+
+withCounterExample :: [Block] -> TVar IO SomeOnChainHeadStateAt -> IO a -> PropertyM IO a
+withCounterExample blks headState step = do
+  stBefore <- run $ readTVarIO headState
+  a <- run step
+  stAfter <- run $ readTVarIO headState
+  a <$ do
+    monitor $
+      counterexample $
+        toString $
+          unlines
+            [ "Head state at (before rollback): " <> showStateRecordedAt stBefore
+            , "Head state at (after rollback):  " <> showStateRecordedAt stAfter
+            , "Block sequence: \n"
+                <> unlines
+                  ( fmap
+                      ("    " <>)
+                      [show (blockPoint blk) | blk <- blks]
+                  )
+            ]
+
+genRollbackPoint :: [Block] -> Gen (Word, Point Block)
+genRollbackPoint blks = do
+  let maxSlotNo = blockSlotNo (Prelude.last blks)
+  ix <- SlotNo <$> choose (1, unSlotNo maxSlotNo)
+  let rollbackDepth = length blks - length [blk | blk <- blks, blockSlotNo blk <= ix]
+  rollbackPoint <- blockPoint <$> genBlockAt ix []
+  pure (fromIntegral rollbackDepth, rollbackPoint)
+
+-- | Generate a non-sparse sequence of blocks each containing an observable
+-- transaction, starting from the returned on-chain head state.
+--
+-- Note that this does not generate the entire spectrum of observable
+-- transactions in Hydra, but only init and commits, which is already sufficient
+-- to observe at least one state transition and different levels of rollback.
+genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadStateAt, [Block])
+genSequenceOfObservableBlocks = do
+  ctx <- genHydraContext 3
+
+  -- NOTE: commits must be generated from each participant POV, and thus, we
+  -- need all their respective StIdle to move on.
+  let stIdles = flip map (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) ->
+        let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
+         in idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p
+
+  stIdle <- elements stIdles
+  blks <- flip execStateT [] $ do
+    initTx <- stepInit ctx stIdle
+    void $ stepCommits ctx initTx stIdles
+
+  pure (stAtGenesis (SomeOnChainHeadState stIdle), reverse blks)
+ where
+  nextSlot :: Monad m => StateT [Block] m SlotNo
+  nextSlot = do
+    get <&> \case
+      [] -> 1
+      x : _ -> SlotNo . succ . unSlotNo . blockSlotNo $ x
+
+  putNextBlock :: Tx -> StateT [Block] Gen ()
+  putNextBlock tx = do
+    sl <- nextSlot
+    blk <- lift $ genBlockAt sl [tx]
+    modify' (blk :)
+
+  stepInit ::
+    HydraContext ->
+    OnChainHeadState StIdle ->
+    StateT [Block] Gen Tx
+  stepInit ctx stIdle = do
+    txIn <- lift genTxIn
+    let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) txIn stIdle
+    initTx <$ putNextBlock initTx
+
+  stepCommits ::
+    HydraContext ->
+    Tx ->
+    [OnChainHeadState 'StIdle] ->
+    StateT [Block] Gen [OnChainHeadState 'StInitialized]
+  stepCommits ctx initTx = \case
+    [] ->
+      pure []
+    stIdle : rest -> do
+      stInitialized <- stepCommit initTx stIdle
+      (stInitialized :) <$> stepCommits ctx initTx rest
+
+  stepCommit ::
+    Tx ->
+    OnChainHeadState 'StIdle ->
+    StateT [Block] Gen (OnChainHeadState 'StInitialized)
+  stepCommit initTx stIdle = do
+    let (_, stInitialized) = unsafeObserveTx @_ @StInitialized initTx stIdle
+    utxo <- lift genCommit
+    let commitTx = unsafeCommit utxo stInitialized
+    putNextBlock commitTx
+    pure $ snd $ unsafeObserveTx @_ @StInitialized commitTx stInitialized
+
 tenTimesTxExecutionUnits :: ExecutionUnits
 tenTimesTxExecutionUnits =
   ExecutionUnits
     { executionMemory = 100_000_000
     , executionSteps = 100_000_000_000
+    }
+
+stAtGenesis :: SomeOnChainHeadState -> SomeOnChainHeadStateAt
+stAtGenesis currentOnChainHeadState =
+  SomeOnChainHeadStateAt
+    { currentOnChainHeadState
+    , recordedAt = AtStart
     }
 
 --
@@ -361,6 +536,16 @@ genStClosed ctx = do
   let closeTx = close snapshot stOpen
   pure $ snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
 
+genBlockAt :: SlotNo -> [Tx] -> Gen Block
+genBlockAt sl txs = do
+  header <- adjustSlot <$> arbitrary
+  let body = toTxSeq $ StrictSeq.fromList (toLedgerTx <$> txs)
+  pure $ BlockAlonzo $ mkShelleyBlock $ Ledger.Block header body
+ where
+  adjustSlot (Ledger.BHeader body sig) =
+    let body' = body{Ledger.bheaderSlotNo = sl}
+     in Ledger.BHeader body' sig
+
 --
 -- Wrapping Transition for easy labelling
 --
@@ -398,3 +583,21 @@ instance Enum Transition where
 instance Bounded Transition where
   minBound = Prelude.head allTransitions
   maxBound = Prelude.last allTransitions
+
+--
+-- Prettifier
+--
+
+showRollbackInfo :: (Word, Point Block) -> String
+showRollbackInfo (rollbackDepth, rollbackPoint) =
+  toString $
+    unlines
+      [ "Rollback depth: " <> show rollbackDepth
+      , "Rollback point: " <> show rollbackPoint
+      ]
+
+showStateRecordedAt :: SomeOnChainHeadStateAt -> Text
+showStateRecordedAt SomeOnChainHeadStateAt{recordedAt} =
+  case recordedAt of
+    AtStart -> "Start"
+    AtPoint pt _ -> show pt

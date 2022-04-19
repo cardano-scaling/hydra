@@ -1,1588 +1,305 @@
 {
     "samples": [
         {
-            "latestSnapshot": {
-                "confirmedTransactions": [],
-                "snapshotNumber": 6,
-                "utxo": [
-                    -6,
-                    0,
-                    1,
-                    5,
-                    6
-                ]
-            },
-            "tag": "HeadIsClosed"
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -5,
-                "inputs": [
-                    -2,
-                    -1,
-                    1,
-                    4,
-                    5
-                ],
-                "outputs": [
-                    -3,
-                    -1,
-                    3,
-                    4,
-                    5
-                ]
-            },
-            "utxo": [
-                -1,
-                0,
-                2,
-                4,
-                6
-            ],
-            "validationError": {
-                "reason": "󴼘Y􈕁oJ"
-            }
+            "tag": "RolledBack"
         },
         {
             "tag": "TxValid",
             "transaction": {
-                "id": -6,
+                "id": -4,
                 "inputs": [
-                    -3,
-                    -1,
-                    2,
-                    3
+                    0,
+                    5
                 ],
-                "outputs": []
+                "outputs": [
+                    -2,
+                    1,
+                    5,
+                    6
+                ]
             }
         },
         {
-            "tag": "HeadIsAborted",
+            "tag": "HeadIsOpen",
             "utxo": [
+                -3,
                 -2,
                 -1,
-                0,
-                3,
-                5,
-                6
+                5
             ]
         },
         {
-            "tag": "TxSeen",
-            "transaction": {
-                "id": 2,
-                "inputs": [
-                    -4,
-                    -3,
-                    -2,
-                    -1,
-                    0,
-                    6
+            "signatures": {
+                "multiSignature": []
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": 1,
+                        "inputs": [
+                            -2,
+                            6
+                        ],
+                        "outputs": []
+                    },
+                    {
+                        "id": -1,
+                        "inputs": [],
+                        "outputs": [
+                            -1
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [],
+                        "outputs": []
+                    },
+                    {
+                        "id": -5,
+                        "inputs": [
+                            -5,
+                            -4,
+                            0
+                        ],
+                        "outputs": [
+                            -6,
+                            -5,
+                            -2,
+                            4
+                        ]
+                    },
+                    {
+                        "id": -6,
+                        "inputs": [
+                            0,
+                            1,
+                            5,
+                            6
+                        ],
+                        "outputs": []
+                    },
+                    {
+                        "id": -6,
+                        "inputs": [
+                            -4
+                        ],
+                        "outputs": [
+                            2
+                        ]
+                    }
                 ],
-                "outputs": [
-                    -4,
-                    -1,
+                "snapshotNumber": 6,
+                "utxo": [
+                    -6,
                     2,
                     4
                 ]
-            }
-        },
-        {
-            "signatures": {
-                "multiSignature": [
-                    "787c798e39a5bc191b0308000003050405",
-                    "e3b0c44298fc1c141b0002050508070707",
-                    "beead77994cf57331b0304060007020200",
-                    "47ac43a065ed3db31b0105010301050801"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": 5,
-                        "inputs": [
-                            -2,
-                            -1,
-                            0,
-                            1,
-                            5,
-                            6
-                        ],
-                        "outputs": [
-                            -6,
-                            -4,
-                            -1,
-                            2,
-                            5
-                        ]
-                    },
-                    {
-                        "id": -4,
-                        "inputs": [
-                            -3,
-                            4,
-                            5
-                        ],
-                        "outputs": [
-                            -4
-                        ]
-                    },
-                    {
-                        "id": -1,
-                        "inputs": [
-                            -6,
-                            -3,
-                            3,
-                            6
-                        ],
-                        "outputs": [
-                            1
-                        ]
-                    },
-                    {
-                        "id": 6,
-                        "inputs": [
-                            -1
-                        ],
-                        "outputs": [
-                            -1
-                        ]
-                    }
-                ],
-                "snapshotNumber": 3,
-                "utxo": [
-                    -6
-                ]
             },
             "tag": "SnapshotConfirmed"
         },
         {
-            "tag": "HeadIsAborted",
-            "utxo": [
-                6
-            ]
-        },
-        {
-            "postChainTx": {
-                "tag": "AbortTx",
-                "utxo": [
-                    -1
-                ]
-            },
-            "postTxError": {
-                "knownUTxO": [
-                    -1,
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 6,
+                "inputs": [
+                    -5,
+                    -2,
+                    0,
+                    1,
                     3
                 ],
-                "tag": "CannotFindOwnInitial"
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 2,
-                "inputs": [
-                    -4
-                ],
                 "outputs": [
-                    -2,
-                    2
-                ]
-            },
-            "utxo": [
-                -6,
-                -1
-            ],
-            "validationError": {
-                "reason": "𰈗v-"
-            }
-        },
-        {
-            "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": [
-                    0,
-                    1,
-                    3,
-                    6
-                ]
-            },
-            "postTxError": {
-                "headUTxO": [
-                    -5,
-                    6
-                ],
-                "reason": "\n\u00008}\r",
-                "tag": "CannotCoverFees",
-                "tx": {
-                    "id": 3,
-                    "inputs": [],
-                    "outputs": [
-                        -1
-                    ]
-                },
-                "walletUTxO": [
-                    1,
-                    6
-                ]
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "tag": "CommandFailed"
-        },
-        {
-            "tag": "CommandFailed"
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -6,
-                "inputs": [
-                    -3,
-                    0,
-                    3,
-                    5,
-                    6
-                ],
-                "outputs": [
-                    2
+                    2,
+                    5
                 ]
             },
             "utxo": [
                 -5,
-                -2,
-                2,
-                4,
-                6
+                0,
+                1,
+                4
             ],
             "validationError": {
-                "reason": "!0=ct"
+                "reason": ""
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.5",
-                "port": 3
-            },
-            "tag": "PeerConnected"
+            "tag": "RolledBack"
         },
         {
-            "me": {
-                "vkey": "fffffffffffffffe"
-            },
-            "tag": "Greetings"
+            "tag": "CommandFailed"
         },
         {
-            "tag": "HeadIsAborted",
-            "utxo": []
-        },
-        {
-            "postChainTx": {
-                "tag": "AbortTx",
-                "utxo": [
-                    0,
-                    5
-                ]
-            },
-            "postTxError": {
-                "headUTxO": [
-                    -3,
-                    5,
-                    6
-                ],
-                "input": "m",
-                "tag": "CannotSpendInput",
-                "walletUTxO": [
-                    -5,
-                    -3,
-                    0,
-                    2
-                ]
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "parties": [
-                {
-                    "vkey": "0000000000000005"
-                },
-                {
-                    "vkey": "0000000000000006"
-                }
-            ],
-            "tag": "ReadyToCommit"
-        },
-        {
-            "tag": "TxSeen",
+            "tag": "TxInvalid",
             "transaction": {
-                "id": 1,
+                "id": 4,
                 "inputs": [
-                    -1,
-                    1,
-                    2
-                ],
-                "outputs": [
                     -6,
                     -5,
                     -3,
                     -1,
                     1,
                     5
+                ],
+                "outputs": [
+                    -4,
+                    -3,
+                    3,
+                    4
                 ]
-            }
-        },
-        {
-            "party": {
-                "vkey": "fffffffffffffffa"
             },
-            "tag": "Committed",
             "utxo": [
-                -6,
                 -5,
                 -4,
-                -2
-            ]
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.0",
-                "port": 7
-            },
-            "tag": "PeerConnected"
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.6",
-                "port": 5
-            },
-            "tag": "PeerConnected"
-        },
-        {
-            "latestSnapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": 6,
-                        "inputs": [
-                            -1
-                        ],
-                        "outputs": [
-                            -5,
-                            -3,
-                            3
-                        ]
-                    }
-                ],
-                "snapshotNumber": 2,
-                "utxo": [
-                    1
-                ]
-            },
-            "tag": "HeadIsClosed"
-        },
-        {
-            "tag": "HeadIsOpen",
-            "utxo": []
+                -3,
+                -2,
+                0,
+                3
+            ],
+            "validationError": {
+                "reason": ""
+            }
         },
         {
             "tag": "TxValid",
             "transaction": {
                 "id": 5,
                 "inputs": [
-                    -4,
-                    1,
-                    5
+                    -3
                 ],
                 "outputs": [
                     -6,
-                    -2,
-                    -1,
-                    0,
+                    -4,
+                    3,
+                    4,
                     6
                 ]
             }
         },
         {
-            "tag": "TxValid",
-            "transaction": {
-                "id": 4,
-                "inputs": [
-                    -3,
-                    3
+            "tag": "CommandFailed"
+        },
+        {
+            "signatures": {
+                "multiSignature": []
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": -4,
+                        "inputs": [],
+                        "outputs": []
+                    },
+                    {
+                        "id": 5,
+                        "inputs": [
+                            -5,
+                            -4,
+                            -1,
+                            2,
+                            5,
+                            6
+                        ],
+                        "outputs": [
+                            -6,
+                            -4,
+                            -3,
+                            -2
+                        ]
+                    },
+                    {
+                        "id": -5,
+                        "inputs": [
+                            -4,
+                            -3,
+                            -2,
+                            1,
+                            6
+                        ],
+                        "outputs": [
+                            6
+                        ]
+                    },
+                    {
+                        "id": -6,
+                        "inputs": [
+                            -2,
+                            1,
+                            3,
+                            4,
+                            6
+                        ],
+                        "outputs": []
+                    },
+                    {
+                        "id": 1,
+                        "inputs": [
+                            3,
+                            4
+                        ],
+                        "outputs": [
+                            -4,
+                            4,
+                            5
+                        ]
+                    },
+                    {
+                        "id": -5,
+                        "inputs": [
+                            0,
+                            2,
+                            5
+                        ],
+                        "outputs": [
+                            -5,
+                            1
+                        ]
+                    }
                 ],
-                "outputs": [
-                    -5
+                "snapshotNumber": 6,
+                "utxo": [
+                    -4,
+                    -2,
+                    5
                 ]
-            }
-        },
-        {
-            "input": "bpj.'V",
-            "reason": "Y",
-            "tag": "InvalidInput"
-        },
-        {
-            "me": {
-                "vkey": "0000000000000006"
             },
-            "tag": "Greetings"
+            "tag": "SnapshotConfirmed"
         },
         {
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -6,
-                -4
-            ]
-        },
-        {
-            "postChainTx": {
-                "committed": [],
-                "party": {
-                    "vkey": "0000000000000002"
-                },
-                "tag": "CommitTx"
-            },
-            "postTxError": {
-                "tag": "NoPaymentInput"
-            },
-            "tag": "PostTxOnChainFailed"
+            "tag": "RolledBack"
         },
         {
             "signatures": {
                 "multiSignature": [
-                    "148de9c5a7a44d191b0805020408010105",
-                    "e3b0c44298fc1c141b0203030206060807",
-                    "302e991e50d1ab711b0201010303030103",
-                    "83e2a9a1ba6e29dc1b0204030002030400",
-                    "da461d62259825851b0102040803010108",
-                    "aed6ca6d9113443b1b0406050308000102"
+                    "c73ed484d4bee6d11b0508030501080602",
+                    "e3b0c44298fc1c141b0504070007080803",
+                    "7badb107e13fee5a1b0005000407040005",
+                    "dfed09502abe79e81b0205040503000706",
+                    "ddcaa6377c76a20e1b0003060107050102"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [],
-                "snapshotNumber": 6,
-                "utxo": [
-                    -4
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "party": {
-                "vkey": "ffffffffffffffff"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -3,
-                -2,
-                -1,
-                3,
-                5
-            ]
-        },
-        {
-            "tag": "HeadIsOpen",
-            "utxo": []
-        },
-        {
-            "input": "\\M堚}",
-            "reason": "),簣0n􃸽",
-            "tag": "InvalidInput"
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -5,
-                "inputs": [
-                    -1,
-                    0
-                ],
-                "outputs": [
-                    -2,
-                    3
-                ]
-            },
-            "utxo": [
-                -5,
-                -4,
-                4,
-                6
-            ],
-            "validationError": {
-                "reason": "\n*zp"
-            }
-        },
-        {
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -5,
-                -4
-            ]
-        },
-        {
-            "tag": "HeadIsFinalized",
-            "utxo": [
-                -6,
-                2
-            ]
-        },
-        {
-            "tag": "UTxO",
-            "utxo": [
-                -5,
-                -2,
-                -1
-            ]
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.4",
-                "port": 1
-            },
-            "tag": "PeerConnected"
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.5",
-                "port": 4
-            },
-            "tag": "PeerConnected"
-        },
-        {
-            "tag": "CommandFailed"
-        },
-        {
-            "input": "",
-            "reason": "\\󿎾",
-            "tag": "InvalidInput"
-        },
-        {
-            "input": "2",
-            "reason": ")􋬓-\u0005",
-            "tag": "InvalidInput"
-        },
-        {
-            "tag": "HeadIsOpen",
-            "utxo": []
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.4",
-                "port": 0
-            },
-            "tag": "PeerDisconnected"
-        },
-        {
-            "input": "\u001a󵔒E",
-            "reason": "綁𭜸\u0013/􈧐L",
-            "tag": "InvalidInput"
-        },
-        {
-            "signatures": {
-                "multiSignature": [
-                    "6d696cb8b26d99311b0104080703060803",
-                    "7d77714c3a44a1581b0706010505050206",
-                    "4a46552190cbfa761b0405030802020207",
-                    "134fb83537bba8651b0703030206070207",
-                    "35d841a2652c49491b0204010302020604"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": 6,
-                        "inputs": [
-                            -6,
-                            1
-                        ],
-                        "outputs": [
-                            -6,
-                            1,
-                            2
-                        ]
-                    },
-                    {
-                        "id": -2,
-                        "inputs": [
-                            -3,
-                            -2,
-                            5
-                        ],
-                        "outputs": [
-                            -6,
-                            0,
-                            2
-                        ]
-                    },
-                    {
-                        "id": 0,
-                        "inputs": [
-                            -1,
-                            3
-                        ],
-                        "outputs": [
-                            2,
-                            3,
-                            5,
-                            6
-                        ]
-                    },
-                    {
-                        "id": 6,
-                        "inputs": [
-                            -6,
-                            0,
-                            1,
-                            2,
-                            6
-                        ],
-                        "outputs": [
-                            -6,
-                            -5,
-                            -3,
-                            -2,
-                            3,
-                            4
-                        ]
-                    },
-                    {
-                        "id": 5,
-                        "inputs": [
-                            -6,
-                            -5,
-                            3,
-                            6
-                        ],
-                        "outputs": [
-                            -6,
-                            -4,
-                            0,
-                            2,
-                            3,
-                            4
-                        ]
-                    },
-                    {
-                        "id": -5,
-                        "inputs": [
-                            -3,
-                            -1,
-                            4,
-                            6
-                        ],
-                        "outputs": [
-                            -6
-                        ]
-                    }
-                ],
                 "snapshotNumber": 3,
                 "utxo": [
-                    -5
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "tag": "TxValid",
-            "transaction": {
-                "id": 5,
-                "inputs": [
-                    -6,
-                    -4,
-                    -2,
-                    0,
-                    1,
-                    5
-                ],
-                "outputs": [
-                    -6,
-                    -4,
-                    -3,
-                    0,
-                    1,
-                    2
-                ]
-            }
-        },
-        {
-            "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": []
-            },
-            "postTxError": {
-                "tag": "InvalidStateToPost",
-                "txTried": {
-                    "tag": "AbortTx",
-                    "utxo": [
-                        5
-                    ]
-                }
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "party": {
-                "vkey": "fffffffffffffffb"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -4
-            ]
-        },
-        {
-            "tag": "HeadIsFinalized",
-            "utxo": []
-        },
-        {
-            "input": "_\u0017\u0019",
-            "reason": "v\u000e",
-            "tag": "InvalidInput"
-        },
-        {
-            "tag": "HeadIsFinalized",
-            "utxo": [
-                -2,
-                0,
-                1,
-                3
-            ]
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -5,
-                "inputs": [
-                    -4,
-                    -3
-                ],
-                "outputs": [
-                    -4,
-                    3
-                ]
-            },
-            "utxo": [
-                -6,
-                -5,
-                1,
-                2,
-                5
-            ],
-            "validationError": {
-                "reason": "\u000e"
-            }
-        },
-        {
-            "signatures": {
-                "multiSignature": [
-                    "b6ad131264ee75081b0303060002050401",
-                    "13032e9bdbaf04c41b0702010005050108"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": 0,
-                        "inputs": [
-                            -1,
-                            1
-                        ],
-                        "outputs": [
-                            -1,
-                            1
-                        ]
-                    },
-                    {
-                        "id": -5,
-                        "inputs": [
-                            -3,
-                            3
-                        ],
-                        "outputs": [
-                            -5,
-                            3
-                        ]
-                    },
-                    {
-                        "id": 3,
-                        "inputs": [
-                            -3,
-                            2,
-                            3
-                        ],
-                        "outputs": [
-                            -3,
-                            6
-                        ]
-                    },
-                    {
-                        "id": 4,
-                        "inputs": [
-                            -4,
-                            -3,
-                            -1
-                        ],
-                        "outputs": []
-                    },
-                    {
-                        "id": 3,
-                        "inputs": [],
-                        "outputs": []
-                    }
-                ],
-                "snapshotNumber": 4,
-                "utxo": [
-                    -6,
-                    -2,
-                    0,
-                    2
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "postChainTx": {
-                "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "67488ca37d40d9131b0103020106050200",
-                            "275c04e9c1e3a86c1b0201020201020602",
-                            "e3b0c44298fc1c141b0307040004000402",
-                            "fb4d03d881e60e951b0405070407040303",
-                            "e3b0c44298fc1c141b0805040700070201",
-                            "9f31f4606025a34f1b0106050204000100"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [
-                            {
-                                "id": 0,
-                                "inputs": [
-                                    -4,
-                                    5
-                                ],
-                                "outputs": [
-                                    -1,
-                                    2,
-                                    4
-                                ]
-                            }
-                        ],
-                        "snapshotNumber": 0,
-                        "utxo": [
-                            3
-                        ]
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "tag": "CloseTx"
-            },
-            "postTxError": {
-                "tag": "MoreThanOneUTxOCommitted"
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.3",
-                "port": 6
-            },
-            "tag": "PeerDisconnected"
-        },
-        {
-            "tag": "CommandFailed"
-        },
-        {
-            "tag": "HeadIsFinalized",
-            "utxo": [
-                -5,
-                4,
-                5
-            ]
-        },
-        {
-            "tag": "HeadIsAborted",
-            "utxo": []
-        },
-        {
-            "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": [
-                    -1,
-                    3
-                ]
-            },
-            "postTxError": {
-                "knownUTxO": [
-                    -6,
-                    2
-                ],
-                "tag": "CannotFindOwnInitial"
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "tag": "TxSeen",
-            "transaction": {
-                "id": 4,
-                "inputs": [
                     -5,
-                    2
-                ],
-                "outputs": [
-                    -4,
-                    -3,
-                    -1,
-                    4,
-                    5
-                ]
-            }
-        },
-        {
-            "signatures": {
-                "multiSignature": [
-                    "e7f1b59623c190981b0301060805060802",
-                    "e59234bb9fad37681b0108040506080608",
-                    "8d5f0f5d787197fa1b0507070700070303",
-                    "3916cfbcd1fef9081b0402050107010105",
-                    "e3b0c44298fc1c141b0001000201060606"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": -5,
-                        "inputs": [
-                            -4,
-                            -3,
-                            -1,
-                            0,
-                            5,
-                            6
-                        ],
-                        "outputs": [
-                            -5,
-                            -4,
-                            2,
-                            6
-                        ]
-                    },
-                    {
-                        "id": 2,
-                        "inputs": [
-                            -6,
-                            -1,
-                            1,
-                            4
-                        ],
-                        "outputs": [
-                            -5,
-                            -2,
-                            -1,
-                            0,
-                            3
-                        ]
-                    },
-                    {
-                        "id": 2,
-                        "inputs": [],
-                        "outputs": [
-                            2,
-                            3,
-                            4,
-                            5
-                        ]
-                    }
-                ],
-                "snapshotNumber": 2,
-                "utxo": []
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "input": "鞙v",
-            "reason": ")𡤩\u0019Rdu",
-            "tag": "InvalidInput"
-        },
-        {
-            "tag": "HeadIsFinalized",
-            "utxo": [
-                -4,
-                -3,
-                -2,
-                -1,
-                3,
-                6
-            ]
-        },
-        {
-            "tag": "UTxO",
-            "utxo": [
-                0
-            ]
-        },
-        {
-            "tag": "TxSeen",
-            "transaction": {
-                "id": 6,
-                "inputs": [
-                    5,
-                    6
-                ],
-                "outputs": [
-                    -4,
-                    -2,
-                    0,
-                    5
-                ]
-            }
-        },
-        {
-            "latestSnapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": 1,
-                        "inputs": [
-                            -6,
-                            -5,
-                            1,
-                            6
-                        ],
-                        "outputs": [
-                            -1,
-                            1,
-                            3,
-                            4,
-                            5,
-                            6
-                        ]
-                    },
-                    {
-                        "id": 3,
-                        "inputs": [
-                            5
-                        ],
-                        "outputs": [
-                            -1,
-                            0,
-                            2,
-                            4
-                        ]
-                    },
-                    {
-                        "id": 0,
-                        "inputs": [
-                            -3,
-                            -1,
-                            5
-                        ],
-                        "outputs": []
-                    },
-                    {
-                        "id": 5,
-                        "inputs": [
-                            -6,
-                            -4
-                        ],
-                        "outputs": []
-                    }
-                ],
-                "snapshotNumber": 0,
-                "utxo": [
-                    -5,
-                    -3,
-                    0
-                ]
-            },
-            "tag": "HeadIsClosed"
-        },
-        {
-            "signatures": {
-                "multiSignature": [
-                    "822204b382d0923d1b0004080002050507",
-                    "3340883aad3038dd1b0105040006010408",
-                    "787899ec3f04fc051b0606030507010802",
-                    "1a967da2de3e4ea31b0300030202020100",
-                    "5549795d761614b21b0806040806020004",
-                    "3cbdaf66b3dd2b171b0704030205030002"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": 3,
-                        "inputs": [
-                            -5,
-                            -1,
-                            0,
-                            1,
-                            6
-                        ],
-                        "outputs": [
-                            0,
-                            1
-                        ]
-                    },
-                    {
-                        "id": 6,
-                        "inputs": [
-                            -5,
-                            1,
-                            4,
-                            5
-                        ],
-                        "outputs": []
-                    },
-                    {
-                        "id": -4,
-                        "inputs": [
-                            -6,
-                            -5,
-                            -4,
-                            -1,
-                            2,
-                            6
-                        ],
-                        "outputs": [
-                            -1,
-                            2,
-                            3
-                        ]
-                    },
-                    {
-                        "id": 5,
-                        "inputs": [
-                            -5,
-                            1
-                        ],
-                        "outputs": [
-                            -4
-                        ]
-                    },
-                    {
-                        "id": 1,
-                        "inputs": [
-                            -6,
-                            -4,
-                            -2,
-                            0,
-                            4
-                        ],
-                        "outputs": [
-                            -1,
-                            1
-                        ]
-                    },
-                    {
-                        "id": -1,
-                        "inputs": [
-                            -5,
-                            -4,
-                            -2,
-                            5,
-                            6
-                        ],
-                        "outputs": [
-                            -4,
-                            6
-                        ]
-                    }
-                ],
-                "snapshotNumber": 1,
-                "utxo": [
-                    -6,
-                    6
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "input": "",
-            "reason": "\u0010Hke",
-            "tag": "InvalidInput"
-        },
-        {
-            "parties": [
-                {
-                    "vkey": "fffffffffffffffa"
-                },
-                {
-                    "vkey": "0000000000000005"
-                },
-                {
-                    "vkey": "ffffffffffffffff"
-                },
-                {
-                    "vkey": "0000000000000002"
-                }
-            ],
-            "tag": "ReadyToCommit"
-        },
-        {
-            "tag": "HeadIsOpen",
-            "utxo": [
-                -4,
-                0,
-                4,
-                5
-            ]
-        },
-        {
-            "parties": [
-                {
-                    "vkey": "0000000000000001"
-                },
-                {
-                    "vkey": "0000000000000003"
-                },
-                {
-                    "vkey": "0000000000000004"
-                },
-                {
-                    "vkey": "ffffffffffffffff"
-                }
-            ],
-            "tag": "ReadyToCommit"
-        },
-        {
-            "tag": "CommandFailed"
-        },
-        {
-            "signatures": {
-                "multiSignature": [
-                    "e3b0c44298fc1c141b0500010707030403",
-                    "a8c86004283564781b0805010204080306"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": -2,
-                        "inputs": [
-                            0
-                        ],
-                        "outputs": [
-                            -2,
-                            2,
-                            4,
-                            5,
-                            6
-                        ]
-                    },
-                    {
-                        "id": -5,
-                        "inputs": [
-                            -4,
-                            -3,
-                            0,
-                            3
-                        ],
-                        "outputs": [
-                            -4,
-                            5
-                        ]
-                    }
-                ],
-                "snapshotNumber": 4,
-                "utxo": [
-                    -4,
-                    -3,
-                    -2,
-                    3,
-                    5
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "party": {
-                "vkey": "fffffffffffffffd"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -1,
-                4
-            ]
-        },
-        {
-            "party": {
-                "vkey": "fffffffffffffffc"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -5,
-                -3,
-                6
-            ]
-        },
-        {
-            "party": {
-                "vkey": "0000000000000001"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -2,
-                6
-            ]
-        },
-        {
-            "tag": "HeadIsFinalized",
-            "utxo": [
-                -5
-            ]
-        },
-        {
-            "tag": "HeadIsAborted",
-            "utxo": [
-                2,
-                3,
-                4
-            ]
-        },
-        {
-            "tag": "TxSeen",
-            "transaction": {
-                "id": -3,
-                "inputs": [],
-                "outputs": []
-            }
-        },
-        {
-            "input": "\u0008[鹅",
-            "reason": "a顯[Y𣉘",
-            "tag": "InvalidInput"
-        },
-        {
-            "tag": "HeadIsOpen",
-            "utxo": [
-                -1,
-                1,
-                3,
-                5,
-                6
-            ]
-        },
-        {
-            "input": "B\t\u0005Nj",
-            "reason": "P\u000c\u0002􇑷 퐳",
-            "tag": "InvalidInput"
-        },
-        {
-            "me": {
-                "vkey": "0000000000000005"
-            },
-            "tag": "Greetings"
-        },
-        {
-            "me": {
-                "vkey": "0000000000000001"
-            },
-            "tag": "Greetings"
-        },
-        {
-            "postChainTx": {
-                "snapshot": {
-                    "confirmedTransactions": [
-                        {
-                            "id": 2,
-                            "inputs": [
-                                -5,
-                                -4,
-                                2,
-                                6
-                            ],
-                            "outputs": [
-                                -3,
-                                -1,
-                                1,
-                                3
-                            ]
-                        },
-                        {
-                            "id": -3,
-                            "inputs": [
-                                -4,
-                                -3,
-                                -1,
-                                3
-                            ],
-                            "outputs": []
-                        },
-                        {
-                            "id": -5,
-                            "inputs": [
-                                -6,
-                                -5,
-                                5,
-                                6
-                            ],
-                            "outputs": [
-                                -4,
-                                -2,
-                                5,
-                                6
-                            ]
-                        }
-                    ],
-                    "snapshotNumber": 3,
-                    "utxo": [
-                        -5,
-                        -3
-                    ]
-                },
-                "tag": "ContestTx"
-            },
-            "postTxError": {
-                "tag": "InvalidStateToPost",
-                "txTried": {
-                    "headParameters": {
-                        "contestationPeriod": -1.94875433146,
-                        "parties": [
-                            {
-                                "vkey": "0000000000000002"
-                            },
-                            {
-                                "vkey": "0000000000000006"
-                            },
-                            {
-                                "vkey": "fffffffffffffffc"
-                            }
-                        ]
-                    },
-                    "tag": "InitTx"
-                }
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "me": {
-                "vkey": "0000000000000006"
-            },
-            "tag": "Greetings"
-        },
-        {
-            "latestSnapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": 4,
-                        "inputs": [
-                            3,
-                            6
-                        ],
-                        "outputs": [
-                            0
-                        ]
-                    },
-                    {
-                        "id": 1,
-                        "inputs": [
-                            0
-                        ],
-                        "outputs": [
-                            -3,
-                            0,
-                            6
-                        ]
-                    },
-                    {
-                        "id": -3,
-                        "inputs": [
-                            -1,
-                            3,
-                            6
-                        ],
-                        "outputs": [
-                            -5,
-                            -1,
-                            6
-                        ]
-                    },
-                    {
-                        "id": -5,
-                        "inputs": [
-                            -2,
-                            -1,
-                            2,
-                            4,
-                            5
-                        ],
-                        "outputs": [
-                            -1
-                        ]
-                    }
-                ],
-                "snapshotNumber": 5,
-                "utxo": [
-                    -1,
                     2,
-                    5,
+                    3,
                     6
                 ]
             },
-            "tag": "HeadIsClosed"
+            "tag": "SnapshotConfirmed"
         },
         {
-            "party": {
-                "vkey": "fffffffffffffffb"
-            },
-            "tag": "Committed",
-            "utxo": [
-                0,
-                4,
-                6
-            ]
-        },
-        {
-            "tag": "CommandFailed"
-        },
-        {
-            "tag": "TxValid",
-            "transaction": {
-                "id": -3,
-                "inputs": [
-                    -2,
-                    2
-                ],
-                "outputs": []
-            }
-        },
-        {
-            "party": {
-                "vkey": "0000000000000001"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -6,
-                -4,
-                4,
-                6
-            ]
-        },
-        {
-            "postChainTx": {
-                "headParameters": {
-                    "contestationPeriod": -5.245441204878,
-                    "parties": [
-                        {
-                            "vkey": "ffffffffffffffff"
-                        },
-                        {
-                            "vkey": "fffffffffffffffa"
-                        },
-                        {
-                            "vkey": "ffffffffffffffff"
-                        },
-                        {
-                            "vkey": "0000000000000006"
-                        }
-                    ]
+            "parties": [
+                {
+                    "vkey": "fffffffffffffffc"
                 },
-                "tag": "InitTx"
-            },
-            "postTxError": {
-                "tag": "NoPaymentInput"
-            },
-            "tag": "PostTxOnChainFailed"
+                {
+                    "vkey": "0000000000000000"
+                }
+            ],
+            "tag": "ReadyToCommit"
         },
         {
             "me": {
@@ -1591,303 +308,775 @@
             "tag": "Greetings"
         },
         {
-            "peer": {
-                "hostname": "0.0.0.3",
-                "port": 3
-            },
-            "tag": "PeerConnected"
-        },
-        {
-            "postChainTx": {
-                "committed": [
-                    -5,
-                    -3,
-                    0
-                ],
-                "party": {
-                    "vkey": "0000000000000006"
-                },
-                "tag": "CommitTx"
-            },
-            "postTxError": {
-                "tag": "MoreThanOneUTxOCommitted"
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "tag": "UTxO",
-            "utxo": [
-                -6,
-                -4,
-                0,
-                1,
-                6
-            ]
-        },
-        {
-            "me": {
-                "vkey": "0000000000000004"
-            },
-            "tag": "Greetings"
-        },
-        {
-            "tag": "HeadIsAborted",
-            "utxo": []
-        },
-        {
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -4,
-                -3
-            ]
-        },
-        {
-            "input": ",",
-            "reason": "\n\u001f辞",
-            "tag": "InvalidInput"
-        },
-        {
             "signatures": {
-                "multiSignature": [
-                    "8f18b672f1b1ff2e1b0505000605030807",
-                    "b5c9a5f48292e3fb1b0202080206030308",
-                    "fd5e4980cbc9e0781b0102030006080700"
-                ]
+                "multiSignature": []
             },
             "snapshot": {
                 "confirmedTransactions": [
                     {
-                        "id": -1,
+                        "id": 5,
                         "inputs": [
-                            -2,
-                            -1,
-                            2,
-                            4,
-                            5,
-                            6
+                            -1
+                        ],
+                        "outputs": [
+                            1
+                        ]
+                    },
+                    {
+                        "id": 5,
+                        "inputs": [
+                            4
                         ],
                         "outputs": []
+                    },
+                    {
+                        "id": 5,
+                        "inputs": [
+                            -3,
+                            0,
+                            1,
+                            3,
+                            4
+                        ],
+                        "outputs": [
+                            5
+                        ]
+                    },
+                    {
+                        "id": 3,
+                        "inputs": [],
+                        "outputs": [
+                            5,
+                            6
+                        ]
+                    },
+                    {
+                        "id": -5,
+                        "inputs": [
+                            -4,
+                            -3,
+                            -2,
+                            3,
+                            5
+                        ],
+                        "outputs": [
+                            -1,
+                            0,
+                            2,
+                            6
+                        ]
+                    },
+                    {
+                        "id": 3,
+                        "inputs": [
+                            4,
+                            6
+                        ],
+                        "outputs": [
+                            1
+                        ]
                     }
                 ],
-                "snapshotNumber": 2,
-                "utxo": [
-                    -6,
-                    -5,
-                    -2,
-                    1,
-                    2,
-                    5
-                ]
+                "snapshotNumber": 6,
+                "utxo": []
             },
             "tag": "SnapshotConfirmed"
         },
         {
+            "latestSnapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": -2,
+                        "inputs": [
+                            -4,
+                            3
+                        ],
+                        "outputs": [
+                            -4,
+                            -2,
+                            0,
+                            3,
+                            5
+                        ]
+                    },
+                    {
+                        "id": -2,
+                        "inputs": [],
+                        "outputs": [
+                            -6
+                        ]
+                    },
+                    {
+                        "id": 3,
+                        "inputs": [
+                            -4,
+                            -1
+                        ],
+                        "outputs": [
+                            -4,
+                            1,
+                            2,
+                            4
+                        ]
+                    },
+                    {
+                        "id": -1,
+                        "inputs": [],
+                        "outputs": [
+                            -6,
+                            -5,
+                            -4,
+                            -3,
+                            5
+                        ]
+                    },
+                    {
+                        "id": -3,
+                        "inputs": [],
+                        "outputs": [
+                            -1
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [
+                            -4,
+                            -2,
+                            -1,
+                            5
+                        ],
+                        "outputs": [
+                            1,
+                            3,
+                            4,
+                            6
+                        ]
+                    }
+                ],
+                "snapshotNumber": 5,
+                "utxo": [
+                    -6,
+                    -5,
+                    -3,
+                    3
+                ]
+            },
+            "tag": "HeadIsClosed"
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -3,
+                2,
+                5
+            ]
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.8",
+                "port": 7
+            },
+            "tag": "PeerDisconnected"
+        },
+        {
+            "input": "qy",
+            "reason": "𧧸𖦏\u0008󸂭\n",
+            "tag": "InvalidInput"
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -2
+            ]
+        },
+        {
+            "tag": "CommandFailed"
+        },
+        {
+            "latestSnapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": -5,
+                        "inputs": [],
+                        "outputs": [
+                            -4,
+                            -2,
+                            1,
+                            2,
+                            6
+                        ]
+                    },
+                    {
+                        "id": -6,
+                        "inputs": [
+                            3
+                        ],
+                        "outputs": [
+                            -6,
+                            4
+                        ]
+                    },
+                    {
+                        "id": 1,
+                        "inputs": [
+                            -6,
+                            3
+                        ],
+                        "outputs": [
+                            -6,
+                            -3,
+                            -1,
+                            0,
+                            5
+                        ]
+                    },
+                    {
+                        "id": -5,
+                        "inputs": [
+                            -5,
+                            2
+                        ],
+                        "outputs": [
+                            -2,
+                            0,
+                            1,
+                            3
+                        ]
+                    },
+                    {
+                        "id": -1,
+                        "inputs": [
+                            -2,
+                            4,
+                            5,
+                            6
+                        ],
+                        "outputs": [
+                            -2,
+                            1,
+                            2,
+                            3,
+                            5,
+                            6
+                        ]
+                    }
+                ],
+                "snapshotNumber": 6,
+                "utxo": [
+                    -6,
+                    -5,
+                    -1,
+                    3,
+                    6
+                ]
+            },
+            "tag": "HeadIsClosed"
+        },
+        {
+            "tag": "TxValid",
+            "transaction": {
+                "id": -2,
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "tag": "CommandFailed"
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -3,
+                -2,
+                1,
+                4
+            ]
+        },
+        {
+            "postChainTx": {
+                "tag": "AbortTx",
+                "utxo": [
+                    -3,
+                    -1,
+                    0,
+                    4
+                ]
+            },
+            "postTxError": {
+                "plutusDebugInfo": "<-?",
+                "plutusFailure": "MQ뵤$",
+                "tag": "PlutusValidationFailed"
+            },
+            "tag": "PostTxOnChainFailed"
+        },
+        {
             "me": {
-                "vkey": "0000000000000003"
+                "vkey": "0000000000000005"
             },
             "tag": "Greetings"
         },
         {
-            "signatures": {
-                "multiSignature": [
-                    "e3b0c44298fc1c141b0300030105010507",
-                    "0540fee5714ec5e61b0605050300000408",
-                    "6f20c594d0973fa11b0300040203010105",
-                    "de5a6f78116eca621b0208060201010301",
-                    "feb6e15a856d7ca31b0507060001080607",
-                    "0bafd3a058f35c771b0808050508070605"
+            "tag": "RolledBack"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.6",
+                "port": 5
+            },
+            "tag": "PeerDisconnected"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.2",
+                "port": 2
+            },
+            "tag": "PeerDisconnected"
+        },
+        {
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 4,
+                "inputs": [
+                    -6,
+                    -5,
+                    2,
+                    4,
+                    6
+                ],
+                "outputs": [
+                    -2,
+                    0,
+                    1,
+                    3,
+                    6
                 ]
+            },
+            "utxo": [
+                -2,
+                2,
+                4
+            ],
+            "validationError": {
+                "reason": "W"
+            }
+        },
+        {
+            "tag": "RolledBack"
+        },
+        {
+            "postChainTx": {
+                "tag": "FanoutTx",
+                "utxo": []
+            },
+            "postTxError": {
+                "headUTxO": [
+                    -5,
+                    -4,
+                    5
+                ],
+                "input": "y.\u0015\u001d",
+                "tag": "CannotSpendInput",
+                "walletUTxO": [
+                    -5,
+                    -4,
+                    -2,
+                    1,
+                    3,
+                    6
+                ]
+            },
+            "tag": "PostTxOnChainFailed"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.5",
+                "port": 6
+            },
+            "tag": "PeerDisconnected"
+        },
+        {
+            "tag": "TxSeen",
+            "transaction": {
+                "id": -1,
+                "inputs": [
+                    -3,
+                    -2,
+                    1,
+                    3
+                ],
+                "outputs": [
+                    -6,
+                    -5,
+                    -2,
+                    2,
+                    5
+                ]
+            }
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": []
+        },
+        {
+            "tag": "RolledBack"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.2",
+                "port": 5
+            },
+            "tag": "PeerConnected"
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -5,
+                -3,
+                6
+            ]
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -5,
+                -2,
+                -1
+            ]
+        },
+        {
+            "tag": "TxValid",
+            "transaction": {
+                "id": 3,
+                "inputs": [
+                    -6,
+                    1
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "tag": "TxSeen",
+            "transaction": {
+                "id": 1,
+                "inputs": [
+                    -6,
+                    -5,
+                    1,
+                    3,
+                    6
+                ],
+                "outputs": [
+                    -2,
+                    -1,
+                    3,
+                    5
+                ]
+            }
+        },
+        {
+            "postChainTx": {
+                "tag": "FanoutTx",
+                "utxo": [
+                    -1,
+                    1,
+                    4
+                ]
+            },
+            "postTxError": {
+                "tag": "InvalidStateToPost",
+                "txTried": {
+                    "snapshot": {
+                        "confirmedTransactions": [
+                            {
+                                "id": -5,
+                                "inputs": [
+                                    -2,
+                                    0,
+                                    1,
+                                    3,
+                                    6
+                                ],
+                                "outputs": [
+                                    -6,
+                                    -5,
+                                    -2,
+                                    2,
+                                    6
+                                ]
+                            },
+                            {
+                                "id": -4,
+                                "inputs": [
+                                    4
+                                ],
+                                "outputs": [
+                                    -5,
+                                    -2,
+                                    1,
+                                    2,
+                                    4
+                                ]
+                            }
+                        ],
+                        "snapshotNumber": 4,
+                        "utxo": [
+                            -3,
+                            -2,
+                            3
+                        ]
+                    },
+                    "tag": "ContestTx"
+                }
+            },
+            "tag": "PostTxOnChainFailed"
+        },
+        {
+            "input": ";",
+            "reason": "<􀊙b󿇁\u0006R",
+            "tag": "InvalidInput"
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -5,
+                -4,
+                -2,
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "tag": "TxValid",
+            "transaction": {
+                "id": -5,
+                "inputs": [
+                    -5,
+                    -4,
+                    0,
+                    3
+                ],
+                "outputs": [
+                    -1,
+                    0,
+                    5
+                ]
+            }
+        },
+        {
+            "signatures": {
+                "multiSignature": []
             },
             "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": -5,
                         "inputs": [
+                            -1
+                        ],
+                        "outputs": [
+                            -1
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [
                             -3,
-                            -2,
+                            5
+                        ],
+                        "outputs": [
+                            -6,
+                            -5,
+                            3,
+                            4,
+                            5
+                        ]
+                    },
+                    {
+                        "id": 5,
+                        "inputs": [],
+                        "outputs": [
+                            2
+                        ]
+                    },
+                    {
+                        "id": -5,
+                        "inputs": [],
+                        "outputs": [
+                            -6,
+                            -1,
+                            0
+                        ]
+                    },
+                    {
+                        "id": -2,
+                        "inputs": [
+                            -3,
+                            0,
                             1,
                             5
                         ],
                         "outputs": [
                             -4,
+                            -3,
                             -1,
-                            0,
-                            4,
-                            5,
+                            2,
                             6
                         ]
                     },
                     {
-                        "id": 6,
+                        "id": 1,
                         "inputs": [
+                            -6,
                             -4,
+                            -3,
                             -1,
-                            3
+                            4
                         ],
                         "outputs": [
-                            -4,
-                            -2,
-                            1
+                            -2
                         ]
                     }
                 ],
-                "snapshotNumber": 2,
+                "snapshotNumber": 4,
                 "utxo": [
-                    -6,
-                    -5,
-                    0,
-                    4
+                    -6
                 ]
             },
             "tag": "SnapshotConfirmed"
         },
         {
-            "tag": "HeadIsFinalized",
-            "utxo": [
-                -6,
-                -5,
-                -1,
-                1,
-                3,
-                4
-            ]
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.0",
-                "port": 6
-            },
-            "tag": "PeerDisconnected"
+            "input": "",
+            "reason": "𓀏䓦qj􎹈",
+            "tag": "InvalidInput"
         },
         {
             "tag": "CommandFailed"
         },
         {
-            "me": {
-                "vkey": "fffffffffffffffa"
+            "postChainTx": {
+                "committed": [
+                    -4,
+                    -2,
+                    6
+                ],
+                "party": {
+                    "vkey": "fffffffffffffffc"
+                },
+                "tag": "CommitTx"
             },
-            "tag": "Greetings"
+            "postTxError": {
+                "failureReason": "Ny",
+                "tag": "FailedToPostTx"
+            },
+            "tag": "PostTxOnChainFailed"
         },
         {
-            "me": {
-                "vkey": "fffffffffffffffe"
+            "latestSnapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": 1,
+                        "inputs": [],
+                        "outputs": [
+                            -3,
+                            3,
+                            6
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [],
+                        "outputs": [
+                            -5,
+                            -4,
+                            5,
+                            6
+                        ]
+                    },
+                    {
+                        "id": 5,
+                        "inputs": [
+                            -3,
+                            -2,
+                            -1,
+                            2,
+                            5
+                        ],
+                        "outputs": [
+                            -4,
+                            0,
+                            5
+                        ]
+                    }
+                ],
+                "snapshotNumber": 5,
+                "utxo": [
+                    -3
+                ]
             },
-            "tag": "Greetings"
-        },
-        {
-            "tag": "HeadIsOpen",
-            "utxo": [
-                1,
-                4,
-                5
-            ]
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.0",
-                "port": 1
-            },
-            "tag": "PeerConnected"
-        },
-        {
-            "party": {
-                "vkey": "fffffffffffffffa"
-            },
-            "tag": "Committed",
-            "utxo": [
-                5
-            ]
+            "tag": "HeadIsClosed"
         },
         {
             "tag": "HeadIsFinalized",
             "utxo": [
                 -6,
-                -5,
                 -3,
-                1,
                 3
             ]
         },
         {
-            "postChainTx": {
-                "snapshot": {
-                    "confirmedTransactions": [
-                        {
-                            "id": -5,
-                            "inputs": [
-                                -6,
-                                0,
-                                4
-                            ],
-                            "outputs": [
-                                -3
-                            ]
-                        },
-                        {
-                            "id": -6,
-                            "inputs": [
-                                -5,
-                                -2,
-                                -1
-                            ],
-                            "outputs": [
-                                -3,
-                                0,
-                                6
-                            ]
-                        },
-                        {
-                            "id": -2,
-                            "inputs": [
-                                0,
-                                1
-                            ],
-                            "outputs": [
-                                -5,
-                                -3,
-                                -2,
-                                3,
-                                4
-                            ]
-                        },
-                        {
-                            "id": -6,
-                            "inputs": [
-                                4,
-                                5
-                            ],
-                            "outputs": []
-                        },
-                        {
-                            "id": -5,
-                            "inputs": [
-                                2
-                            ],
-                            "outputs": [
-                                0,
-                                2,
-                                5
-                            ]
-                        }
-                    ],
-                    "snapshotNumber": 4,
-                    "utxo": [
-                        -6
-                    ]
-                },
-                "tag": "ContestTx"
+            "me": {
+                "vkey": "0000000000000006"
             },
-            "postTxError": {
-                "tag": "InvalidStateToPost",
-                "txTried": {
-                    "tag": "CollectComTx",
-                    "utxo": [
-                        -1,
-                        0
-                    ]
-                }
+            "tag": "Greetings"
+        },
+        {
+            "latestSnapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": 0,
+                        "inputs": [
+                            -4,
+                            3,
+                            5
+                        ],
+                        "outputs": [
+                            -4,
+                            -3,
+                            0,
+                            3,
+                            6
+                        ]
+                    },
+                    {
+                        "id": -6,
+                        "inputs": [
+                            -5,
+                            -1,
+                            0
+                        ],
+                        "outputs": [
+                            -6,
+                            -5,
+                            -3,
+                            -1,
+                            2
+                        ]
+                    },
+                    {
+                        "id": -4,
+                        "inputs": [],
+                        "outputs": []
+                    }
+                ],
+                "snapshotNumber": 5,
+                "utxo": [
+                    -5,
+                    1,
+                    2
+                ]
             },
-            "tag": "PostTxOnChainFailed"
+            "tag": "HeadIsClosed"
         },
         {
             "parties": [
@@ -1901,85 +1090,597 @@
                     "vkey": "0000000000000000"
                 },
                 {
-                    "vkey": "0000000000000004"
+                    "vkey": "ffffffffffffffff"
                 }
             ],
             "tag": "ReadyToCommit"
         },
         {
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": -3,
+                "inputs": [
+                    -2,
+                    -1,
+                    0,
+                    3
+                ],
+                "outputs": [
+                    5
+                ]
+            },
+            "utxo": [
+                -4,
+                0
+            ],
+            "validationError": {
+                "reason": "\u0005P<Z>\u000b"
+            }
+        },
+        {
+            "tag": "TxValid",
+            "transaction": {
+                "id": 0,
+                "inputs": [
+                    -4,
+                    -3,
+                    -2,
+                    0,
+                    1,
+                    3
+                ],
+                "outputs": [
+                    -5,
+                    1
+                ]
+            }
+        },
+        {
             "party": {
-                "vkey": "ffffffffffffffff"
+                "vkey": "0000000000000004"
             },
             "tag": "Committed",
             "utxo": [
-                2,
+                -6,
+                -2,
+                -1,
+                2
+            ]
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -6,
+                1,
                 3
             ]
         },
         {
+            "input": "􊀮\t\u0019t8\u0015",
+            "reason": "𫵹tv\u000f㹢",
+            "tag": "InvalidInput"
+        },
+        {
             "tag": "UTxO",
             "utxo": [
-                1
+                -6,
+                -1,
+                5,
+                6
             ]
         },
         {
-            "tag": "HeadIsAborted",
+            "peer": {
+                "hostname": "0.0.0.1",
+                "port": 0
+            },
+            "tag": "PeerDisconnected"
+        },
+        {
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 6,
+                "inputs": [
+                    -6,
+                    -3,
+                    4
+                ],
+                "outputs": [
+                    -5,
+                    -4,
+                    -3,
+                    3,
+                    4,
+                    6
+                ]
+            },
+            "utxo": [],
+            "validationError": {
+                "reason": "󸮐V\u0017"
+            }
+        },
+        {
+            "postChainTx": {
+                "committed": [
+                    -6,
+                    -5,
+                    1,
+                    6
+                ],
+                "party": {
+                    "vkey": "ffffffffffffffff"
+                },
+                "tag": "CommitTx"
+            },
+            "postTxError": {
+                "tag": "MoreThanOneUTxOCommitted"
+            },
+            "tag": "PostTxOnChainFailed"
+        },
+        {
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 1,
+                "inputs": [
+                    -6,
+                    4,
+                    6
+                ],
+                "outputs": []
+            },
             "utxo": [
                 -6,
-                1
-            ]
+                -5
+            ],
+            "validationError": {
+                "reason": "\u0017\u0006"
+            }
+        },
+        {
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": -4,
+                "inputs": [],
+                "outputs": [
+                    -6,
+                    -4,
+                    4,
+                    5,
+                    6
+                ]
+            },
+            "utxo": [
+                -2,
+                0,
+                6
+            ],
+            "validationError": {
+                "reason": "~"
+            }
+        },
+        {
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 1,
+                "inputs": [
+                    0
+                ],
+                "outputs": [
+                    -6,
+                    -3,
+                    6
+                ]
+            },
+            "utxo": [
+                -2
+            ],
+            "validationError": {
+                "reason": "q+𗬮"
+            }
+        },
+        {
+            "tag": "TxValid",
+            "transaction": {
+                "id": -4,
+                "inputs": [
+                    -6,
+                    -5,
+                    -3,
+                    -1,
+                    6
+                ],
+                "outputs": [
+                    -4,
+                    2,
+                    4
+                ]
+            }
+        },
+        {
+            "tag": "TxSeen",
+            "transaction": {
+                "id": -6,
+                "inputs": [
+                    -3,
+                    -1,
+                    3
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "tag": "RolledBack"
+        },
+        {
+            "tag": "TxSeen",
+            "transaction": {
+                "id": -4,
+                "inputs": [
+                    -6,
+                    -3,
+                    -1,
+                    4,
+                    5
+                ],
+                "outputs": [
+                    2
+                ]
+            }
+        },
+        {
+            "me": {
+                "vkey": "fffffffffffffffe"
+            },
+            "tag": "Greetings"
         },
         {
             "latestSnapshot": {
                 "confirmedTransactions": [
                     {
-                        "id": 1,
+                        "id": 3,
                         "inputs": [
+                            -1,
+                            6
+                        ],
+                        "outputs": [
+                            -5,
+                            -4,
+                            1,
+                            3
+                        ]
+                    }
+                ],
+                "snapshotNumber": 0,
+                "utxo": []
+            },
+            "tag": "HeadIsClosed"
+        },
+        {
+            "me": {
+                "vkey": "fffffffffffffffa"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "tag": "UTxO",
+            "utxo": [
+                -2
+            ]
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -5,
+                -3,
+                -1,
+                1
+            ]
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.7",
+                "port": 3
+            },
+            "tag": "PeerDisconnected"
+        },
+        {
+            "tag": "HeadIsAborted",
+            "utxo": [
+                1,
+                3
+            ]
+        },
+        {
+            "tag": "HeadIsAborted",
+            "utxo": [
+                -3,
+                1,
+                2
+            ]
+        },
+        {
+            "tag": "RolledBack"
+        },
+        {
+            "tag": "CommandFailed"
+        },
+        {
+            "input": "t𢦓",
+            "reason": "i|󷣣\u0005᷄",
+            "tag": "InvalidInput"
+        },
+        {
+            "input": "~",
+            "reason": "\u0003\u001a*@\r",
+            "tag": "InvalidInput"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.7",
+                "port": 5
+            },
+            "tag": "PeerConnected"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.6",
+                "port": 0
+            },
+            "tag": "PeerDisconnected"
+        },
+        {
+            "input": "e\u0017g(\u0019G",
+            "reason": "𤫥\r",
+            "tag": "InvalidInput"
+        },
+        {
+            "signatures": {
+                "multiSignature": [
+                    "255cfa38f4c0f0991b0704030608030103",
+                    "e3b0c44298fc1c141b0706050603000006",
+                    "e3b0c44298fc1c141b0800020805050607",
+                    "e3b0c44298fc1c141b0803020503050508",
+                    "eb94ccb79285e67f1b0301000803080803",
+                    "33ae3c3a427bb7c51b0704070202080701"
+                ]
+            },
+            "snapshot": {
+                "confirmedTransactions": [],
+                "snapshotNumber": 2,
+                "utxo": []
+            },
+            "tag": "SnapshotConfirmed"
+        },
+        {
+            "tag": "RolledBack"
+        },
+        {
+            "signatures": {
+                "multiSignature": [
+                    "e70ea42997cfe01d1b0506010808080107",
+                    "e3b0c44298fc1c141b0100040404080301",
+                    "f73e3d7f380e80571b0100040601010406",
+                    "8da4cad4d5ea0d181b0608080501050306",
+                    "e3b0c44298fc1c141b0502070306080701"
+                ]
+            },
+            "snapshot": {
+                "confirmedTransactions": [],
+                "snapshotNumber": 4,
+                "utxo": [
+                    -4,
+                    -2,
+                    1,
+                    2,
+                    3
+                ]
+            },
+            "tag": "SnapshotConfirmed"
+        },
+        {
+            "me": {
+                "vkey": "fffffffffffffffb"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": -2,
+                "inputs": [
+                    -2,
+                    0
+                ],
+                "outputs": [
+                    -6,
+                    1,
+                    3,
+                    4,
+                    6
+                ]
+            },
+            "utxo": [
+                0
+            ],
+            "validationError": {
+                "reason": "\\w\u0015wC"
+            }
+        },
+        {
+            "postChainTx": {
+                "confirmedSnapshot": {
+                    "snapshot": {
+                        "confirmedTransactions": [
+                            {
+                                "id": 2,
+                                "inputs": [],
+                                "outputs": [
+                                    0
+                                ]
+                            },
+                            {
+                                "id": -3,
+                                "inputs": [
+                                    -4,
+                                    -2,
+                                    1,
+                                    4,
+                                    6
+                                ],
+                                "outputs": [
+                                    -4,
+                                    -3,
+                                    -2,
+                                    2,
+                                    4,
+                                    5
+                                ]
+                            }
+                        ],
+                        "snapshotNumber": 6,
+                        "utxo": [
+                            -5,
+                            -4,
+                            -3,
                             0,
+                            4
+                        ]
+                    },
+                    "tag": "InitialSnapshot"
+                },
+                "tag": "CloseTx"
+            },
+            "postTxError": {
+                "tag": "InvalidStateToPost",
+                "txTried": {
+                    "tag": "CollectComTx",
+                    "utxo": [
+                        -5,
+                        -4,
+                        6
+                    ]
+                }
+            },
+            "tag": "PostTxOnChainFailed"
+        },
+        {
+            "latestSnapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": 6,
+                        "inputs": [
                             2,
-                            4,
-                            5
+                            6
                         ],
                         "outputs": []
                     },
                     {
                         "id": -6,
                         "inputs": [
-                            -5,
+                            -6,
+                            -3,
                             -2,
-                            3,
-                            6
+                            4
                         ],
                         "outputs": [
+                            -5,
+                            -2,
+                            2,
+                            6
+                        ]
+                    },
+                    {
+                        "id": -5,
+                        "inputs": [
+                            -5,
+                            -4,
                             -3,
                             -1,
-                            3,
+                            4,
+                            5
+                        ],
+                        "outputs": [
+                            -6,
+                            -3,
+                            -1,
+                            0,
+                            6
+                        ]
+                    },
+                    {
+                        "id": 1,
+                        "inputs": [
+                            -4,
+                            0
+                        ],
+                        "outputs": [
+                            -6,
+                            0
+                        ]
+                    },
+                    {
+                        "id": 6,
+                        "inputs": [
+                            -5,
+                            -1,
+                            1,
                             4
+                        ],
+                        "outputs": [
+                            0,
+                            3
                         ]
                     }
                 ],
-                "snapshotNumber": 4,
+                "snapshotNumber": 0,
                 "utxo": [
-                    -6,
-                    -4,
-                    0,
-                    4
+                    -3,
+                    2
                 ]
             },
             "tag": "HeadIsClosed"
         },
         {
-            "latestSnapshot": {
+            "tag": "RolledBack"
+        },
+        {
+            "me": {
+                "vkey": "fffffffffffffffc"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "input": "?ly;",
+            "reason": "\t檎\u000e&",
+            "tag": "InvalidInput"
+        },
+        {
+            "me": {
+                "vkey": "fffffffffffffffe"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "signatures": {
+                "multiSignature": []
+            },
+            "snapshot": {
                 "confirmedTransactions": [
                     {
-                        "id": -1,
+                        "id": -4,
                         "inputs": [
-                            -5,
-                            0,
-                            1
+                            -3,
+                            -2
+                        ],
+                        "outputs": []
+                    },
+                    {
+                        "id": 4,
+                        "inputs": [
+                            0
                         ],
                         "outputs": [
-                            -4,
+                            -6,
                             -3,
                             3
                         ]
@@ -1987,558 +1688,441 @@
                     {
                         "id": 0,
                         "inputs": [
-                            -6,
                             -5,
                             -3,
-                            0,
-                            1
+                            6
                         ],
                         "outputs": [
-                            -5
-                        ]
-                    }
-                ],
-                "snapshotNumber": 4,
-                "utxo": [
-                    -6,
-                    5
-                ]
-            },
-            "tag": "HeadIsClosed"
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 0,
-                "inputs": [
-                    -3,
-                    -2,
-                    0,
-                    4
-                ],
-                "outputs": [
-                    -5,
-                    5,
-                    6
-                ]
-            },
-            "utxo": [
-                -6,
-                -2,
-                2,
-                3,
-                5
-            ],
-            "validationError": {
-                "reason": ""
-            }
-        },
-        {
-            "tag": "TxSeen",
-            "transaction": {
-                "id": 0,
-                "inputs": [
-                    -6,
-                    -3,
-                    -2,
-                    0,
-                    6
-                ],
-                "outputs": [
-                    -6,
-                    3,
-                    5
-                ]
-            }
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.4",
-                "port": 0
-            },
-            "tag": "PeerDisconnected"
-        },
-        {
-            "tag": "HeadIsOpen",
-            "utxo": [
-                -3
-            ]
-        },
-        {
-            "tag": "TxValid",
-            "transaction": {
-                "id": 2,
-                "inputs": [
-                    0
-                ],
-                "outputs": [
-                    -6,
-                    -3,
-                    4,
-                    6
-                ]
-            }
-        },
-        {
-            "signatures": {
-                "multiSignature": [
-                    "b7bd45bd611952a21b0602020600020402",
-                    "aafacc333584fa501b0203070200010601",
-                    "3f79bb7b435b05321b0200000000010804",
-                    "e3b0c44298fc1c141b0600030307050705"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": 4,
-                        "inputs": [
-                            -6,
-                            -4,
                             -2,
                             -1,
-                            3,
-                            6
-                        ],
-                        "outputs": [
-                            0,
-                            2,
-                            3,
-                            4,
-                            6
-                        ]
-                    },
-                    {
-                        "id": -2,
-                        "inputs": [
-                            0,
-                            1
-                        ],
-                        "outputs": [
-                            -2,
-                            3
-                        ]
-                    },
-                    {
-                        "id": -2,
-                        "inputs": [
-                            -6,
-                            -4,
-                            -2,
-                            1,
-                            3
-                        ],
-                        "outputs": []
-                    }
-                ],
-                "snapshotNumber": 2,
-                "utxo": [
-                    -6,
-                    2,
-                    4
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "postChainTx": {
-                "committed": [
-                    1,
-                    4,
-                    6
-                ],
-                "party": {
-                    "vkey": "fffffffffffffffb"
-                },
-                "tag": "CommitTx"
-            },
-            "postTxError": {
-                "tag": "NoPaymentInput"
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -5,
-                -3,
-                0,
-                4
-            ]
-        },
-        {
-            "tag": "HeadIsOpen",
-            "utxo": [
-                -2,
-                -1
-            ]
-        },
-        {
-            "signatures": {
-                "multiSignature": [
-                    "96e4012e9334a3921b0707030400010805",
-                    "f281a50231608fcc1b0408080507000302",
-                    "e3b0c44298fc1c141b0802060100070208"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": -6,
-                        "inputs": [
-                            3
-                        ],
-                        "outputs": [
-                            -5,
-                            -1
-                        ]
-                    },
-                    {
-                        "id": 2,
-                        "inputs": [
-                            0,
-                            5,
-                            6
-                        ],
-                        "outputs": [
-                            0,
-                            1,
-                            4,
-                            6
-                        ]
-                    },
-                    {
-                        "id": -6,
-                        "inputs": [
-                            -5,
-                            -1,
-                            0
-                        ],
-                        "outputs": [
-                            -5,
-                            0,
-                            1
-                        ]
-                    }
-                ],
-                "snapshotNumber": 3,
-                "utxo": [
-                    -4,
-                    -3,
-                    5
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "latestSnapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": 1,
-                        "inputs": [
-                            -2,
-                            2,
-                            3,
                             4
-                        ],
-                        "outputs": [
-                            4,
-                            5
-                        ]
-                    },
-                    {
-                        "id": -4,
-                        "inputs": [
-                            2
-                        ],
-                        "outputs": []
-                    },
-                    {
-                        "id": -1,
-                        "inputs": [
-                            -6,
-                            1,
-                            4,
-                            5,
-                            6
-                        ],
-                        "outputs": [
-                            -2,
-                            0,
-                            1,
-                            2,
-                            3
-                        ]
-                    }
-                ],
-                "snapshotNumber": 1,
-                "utxo": [
-                    -4,
-                    3,
-                    4,
-                    5
-                ]
-            },
-            "tag": "HeadIsClosed"
-        },
-        {
-            "tag": "CommandFailed"
-        },
-        {
-            "signatures": {
-                "multiSignature": [
-                    "30a85b74792ef1a11b0402040104050001",
-                    "26e5bfe4b06861671b0801070704000300",
-                    "0e4d6f1251a510a11b0501040202050506",
-                    "73645ae32e2bfe841b0602030607080208",
-                    "70d461e48f0a89d01b0800070708060204",
-                    "f5a3b533ff4dd07f1b0601040207030504"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": -4,
-                        "inputs": [
-                            -3,
-                            -1,
-                            4
-                        ],
-                        "outputs": [
-                            0,
-                            5
-                        ]
-                    },
-                    {
-                        "id": -5,
-                        "inputs": [
-                            -4,
-                            -3,
-                            -2,
-                            -1,
-                            0,
-                            4
-                        ],
-                        "outputs": [
-                            -2,
-                            5
-                        ]
-                    },
-                    {
-                        "id": 6,
-                        "inputs": [
-                            -5,
-                            -3,
-                            5,
-                            6
-                        ],
-                        "outputs": [
-                            -6,
-                            -2,
-                            4
-                        ]
-                    },
-                    {
-                        "id": 4,
-                        "inputs": [
-                            -6,
-                            -5,
-                            1
-                        ],
-                        "outputs": [
-                            -5,
-                            2
                         ]
                     }
                 ],
                 "snapshotNumber": 5,
                 "utxo": [
+                    -4,
                     1,
-                    2,
-                    5,
+                    3,
+                    4,
                     6
                 ]
             },
             "tag": "SnapshotConfirmed"
         },
         {
-            "tag": "CommandFailed"
+            "signatures": {
+                "multiSignature": [
+                    "dabb66085e630fb41b0005050506040700",
+                    "acac516c68477c021b0302030407000804",
+                    "e84aa2f4b296fee11b0106080201030806",
+                    "e3b0c44298fc1c141b0404040502040208"
+                ]
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": -6,
+                        "inputs": [
+                            -2,
+                            0,
+                            2,
+                            6
+                        ],
+                        "outputs": [
+                            -2,
+                            6
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [
+                            -4
+                        ],
+                        "outputs": [
+                            1,
+                            5
+                        ]
+                    },
+                    {
+                        "id": -4,
+                        "inputs": [
+                            -6,
+                            -3,
+                            0,
+                            1,
+                            3
+                        ],
+                        "outputs": [
+                            -3,
+                            -2,
+                            4
+                        ]
+                    }
+                ],
+                "snapshotNumber": 1,
+                "utxo": []
+            },
+            "tag": "SnapshotConfirmed"
+        },
+        {
+            "input": "]𭫚􃷱%\"",
+            "reason": "SC󺖜朼9",
+            "tag": "InvalidInput"
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -4,
+                -2,
+                2,
+                4
+            ]
         },
         {
             "tag": "TxInvalid",
             "transaction": {
-                "id": -1,
+                "id": -4,
                 "inputs": [
-                    -4,
-                    -1
+                    -1,
+                    2,
+                    3
                 ],
-                "outputs": []
+                "outputs": [
+                    -6,
+                    1
+                ]
             },
             "utxo": [
+                -6,
+                -4,
                 -3,
-                -1
+                3,
+                5
             ],
             "validationError": {
-                "reason": "~\n\u0013"
+                "reason": "\u001a󷼟𪌂"
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.0",
-                "port": 6
-            },
-            "tag": "PeerConnected"
+            "tag": "UTxO",
+            "utxo": [
+                -6,
+                3,
+                4,
+                6
+            ]
         },
         {
-            "latestSnapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": -5,
-                        "inputs": [
-                            -1
-                        ],
-                        "outputs": [
-                            -6,
-                            -4,
-                            -2,
-                            3
-                        ]
-                    },
-                    {
-                        "id": 4,
-                        "inputs": [
-                            -2,
-                            0,
-                            6
-                        ],
-                        "outputs": [
-                            -2,
-                            2,
-                            6
-                        ]
-                    },
-                    {
-                        "id": 4,
-                        "inputs": [
-                            -4,
-                            2,
-                            3,
-                            5
-                        ],
-                        "outputs": []
-                    },
-                    {
-                        "id": -3,
-                        "inputs": [
-                            -6,
-                            -3,
-                            1,
-                            3
-                        ],
-                        "outputs": []
-                    },
-                    {
-                        "id": -6,
-                        "inputs": [
-                            -4,
-                            3
-                        ],
-                        "outputs": [
-                            -2,
-                            -1,
-                            2
-                        ]
-                    }
-                ],
-                "snapshotNumber": 6,
-                "utxo": [
+            "me": {
+                "vkey": "fffffffffffffffa"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "parties": [
+                {
+                    "vkey": "0000000000000000"
+                },
+                {
+                    "vkey": "0000000000000004"
+                },
+                {
+                    "vkey": "fffffffffffffffe"
+                }
+            ],
+            "tag": "ReadyToCommit"
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -6,
+                4
+            ]
+        },
+        {
+            "me": {
+                "vkey": "fffffffffffffffe"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "parties": [
+                {
+                    "vkey": "fffffffffffffffc"
+                },
+                {
+                    "vkey": "0000000000000000"
+                },
+                {
+                    "vkey": "0000000000000006"
+                },
+                {
+                    "vkey": "0000000000000004"
+                },
+                {
+                    "vkey": "ffffffffffffffff"
+                },
+                {
+                    "vkey": "0000000000000002"
+                }
+            ],
+            "tag": "ReadyToCommit"
+        },
+        {
+            "tag": "TxSeen",
+            "transaction": {
+                "id": -5,
+                "inputs": [
                     -5,
-                    0,
-                    1,
+                    -2,
+                    3,
                     4,
-                    5
+                    6
+                ],
+                "outputs": [
+                    -5,
+                    3
                 ]
-            },
-            "tag": "HeadIsClosed"
+            }
         },
         {
-            "input": "",
-            "reason": "d",
-            "tag": "InvalidInput"
+            "tag": "HeadIsAborted",
+            "utxo": [
+                -5,
+                -4,
+                -3,
+                1
+            ]
         },
         {
-            "peer": {
-                "hostname": "0.0.0.6",
-                "port": 5
+            "postChainTx": {
+                "tag": "CollectComTx",
+                "utxo": []
             },
-            "tag": "PeerConnected"
+            "postTxError": {
+                "tag": "InvalidStateToPost",
+                "txTried": {
+                    "headParameters": {
+                        "contestationPeriod": 0.624363822383,
+                        "parties": [
+                            {
+                                "vkey": "0000000000000006"
+                            },
+                            {
+                                "vkey": "fffffffffffffffa"
+                            },
+                            {
+                                "vkey": "ffffffffffffffff"
+                            },
+                            {
+                                "vkey": "0000000000000003"
+                            },
+                            {
+                                "vkey": "0000000000000006"
+                            },
+                            {
+                                "vkey": "0000000000000005"
+                            }
+                        ]
+                    },
+                    "tag": "InitTx"
+                }
+            },
+            "tag": "PostTxOnChainFailed"
         },
         {
             "postChainTx": {
                 "tag": "FanoutTx",
                 "utxo": [
-                    -4,
-                    -2,
-                    4,
-                    5
+                    -5
                 ]
             },
             "postTxError": {
-                "headUTxO": [
-                    -2,
-                    -1,
-                    1,
-                    2
-                ],
-                "reason": "BCݼᔕ",
-                "tag": "CannotCoverFees",
-                "tx": {
-                    "id": -5,
-                    "inputs": [
-                        -5,
-                        -3,
-                        -1,
-                        5,
-                        6
-                    ],
-                    "outputs": [
-                        2
-                    ]
-                },
-                "walletUTxO": [
-                    -6,
-                    2,
-                    4
-                ]
+                "tag": "NoSeedInput"
             },
             "tag": "PostTxOnChainFailed"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.8",
+                "port": 2
+            },
+            "tag": "PeerDisconnected"
+        },
+        {
+            "tag": "HeadIsAborted",
+            "utxo": [
+                0,
+                4
+            ]
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.8",
+                "port": 5
+            },
+            "tag": "PeerConnected"
+        },
+        {
+            "me": {
+                "vkey": "0000000000000006"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.3",
+                "port": 4
+            },
+            "tag": "PeerConnected"
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -5,
+                -3,
+                -2,
+                0,
+                5
+            ]
+        },
+        {
+            "party": {
+                "vkey": "0000000000000006"
+            },
+            "tag": "Committed",
+            "utxo": [
+                -5,
+                2,
+                3
+            ]
+        },
+        {
+            "postChainTx": {
+                "snapshot": {
+                    "confirmedTransactions": [
+                        {
+                            "id": -1,
+                            "inputs": [
+                                -5,
+                                -3,
+                                -1,
+                                1,
+                                5
+                            ],
+                            "outputs": [
+                                -3,
+                                1,
+                                4
+                            ]
+                        },
+                        {
+                            "id": -4,
+                            "inputs": [
+                                -4,
+                                -1,
+                                0,
+                                1,
+                                5
+                            ],
+                            "outputs": [
+                                -4,
+                                -3,
+                                3,
+                                4
+                            ]
+                        }
+                    ],
+                    "snapshotNumber": 6,
+                    "utxo": [
+                        -5,
+                        5
+                    ]
+                },
+                "tag": "ContestTx"
+            },
+            "postTxError": {
+                "tag": "InvalidStateToPost",
+                "txTried": {
+                    "headParameters": {
+                        "contestationPeriod": 5.642024625734,
+                        "parties": [
+                            {
+                                "vkey": "fffffffffffffffb"
+                            },
+                            {
+                                "vkey": "0000000000000001"
+                            },
+                            {
+                                "vkey": "fffffffffffffffd"
+                            },
+                            {
+                                "vkey": "0000000000000004"
+                            }
+                        ]
+                    },
+                    "tag": "InitTx"
+                }
+            },
+            "tag": "PostTxOnChainFailed"
+        },
+        {
+            "tag": "CommandFailed"
+        },
+        {
+            "me": {
+                "vkey": "ffffffffffffffff"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.7",
+                "port": 4
+            },
+            "tag": "PeerConnected"
+        },
+        {
+            "tag": "CommandFailed"
         },
         {
             "postChainTx": {
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "3372353bb04d31161b0203080703080200",
-                            "e3b0c44298fc1c141b0001070307050508"
+                            "a9fa7055944ea16c1b0806050805030608",
+                            "48c558f665efaccd1b0407010101080000",
+                            "e3b0c44298fc1c141b0301010200020106",
+                            "e3b0c44298fc1c141b0705080200000306"
                         ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [
                             {
-                                "id": 1,
+                                "id": 5,
+                                "inputs": [],
+                                "outputs": [
+                                    -3,
+                                    -2,
+                                    0
+                                ]
+                            },
+                            {
+                                "id": -4,
                                 "inputs": [
-                                    -6
+                                    -6,
+                                    -5,
+                                    2
                                 ],
                                 "outputs": [
-                                    -1
+                                    -4
                                 ]
                             }
                         ],
-                        "snapshotNumber": 2,
+                        "snapshotNumber": 5,
                         "utxo": [
-                            -5,
-                            -4,
-                            6
+                            -2
                         ]
                     },
                     "tag": "ConfirmedSnapshot"
@@ -2551,17 +2135,123 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "me": {
+            "parties": [],
+            "tag": "ReadyToCommit"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.3",
+                "port": 1
+            },
+            "tag": "PeerDisconnected"
+        },
+        {
+            "tag": "HeadIsAborted",
+            "utxo": [
+                -2,
+                2,
+                3
+            ]
+        },
+        {
+            "tag": "TxSeen",
+            "transaction": {
+                "id": 3,
+                "inputs": [],
+                "outputs": [
+                    -6,
+                    2
+                ]
+            }
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                1,
+                3,
+                5,
+                6
+            ]
+        },
+        {
+            "tag": "TxValid",
+            "transaction": {
+                "id": -6,
+                "inputs": [
+                    -5,
+                    -4,
+                    -3,
+                    4,
+                    5
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "party": {
                 "vkey": "0000000000000005"
             },
-            "tag": "Greetings"
+            "tag": "Committed",
+            "utxo": [
+                1,
+                5
+            ]
         },
         {
-            "tag": "CommandFailed"
+            "tag": "TxValid",
+            "transaction": {
+                "id": -6,
+                "inputs": [
+                    -2
+                ],
+                "outputs": [
+                    -4,
+                    3,
+                    5
+                ]
+            }
         },
         {
-            "input": "􉦴",
-            "reason": "#毃󷔫",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 3,
+                "inputs": [
+                    -3,
+                    -2,
+                    -1,
+                    1,
+                    5
+                ],
+                "outputs": [
+                    0,
+                    5
+                ]
+            },
+            "utxo": [
+                -5,
+                3
+            ],
+            "validationError": {
+                "reason": "Z78"
+            }
+        },
+        {
+            "tag": "TxValid",
+            "transaction": {
+                "id": -1,
+                "inputs": [
+                    -6,
+                    -1,
+                    5
+                ],
+                "outputs": [
+                    2
+                ]
+            }
+        },
+        {
+            "input": "pa\u001d6",
+            "reason": "54tA",
             "tag": "InvalidInput"
         },
         {
@@ -2569,18 +2259,18 @@
         },
         {
             "peer": {
-                "hostname": "0.0.0.7",
-                "port": 5
+                "hostname": "0.0.0.8",
+                "port": 0
             },
-            "tag": "PeerDisconnected"
+            "tag": "PeerConnected"
         },
         {
             "parties": [
                 {
-                    "vkey": "0000000000000005"
+                    "vkey": "fffffffffffffffc"
                 },
                 {
-                    "vkey": "0000000000000003"
+                    "vkey": "0000000000000005"
                 },
                 {
                     "vkey": "0000000000000000"
@@ -2592,127 +2282,750 @@
             "tag": "ReadyToCommit"
         },
         {
-            "peer": {
-                "hostname": "0.0.0.7",
-                "port": 2
-            },
-            "tag": "PeerConnected"
+            "tag": "TxSeen",
+            "transaction": {
+                "id": 6,
+                "inputs": [
+                    -6,
+                    -5,
+                    4,
+                    5
+                ],
+                "outputs": [
+                    -5,
+                    4
+                ]
+            }
         },
         {
-            "latestSnapshot": {
+            "input": "\u000fr\u0018I\u0000󽼙",
+            "reason": "\u0013;IH",
+            "tag": "InvalidInput"
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -6,
+                -2,
+                0,
+                5,
+                6
+            ]
+        },
+        {
+            "parties": [
+                {
+                    "vkey": "0000000000000001"
+                },
+                {
+                    "vkey": "fffffffffffffffc"
+                },
+                {
+                    "vkey": "0000000000000002"
+                }
+            ],
+            "tag": "ReadyToCommit"
+        },
+        {
+            "tag": "TxSeen",
+            "transaction": {
+                "id": -1,
+                "inputs": [
+                    -6,
+                    -1,
+                    4
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "signatures": {
+                "multiSignature": [
+                    "1b90bc273cef30be1b0704070504070006",
+                    "e3b0c44298fc1c141b0201010208080301",
+                    "7da59d0dfbe21f431b0007050102020201",
+                    "1f204ecd5db4b5841b0405040607030306",
+                    "d1ada1b65189eacd1b0507080607070407",
+                    "9f570d35455bcfcd1b0206030408030800"
+                ]
+            },
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": 4,
                         "inputs": [
-                            -2,
-                            1,
-                            3,
-                            5
+                            -2
                         ],
                         "outputs": [
+                            -6,
                             -3,
+                            -1,
+                            6
+                        ]
+                    },
+                    {
+                        "id": -4,
+                        "inputs": [
+                            -6
+                        ],
+                        "outputs": [
+                            5
+                        ]
+                    }
+                ],
+                "snapshotNumber": 2,
+                "utxo": [
+                    -3,
+                    -2,
+                    3
+                ]
+            },
+            "tag": "SnapshotConfirmed"
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -3,
+                1,
+                4,
+                5
+            ]
+        },
+        {
+            "parties": [
+                {
+                    "vkey": "0000000000000005"
+                },
+                {
+                    "vkey": "fffffffffffffffd"
+                }
+            ],
+            "tag": "ReadyToCommit"
+        },
+        {
+            "input": "\u0016􉃺j",
+            "reason": "k\u0002!\u0010~`",
+            "tag": "InvalidInput"
+        },
+        {
+            "tag": "TxSeen",
+            "transaction": {
+                "id": 5,
+                "inputs": [
+                    1
+                ],
+                "outputs": [
+                    -5,
+                    -2,
+                    0,
+                    1
+                ]
+            }
+        },
+        {
+            "tag": "TxSeen",
+            "transaction": {
+                "id": 4,
+                "inputs": [
+                    5
+                ],
+                "outputs": [
+                    -6
+                ]
+            }
+        },
+        {
+            "me": {
+                "vkey": "0000000000000001"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "parties": [
+                {
+                    "vkey": "fffffffffffffffa"
+                },
+                {
+                    "vkey": "0000000000000003"
+                },
+                {
+                    "vkey": "0000000000000006"
+                },
+                {
+                    "vkey": "fffffffffffffffd"
+                }
+            ],
+            "tag": "ReadyToCommit"
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -5,
+                -2,
+                2
+            ]
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -6,
+                0,
+                4
+            ]
+        },
+        {
+            "parties": [
+                {
+                    "vkey": "fffffffffffffffc"
+                },
+                {
+                    "vkey": "0000000000000006"
+                },
+                {
+                    "vkey": "ffffffffffffffff"
+                },
+                {
+                    "vkey": "fffffffffffffffe"
+                }
+            ],
+            "tag": "ReadyToCommit"
+        },
+        {
+            "input": "\u000f",
+            "reason": "Iv\t",
+            "tag": "InvalidInput"
+        },
+        {
+            "input": "K.",
+            "reason": "􏒳\u001c󲍬\u001bT@",
+            "tag": "InvalidInput"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.7",
+                "port": 8
+            },
+            "tag": "PeerDisconnected"
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                2
+            ]
+        },
+        {
+            "signatures": {
+                "multiSignature": [
+                    "23528f4954d55d771b0206060408070806",
+                    "16aa2bbd0f53114b1b0408010102010700"
+                ]
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": 5,
+                        "inputs": [
+                            -3,
+                            0
+                        ],
+                        "outputs": []
+                    },
+                    {
+                        "id": 6,
+                        "inputs": [
+                            -6,
+                            -3,
+                            0,
+                            6
+                        ],
+                        "outputs": [
+                            -1,
+                            1,
+                            4,
+                            6
+                        ]
+                    },
+                    {
+                        "id": 5,
+                        "inputs": [
+                            -6,
+                            -5,
+                            -1,
+                            1,
                             2,
                             6
+                        ],
+                        "outputs": [
+                            -6
+                        ]
+                    }
+                ],
+                "snapshotNumber": 6,
+                "utxo": [
+                    -4,
+                    -3,
+                    1
+                ]
+            },
+            "tag": "SnapshotConfirmed"
+        },
+        {
+            "tag": "CommandFailed"
+        },
+        {
+            "signatures": {
+                "multiSignature": []
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": 0,
+                        "inputs": [
+                            -3,
+                            -2,
+                            4
+                        ],
+                        "outputs": [
+                            -6,
+                            0,
+                            1,
+                            2
                         ]
                     },
                     {
                         "id": -4,
                         "inputs": [
                             -5,
+                            5
+                        ],
+                        "outputs": [
+                            -5,
+                            -2,
+                            6
+                        ]
+                    },
+                    {
+                        "id": 0,
+                        "inputs": [],
+                        "outputs": [
                             -3,
                             -1,
-                            1,
+                            1
+                        ]
+                    }
+                ],
+                "snapshotNumber": 2,
+                "utxo": [
+                    -3
+                ]
+            },
+            "tag": "SnapshotConfirmed"
+        },
+        {
+            "me": {
+                "vkey": "0000000000000004"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": -2,
+                "inputs": [
+                    -2,
+                    2,
+                    5,
+                    6
+                ],
+                "outputs": [
+                    6
+                ]
+            },
+            "utxo": [
+                -3,
+                1,
+                3,
+                4
+            ],
+            "validationError": {
+                "reason": "\u0004\r\u001c\u001en"
+            }
+        },
+        {
+            "tag": "UTxO",
+            "utxo": [
+                -4,
+                -3,
+                1,
+                2,
+                5
+            ]
+        },
+        {
+            "party": {
+                "vkey": "fffffffffffffffc"
+            },
+            "tag": "Committed",
+            "utxo": [
+                -3,
+                6
+            ]
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -5,
+                -3,
+                -1,
+                5
+            ]
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": []
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -3
+            ]
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -3,
+                0,
+                5
+            ]
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                0,
+                1,
+                5,
+                6
+            ]
+        },
+        {
+            "tag": "RolledBack"
+        },
+        {
+            "me": {
+                "vkey": "0000000000000001"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.0.0",
+                "port": 1
+            },
+            "tag": "PeerDisconnected"
+        },
+        {
+            "input": "",
+            "reason": "#t",
+            "tag": "InvalidInput"
+        },
+        {
+            "tag": "TxValid",
+            "transaction": {
+                "id": 5,
+                "inputs": [],
+                "outputs": [
+                    -2,
+                    6
+                ]
+            }
+        },
+        {
+            "tag": "CommandFailed"
+        },
+        {
+            "tag": "TxValid",
+            "transaction": {
+                "id": 1,
+                "inputs": [
+                    -6,
+                    -1,
+                    2
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "tag": "RolledBack"
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -3,
+                2
+            ]
+        },
+        {
+            "input": "w:",
+            "reason": "[<󳖤h-L",
+            "tag": "InvalidInput"
+        },
+        {
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -6,
+                0
+            ]
+        },
+        {
+            "signatures": {
+                "multiSignature": []
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": 1,
+                        "inputs": [
+                            -6,
+                            -1,
+                            2,
+                            3,
+                            6
+                        ],
+                        "outputs": [
+                            0,
+                            2,
                             4
+                        ]
+                    },
+                    {
+                        "id": 3,
+                        "inputs": [
+                            -5,
+                            -4,
+                            -1,
+                            3
+                        ],
+                        "outputs": [
+                            -2,
+                            1,
+                            4,
+                            6
+                        ]
+                    },
+                    {
+                        "id": -6,
+                        "inputs": [
+                            -4,
+                            -3,
+                            3
+                        ],
+                        "outputs": []
+                    },
+                    {
+                        "id": 6,
+                        "inputs": [],
+                        "outputs": [
+                            2
+                        ]
+                    },
+                    {
+                        "id": 3,
+                        "inputs": [
+                            -6,
+                            -5,
+                            -2,
+                            4,
+                            6
                         ],
                         "outputs": [
                             -6,
-                            -3,
+                            -5,
                             0,
+                            3,
+                            4,
+                            5
+                        ]
+                    }
+                ],
+                "snapshotNumber": 5,
+                "utxo": [
+                    -4,
+                    5,
+                    6
+                ]
+            },
+            "tag": "SnapshotConfirmed"
+        },
+        {
+            "me": {
+                "vkey": "0000000000000004"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                2,
+                3,
+                5
+            ]
+        },
+        {
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -6,
+                -1,
+                0,
+                2,
+                6
+            ]
+        },
+        {
+            "latestSnapshot": {
+                "confirmedTransactions": [
+                    {
+                        "id": -4,
+                        "inputs": [],
+                        "outputs": []
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [
+                            0
+                        ],
+                        "outputs": [
+                            1,
                             2,
-                            3
+                            6
                         ]
                     },
                     {
                         "id": -4,
                         "inputs": [
                             -6,
-                            -4,
-                            -3,
+                            -5,
                             -2,
-                            3
+                            -1,
+                            0
                         ],
                         "outputs": [
+                            -5,
                             -4,
                             -1,
-                            0,
-                            5,
+                            2,
                             6
                         ]
                     },
                     {
-                        "id": -5,
+                        "id": 2,
                         "inputs": [
-                            1
+                            -3,
+                            6
                         ],
                         "outputs": [
-                            -4,
-                            -2,
-                            2,
-                            3
+                            -1
                         ]
                     }
                 ],
-                "snapshotNumber": 0,
+                "snapshotNumber": 3,
                 "utxo": [
-                    -4
+                    -2
                 ]
             },
             "tag": "HeadIsClosed"
         },
         {
-            "postChainTx": {
-                "headParameters": {
-                    "contestationPeriod": -5.727577650421,
-                    "parties": [
-                        {
-                            "vkey": "0000000000000002"
-                        },
-                        {
-                            "vkey": "fffffffffffffffb"
-                        }
-                    ]
-                },
-                "tag": "InitTx"
-            },
-            "postTxError": {
-                "headUTxO": [
-                    -5,
-                    -3,
-                    0
-                ],
-                "input": "I&",
-                "tag": "CannotSpendInput",
-                "walletUTxO": [
-                    -2,
-                    2
-                ]
-            },
-            "tag": "PostTxOnChainFailed"
+            "tag": "HeadIsAborted",
+            "utxo": [
+                6
+            ]
         },
         {
-            "peer": {
-                "hostname": "0.0.0.6",
-                "port": 3
+            "signatures": {
+                "multiSignature": [
+                    "e86a30a7f6700ad31b0408060802080101",
+                    "85adec28c9f660a51b0002050705060308",
+                    "d2fa3c046d0d8c781b0701040105080708",
+                    "2b685b9f06875f921b0301000008050008",
+                    "e3b0c44298fc1c141b0100080102020002"
+                ]
             },
-            "tag": "PeerConnected"
+            "snapshot": {
+                "confirmedTransactions": [],
+                "snapshotNumber": 0,
+                "utxo": [
+                    -5,
+                    2,
+                    4
+                ]
+            },
+            "tag": "SnapshotConfirmed"
         },
         {
             "tag": "HeadIsOpen",
             "utxo": [
                 -6,
                 -4,
-                6
+                -2,
+                1
             ]
+        },
+        {
+            "tag": "UTxO",
+            "utxo": []
+        },
+        {
+            "latestSnapshot": {
+                "confirmedTransactions": [],
+                "snapshotNumber": 0,
+                "utxo": [
+                    -6,
+                    -1,
+                    0
+                ]
+            },
+            "tag": "HeadIsClosed"
+        },
+        {
+            "tag": "RolledBack"
+        },
+        {
+            "tag": "TxValid",
+            "transaction": {
+                "id": -4,
+                "inputs": [
+                    -2,
+                    -1,
+                    1,
+                    3,
+                    4,
+                    6
+                ],
+                "outputs": [
+                    -5,
+                    1,
+                    4
+                ]
+            }
+        },
+        {
+            "tag": "TxSeen",
+            "transaction": {
+                "id": 2,
+                "inputs": [
+                    -3,
+                    -2,
+                    1,
+                    2,
+                    3,
+                    6
+                ],
+                "outputs": [
+                    0,
+                    4,
+                    5
+                ]
+            }
         },
         {
             "me": {
@@ -2721,509 +3034,24 @@
             "tag": "Greetings"
         },
         {
-            "tag": "CommandFailed"
-        },
-        {
-            "tag": "CommandFailed"
-        },
-        {
             "tag": "HeadIsFinalized",
             "utxo": [
-                2
-            ]
-        },
-        {
-            "tag": "TxSeen",
-            "transaction": {
-                "id": -4,
-                "inputs": [
-                    -5,
-                    5
-                ],
-                "outputs": [
-                    -5,
-                    1
-                ]
-            }
-        },
-        {
-            "tag": "UTxO",
-            "utxo": [
-                -4,
-                5,
-                6
-            ]
-        },
-        {
-            "latestSnapshot": {
-                "confirmedTransactions": [],
-                "snapshotNumber": 6,
-                "utxo": [
-                    -3,
-                    -1,
-                    1,
-                    6
-                ]
-            },
-            "tag": "HeadIsClosed"
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -4,
-                "inputs": [
-                    -4,
-                    5
-                ],
-                "outputs": [
-                    -6,
-                    1,
-                    6
-                ]
-            },
-            "utxo": [
-                2
-            ],
-            "validationError": {
-                "reason": "O\\]𖦈I%"
-            }
-        },
-        {
-            "tag": "HeadIsAborted",
-            "utxo": [
-                2
-            ]
-        },
-        {
-            "party": {
-                "vkey": "0000000000000001"
-            },
-            "tag": "Committed",
-            "utxo": []
-        },
-        {
-            "postChainTx": {
-                "headParameters": {
-                    "contestationPeriod": 1.1106153764,
-                    "parties": [
-                        {
-                            "vkey": "0000000000000001"
-                        },
-                        {
-                            "vkey": "fffffffffffffffe"
-                        },
-                        {
-                            "vkey": "0000000000000001"
-                        }
-                    ]
-                },
-                "tag": "InitTx"
-            },
-            "postTxError": {
-                "tag": "NoPaymentInput"
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "me": {
-                "vkey": "0000000000000002"
-            },
-            "tag": "Greetings"
-        },
-        {
-            "tag": "UTxO",
-            "utxo": [
                 -3,
-                0,
-                2
-            ]
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.0",
-                "port": 3
-            },
-            "tag": "PeerDisconnected"
-        },
-        {
-            "tag": "HeadIsOpen",
-            "utxo": []
-        },
-        {
-            "party": {
-                "vkey": "0000000000000004"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -3,
-                2,
                 3,
                 4,
                 6
             ]
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.0",
-                "port": 0
-            },
-            "tag": "PeerDisconnected"
-        },
-        {
-            "me": {
-                "vkey": "0000000000000004"
-            },
-            "tag": "Greetings"
-        },
-        {
-            "peer": {
-                "hostname": "0.0.0.1",
-                "port": 8
-            },
-            "tag": "PeerDisconnected"
-        },
-        {
-            "me": {
-                "vkey": "fffffffffffffffa"
-            },
-            "tag": "Greetings"
-        },
-        {
-            "signatures": {
-                "multiSignature": []
-            },
-            "snapshot": {
-                "confirmedTransactions": [],
-                "snapshotNumber": 5,
-                "utxo": [
-                    -3,
-                    1,
-                    2,
-                    5
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 5,
-                "inputs": [
-                    -4,
-                    -1,
-                    0,
-                    5,
-                    6
-                ],
-                "outputs": [
-                    -6,
-                    -3,
-                    -2,
-                    3,
-                    5
-                ]
-            },
-            "utxo": [
-                2
-            ],
-            "validationError": {
-                "reason": "\u000e"
-            }
-        },
-        {
-            "tag": "UTxO",
-            "utxo": [
-                -6,
-                -5,
-                -3,
-                1,
-                5
-            ]
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 2,
-                "inputs": [],
-                "outputs": [
-                    4
-                ]
-            },
-            "utxo": [
-                -5,
-                3,
-                4
-            ],
-            "validationError": {
-                "reason": "􋺈\u001aY7w"
-            }
-        },
-        {
-            "signatures": {
-                "multiSignature": [
-                    "919b7378891651d21b0307020202030701",
-                    "d10b36aa74a59bcf1b0300070508080408",
-                    "fcbd18b325a02faa1b0204040105040005",
-                    "e3b0c44298fc1c141b0204080602010604",
-                    "e3b0c44298fc1c141b0006030801030806"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": -1,
-                        "inputs": [
-                            -2,
-                            1
-                        ],
-                        "outputs": [
-                            -4
-                        ]
-                    },
-                    {
-                        "id": 0,
-                        "inputs": [],
-                        "outputs": [
-                            -4,
-                            -1,
-                            2
-                        ]
-                    },
-                    {
-                        "id": -2,
-                        "inputs": [],
-                        "outputs": [
-                            -5,
-                            -4,
-                            -3,
-                            -1,
-                            3
-                        ]
-                    }
-                ],
-                "snapshotNumber": 5,
-                "utxo": []
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 2,
-                "inputs": [
-                    1,
-                    3
-                ],
-                "outputs": [
-                    -6,
-                    -5,
-                    4
-                ]
-            },
-            "utxo": [
-                3
-            ],
-            "validationError": {
-                "reason": "9~x􆄤u5"
-            }
-        },
-        {
-            "me": {
-                "vkey": "fffffffffffffffe"
-            },
-            "tag": "Greetings"
         },
         {
             "peer": {
                 "hostname": "0.0.0.5",
-                "port": 8
+                "port": 2
             },
-            "tag": "PeerDisconnected"
-        },
-        {
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -5,
-                2
-            ]
-        },
-        {
-            "tag": "HeadIsOpen",
-            "utxo": [
-                4
-            ]
-        },
-        {
-            "tag": "HeadIsFinalized",
-            "utxo": []
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 0,
-                "inputs": [],
-                "outputs": [
-                    -3,
-                    -2,
-                    2
-                ]
-            },
-            "utxo": [
-                -6,
-                1
-            ],
-            "validationError": {
-                "reason": "=8󳵔6"
-            }
-        },
-        {
-            "tag": "HeadIsFinalized",
-            "utxo": [
-                -6,
-                -5,
-                -1
-            ]
+            "tag": "PeerConnected"
         },
         {
             "tag": "CommandFailed"
-        },
-        {
-            "latestSnapshot": {
-                "confirmedTransactions": [
-                    {
-                        "id": 2,
-                        "inputs": [
-                            3,
-                            4,
-                            5
-                        ],
-                        "outputs": [
-                            -6,
-                            4
-                        ]
-                    },
-                    {
-                        "id": 3,
-                        "inputs": [
-                            -6,
-                            -3,
-                            -2,
-                            -1
-                        ],
-                        "outputs": []
-                    }
-                ],
-                "snapshotNumber": 2,
-                "utxo": [
-                    -5,
-                    -1,
-                    6
-                ]
-            },
-            "tag": "HeadIsClosed"
-        },
-        {
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 2,
-                "inputs": [
-                    -5,
-                    -3,
-                    0,
-                    2
-                ],
-                "outputs": [
-                    -6,
-                    -3
-                ]
-            },
-            "utxo": [
-                -2,
-                1,
-                3,
-                4,
-                6
-            ],
-            "validationError": {
-                "reason": "\r\u000f􎠱"
-            }
-        },
-        {
-            "parties": [
-                {
-                    "vkey": "0000000000000005"
-                },
-                {
-                    "vkey": "0000000000000000"
-                },
-                {
-                    "vkey": "0000000000000006"
-                },
-                {
-                    "vkey": "0000000000000004"
-                },
-                {
-                    "vkey": "ffffffffffffffff"
-                }
-            ],
-            "tag": "ReadyToCommit"
-        },
-        {
-            "tag": "HeadIsFinalized",
-            "utxo": []
-        },
-        {
-            "input": "",
-            "reason": "𫬦B𩮷",
-            "tag": "InvalidInput"
-        },
-        {
-            "input": "'𭔊\u001eB죸",
-            "reason": ";#k􍾤G",
-            "tag": "InvalidInput"
-        },
-        {
-            "input": "wM-匓Yv",
-            "reason": "\u0016풐",
-            "tag": "InvalidInput"
-        },
-        {
-            "tag": "UTxO",
-            "utxo": [
-                -5,
-                -4,
-                1
-            ]
-        },
-        {
-            "input": "<𭒺f",
-            "reason": "􀦧\u0000<",
-            "tag": "InvalidInput"
-        },
-        {
-            "input": "W{",
-            "reason": "󽳦` C",
-            "tag": "InvalidInput"
-        },
-        {
-            "party": {
-                "vkey": "0000000000000001"
-            },
-            "tag": "Committed",
-            "utxo": []
-        },
-        {
-            "tag": "HeadIsFinalized",
-            "utxo": [
-                -2
-            ]
-        },
-        {
-            "me": {
-                "vkey": "0000000000000006"
-            },
-            "tag": "Greetings"
         }
     ],
-    "seed": 11608777
+    "seed": 1155846095
 }

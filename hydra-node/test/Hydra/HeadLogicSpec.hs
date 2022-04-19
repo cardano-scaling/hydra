@@ -11,7 +11,11 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx))
+import Hydra.Chain (
+  ChainEvent (..),
+  HeadParameters (..),
+  OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx),
+ )
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
@@ -29,9 +33,11 @@ import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.Party (Party (..), aggregate, sign)
-import Hydra.ServerOutput (ServerOutput (PeerConnected))
+import Hydra.ServerOutput (ServerOutput (PeerConnected, RolledBack))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.QuickCheck (forAll)
+import Test.QuickCheck.Monadic (monadicIO, run)
 
 spec :: Spec
 spec = do
@@ -194,21 +200,21 @@ spec = do
 
       it "cannot observe abort after collect com" $ do
         let s0 = inInitialState threeParties
-        s1 <- assertNewState $ update env ledger s0 (OnChainEvent OnCollectComTx)
-        let invalidEvent = OnChainEvent OnAbortTx
+        s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ Observation OnCollectComTx)
+        let invalidEvent = OnChainEvent $ Observation OnAbortTx
         let s2 = update env ledger s1 invalidEvent
         s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
       it "cannot observe collect com after abort" $ do
         let s0 = inInitialState threeParties
-        s1 <- assertNewState $ update env ledger s0 (OnChainEvent OnAbortTx)
-        let invalidEvent = OnChainEvent OnCollectComTx
+        s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ Observation OnAbortTx)
+        let invalidEvent = OnChainEvent $ Observation OnCollectComTx
         let s2 = update env ledger s1 invalidEvent
         s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
       it "any node should post FanoutTx when observing on-chain CloseTx" $ do
         let s0 = inOpenState threeParties ledger
-            closeTx = OnChainEvent $ OnCloseTx 0
+            closeTx = OnChainEvent $ Observation $ OnCloseTx 0
 
         let shouldPostFanout =
               Delay
@@ -224,6 +230,12 @@ spec = do
                 }
 
         update env ledger s0 closeTx `hasEffect_` shouldPostFanout
+
+      it "notify user on rollback" $
+        forAll arbitrary $ \s -> monadicIO $ do
+          let rollback = OnChainEvent (Rollback 2)
+          let s' = update env ledger s rollback
+          void $ run $ s' `hasEffect` ClientEffect RolledBack
 
 --
 -- Assertion utilities
@@ -261,7 +273,12 @@ isAckSn = \case
 
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
-  InitialState parameters (Set.fromList parties) mempty
+  InitialState
+    { parameters
+    , pendingCommits = Set.fromList parties
+    , committed = mempty
+    , previousRecoverableState = ReadyState
+    }
  where
   parameters = HeadParameters 42 parties
 
@@ -279,19 +296,28 @@ inOpenState' ::
   [Party] ->
   CoordinatedHeadState tx ->
   HeadState tx
-inOpenState' parties = OpenState parameters
+inOpenState' parties coordinatedHeadState =
+  OpenState{parameters, coordinatedHeadState, previousRecoverableState}
  where
   parameters = HeadParameters 42 parties
+  previousRecoverableState =
+    InitialState
+      { parameters
+      , pendingCommits = mempty
+      , committed = mempty
+      , previousRecoverableState = ReadyState
+      }
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties =
-  ClosedState parameters mempty
+  ClosedState{parameters, utxos = mempty, previousRecoverableState}
  where
   parameters = HeadParameters 42 parties
+  previousRecoverableState = inOpenState parties simpleLedger
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
-  OpenState _ CoordinatedHeadState{confirmedSnapshot} ->
+  OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
     Just (getSnapshot confirmedSnapshot)
   _ ->
     Nothing

@@ -200,7 +200,7 @@ spec = around showLogsOnFailure $
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
                     waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
                     metrics <- getMetrics n1
-                    metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
+                    metrics `shouldSatisfy` ("hydra_head_events  5" `BS.isInfixOf`)
 
     describe "hydra-node executable" $
       it "display proper semantic version given it is passed --version argument" $ \_ ->

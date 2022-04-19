@@ -34,6 +34,7 @@ import Control.Monad.Class.MonadSTM (
   newTVarIO,
   putTMVar,
   readTQueue,
+  readTVarIO,
   retry,
   takeTMVar,
   writeTQueue,
@@ -45,12 +46,13 @@ import Data.Aeson (Value (String), object, (.=))
 import Data.List ((\\))
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
-  ChainPoint,
+  ChainPoint (..),
   NetworkId,
   PaymentKey,
   SigningKey,
   Tx,
   VerificationKey,
+  fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
   fromLedgerUTxO,
@@ -60,8 +62,8 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   Chain (..),
-  ChainCallback,
   ChainComponent,
+  ChainEvent (..),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
@@ -103,7 +105,7 @@ import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (mkShelleyTx)
-import Ouroboros.Network.Block (Point (..), Tip (..), getTipPoint)
+import Ouroboros.Network.Block (Point (..), Tip (..), blockPoint, getTipPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
   MuxMode (..),
@@ -160,12 +162,16 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
   withTinyWallet (contramap Wallet tracer) networkId keyPair iocp socketPath $ \wallet -> do
     headState <-
       newTVarIO $
-        SomeOnChainHeadState $
-          idleOnChainHeadState
-            networkId
-            (cardanoKeys \\ [verificationKey wallet])
-            (verificationKey wallet)
-            party
+        SomeOnChainHeadStateAt
+          { currentOnChainHeadState =
+              SomeOnChainHeadState $
+                idleOnChainHeadState
+                  networkId
+                  (cardanoKeys \\ [verificationKey wallet])
+                  (verificationKey wallet)
+                  party
+          , recordedAt = AtStart
+          }
     res <-
       race
         ( do
@@ -173,10 +179,6 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
             -- which will only see transactions after it has established
             -- connection with the server's tip. So any transaction submitted
             -- before that tip will be missed.
-            --
-            -- The way we handle rollbacks is also wrong because it'll
-            -- fast-forward to the tip, and not allow recovering intermediate
-            -- history.
             threadDelay 2
             action $
               Chain
@@ -208,11 +210,13 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
                       Just err -> throwIO err
                 }
         )
-        ( handle onIOException $
+        ( handle onIOException $ do
+            let intersection = toConsensusPointHF <$> point
+            let client = ouroborosApplication tracer intersection queue (chainSyncHandler tracer callback headState)
             connectTo
               (localSnocket iocp)
               nullConnectTracers
-              (versions networkId (client tracer (toConsensusPointHF <$> point) queue headState callback))
+              (versions networkId client)
               socketPath
         )
     case res of
@@ -242,30 +246,34 @@ data ConnectException = ConnectException
 
 instance Exception ConnectException
 
-data IntersectionNotFoundException = IntersectionNotFound
+-- | Thrown when the user-provided custom point of intersection is unknown to
+-- the local node. This may happen if users shut down their node quickly after
+-- starting them and hold on a not-so-stable point of the chain. When they turn
+-- the node back on, that point may no longer exist on the network if a fork
+-- with deeper roots has been adopted in the meantime.
+newtype IntersectionNotFoundException = IntersectionNotFound
   { requestedPoint :: Point Block
   }
   deriving (Show)
 
 instance Exception IntersectionNotFoundException
 
-client ::
+ouroborosApplication ::
   (MonadST m, MonadTimer m, MonadThrow m) =>
   Tracer m DirectChainLog ->
   Maybe (Point Block) ->
   TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
-  TVar m SomeOnChainHeadState ->
-  ChainCallback Tx m ->
+  ChainSyncHandler m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client tracer point queue headState callback nodeToClientV =
+ouroborosApplication tracer point queue handler nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClient tracer callback headState point
+                  let peer = chainSyncClient handler point
                    in MuxPeer nullTracer cChainSyncCodec (chainSyncClientPeer peer)
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
@@ -285,15 +293,104 @@ client tracer point queue headState callback nodeToClientV =
     , cStateQueryCodec
     } = defaultCodecs nodeToClientV
 
+-- | The on-chain head state is maintained in a mutually-recursive data-structure,
+-- pointing to the previous chain state; This allows to easily rewind the state
+-- to a point in the past when rolling backward due to a change of chain fork by
+-- our local cardano-node.
+data SomeOnChainHeadStateAt = SomeOnChainHeadStateAt
+  { currentOnChainHeadState :: SomeOnChainHeadState
+  , recordedAt :: RecordedAt
+  }
+  deriving (Eq, Show)
+
+-- | Records when a state was seen on-chain. 'AtStart' is used for states that
+-- simply exist out of any chain events (e.g. the 'Idle' state).
+data RecordedAt
+  = AtStart
+  | AtPoint ChainPoint SomeOnChainHeadStateAt
+  deriving (Eq, Show)
+
+data ChainSyncHandler m = ChainSyncHandler
+  { onRollForward :: Block -> m ()
+  , onRollBackward :: Point Block -> m ()
+  }
+
+chainSyncHandler ::
+  forall m.
+  (MonadSTM m) =>
+  -- | Tracer for logging
+  Tracer m DirectChainLog ->
+  -- | Chain callback
+  (ChainEvent Tx -> m ()) ->
+  -- | On-chain head-state.
+  TVar m SomeOnChainHeadStateAt ->
+  -- | A chain-sync handler to use in a local-chain-sync client.
+  ChainSyncHandler m
+chainSyncHandler tracer callback headState =
+  ChainSyncHandler
+    { onRollBackward
+    , onRollForward
+    }
+ where
+  onRollBackward :: Point Block -> m ()
+  onRollBackward point = do
+    traceWith tracer $ RolledBackward $ SomePoint point
+    (st, depth) <- rollback (fromConsensusPointHF point) <$> readTVarIO headState
+    atomically $ writeTVar headState st
+    callback (Rollback depth)
+
+  onRollForward :: Block -> m ()
+  onRollForward blk = do
+    let receivedTxs = toList $ getAlonzoTxs blk
+    onChainTxs <- reverse <$> atomically (foldM (withNextTx (blockPoint blk)) [] receivedTxs)
+    unless (null receivedTxs) $
+      traceWith tracer $
+        ReceivedTxs
+          { onChainTxs
+          , receivedTxs = map (\tx -> (getTxId tx, tx)) receivedTxs
+          }
+    mapM_ (callback . Observation) onChainTxs
+
+  withNextTx :: Point Block -> [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
+  withNextTx point observed (fromLedgerTx -> tx) = do
+    st <- readTVar headState
+    case observeSomeTx tx (currentOnChainHeadState st) of
+      Just (onChainTx, st') -> do
+        writeTVar headState $
+          SomeOnChainHeadStateAt
+            { currentOnChainHeadState = st'
+            , recordedAt = AtPoint (fromConsensusPointHF point) st
+            }
+        pure $ onChainTx : observed
+      Nothing ->
+        pure observed
+
+-- | Rewind some head state back to the first known state that is strictly
+-- before the provided 'ChainPoint'.
+--
+-- This function also computes the /rollback depth/, e.g the number of observed states
+-- that needs to be discarded given some rollback 'chainPoint'. This depth is used
+-- in 'Hydra.HeadLogic.rollback' to discard corresponding off-chain state. Consequently
+-- the two states /must/ be kept in sync in order for rollbacks to be handled properly.
+rollback :: ChainPoint -> SomeOnChainHeadStateAt -> (SomeOnChainHeadStateAt, Word)
+rollback chainPoint = backward 0
+ where
+  backward n st =
+    case recordedAt st of
+      AtStart ->
+        (st, n)
+      AtPoint at previous ->
+        if at <= chainPoint
+          then (st, n)
+          else backward (succ n) previous
+
 chainSyncClient ::
   forall m.
   (MonadSTM m, MonadThrow m) =>
-  Tracer m DirectChainLog ->
-  ChainCallback Tx m ->
-  TVar m SomeOnChainHeadState ->
+  ChainSyncHandler m ->
   Maybe (Point Block) ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient tracer callback headState = \case
+chainSyncClient handler = \case
   Nothing ->
     ChainSyncClient (pure initStIdle)
   Just startingPoint ->
@@ -325,18 +422,14 @@ chainSyncClient tracer callback headState = \case
     initStNext =
       ClientStNext
         { recvMsgRollForward = \_ (getTipPoint -> tip) ->
-            ChainSyncClient $
-              pure $
-                SendMsgFindIntersect [tip] (clientStIntersect initStIntersect)
+            ChainSyncClient $ findIntersect tip
         , recvMsgRollBackward = \_ (getTipPoint -> tip) ->
-            ChainSyncClient $
-              pure $
-                SendMsgFindIntersect [tip] (clientStIntersect initStIntersect)
+            ChainSyncClient $ findIntersect tip
         }
 
-    initStIntersect :: Point Block -> m (ClientStIdle Block (Point Block) (Tip Block) m ())
-    initStIntersect tip =
-      pure $ SendMsgFindIntersect [tip] (clientStIntersect initStIntersect)
+    findIntersect :: Point Block -> m (ClientStIdle Block (Point Block) (Tip Block) m ())
+    findIntersect tip =
+      pure $ SendMsgFindIntersect [tip] (clientStIntersect findIntersect)
 
   clientStIntersect ::
     (Point Block -> m (ClientStIdle Block (Point Block) (Tip Block) m ())) ->
@@ -352,45 +445,14 @@ chainSyncClient tracer callback headState = \case
   clientStIdle :: ClientStIdle Block (Point Block) (Tip Block) m ()
   clientStIdle = SendMsgRequestNext clientStNext (pure clientStNext)
 
-  -- FIXME: rolling forward with a transaction does not necessarily mean that we
-  -- can't roll backward. Or said differently, the block / transactions yielded
-  -- by the server are not necessarily settled. Settlement only happens after a
-  -- while and we will have to carefully consider how we want to handle
-  -- rollbacks. What happen if an 'init' transaction is rolled back?
-  --
-  -- At the moment, we trigger the callback directly, though we may want to
-  -- perhaps only yield transactions through the callback once they have
-  -- 'settled' and keep a short buffer of pending transactions in the network
-  -- layer directly? To be discussed.
   clientStNext :: ClientStNext Block (Point Block) (Tip Block) m ()
   clientStNext =
     ClientStNext
-      { recvMsgRollForward = \blk _tip -> do
-          ChainSyncClient $ do
-            let receivedTxs = toList $ getAlonzoTxs blk
-            onChainTxs <- runOnChainTxs receivedTxs
-            unless (null receivedTxs) $
-              traceWith tracer $ ReceivedTxs{onChainTxs, receivedTxs = map (\tx -> (getTxId tx, tx)) receivedTxs}
-            mapM_ callback onChainTxs
-            pure clientStIdle
-      , recvMsgRollBackward = \point _tip ->
-          ChainSyncClient $ do
-            traceWith tracer $ RolledBackward $ SomePoint point
-            pure clientStIdle
+      { recvMsgRollForward = \block _tip -> ChainSyncClient $ do
+          clientStIdle <$ onRollForward handler block
+      , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
+          clientStIdle <$ onRollBackward handler point
       }
-
-  runOnChainTxs :: [ValidatedTx Era] -> m [OnChainTx Tx]
-  runOnChainTxs = fmap reverse . atomically . foldM runOnChainTx []
-
-  runOnChainTx :: [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
-  runOnChainTx observed (fromLedgerTx -> tx) = do
-    st <- readTVar headState
-    case observeSomeTx tx st of
-      Just (onChainTx, st') -> do
-        writeTVar headState st'
-        pure $ onChainTx : observed
-      Nothing ->
-        pure observed
 
 txSubmissionClient ::
   forall m.
@@ -445,11 +507,12 @@ txSubmissionClient tracer queue =
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
-  TVar m SomeOnChainHeadState ->
+  TVar m SomeOnChainHeadStateAt ->
   ValidatedTx Era ->
   STM m (ValidatedTx Era)
 finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
-  headUTxO <- (\(SomeOnChainHeadState st) -> getKnownUTxO st) <$> readTVar headState
+  someSt <- currentOnChainHeadState <$> readTVar headState
+  let headUTxO = (\(SomeOnChainHeadState st) -> getKnownUTxO st) someSt
   walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
     Left ErrNoPaymentUTxOFound ->
@@ -480,11 +543,11 @@ fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
-  TVar m SomeOnChainHeadState ->
+  TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
 fromPostChainTx cardanoKeys wallet someHeadState tx = do
-  SomeOnChainHeadState st <- readTVar someHeadState
+  SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
       getFuelUTxO wallet >>= \case

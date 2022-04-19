@@ -15,12 +15,13 @@ import Control.Monad.Class.MonadSTM (
   readTQueue,
   readTVarIO,
   writeTQueue,
+  writeTVar,
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
 import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
-import Hydra.Chain (Chain (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
+import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.ClientInput
 import Hydra.HeadLogic (
   Effect (ClientEffect),
@@ -331,7 +332,7 @@ spec = parallel $ do
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
               threadDelay testContestationPeriod
               waitFor [n1, n2] $ HeadIsFinalized (utxoRefs [1, 2])
-              allTxs <- history chain
+              allTxs <- reverse <$> readTVarIO (history chain)
               length (filter matchFanout allTxs) `shouldBe` 2
 
     describe "Hydra Node Logging" $ do
@@ -365,6 +366,40 @@ spec = parallel $ do
 
       roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
+  describe "rolling back" $ do
+    it "resets head to just after init" $
+      shouldRunInSim $ do
+        chain <- simulatedChainAndNetwork
+        withHydraNode 1 [] chain $ \n1 -> do
+          send n1 (Init testContestationPeriod)
+          waitFor [n1] $ ReadyToCommit (fromList [1])
+          chainEvent n1 (Rollback 1)
+          waitFor [n1] RolledBack
+          waitFor [n1] $ ReadyToCommit (fromList [1])
+
+    it "resets head to just after collect-com" $
+      shouldRunInSim $ do
+        chain <- simulatedChainAndNetwork
+        withHydraNode 1 [] chain $ \n1 -> do
+          send n1 (Init testContestationPeriod)
+          waitFor [n1] $ ReadyToCommit (fromList [1])
+          send n1 (Commit (utxoRef 1))
+          waitFor [n1] $ Committed 1 (utxoRef 1)
+          waitFor [n1] $ HeadIsOpen (utxoRefs [1])
+          -- NOTE: Rollback affects the commit AND collect-com tx
+          chainEvent n1 (Rollback 2)
+          waitFor [n1] RolledBack
+          waitFor [n1] $ Committed 1 (utxoRef 1)
+          waitFor [n1] $ HeadIsOpen (utxoRefs [1])
+
+-- NOTE:
+-- In principle, we can observe any prefix of the following sequence
+-- of events.
+--
+-- waitFor [n1] $ Committed 1 (utxoRef 1)
+-- waitFor [n1] $ Committed 2 (utxoRef 2)
+-- waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
+
 waitFor ::
   (HasCallStack, MonadThrow m, IsTx tx, MonadAsync m, MonadTimer m) =>
   [TestHydraNode tx m] ->
@@ -393,12 +428,13 @@ waitUntil nodes expected =
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
   { send :: ClientInput tx -> m ()
+  , chainEvent :: ChainEvent tx -> m ()
   , waitForNext :: m (ServerOutput tx)
   }
 
 data ConnectToChain tx m = ConnectToChain
   { chainComponent :: HydraNode tx m -> m (HydraNode tx m)
-  , history :: m [PostChainTx tx]
+  , history :: TVar m [PostChainTx tx]
   }
 
 -- | Creates a simulated chain and network by returning a function to "monkey
@@ -407,7 +443,7 @@ data ConnectToChain tx m = ConnectToChain
 -- messages being sent around.
 simulatedChainAndNetwork :: (MonadSTM m) => m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
-  refHistory <- newTVarIO []
+  history <- newTVarIO []
   nodes <- newTVarIO []
   pure $
     ConnectToChain
@@ -415,11 +451,10 @@ simulatedChainAndNetwork = do
           atomically $ modifyTVar nodes (node :)
           pure $
             node
-              { oc = Chain{postTx = postTx nodes refHistory}
+              { oc = Chain{postTx = postTx nodes history}
               , hn = Network{broadcast = broadcast node nodes}
               }
-      , history = do
-          reverse <$> readTVarIO refHistory
+      , history
       }
  where
   postTx nodes refHistory tx = do
@@ -441,18 +476,19 @@ simulatedChainAndNetwork = do
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
 -- announces hard-coded contestationDeadlines.
-toOnChainTx :: PostChainTx tx -> OnChainTx tx
-toOnChainTx = \case
-  InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
-  (CommitTx pa ut) -> OnCommitTx pa ut
-  AbortTx{} -> OnAbortTx
-  CollectComTx{} -> OnCollectComTx
-  (CloseTx confirmedSnapshot) ->
-    OnCloseTx
-      { snapshotNumber = number (getSnapshot confirmedSnapshot)
-      }
-  ContestTx{} -> OnContestTx
-  FanoutTx{} -> OnFanoutTx
+toOnChainTx :: PostChainTx tx -> ChainEvent tx
+toOnChainTx =
+  Observation . \case
+    InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
+    (CommitTx pa ut) -> OnCommitTx pa ut
+    AbortTx{} -> OnAbortTx
+    CollectComTx{} -> OnCollectComTx
+    (CloseTx confirmedSnapshot) ->
+      OnCloseTx
+        { snapshotNumber = number (getSnapshot confirmedSnapshot)
+        }
+    ContestTx{} -> OnContestTx
+    FanoutTx{} -> OnFanoutTx
 
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: DiffTime
@@ -465,7 +501,7 @@ withHydraNode ::
   ConnectToChain SimpleTx (IOSim s) ->
   (TestHydraNode SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
-withHydraNode signingKey otherParties connectToChain action = do
+withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} action = do
   outputs <- atomically newTQueue
   node <- createHydraNode outputs
 
@@ -473,6 +509,16 @@ withHydraNode signingKey otherParties connectToChain action = do
     action $
       TestHydraNode
         { send = handleClientInput node
+        , chainEvent = \e -> do
+            toReplay <- case e of
+              Rollback (fromIntegral -> n) -> do
+                atomically $ do
+                  (toReplay, kept) <- splitAt n <$> readTVar history
+                  toReplay <$ writeTVar history kept
+              _ ->
+                pure []
+            handleChainTx node e
+            mapM_ (postTx (oc node)) (reverse toReplay)
         , waitForNext = atomically $ readTQueue outputs
         }
  where

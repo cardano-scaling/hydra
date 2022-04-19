@@ -8,6 +8,7 @@ import Test.Hydra.Prelude
 import Hydra.API.Server (Server (..))
 import Hydra.Chain (
   Chain (..),
+  ChainEvent (Observation),
   HeadParameters (HeadParameters),
   OnChainTx (..),
   PostChainTx (InitTx),
@@ -116,13 +117,13 @@ eventsToOpenHead =
   [ NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
   , NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
   , OnChainEvent
-      { onChainTx = OnInitTx 10 [10, 20, 30]
+      { chainEvent = Observation $ OnInitTx 10 [10, 20, 30]
       }
   , ClientEvent{clientInput = Commit (utxoRef 2)}
-  , OnChainEvent{onChainTx = OnCommitTx 30 (utxoRef 3)}
-  , OnChainEvent{onChainTx = OnCommitTx 20 (utxoRef 2)}
-  , OnChainEvent{onChainTx = OnCommitTx 10 (utxoRef 1)}
-  , OnChainEvent{onChainTx = OnCollectComTx}
+  , OnChainEvent{chainEvent = Observation $ OnCommitTx 30 (utxoRef 3)}
+  , OnChainEvent{chainEvent = Observation $ OnCommitTx 20 (utxoRef 2)}
+  , OnChainEvent{chainEvent = Observation $ OnCommitTx 10 (utxoRef 1)}
+  , OnChainEvent{chainEvent = Observation OnCollectComTx}
   ]
 
 runToCompletion :: IsTx tx => Tracer IO (HydraNodeLog tx) -> HydraNode tx IO -> IO ()

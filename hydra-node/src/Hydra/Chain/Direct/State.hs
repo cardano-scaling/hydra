@@ -71,7 +71,7 @@ data OnChainHeadState (st :: HeadStateKind) = OnChainHeadState
   , ownParty :: Party
   , stateMachine :: HydraStateMachine st
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
 -- NOTE (1): The state machine UTxO produced by the Init transaction (a.k.a
 -- 'threadOutput') is always present and 'threaded' across all transactions.
@@ -106,6 +106,7 @@ data HydraStateMachine (st :: HeadStateKind) where
     HydraStateMachine 'StClosed
 
 deriving instance Show (HydraStateMachine st)
+deriving instance Eq (HydraStateMachine st)
 
 getKnownUTxO ::
   OnChainHeadState st ->
@@ -130,9 +131,26 @@ getKnownUTxO OnChainHeadState{stateMachine} =
 data SomeOnChainHeadState where
   SomeOnChainHeadState ::
     forall st.
-    HasTransition st =>
+    (HasTransition st) =>
     OnChainHeadState st ->
     SomeOnChainHeadState
+
+instance Show SomeOnChainHeadState where
+  show (SomeOnChainHeadState st) = show st
+
+instance Eq SomeOnChainHeadState where
+  (SomeOnChainHeadState st) == (SomeOnChainHeadState st') =
+    case (reifyState st, reifyState st') of
+      (TkIdle, TkIdle) ->
+        st == st'
+      (TkInitialized, TkInitialized) ->
+        st == st'
+      (TkOpen, TkOpen) ->
+        st == st'
+      (TkClosed, TkClosed) ->
+        st == st'
+      _ ->
+        False
 
 -- | Some Kind for witnessing Hydra state-machine's states at the type-level.
 --
