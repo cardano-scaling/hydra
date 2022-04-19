@@ -113,13 +113,13 @@ inOpenState' ::
   CoordinatedHeadState tx ->
   HeadState tx
 inOpenState' parties coordinatedHeadState =
-  OpenState{parameters, coordinatedHeadState, previousState}
+  OpenState{parameters, coordinatedHeadState, previousRecoverableState}
  where
   parameters = HeadParameters 42 parties
-  previousState =
+  previousRecoverableState =
     InitialState
       { parameters
       , pendingCommits = mempty
       , committed = mempty
-      , previousState = ReadyState
+      , previousRecoverableState = ReadyState
       }

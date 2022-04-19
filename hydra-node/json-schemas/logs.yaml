@@ -531,7 +531,7 @@ definitions:
         - tag
         - pendingCommits
         - committed
-        - previousState
+        - previousRecoverableState
       properties:
         tag:
           type: string
@@ -546,7 +546,7 @@ definitions:
           type: array
           items:
             $ref: "api.yaml#/components/schemas/Party"
-        previousState:
+        previousRecoverableState:
           $ref: "#/definitions/HeadState"
     - title: "OpenState"
       additionalProperties: false
@@ -554,7 +554,7 @@ definitions:
         - tag
         - parameters
         - coordinatedHeadState
-        - previousState
+        - previousRecoverableState
       properties:
         tag:
           type: string
@@ -563,7 +563,7 @@ definitions:
           $ref: "api.yaml#/components/schemas/HeadParameters"
         coordinatedHeadState:
           $ref: "#/definitions/CoordinatedHeadState"
-        previousState:
+        previousRecoverableState:
           $ref: "#/definitions/HeadState"
     - title: "ClosedState"
       additionalProperties: false
@@ -571,7 +571,7 @@ definitions:
         - tag
         - parameters
         - utxos
-        - previousState
+        - previousRecoverableState
       properties:
         tag:
           type: string
@@ -580,7 +580,7 @@ definitions:
           $ref: "api.yaml#/components/schemas/HeadParameters"
         utxos:
           $ref: "api.yaml#/components/schemas/UTxO"
-        previousState:
+        previousRecoverableState:
           $ref: "#/definitions/HeadState"
 
   CoordinatedHeadState:
@@ -955,6 +955,7 @@ definitions:
             - $ref: "api.yaml#/components/messages/InvalidInput/payload"
             - $ref: "api.yaml#/components/messages/PostTxOnChainFailed/payload"
             - $ref: "api.yaml#/components/messages/CommandFailed/payload"
+            - $ref: "api.yaml#/components/messages/RolledBack/payload"
 
     - title: NetworkEffect
       type: object

@@ -277,7 +277,7 @@ inInitialState parties =
     { parameters
     , pendingCommits = Set.fromList parties
     , committed = mempty
-    , previousState = ReadyState
+    , previousRecoverableState = ReadyState
     }
  where
   parameters = HeadParameters 42 parties
@@ -297,23 +297,23 @@ inOpenState' ::
   CoordinatedHeadState tx ->
   HeadState tx
 inOpenState' parties coordinatedHeadState =
-  OpenState{parameters, coordinatedHeadState, previousState}
+  OpenState{parameters, coordinatedHeadState, previousRecoverableState}
  where
   parameters = HeadParameters 42 parties
-  previousState =
+  previousRecoverableState =
     InitialState
       { parameters
       , pendingCommits = mempty
       , committed = mempty
-      , previousState = ReadyState
+      , previousRecoverableState = ReadyState
       }
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties =
-  ClosedState{parameters, utxos = mempty, previousState}
+  ClosedState{parameters, utxos = mempty, previousRecoverableState}
  where
   parameters = HeadParameters 42 parties
-  previousState = inOpenState parties simpleLedger
+  previousRecoverableState = inOpenState parties simpleLedger
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
