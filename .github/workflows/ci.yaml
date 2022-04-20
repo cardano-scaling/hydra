@@ -165,6 +165,7 @@ jobs:
     - name: Upload build & test artifacts
       uses: actions/upload-artifact@v2
       with:
+        name: benchmarks-and-haddocks
         path: ./docs
 
   documentation:
@@ -196,6 +197,7 @@ jobs:
     - name: Download generated documentation
       uses: actions/download-artifact@v3
       with:
+        name: benchmarks-and-haddocks
         path: docs
 
     - name: Documentation (Docusaurus)
