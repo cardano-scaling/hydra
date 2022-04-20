@@ -13,6 +13,8 @@ module Hydra.Chain where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (
+  Address,
+  ByronAddr,
   HasTypeProxy (..),
   SerialiseAsRawBytes (..),
   UsingRawBytesHex (..),
@@ -106,6 +108,7 @@ data PostTxError tx
   | NoSeedInput
   | NoPaymentInput
   | InvalidStateToPost {txTried :: PostChainTx tx}
+  | UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
   deriving (Exception, Generic, ToJSON, FromJSON)
 
 deriving instance IsTx tx => Eq (PostTxError tx)

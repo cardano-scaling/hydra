@@ -38,7 +38,10 @@ import Hydra.Cardano.Api (
   toLedgerExUnits,
  )
 import Hydra.Chain.Direct.Tx (headPolicyId)
+import Hydra.Ledger (IsTx, Ledger)
+import Hydra.Ledger.Cardano (Tx, cardanoLedger)
 import Hydra.Ledger.Cardano.Evaluate (pparams)
+import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
 import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin)
 import qualified Test.Cardano.Ledger.Alonzo.AlonzoEraGen as Ledger.Alonzo
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
@@ -137,3 +140,12 @@ defaultGlobals =
  where
   unsafeBoundRational r =
     fromMaybe (error $ "Could not convert from Rational: " <> show r) $ Ledger.boundRational r
+
+class IsTx tx => HasDefaultLedger tx where
+  defaultLedger :: Ledger tx
+
+instance HasDefaultLedger SimpleTx where
+  defaultLedger = simpleLedger
+
+instance HasDefaultLedger Tx where
+  defaultLedger = cardanoLedger defaultGlobals defaultLedgerEnv
