@@ -39,7 +39,7 @@ specSignature :: Spec
 specSignature =
   describe "Signature" $ do
     it "show includes escaped hex" $
-      show (UnsafeSignature (SigEd25519DSIGN "aaa")) `shouldEndWith` "616161\""
+      show (HydraSignature (SigEd25519DSIGN "aaa")) `shouldEndWith` "616161\""
     prop "can sign arbitrary messages" $ \sk (msgA :: ByteString) (msgB :: ByteString) ->
       msgA /= msgB
         ==> sign sk msgA `shouldNotBe` sign sk msgB

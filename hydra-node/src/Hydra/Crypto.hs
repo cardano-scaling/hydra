@@ -88,18 +88,18 @@ generateVerificationKey =
 -- * Signatures
 
 -- | Signature of 'a', not containing the actual payload.
-newtype Signature a = UnsafeSignature (SigDSIGN SignAlg)
+newtype Signature a = HydraSignature (SigDSIGN SignAlg)
   deriving (Eq)
 
 instance Show (Signature a) where
-  show (UnsafeSignature sig) =
-    "Signature " <> show hexBytes
+  show (HydraSignature sig) =
+    "HydraSignature " <> show hexBytes
    where
     hexBytes = Base16.encode $ rawSerialiseSigDSIGN sig
 
 sign :: SignableRepresentation a => SigningKey -> a -> Signature a
 sign (HydraSigningKey sk) a =
-  UnsafeSignature $ signDSIGN ctx a sk
+  HydraSignature $ signDSIGN ctx a sk
  where
   ctx = () :: ContextDSIGN SignAlg
 
