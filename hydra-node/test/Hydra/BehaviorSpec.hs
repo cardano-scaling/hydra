@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.BehaviorSpec where
@@ -7,7 +6,6 @@ module Hydra.BehaviorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 
-import qualified Cardano.Api.UTxO as UTxO
 import Control.Monad.Class.MonadAsync (forConcurrently_)
 import Control.Monad.Class.MonadSTM (
   modifyTVar,
@@ -23,14 +21,7 @@ import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
 import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
-import Hydra.Cardano.Api (
-  pattern AddressInEra,
-  pattern ByronAddressInAnyEra,
-  pattern TxOut,
-  pattern TxOutDatumNone,
- )
 import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
-import Hydra.Chain.Direct.Fixture (HasDefaultLedger, defaultLedger)
 import Hydra.ClientInput
 import Hydra.HeadLogic (
   Effect (ClientEffect),
@@ -38,9 +29,8 @@ import Hydra.HeadLogic (
   Event (ClientEvent),
   HeadState (ReadyState),
  )
-import Hydra.Ledger (IsTx (..), ValidationError (ValidationError))
-import Hydra.Ledger.Cardano (Tx, genValue)
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, utxoRef, utxoRefs)
+import Hydra.Ledger (IsTx, ValidationError (ValidationError))
+import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Node (
   HydraNode (..),
@@ -68,7 +58,7 @@ spec = parallel $ do
       it "does detect when no responses are sent" $ do
         let action = shouldRunInSim $ do
               chain <- simulatedChainAndNetwork
-              withHydraNode @SimpleTx 1 [] chain $ \n ->
+              withHydraNode 1 [] chain $ \n ->
                 waitForNext n >> failure "unexpected output"
         action `shouldThrow` \case
           FailureDeadlock _ -> True
@@ -78,22 +68,22 @@ spec = parallel $ do
       it "accepts Init command" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [] chain $ \n ->
+          withHydraNode 1 [] chain $ \n ->
             send n (Init testContestationPeriod)
 
       it "accepts Commit after successful Init" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [] chain $ \n1 -> do
+          withHydraNode 1 [] chain $ \n1 -> do
             send n1 (Init testContestationPeriod)
             waitFor [n1] $ ReadyToCommit (fromList [1])
             send n1 (Commit (utxoRef 1))
             waitFor [n1] $ Committed 1 (utxoRef 1)
 
-      it "doesn't accepts commits when the head is open" $
+      it "not accepts commits when the head is open" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [] chain $ \n1 -> do
+          withHydraNode 1 [] chain $ \n1 -> do
             send n1 (Init testContestationPeriod)
             waitFor [n1] $ ReadyToCommit (fromList [1])
             send n1 (Commit (utxoRef 1))
@@ -102,23 +92,10 @@ spec = parallel $ do
             send n1 (Commit (utxoRef 2))
             waitFor [n1] CommandFailed
 
-      it "reject Commits of Byron outputs" $
-        shouldRunInSim $ do
-          chain <- simulatedChainAndNetwork
-          withHydraNode @Tx 1 [] chain $ \n1 -> do
-            send n1 (Init testContestationPeriod)
-            waitFor [n1] $ ReadyToCommit (fromList [1])
-            send n1 (Commit (generateWith genByronCommit 42))
-            waitForNext n1 >>= \case
-              PostTxOnChainFailed{} ->
-                pure ()
-              x ->
-                failure $ "Expected 'PostTxOnChainFailed' but got something else: " <> show x
-
       it "can close an open head" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [] chain $ \n1 -> do
+          withHydraNode 1 [] chain $ \n1 -> do
             send n1 (Init testContestationPeriod)
             waitFor [n1] $ ReadyToCommit (fromList [1])
             send n1 (Commit (utxoRef 1))
@@ -131,7 +108,7 @@ spec = parallel $ do
         failAfter 5 $
           shouldRunInSim $ do
             chain <- simulatedChainAndNetwork
-            withHydraNode @SimpleTx 1 [] chain $ \n1 -> do
+            withHydraNode 1 [] chain $ \n1 -> do
               send n1 (Init testContestationPeriod)
               waitFor [n1] $ ReadyToCommit (fromList [1])
               send n1 (Commit (utxoRef 1))
@@ -146,8 +123,8 @@ spec = parallel $ do
       it "only opens the head after all nodes committed" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-            withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
               waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
 
@@ -163,8 +140,8 @@ spec = parallel $ do
       it "can abort and re-open a head when one party has not committed" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-            withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
               waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
               send n1 (Commit (utxoRefs [1, 2]))
@@ -177,8 +154,8 @@ spec = parallel $ do
       it "cannot abort head when commits have been collected" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-            withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
               waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
               send n1 (Commit (utxoRef 1))
@@ -192,8 +169,8 @@ spec = parallel $ do
       it "cannot commit twice" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-            withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
               waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
 
@@ -213,8 +190,8 @@ spec = parallel $ do
         shouldRunInSim $
           do
             chain <- simulatedChainAndNetwork
-            withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-              withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+            withHydraNode 1 [2] chain $ \n1 ->
+              withHydraNode 2 [1] chain $ \n2 -> do
                 send n1 (Init testContestationPeriod)
                 waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
                 send n1 (Commit (utxoRef 1))
@@ -237,8 +214,8 @@ spec = parallel $ do
       it "sees the head closed by other nodes" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-            withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
               openHead n1 n2
 
               send n1 Close
@@ -248,8 +225,8 @@ spec = parallel $ do
       it "valid new transactions are seen by all parties" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-            withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
@@ -259,8 +236,8 @@ spec = parallel $ do
       it "valid new transactions get snapshotted" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-            withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
@@ -283,8 +260,8 @@ spec = parallel $ do
       it "reports transactions as seen only when they validate (against the confirmed ledger)" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-            withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
               openHead n1 n2
 
               let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
@@ -309,8 +286,8 @@ spec = parallel $ do
         pendingWith "This test is not longer true after recent changes which simplify the snapshot construction."
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-            withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
@@ -330,8 +307,8 @@ spec = parallel $ do
       it "outputs utxo from confirmed snapshot when client requests it" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-            withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
               openHead n1 n2
               let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
               send n1 (NewTx newTx)
@@ -348,8 +325,8 @@ spec = parallel $ do
       it "when closing head is finalized after contestation period and all parties post fanout tx" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode @SimpleTx 1 [2] chain $ \n1 ->
-            withHydraNode @SimpleTx 2 [1] chain $ \n2 -> do
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
               openHead n1 n2
               send n1 Close
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
@@ -362,7 +339,7 @@ spec = parallel $ do
       it "traces processing of events" $ do
         let result = runSimTrace $ do
               chain <- simulatedChainAndNetwork
-              withHydraNode @SimpleTx 1 [] chain $ \n1 -> do
+              withHydraNode 1 [] chain $ \n1 -> do
                 send n1 (Init testContestationPeriod)
                 waitFor [n1] $ ReadyToCommit (fromList [1])
                 send n1 (Commit (utxoRef 1))
@@ -377,7 +354,7 @@ spec = parallel $ do
       it "traces handling of effects" $ do
         let result = runSimTrace $ do
               chain <- simulatedChainAndNetwork
-              withHydraNode @SimpleTx 1 [] chain $ \n1 -> do
+              withHydraNode 1 [] chain $ \n1 -> do
                 send n1 (Init testContestationPeriod)
                 waitFor [n1] $ ReadyToCommit (fromList [1])
                 send n1 (Commit (utxoRef 1))
@@ -393,7 +370,7 @@ spec = parallel $ do
     it "resets head to just after init" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode @SimpleTx 1 [] chain $ \n1 -> do
+        withHydraNode 1 [] chain $ \n1 -> do
           send n1 (Init testContestationPeriod)
           waitFor [n1] $ ReadyToCommit (fromList [1])
           chainEvent n1 (Rollback 1)
@@ -403,7 +380,7 @@ spec = parallel $ do
     it "resets head to just after collect-com" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode @SimpleTx 1 [] chain $ \n1 -> do
+        withHydraNode 1 [] chain $ \n1 -> do
           send n1 (Init testContestationPeriod)
           waitFor [n1] $ ReadyToCommit (fromList [1])
           send n1 (Commit (utxoRef 1))
@@ -518,12 +495,11 @@ testContestationPeriod :: DiffTime
 testContestationPeriod = 3600
 
 withHydraNode ::
-  forall tx s a.
-  HasDefaultLedger tx =>
+  forall s a.
   SigningKey ->
   [Party] ->
-  ConnectToChain tx (IOSim s) ->
-  (TestHydraNode tx (IOSim s) -> IOSim s a) ->
+  ConnectToChain SimpleTx (IOSim s) ->
+  (TestHydraNode SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
 withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} action = do
   outputs <- atomically newTQueue
@@ -550,7 +526,7 @@ withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} act
 
   createHydraNode outputs = do
     eq <- createEventQueue
-    hh <- createHydraHead ReadyState (defaultLedger @tx)
+    hh <- createHydraHead ReadyState simpleLedger
     chainComponent connectToChain $
       HydraNode
         { eq
@@ -581,10 +557,3 @@ assertHeadIsClosedWith expectedSnapshot = \case
   HeadIsClosed{latestSnapshot} -> do
     latestSnapshot `shouldBe` expectedSnapshot
   _ -> failure "expected HeadIsClosed"
-
-genByronCommit :: Gen (UTxOType Tx)
-genByronCommit = do
-  input <- arbitrary
-  addr <- AddressInEra ByronAddressInAnyEra <$> arbitrary
-  value <- genValue
-  pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone)
