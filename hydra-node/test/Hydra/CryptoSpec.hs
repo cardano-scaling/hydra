@@ -7,13 +7,14 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Crypto.DSIGN.Ed25519 (SigDSIGN (SigEd25519DSIGN))
-import Test.QuickCheck (counterexample, (==>))
+import Test.QuickCheck (counterexample, forAll, shuffle, (=/=), (==>))
 
 spec :: Spec
 spec = do
   specSigningKey
   specVerificationKey
   specSignature
+  specMultiSignature
 
 specSigningKey :: Spec
 specSigningKey =
@@ -25,7 +26,7 @@ specSigningKey =
 
     prop "can be generated" $ \(seedA, seedB) -> do
       seedA /= seedB
-        ==> generateSigningKey seedA `shouldNotBe` generateSigningKey seedB
+        ==> generateSigningKey seedA =/= generateSigningKey seedB
 
 specVerificationKey :: Spec
 specVerificationKey =
@@ -42,8 +43,16 @@ specSignature =
       show (HydraSignature (SigEd25519DSIGN "aaa")) `shouldEndWith` "616161\""
     prop "can sign arbitrary messages" $ \sk (msgA :: ByteString) (msgB :: ByteString) ->
       msgA /= msgB
-        ==> sign sk msgA `shouldNotBe` sign sk msgB
+        ==> sign sk msgA =/= sign sk msgB
     prop "sign/verify roundtrip" $ \sk (msg :: ByteString) ->
       let sig = sign sk msg
        in verify (deriveVerificationKey sk) sig msg
             & counterexample (show sig)
+
+specMultiSignature :: Spec
+specMultiSignature =
+  describe "MultiSignature" $ do
+    prop "is sensitive to order" $ \(sigs :: [Signature ByteString]) ->
+      forAll (shuffle sigs) $ \shuffled ->
+        length sigs > 1
+          ==> aggregate sigs =/= aggregate shuffled

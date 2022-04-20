@@ -98,6 +98,9 @@ instance Show (Signature a) where
    where
     hexBytes = Base16.encode $ rawSerialiseSigDSIGN sig
 
+instance (Arbitrary a, SignableRepresentation a) => Arbitrary (Signature a) where
+  arbitrary = sign <$> arbitrary <*> arbitrary
+
 -- | Sign some value 'a' with the provided 'SigningKey'.
 sign :: SignableRepresentation a => SigningKey -> a -> Signature a
 sign (HydraSigningKey sk) a =
@@ -119,4 +122,9 @@ verify (HydraVerificationKey vk) (HydraSignature sig) a =
 -- * Multi-signatures
 
 -- | Naiively aggregated multi-signatures.
-newtype MultiSignature a = UnsafeMultiSignature [Signature a]
+newtype MultiSignature a = HydraMultiSignature [Signature a]
+  deriving (Eq, Show)
+
+-- | Combine multiple signatures of 'a' into a 'MultiSignature a'.
+aggregate :: [Signature a] -> MultiSignature a
+aggregate = HydraMultiSignature
