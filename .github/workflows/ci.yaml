@@ -1,7 +1,8 @@
 name: "CI"
 on:
   push:
-    branches: [ "master" ]
+    branches:
+    - master
   pull_request:
   schedule:
     # Everyday at 4:00 AM
@@ -163,6 +164,7 @@ jobs:
     - name: Upload build & test artifacts
       uses: actions/upload-artifact@v2
       with:
+        name: benchmarks-and-haddocks
         path: ./docs
 
   documentation:
@@ -175,15 +177,6 @@ jobs:
         repository: input-output-hk/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
 
-    - uses: gaurav-nelson/github-action-markdown-link-check@v1
-      with:
-        folder-path: "hydra-cardano-api, hydra-cluster, hydra-node, hydra-plutus, hydra-prelude, hydra-test-utils, hydra-tui, plutus-cbor, plutus-merkle-tree"
-
-    - uses: gaurav-nelson/github-action-markdown-link-check@v1
-      with:
-        folder-path: "."
-        max-depth: 1
-
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
@@ -191,7 +184,11 @@ jobs:
         cache: 'yarn'
         cache-dependency-path: docs/yarn.lock
 
-    - uses: actions/download-artifact@v3
+    - name: Download generated documentation
+      uses: actions/download-artifact@v3
+      with:
+        name: benchmarks-and-haddocks
+        path: docs
 
     - name: Documentation (Docusaurus)
       working-directory: docs
