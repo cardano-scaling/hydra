@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.BehaviorSpec where
@@ -6,6 +7,7 @@ module Hydra.BehaviorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 
+import qualified Cardano.Api.UTxO as UTxO
 import Control.Monad.Class.MonadAsync (forConcurrently_)
 import Control.Monad.Class.MonadSTM (
   modifyTVar,
@@ -21,6 +23,12 @@ import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
 import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
+import Hydra.Cardano.Api (
+  pattern AddressInEra,
+  pattern ByronAddressInAnyEra,
+  pattern TxOut,
+  pattern TxOutDatumNone,
+ )
 import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.Chain.Direct.Fixture (HasDefaultLedger, defaultLedger)
 import Hydra.ClientInput
@@ -31,7 +39,7 @@ import Hydra.HeadLogic (
   HeadState (ReadyState),
  )
 import Hydra.Ledger (IsTx (..), ValidationError (ValidationError))
-import Hydra.Ledger.Cardano (Tx)
+import Hydra.Ledger.Cardano (Tx, genValue)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Node (
@@ -102,8 +110,10 @@ spec = parallel $ do
             waitFor [n1] $ ReadyToCommit (fromList [1])
             send n1 (Commit (generateWith genByronCommit 42))
             waitForNext n1 >>= \case
-              PostTxOnChainFailed{} -> pure ()
-              _ -> failure "Expected 'PostTx' failure but got something else."
+              PostTxOnChainFailed{} ->
+                pure ()
+              x ->
+                failure $ "Expected 'PostTxOnChainFailed' but got something else: " <> show x
 
       it "can close an open head" $
         shouldRunInSim $ do
@@ -573,4 +583,8 @@ assertHeadIsClosedWith expectedSnapshot = \case
   _ -> failure "expected HeadIsClosed"
 
 genByronCommit :: Gen (UTxOType Tx)
-genByronCommit = error "genByronCommit"
+genByronCommit = do
+  input <- arbitrary
+  addr <- AddressInEra ByronAddressInAnyEra <$> arbitrary
+  value <- genValue
+  pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone)
