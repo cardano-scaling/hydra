@@ -45,6 +45,9 @@ instance Show SigningKey where
    where
     hexBytes = Base16.encode $ rawSerialiseSignKeyDSIGN sk
 
+instance Arbitrary SigningKey where
+  arbitrary = generateSigningKey <$> arbitrary
+
 -- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
 -- not random and insecure, so don't use this is production code!
 generateSigningKey :: ByteString -> SigningKey
@@ -81,6 +84,16 @@ generateVerificationKey =
 -- | Signature of 'a', not containing the actual payload.
 newtype Signature a = UnsafeSignature ByteString
   deriving (Eq)
+
+instance Show (Signature a) where
+  show (UnsafeSignature bytes) =
+    "Signature " <> show (Base16.encode bytes)
+
+sign :: SigningKey -> a -> Signature a
+sign _ _ = UnsafeSignature "foo"
+
+verify :: VerificationKey -> Signature a -> Bool
+verify _ _ = False
 
 -- * Multi-signatures
 

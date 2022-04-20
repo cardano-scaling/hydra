@@ -3,13 +3,14 @@ module Hydra.CryptoSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Crypto (generateSigningKey, generateVerificationKey)
-import Test.QuickCheck ((==>))
+import Hydra.Crypto (Signature (UnsafeSignature), deriveVerificationKey, generateSigningKey, generateVerificationKey, sign, verify)
+import Test.QuickCheck ((===), (==>))
 
 spec :: Spec
 spec = do
   specSigningKey
   specVerificationKey
+  specSignature
 
 specSigningKey :: Spec
 specSigningKey =
@@ -30,3 +31,14 @@ specVerificationKey =
       show (generateVerificationKey "alice") `shouldEndWith` "cbbb\""
     it "show hides the DSIGN internals" $
       show (generateVerificationKey "alice") `shouldNotContain` "DSIGN"
+
+specSignature :: Spec
+specSignature =
+  describe "Signature" $ do
+    it "show includes escaped hex" $
+      show (UnsafeSignature "aaa") `shouldEndWith` "616161\""
+    prop "can sign arbitrary messages" $ \sk (msgA :: Integer) (msgB :: Integer) ->
+      msgA /= msgB
+        ==> sign sk msgA `shouldNotBe` sign sk msgB
+    prop "sign/verify roundtrip" $ \sk (msg :: Integer) ->
+      verify (deriveVerificationKey sk) (sign sk msg)
