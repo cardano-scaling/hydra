@@ -181,28 +181,33 @@ mkSimpleTx (txin, TxOut owner valueIn datum) (recipient, valueOut) sk = do
   fee = Lovelace 0
 
 -- | Obtain a human-readable pretty text representation of a transaction.
-renderTx :: Tx -> Text
+renderTx :: IsString str => Tx -> str
 renderTx = renderTxWithUTxO mempty
 
+renderTxs :: IsString str => [Tx] -> str
+renderTxs xs = fromString $ toString $ intercalate "\n\n" (renderTx <$> xs)
+
 -- | Like 'renderTx', but uses the given UTxO to resolve inputs.
-renderTxWithUTxO :: UTxO -> Tx -> Text
+renderTxWithUTxO :: IsString str => UTxO -> Tx -> str
 renderTxWithUTxO utxo (Tx body _wits) =
-  unlines $
-    [show (getTxId body)]
-      <> [""]
-      <> inputLines
-      <> [""]
-      <> outputLines
-      <> [""]
-      <> mintLines
-      <> [""]
-      <> scriptLines
-      <> [""]
-      <> datumLines
-      <> [""]
-      <> redeemerLines
-      <> [""]
-      <> requiredSignersLines
+  fromString $
+    toString $
+      unlines $
+        [show (getTxId body)]
+          <> [""]
+          <> inputLines
+          <> [""]
+          <> outputLines
+          <> [""]
+          <> mintLines
+          <> [""]
+          <> scriptLines
+          <> [""]
+          <> datumLines
+          <> [""]
+          <> redeemerLines
+          <> [""]
+          <> requiredSignersLines
  where
   ShelleyTxBody lbody scripts scriptsData _auxData _validity = body
   outs = Ledger.outputs' lbody

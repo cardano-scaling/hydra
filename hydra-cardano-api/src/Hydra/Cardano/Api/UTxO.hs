@@ -12,8 +12,9 @@ import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Data.Map as Map
 
 -- | Get a human-readable pretty text representation of a UTxO.
-renderUTxO :: (TxIn, TxOut ctx era) -> Text
-renderUTxO = UTxO.render
+renderUTxO :: IsString str => UTxO -> str
+renderUTxO =
+  fromString . intercalate "\n" . fmap (toString . UTxO.render) . UTxO.pairs
 
 -- | Construct a UTxO from a transaction. This constructs artificial `TxIn`
 -- (a.k.a output reference) from the transaction itself, zipping them to the

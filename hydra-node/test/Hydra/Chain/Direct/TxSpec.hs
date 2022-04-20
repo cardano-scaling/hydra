@@ -99,7 +99,7 @@ spec =
                           [ withinTxExecutionBudget redeemerReport
                           , length commitsUTxO + 1 == length (rights $ Map.elems redeemerReport)
                               & counterexample (prettyRedeemerReport redeemerReport)
-                              & counterexample ("Tx: " <> toString (renderTx tx))
+                              & counterexample ("Tx: " <> renderTx tx)
                           ]
 
     describe "fanoutTx" $ do
@@ -141,7 +141,7 @@ spec =
                     & label (show (length inHeadUTxO) <> " UTXO")
                     & label (show (valueSize $ foldMap txOutValue inHeadUTxO) <> " Assets")
                     & counterexample ("Redeemer report: " <> show redeemerReport)
-                    & counterexample ("Tx: " <> toString (renderTx tx))
+                    & counterexample ("Tx: " <> renderTx tx)
                     & cover 80 True "Success"
 
     describe "abortTx" $ do
@@ -179,7 +179,7 @@ spec =
                               [ withinTxExecutionBudget redeemerReport
                               , 2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
                                   & counterexample ("Redeemer report: " <> show redeemerReport)
-                                  & counterexample ("Tx: " <> toString (renderTx tx))
+                                  & counterexample ("Tx: " <> renderTx tx)
                                   & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
                               ]
                               & cover 80 True "Success"
@@ -225,7 +225,7 @@ spec =
                   _ ->
                     property False
                       & counterexample "Failed to construct and observe init tx."
-                      & counterexample (toString (renderTx tx))
+                      & counterexample (renderTx tx)
 
 withinTxExecutionBudget :: Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits) -> Property
 withinTxExecutionBudget redeemers =

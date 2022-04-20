@@ -105,7 +105,7 @@ appliesValidTransaction =
           Left (tx, err) ->
             property False
               & counterexample ("Error: " <> show err)
-              & counterexample ("Failing tx: " <> toString (renderTx tx))
+              & counterexample ("Failing tx: " <> renderTx tx)
               & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
               & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
 
