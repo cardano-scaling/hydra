@@ -26,6 +26,7 @@ import Cardano.Crypto.DSIGN (
   rawSerialiseVerKeyDSIGN,
   seedSizeDSIGN,
   signDSIGN,
+  verifyDSIGN,
  )
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
@@ -97,14 +98,21 @@ instance Show (Signature a) where
    where
     hexBytes = Base16.encode $ rawSerialiseSigDSIGN sig
 
+-- | Sign some value 'a' with the provided 'SigningKey'.
 sign :: SignableRepresentation a => SigningKey -> a -> Signature a
 sign (HydraSigningKey sk) a =
   HydraSignature $ signDSIGN ctx a sk
  where
   ctx = () :: ContextDSIGN SignAlg
 
-verify :: VerificationKey -> Signature a -> Bool
-verify _ _ = False
+-- | Verify a given 'Signature a' and value 'a' using provided 'VerificationKey'.
+verify :: SignableRepresentation a => VerificationKey -> Signature a -> a -> Bool
+verify (HydraVerificationKey vk) (HydraSignature sig) a =
+  -- NOTE: Current implementation does not yield multiple Left cases, so no need
+  -- to distinguish in our interface
+  either (const False) (const True) $ verifyDSIGN ctx vk a sig
+ where
+  ctx = () :: ContextDSIGN SignAlg
 
 -- * Multi-signatures
 
