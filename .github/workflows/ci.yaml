@@ -1,7 +1,9 @@
 name: "CI"
 on:
   push:
-    branches: [ "master" ]
+    branches:
+    - master
+    - fix-benchmark-docs
   pull_request:
   schedule:
     # Everyday at 4:00 AM
