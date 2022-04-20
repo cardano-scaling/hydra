@@ -143,6 +143,7 @@ library
     , ouroboros-network
     , plutus-ledger
     , plutus-ledger-api
+    , QuickCheck
     , serialise
     , shelley-spec-ledger
     , stm
