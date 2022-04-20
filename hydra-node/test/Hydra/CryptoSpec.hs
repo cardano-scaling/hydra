@@ -7,7 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Crypto.DSIGN.Ed25519 (SigDSIGN (SigEd25519DSIGN))
-import Test.QuickCheck ((==>))
+import Test.QuickCheck (counterexample, (==>))
 
 spec :: Spec
 spec = do
@@ -44,4 +44,6 @@ specSignature =
       msgA /= msgB
         ==> sign sk msgA `shouldNotBe` sign sk msgB
     prop "sign/verify roundtrip" $ \sk (msg :: ByteString) ->
-      verify (deriveVerificationKey sk) (sign sk msg)
+      let sig = sign sk msg
+       in verify (deriveVerificationKey sk) sig msg
+            & counterexample (show sig)

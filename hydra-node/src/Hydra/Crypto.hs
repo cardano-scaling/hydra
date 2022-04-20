@@ -108,9 +108,11 @@ sign (HydraSigningKey sk) a =
 -- | Verify a given 'Signature a' and value 'a' using provided 'VerificationKey'.
 verify :: SignableRepresentation a => VerificationKey -> Signature a -> a -> Bool
 verify (HydraVerificationKey vk) (HydraSignature sig) a =
-  -- NOTE: Current implementation does not yield multiple Left cases, so no need
-  -- to distinguish in our interface
-  either (const False) (const True) $ verifyDSIGN ctx vk a sig
+  case verifyDSIGN ctx vk a sig of
+    Right () -> True
+    -- NOTE: Current implementation does not yield multiple Left cases, so no need
+    -- to distinguish in our interface
+    Left _ -> False
  where
   ctx = () :: ContextDSIGN SignAlg
 
