@@ -98,6 +98,10 @@ instance Show (Signature a) where
    where
     hexBytes = Base16.encode $ rawSerialiseSigDSIGN sig
 
+instance Hashable (Signature a) where
+  hashWithSalt salt (HydraSignature sig) =
+    hashWithSalt salt (rawSerialiseSigDSIGN sig)
+
 instance (Arbitrary a, SignableRepresentation a) => Arbitrary (Signature a) where
   arbitrary = sign <$> arbitrary <*> arbitrary
 

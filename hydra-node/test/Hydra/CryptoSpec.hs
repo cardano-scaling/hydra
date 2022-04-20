@@ -52,7 +52,8 @@ specSignature =
 specMultiSignature :: Spec
 specMultiSignature =
   describe "MultiSignature" $ do
-    prop "is sensitive to order" $ \(sigs :: [Signature ByteString]) ->
-      forAll (shuffle sigs) $ \shuffled ->
-        length sigs > 1
-          ==> aggregate sigs =/= aggregate shuffled
+    prop "is sensitive to order" $ \(allSigs :: HashSet (Signature ByteString)) ->
+      let sigs = toList allSigs
+       in forAll (shuffle sigs) $ \shuffled ->
+            length sigs > 1 && sigs /= shuffled
+              ==> aggregate sigs =/= aggregate shuffled
