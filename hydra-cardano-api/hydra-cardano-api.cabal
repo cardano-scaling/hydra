@@ -75,6 +75,7 @@ library
   exposed-modules:
     Cardano.Api.UTxO
     Hydra.Cardano.Api
+    Hydra.Cardano.Api.Address
     Hydra.Cardano.Api.AddressInEra
     Hydra.Cardano.Api.CtxTx
     Hydra.Cardano.Api.CtxUTxO

@@ -86,6 +86,7 @@ import Hydra.Cardano.Api.Prelude (
   StandardCrypto,
  )
 
+import Hydra.Cardano.Api.Address ()
 import Hydra.Cardano.Api.AddressInEra as Extras
 import Hydra.Cardano.Api.CtxTx as Extras
 import Hydra.Cardano.Api.CtxUTxO as Extras
