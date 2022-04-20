@@ -7,16 +7,19 @@ import Hydra.Cardano.Api.Prelude
 import Cardano.Api.Byron (Address (..))
 import Cardano.Binary (unsafeDeserialize')
 import qualified Cardano.Chain.Common as Ledger
+import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Test.QuickCheck (frequency, oneof, vector)
 
 -- * Orphans
 
 instance ToJSON (Address ByronAddr) where
-  toJSON = error "toJSON"
+  toJSON = toJSON . AddressInEra (ByronAddressInAnyEra @Era)
 
 instance FromJSON (Address ByronAddr) where
-  parseJSON = error "parseJSON"
+  parseJSON =
+    Aeson.withText "Address Byron" $
+      maybe empty pure . deserialiseAddress AsByronAddress
 
 instance Arbitrary (Address ByronAddr) where
   arbitrary = do
@@ -26,17 +29,22 @@ instance Arbitrary (Address ByronAddr) where
     genSpendingData :: Gen Ledger.AddrSpendingData
     genSpendingData =
       let keyLen = 32
+          chainCodeLen = 32
           majorType02 = 88
-          cborPrefix = BS.pack [majorType02, fromIntegral keyLen]
+          cborPrefix n = BS.pack [majorType02, fromIntegral n]
        in frequency
             [
               ( 5
-              , Ledger.VerKeyASD . unsafeDeserialize' . (cborPrefix <>)
-                  <$> genBytes keyLen
+              , Ledger.VerKeyASD
+                  . unsafeDeserialize'
+                  . (cborPrefix (keyLen + chainCodeLen) <>)
+                  <$> genBytes (keyLen + chainCodeLen)
               )
             ,
               ( 1
-              , Ledger.RedeemASD . unsafeDeserialize' . (cborPrefix <>)
+              , Ledger.RedeemASD
+                  . unsafeDeserialize'
+                  . (cborPrefix keyLen <>)
                   <$> genBytes keyLen
               )
             ]
