@@ -113,7 +113,6 @@ cardanoLedger globals ledgerEnv =
    where
     toValidationError = ValidationError . show
     memPoolState = (def{Ledger._utxo = utxo}, def)
-
 -- * Cardano Tx
 
 instance IsTx Tx where
@@ -221,12 +220,10 @@ renderTxWithUTxO utxo (Tx body _wits) =
     case UTxO.resolve i utxo of
       Nothing -> renderTxIn i
       Just o ->
-        case txOutAddress o of
-          AddressInEra _ addr ->
-            renderTxIn i
-              <> ("\n      " <> show addr)
-              <> ("\n      " <> prettyValue 1 (txOutValue o))
-              <> ("\n      " <> prettyDatumUtxo (txOutDatum o))
+        renderTxIn i
+          <> ("\n      " <> prettyAddr (txOutAddress o))
+          <> ("\n      " <> prettyValue 1 (txOutValue o))
+          <> ("\n      " <> prettyDatumUtxo (txOutDatum o))
 
   outputLines =
     [ "== OUTPUTS (" <> show (length (txOuts content)) <> ")"
@@ -235,13 +232,15 @@ renderTxWithUTxO utxo (Tx body _wits) =
       <> (("- " <>) . prettyOut <$> txOuts content)
 
   prettyOut o =
-    case txOutAddress o of
-      AddressInEra _ addr ->
-        mconcat
-          [ show addr
-          , "\n      " <> prettyValue 1 (txOutValue o)
-          , "\n      " <> prettyDatumCtx (txOutDatum o)
-          ]
+    mconcat
+      [ prettyAddr (txOutAddress o)
+      , "\n      " <> prettyValue 1 (txOutValue o)
+      , "\n      " <> prettyDatumCtx (txOutDatum o)
+      ]
+
+  prettyAddr = \case
+    ShelleyAddressInEra addr -> show addr
+    ByronAddressInEra addr -> show addr
 
   totalNumberOfAssets =
     sum $
@@ -527,7 +526,7 @@ simplifyUTxO :: UTxO -> UTxO
 simplifyUTxO = UTxO . Map.fromList . map tweakAddress . filter notByronAddress . UTxO.pairs
  where
   notByronAddress (_, TxOut addr _ _) = case addr of
-    AddressInEra _ ByronAddress{} -> False
+    ByronAddressInEra{} -> False
     _ -> True
   -- NOTE:
   -- - we discard pointers because there encoding sucks and they are unused.
@@ -535,12 +534,12 @@ simplifyUTxO = UTxO . Map.fromList . map tweakAddress . filter notByronAddress .
   --
   -- - We fix all network id to testnet.
   tweakAddress out@(txin, TxOut addr val dat) = case addr of
-    AddressInEra typ (ShelleyAddress _ cre sr) ->
+    ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
       case sr of
         Ledger.StakeRefPtr _ ->
-          (txin, TxOut (AddressInEra typ (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat)
+          (txin, TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat)
         _ ->
-          (txin, TxOut (AddressInEra typ (ShelleyAddress Ledger.Testnet cre sr)) val dat)
+          (txin, TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre sr)) val dat)
     _ -> out
 
 shrinkUTxO :: UTxO -> [UTxO]
