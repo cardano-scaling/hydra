@@ -14,15 +14,21 @@ module Hydra.Crypto where
 import Hydra.Prelude hiding (show)
 
 import Cardano.Crypto.DSIGN (
-  DSIGNAlgorithm (rawSerialiseSignKeyDSIGN, rawSerialiseVerKeyDSIGN),
+  ContextDSIGN,
   Ed25519DSIGN,
+  SigDSIGN,
   SignKeyDSIGN,
   VerKeyDSIGN,
   deriveVerKeyDSIGN,
   genKeyDSIGN,
+  rawSerialiseSigDSIGN,
+  rawSerialiseSignKeyDSIGN,
+  rawSerialiseVerKeyDSIGN,
   seedSizeDSIGN,
+  signDSIGN,
  )
 import Cardano.Crypto.Seed (mkSeedFromBytes)
+import Cardano.Crypto.Util (SignableRepresentation)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import Text.Show (Show (show))
@@ -82,15 +88,20 @@ generateVerificationKey =
 -- * Signatures
 
 -- | Signature of 'a', not containing the actual payload.
-newtype Signature a = UnsafeSignature ByteString
+newtype Signature a = UnsafeSignature (SigDSIGN SignAlg)
   deriving (Eq)
 
 instance Show (Signature a) where
-  show (UnsafeSignature bytes) =
-    "Signature " <> show (Base16.encode bytes)
+  show (UnsafeSignature sig) =
+    "Signature " <> show hexBytes
+   where
+    hexBytes = Base16.encode $ rawSerialiseSigDSIGN sig
 
-sign :: SigningKey -> a -> Signature a
-sign _ _ = UnsafeSignature "foo"
+sign :: SignableRepresentation a => SigningKey -> a -> Signature a
+sign (HydraSigningKey sk) a =
+  UnsafeSignature $ signDSIGN ctx a sk
+ where
+  ctx = () :: ContextDSIGN SignAlg
 
 verify :: VerificationKey -> Signature a -> Bool
 verify _ _ = False

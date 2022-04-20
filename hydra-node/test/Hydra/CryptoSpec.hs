@@ -1,10 +1,13 @@
 module Hydra.CryptoSpec where
 
+-- Unit under test
+import Hydra.Crypto
+
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Crypto (Signature (UnsafeSignature), deriveVerificationKey, generateSigningKey, generateVerificationKey, sign, verify)
-import Test.QuickCheck ((===), (==>))
+import Cardano.Crypto.DSIGN.Ed25519 (SigDSIGN (SigEd25519DSIGN))
+import Test.QuickCheck ((==>))
 
 spec :: Spec
 spec = do
@@ -36,9 +39,9 @@ specSignature :: Spec
 specSignature =
   describe "Signature" $ do
     it "show includes escaped hex" $
-      show (UnsafeSignature "aaa") `shouldEndWith` "616161\""
-    prop "can sign arbitrary messages" $ \sk (msgA :: Integer) (msgB :: Integer) ->
+      show (UnsafeSignature (SigEd25519DSIGN "aaa")) `shouldEndWith` "616161\""
+    prop "can sign arbitrary messages" $ \sk (msgA :: ByteString) (msgB :: ByteString) ->
       msgA /= msgB
         ==> sign sk msgA `shouldNotBe` sign sk msgB
-    prop "sign/verify roundtrip" $ \sk (msg :: Integer) ->
+    prop "sign/verify roundtrip" $ \sk (msg :: ByteString) ->
       verify (deriveVerificationKey sk) (sign sk msg)
