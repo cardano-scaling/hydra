@@ -1,0 +1,23 @@
+name: "Check documentation"
+on:
+  schedule:
+    # Everyday at 5:00 AM UTC
+    - cron: "0 5 * * *"
+
+jobs:
+  check-documentation-links:
+    runs-on: ubuntu-latest
+    name: Check for broken documentation links
+    steps:
+    - name: Check for broken links
+      id: link-report
+      uses: celinekurpershoek/link-checker@v1.0.1
+      with:
+        # Required:
+        url: 'https://hydra.family/head-protocol/'
+        # optional:
+        honorRobotExclusions: true
+        ignorePatterns: 'github,google'
+        recursiveLinks: true
+    - name: Get the result
+      run: echo "${{steps.link-report.outputs.result}}"
