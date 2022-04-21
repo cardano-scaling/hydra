@@ -263,7 +263,7 @@ checkClose context headContext parties snapshotNumber sig =
   checkSnapshot
     | snapshotNumber == 0 = True
     | snapshotNumber > 0 = verifySnapshotSignature parties snapshotNumber sig
-    | otherwise = False
+    | otherwise = traceError "negative snapshot number"
 {-# INLINEABLE checkClose #-}
 
 txOutAdaValue :: TxOut -> Integer
