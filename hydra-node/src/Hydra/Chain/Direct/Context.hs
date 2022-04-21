@@ -25,7 +25,8 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party)
-import Test.QuickCheck (choose, elements, frequency, vector)
+import qualified Hydra.Party as Hydra
+import Test.QuickCheck (choose, elements, frequency)
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -36,17 +37,20 @@ import Test.QuickCheck (choose, elements, frequency, vector)
 -- be coherent.
 data HydraContext = HydraContext
   { ctxVerificationKeys :: [VerificationKey PaymentKey]
-  , ctxParties :: [Party]
+  , ctxHydraSigningKeys :: [Hydra.SigningKey]
   , ctxNetworkId :: NetworkId
   , ctxContestationPeriod :: DiffTime
   }
   deriving (Show)
 
+ctxParties :: HydraContext -> [Party]
+ctxParties = fmap Hydra.deriveParty . ctxHydraSigningKeys
+
 ctxHeadParameters ::
   HydraContext ->
   HeadParameters
-ctxHeadParameters HydraContext{ctxContestationPeriod, ctxParties} =
-  HeadParameters ctxContestationPeriod ctxParties
+ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
+  HeadParameters ctxContestationPeriod (ctxParties ctx)
 
 --
 -- Generators
@@ -62,13 +66,13 @@ genHydraContext maxParties = choose (1, maxParties) >>= genHydraContextFor
 genHydraContextFor :: Int -> Gen HydraContext
 genHydraContextFor n = do
   ctxVerificationKeys <- replicateM n genVerificationKey
-  ctxParties <- vector n
+  let ctxHydraSigningKeys = Hydra.generateKey . fromIntegral <$> [1 .. n]
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
   ctxContestationPeriod <- arbitrary
   pure $
     HydraContext
       { ctxVerificationKeys
-      , ctxParties
+      , ctxHydraSigningKeys
       , ctxNetworkId
       , ctxContestationPeriod
       }
@@ -76,8 +80,8 @@ genHydraContextFor n = do
 genStIdle ::
   HydraContext ->
   Gen (OnChainHeadState 'StIdle)
-genStIdle HydraContext{ctxVerificationKeys, ctxNetworkId, ctxParties} = do
-  ownParty <- elements ctxParties
+genStIdle ctx@HydraContext{ctxVerificationKeys, ctxNetworkId} = do
+  ownParty <- elements (ctxParties ctx)
   ownVerificationKey <- elements ctxVerificationKeys
   let peerVerificationKeys = ctxVerificationKeys \\ [ownVerificationKey]
   pure $ idleOnChainHeadState ctxNetworkId peerVerificationKeys ownVerificationKey ownParty
