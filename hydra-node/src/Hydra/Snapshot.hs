@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.Snapshot where
@@ -10,6 +9,8 @@ import Cardano.Crypto.Util (SignableRepresentation (..))
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Party (MultiSigned)
+import qualified Hydra.Party as Hydra
+import Test.QuickCheck (frequency)
 
 type SnapshotNumber = Natural
 
@@ -105,4 +106,21 @@ isInitialSnapshot = \case
   ConfirmedSnapshot{} -> False
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ConfirmedSnapshot tx) where
-  arbitrary = genericArbitrary
+  arbitrary = do
+    ks <- fmap Hydra.generateKey <$> arbitrary
+    genConfirmedSnapshot ks
+
+genConfirmedSnapshot ::
+  (Arbitrary tx, Arbitrary (UTxOType tx)) =>
+  [Hydra.SigningKey] ->
+  Gen (ConfirmedSnapshot tx)
+genConfirmedSnapshot sks =
+  frequency
+    [ (1, InitialSnapshot <$> arbitrary)
+    , (9, confirmedSnapshot)
+    ]
+ where
+  confirmedSnapshot = do
+    snapshot <- arbitrary
+    let signatures = Hydra.aggregate $ fmap (`Hydra.sign` snapshot) sks
+    pure $ ConfirmedSnapshot{snapshot, signatures}

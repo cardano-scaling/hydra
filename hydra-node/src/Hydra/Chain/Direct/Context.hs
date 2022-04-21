@@ -28,7 +28,7 @@ import Hydra.Chain.Direct.State (
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party)
 import qualified Hydra.Party as Hydra
-import Hydra.Snapshot (ConfirmedSnapshot (..))
+import Hydra.Snapshot (genConfirmedSnapshot)
 import Test.QuickCheck (choose, elements, frequency, vector)
 
 -- | Define some 'global' context from which generators can pick
@@ -150,13 +150,6 @@ genStOpen ctx = do
   stInitialized <- executeCommits initTx commits <$> genStIdle ctx
   let collectComTx = collect stInitialized
   pure $ snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized
-
-genConfirmedSnapshot :: [Hydra.SigningKey] -> Gen (ConfirmedSnapshot Tx)
-genConfirmedSnapshot sks = do
-  snapshot <- arbitrary
-  let signatures = Hydra.aggregate $ fmap (`Hydra.sign` snapshot) sks
-  -- TODO: yield some initial snapshots
-  pure $ ConfirmedSnapshot{snapshot, signatures}
 
 --
 -- Here be dragons
