@@ -136,7 +136,7 @@ genCollectComTx numParties = do
 
 genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx)
 genCloseTx numParties = do
-  ctx <- genHydraContext numParties
+  ctx <- genHydraContextFor numParties
   stOpen <- genStOpen ctx
   snapshot <- genConfirmedSnapshot (ctxHydraSigningKeys ctx)
   pure (stOpen, close snapshot stOpen)
