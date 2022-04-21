@@ -26,7 +26,7 @@ import Hydra.Chain.Direct.State (
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party)
 import qualified Hydra.Party as Hydra
-import Test.QuickCheck (choose, elements, frequency)
+import Test.QuickCheck (choose, elements, frequency, vector)
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -66,8 +66,7 @@ genHydraContext maxParties = choose (1, maxParties) >>= genHydraContextFor
 genHydraContextFor :: Int -> Gen HydraContext
 genHydraContextFor n = do
   ctxVerificationKeys <- replicateM n genVerificationKey
-  startPoint <- arbitrary
-  let ctxHydraSigningKeys = Hydra.generateKey . fromIntegral <$> [startPoint .. startPoint + n]
+  ctxHydraSigningKeys <- fmap Hydra.generateKey <$> vector n
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
   ctxContestationPeriod <- arbitrary
   pure $
