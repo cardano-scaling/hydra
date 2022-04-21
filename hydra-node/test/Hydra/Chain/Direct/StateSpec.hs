@@ -49,12 +49,15 @@ import Hydra.Chain.Direct.Context (
   ctxHeadParameters,
   ctxParties,
   executeCommits,
+  genCloseTx,
+  genCollectComTx,
   genCommit,
   genCommits,
   genHydraContext,
   genInitTx,
   genStIdle,
   genStInitialized,
+  genStOpen,
   unsafeCommit,
   unsafeObserveTx,
  )
@@ -69,7 +72,6 @@ import Hydra.Chain.Direct.State (
   TransitionFrom (..),
   abort,
   close,
-  collect,
   commit,
   fanout,
   getKnownUTxO,
@@ -87,8 +89,6 @@ import Hydra.Ledger.Cardano (
   simplifyUTxO,
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
-import qualified Hydra.Party as Hydra
-import Hydra.Snapshot (ConfirmedSnapshot (..), isInitialSnapshot)
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
@@ -354,7 +354,7 @@ propBelowSizeLimit ::
   SpecWith ()
 propBelowSizeLimit txSizeLimit forAllTx =
   prop ("transaction size is below " <> showKB txSizeLimit) $
-    forAllTx $ \_st tx ->
+    forAllTx $ \_ tx ->
       let cbor = serialize tx
           len = LBS.length cbor
        in len < txSizeLimit
@@ -372,20 +372,20 @@ propIsValid ::
   SpecWith ()
 propIsValid exUnits forAllTx =
   prop ("validates within " <> show exUnits) $
-    forAllTx $ \st tx ->
+    forAllTx $ \st tx -> do
       let lookupUTxO = getKnownUTxO st
-       in case evaluateTx' exUnits tx lookupUTxO of
-            Left basicFailure ->
-              property False
-                & counterexample ("Tx: " <> renderTx tx)
-                & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
-                & counterexample ("Phase-1 validation failed: " <> show basicFailure)
-            Right redeemerReport ->
-              all isRight (Map.elems redeemerReport)
-                & counterexample ("Tx: " <> renderTx tx)
-                & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
-                & counterexample ("Redeemer report: " <> show redeemerReport)
-                & counterexample "Phase-2 validation failed"
+      case evaluateTx' exUnits tx lookupUTxO of
+        Left basicFailure ->
+          property False
+            & counterexample ("Tx: " <> renderTx tx)
+            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+            & counterexample ("Phase-1 validation failed: " <> show basicFailure)
+        Right redeemerReport ->
+          all isRight (Map.elems redeemerReport)
+            & counterexample ("Tx: " <> renderTx tx)
+            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+            & counterexample ("Redeemer report: " <> show redeemerReport)
+            & counterexample "Phase-2 validation failed"
 
 --
 -- QuickCheck Extras
@@ -496,29 +496,16 @@ forAllCollectCom ::
   (Testable property) =>
   (OnChainHeadState 'StInitialized -> Tx -> property) ->
   Property
-forAllCollectCom action = do
-  forAll (genHydraContext 3) $ \ctx ->
-    forAllShow (genInitTx ctx) renderTx $ \initTx -> do
-      forAllShow (genCommits ctx initTx) renderTxs $ \commits ->
-        forAll (genStIdle ctx) $ \stIdle ->
-          let stInitialized = executeCommits initTx commits stIdle
-           in action stInitialized (collect stInitialized)
+forAllCollectCom action =
+  forAll (genCollectComTx 3) $ uncurry action
 
 forAllClose ::
   (Testable property) =>
   (OnChainHeadState 'StOpen -> Tx -> property) ->
   Property
 forAllClose action = do
-  forAll (genHydraContext 3) $ \ctx ->
-    forAll (genStOpen ctx) $ \stOpen ->
-      forAll (genConfirmedSnapshot (ctxHydraSigningKeys ctx)) $ \snapshot ->
-        action stOpen (close snapshot stOpen)
-          & classify
-            (isInitialSnapshot snapshot)
-            "Close with initial snapshot"
-          & classify
-            (not (isInitialSnapshot snapshot))
-            "Close with multi-signed snapshot"
+  -- TODO: label / classify tx and snapshots to understand test failures
+  forAll (genCloseTx 3) $ uncurry action
 
 forAllFanout ::
   (Testable property) =>
@@ -552,16 +539,6 @@ genByronCommit = do
   value <- genValue
   pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone)
 
-genStOpen ::
-  HydraContext ->
-  Gen (OnChainHeadState 'StOpen)
-genStOpen ctx = do
-  initTx <- genInitTx ctx
-  commits <- genCommits ctx initTx
-  stInitialized <- executeCommits initTx commits <$> genStIdle ctx
-  let collectComTx = collect stInitialized
-  pure $ snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized
-
 genStClosed ::
   HydraContext ->
   Gen (OnChainHeadState 'StClosed)
@@ -580,12 +557,6 @@ genBlockAt sl txs = do
   adjustSlot (Ledger.BHeader body sig) =
     let body' = body{Ledger.bheaderSlotNo = sl}
      in Ledger.BHeader body' sig
-
-genConfirmedSnapshot :: [Hydra.SigningKey] -> Gen (ConfirmedSnapshot Tx)
-genConfirmedSnapshot sks = do
-  snapshot <- arbitrary
-  let signatures = Hydra.aggregate $ fmap (`Hydra.sign` snapshot) sks
-  pure $ ConfirmedSnapshot{snapshot, signatures}
 
 --
 -- Wrapping Transition for easy labelling

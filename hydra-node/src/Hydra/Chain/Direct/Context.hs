@@ -18,6 +18,8 @@ import Hydra.Chain.Direct.State (
   HeadStateKind (..),
   ObserveTx,
   OnChainHeadState,
+  close,
+  collect,
   commit,
   idleOnChainHeadState,
   initialize,
@@ -26,6 +28,7 @@ import Hydra.Chain.Direct.State (
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party)
 import qualified Hydra.Party as Hydra
+import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Test.QuickCheck (choose, elements, frequency, vector)
 
 -- | Define some 'global' context from which generators can pick
@@ -121,6 +124,39 @@ genCommit =
     [ (1, pure mempty)
     , (10, genVerificationKey >>= genOneUTxOFor)
     ]
+
+genCollectComTx :: Int -> Gen (OnChainHeadState 'StInitialized, Tx)
+genCollectComTx numParties = do
+  ctx <- genHydraContextFor numParties
+  initTx <- genInitTx ctx
+  commits <- genCommits ctx initTx
+  stIdle <- genStIdle ctx
+  let stInitialized = executeCommits initTx commits stIdle
+  pure (stInitialized, collect stInitialized)
+
+genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx)
+genCloseTx numParties = do
+  ctx <- genHydraContext numParties
+  stOpen <- genStOpen ctx
+  snapshot <- genConfirmedSnapshot (ctxHydraSigningKeys ctx)
+  pure (stOpen, close snapshot stOpen)
+
+genStOpen ::
+  HydraContext ->
+  Gen (OnChainHeadState 'StOpen)
+genStOpen ctx = do
+  initTx <- genInitTx ctx
+  commits <- genCommits ctx initTx
+  stInitialized <- executeCommits initTx commits <$> genStIdle ctx
+  let collectComTx = collect stInitialized
+  pure $ snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized
+
+genConfirmedSnapshot :: [Hydra.SigningKey] -> Gen (ConfirmedSnapshot Tx)
+genConfirmedSnapshot sks = do
+  snapshot <- arbitrary
+  let signatures = Hydra.aggregate $ fmap (`Hydra.sign` snapshot) sks
+  -- TODO: yield some initial snapshots
+  pure $ ConfirmedSnapshot{snapshot, signatures}
 
 --
 -- Here be dragons
