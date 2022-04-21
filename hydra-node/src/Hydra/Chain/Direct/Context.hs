@@ -66,7 +66,8 @@ genHydraContext maxParties = choose (1, maxParties) >>= genHydraContextFor
 genHydraContextFor :: Int -> Gen HydraContext
 genHydraContextFor n = do
   ctxVerificationKeys <- replicateM n genVerificationKey
-  let ctxHydraSigningKeys = Hydra.generateKey . fromIntegral <$> [1 .. n]
+  startPoint <- arbitrary
+  let ctxHydraSigningKeys = Hydra.generateKey . fromIntegral <$> [startPoint .. startPoint + n]
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
   ctxContestationPeriod <- arbitrary
   pure $

@@ -47,6 +47,7 @@ import Hydra.Chain.Direct (
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
   ctxHeadParameters,
+  ctxParties,
   executeCommits,
   genCommit,
   genCommits,
@@ -86,9 +87,8 @@ import Hydra.Ledger.Cardano (
   simplifyUTxO,
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
-import Hydra.Party (SigningKey)
 import qualified Hydra.Party as Hydra
-import Hydra.Snapshot (ConfirmedSnapshot, isInitialSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), isInitialSnapshot)
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
@@ -582,7 +582,10 @@ genBlockAt sl txs = do
      in Ledger.BHeader body' sig
 
 genConfirmedSnapshot :: [Hydra.SigningKey] -> Gen (ConfirmedSnapshot Tx)
-genConfirmedSnapshot = undefined
+genConfirmedSnapshot sks = do
+  snapshot <- arbitrary
+  let signatures = Hydra.aggregate $ fmap (`Hydra.sign` snapshot) sks
+  pure $ ConfirmedSnapshot{snapshot, signatures}
 
 --
 -- Wrapping Transition for easy labelling
