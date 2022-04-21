@@ -116,10 +116,18 @@ genConfirmedSnapshot ::
   Gen (ConfirmedSnapshot tx)
 genConfirmedSnapshot sks =
   frequency
-    [ (1, InitialSnapshot <$> arbitrary)
+    [ (1, initialSnapshot)
     , (9, confirmedSnapshot)
     ]
  where
+  initialSnapshot = do
+    s <- arbitrary
+    -- FIXME: The fact that we need to set a constant 0 here is a code smell.
+    -- Initial snapshots with a different snapshot number are not valid and we
+    -- should model 'InitialSnapshot' differently, i.e not holding a
+    -- SnapshotNumber
+    pure InitialSnapshot{snapshot = s{number = 0}}
+
   confirmedSnapshot = do
     snapshot <- arbitrary
     let signatures = Hydra.aggregate $ fmap (`Hydra.sign` snapshot) sks
