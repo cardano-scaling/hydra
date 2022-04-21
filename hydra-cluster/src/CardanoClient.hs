@@ -196,7 +196,7 @@ build networkId socket changeAddress ins collateral outs = do
         stakePools
         (UTxO.toApi utxo)
         (bodyContent pparams)
-        (AddressInEra ShelleyAddressInAnyEra changeAddress)
+        (ShelleyAddressInEra changeAddress)
         noOverrideWitness
  where
   bodyContent pparams =
@@ -312,7 +312,7 @@ waitForUTxO networkId nodeSocket utxo =
  where
   forEachUTxO :: TxOut CtxUTxO -> IO ()
   forEachUTxO = \case
-    TxOut (AddressInEra _ addr@ShelleyAddress{}) value _ -> do
+    TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ -> do
       void $
         waitForPayment
           networkId

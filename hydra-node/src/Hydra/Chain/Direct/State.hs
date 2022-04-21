@@ -236,6 +236,7 @@ commit utxo st@OnChainHeadState{networkId, ownParty, ownVerificationKey, stateMa
     Just initial ->
       case UTxO.pairs utxo of
         [aUTxO] -> do
+          rejectByronAddress aUTxO
           Right $ commitTx networkId ownParty (Just aUTxO) initial
         [] -> do
           Right $ commitTx networkId ownParty Nothing initial
@@ -246,6 +247,13 @@ commit utxo st@OnChainHeadState{networkId, ownParty, ownVerificationKey, stateMa
     { initialInitials
     , initialHeadTokenScript
     } = stateMachine
+
+  rejectByronAddress :: (TxIn, TxOut CtxUTxO) -> Either (PostTxError Tx) ()
+  rejectByronAddress = \case
+    (_, TxOut (ByronAddressInEra addr) _ _) ->
+      Left (UnsupportedLegacyOutput addr)
+    (_, TxOut ShelleyAddressInEra{} _ _) ->
+      Right ()
 
 abort ::
   HasCallStack =>

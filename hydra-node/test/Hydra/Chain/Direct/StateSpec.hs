@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 -- Fourmolu chokes on type-applications of promoted constructors (e.g.
 -- @'StInitialized) and is unable to format properly after that. Hence this
@@ -25,14 +26,18 @@ import Hydra.Cardano.Api (
   ExecutionUnits (..),
   SlotNo (..),
   Tx,
+  UTxO,
   blockSlotNo,
   renderUTxO,
   toLedgerTx,
   txInputSet,
   txOutValue,
   valueSize,
+  pattern ByronAddressInEra,
+  pattern TxOut,
+  pattern TxOutDatumNone,
  )
-import Hydra.Chain (ChainEvent (..))
+import Hydra.Chain (ChainEvent (..), PostTxError (..))
 import Hydra.Chain.Direct (
   ChainSyncHandler (..),
   RecordedAt (..),
@@ -64,6 +69,7 @@ import Hydra.Chain.Direct.State (
   abort,
   close,
   collect,
+  commit,
   fanout,
   getKnownUTxO,
   idleOnChainHeadState,
@@ -74,6 +80,7 @@ import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (
   genTxIn,
   genUTxO,
+  genValue,
   renderTx,
   renderTxs,
   simplifyUTxO,
@@ -164,6 +171,11 @@ spec = parallel $ do
               Nothing -> True
           Nothing ->
             False
+
+    prop "reject Commits of Byron outputs" $
+      forAllNonEmptyByronCommit $ \case
+        UnsupportedLegacyOutput{} -> property True
+        _ -> property False
 
   describe "abort" $ do
     propBelowSizeLimit (2 * maxTxSize) forAllAbort
@@ -445,6 +457,17 @@ forAllCommit action = do
                 (not (null utxo))
                 "Non-empty commit"
 
+forAllNonEmptyByronCommit ::
+  (PostTxError Tx -> Property) ->
+  Property
+forAllNonEmptyByronCommit action = do
+  forAll (genHydraContext 3) $ \ctx ->
+    forAll (genStInitialized ctx) $ \stInitialized ->
+      forAllShow genByronCommit renderUTxO $ \utxo ->
+        case commit utxo stInitialized of
+          Right{} -> property False
+          Left e -> action e
+
 forAllAbort ::
   (Testable property) =>
   (OnChainHeadState 'StInitialized -> Tx -> property) ->
@@ -518,6 +541,13 @@ forAllFanout action = do
 --
 -- Generators
 --
+
+genByronCommit :: Gen UTxO
+genByronCommit = do
+  input <- arbitrary
+  addr <- ByronAddressInEra <$> arbitrary
+  value <- genValue
+  pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone)
 
 genStOpen ::
   HydraContext ->

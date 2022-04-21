@@ -86,6 +86,7 @@ import Hydra.Cardano.Api.Prelude (
   StandardCrypto,
  )
 
+import Hydra.Cardano.Api.Address ()
 import Hydra.Cardano.Api.AddressInEra as Extras
 import Hydra.Cardano.Api.CtxTx as Extras
 import Hydra.Cardano.Api.CtxUTxO as Extras
@@ -131,14 +132,21 @@ import qualified Cardano.Ledger.Shelley.Tx as Ledger hiding (TxBody)
 -- ** AddressInEra
 
 type AddressInEra = Cardano.Api.AddressInEra Era
-{-# COMPLETE AddressInEra #-}
+{-# COMPLETE ShelleyAddressInEra, ByronAddressInEra #-}
 
-pattern AddressInEra :: AddressTypeInEra addrtype -> Address addrtype -> AddressInEra
-pattern AddressInEra{addressTypeInEra, address} <-
-  Cardano.Api.AddressInEra addressTypeInEra address
+pattern ShelleyAddressInEra :: Address ShelleyAddr -> AddressInEra
+pattern ShelleyAddressInEra{address} <-
+  Cardano.Api.AddressInEra Cardano.Api.ShelleyAddressInEra{} address
   where
-    AddressInEra =
-      Cardano.Api.AddressInEra
+    ShelleyAddressInEra =
+      Cardano.Api.AddressInEra ShelleyAddressInAnyEra
+
+pattern ByronAddressInEra :: Address ByronAddr -> AddressInEra
+pattern ByronAddressInEra{byronAddress} <-
+  Cardano.Api.AddressInEra Cardano.Api.ByronAddressInAnyEra byronAddress
+  where
+    ByronAddressInEra =
+      Cardano.Api.AddressInEra ByronAddressInAnyEra
 
 -- ** AddressTypeInEra
 

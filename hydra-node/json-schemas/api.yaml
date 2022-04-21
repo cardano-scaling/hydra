@@ -506,6 +506,13 @@ components:
         - "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5"
         - "addr_test1gpr87kyn9d2fzpvy5r5w5fdzyhsx59znpvhfd6fcc5ar7g5yl33cdg0cq24ewdshsutgm"
 
+    ByronAddress:
+      type: string
+      description: |
+        A legacy Byron address.
+      examples:
+        - "DdzFFzCqrht2KG1vWt5WGhVC9Ezyu32RgB5M2DocdZ6BQU6zj69LSqksDmdM"
+
     Cbor:
       type: string
       description: |
@@ -840,6 +847,20 @@ components:
               $ref: "#/components/schemas/UTxO"
               description: >-
                 The known UTxO within which the Initial script was looked up for.
+        - title: UnsupportedLegacyOutput
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - byronAddress
+          description: >-
+            The UTxO provided for commit is locked by a (legacy) Byron address, which is not supported.
+          properties:
+            tag:
+              type: string
+              enum: ["UnsupportedLegacyOutput"]
+            byronAddress:
+              $ref: "#/components/schemas/ByronAddress"
         - title: NoSeedInput
           type: object
           additionalProperties: false
