@@ -79,7 +79,7 @@ decodeAddress ::
   Text ->
   Parser (Ledger.Addr crypto)
 decodeAddress t =
-  decodeBech32 <|> decodeBase16
+  decodeBech32 <|> parseJSON (String t)
  where
   decodeBech32 =
     case Bech32.decodeLenient t of
@@ -89,9 +89,6 @@ decodeAddress t =
         case Bech32.dataPartToBytes dataPart >>= Ledger.deserialiseAddr of
           Nothing -> fail "failed to deserialise addresse."
           Just addr -> pure addr
-
-  decodeBase16 =
-    parseJSON (String t)
 
 --
 -- AuxiliaryData
