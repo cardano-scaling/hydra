@@ -43,6 +43,9 @@ type SignAlg = Ed25519DSIGN
 
 -- | Hydra signing key which can be used to 'sign' messages and 'aggregate'
 -- multi-signatures or 'deriveVerificationKey'.
+--
+-- FIXME: rewrite Show instance to /not/ expose secret, eg. 8 bytes from the hash of
+-- the key
 newtype SigningKey = HydraSigningKey (SignKeyDSIGN SignAlg)
   deriving (Eq, Show)
 
@@ -87,7 +90,6 @@ generateVerificationKey =
 hashVerificationKey :: VerificationKey -> Hash Blake2b_256 VerificationKey
 hashVerificationKey (HydraVerificationKey vk) =
   castHash $ hashVerKeyDSIGN vk
-
 -- * Signatures
 
 -- | Signature of 'a', not containing the actual payload.
