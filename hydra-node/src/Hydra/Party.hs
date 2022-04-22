@@ -77,17 +77,9 @@ deriveParty = Party . Hydra.deriveVerificationKey
 -- aggregate :: [Signed a] -> MultiSigned a
 -- aggregate = MultiSigned
 
--- toPlutusSignatures :: MultiSigned a -> [Plutus.Signature]
--- toPlutusSignatures (MultiSigned sigs) =
---   toPlutusSignature <$> sigs
-
 -- -- | Signature of 'a'
 -- newtype Signed a = UnsafeSigned ByteString
 --   deriving (Eq, Show)
-
--- toPlutusSignature :: Signed a -> Plutus.Signature
--- toPlutusSignature (UnsafeSigned bs) =
---   Plutus.Signature . Plutus.toBuiltin $ bs
 
 -- instance Arbitrary (Signed a) where
 --   arbitrary = do

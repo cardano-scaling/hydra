@@ -24,6 +24,7 @@ import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
+import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -38,7 +39,7 @@ import Hydra.Ledger.Cardano.Builder (
   mintTokens,
   unsafeBuildTransaction,
  )
-import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
+import Hydra.Party (Party (Party), vkey)
 import Hydra.Snapshot (Snapshot (..))
 import Ledger.Typed.Scripts (DatumType)
 import Plutus.V1.Ledger.Api (fromBuiltin, fromData)

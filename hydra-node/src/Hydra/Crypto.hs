@@ -39,6 +39,8 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
+import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Plutus.V1.Ledger.Crypto as Plutus
 import Text.Show (Show (show))
 
 -- | The used signature algorithm
@@ -185,3 +187,11 @@ aggregateInOrder signatures = HydraMultiSignature . foldr appendSignature []
     case Map.lookup k signatures of
       Nothing -> sigs
       Just sig -> sig : sigs
+
+toPlutusSignatures :: MultiSignature a -> [Plutus.Signature]
+toPlutusSignatures (HydraMultiSignature sigs) =
+  toPlutusSignature <$> sigs
+ where
+  toPlutusSignature :: Signature a -> Plutus.Signature
+  toPlutusSignature (HydraSignature sig) =
+    Plutus.Signature . Plutus.toBuiltin $ rawSerialiseSigDSIGN sig
