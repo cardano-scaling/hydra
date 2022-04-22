@@ -24,6 +24,7 @@ import Cardano.Crypto.DSIGN (
   deriveVerKeyDSIGN,
   genKeyDSIGN,
   hashVerKeyDSIGN,
+  rawDeserialiseSigDSIGN,
   rawDeserialiseVerKeyDSIGN,
   rawSerialiseSigDSIGN,
   rawSerialiseVerKeyDSIGN,
@@ -113,6 +114,7 @@ hashVerificationKey (HydraVerificationKey vk) =
 -- | Signature of 'a', not containing the actual payload.
 newtype Signature a = HydraSignature (SigDSIGN SignAlg)
   deriving (Eq)
+  deriving newtype (ToCBOR, FromCBOR)
 
 instance Show (Signature a) where
   show (HydraSignature sig) =
@@ -126,6 +128,19 @@ instance Hashable (Signature a) where
 
 instance (Arbitrary a, SignableRepresentation a) => Arbitrary (Signature a) where
   arbitrary = sign <$> arbitrary <*> arbitrary
+
+instance ToJSON a => ToJSON (Signature a) where
+  toJSON (HydraSignature sig) = Aeson.String $ decodeUtf8 hexBytes
+   where
+    hexBytes = Base16.encode $ rawSerialiseSigDSIGN sig
+
+instance FromJSON a => FromJSON (Signature a) where
+  parseJSON = Aeson.withText "Signed" $ \t -> do
+    bs <- decodeBase16 t
+    maybe
+      (fail "deserialise signature from bytes failed")
+      (pure . HydraSignature)
+      $ rawDeserialiseSigDSIGN bs
 
 -- | Sign some value 'a' with the provided 'SigningKey'.
 sign :: SignableRepresentation a => SigningKey -> a -> Signature a
@@ -150,6 +165,7 @@ verify (HydraVerificationKey vk) (HydraSignature sig) a =
 -- | Naiively aggregated multi-signatures.
 newtype MultiSignature a = HydraMultiSignature [Signature a]
   deriving (Eq, Show)
+  deriving newtype (ToJSON, FromJSON)
 
 -- | Combine multiple signatures of 'a' into a 'MultiSignature a'.
 aggregate :: [Signature a] -> MultiSignature a

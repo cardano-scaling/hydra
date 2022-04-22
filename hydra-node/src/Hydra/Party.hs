@@ -1,18 +1,10 @@
-{-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 -- | Types and functions revolving around a Hydra 'Party'. That is, a
 -- participant in a Hydra Head, which signs transactions or snapshots in the
--- Hydra protocol. Hence, this module also includes functions to sign and verify
--- data given a 'Party'.
+-- Hydra protocol.
 module Hydra.Party where
 
 import Hydra.Prelude hiding (show)
 
-import Cardano.Crypto.DSIGN (
-  DSIGNAlgorithm (..),
- )
-import Cardano.Crypto.Hash (Blake2b_256)
 import Data.Aeson (ToJSONKey)
 import Data.Aeson.Types (FromJSONKey)
 import Hydra.Crypto (hashVerificationKey)
