@@ -31,19 +31,6 @@ PlutusTx.makeLift ''Party
 instance Arbitrary Party where
   arbitrary = UnsafeParty . toBuiltin . BS.pack <$> vector 32
 
-instance ToJSON Party where
-  toJSON p =
-    object ["vkey" .= (String . decodeUtf8 . Base16.encode $ rawSerialiseVerKeyDSIGN vkey)]
-   where
-    vkey = partyToVerKey p
-
-instance FromJSON Party where
-  parseJSON = withObject "Party" $ \o -> do
-    vkeyHex :: Text <- o .: "vkey"
-    vkeyBytes <- either fail pure . Base16.decode $ encodeUtf8 vkeyHex
-    verKey <- maybe (fail "deserialize verification key") pure $ rawDeserialiseVerKeyDSIGN vkeyBytes
-    pure $ partyFromVerKey verKey
-
 instance PlutusTx.ToData Party where
   toBuiltinData (UnsafeParty bytes) = toBuiltinData bytes
 

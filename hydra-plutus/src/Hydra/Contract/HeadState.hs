@@ -25,7 +25,6 @@ data State
   | Closed {snapshotNumber :: SnapshotNumber, utxoHash :: Hash}
   | Final
   deriving stock (Generic, Show)
-  deriving anyclass (FromJSON, ToJSON)
 
 PlutusTx.unstableMakeIsData ''State
 
