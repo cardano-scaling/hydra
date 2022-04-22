@@ -88,52 +88,45 @@ encodeAddress encodeAddress155,156
 encodeValue encodeValue164,165
 encodeDatum encodeDatum172,173
 
-./bench-cek/Main.hs,1015
+./bench/BenchHaskell.hs,243
 module Main Main2,3
-main main28,29
-cborgSerialize cborgSerialize62,63
-plutusSerialize plutusSerialize66,67
-encodeTxOut encodeTxOut69,70
-encodeAddress encodeAddress83,84
-encodeValue encodeValue92,93
-encodeDatum encodeDatum100,101
-genTxOut genTxOut107,108
-genAdaOnlyTxOut genAdaOnlyTxOut114,115
-genAddress genAddress121,122
-genValue genValue127,128
-genAdaOnlyValue genAdaOnlyValue137,138
-genAssetQuantity genAssetQuantity145,146
-genCurrencySymbol genCurrencySymbol148,149
-genTokenName genTokenName153,154
-genDatumHash genDatumHash158,159
-genByteStringOf genByteStringOf163,164
-getConfig getConfig189,190
-type Term Term199,200
-toNamedDeBruijnTerm toNamedDeBruijnTerm207,208
-toAnonDeBruijnTerm toAnonDeBruijnTerm213,214
-compiledCodeToTerm compiledCodeToTerm218,219
-haskellValueToTerm haskellValueToTerm224,225
-benchTermCek benchTermCek228,229
-runTermCek runTermCek233,234
-type Result Result236,237
-cekResultMatchesHaskellValue cekResultMatchesHaskellValue244,245
+main main25,26
+cborgSerialize cborgSerialize59,60
+plutusSerialize plutusSerialize63,64
+encodeTxOut encodeTxOut66,67
+encodeAddress encodeAddress80,81
+encodeValue encodeValue89,90
+encodeDatum encodeDatum97,98
 
-./bench-haskell/Main.hs,611
+./bench/BenchPlc.hs,647
 module Main Main2,3
-main main29,30
-cborgSerialize cborgSerialize63,64
-plutusSerialize plutusSerialize67,68
-encodeTxOut encodeTxOut70,71
-encodeAddress encodeAddress84,85
-encodeValue encodeValue93,94
-encodeDatum encodeDatum101,102
-genTxOut genTxOut108,109
-genAdaOnlyTxOut genAdaOnlyTxOut115,116
-genAddress genAddress122,123
-genValue genValue128,129
-genAdaOnlyValue genAdaOnlyValue138,139
-genAssetQuantity genAssetQuantity146,147
-genCurrencySymbol genCurrencySymbol149,150
-genTokenName genTokenName154,155
-genDatumHash genDatumHash159,160
-genByteStringOf genByteStringOf164,165
+main main25,26
+cborgSerialize cborgSerialize59,60
+plutusSerialize plutusSerialize63,64
+encodeTxOut encodeTxOut66,67
+encodeAddress encodeAddress80,81
+encodeValue encodeValue89,90
+encodeDatum encodeDatum97,98
+getConfig getConfig123,124
+type Term Term133,134
+toNamedDeBruijnTerm toNamedDeBruijnTerm141,142
+toAnonDeBruijnTerm toAnonDeBruijnTerm147,148
+compiledCodeToTerm compiledCodeToTerm152,153
+haskellValueToTerm haskellValueToTerm158,159
+benchTermCek benchTermCek162,163
+runTermCek runTermCek167,168
+type Result Result170,171
+cekResultMatchesHaskellValue cekResultMatchesHaskellValue178,179
+
+./bench/TxGen.hs,369
+module TxGenTxGen0,1
+genTxOut genTxOut13,14
+genAdaOnlyTxOut genAdaOnlyTxOut20,21
+genAddress genAddress27,28
+genValue genValue33,34
+genAdaOnlyValue genAdaOnlyValue43,44
+genAssetQuantity genAssetQuantity51,52
+genCurrencySymbol genCurrencySymbol54,55
+genTokenName genTokenName59,60
+genDatumHash genDatumHash64,65
+genByteStringOf genByteStringOf69,70

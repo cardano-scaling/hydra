@@ -3,10 +3,10 @@
 module Main where
 
 import           Hydra.Prelude              hiding ((<>))
+import           TxGen
 
 import           Codec.Serialise            (serialise)
 import           Criterion.Main             (bench, bgroup, defaultMain, whnf)
-import qualified Data.ByteString            as BS
 import           Plutus.Codec.CBOR.Encoding (Encoding, encodeByteString,
                                              encodeInteger, encodeListLen,
                                              encodeMap, encodeMaybe,
@@ -21,10 +21,7 @@ import           Plutus.V1.Ledger.Api       (Address (..), BuiltinByteString,
                                              ValidatorHash (ValidatorHash),
                                              Value (getValue), toBuiltin,
                                              toData)
-import qualified Plutus.V1.Ledger.Api       as Plutus
-import qualified PlutusTx.AssocMap          as Plutus.Map
 import           PlutusTx.Semigroup         ((<>))
-import           Test.QuickCheck            (choose, oneof, vector, vectorOf)
 
 main :: IO ()
 main = do
@@ -102,69 +99,6 @@ encodeDatum :: Maybe DatumHash -> Encoding
 encodeDatum =
   encodeMaybe (\(DatumHash h) -> encodeByteString h)
 {-# INLINEABLE encodeDatum #-}
-
--- * Benchmark values
-
-genTxOut :: Int -> Gen Plutus.TxOut
-genTxOut n = do
-  Plutus.TxOut
-    <$> genAddress
-    <*> fmap mconcat (vectorOf n genValue)
-    <*> oneof [pure Nothing, Just <$> genDatumHash]
-
-genAdaOnlyTxOut :: Gen Plutus.TxOut
-genAdaOnlyTxOut =
-  Plutus.TxOut
-    <$> genAddress
-    <*> genAdaOnlyValue
-    <*> oneof [pure Nothing, Just <$> genDatumHash]
-
-genAddress :: Gen Plutus.Address
-genAddress =
-  Plutus.Address
-    <$> fmap (Plutus.PubKeyCredential . Plutus.PubKeyHash . Plutus.toBuiltin) (genByteStringOf 28)
-    <*> pure Nothing
-
-genValue :: Gen Plutus.Value
-genValue = do
-  n <- genAssetQuantity
-  policyId <- genCurrencySymbol
-  assetName <- genTokenName
-  pure $
-    Plutus.Value $
-      Plutus.Map.fromList
-        [(policyId, Plutus.Map.fromList [(assetName, n)])]
-
-genAdaOnlyValue :: Gen Plutus.Value
-genAdaOnlyValue = do
-  n <- genAssetQuantity
-  pure $
-    Plutus.Value $
-      Plutus.Map.fromList
-        [(Plutus.adaSymbol, Plutus.Map.fromList [(Plutus.adaToken, n)])]
-
-genAssetQuantity :: Gen Integer
-genAssetQuantity = choose (1, 4_294_967_296) -- NOTE: 2**32
-
-genCurrencySymbol :: Gen Plutus.CurrencySymbol
-genCurrencySymbol =
-  Plutus.CurrencySymbol
-    <$> fmap Plutus.toBuiltin (genByteStringOf 32)
-
-genTokenName :: Gen Plutus.TokenName
-genTokenName =
-  Plutus.TokenName
-    <$> fmap Plutus.toBuiltin (genByteStringOf =<< choose (0, 32))
-
-genDatumHash :: Gen Plutus.DatumHash
-genDatumHash =
-  Plutus.DatumHash
-    <$> fmap Plutus.toBuiltin (genByteStringOf 32)
-
-genByteStringOf :: Int -> Gen ByteString
-genByteStringOf n =
-  BS.pack <$> vector n
-
 
 -- mkClausifyCode :: StaticFormula -> Tx.CompiledCode [LRVars]
 -- mkClausifyCode formula = $$(Tx.compile [|| runClausify ||])`Tx.applyCode` Tx.liftCode formula

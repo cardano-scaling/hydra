@@ -65,8 +65,8 @@ common project-config
     -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
     -fno-strictness -fprint-potential-instances
 
-  if !flag(hydra-development)
-    ghc-options: -Werror
+--  if !flag(hydra-development)
+--    ghc-options: -Werror
 
 library
   import:          project-config
@@ -110,8 +110,9 @@ test-suite unit
 benchmark bench-haskell
   import:             project-config
   type:               exitcode-stdio-1.0
-  hs-source-dirs:     bench-haskell
-  main-is:            Main.hs
+  hs-source-dirs:     bench
+  main-is:            BenchHaskell.hs
+  other-modules:      TxGen
   ghc-options:        -threaded -rtsopts
   build-tool-depends: hspec-discover:hspec-discover -any
   build-depends:
@@ -127,11 +128,12 @@ benchmark bench-haskell
     , QuickCheck
     , serialise
 
-benchmark bench-cek
+benchmark bench-plc
   import:             project-config
   type:               exitcode-stdio-1.0
-  hs-source-dirs:     bench-cek
-  main-is:            Main.hs
+  hs-source-dirs:     bench
+  main-is:            BenchPlc.hs
+  other-modules:      TxGen
   ghc-options:        -threaded -rtsopts
   build-tool-depends: hspec-discover:hspec-discover -any
   build-depends:
