@@ -1,0 +1,139 @@
+
+./test/Main.hs,38
+module Main Main0,1
+main main9,10
+
+./test/Spec.hs,0
+
+./test/Plutus/Codec/CBOR/EncodingSpec.hs,526
+module Plutus.Codec.CBOR.EncodingSpec Plutus.Codec.CBOR.EncodingSpec0,1
+import import27,28
+spec spec44,45
+propCompareWithOracle propCompareWithOracle55,56
+data SomeValue SomeValue75,76
+  SomeValue SomeValue76,77
+instance Prelude.Show Prelude-Show SomeValue85,86
+  show show86,87
+shrinkSomeValue shrinkSomeValue88,89
+genSomeValue genSomeValue92,93
+genInteger genInteger221,222
+genByteString genByteString237,238
+shrinkByteString shrinkByteString241,242
+genList genList245,246
+genMap genMap250,251
+
+./src/Plutus/Codec/CBOR/Encoding.hs,1145
+module Plutus.Codec.CBOR.Encoding Plutus.Codec.CBOR.Encoding41,42
+newtype Encoding Encoding85,86
+instance Semigroup Semigroup Encoding87,88
+  (E(Encodinga)88,89
+instance Monoid Monoid Encoding90,91
+  mempty mempty91,92
+encodingToBuiltinByteString encodingToBuiltinByteString94,95
+encodeBool encodeBool102,103
+encodeInteger encodeInteger116,117
+encodeByteString encodeByteString125,126
+encodeString encodeString131,132
+encodeNull encodeNull137,138
+encodeBreak encodeBreak146,147
+encodeListLen encodeListLen162,163
+encodeBeginList encodeBeginList179,180
+encodeList encodeList186,187
+encodeListIndef encodeListIndef198,199
+encodeMapLen encodeMapLen219,220
+encodeBeginMap encodeBeginMap236,237
+encodeMap encodeMap243,244
+encodeMapIndef encodeMapIndef255,256
+encodeMaybe encodeMaybe266,267
+encodeTag encodeTag295,296
+unsafeEncodeRaw unsafeEncodeRaw304,305
+withMajorType withMajorType311,312
+encodeUnsigned encodeUnsigned316,317
+encodeUnsigned8 encodeUnsigned8330,331
+encodeUnsigned16 encodeUnsigned16334,335
+encodeUnsigned32 encodeUnsigned32339,340
+encodeUnsigned64 encodeUnsigned64344,345
+
+./exe/encoding-cost/Main.hs,459
+main main31,32
+relativeCostOf relativeCostOf56,57
+rationalToPercent rationalToPercent79,80
+genTxOut genTxOut89,90
+genAdaOnlyTxOut genAdaOnlyTxOut96,97
+genAddress genAddress103,104
+genValue genValue109,110
+genAdaOnlyValue genAdaOnlyValue119,120
+genAssetQuantity genAssetQuantity127,128
+genCurrencySymbol genCurrencySymbol130,131
+genTokenName genTokenName135,136
+genDatumHash genDatumHash140,141
+genByteStringOf genByteStringOf145,146
+
+./exe/encoding-cost/Plutus/Codec/CBOR/Encoding/Validator.hs,864
+module Plutus.Codec.CBOR.Encoding.Validator Plutus.Codec.CBOR.Encoding.Validator4,5
+data EncodeValidator EncodeValidator34,35
+data ValidatorKind ValidatorKind36,37
+data ValidatorKind = BaselineValidator BaselineValidator36,37
+data ValidatorKind = BaselineValidator | RealValidatorRealValidator36,37
+instance Scripts.ValidatorTypes Scripts-ValidatorTypes (EncodeValidator a)40,41
+  type DatumType DatumType41,42
+  type RedeemerType RedeemerType42,43
+encodeIntegerValidator encodeIntegerValidator44,45
+encodeByteStringValidator encodeByteStringValidator63,64
+encodeListValidator encodeListValidator82,83
+encodeTxOutValidator encodeTxOutValidator103,104
+encodeTxOutsValidator encodeTxOutsValidator122,123
+encodeTxOut encodeTxOut141,142
+encodeAddress encodeAddress155,156
+encodeValue encodeValue164,165
+encodeDatum encodeDatum172,173
+
+./bench-cek/Main.hs,1015
+module Main Main2,3
+main main28,29
+cborgSerialize cborgSerialize62,63
+plutusSerialize plutusSerialize66,67
+encodeTxOut encodeTxOut69,70
+encodeAddress encodeAddress83,84
+encodeValue encodeValue92,93
+encodeDatum encodeDatum100,101
+genTxOut genTxOut107,108
+genAdaOnlyTxOut genAdaOnlyTxOut114,115
+genAddress genAddress121,122
+genValue genValue127,128
+genAdaOnlyValue genAdaOnlyValue137,138
+genAssetQuantity genAssetQuantity145,146
+genCurrencySymbol genCurrencySymbol148,149
+genTokenName genTokenName153,154
+genDatumHash genDatumHash158,159
+genByteStringOf genByteStringOf163,164
+getConfig getConfig189,190
+type Term Term199,200
+toNamedDeBruijnTerm toNamedDeBruijnTerm207,208
+toAnonDeBruijnTerm toAnonDeBruijnTerm213,214
+compiledCodeToTerm compiledCodeToTerm218,219
+haskellValueToTerm haskellValueToTerm224,225
+benchTermCek benchTermCek228,229
+runTermCek runTermCek233,234
+type Result Result236,237
+cekResultMatchesHaskellValue cekResultMatchesHaskellValue244,245
+
+./bench-haskell/Main.hs,611
+module Main Main2,3
+main main29,30
+cborgSerialize cborgSerialize63,64
+plutusSerialize plutusSerialize67,68
+encodeTxOut encodeTxOut70,71
+encodeAddress encodeAddress84,85
+encodeValue encodeValue93,94
+encodeDatum encodeDatum101,102
+genTxOut genTxOut108,109
+genAdaOnlyTxOut genAdaOnlyTxOut115,116
+genAddress genAddress122,123
+genValue genValue128,129
+genAdaOnlyValue genAdaOnlyValue138,139
+genAssetQuantity genAssetQuantity146,147
+genCurrencySymbol genCurrencySymbol149,150
+genTokenName genTokenName154,155
+genDatumHash genDatumHash159,160
+genByteStringOf genByteStringOf164,165

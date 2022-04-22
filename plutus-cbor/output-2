@@ -1,0 +1,6 @@
+Build profile: -w ghc-8.10.7 -O1
+In order, the following will be built (use -v for more details):
+ - plutus-cbor-1.0.0 (exe:encoding-cost) (file exe/encoding-cost/Main.hs changed)
+Preprocessing executable 'encoding-cost' for plutus-cbor-1.0.0..
+Building executable 'encoding-cost' for plutus-cbor-1.0.0..
+[2 of 2] Compiling Main             ( exe/encoding-cost/Main.hs, /home/kwxm/plutus/hydra-poc/dist-newstyle/build/x86_64-linux/ghc-8.10.7/plutus-cbor-1.0.0/x/encoding-cost/build/encoding-cost/encoding-cost-tmp/Main.o, /home/kwxm/plutus/hydra-poc/dist-newstyle/build/x86_64-linux/ghc-8.10.7/plutus-cbor-1.0.0/x/encoding-cost/build/encoding-cost/encoding-cost-tmp/Main.dyn_o )

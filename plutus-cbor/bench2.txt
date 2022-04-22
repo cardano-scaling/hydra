@@ -1,0 +1,109 @@
+time                 1.022 μs   (1.014 μs .. 1.029 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 1.025 μs   (1.020 μs .. 1.033 μs)
+std dev              29.09 ns   (20.51 ns .. 49.28 ns)
+variance introduced by outliers: 42% (moderately inflated)
+
+benchmarking TxOut/10 assets/plutus-cbor
+time                 9.197 μs   (9.146 μs .. 9.256 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 9.288 μs   (9.234 μs .. 9.404 μs)
+std dev              348.7 ns   (228.3 ns .. 581.2 ns)
+variance introduced by outliers: 51% (severely inflated)
+
+benchmarking TxOut/20 assets/plutus-cbor
+time                 21.47 μs   (21.36 μs .. 21.61 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 21.56 μs   (21.45 μs .. 21.84 μs)
+std dev              692.3 ns   (335.1 ns .. 1.443 μs)
+variance introduced by outliers: 41% (moderately inflated)
+
+benchmarking TxOut/30 assets/plutus-cbor
+time                 37.08 μs   (36.87 μs .. 37.33 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 37.18 μs   (37.03 μs .. 37.39 μs)
+std dev              800.8 ns   (565.3 ns .. 1.191 μs)
+variance introduced by outliers: 22% (moderately inflated)
+
+benchmarking TxOut/40 assets/plutus-cbor
+time                 56.02 μs   (55.72 μs .. 56.44 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 56.02 μs   (55.84 μs .. 56.28 μs)
+std dev              982.7 ns   (688.2 ns .. 1.561 μs)
+variance introduced by outliers: 16% (moderately inflated)
+
+benchmarking TxOut/50 assets/plutus-cbor
+time                 88.23 μs   (87.66 μs .. 89.16 μs)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 88.13 μs   (87.80 μs .. 88.64 μs)
+std dev              1.840 μs   (1.246 μs .. 2.943 μs)
+variance introduced by outliers: 20% (moderately inflated)
+
+benchmarking TxOut/60 assets/plutus-cbor
+time                 158.9 μs   (158.0 μs .. 159.9 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 158.3 μs   (157.7 μs .. 159.2 μs)
+std dev              3.295 μs   (2.547 μs .. 4.661 μs)
+variance introduced by outliers: 18% (moderately inflated)
+
+benchmarking TxOut/70 assets/plutus-cbor
+time                 35.30 ms   (35.06 ms .. 35.57 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 35.22 ms   (35.08 ms .. 35.40 ms)
+std dev              522.9 μs   (413.5 μs .. 669.0 μs)
+
+benchmarking TxOut/80 assets/plutus-cbor
+time                 332.5 μs   (330.6 μs .. 334.6 μs)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 332.3 μs   (330.7 μs .. 336.3 μs)
+std dev              10.93 μs   (6.047 μs .. 20.64 μs)
+variance introduced by outliers: 34% (moderately inflated)
+
+benchmarking TxOut/90 assets/plutus-cbor
+time                 424.0 μs   (421.3 μs .. 427.0 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 427.2 μs   (424.5 μs .. 436.6 μs)
+std dev              19.41 μs   (7.297 μs .. 43.02 μs)
+variance introduced by outliers: 48% (moderately inflated)
+
+benchmarking TxOut/100 assets/plutus-cbor
+time                 475.0 μs   (473.0 μs .. 477.8 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 474.9 μs   (473.3 μs .. 477.9 μs)
+std dev              9.945 μs   (7.161 μs .. 15.52 μs)
+variance introduced by outliers: 16% (moderately inflated)
+
+benchmarking TxOut/110 assets/plutus-cbor
+time                 525.9 μs   (521.5 μs .. 531.2 μs)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 520.2 μs   (518.4 μs .. 522.6 μs)
+std dev              9.808 μs   (7.622 μs .. 14.32 μs)
+variance introduced by outliers: 13% (moderately inflated)
+
+benchmarking TxOut/120 assets/plutus-cbor
+time                 577.0 μs   (573.2 μs .. 580.7 μs)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 573.2 μs   (571.3 μs .. 576.4 μs)
+std dev              11.30 μs   (7.769 μs .. 19.07 μs)
+variance introduced by outliers: 14% (moderately inflated)
+
+benchmarking TxOut/130 assets/plutus-cbor
+time                 850.1 μs   (844.1 μs .. 856.9 μs)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 842.2 μs   (839.0 μs .. 847.9 μs)
+std dev              17.19 μs   (12.75 μs .. 25.62 μs)
+variance introduced by outliers: 15% (moderately inflated)
+
+benchmarking TxOut/140 assets/plutus-cbor
+time                 909.1 μs   (903.7 μs .. 915.2 μs)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 903.9 μs   (900.3 μs .. 909.6 μs)
+std dev              19.94 μs   (12.30 μs .. 39.25 μs)
+variance introduced by outliers: 17% (moderately inflated)
+
+benchmarking TxOut/150 assets/plutus-cbor
+time                 1.175 ms   (1.168 ms .. 1.183 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 1.184 ms   (1.176 ms .. 1.207 ms)
+std dev              58.69 μs   (23.99 μs .. 117.5 μs)
+variance introduced by outliers: 49% (moderately inflated)

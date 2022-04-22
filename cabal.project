@@ -11,6 +11,15 @@ packages:
   plutus-cbor
   plutus-merkle-tree
   hydraw
+  freer-extras
+  plutus-core
+  plutus-ledger
+  plutus-ledger-api
+  plutus-tx
+  plutus-tx-plugin
+  prettyprinter-configurable
+  stubs/plutus-ghc-stub
+  word-array
 
 tests: False
 package hydra-cluster
@@ -175,22 +184,6 @@ source-repository-package
     typed-protocols
     typed-protocols-cborg
     typed-protocols-examples
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/plutus
-  tag: 1efbb276ef1a10ca6961d0fd32e6141e9798bd11
-  --sha256: 1jicyk4hr8p0xksj4048gdxndrb42jz4wsnkhc3ymxbm5v6snalf
-  subdir:
-    freer-extras
-    plutus-core
-    plutus-ledger
-    plutus-ledger-api
-    plutus-tx
-    plutus-tx-plugin
-    prettyprinter-configurable
-    stubs/plutus-ghc-stub
-    word-array
 
 source-repository-package
   type: git

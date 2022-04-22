@@ -1,0 +1,9 @@
+{- nested {- comment -} -}
+(program 0.1.0
+  [
+    (lam x t
+      [(builtin addInteger) x y]
+    )
+    z
+  ]
+)

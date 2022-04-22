@@ -79,6 +79,14 @@ let
       hydra-cardano-api
       plutus-cbor
       plutus-merkle-tree
+      freer-extras
+      plutus-core
+      plutus-ledger
+      plutus-ledger-api
+      plutus-tx
+      plutus-tx-plugin
+      prettyprinter-configurable
+      word-array
     ];
 
     tools = buildTools // devTools;

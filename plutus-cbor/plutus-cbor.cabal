@@ -107,10 +107,30 @@ test-suite unit
     Plutus.Codec.CBOR.EncodingSpec
     Spec
 
-benchmark bench
+benchmark bench-haskell
   import:             project-config
   type:               exitcode-stdio-1.0
-  hs-source-dirs:     bench
+  hs-source-dirs:     bench-haskell
+  main-is:            Main.hs
+  ghc-options:        -threaded -rtsopts
+  build-tool-depends: hspec-discover:hspec-discover -any
+  build-depends:
+    , base
+    , bytestring
+    , cborg
+    , criterion
+    , hydra-prelude
+    , plutus-cbor
+    , plutus-core
+    , plutus-ledger-api
+    , plutus-tx
+    , QuickCheck
+    , serialise
+
+benchmark bench-cek
+  import:             project-config
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     bench-cek
   main-is:            Main.hs
   ghc-options:        -threaded -rtsopts
   build-tool-depends: hspec-discover:hspec-discover -any

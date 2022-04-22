@@ -1,0 +1,215 @@
+Running 1 benchmarks...
+Benchmark bench: RUNNING...
+benchmarking TxOut/ada only/plutus-cbor
+time                 1.045 μs   (1.035 μs .. 1.060 μs)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+mean                 1.042 μs   (1.038 μs .. 1.049 μs)
+std dev              15.85 ns   (10.68 ns .. 25.90 ns)
+variance introduced by outliers: 15% (moderately inflated)
+
+benchmarking TxOut/ada only/cborg
+time                 1.052 μs   (1.038 μs .. 1.069 μs)
+                     0.999 R²   (0.997 R² .. 1.000 R²)
+mean                 1.041 μs   (1.035 μs .. 1.054 μs)
+std dev              26.82 ns   (15.98 ns .. 49.38 ns)
+variance introduced by outliers: 34% (moderately inflated)
+
+benchmarking TxOut/10 assets/plutus-cbor
+time                 9.341 μs   (9.246 μs .. 9.469 μs)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+mean                 9.282 μs   (9.252 μs .. 9.366 μs)
+std dev              149.1 ns   (49.82 ns .. 275.6 ns)
+variance introduced by outliers: 14% (moderately inflated)
+
+benchmarking TxOut/10 assets/cborg
+time                 3.650 μs   (3.619 μs .. 3.687 μs)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+mean                 3.620 μs   (3.605 μs .. 3.649 μs)
+std dev              71.53 ns   (44.05 ns .. 122.9 ns)
+variance introduced by outliers: 21% (moderately inflated)
+
+benchmarking TxOut/20 assets/plutus-cbor
+time                 21.93 μs   (21.64 μs .. 22.27 μs)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 21.71 μs   (21.64 μs .. 21.88 μs)
+std dev              335.2 ns   (167.9 ns .. 609.4 ns)
+variance introduced by outliers: 12% (moderately inflated)
+
+benchmarking TxOut/20 assets/cborg
+time                 6.493 μs   (6.450 μs .. 6.561 μs)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+mean                 6.482 μs   (6.450 μs .. 6.545 μs)
+std dev              139.9 ns   (74.45 ns .. 244.6 ns)
+variance introduced by outliers: 23% (moderately inflated)
+
+benchmarking TxOut/30 assets/plutus-cbor
+time                 37.80 μs   (37.39 μs .. 38.26 μs)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+mean                 37.54 μs   (37.44 μs .. 37.87 μs)
+std dev              537.5 ns   (286.6 ns .. 956.4 ns)
+
+benchmarking TxOut/30 assets/cborg
+time                 9.412 μs   (9.339 μs .. 9.516 μs)
+                     0.999 R²   (0.997 R² .. 1.000 R²)
+mean                 9.411 μs   (9.358 μs .. 9.562 μs)
+std dev              278.2 ns   (134.7 ns .. 594.2 ns)
+variance introduced by outliers: 34% (moderately inflated)
+
+benchmarking TxOut/40 assets/plutus-cbor
+time                 57.36 μs   (56.62 μs .. 58.27 μs)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 56.68 μs   (56.47 μs .. 57.25 μs)
+std dev              1.099 μs   (480.8 ns .. 2.081 μs)
+variance introduced by outliers: 15% (moderately inflated)
+
+benchmarking TxOut/40 assets/cborg
+time                 12.25 μs   (12.18 μs .. 12.35 μs)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+mean                 12.27 μs   (12.19 μs .. 12.39 μs)
+std dev              306.1 ns   (188.4 ns .. 507.9 ns)
+variance introduced by outliers: 27% (moderately inflated)
+
+benchmarking TxOut/50 assets/plutus-cbor
+time                 89.89 μs   (89.02 μs .. 91.05 μs)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+mean                 89.21 μs   (88.93 μs .. 89.81 μs)
+std dev              1.398 μs   (686.3 ns .. 2.566 μs)
+
+benchmarking TxOut/50 assets/cborg
+time                 15.04 μs   (14.97 μs .. 15.17 μs)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+mean                 15.07 μs   (14.99 μs .. 15.25 μs)
+std dev              377.9 ns   (171.8 ns .. 713.7 ns)
+variance introduced by outliers: 26% (moderately inflated)
+
+benchmarking TxOut/60 assets/plutus-cbor
+time                 161.4 μs   (160.0 μs .. 163.4 μs)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 160.1 μs   (159.5 μs .. 161.7 μs)
+std dev              2.998 μs   (1.358 μs .. 6.312 μs)
+variance introduced by outliers: 12% (moderately inflated)
+
+benchmarking TxOut/60 assets/cborg
+time                 17.83 μs   (17.75 μs .. 17.97 μs)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+mean                 17.95 μs   (17.84 μs .. 18.20 μs)
+std dev              505.8 ns   (272.3 ns .. 952.2 ns)
+variance introduced by outliers: 31% (moderately inflated)
+
+benchmarking TxOut/70 assets/plutus-cbor
+time                 36.26 ms   (35.84 ms .. 37.02 ms)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 35.86 ms   (35.68 ms .. 36.21 ms)
+std dev              530.0 μs   (161.1 μs .. 809.7 μs)
+
+benchmarking TxOut/70 assets/cborg
+time                 221.2 μs   (220.7 μs .. 221.8 μs)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 229.0 μs   (225.3 μs .. 237.2 μs)
+std dev              17.54 μs   (5.300 μs .. 29.37 μs)
+variance introduced by outliers: 69% (severely inflated)
+
+benchmarking TxOut/80 assets/plutus-cbor
+time                 335.1 μs   (333.9 μs .. 337.6 μs)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 334.6 μs   (333.0 μs .. 339.3 μs)
+std dev              8.707 μs   (3.207 μs .. 15.80 μs)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking TxOut/80 assets/cborg
+time                 24.05 μs   (24.02 μs .. 24.09 μs)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 24.39 μs   (24.26 μs .. 24.56 μs)
+std dev              523.9 ns   (422.4 ns .. 601.4 ns)
+variance introduced by outliers: 20% (moderately inflated)
+
+benchmarking TxOut/90 assets/plutus-cbor
+time                 430.1 μs   (428.9 μs .. 432.8 μs)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 430.5 μs   (428.3 μs .. 436.2 μs)
+std dev              11.44 μs   (4.629 μs .. 22.36 μs)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking TxOut/90 assets/cborg
+time                 26.91 μs   (26.89 μs .. 26.94 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 27.13 μs   (27.05 μs .. 27.24 μs)
+std dev              312.3 ns   (262.3 ns .. 373.5 ns)
+
+benchmarking TxOut/100 assets/plutus-cbor
+time                 486.2 μs   (480.8 μs .. 495.0 μs)
+                     0.999 R²   (0.997 R² .. 1.000 R²)
+mean                 484.0 μs   (481.0 μs .. 491.6 μs)
+std dev              15.35 μs   (5.896 μs .. 29.21 μs)
+variance introduced by outliers: 24% (moderately inflated)
+
+benchmarking TxOut/100 assets/cborg
+time                 29.80 μs   (29.78 μs .. 29.82 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 29.83 μs   (29.82 μs .. 29.85 μs)
+std dev              47.28 ns   (38.74 ns .. 63.15 ns)
+
+benchmarking TxOut/110 assets/plutus-cbor
+time                 535.6 μs   (527.3 μs .. 546.1 μs)
+                     0.998 R²   (0.996 R² .. 1.000 R²)
+mean                 533.0 μs   (528.1 μs .. 549.6 μs)
+std dev              26.65 μs   (7.094 μs .. 53.74 μs)
+variance introduced by outliers: 43% (moderately inflated)
+
+benchmarking TxOut/110 assets/cborg
+time                 32.58 μs   (32.56 μs .. 32.62 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 32.86 μs   (32.76 μs .. 33.00 μs)
+std dev              389.4 ns   (340.1 ns .. 449.8 ns)
+
+benchmarking TxOut/120 assets/plutus-cbor
+time                 586.8 μs   (576.9 μs .. 600.0 μs)
+                     0.997 R²   (0.995 R² .. 1.000 R²)
+mean                 594.1 μs   (585.8 μs .. 622.8 μs)
+std dev              47.14 μs   (10.26 μs .. 97.38 μs)
+variance introduced by outliers: 65% (severely inflated)
+
+benchmarking TxOut/120 assets/cborg
+time                 35.74 μs   (35.72 μs .. 35.77 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 35.77 μs   (35.76 μs .. 35.80 μs)
+std dev              64.80 ns   (46.38 ns .. 100.1 ns)
+
+benchmarking TxOut/130 assets/plutus-cbor
+time                 875.5 μs   (857.1 μs .. 890.9 μs)
+                     0.998 R²   (0.997 R² .. 0.999 R²)
+mean                 862.2 μs   (857.6 μs .. 868.9 μs)
+std dev              18.71 μs   (13.27 μs .. 29.05 μs)
+variance introduced by outliers: 12% (moderately inflated)
+
+benchmarking TxOut/130 assets/cborg
+time                 38.55 μs   (38.52 μs .. 38.58 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 38.55 μs   (38.53 μs .. 38.58 μs)
+std dev              68.17 ns   (48.88 ns .. 116.5 ns)
+
+benchmarking TxOut/140 assets/plutus-cbor
+time                 931.0 μs   (917.2 μs .. 943.2 μs)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 917.0 μs   (913.4 μs .. 923.5 μs)
+std dev              15.61 μs   (9.957 μs .. 25.99 μs)
+
+benchmarking TxOut/140 assets/cborg
+time                 41.43 μs   (41.41 μs .. 41.46 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 41.47 μs   (41.45 μs .. 41.50 μs)
+std dev              78.68 ns   (59.41 ns .. 104.9 ns)
+
+benchmarking TxOut/150 assets/plutus-cbor
+time                 1.213 ms   (1.194 ms .. 1.230 ms)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 1.198 ms   (1.192 ms .. 1.206 ms)
+std dev              24.55 μs   (18.30 μs .. 35.09 μs)
+
+benchmarking TxOut/150 assets/cborg
+time                 44.26 μs   (43.85 μs .. 45.05 μs)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 43.99 μs   (43.90 μs .. 44.31 μs)
+std dev              533.6 ns   (93.99 ns .. 1.124 μs)
+
+Benchmark bench: FINISH

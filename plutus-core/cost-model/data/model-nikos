@@ -1,0 +1,63 @@
+addInteger               : 149091 + 808*max(x,y)
+appendByteString         : 1000000000 + 582*(x+y)
+appendString             : 267918 + 541*(x+y)
+bData                    : const 74
+blake2b                  : 1000000000 + 10459*x
+chooseData               : const 153
+chooseList               : const 121
+chooseUnit               : const 89
+consByteString           : 178899 + 495*y
+constrData               : const 96
+decodeUtf8               : 435632 + 13967*x
+divideInteger            : if x>y
+                           then  380072 + 239*x*y
+                           else  const 196500
+encodeUtf8               : 33649 + 6173*x
+equalsByteString         : if x==y
+                           then  175513 + 56*x
+                           else  const 245000
+equalsData               : 1083531 + 12717*min(x,y)
+equalsInteger            : 193678 + 416*min(x,y)
+equalsString             : if x==y
+                           then  104574 + 196*x
+                           else  const 187000
+fstPair                  : const 19389
+headList                 : const 81
+iData                    : const 73
+ifThenElse               : const 107
+indexByteString          : const 24117
+lengthOfByteString       : const 73
+lessThanByteString       : 180491 + 111*min(x,y)
+lessThanEqualsByteString : 180491 + 111*min(x,y)
+lessThanEqualsInteger    : 178200 + 693*min(x,y)
+lessThanInteger          : 204914 + 110*min(x,y)
+listData                 : const 76
+mapData                  : const 76
+mkCons                   : const 59334
+mkNilData                : const 74
+mkNilPairData            : const 74
+mkPairData               : const 96
+modInteger               : if x>y
+                           then  380072 + 239*x*y
+                           else  const 196500
+multiplyInteger          : 31267 + 11207*(x+y)
+nullList                 : const 81
+quotientInteger          : if x>y
+                           then  380072 + 239*x*y
+                           else  const 196500
+remainderInteger         : if x>y
+                           then  380072 + 239*x*y
+                           else  const 196500
+sha2_256                 : 495565 + 30592*x
+sha3_256                 : 2030686 + 82524*x
+sliceByteString          : 87780 + 0*z
+sndPair                  : const 17869
+subtractInteger          : 149091 + 808*max(x,y)
+tailList                 : const 81
+trace                    : const 91339
+unBData                  : const 75
+unConstrData             : const 76
+unIData                  : const 75
+unListData               : const 75
+unMapData                : const 76
+verifySignature          : 543395 + z

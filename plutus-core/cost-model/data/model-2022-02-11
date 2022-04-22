@@ -1,0 +1,63 @@
+addInteger               : 108067 + 763*max(x,y)
+appendByteString         : 1000 + 553*(x+y)
+appendString             : 1000 + 722*(x+y)
+bData                    : const 71
+blake2b                  : 1000 + 10396*x
+chooseData               : const 145
+chooseList               : const 116
+chooseUnit               : const 86
+consByteString           : 123537 + 471*y
+constrData               : const 94
+decodeUtf8               : 64627 + 15016*x
+divideInteger            : if x>y
+                           then  343509 + 152*x*y
+                           else  const 196500
+encodeUtf8               : 22123 + 6088*x
+equalsByteString         : if x==y
+                           then  107092 + 75*x
+                           else  const 245000
+equalsData               : 1039247 + 14842*min(x,y)
+equalsInteger            : 112828 + 668*min(x,y)
+equalsString             : if x==y
+                           then  78648 + 193*x
+                           else  const 187000
+fstPair                  : const 8158
+headList                 : const 80
+iData                    : const 73
+ifThenElse               : const 103
+indexByteString          : const 92
+lengthOfByteString       : const 67
+lessThanByteString       : 122956 + 115*min(x,y)
+lessThanEqualsByteString : 122956 + 115*min(x,y)
+lessThanEqualsInteger    : 106391 + 861*min(x,y)
+lessThanInteger          : 110336 + 727*min(x,y)
+listData                 : const 74
+mapData                  : const 75
+mkCons                   : const 14924
+mkNilData                : const 73
+mkNilPairData            : const 72
+mkPairData               : const 92
+modInteger               : if x>y
+                           then  343509 + 152*x*y
+                           else  const 196500
+multiplyInteger          : 1000 + 11475*(x+y)
+nullList                 : const 82
+quotientInteger          : if x>y
+                           then  343509 + 152*x*y
+                           else  const 196500
+remainderInteger         : if x>y
+                           then  343509 + 152*x*y
+                           else  const 196500
+sha2_256                 : 511501 + 30380*x
+sha3_256                 : 1970992 + 81881*x
+sliceByteString          : 88630 + 0*z
+sndPair                  : const 942
+subtractInteger          : 108067 + 763*max(x,y)
+tailList                 : const 80
+trace                    : const 67099
+unBData                  : const 73
+unConstrData             : const 73
+unIData                  : const 74
+unListData               : const 74
+unMapData                : const 73
+verifySignature          : 583311 + z
