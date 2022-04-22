@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 -- | Hydra multi-signature credentials and cryptographic primitives used to sign
 -- and verify snapshots (or any messages) within the Hydra protocol.
 --
@@ -22,8 +24,8 @@ import Cardano.Crypto.DSIGN (
   deriveVerKeyDSIGN,
   genKeyDSIGN,
   hashVerKeyDSIGN,
+  rawDeserialiseVerKeyDSIGN,
   rawSerialiseSigDSIGN,
-  rawSerialiseSignKeyDSIGN,
   rawSerialiseVerKeyDSIGN,
   seedSizeDSIGN,
   signDSIGN,
@@ -32,9 +34,9 @@ import Cardano.Crypto.DSIGN (
 import Cardano.Crypto.Hash (Blake2b_256, Hash, castHash)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
+import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
-import Hydra.Cardano.Api (SerialiseAsBech32 (..), serialiseToBech32)
 import Text.Show (Show (show))
 
 -- | The used signature algorithm
@@ -73,14 +75,25 @@ newtype VerificationKey = HydraVerificationKey (VerKeyDSIGN SignAlg)
   deriving newtype (ToCBOR, FromCBOR)
 
 instance ToJSON VerificationKey where
-  toJSON = toJSON . serialiseToBech32
+  toJSON (HydraVerificationKey vk) =
+    toJSON (decodeUtf8 @Text $ Base16.encode $ rawSerialiseVerKeyDSIGN vk)
 
-instance SerialiseAsBech32 VerificationKey where
-  bech32PrefixFor = const "hydra_vk"
-  bech32PrefixesPermitted _ = ["hydra_vk"]
+-- TODO: It would be nice(r) to have a bech32 representation for verification
+-- keys BUT cardano-api decided to not expose the class internals which makes it
+-- impossible to define new instances for that class :upside-down-smiling-face:
+--
+-- instance SerialiseAsBech32 VerificationKey where
+--  bech32PrefixFor = const "hydra_vk"
+--  bech32PrefixesPermitted _ = ["hydra_vk"]
 
 instance FromJSON VerificationKey where
-  parseJSON = undefined
+  parseJSON = Aeson.withText "VerificationKey" $ decodeBase16 >=> deserialiseKey
+   where
+    deserialiseKey =
+      maybe
+        (fail "Unable to deserialize VerificationKey")
+        (pure . HydraVerificationKey)
+        . rawDeserialiseVerKeyDSIGN
 
 instance Arbitrary VerificationKey where
   arbitrary = generateVerificationKey <$> arbitrary
