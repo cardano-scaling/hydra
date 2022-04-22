@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.CryptoSpec where
 
 -- Unit under test
@@ -7,6 +9,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Crypto.DSIGN.Ed25519 (SigDSIGN (SigEd25519DSIGN))
+import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (counterexample, forAll, shuffle, (=/=), (==>))
 
 spec :: Spec
@@ -30,6 +33,8 @@ specVerificationKey =
   describe "VerificationKey" $ do
     it "show includes escaped hex" $
       show (generateVerificationKey "alice") `shouldContain` "ce1da235714466fc7"
+
+    roundtripAndGoldenSpecs (Proxy @VerificationKey)
 
 specSignature :: Spec
 specSignature =

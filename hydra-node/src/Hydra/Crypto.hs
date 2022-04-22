@@ -34,6 +34,7 @@ import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
+import Hydra.Cardano.Api (SerialiseAsBech32 (..), serialiseToBech32)
 import Text.Show (Show (show))
 
 -- | The used signature algorithm
@@ -72,7 +73,11 @@ newtype VerificationKey = HydraVerificationKey (VerKeyDSIGN SignAlg)
   deriving newtype (ToCBOR, FromCBOR)
 
 instance ToJSON VerificationKey where
-  toJSON = undefined
+  toJSON = toJSON . serialiseToBech32
+
+instance SerialiseAsBech32 VerificationKey where
+  bech32PrefixFor = const "hydra_vk"
+  bech32PrefixesPermitted _ = ["hydra_vk"]
 
 instance FromJSON VerificationKey where
   parseJSON = undefined
