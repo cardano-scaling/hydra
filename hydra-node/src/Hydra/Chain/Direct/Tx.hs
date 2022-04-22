@@ -25,6 +25,7 @@ import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
+import qualified Hydra.Crypto as Hydra
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -104,7 +105,7 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
     mkTxOutDatum $
       Head.Initial
         (contestationPeriodFromDiffTime contestationPeriod)
-        (map (partyFromVerKey . vkey) parties)
+        (map convertPartyToChain parties)
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
 mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
@@ -166,8 +167,8 @@ commitTx networkId party utxo (initialInput, out, vkh) =
     mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo
 
 mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> Plutus.Datum
-mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
-  Commit.datum (party, headValidatorHash, serializedUTxO)
+mkCommitDatum party headValidatorHash utxo =
+  Commit.datum (convertPartyToChain party, headValidatorHash, serializedUTxO)
  where
   serializedUTxO = case utxo of
     Nothing ->
@@ -409,7 +410,7 @@ observeInitTx networkId cardanoKeys party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
-  let parties = map convertParty ps
+  let parties = map convertPartyFromChain ps
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
   (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
@@ -462,8 +463,13 @@ observeInitTx networkId cardanoKeys party tx = do
     , assetName /= headAssetName
     ]
 
-convertParty :: OnChain.Party -> Party
-convertParty = Party . partyToVerKey
+convertPartyFromChain :: OnChain.Party -> Party
+convertPartyFromChain =
+  Party . Hydra.HydraVerificationKey . partyToVerKey
+
+convertPartyToChain :: Party -> OnChain.Party
+convertPartyToChain Party{vkey = Hydra.HydraVerificationKey vk} =
+  partyFromVerKey vk
 
 type CommitObservation = UTxOWithScript
 
@@ -498,7 +504,7 @@ observeCommitTx networkId initials tx = do
       (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
       (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
 
-  let onChainTx = OnCommitTx (convertParty party) comittedUTxO
+  let onChainTx = OnCommitTx (convertPartyFromChain party) comittedUTxO
   pure
     ( onChainTx
     , (commitIn, toUTxOContext commitOut, dat)

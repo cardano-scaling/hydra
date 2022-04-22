@@ -109,9 +109,11 @@ generateVerificationKey :: ByteString -> VerificationKey
 generateVerificationKey =
   deriveVerificationKey . generateSigningKey
 
+-- | Get the Blake2b hash of a 'VerificationKey'.
 hashVerificationKey :: VerificationKey -> Hash Blake2b_256 VerificationKey
 hashVerificationKey (HydraVerificationKey vk) =
   castHash $ hashVerKeyDSIGN vk
+
 -- * Signatures
 
 -- | Signature of 'a', not containing the actual payload.
