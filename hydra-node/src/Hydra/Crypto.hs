@@ -21,6 +21,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
   deriveVerKeyDSIGN,
   genKeyDSIGN,
+  hashVerKeyDSIGN,
   rawSerialiseSigDSIGN,
   rawSerialiseSignKeyDSIGN,
   rawSerialiseVerKeyDSIGN,
@@ -28,6 +29,7 @@ import Cardano.Crypto.DSIGN (
   signDSIGN,
   verifyDSIGN,
  )
+import Cardano.Crypto.Hash (Blake2b_256, Hash, castHash)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
 import qualified Data.ByteString as BS
@@ -42,15 +44,7 @@ type SignAlg = Ed25519DSIGN
 -- | Hydra signing key which can be used to 'sign' messages and 'aggregate'
 -- multi-signatures or 'deriveVerificationKey'.
 newtype SigningKey = HydraSigningKey (SignKeyDSIGN SignAlg)
-  deriving (Eq)
-
--- NOTE: Contains full key material (or seed).
--- REVIEW: Should we truncate to keep logs short?
-instance Show SigningKey where
-  show (HydraSigningKey sk) =
-    "HydraSigningKey " <> show hexBytes
-   where
-    hexBytes = Base16.encode $ rawSerialiseSignKeyDSIGN sk
+  deriving (Eq, Show)
 
 instance Arbitrary SigningKey where
   arbitrary = generateSigningKey <$> arbitrary
@@ -71,13 +65,17 @@ deriveVerificationKey (HydraSigningKey sk) = HydraVerificationKey (deriveVerKeyD
 
 -- | Hydra verification key, which can be used to 'verify' signed messages.
 newtype VerificationKey = HydraVerificationKey (VerKeyDSIGN SignAlg)
-  deriving (Eq)
+  deriving (Eq, Show)
+  deriving newtype (ToCBOR, FromCBOR)
 
-instance Show VerificationKey where
-  show (HydraVerificationKey vk) =
-    "HydraVerificationKey " <> show hexBytes
-   where
-    hexBytes = Base16.encode $ rawSerialiseVerKeyDSIGN vk
+instance ToJSON VerificationKey where
+  toJSON = undefined
+
+instance FromJSON VerificationKey where
+  parseJSON = undefined
+
+instance Arbitrary VerificationKey where
+  arbitrary = generateVerificationKey <$> arbitrary
 
 -- | Generate a 'VerificationKey' from a 'ByteString' seed. Use
 -- 'generateSigningKey' and 'deriveVerificationKey' if you also need the
@@ -85,6 +83,10 @@ instance Show VerificationKey where
 generateVerificationKey :: ByteString -> VerificationKey
 generateVerificationKey =
   deriveVerificationKey . generateSigningKey
+
+hashVerificationKey :: VerificationKey -> Hash Blake2b_256 VerificationKey
+hashVerificationKey (HydraVerificationKey vk) =
+  castHash $ hashVerKeyDSIGN vk
 
 -- * Signatures
 
