@@ -23,6 +23,7 @@ import Hydra.Chain (
   PostTxError,
  )
 import Hydra.ClientInput (ClientInput (..))
+import Hydra.Crypto (Signature, SigningKey, aggregateInOrder, sign, verify)
 import Hydra.Ledger (
   IsTx,
   Ledger,
@@ -34,7 +35,7 @@ import Hydra.Ledger (
   canApply,
  )
 import Hydra.Network.Message (Message (..))
-import Hydra.Party (Party, Signed, SigningKey, aggregateInOrder, sign, verify)
+import Hydra.Party (Party (vkey))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
@@ -135,7 +136,7 @@ data SeenSnapshot tx
   | RequestedSnapshot
   | SeenSnapshot
       { snapshot :: Snapshot tx
-      , signatories :: Map Party (Signed (Snapshot tx))
+      , signatories :: Map Party (Signature (Snapshot tx))
       }
   deriving stock (Generic)
 
@@ -342,7 +343,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         | otherwise ->
           let sigs'
                 -- TODO: Must check whether we know the 'otherParty' signing the snapshot
-                | verify snapshotSignature otherParty snapshot = Map.insert otherParty snapshotSignature sigs
+                | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
                 | otherwise = sigs
               multisig = aggregateInOrder sigs' parties
            in if Map.keysSet sigs' == Set.fromList parties

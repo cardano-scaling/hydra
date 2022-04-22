@@ -61,11 +61,6 @@ deriveParty = Party . Hydra.deriveVerificationKey
 -- generateKey :: Integer -> SigningKey
 -- generateKey = fromInteger
 
--- sign :: SignableRepresentation a => SigningKey -> a -> Signed a
--- sign (SignKeyMockDSIGN k) signable = UnsafeSigned $ hashed <> serialize' k
---  where
---   hashed = BS.take 8 $ digest @SHA256 Proxy (getSignableRepresentation signable)
-
 -- verify :: SignableRepresentation a => Signed a -> Party -> a -> Bool
 -- verify signed Party{vkey = (VerKeyMockDSIGN wo)} msg =
 --   sign (SignKeyMockDSIGN wo) msg == signed
@@ -85,17 +80,6 @@ deriveParty = Party . Hydra.deriveVerificationKey
 -- toPlutusSignatures :: MultiSigned a -> [Plutus.Signature]
 -- toPlutusSignatures (MultiSigned sigs) =
 --   toPlutusSignature <$> sigs
-
--- -- FIXME(AB): This function exists solely because the order of signatures
--- -- matters on-chain, and it should match the order of parties as declared in the
--- -- initTx. This should disappear once we use a proper multisignature scheme
--- aggregateInOrder :: Map Party (Signed a) -> [Party] -> MultiSigned a
--- aggregateInOrder signatures = MultiSigned . foldr appendSignature []
---  where
---   appendSignature party sigs =
---     case Map.lookup party signatures of
---       Nothing -> sigs
---       Just sig -> sig : sigs
 
 -- -- | Signature of 'a'
 -- newtype Signed a = UnsafeSigned ByteString

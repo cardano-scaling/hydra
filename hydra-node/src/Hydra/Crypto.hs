@@ -38,6 +38,7 @@ import Cardano.Crypto.Util (SignableRepresentation)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
+import qualified Data.Map as Map
 import Text.Show (Show (show))
 
 -- | The used signature algorithm
@@ -173,3 +174,14 @@ aggregate = HydraMultiSignature
 
 instance (Arbitrary a, SignableRepresentation a) => Arbitrary (MultiSignature a) where
   arbitrary = HydraMultiSignature <$> arbitrary
+
+-- FIXME(AB): This function exists solely because the order of signatures
+-- matters on-chain, and it should match the order of parties as declared in the
+-- initTx. This should disappear once we use a proper multisignature scheme
+aggregateInOrder :: Ord k => Map k (Signature a) -> [k] -> MultiSignature a
+aggregateInOrder signatures = HydraMultiSignature . foldr appendSignature []
+ where
+  appendSignature k sigs =
+    case Map.lookup k signatures of
+      Nothing -> sigs
+      Just sig -> sig : sigs
