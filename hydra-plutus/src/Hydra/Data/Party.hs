@@ -9,9 +9,7 @@ module Hydra.Data.Party where
 import Hydra.Prelude hiding (init)
 
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), Ed25519DSIGN, VerKeyDSIGN (..))
-import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base16 as Base16
 import Data.Maybe (fromJust)
 import qualified PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)
