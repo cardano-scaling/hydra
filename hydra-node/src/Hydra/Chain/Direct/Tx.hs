@@ -239,7 +239,7 @@ closeTx ::
   VerificationKey PaymentKey ->
   Snapshot Tx ->
   -- | Multi-signature of the whole snapshot
-  MultiSigned (Snapshot Tx) ->
+  MultiSignature (Snapshot Tx) ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   UTxOWithScript ->

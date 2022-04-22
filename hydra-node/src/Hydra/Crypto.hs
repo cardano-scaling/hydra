@@ -170,3 +170,6 @@ newtype MultiSignature a = HydraMultiSignature [Signature a]
 -- | Combine multiple signatures of 'a' into a 'MultiSignature a'.
 aggregate :: [Signature a] -> MultiSignature a
 aggregate = HydraMultiSignature
+
+instance (Arbitrary a, SignableRepresentation a) => Arbitrary (MultiSignature a) where
+  arbitrary = HydraMultiSignature <$> arbitrary

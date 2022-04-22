@@ -4,9 +4,10 @@ module Hydra.Network.Message where
 
 import Hydra.Prelude
 
+import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (UTxOType)
 import Hydra.Network (Host)
-import Hydra.Party (Party, Signed)
+import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 -- NOTE(SN): Every message comes from a 'Party', we might want to move it out of
@@ -14,13 +15,13 @@ import Hydra.Snapshot (Snapshot, SnapshotNumber)
 data Message tx
   = ReqTx {party :: Party, transaction :: tx}
   | ReqSn {party :: Party, snapshotNumber :: SnapshotNumber, transactions :: [tx]}
-  | AckSn {party :: Party, signed :: Signed (Snapshot tx), snapshotNumber :: SnapshotNumber}
+  | AckSn {party :: Party, signed :: Hydra.Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
   | Connected {peer :: Host}
   | Disconnected {peer :: Host}
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary tx => Arbitrary (Message tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Message tx) where
   arbitrary = genericArbitrary
 
 instance (ToCBOR tx, ToCBOR (UTxOType tx)) => ToCBOR (Message tx) where

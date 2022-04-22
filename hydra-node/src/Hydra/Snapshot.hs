@@ -7,9 +7,8 @@ import Hydra.Prelude
 import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Data.Aeson (object, withObject, (.:), (.=))
+import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (IsTx (..))
-import Hydra.Party (MultiSigned)
-import qualified Hydra.Party as Hydra
 import Test.QuickCheck (frequency)
 
 type SnapshotNumber = Natural
@@ -82,7 +81,7 @@ data ConfirmedSnapshot tx
       }
   | ConfirmedSnapshot
       { snapshot :: Snapshot tx
-      , signatures :: MultiSigned (Snapshot tx)
+      , signatures :: Hydra.MultiSignature (Snapshot tx)
       }
   deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
@@ -107,7 +106,7 @@ isInitialSnapshot = \case
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
-    ks <- fmap Hydra.generateKey <$> arbitrary
+    ks <- fmap Hydra.generateSigningKey <$> arbitrary
     genConfirmedSnapshot ks
 
 genConfirmedSnapshot ::

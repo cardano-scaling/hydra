@@ -546,7 +546,7 @@ components:
           snapshot:
             $ref: "#/components/schemas/Snapshot"
           signatures:
-            $ref: "#/components/schemas/MultiSigned"
+            $ref: "#/components/schemas/MultiSignature"
           tag:
             type: string
             enum: ["ConfirmedSnapshot"]
@@ -571,7 +571,7 @@ components:
           items:
             $ref: "#/components/schemas/Party"
 
-    MultiSigned:
+    MultiSignature:
       type: object
       description: |
         Aggregated signature produced by Head protocol when a Snapshot is confirmed by all parties.
