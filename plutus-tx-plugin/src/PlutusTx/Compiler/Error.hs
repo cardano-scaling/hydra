@@ -27,7 +27,7 @@ import           Control.Lens
 import           Control.Monad.Except
 
 import qualified Data.Text                 as T
-import qualified Data.Text.Prettyprint.Doc as PP
+import qualified Prettyprinter as PP
 import           ErrorCode
 
 -- | An error with some (nested) context. The integer argument to 'WithContextC' represents

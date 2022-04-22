@@ -55,7 +55,7 @@ import qualified Data.Map                         as Map
 import qualified Data.OpenApi.Schema              as OpenApi
 import           Data.Semigroup                   (First (..))
 import qualified Data.Set                         as Set
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           GHC.Generics                     (Generic)
 
 import           PlutusTx                         (FromData (..), ToData (..))

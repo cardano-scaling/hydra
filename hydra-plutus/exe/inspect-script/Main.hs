@@ -8,7 +8,7 @@ import Codec.Serialise (serialise)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
-import Data.Text.Prettyprint.Doc.Extras (pretty)
+import Prettyprinter.Extras (pretty)
 import Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Head as Head

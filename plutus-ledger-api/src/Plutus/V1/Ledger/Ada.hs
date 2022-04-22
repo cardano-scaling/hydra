@@ -33,7 +33,7 @@ import           Data.Fixed
 import           Codec.Serialise.Class            (Serialise)
 import           Data.Aeson                       (FromJSON, ToJSON)
 import           Data.Tagged
-import           Data.Text.Prettyprint.Doc.Extras
+import           Prettyprinter.Extras
 import           GHC.Generics                     (Generic)
 import           Plutus.V1.Ledger.Value           (CurrencySymbol (..), TokenName (..), Value)
 import qualified Plutus.V1.Ledger.Value           as TH

@@ -64,8 +64,8 @@ import           Data.String                      (IsString (fromString))
 import           Data.Text                        (Text)
 import qualified Data.Text                        as Text
 import qualified Data.Text.Encoding               as E
-import           Data.Text.Prettyprint.Doc
-import           Data.Text.Prettyprint.Doc.Extras
+import           Prettyprinter
+import           Prettyprinter.Extras
 import           GHC.Generics                     (Generic)
 import           GHC.Show                         (showList__)
 import           Plutus.V1.Ledger.Bytes           (LedgerBytes (LedgerBytes))

@@ -24,7 +24,7 @@ import           Data.Hashable             (Hashable)
 import           Data.Maybe                (fromMaybe)
 import           Data.Text                 as Text (Text, empty)
 import           Data.Text.Encoding        as Text (decodeUtf8, encodeUtf8)
-import           Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
+import           Prettyprinter (Pretty (..), viaShow)
 import           GHC.Generics              (Generic)
 import qualified PlutusCore.Data           as PLC
 import           PlutusTx.Utils            (mustBeReplaced)

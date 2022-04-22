@@ -22,8 +22,8 @@ import           Data.Coerce
 import           Data.Foldable                      (fold)
 import           Data.Proxy
 import qualified Data.Text                          as T
-import           Data.Text.Prettyprint.Doc
-import           Data.Text.Prettyprint.Doc.Internal (Doc (Text))
+import           Prettyprinter
+import           Prettyprinter.Internal (Doc (Text))
 import           Data.Word                          (Word8)
 import           Numeric                            (showHex)
 import           Text.PrettyBy

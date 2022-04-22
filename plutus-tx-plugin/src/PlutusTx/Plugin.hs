@@ -47,7 +47,7 @@ import qualified Data.ByteString.Unsafe        as BSUnsafe
 import           Data.List                     (isPrefixOf)
 import qualified Data.Map                      as Map
 import           Data.Maybe                    (fromMaybe)
-import qualified Data.Text.Prettyprint.Doc     as PP
+import qualified Prettyprinter     as PP
 import           Data.Traversable              (for)
 import           ErrorCode
 import qualified FamInstEnv                    as GHC

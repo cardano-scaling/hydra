@@ -24,7 +24,7 @@ import           Codec.Serialise           (Serialise)
 import           Control.DeepSeq           (NFData)
 import           Data.Aeson                (FromJSON, ToJSON)
 import           Data.Default              (Default (def))
-import           Data.Text.Prettyprint.Doc (Pretty (pretty), (<+>))
+import           Prettyprinter (Pretty (pretty), (<+>))
 import qualified Data.Time.Clock           as Time
 import qualified Data.Time.Clock.POSIX     as Time
 import           GHC.Generics              (Generic)

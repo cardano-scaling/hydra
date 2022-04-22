@@ -29,7 +29,7 @@ import           Data.Either
 import           Data.Hashable                           (Hashable)
 import qualified Data.Kind                               as GHC (Type)
 import           Data.Proxy
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           Data.Tuple
 import           Data.Void
 import           GHC.Generics

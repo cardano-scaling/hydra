@@ -62,7 +62,7 @@ import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Data.Text                                            (Text)
-import qualified Data.Text.Prettyprint.Doc                            as PP
+import qualified Prettyprinter                            as PP
 import           Hedgehog
 import           System.IO.Unsafe
 import           Test.Tasty

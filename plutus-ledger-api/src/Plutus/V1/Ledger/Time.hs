@@ -28,7 +28,7 @@ import           Data.Aeson                (FromJSON (parseJSON), FromJSONKey, T
 import           Data.Aeson.Types          (prependFailure, typeMismatch)
 import           Data.Hashable             (Hashable)
 import           Data.Scientific           (floatingOrInteger, scientific)
-import           Data.Text.Prettyprint.Doc (Pretty (pretty), (<+>))
+import           Prettyprinter (Pretty (pretty), (<+>))
 import           GHC.Generics              (Generic)
 import           Plutus.V1.Ledger.Interval
 import qualified PlutusTx

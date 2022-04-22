@@ -25,7 +25,7 @@ import qualified Data.Aeson                as JSON
 import qualified Data.Aeson.Extras         as JSON
 import           Data.Hashable             (Hashable)
 import           Data.String
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           GHC.Generics              (Generic)
 import           Plutus.V1.Ledger.Bytes    (LedgerBytes (..))
 import           Plutus.V1.Ledger.Orphans  ()

@@ -3,7 +3,7 @@ module ErrorCode
     , ErrorCode(..)
     ) where
 
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           Numeric.Natural
 import           Text.Printf
 

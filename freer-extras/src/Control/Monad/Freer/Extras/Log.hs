@@ -66,9 +66,9 @@ import           Control.Monad.Freer.Writer              (Writer (..), tell)
 import           Data.Aeson                              (FromJSON, ToJSON)
 import           Data.Foldable                           (for_, traverse_)
 import           Data.Text                               (Text)
-import           Data.Text.Prettyprint.Doc               hiding (surround)
-import qualified Data.Text.Prettyprint.Doc.Render.String as Render
-import qualified Data.Text.Prettyprint.Doc.Render.Text   as Render
+import           Prettyprinter               hiding (surround)
+import qualified Prettyprinter.Render.String as Render
+import qualified Prettyprinter.Render.Text   as Render
 import qualified Debug.Trace                             as Trace
 import           GHC.Generics                            (Generic)
 

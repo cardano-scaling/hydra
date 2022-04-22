@@ -41,7 +41,7 @@ import           Control.Monad.Except            hiding (lift)
 import           Control.Monad.Reader            hiding (lift)
 
 import           Data.Proxy
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import qualified Data.Typeable                   as GHC
 
 -- We do not use qualified import because the whole module contains off-chain code

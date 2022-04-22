@@ -38,7 +38,7 @@ module PlutusTx.AssocMap (
     ) where
 
 import           Control.DeepSeq            (NFData)
-import           Data.Text.Prettyprint.Doc  (Pretty (..))
+import           Prettyprinter  (Pretty (..))
 import           GHC.Generics               (Generic)
 import qualified PlutusTx.Builtins          as P
 import qualified PlutusTx.Builtins.Internal as BI

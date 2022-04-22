@@ -14,8 +14,8 @@ import qualified PlutusCore.Pretty                as PLC
 
 import           PlutusIR.Core.Type
 
-import           Data.Text.Prettyprint.Doc
-import           Data.Text.Prettyprint.Doc.Custom
+import           Prettyprinter
+import           Prettyprinter.Custom
 
 -- Pretty-printing
 

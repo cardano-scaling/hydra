@@ -1,7 +1,7 @@
 {-# LANGUAGE DerivingVia      #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Data.Text.Prettyprint.Doc.Extras(
+module Prettyprinter.Extras(
     PrettyShow(..)
     , Pretty(..)
     , PrettyFoldable(..)
@@ -12,7 +12,7 @@ import           Data.Foldable             (Foldable (toList))
 import           Data.Proxy                (Proxy (..))
 import           Data.String               (IsString (..))
 import           Data.Tagged
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           GHC.TypeLits              (KnownSymbol, symbolVal)
 
 -- | Newtype wrapper for deriving 'Pretty' via a 'Show' instance

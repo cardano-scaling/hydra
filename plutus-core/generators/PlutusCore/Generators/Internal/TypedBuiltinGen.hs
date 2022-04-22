@@ -32,7 +32,7 @@ import           PlutusCore.Pretty.PrettyConst
 
 import qualified Data.ByteString                          as BS
 import           Data.Functor.Identity
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           Hedgehog                                 hiding (Size, Var)
 import qualified Hedgehog.Gen                             as Gen
 import qualified Hedgehog.Range                           as Range

@@ -47,7 +47,7 @@ import qualified Data.Dependent.Map                             as DMap
 import           Data.Functor.Compose
 import           Data.Kind                                      as GHC
 import           Data.Proxy
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           Hedgehog                                       hiding (Size, Var)
 import qualified Hedgehog.Gen                                   as Gen
 

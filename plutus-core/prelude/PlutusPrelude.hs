@@ -105,7 +105,7 @@ import           Data.List                 (foldl')
 import           Data.List.NonEmpty        (NonEmpty (..))
 import           Data.Maybe                (fromMaybe, isJust, isNothing)
 import qualified Data.Text                 as T
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           Data.Traversable          (for)
 import           Data.Typeable             (Typeable)
 import           Data.Word                 (Word8)

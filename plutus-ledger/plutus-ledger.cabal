@@ -70,7 +70,7 @@ library
     reexported-modules:
         Data.Aeson.Extras,
         Data.Either.Extras,
-        Data.Text.Prettyprint.Doc.Extras,
+        Prettyprinter.Extras,
         Plutus.V1.Ledger.Ada as Ledger.Ada,
         Plutus.V1.Ledger.Bytes as Ledger.Bytes,
         Plutus.V1.Ledger.Credential as Ledger.Credential,

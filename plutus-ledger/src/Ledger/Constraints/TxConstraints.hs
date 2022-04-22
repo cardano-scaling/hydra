@@ -19,7 +19,7 @@ module Ledger.Constraints.TxConstraints where
 import           Data.Aeson                (FromJSON, ToJSON)
 import           Data.Bifunctor            (Bifunctor (..))
 import qualified Data.Map                  as Map
-import           Data.Text.Prettyprint.Doc hiding ((<>))
+import           Prettyprinter hiding ((<>))
 import           GHC.Generics              (Generic)
 
 import qualified PlutusTx

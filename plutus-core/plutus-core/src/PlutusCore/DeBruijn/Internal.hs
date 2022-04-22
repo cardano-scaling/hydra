@@ -43,7 +43,7 @@ import           Control.Monad.Reader
 
 import qualified Data.Bimap                as BM
 import qualified Data.Text                 as T
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 
 import           Numeric.Natural
 

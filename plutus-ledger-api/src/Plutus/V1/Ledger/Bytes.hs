@@ -27,7 +27,7 @@ import           Data.ByteString.Internal         (c2w, w2c)
 import           Data.Either.Extras               (unsafeFromEither)
 import           Data.String                      (IsString (..))
 import qualified Data.Text                        as Text
-import           Data.Text.Prettyprint.Doc.Extras (Pretty, PrettyShow (..))
+import           Prettyprinter.Extras (Pretty, PrettyShow (..))
 import           Data.Word                        (Word8)
 import           GHC.Generics                     (Generic)
 import qualified PlutusTx                         as PlutusTx

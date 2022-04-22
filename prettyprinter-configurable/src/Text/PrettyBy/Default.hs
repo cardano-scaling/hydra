@@ -15,8 +15,8 @@ import           Text.PrettyBy.Internal
 
 import qualified Data.Text                               as Strict
 import qualified Data.Text.Lazy                          as Lazy
-import           Data.Text.Prettyprint.Doc.Render.String (renderString)
-import           Data.Text.Prettyprint.Doc.Render.Text   (renderLazy, renderStrict)
+import           Prettyprinter.Render.String (renderString)
+import           Prettyprinter.Render.Text   (renderLazy, renderStrict)
 
 -- | A default layout for default rendering.
 layoutDef :: Doc ann -> SimpleDocStream ann

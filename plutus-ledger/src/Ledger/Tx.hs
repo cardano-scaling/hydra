@@ -49,7 +49,7 @@ import           Data.Map                  (Map)
 import qualified Data.Map                  as Map
 import           Data.Proxy
 import qualified Data.Set                  as Set
-import           Data.Text.Prettyprint.Doc (Pretty (pretty), braces, colon, hang, nest, viaShow, vsep, (<+>))
+import           Prettyprinter (Pretty (pretty), braces, colon, hang, nest, viaShow, vsep, (<+>))
 import           GHC.Generics              (Generic)
 import           Ledger.Address            (pubKeyAddress, scriptAddress)
 import           Ledger.Crypto             (PrivateKey, PubKey, signTx, toPublicKey)

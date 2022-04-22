@@ -52,7 +52,7 @@ import           Data.List                     (sortBy)
 import           Data.Maybe
 import           Data.Proxy
 import qualified Data.Text                     as T
-import qualified Data.Text.Prettyprint.Doc     as PP
+import qualified Prettyprinter     as PP
 import           Data.Traversable
 import           ErrorCode
 

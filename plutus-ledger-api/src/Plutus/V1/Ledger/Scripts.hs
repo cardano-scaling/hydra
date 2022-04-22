@@ -73,8 +73,8 @@ import qualified Data.ByteString.Lazy                     as BSL
 import           Data.Hashable                            (Hashable)
 import           Data.String
 import           Data.Text                                (Text)
-import           Data.Text.Prettyprint.Doc
-import           Data.Text.Prettyprint.Doc.Extras
+import           Prettyprinter
+import           Prettyprinter.Extras
 import qualified Flat
 import           GHC.Generics                             (Generic)
 import           Plutus.V1.Ledger.Bytes                   (LedgerBytes (..))

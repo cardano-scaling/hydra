@@ -20,7 +20,7 @@ import           Codec.Serialise.Class       (Serialise)
 import           Control.DeepSeq             (NFData)
 import           Data.Aeson                  (FromJSON, FromJSONKey (..), ToJSON, ToJSONKey (..))
 import           Data.Hashable               (Hashable)
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           GHC.Generics                (Generic)
 import qualified PlutusTx
 import qualified PlutusTx.Bool               as PlutusTx

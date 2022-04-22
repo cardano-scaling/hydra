@@ -21,7 +21,7 @@ import           Control.Monad.Except
 import           Data.Bits                 (shiftR)
 import qualified Data.ByteString           as BS
 import qualified Data.ByteString.Lazy      as BSL
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           Data.Word                 (Word64, Word8)
 import           GHC.Generics
 import           Prelude

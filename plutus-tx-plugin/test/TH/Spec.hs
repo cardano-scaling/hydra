@@ -42,7 +42,7 @@ import           Control.Lens.Combinators  (_1)
 import           Control.Monad.Except
 
 import           Data.Text                 (Text)
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           Test.Tasty
 
 runPlcCek :: ToUPlc a PLC.DefaultUni PLC.DefaultFun => [a] -> ExceptT SomeException Haskell.IO (Term PLC.Name PLC.DefaultUni PLC.DefaultFun ())

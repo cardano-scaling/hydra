@@ -73,7 +73,7 @@ import           Data.Map                  (Map)
 import qualified Data.Map                  as Map
 import           Data.Maybe                (isJust)
 import qualified Data.Set                  as Set
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           GHC.Generics              (Generic)
 
 import qualified PlutusTx

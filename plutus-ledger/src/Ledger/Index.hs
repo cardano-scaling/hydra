@@ -60,8 +60,8 @@ import qualified Data.Map                         as Map
 import qualified Data.OpenApi.Schema              as OpenApi
 import qualified Data.Set                         as Set
 import           Data.Text                        (Text)
-import           Data.Text.Prettyprint.Doc        (Pretty)
-import           Data.Text.Prettyprint.Doc.Extras (PrettyShow (..))
+import           Prettyprinter        (Pretty)
+import           Prettyprinter.Extras (PrettyShow (..))
 import           GHC.Generics                     (Generic)
 import           Ledger.Blockchain
 import           Ledger.Crypto

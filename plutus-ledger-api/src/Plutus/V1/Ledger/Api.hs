@@ -119,7 +119,7 @@ import           Data.Either
 import           Data.Maybe                                       (isJust)
 import           Data.SatInt
 import           Data.Text                                        (Text)
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           Data.Tuple
 import           Plutus.V1.Ledger.Ada
 import           Plutus.V1.Ledger.Address

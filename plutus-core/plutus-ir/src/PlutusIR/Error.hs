@@ -26,7 +26,7 @@ import qualified PlutusIR                  as PIR
 import           Control.Lens
 
 import qualified Data.Text                 as T
-import           Data.Text.Prettyprint.Doc as PP
+import           Prettyprinter as PP
 import           ErrorCode
 
 data TypeErrorExt uni ann =

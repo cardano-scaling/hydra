@@ -22,7 +22,7 @@ import           PlutusCore.Pretty          (PrettyConst)
 import qualified UntypedPlutusCore          as UPLC
 import qualified UntypedPlutusCore.DeBruijn as UPLC
 
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 import           Flat                       (Flat)
 
 instance (PLC.Closed uni, uni `PLC.Everywhere` Flat, uni `PLC.Everywhere` PrettyConst, PLC.GShow uni, Pretty fun, Flat fun) =>

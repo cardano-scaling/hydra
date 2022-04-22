@@ -23,7 +23,7 @@ import           PlutusCore.Pretty         (PrettyConst)
 import qualified UntypedPlutusCore         as UPLC
 
 import           Codec.Serialise           (Serialise)
-import           Data.Text.Prettyprint.Doc
+import           Prettyprinter
 
 -- This is here for the Plugin spec, but we're testing using things from a different module
 andExternal :: Bool -> Bool -> Bool
