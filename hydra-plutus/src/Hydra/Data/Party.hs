@@ -8,25 +8,28 @@ module Hydra.Data.Party where
 
 import Hydra.Prelude hiding (init)
 
-import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN, rawSerialiseVerKeyDSIGN), MockDSIGN, VerKeyDSIGN (VerKeyMockDSIGN))
+import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), Ed25519DSIGN, VerKeyDSIGN (..))
 import Data.Aeson (Value (String), object, withObject, (.:), (.=))
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
+import Data.Maybe (fromJust)
 import qualified PlutusTx
+import PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)
 import PlutusTx.IsData
+import Test.QuickCheck (vector)
 
 -- TODO(SN): Copied party + json instances for deserializing in 'init' endpoint
 -- and we were struggling to define 'Lift' and 'IsData'. Ideally we would be
 -- able to define all necessary instances on 'Hydra.Party' directly
 
-newtype Party = UnsafeParty Integer
+newtype Party = UnsafeParty BuiltinByteString
   deriving stock (Eq, Generic)
-  deriving newtype (Show, Num)
+  deriving newtype (Show)
 
 PlutusTx.makeLift ''Party
 
 instance Arbitrary Party where
-  shrink = genericShrink
-  arbitrary = genericArbitrary
+  arbitrary = UnsafeParty . toBuiltin . BS.pack <$> vector 32
 
 instance ToJSON Party where
   toJSON p =
@@ -42,16 +45,18 @@ instance FromJSON Party where
     pure $ partyFromVerKey verKey
 
 instance PlutusTx.ToData Party where
-  toBuiltinData (UnsafeParty k) = toBuiltinData k
+  toBuiltinData (UnsafeParty bytes) = toBuiltinData bytes
 
 instance PlutusTx.FromData Party where
-  fromBuiltinData = fmap fromInteger . fromBuiltinData
+  fromBuiltinData = fmap UnsafeParty . fromBuiltinData
 
 instance PlutusTx.UnsafeFromData Party where
-  unsafeFromBuiltinData = fromInteger . unsafeFromBuiltinData
+  unsafeFromBuiltinData = UnsafeParty . unsafeFromBuiltinData
 
-partyFromVerKey :: VerKeyDSIGN MockDSIGN -> Party
-partyFromVerKey (VerKeyMockDSIGN w) = UnsafeParty $ fromIntegral w
+partyFromVerKey :: VerKeyDSIGN Ed25519DSIGN -> Party
+partyFromVerKey =
+  UnsafeParty . toBuiltin . rawSerialiseVerKeyDSIGN
 
-partyToVerKey :: Party -> VerKeyDSIGN MockDSIGN
-partyToVerKey (UnsafeParty i) = fromInteger i
+partyToVerKey :: HasCallStack => Party -> VerKeyDSIGN Ed25519DSIGN
+partyToVerKey (UnsafeParty bytes) =
+  fromJust $ rawDeserialiseVerKeyDSIGN (fromBuiltin bytes)
