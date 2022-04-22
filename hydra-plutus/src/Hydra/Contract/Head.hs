@@ -63,7 +63,7 @@ headValidator commitAddress initialAddress oldState input context =
       checkClose context headContext parties snapshotNumber signature
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
-    _ -> False
+    _ -> traceError "invalid head state transition"
  where
   headContext = mkHeadContext context initialAddress commitAddress
 
@@ -180,7 +180,8 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
     && mustBeSignedByParticipant context headContext
  where
   everyoneHasCommitted =
-    nTotalCommits == length parties
+    traceIfFalse "not everyone committed" $
+      nTotalCommits == length parties
 
   HeadContext
     { headAddress
@@ -263,7 +264,7 @@ checkClose context headContext parties snapshotNumber sig =
   checkSnapshot
     | snapshotNumber == 0 = True
     | snapshotNumber > 0 = verifySnapshotSignature parties snapshotNumber sig
-    | otherwise = False
+    | otherwise = traceError "negative snapshot number"
 {-# INLINEABLE checkClose #-}
 
 txOutAdaValue :: TxOut -> Integer
@@ -295,14 +296,14 @@ mustBeSignedByParticipant ::
   HeadContext ->
   Bool
 mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} HeadContext{headCurrencySymbol} =
-  traceIfFalse "mustBeSignedByParticipant: did not found expected signer" $
-    case getPubKeyHash <$> txInfoSignatories txInfo of
-      [signer] ->
+  case getPubKeyHash <$> txInfoSignatories txInfo of
+    [signer] ->
+      traceIfFalse "mustBeSignedByParticipant: did not find expected signer" $
         signer `elem` (unTokenName <$> participationTokens)
-      [] ->
-        traceError "mustBeSignedByParticipant: no signers"
-      _ ->
-        traceError "mustBeSignedByParticipant: too many signers"
+    [] ->
+      traceError "mustBeSignedByParticipant: no signers"
+    _ ->
+      traceError "mustBeSignedByParticipant: too many signers"
  where
   participationTokens = loop (txInfoInputs txInfo)
   loop = \case
@@ -330,7 +331,7 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
     (o : rest)
       | txOutAddress o == headAddress ->
         traceIfFalse "wrong output head datum" (txOutDatum txInfo o == datum)
-          && checkOutputValue (xs <> rest)
+          && traceIfFalse "wrong output value" (checkOutputValue (xs <> rest))
     (o : rest) ->
       checkOutputDatum (o : xs) rest
 

@@ -18,6 +18,8 @@ import Hydra.Chain.Direct.State (
   HeadStateKind (..),
   ObserveTx,
   OnChainHeadState,
+  close,
+  collect,
   commit,
   idleOnChainHeadState,
   initialize,
@@ -25,6 +27,8 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party)
+import qualified Hydra.Party as Hydra
+import Hydra.Snapshot (genConfirmedSnapshot)
 import Test.QuickCheck (choose, elements, frequency, vector)
 
 -- | Define some 'global' context from which generators can pick
@@ -36,17 +40,20 @@ import Test.QuickCheck (choose, elements, frequency, vector)
 -- be coherent.
 data HydraContext = HydraContext
   { ctxVerificationKeys :: [VerificationKey PaymentKey]
-  , ctxParties :: [Party]
+  , ctxHydraSigningKeys :: [Hydra.SigningKey]
   , ctxNetworkId :: NetworkId
   , ctxContestationPeriod :: DiffTime
   }
   deriving (Show)
 
+ctxParties :: HydraContext -> [Party]
+ctxParties = fmap Hydra.deriveParty . ctxHydraSigningKeys
+
 ctxHeadParameters ::
   HydraContext ->
   HeadParameters
-ctxHeadParameters HydraContext{ctxContestationPeriod, ctxParties} =
-  HeadParameters ctxContestationPeriod ctxParties
+ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
+  HeadParameters ctxContestationPeriod (ctxParties ctx)
 
 --
 -- Generators
@@ -62,13 +69,13 @@ genHydraContext maxParties = choose (1, maxParties) >>= genHydraContextFor
 genHydraContextFor :: Int -> Gen HydraContext
 genHydraContextFor n = do
   ctxVerificationKeys <- replicateM n genVerificationKey
-  ctxParties <- vector n
+  ctxHydraSigningKeys <- fmap Hydra.generateKey <$> vector n
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
   ctxContestationPeriod <- arbitrary
   pure $
     HydraContext
       { ctxVerificationKeys
-      , ctxParties
+      , ctxHydraSigningKeys
       , ctxNetworkId
       , ctxContestationPeriod
       }
@@ -76,8 +83,8 @@ genHydraContextFor n = do
 genStIdle ::
   HydraContext ->
   Gen (OnChainHeadState 'StIdle)
-genStIdle HydraContext{ctxVerificationKeys, ctxNetworkId, ctxParties} = do
-  ownParty <- elements ctxParties
+genStIdle ctx@HydraContext{ctxVerificationKeys, ctxNetworkId} = do
+  ownParty <- elements (ctxParties ctx)
   ownVerificationKey <- elements ctxVerificationKeys
   let peerVerificationKeys = ctxVerificationKeys \\ [ownVerificationKey]
   pure $ idleOnChainHeadState ctxNetworkId peerVerificationKeys ownVerificationKey ownParty
@@ -117,6 +124,32 @@ genCommit =
     [ (1, pure mempty)
     , (10, genVerificationKey >>= genOneUTxOFor)
     ]
+
+genCollectComTx :: Int -> Gen (OnChainHeadState 'StInitialized, Tx)
+genCollectComTx numParties = do
+  ctx <- genHydraContextFor numParties
+  initTx <- genInitTx ctx
+  commits <- genCommits ctx initTx
+  stIdle <- genStIdle ctx
+  let stInitialized = executeCommits initTx commits stIdle
+  pure (stInitialized, collect stInitialized)
+
+genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx)
+genCloseTx numParties = do
+  ctx <- genHydraContextFor numParties
+  stOpen <- genStOpen ctx
+  snapshot <- genConfirmedSnapshot (ctxHydraSigningKeys ctx)
+  pure (stOpen, close snapshot stOpen)
+
+genStOpen ::
+  HydraContext ->
+  Gen (OnChainHeadState 'StOpen)
+genStOpen ctx = do
+  initTx <- genInitTx ctx
+  commits <- genCommits ctx initTx
+  stInitialized <- executeCommits initTx commits <$> genStIdle ctx
+  let collectComTx = collect stInitialized
+  pure $ snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized
 
 --
 -- Here be dragons

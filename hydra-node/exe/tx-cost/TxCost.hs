@@ -55,13 +55,20 @@ import Hydra.Chain.Direct.Context (
   HydraContext (ctxVerificationKeys),
   ctxHeadParameters,
   executeCommits,
+  genCloseTx,
+  genCollectComTx,
   genCommits,
   genHydraContextFor,
   genInitTx,
   genStIdle,
   genStInitialized,
  )
-import Hydra.Chain.Direct.State (abort, collect, commit, getKnownUTxO, initialize)
+import Hydra.Chain.Direct.State (
+  abort,
+  commit,
+  getKnownUTxO,
+  initialize,
+ )
 import Hydra.Chain.Direct.Tx (fanoutTx)
 import qualified Hydra.Contract.Hash as Hash
 import qualified Hydra.Contract.Head as Head
@@ -180,25 +187,35 @@ computeCollectComCost =
     <$> forM
       [1 .. 100]
       ( \numParties -> do
-          (tx, knownUtxo) <- generate $ genCollectComTx numParties
+          (st, tx) <- generate $ genCollectComTx numParties
+          let utxo = getKnownUTxO st
           let txSize = LBS.length $ serialize tx
           if txSize < fromIntegral (Ledger._maxTxSize pparams)
-            then case evaluateTx tx knownUtxo of
+            then case evaluateTx tx utxo of
               (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
                 | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
                   pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
               _ -> pure Nothing
             else pure Nothing
       )
- where
-  genCollectComTx numParties = do
-    genHydraContextFor numParties
-      >>= \ctx ->
-        genInitTx ctx >>= \initTx ->
-          genCommits ctx initTx >>= \commits ->
-            genStIdle ctx >>= \stIdle ->
-              let stInitialized = executeCommits initTx commits stIdle
-               in pure (collect stInitialized, getKnownUTxO stInitialized)
+
+computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
+computeCloseCost =
+  catMaybes
+    <$> forM
+      [1 .. 100]
+      ( \numParties -> do
+          (st, tx) <- generate $ genCloseTx numParties
+          let utxo = getKnownUTxO st
+          let txSize = LBS.length $ serialize tx
+          if txSize < fromIntegral (Ledger._maxTxSize pparams)
+            then case evaluateTx tx utxo of
+              (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
+                | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
+                  pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
+              _ -> pure Nothing
+            else pure Nothing
+      )
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeAbortCost =
