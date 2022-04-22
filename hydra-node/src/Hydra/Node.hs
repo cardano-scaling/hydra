@@ -48,18 +48,17 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (Options (..))
-import Hydra.Party (Party (..))
+import Hydra.Party (Party (..), deriveParty)
 
 -- * Environment Handling
 
 initEnvironment :: Options -> IO Environment
 initEnvironment Options{hydraSigningKey, hydraVerificationKeys} = do
   sk <- loadSigningKey hydraSigningKey
-  let vk = deriveVerKeyDSIGN sk
   otherParties <- mapM loadParty hydraVerificationKeys
   pure $
     Environment
-      { party = Party vk
+      { party = deriveParty sk
       , signingKey = sk
       , otherParties
       }
