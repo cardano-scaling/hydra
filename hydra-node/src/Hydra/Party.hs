@@ -76,7 +76,7 @@ instance ToJSON VerificationKey where
   toJSON = String . showVerificationKey
 
 instance FromJSON VerificationKey where
-  parseJSON = withText "VerificationKey" $ decodeBase16' >=> deserialiseKey
+  parseJSON = withText "VerificationKey" $ decodeBase16 >=> deserialiseKey
    where
     deserialiseKey =
       maybe (fail "Unable to deserialize VerificationKey") pure . rawDeserialiseVerKeyDSIGN
@@ -143,16 +143,10 @@ instance ToJSON a => ToJSON (Signed a) where
   toJSON (UnsafeSigned sig) = String . decodeUtf8 . Base16.encode $ sig
 
 instance FromJSON a => FromJSON (Signed a) where
-  parseJSON = withText "Signed" $ decodeBase16' >=> pure . UnsafeSigned
+  parseJSON = withText "Signed" $ decodeBase16 >=> pure . UnsafeSigned
 
 instance Typeable a => FromCBOR (Signed a) where
   fromCBOR = UnsafeSigned <$> fromCBOR
 
 instance Typeable a => ToCBOR (Signed a) where
   toCBOR (UnsafeSigned sig) = toCBOR sig
-
--- * Helpers
-
-decodeBase16' :: MonadFail f => Text -> f ByteString
-decodeBase16' =
-  either fail pure . Base16.decode . encodeUtf8
