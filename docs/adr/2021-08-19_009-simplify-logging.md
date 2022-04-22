@@ -3,7 +3,7 @@ slug: 9
 title: | 
   9. Simplify Logging
 authors: []
-tags: [Proposed]
+tags: [Accepted]
 ---
 
 ## Status
