@@ -43,7 +43,10 @@ generateParty :: ByteString -> Party
 generateParty =
   Party . Hydra.generateVerificationKey
 
--- | Generate some 'a' given the Party as a seed.
+-- | Generate some 'a' given the Party as a seed. NOTE: While this is useful to
+-- generate party-specific values, it DOES depend on the generator used. For
+-- example, `genForParty genVerificationKey` and `genForParty (fst <$>
+-- genKeyPair)` do not yield the same verification keys!
 genForParty :: Gen a -> Party -> a
 genForParty gen Party{vkey} =
   generateWith gen seed

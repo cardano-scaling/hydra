@@ -38,7 +38,6 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Ledger.Cardano (
   adaOnly,
-  genKeyPair,
   genOneUTxOFor,
   genUTxO,
   genVerificationKey,
@@ -360,13 +359,13 @@ genAbortableOutputs parties =
     null $ intersectBy (\(i, _, _) (c, _, _) -> i == c) is cs
 
   genInitial p =
-    mkInitial (genKeyPair `genForParty` p) <$> arbitrary
+    mkInitial (genVerificationKey `genForParty` p) <$> arbitrary
 
   mkInitial ::
-    (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+    VerificationKey PaymentKey ->
     TxIn ->
     UTxOWithScript
-  mkInitial (vk, _) txin =
+  mkInitial vk txin =
     ( txin
     , initialTxOut vk
     , fromPlutusData (toData initialDatum)
