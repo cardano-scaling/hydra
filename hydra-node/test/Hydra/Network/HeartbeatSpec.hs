@@ -8,6 +8,7 @@ import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.Network (Host (..), Network (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Message (Message (Connected, Disconnected, ReqTx))
+import Hydra.Party (Party, generateParty)
 
 spec :: Spec
 spec = parallel $
@@ -48,23 +49,23 @@ spec = parallel $
       let receivedHeartbeats = runSimOrThrow $ do
             receivedMessages <- newTVarIO ([] :: [Message Integer])
 
-            withHeartbeat localhost (\incoming _ -> incoming (Data otherPeer $ ReqTx 2 1)) (captureIncoming receivedMessages) $ \_ ->
+            withHeartbeat localhost (\incoming _ -> incoming (Data otherPeer $ ReqTx bob 1)) (captureIncoming receivedMessages) $ \_ ->
               threadDelay 1
 
             readTVarIO receivedMessages
 
-      receivedHeartbeats `shouldBe` [ReqTx 2 1, Connected otherPeer]
+      receivedHeartbeats `shouldBe` [ReqTx bob 1, Connected otherPeer]
 
     it "do not send Connected on subsequent messages from already Connected party" $ do
       let receivedHeartbeats = runSimOrThrow $ do
             receivedMessages <- newTVarIO ([] :: [Message Integer])
 
-            withHeartbeat localhost (\incoming _ -> incoming (Data otherPeer $ ReqTx 2 1) >> incoming (Ping otherPeer)) (captureIncoming receivedMessages) $ \_ ->
+            withHeartbeat localhost (\incoming _ -> incoming (Data otherPeer $ ReqTx bob 1) >> incoming (Ping otherPeer)) (captureIncoming receivedMessages) $ \_ ->
               threadDelay 1
 
             readTVarIO receivedMessages
 
-      receivedHeartbeats `shouldBe` [ReqTx 2 1, Connected otherPeer]
+      receivedHeartbeats `shouldBe` [ReqTx bob 1, Connected otherPeer]
 
     it "sends Disconnected given no messages has been received from known party within twice heartbeat delay" $ do
       let receivedHeartbeats = runSimOrThrow $ do
@@ -83,7 +84,7 @@ spec = parallel $
       receivedHeartbeats `shouldBe` [Disconnected otherPeer, Connected otherPeer]
 
     it "stop sending heartbeat message given action sends a message" $ do
-      let someMessage = ReqTx 1 1
+      let someMessage = ReqTx alice 1
           sentHeartbeats = runSimOrThrow $ do
             sentMessages <- newTVarIO ([] :: [Heartbeat (Message Integer)])
 
@@ -97,7 +98,7 @@ spec = parallel $
       sentHeartbeats `shouldBe` [Data localhost someMessage, Ping localhost]
 
     it "restart sending heartbeat messages given last message sent is older than heartbeat delay" $ do
-      let someMessage = ReqTx 1 1
+      let someMessage = ReqTx alice 1
           sentHeartbeats = runSimOrThrow $ do
             sentMessages <- newTVarIO ([] :: [Heartbeat (Message Integer)])
 
@@ -112,3 +113,7 @@ spec = parallel $
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
+
+alice, bob :: Party
+alice = generateParty "alice"
+bob = generateParty "bob"
