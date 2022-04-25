@@ -19,7 +19,7 @@ import qualified Data.Aeson as Aeson
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Party (generateParty)
+import Hydra.Party (Party, generateParty)
 import Hydra.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), input)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Network.Ports (withFreePort)
@@ -28,9 +28,6 @@ import Test.QuickCheck.Monadic (monadicIO, monitor, run)
 
 spec :: Spec
 spec = parallel $ do
-  let party = generateParty "alice"
-      greeting = Greetings party
-
   it "greets" $ do
     failAfter 5 $
       withFreePort $ \port ->
@@ -80,7 +77,7 @@ spec = parallel $ do
 
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
-  withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) 1 nullTracer noop $ \_server -> do
+  withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) party nullTracer noop $ \_server -> do
     withClient port $ \con -> do
       _greeting :: ByteString <- receiveData con
       sendBinaryData con invalidInput
@@ -93,6 +90,12 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
   isInvalidInput = \case
     InvalidInput{input} -> input == invalidInput
     _ -> False
+
+party :: Party
+party = generateParty "alice"
+
+greeting :: ServerOutput SimpleTx
+greeting = Greetings party
 
 waitForClients :: (MonadSTM m, Ord a, Num a) => TVar m a -> m ()
 waitForClients semaphore = atomically $ readTVar semaphore >>= \n -> check (n >= 2)
