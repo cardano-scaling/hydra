@@ -351,7 +351,7 @@ spec = parallel $ do
         logs
           `shouldContain` [ProcessingEvent alice $ ClientEvent $ Init testContestationPeriod]
         logs
-          `shouldContain` [ProcessedEvent bob $ ClientEvent $ Init testContestationPeriod]
+          `shouldContain` [ProcessedEvent alice $ ClientEvent $ Init testContestationPeriod]
 
       it "traces handling of effects" $ do
         let result = runSimTrace $ do
