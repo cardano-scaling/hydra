@@ -132,11 +132,13 @@ module Hydra.Chain.Direct.Contract.Mutation where
 import Hydra.Cardano.Api
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Crypto.Hash (hashToBytes)
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
+import Codec.CBOR.Magic (uintegerFromBytes)
 import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -146,11 +148,10 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.State (SomeOnChainHeadState (..), observeSomeTx, reifyState)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
-import qualified Hydra.Data.Party as Party
+import Hydra.Crypto (hashVerificationKey)
 import Hydra.Ledger.Cardano (genKeyPair, genOutput, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import Hydra.Party (Party, generateKey, vkey)
-import qualified Hydra.Party as Party
+import Hydra.Party (Party (Party), vkey)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
@@ -159,7 +160,6 @@ import Test.Hydra.Prelude
 import Test.QuickCheck (
   Property,
   checkCoverage,
-  choose,
   conjoin,
   counterexample,
   forAll,
@@ -573,5 +573,11 @@ addPTWithQuantity tx quantity =
   mintedValue = txMintValue $ txBodyContent $ txBody tx
 
 cardanoCredentialsFor :: Party -> (VerificationKey PaymentKey, SigningKey PaymentKey)
-cardanoCredentialsFor (Party.partyFromVerKey . vkey -> (Party.UnsafeParty (fromIntegral -> seed))) =
+cardanoCredentialsFor Party{vkey} =
   generateWith genKeyPair seed
+ where
+  seed =
+    fromIntegral
+      . uintegerFromBytes
+      . hashToBytes
+      $ hashVerificationKey vkey
