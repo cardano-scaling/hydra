@@ -14,7 +14,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   anyPayToPubKeyTxOut,
-  cardanoCredentialsFor,
   genHash,
   headTxIn,
  )
@@ -26,6 +25,7 @@ import Hydra.Chain.Direct.Fixture (
 import Hydra.Chain.Direct.Tx (
   assetNameFromVerificationKey,
   collectComTx,
+  convertPartyToChain,
   headPolicyId,
   headValue,
   mkCommitDatum,
@@ -35,9 +35,8 @@ import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as OnChain
-import qualified Hydra.Data.Party as Party
-import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genVerificationKey)
-import Hydra.Party (Party, vkey)
+import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genKeyPair, genTxIn, genVerificationKey)
+import Hydra.Party (Party, genForParty)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat)
@@ -58,12 +57,12 @@ healthyCollectComTx =
   tx =
     collectComTx
       testNetworkId
-      (fst somePartyCredentials)
+      somePartyCardanoVerificationKey
       (healthyHeadInput, healthyHeadResolvedInput, headDatum, healthyOnChainParties)
       commits
 
-  somePartyCredentials = flip generateWith 42 $ do
-    cardanoCredentialsFor <$> elements healthyParties
+  somePartyCardanoVerificationKey = flip generateWith 42 $ do
+    genForParty genVerificationKey <$> elements healthyParties
 
   committedUTxO =
     generateWith
@@ -96,7 +95,7 @@ healthyCollectComInitialDatum =
 
 healthyOnChainParties :: [OnChain.Party]
 healthyOnChainParties =
-  Party.partyFromVerKey . vkey <$> healthyParties
+  convertPartyToChain <$> healthyParties
 
 healthyParties :: [Party]
 healthyParties = flip generateWith 42 $ do
@@ -114,16 +113,16 @@ healthyCommitOutput ::
   (TxIn, TxOut CtxUTxO) ->
   (TxIn, (TxOut CtxUTxO, ScriptData))
 healthyCommitOutput party committed =
-  ( generateWith arbitrary seed
+  ( txIn
   ,
     ( toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatum commitDatum))
     , fromPlutusData (toData commitDatum)
     )
   )
  where
-  (Party.partyFromVerKey . vkey -> (Party.UnsafeParty (fromIntegral -> seed))) = party
+  txIn = genTxIn `genForParty` party
 
-  (cardanoVk, _) = cardanoCredentialsFor party
+  (cardanoVk, _) = genKeyPair `genForParty` party
 
   commitScript =
     fromPlutusScript Commit.validatorScript

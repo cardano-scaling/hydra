@@ -64,6 +64,15 @@ hydraHeadV1AssetName = AssetName (fromBuiltin Head.hydraHeadV1)
 headValue :: Value
 headValue = lovelaceToValue (Lovelace 2_000_000)
 
+-- TODO: move somewhere better.. or avoid it completely!
+convertPartyFromChain :: OnChain.Party -> Party
+convertPartyFromChain =
+  Party . Hydra.HydraVerificationKey . partyToVerKey
+
+convertPartyToChain :: Party -> OnChain.Party
+convertPartyToChain Party{vkey = Hydra.HydraVerificationKey vk} =
+  partyFromVerKey vk
+
 -- * Create Hydra Head transactions
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
@@ -462,14 +471,6 @@ observeInitTx networkId cardanoKeys party tx = do
     | (AssetId _ assetName, _) <- txMintAssets tx
     , assetName /= headAssetName
     ]
-
-convertPartyFromChain :: OnChain.Party -> Party
-convertPartyFromChain =
-  Party . Hydra.HydraVerificationKey . partyToVerKey
-
-convertPartyToChain :: Party -> OnChain.Party
-convertPartyToChain Party{vkey = Hydra.HydraVerificationKey vk} =
-  partyFromVerKey vk
 
 type CommitObservation = UTxOWithScript
 

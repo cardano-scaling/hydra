@@ -12,14 +12,13 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
-  cardanoCredentialsFor,
   changeMintedValueQuantityFrom,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.State (HeadStateKind (..), OnChainHeadState, idleOnChainHeadState)
 import Hydra.Chain.Direct.Tx (hydraHeadV1AssetName, initTx)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
-import Hydra.Party (Party)
+import Hydra.Party (Party, genForParty)
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
 import qualified Prelude
 
@@ -55,7 +54,7 @@ healthyParties =
 
 healthyCardanoKeys :: [VerificationKey PaymentKey]
 healthyCardanoKeys =
-  fst . cardanoCredentialsFor <$> healthyParties
+  genForParty genVerificationKey <$> healthyParties
 
 healthyLookupUTxO :: UTxO
 healthyLookupUTxO =
@@ -64,7 +63,7 @@ healthyLookupUTxO =
 genHealthyIdleSt :: Gen (OnChainHeadState 'StIdle)
 genHealthyIdleSt = do
   party <- elements healthyParties
-  let (vk, _sk) = cardanoCredentialsFor party
+  let vk = genVerificationKey `genForParty` party
   pure $ idleOnChainHeadState testNetworkId (healthyCardanoKeys \\ [vk]) vk party
 
 data InitMutation
