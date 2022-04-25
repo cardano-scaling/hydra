@@ -140,7 +140,7 @@ Connect to the nodes using hydra-tui. For example, to use Alice's hydra-node and
 
 ```
 cabal exec hydra-tui -- \
-  --connect localhost:4001 \
+  --connect 0.0.0.0:4001 \
   --cardano-signing-key devnet/credentials/alice.sk \
   --network-id 42 \
   --node-socket devnet/ipc/node.socket
