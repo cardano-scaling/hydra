@@ -15,6 +15,8 @@ import Hydra.Chain (
   PostTxError (NoSeedInput),
  )
 import Hydra.ClientInput (ClientInput (..))
+import Hydra.Crypto (generateSigningKey, sign)
+import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -34,7 +36,7 @@ import Hydra.Node (
   isEmpty,
   stepHydraNode,
  )
-import Hydra.Party (Party, SigningKey, deriveParty, sign)
+import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (PostTxOnChainFailed))
 import Hydra.Snapshot (Snapshot (..))
 
@@ -49,15 +51,15 @@ spec = parallel $ do
           tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{message = ReqTx{party = 10, transaction = tx1}}
-                 , NetworkEvent{message = ReqTx{party = 10, transaction = tx2}}
-                 , NetworkEvent{message = ReqTx{party = 10, transaction = tx3}}
+              <> [ NetworkEvent{message = ReqTx{party = alice, transaction = tx1}}
+                 , NetworkEvent{message = ReqTx{party = alice, transaction = tx2}}
+                 , NetworkEvent{message = ReqTx{party = alice, transaction = tx3}}
                  ]
-          signedSnapshot = sign 10 $ Snapshot 1 (utxoRefs [1, 3, 4]) [tx1]
-      node <- createHydraNode 10 [20, 30] events
+          signedSnapshot = sign aliceSk $ Snapshot 1 (utxoRefs [1, 3, 4]) [tx1]
+      node <- createHydraNode aliceSk [bob, carol] events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
-      getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1], AckSn 10 signedSnapshot 1]
+      getNetworkMessages `shouldReturn` [ReqSn alice 1 [tx1], AckSn alice signedSnapshot 1]
 
   it "rotates snapshot leaders" $
     showLogsOnFailure $ \tracer -> do
@@ -66,32 +68,32 @@ spec = parallel $ do
           sn2 = Snapshot 2 (utxoRefs [1, 3, 4]) [tx1]
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{message = ReqSn{party = 10, snapshotNumber = 1, transactions = mempty}}
-                 , NetworkEvent{message = AckSn 10 (sign 10 sn1) 1}
-                 , NetworkEvent{message = AckSn 30 (sign 30 sn1) 1}
-                 , NetworkEvent{message = ReqTx{party = 10, transaction = tx1}}
+              <> [ NetworkEvent{message = ReqSn{party = alice, snapshotNumber = 1, transactions = mempty}}
+                 , NetworkEvent{message = AckSn alice (sign aliceSk sn1) 1}
+                 , NetworkEvent{message = AckSn carol (sign carolSk sn1) 1}
+                 , NetworkEvent{message = ReqTx{party = alice, transaction = tx1}}
                  ]
 
-      node <- createHydraNode 20 [10, 30] events
+      node <- createHydraNode bobSk [alice, carol] events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
 
-      getNetworkMessages `shouldReturn` [AckSn 20 (sign 20 sn1) 1, ReqSn 20 2 [tx1], AckSn 20 (sign 20 sn2) 2]
+      getNetworkMessages `shouldReturn` [AckSn bob (sign bobSk sn1) 1, ReqSn bob 2 [tx1], AckSn bob (sign bobSk sn2) 2]
 
   it "processes out-of-order AckSn" $
     showLogsOnFailure $ \tracer -> do
       let snapshot = Snapshot 1 (utxoRefs [1, 2, 3]) []
-          sig20 = sign 20 snapshot
-          sig10 = sign 10 snapshot
+          sigBob = sign bobSk snapshot
+          sigAlice = sign aliceSk snapshot
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{message = AckSn{party = 20, signed = sig20, snapshotNumber = 1}}
-                 , NetworkEvent{message = ReqSn{party = 10, snapshotNumber = 1, transactions = []}}
+              <> [ NetworkEvent{message = AckSn{party = bob, signed = sigBob, snapshotNumber = 1}}
+                 , NetworkEvent{message = ReqSn{party = alice, snapshotNumber = 1, transactions = []}}
                  ]
-      node <- createHydraNode 10 [20, 30] events
+      node <- createHydraNode aliceSk [bob, carol] events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
-      getNetworkMessages `shouldReturn` [AckSn{party = 10, signed = sig10, snapshotNumber = 1}]
+      getNetworkMessages `shouldReturn` [AckSn{party = alice, signed = sigAlice, snapshotNumber = 1}]
 
   it "notifies client when postTx throws PostTxError" $
     showLogsOnFailure $ \tracer -> do
@@ -100,12 +102,22 @@ spec = parallel $ do
             , NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
             , ClientEvent $ Init 10
             ]
-      (node, getServerOutputs) <- createHydraNode 10 [20, 30] events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
+      (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
 
       runToCompletion tracer node
 
       outputs <- getServerOutputs
-      outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters 10 [10, 20, 30]) NoSeedInput]
+      outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters 10 [alice, bob, carol]) NoSeedInput]
+
+aliceSk, bobSk, carolSk :: Hydra.SigningKey
+aliceSk = generateSigningKey "alice"
+bobSk = generateSigningKey "bob"
+carolSk = generateSigningKey "carol"
+
+alice, bob, carol :: Party
+alice = deriveParty aliceSk
+bob = deriveParty bobSk
+carol = deriveParty carolSk
 
 isReqSn :: Message tx -> Bool
 isReqSn = \case
@@ -117,12 +129,12 @@ eventsToOpenHead =
   [ NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
   , NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
   , OnChainEvent
-      { chainEvent = Observation $ OnInitTx 10 [10, 20, 30]
+      { chainEvent = Observation $ OnInitTx 10 [alice, bob, carol]
       }
   , ClientEvent{clientInput = Commit (utxoRef 2)}
-  , OnChainEvent{chainEvent = Observation $ OnCommitTx 30 (utxoRef 3)}
-  , OnChainEvent{chainEvent = Observation $ OnCommitTx 20 (utxoRef 2)}
-  , OnChainEvent{chainEvent = Observation $ OnCommitTx 10 (utxoRef 1)}
+  , OnChainEvent{chainEvent = Observation $ OnCommitTx carol (utxoRef 3)}
+  , OnChainEvent{chainEvent = Observation $ OnCommitTx bob (utxoRef 2)}
+  , OnChainEvent{chainEvent = Observation $ OnCommitTx alice (utxoRef 1)}
   , OnChainEvent{chainEvent = Observation OnCollectComTx}
   ]
 
@@ -135,7 +147,7 @@ runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = go
 
 createHydraNode ::
   (MonadSTM m, MonadDelay m, MonadAsync m) =>
-  SigningKey ->
+  Hydra.SigningKey ->
   [Party] ->
   [Event SimpleTx] ->
   m (HydraNode SimpleTx m)
