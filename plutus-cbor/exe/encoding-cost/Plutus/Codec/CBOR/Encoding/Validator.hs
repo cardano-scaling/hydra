@@ -1,34 +1,25 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
 module Plutus.Codec.CBOR.Encoding.Validator where
 
-import PlutusTx.Prelude
+import           PlutusTx.Prelude
 
-import qualified Ledger.Typed.Scripts as Scripts
-import Plutus.Codec.CBOR.Encoding (
-  Encoding,
-  encodeByteString,
-  encodeInteger,
-  encodeList,
-  encodeListLen,
-  encodeMap,
-  encodeMaybe,
-  encodingToBuiltinByteString,
- )
-import Plutus.V1.Ledger.Api (
-  Address (..),
-  Credential (..),
-  CurrencySymbol (..),
-  DatumHash (..),
-  PubKeyHash (..),
-  TokenName (..),
-  TxOut (..),
-  ValidatorHash (..),
-  Value (..),
- )
-import qualified PlutusTx as Plutus
+import qualified Ledger.Typed.Scripts       as Scripts
+
+import           Plutus.Codec.CBOR.Encoding (Encoding, encodeByteString,
+                                             encodeInteger, encodeList,
+                                             encodeListLen, encodeMap,
+                                             encodeMaybe,
+                                             encodingToBuiltinByteString)
+
+import           Plutus.V1.Ledger.Api       (Address (..), Credential (..),
+                                             CurrencySymbol (..),
+                                             DatumHash (..), PubKeyHash (..),
+                                             TokenName (..), TxOut (..),
+                                             ValidatorHash (..), Value (..))
+import qualified PlutusTx                   as Plutus
 
 -- | A validator for measuring cost of encoding values. The validator is
 -- parameterized by the type of value.
@@ -158,7 +149,7 @@ encodeAddress Address{addressCredential} =
   encodeByteString (credentialToBytes addressCredential)
  where
   credentialToBytes = \case
-    PubKeyCredential (PubKeyHash h) -> h
+    PubKeyCredential (PubKeyHash h)    -> h
     ScriptCredential (ValidatorHash h) -> h
 {-# INLINEABLE encodeAddress #-}
 

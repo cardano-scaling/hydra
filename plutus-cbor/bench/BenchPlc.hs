@@ -1,27 +1,43 @@
+{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE TypeApplications #-}
 -- | Criterion benchmark of serializing some Plutus values to ByteString using
 -- this library, but also `cborg` as a reference.
 module Main where
 
-import           Hydra.Prelude              hiding ((<>))
+import           Control.Exception
+import           Control.Monad.Except
+import           Hydra.Prelude                            hiding ((<>))
 import           TxGen
 
-import           Codec.Serialise            (serialise)
-import           Criterion.Main             (bench, bgroup, defaultMain, whnf)
-import           Plutus.Codec.CBOR.Encoding (Encoding, encodeByteString,
-                                             encodeInteger, encodeListLen,
-                                             encodeMap, encodeMaybe,
-                                             encodingToBuiltinByteString)
-import           Plutus.V1.Ledger.Api       (Address (..), BuiltinByteString,
-                                             Credential (PubKeyCredential, ScriptCredential),
-                                             CurrencySymbol (CurrencySymbol),
-                                             DatumHash (DatumHash),
-                                             PubKeyHash (PubKeyHash),
-                                             TokenName (TokenName),
-                                             TxOut (TxOut),
-                                             ValidatorHash (ValidatorHash),
-                                             Value (getValue), toBuiltin,
-                                             toData)
-import           PlutusTx.Semigroup         ((<>))
+import           Codec.Serialise                          (serialise)
+import           Criterion.Main                           (Benchmarkable, bench,
+                                                           bgroup, defaultMain,
+                                                           nf, whnf)
+import           Plutus.Codec.CBOR.Encoding               (Encoding,
+                                                           encodeByteString,
+                                                           encodeInteger,
+                                                           encodeListLen,
+                                                           encodeMap,
+                                                           encodeMaybe,
+                                                           encodingToBuiltinByteString)
+import           Plutus.V1.Ledger.Api                     (Address (..),
+                                                           BuiltinByteString,
+                                                           Credential (PubKeyCredential, ScriptCredential),
+                                                           CurrencySymbol (CurrencySymbol),
+                                                           DatumHash (DatumHash),
+                                                           PubKeyHash (PubKeyHash),
+                                                           TokenName (TokenName),
+                                                           TxOut (TxOut),
+                                                           ValidatorHash (ValidatorHash),
+                                                           Value (getValue),
+                                                           toBuiltin, toData)
+import qualified PlutusTx                                 as Tx
+import qualified PlutusTx.Builtins                        as Tx
+import           PlutusTx.Semigroup                       ((<>))
+
+import qualified PlutusCore                               as PLC
+import qualified UntypedPlutusCore                        as UPLC
+import           UntypedPlutusCore.Evaluation.Machine.Cek as Cek
 
 main :: IO ()
 main = do
@@ -55,6 +71,36 @@ main = do
   txOut20Assets = generateWith (genTxOut 20) 42
   txOut80Assets = generateWith (genTxOut 80) 42
   txOut100Assets = generateWith (genTxOut 100) 42
+
+
+type Term name = UPLC.Term name UPLC.DefaultUni UPLC.DefaultFun ()
+
+-- runTermCek :: Term -> EvaluationResult Term
+-- runTermCek = runCek PLC.defaultCekParameters Cek.restrictingEnormous Cek.noEmitter
+
+mkTestTerm :: Term UPLC.NamedDeBruijn
+mkTestTerm =
+ let (UPLC.Program _ _ code) = Tx.getPlc $ $$(Tx.compile [|| Tx.serialiseData ||])
+ in code
+
+
+
+benchCek :: Term UPLC.NamedDeBruijn -> Benchmarkable
+benchCek t = case runExcept @PLC.FreeVariableError $ PLC.runQuoteT $ UPLC.unDeBruijnTerm t of
+    Left e   -> throw e
+    Right t' -> nf (unsafeEvaluateCek noEmitter PLC.defaultCekParameters) t'
+    -- ** ... or whnf?
+
+-- unDeBruijnTerm converts `Term NamedDeBruijn` to `Term Name`
+
+-- We want to benchmark some terms involving serialisation (using both the library and
+-- the builtin) in here.  What should we use?
+
+
+{- | Convert a de-Bruijn-named UPLC term to a Benchmark -}
+benchTermCek :: NFData name => Term name -> Benchmarkable
+benchTermCek term = nf id term
+--    nf (runTermCek) $! term -- Or whnf?
 
 -- | Use the provided 'Serialise' instance for 'Data' from plutus.
 cborgSerialize :: TxOut -> BuiltinByteString
@@ -158,11 +204,6 @@ haskellValueToTerm
     :: Tx.Lift DefaultUni a => a -> Term
 haskellValueToTerm = compiledCodeToTerm . Tx.liftCode
 
-
-{- | Convert a de-Bruijn-named UPLC term to a Benchmark -}
-benchTermCek :: Term -> Benchmarkable
-benchTermCek term =
-    nf (runTermCek) $! term -- Or whnf?
 
 {- | Just run a term (used for tests etc.) -}
 runTermCek :: Term -> EvaluationResult Term

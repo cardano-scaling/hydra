@@ -137,15 +137,17 @@ benchmark bench-plc
   ghc-options:        -threaded -rtsopts
   build-tool-depends: hspec-discover:hspec-discover -any
   build-depends:
-    , base
+      base
     , bytestring
     , cborg
     , criterion
     , hydra-prelude
+    , mtl
     , plutus-cbor
     , plutus-core
     , plutus-ledger-api
     , plutus-tx
+    , plutus-tx-plugin
     , QuickCheck
     , serialise
 
