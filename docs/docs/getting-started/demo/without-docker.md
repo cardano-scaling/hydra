@@ -28,6 +28,7 @@ First, let's prepare and start an ad-hoc, single `cardano-node` devnet using our
 ```
 ./prepare-devnet.sh
 cd devnet
+mkdir ipc
 cabal exec cardano-node -- run \
   --config cardano-node.json \
   --topology topology.json \
