@@ -95,7 +95,7 @@ instance FromJSON VerificationKey where
    where
     deserialiseKey =
       maybe
-        (fail "Unable to deserialize VerificationKey")
+        (fail "unable to deserialize VerificationKey, wrong length")
         (pure . HydraVerificationKey)
         . rawDeserialiseVerKeyDSIGN
 
