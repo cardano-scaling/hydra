@@ -16,7 +16,7 @@ import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (ProcessedEffect, ProcessingEvent))
-import Hydra.Party (aggregate)
+import Hydra.Party (Party, generateParty)
 import Hydra.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.Snapshot (Snapshot (Snapshot))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
@@ -28,10 +28,10 @@ spec = do
     failAfter 3 $ do
       [p] <- randomUnusedTCPPorts 1
       withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
-        traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 42))))
-        traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 43))))
+        traceWith tracer (Node $ ProcessingEvent alice (NetworkEvent (ReqTx alice (aValidTx 42))))
+        traceWith tracer (Node $ ProcessingEvent alice (NetworkEvent (ReqTx alice (aValidTx 43))))
         threadDelay 0.1
-        traceWith tracer (Node $ ProcessedEffect 1 (ClientEffect (SnapshotConfirmed (Snapshot 1 (utxoRefs [1]) [aValidTx 43, aValidTx 42]) (aggregate []))))
+        traceWith tracer (Node $ ProcessedEffect alice (ClientEffect (SnapshotConfirmed (Snapshot 1 (utxoRefs [1]) [aValidTx 43, aValidTx 42]) mempty)))
 
         metrics <-
           Text.lines . decodeUtf8 . responseBody
@@ -39,3 +39,6 @@ spec = do
 
         metrics `shouldContain` ["hydra_head_confirmed_tx  2"]
         metrics `shouldContain` ["hydra_head_tx_confirmation_time_ms_bucket{le=\"1000.0\"} 2.0"]
+
+alice :: Party
+alice = generateParty "alice"

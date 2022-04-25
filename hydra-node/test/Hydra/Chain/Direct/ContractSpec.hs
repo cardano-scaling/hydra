@@ -60,6 +60,7 @@ import Test.QuickCheck (
   counterexample,
   forAll,
   forAllShrink,
+  vectorOf,
   (===),
  )
 import Test.QuickCheck.Instances ()
@@ -154,7 +155,7 @@ prop_verifyOffChainSignatures =
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
   forAll arbitrary $ \(snapshot :: Snapshot SimpleTx) ->
-    forAll genListOfSigningKeys $ \sks ->
+    forAll (vectorOf arbitrary) $ \sks ->
       let parties = partyFromVerKey . deriveVerKeyDSIGN <$> sks
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger $ number snapshot

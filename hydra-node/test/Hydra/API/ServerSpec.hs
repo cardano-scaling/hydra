@@ -19,6 +19,7 @@ import qualified Data.Aeson as Aeson
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
+import Hydra.Party (generateParty)
 import Hydra.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), input)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Network.Ports (withFreePort)
@@ -27,7 +28,7 @@ import Test.QuickCheck.Monadic (monadicIO, monitor, run)
 
 spec :: Spec
 spec = parallel $ do
-  let party = 1
+  let party = generateParty "alice"
       greeting = Greetings party
 
   it "greets" $ do

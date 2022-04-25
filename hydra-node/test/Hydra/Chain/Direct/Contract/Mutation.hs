@@ -409,9 +409,6 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 -- Generators
 --
 
-genListOfSigningKeys :: Gen [Party.SigningKey]
-genListOfSigningKeys = choose (1, 20) <&> fmap generateKey . enumFromTo 1
-
 genBytes :: Gen ByteString
 genBytes = arbitrary
 
