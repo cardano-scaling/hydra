@@ -597,7 +597,7 @@ components:
           contentEncoding: base16
       example:
         {
-            "vkey": "0000000000000000"
+            "vkey": "d0b8f28427aa7b640c636075905cbd6574a431aeaca5b3dbafd47cfe66c35043"
         }
 
     Peer:
