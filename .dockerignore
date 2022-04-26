@@ -9,3 +9,5 @@
 *.hi
 *.o
 /test-results.xml
+devnet/
+testnet/

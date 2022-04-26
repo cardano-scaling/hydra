@@ -29,7 +29,7 @@ Options                                                 | Description
 `--host` <br/> `--port`                                 | This Hydra node host and port, to which peers from the Hydra network can connect to.
 `--node-socket`                                         | The Cardano node's IPC socket filepath, used for inter-process communication with the node.
 `--ledger-genesis` <br/> `--ledger-protocol-parameters` | The Hydra ledger rules and parameters for the head.
-`--hydra-signing-key` <br/> `--cardano-signing-key` <br/> `--hydra-verification-key` <br/> `--cardano-verification-key` | The Cardano and Hydra credentials for peers and the the node itself. Those options may also be provided multiple times depending on the number of peers.
+`--hydra-signing-key` <br/> `--cardano-signing-key` <br/> `--hydra-verification-key` <br/> `--cardano-verification-key` | The Cardano and Hydra credentials for peers and the node itself. Those options may also be provided multiple times depending on the number of peers.
 
 Also, optionally:
 
@@ -63,9 +63,9 @@ From there, each participant is expected to share their verification key with ot
 
 ### Hydra keys
 
-The second set of keys are the so-called Hydra ephemeral keys, which are used for multi-signing snapshots within a Head. In the long-run, those keys will be public/private modified MuSig2 key pairs, producing aggregated signatures verifiable on-chain similarly to Ed25519 signatures. At present however, the multisig cryptography is [yet to be implemented](https://github.com/input-output-hk/hydra-poc/issues/193) and the Hydra nodes are using a mock cryptography scheme as temporary replacement. This scheme does not provide any security guarantee but provides a similar interface to the one provided by the MuSig2 primitives. 
+The second set of keys are the so-called Hydra keys, which are used for multi-signing snapshots within a Head. While in the long-run, those keys will be key pairs used within MuSig2 aggregated multi-signature scheme. At present however, the aggregated multisig cryptography is [yet to be implemented](https://github.com/input-output-hk/hydra-poc/issues/193) and the Hydra nodes are a naiive, but secure multi-signature scheme based on Ed25519 keys.
 
-Similarly, the keys are basically plain UInt8 encoded as UTF-8 bytes for the sake of mocking the interface. We provide some mock key pairs as `alice.{vk,sk}`, `bob.{vk,sk}` and `carol.{vk,sk}` in our [demo folder](https://github.com/input-output-hk/hydra-poc/tree/master/demo). Currently, participants are expected to pick one of those and in a similar fashion to Cardano keys, share the verification key with their peers and use the signing key for them.
+These are similar to cardano keys, but shall not be mixed up and thus we use a different, more basic on-disk representation basically directly consisting of the key material (while Cardano keys usually are stored CBOR-encoded in text envelopes). We provide demo key pairs as `alice.{vk,sk}`, `bob.{vk,sk}` and `carol.{vk,sk}` in our [demo folder](https://github.com/input-output-hk/hydra-poc/tree/master/demo). Currently, participants are expected to pick one of those and in a similar fashion to Cardano keys, share the verification key with their peers and use the signing key for them. (TODO: we should provide an easy way to generate new ones using some system entropy)
 
 ### Ledger Parameters
 
