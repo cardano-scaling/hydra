@@ -27,6 +27,7 @@ import Cardano.Crypto.DSIGN (
   rawDeserialiseSigDSIGN,
   rawDeserialiseVerKeyDSIGN,
   rawSerialiseSigDSIGN,
+  rawSerialiseSignKeyDSIGN,
   rawSerialiseVerKeyDSIGN,
   seedSizeDSIGN,
   signDSIGN,
@@ -69,6 +70,10 @@ generateSigningKey seed =
   provided = BS.length seed
   padded = seed <> BS.pack (replicate (needed - provided) 0)
 
+-- | Serialise the signing key material as raw bytes.
+serialiseSigningKeyToRawBytes :: SigningKey -> ByteString
+serialiseSigningKeyToRawBytes (HydraSigningKey sk) = rawSerialiseSignKeyDSIGN sk
+
 -- | Get the 'VerificationKey' for a given 'SigningKey'.
 deriveVerificationKey :: SigningKey -> VerificationKey
 deriveVerificationKey (HydraSigningKey sk) = HydraVerificationKey (deriveVerKeyDSIGN sk)
@@ -101,6 +106,10 @@ instance FromJSON VerificationKey where
 
 instance Arbitrary VerificationKey where
   arbitrary = deriveVerificationKey . generateSigningKey <$> arbitrary
+
+-- | Serialise the verification key material as raw bytes.
+serialiseVerificationKeyToRawBytes :: VerificationKey -> ByteString
+serialiseVerificationKeyToRawBytes (HydraVerificationKey vk) = rawSerialiseVerKeyDSIGN vk
 
 -- | Get the Blake2b hash of a 'VerificationKey'.
 hashVerificationKey :: VerificationKey -> Hash Blake2b_256 VerificationKey

@@ -25,13 +25,8 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
-import Cardano.Crypto.DSIGN (
-  DSIGNAlgorithm (..),
- )
 import CardanoCluster (ClusterLog, readConfigFile)
-import Control.Concurrent.Async (
-  forConcurrently_,
- )
+import Control.Concurrent.Async (forConcurrently_)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson (Value (String), object, (.=))
@@ -40,11 +35,12 @@ import Data.Aeson.Types (Pair)
 import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
+import Hydra.Crypto (deriveVerificationKey, serialiseSigningKeyToRawBytes, serialiseVerificationKeyToRawBytes)
+import qualified Hydra.Crypto as Hydra
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Host (Host))
 import qualified Hydra.Network as Network
 import Hydra.Options (ChainConfig (..), LedgerConfig (..), Options (..), defaultChainConfig, defaultOptions, toArgs)
-import qualified Hydra.Party as Hydra
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -219,7 +215,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action 
     [] -> action (fromList $ reverse clients)
     (nodeId : rest) -> do
       let hydraSKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
-          hydraVKeys = map deriveVerKeyDSIGN $ filter (/= hydraSKey) hydraKeys
+          hydraVKeys = map deriveVerificationKey $ filter (/= hydraSKey) hydraKeys
           cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           cardanoSigningKey = workDir </> show nodeId <.> "sk"
           chainConfig =
@@ -239,14 +235,12 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action 
         (\c -> startNodes (c : clients) rest)
 
 withHydraNode ::
-  forall alg a.
-  DSIGNAlgorithm alg =>
   Tracer IO EndToEndLog ->
   ChainConfig ->
   FilePath ->
   Int ->
-  SignKeyDSIGN alg ->
-  [VerKeyDSIGN alg] ->
+  Hydra.SigningKey ->
+  [Hydra.VerificationKey] ->
   [Int] ->
   (HydraClient -> IO a) ->
   IO a
@@ -258,10 +252,10 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
       let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
       readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
       let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
-      BS.writeFile hydraSigningKey (rawSerialiseSignKeyDSIGN hydraSKey)
+      BS.writeFile hydraSigningKey (serialiseSigningKeyToRawBytes hydraSKey)
       hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
         let filepath = dir </> (show i <> ".vk")
-        filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
+        filepath <$ BS.writeFile filepath (serialiseVerificationKeyToRawBytes vKey)
       let ledgerConfig =
             CardanoLedgerConfig
               { cardanoLedgerGenesisFile
