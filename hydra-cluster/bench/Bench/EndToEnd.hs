@@ -7,12 +7,6 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Crypto.DSIGN (
-  DSIGNAlgorithm (deriveVerKeyDSIGN),
-  MockDSIGN,
-  SignKeyDSIGN,
-  VerKeyDSIGN,
- )
 import CardanoClient (submit, waitForTransaction)
 import CardanoCluster (Marked (Fuel), defaultNetworkId, newNodeConfig, seedFromFaucet, withBFTNode)
 import CardanoNode (RunningNode (..))
@@ -67,16 +61,6 @@ import System.Process (
 import Text.Printf (printf)
 import Text.Regex.TDFA (getAllTextMatches, (=~))
 import Prelude (read)
-
-aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
-aliceSk = 10
-bobSk = 20
-carolSk = 30
-
-aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
-aliceVk = deriveVerKeyDSIGN aliceSk
-bobVk = deriveVerKeyDSIGN bobSk
-carolVk = deriveVerKeyDSIGN carolSk
 
 data Event = Event
   { submittedAt :: UTCTime
