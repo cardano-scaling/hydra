@@ -11,8 +11,12 @@ import           TxGen
 
 import           Codec.Serialise                          (serialise)
 import           Criterion.Main                           (Benchmarkable, bench,
-                                                           bgroup, defaultMain,
-                                                           nf, whnf)
+                                                           bgroup,
+                                                           defaultConfig,
+                                                           defaultMainWith, nf,
+                                                           whnf)
+import           Criterion.Types                          (timeLimit)
+
 import           Plutus.Codec.CBOR.Encoding               (Encoding,
                                                            encodeByteString,
                                                            encodeInteger,
@@ -41,37 +45,30 @@ import           UntypedPlutusCore.Evaluation.Machine.Cek as Cek
 
 main :: IO ()
 main = do
-  defaultMain
+  defaultMainWith (defaultConfig { timeLimit = 5 }) $
     [ bgroup
-        "TxOut"
-        [ bgroup
-            "ada only"
-            [ bench "plutus-cbor" $ whnf plutusSerialize txOutAdaOnly
-            , bench "cborg" $ whnf cborgSerialize txOutAdaOnly
-            ]
-        , bgroup
-            "20 assets"
-            [ bench "plutus-cbor" $ whnf plutusSerialize txOut20Assets
-            , bench "cborg" $ whnf cborgSerialize txOut20Assets
-            ]
-        , bgroup -- roughly current maxValSize=5000 on mainchain
-            "80 assets"
-            [ bench "plutus-cbor" $ whnf plutusSerialize txOut80Assets
-            , bench "cborg" $ whnf cborgSerialize txOut80Assets
-            ]
-        , bgroup
-            "100 assets"
-            [ bench "plutus-cbor" $ whnf plutusSerialize txOut100Assets
-            , bench "cborg" $ whnf cborgSerialize txOut100Assets
-            ]
+      "TxOut"
+      (
+       (bgroup
+        "ada only"
+        [ bench "plutus-cbor" $ whnf plutusSerialize txOutAdaOnly
+        , bench "cborg"       $ whnf cborgSerialize  txOutAdaOnly
         ]
+        )
+       : map mkMultiAssetBM [10,20..150]
+      )
     ]
  where
-  txOutAdaOnly = generateWith genAdaOnlyTxOut 42
-  txOut20Assets = generateWith (genTxOut 20) 42
-  txOut80Assets = generateWith (genTxOut 80) 42
-  txOut100Assets = generateWith (genTxOut 100) 42
+  txOutAdaOnly   = generateWith genAdaOnlyTxOut 42
+  mkMultiAssetBM n =
+      let assets = generateWith (genTxOut n) 42
+      in bgroup
+             (show n ++ " assets")
+             [ bench "plutus-cbor" $ whnf plutusSerialize assets
+             , bench "cborg"       $ whnf cborgSerialize assets
+             ]
 
+--
 
 type Term name = UPLC.Term name UPLC.DefaultUni UPLC.DefaultFun ()
 

@@ -1,7 +1,7 @@
 {-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE TypeApplications   #-}
+{-# LANGUAGE ViewPatterns       #-}
 
 -- | A helper module mostly wrapping the Alonzo.Tools'
 -- 'evaluateTransactionExecutionUnits' with a much simpler API (just a plutus
@@ -15,64 +15,52 @@ module Test.Plutus.Validator (
   ExUnits (..),
 ) where
 
-import Hydra.Prelude hiding (label)
+import           Hydra.Prelude                            hiding (label)
 
-import Cardano.Binary (unsafeDeserialize')
-import Cardano.Ledger.Address (Addr (..))
-import Cardano.Ledger.Alonzo (AlonzoEra)
-import Cardano.Ledger.Alonzo.Data (Data (..), hashData)
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import Cardano.Ledger.Alonzo.PParams (PParams' (..))
-import Cardano.Ledger.Alonzo.Scripts (
-  ExUnits (..),
-  Script (..),
-  Tag (..),
- )
-import Cardano.Ledger.Alonzo.Tools (evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.Tx (
-  IsValid (..),
-  ValidatedTx (..),
- )
-import Cardano.Ledger.Alonzo.TxBody (
-  TxBody (..),
-  TxOut (..),
- )
-import Cardano.Ledger.Alonzo.TxWitness (
-  RdmrPtr (..),
-  Redeemers (..),
-  TxDats (..),
-  TxWitness (..),
- )
-import Cardano.Ledger.BaseTypes (Network (..))
-import Cardano.Ledger.Credential (
-  Credential (..),
-  StakeReference (..),
- )
-import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Era (ValidateScript (hashScript))
-import Cardano.Ledger.Hashes (ScriptHash (..))
-import Cardano.Ledger.Shelley.TxBody (Wdrl (..))
-import qualified Cardano.Ledger.Shelley.UTxO as Ledger
-import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
-import Cardano.Ledger.TxIn (TxIn (..))
-import Cardano.Slotting.EpochInfo (fixedEpochInfo)
-import Cardano.Slotting.Slot (EpochSize (EpochSize))
-import Cardano.Slotting.Time (
-  SystemStart (SystemStart),
-  mkSlotLength,
- )
-import Codec.Serialise (serialise)
-import Data.Array (array)
-import qualified Data.ByteString as BS
-import Data.Default (def)
-import qualified Data.Map as Map
-import Data.Maybe (fromJust)
-import Data.Maybe.Strict (StrictMaybe (..))
-import qualified Data.Set as Set
-import qualified Ledger.Typed.Scripts as Scripts
-import qualified PlutusTx as Plutus
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
+import           Cardano.Binary                           (unsafeDeserialize')
+import           Cardano.Ledger.Address                   (Addr (..))
+import           Cardano.Ledger.Alonzo                    (AlonzoEra)
+import           Cardano.Ledger.Alonzo.Data               (Data (..), hashData)
+import           Cardano.Ledger.Alonzo.Language           (Language (PlutusV1))
+import           Cardano.Ledger.Alonzo.PParams            (PParams' (..))
+import           Cardano.Ledger.Alonzo.Scripts            (ExUnits (..),
+                                                           Script (..),
+                                                           Tag (..))
+import           Cardano.Ledger.Alonzo.Tools              (evaluateTransactionExecutionUnits)
+import           Cardano.Ledger.Alonzo.Tx                 (IsValid (..),
+                                                           ValidatedTx (..))
+import           Cardano.Ledger.Alonzo.TxBody             (TxBody (..),
+                                                           TxOut (..))
+import           Cardano.Ledger.Alonzo.TxWitness          (RdmrPtr (..),
+                                                           Redeemers (..),
+                                                           TxDats (..),
+                                                           TxWitness (..))
+import           Cardano.Ledger.BaseTypes                 (Network (..))
+import           Cardano.Ledger.Credential                (Credential (..),
+                                                           StakeReference (..))
+import           Cardano.Ledger.Crypto                    (StandardCrypto)
+import           Cardano.Ledger.Era                       (ValidateScript (hashScript))
+import           Cardano.Ledger.Hashes                    (ScriptHash (..))
+import           Cardano.Ledger.Shelley.TxBody            (Wdrl (..))
+import qualified Cardano.Ledger.Shelley.UTxO              as Ledger
+import           Cardano.Ledger.ShelleyMA.Timelocks       (ValidityInterval (..))
+import           Cardano.Ledger.TxIn                      (TxIn (..))
+import           Cardano.Slotting.EpochInfo               (fixedEpochInfo)
+import           Cardano.Slotting.Slot                    (EpochSize (EpochSize))
+import           Cardano.Slotting.Time                    (SystemStart (SystemStart),
+                                                           mkSlotLength)
+import           Codec.Serialise                          (serialise)
+import           Data.Array                               (array)
+import qualified Data.ByteString                          as BS
+import           Data.Default                             (def)
+import qualified Data.Map                                 as Map
+import           Data.Maybe                               (fromJust)
+import           Data.Maybe.Strict                        (StrictMaybe (..))
+import qualified Data.Set                                 as Set
+import qualified Ledger.Typed.Scripts                     as Scripts
+import qualified PlutusTx                                 as Plutus
 import qualified Prelude
+import           Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 
 --
 -- Compare scripts to baselines
@@ -110,7 +98,7 @@ evaluateScriptExecutionUnits validator redeemer =
   costModels = array (PlutusV1, PlutusV1) [(PlutusV1, fromJust defaultCostModel)]
   epoch = fixedEpochInfo (EpochSize 432000) (mkSlotLength 1)
   start = SystemStart $ Prelude.read "2017-09-23 21:44:51 UTC"
-  pparams = def{_maxTxExUnits = ExUnits 9999999999 9999999999}
+  pparams = def{_maxTxExUnits = ExUnits 9999999999999 9999999999999}
 
 transactionFromScript ::
   Plutus.ToData a =>

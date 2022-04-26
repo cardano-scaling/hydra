@@ -166,7 +166,9 @@ executable encoding-cost
     , hspec
     , hydra-prelude
     , hydra-test-utils
+    , mtl
     , plutus-cbor
+    , plutus-core
     , plutus-ledger
     , plutus-ledger-api
     , plutus-tx

@@ -1,58 +1,175 @@
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TypeApplications  #-}
 
-import Hydra.Prelude hiding (label)
+import           Hydra.Prelude                            hiding (label)
 
-import Data.Binary.Builder (toLazyByteString)
-import qualified Data.ByteString as BS
-import Data.ByteString.Builder.Scientific (FPFormat (Fixed), formatScientificBuilder)
-import Data.Ratio ((%))
-import Data.Scientific (unsafeFromRational)
-import qualified Ledger.Typed.Scripts as Scripts
-import Plutus.Codec.CBOR.Encoding.Validator (
-  EncodeValidator,
-  ValidatorKind (..),
-  encodeTxOutValidator,
-  encodeTxOutsValidator,
- )
-import qualified Plutus.V1.Ledger.Api as Plutus
-import qualified PlutusTx.AssocMap as Plutus.Map
-import Test.Plutus.Validator (
-  ExUnits (..),
-  defaultMaxExecutionUnits,
-  distanceExUnits,
-  evaluateScriptExecutionUnits,
- )
-import Test.QuickCheck (
-  choose,
-  oneof,
-  vector,
-  vectorOf,
- )
+import           Control.Exception                        (throw)
+import           Control.Monad.Except
+import           Data.Binary.Builder                      (toLazyByteString)
+import qualified Data.ByteString                          as BS
+import           Data.ByteString.Builder.Scientific       (FPFormat (Fixed),
+                                                           formatScientificBuilder)
+import           Data.Ratio                               ((%))
+import           Data.Scientific                          (unsafeFromRational)
+import qualified Ledger.Typed.Scripts                     as Scripts
+import           Plutus.Codec.CBOR.Encoding               (encodeList,
+                                                           encodingToBuiltinByteString)
+import           Plutus.Codec.CBOR.Encoding.Validator     (EncodeValidator,
+                                                           ValidatorKind (..),
+                                                           encodeTxOut,
+                                                           encodeTxOutValidator,
+                                                           encodeTxOutsValidator)
+import qualified Plutus.V1.Ledger.Api                     as Plutus
+import qualified PlutusCore                               as PLC
+import qualified PlutusTx                                 as Tx
+import qualified PlutusTx.AssocMap                        as Plutus.Map
+import qualified PlutusTx.Builtins                        as Tx
+import           Test.Plutus.Validator                    (ExUnits (..),
+                                                           distanceExUnits,
+                                                           evaluateScriptExecutionUnits)
+import qualified UntypedPlutusCore                        as UPLC
+import           UntypedPlutusCore.Evaluation.Machine.Cek as Cek
+
+import           Test.QuickCheck                          (choose, oneof,
+                                                           vector, vectorOf)
+
+import           Text.Printf                              (printf)
+
+
+maxExecutionUnits :: ExUnits
+maxExecutionUnits =  ExUnits
+    { exUnitsMem   = 10_000_000
+    , exUnitsSteps = 10_000_000_000
+    }
+
+
+{- Was previously
+  ExUnits
+    { exUnitsMem = 10_000_000
+    , exUnitsSteps = 10_000_000_000
+    }
+
+-}
 
 main :: IO ()
 main = do
-  putTextLn "List of ADA-only TxOut, by list size."
-  forM_ [1 .. 50] $ \n -> do
+  printf "# List of ADA-only TxOut, by list size.\n"
+  printf "   n         mem         cpu        %%mem      %%cpu\n"
+  forM_ [0,10..150] $ \n -> do
     let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
-    let (mem, cpu) = relativeCostOf x defaultMaxExecutionUnits encodeTxOutsValidator
-    putTextLn @IO $
-      unwords
-        [ padLeft ' ' 2 (show n)
-        , rationalToPercent mem
-        , rationalToPercent cpu
-        ]
+    let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutsValidator
+    case evaluateScriptExecutionUnits (encodeTxOutsValidator RealValidator) x of
+      Right (ExUnits absMem absCpu) ->
+           printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
+      Left e -> printf "ERROR: %s\n" e
 
-  putTextLn ""
-  putTextLn "Single multi-asset TxOut, by asset number."
-  forM_ [1 .. 50] $ \n -> do
+  printf "\n"
+  printf "# List of ADA-only TxOut, by list size (library).\n"
+  printf "   n         mem         cpu\n"
+  forM_ [0,10..150] $ \n -> do
+    let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
+        term = mkScriptUsingEncode' x
+    case runTerm term of
+      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
+          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
+
+  printf "\n"
+  printf "# List of ADA-only TxOut, by list size (builtin).\n"
+  printf "   n         mem         cpu\n"
+  forM_ [0,10..150] $ \n -> do
+    let x =  generateWith (vectorOf n genAdaOnlyTxOut) 42
+        term = mkScriptUsingBuiltin x
+    case runTerm term of
+      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
+          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
+
+  printf "\n"
+  printf "----------------------------------------------------------------"
+  printf "\n\n"
+
+  printf "# Single multi-asset TxOut, by number of assets.\n"
+  printf "   n         mem         cpu       %%mem      %%cpu\n"
+  forM_ [0,10..150] $ \n -> do
     let x = generateWith (genTxOut n) 42
-    let (mem, cpu) = relativeCostOf x defaultMaxExecutionUnits encodeTxOutValidator
-    putTextLn @IO $
-      unwords
-        [ padLeft ' ' 2 (show n)
-        , rationalToPercent mem
-        , rationalToPercent cpu
-        ]
+    let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutValidator
+    case evaluateScriptExecutionUnits (encodeTxOutValidator RealValidator) x of
+      Right (ExUnits absMem absCpu) ->
+           printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
+      Left e -> printf "ERROR: %s\n" e
+
+
+  printf "\n"
+  printf "# Single multi-asset TxOut, by number of assets (library).\n"
+  printf "   n         mem         cpu\n"
+  forM_ [0,10..150] $ \n -> do
+    let x = generateWith (genTxOut n) 42
+        term = mkScriptUsingEncode x
+    case runTerm term of
+      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
+          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
+
+  printf "\n"
+  printf "# Single multi-asset TxOut, by number of assets (builtin).\n"
+  printf "   n         mem         cpu\n"
+  forM_ [0,10..150] $ \n -> do
+    let x = generateWith (genTxOut n) 42
+        term = mkScriptUsingBuiltin x
+    case runTerm term of
+      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
+          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
+
+
+type Term name = UPLC.Term name UPLC.DefaultUni UPLC.DefaultFun ()
+
+runTerm :: Term UPLC.NamedDeBruijn -> Plutus.ExBudget
+runTerm t = case runExcept @PLC.FreeVariableError $ PLC.runQuoteT $ UPLC.unDeBruijnTerm t of
+    Left e   -> throw e
+    Right t' -> case Cek.runCekNoEmit PLC.defaultCekParameters Cek.counting t' of
+                  (_result, Cek.CountingSt budget) -> budget
+
+
+-- Where does the TxOut get converted to Data?
+
+mkScriptUsingEncode ::  Plutus.TxOut -> Term UPLC.NamedDeBruijn
+mkScriptUsingEncode x =
+ let (UPLC.Program _ _ code) = Tx.getPlc $
+                               $$(Tx.compile [||
+                                              \y -> encodingToBuiltinByteString (encodeTxOut y)
+                                                    ||])
+                                  `Tx.applyCode`
+                                       (Tx.liftCode x)
+ in code
+
+mkScriptUsingEncode' ::  [Plutus.TxOut] -> Term UPLC.NamedDeBruijn
+mkScriptUsingEncode' x =
+ let (UPLC.Program _ _ code) = Tx.getPlc $
+                               $$(Tx.compile [||
+                                              \y -> encodingToBuiltinByteString (encodeList encodeTxOut y)
+                                                    ||])
+                                  `Tx.applyCode`
+                                       (Tx.liftCode x)
+ in code
+
+mkScriptUsingBuiltin :: Tx.ToData a => a -> Term UPLC.NamedDeBruijn
+mkScriptUsingBuiltin x =
+ let (UPLC.Program _ _ code) = Tx.getPlc $
+                               $$(Tx.compile [|| Tx.serialiseData ||])
+                                     `Tx.applyCode`
+                                          (Tx.liftCode (Tx.toBuiltinData x))
+ in code
+
+
+
+{-    Scripts.mkTypedValidator @(EncodeValidator TxOut)
+      $$( Plutus.compile
+            [||
+            \() o _ctx ->
+              let bytes = encodingToBuiltinByteString (encodeTxOut o)
+               in lengthOfByteString bytes > 0
+            ||]
+        )
+-}
 
 relativeCostOf ::
   (Plutus.ToData a) =>
@@ -79,7 +196,7 @@ relativeCostOf a (ExUnits maxMem maxCpu) validator =
 
 rationalToPercent :: Rational -> Text
 rationalToPercent r =
-  padLeft ' ' 5 $ decodeUtf8 (toLazyByteString $ toFixedDecimals 2 $ 100 * r)
+  padLeft ' ' 8 $ decodeUtf8 (toLazyByteString $ toFixedDecimals 2 $ 100 * r)
  where
   toFixedDecimals n = formatScientificBuilder Fixed (Just n) . unsafeFromRational
 
@@ -146,3 +263,7 @@ genDatumHash =
 genByteStringOf :: Int -> Gen ByteString
 genByteStringOf n =
   BS.pack <$> vector n
+
+
+f :: Plutus.TxOut -> Plutus.BuiltinData
+f o = Plutus.toBuiltinData o
