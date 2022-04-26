@@ -18,6 +18,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (
+  genForParty,
   testNetworkId,
   testPolicyId,
   testSeedInput,
@@ -35,8 +36,8 @@ import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genKeyPair, genTxIn, genVerificationKey)
-import Hydra.Party (Party, genForParty)
+import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)
+import Hydra.Party (Party)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat)
@@ -122,7 +123,7 @@ healthyCommitOutput party committed =
  where
   txIn = genTxIn `genForParty` party
 
-  (cardanoVk, _) = genKeyPair `genForParty` party
+  cardanoVk = genVerificationKey `genForParty` party
 
   commitScript =
     fromPlutusScript Commit.validatorScript

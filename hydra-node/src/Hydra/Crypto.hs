@@ -100,14 +100,7 @@ instance FromJSON VerificationKey where
         . rawDeserialiseVerKeyDSIGN
 
 instance Arbitrary VerificationKey where
-  arbitrary = generateVerificationKey <$> arbitrary
-
--- | Generate a 'VerificationKey' from a 'ByteString' seed. Use
--- 'generateSigningKey' and 'deriveVerificationKey' if you also need the
--- 'SigningKey'.
-generateVerificationKey :: ByteString -> VerificationKey
-generateVerificationKey =
-  deriveVerificationKey . generateSigningKey
+  arbitrary = deriveVerificationKey . generateSigningKey <$> arbitrary
 
 -- | Get the Blake2b hash of a 'VerificationKey'.
 hashVerificationKey :: VerificationKey -> Hash Blake2b_256 VerificationKey

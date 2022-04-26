@@ -5,8 +5,6 @@ module Hydra.Party where
 
 import Hydra.Prelude hiding (show)
 
-import Cardano.Crypto.Hash (hashToBytes)
-import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.Aeson (ToJSONKey)
 import Data.Aeson.Types (FromJSONKey)
 import Hydra.Crypto (hashVerificationKey)
@@ -35,24 +33,3 @@ instance ToCBOR Party where
 -- | Get the 'Party' given some Hydra 'SigningKey'.
 deriveParty :: Hydra.SigningKey -> Party
 deriveParty = Party . Hydra.deriveVerificationKey
-
--- ** Test utilities
-
--- | Generate a 'Party' from a 'ByteString' seed.
-generateParty :: ByteString -> Party
-generateParty =
-  Party . Hydra.generateVerificationKey
-
--- | Generate some 'a' given the Party as a seed. NOTE: While this is useful to
--- generate party-specific values, it DOES depend on the generator used. For
--- example, `genForParty genVerificationKey` and `genForParty (fst <$>
--- genKeyPair)` do not yield the same verification keys!
-genForParty :: Gen a -> Party -> a
-genForParty gen Party{vkey} =
-  generateWith gen seed
- where
-  seed =
-    fromIntegral
-      . uintegerFromBytes
-      . hashToBytes
-      $ hashVerificationKey vkey

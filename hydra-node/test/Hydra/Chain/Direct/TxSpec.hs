@@ -23,6 +23,7 @@ import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (
   costModels,
   epochInfo,
+  genForParty,
   maxTxExecutionUnits,
   pparams,
   systemStart,
@@ -45,7 +46,7 @@ import Hydra.Ledger.Cardano (
   renderTx,
   simplifyUTxO,
  )
-import Hydra.Party (Party, genForParty)
+import Hydra.Party (Party)
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (

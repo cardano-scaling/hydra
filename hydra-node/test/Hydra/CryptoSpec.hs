@@ -32,7 +32,7 @@ specVerificationKey :: Spec
 specVerificationKey =
   describe "VerificationKey" $ do
     it "show includes escaped hex" $
-      show (generateVerificationKey "alice") `shouldContain` "ce1da235714466fc7"
+      show (deriveVerificationKey $ generateSigningKey "alice") `shouldContain` "ce1da235714466fc7"
 
     roundtripAndGoldenSpecs (Proxy @VerificationKey)
 

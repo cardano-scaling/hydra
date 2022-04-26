@@ -17,9 +17,10 @@ import Control.Monad.Class.MonadSTM (
  )
 import qualified Data.Aeson as Aeson
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
+import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Party (Party, generateParty)
+import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), input)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Network.Ports (withFreePort)
@@ -92,7 +93,7 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
     _ -> False
 
 party :: Party
-party = generateParty "alice"
+party = deriveParty $ generateSigningKey "alice"
 
 greeting :: ServerOutput SimpleTx
 greeting = Greetings party

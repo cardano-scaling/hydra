@@ -5,15 +5,12 @@ module Hydra.PartySpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Party (Party (..), generateParty)
+import Hydra.Party (Party (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck ((==>))
 
 spec :: Spec
 spec = do
-  it "shows verification key as hex" $ do
-    show (generateParty "alice" :: Party) `shouldContain` "cbbb\""
-
   describe "Ord" $ do
     prop "is transitive" $ \(x :: Party, y, z) ->
       x <= y && y <= z ==> x <= z

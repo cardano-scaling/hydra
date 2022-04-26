@@ -27,9 +27,10 @@ import Hydra.Chain.Direct (DirectChainLog, withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (Era, retry)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
+import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger.Cardano (Tx, genKeyPair)
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Party (Party, generateParty)
+import Hydra.Party (Party, deriveParty)
 import Test.QuickCheck (generate)
 
 spec :: Spec
@@ -76,9 +77,9 @@ mkSeedPayment networkId vk submitTx =
   generate (genPaymentTo networkId vk) >>= submitTx
 
 alice, bob, carol :: Party
-alice = generateParty "alice"
-bob = generateParty "bob"
-carol = generateParty "carol"
+alice = deriveParty $ generateSigningKey "alice"
+bob = deriveParty $ generateSigningKey "bob"
+carol = deriveParty $ generateSigningKey "carol"
 
 data Log
   = FromAlice DirectChainLog

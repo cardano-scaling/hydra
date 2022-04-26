@@ -10,6 +10,7 @@ module Hydra.Chain.Direct.Fixture (
 
 import Hydra.Prelude
 
+import Cardano.Crypto.Hash (hashToBytes)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import Cardano.Ledger.Alonzo.Scripts (CostModel)
@@ -22,6 +23,7 @@ import qualified Cardano.Slotting.EpochInfo as Slotting
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (SlotLength, SystemStart (SystemStart), mkSlotLength)
 import qualified Cardano.Slotting.Time as Slotting
+import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.Array (Array, array)
 import Data.Default (def)
 import qualified Data.Map as Map
@@ -38,12 +40,32 @@ import Hydra.Cardano.Api (
   toLedgerExUnits,
  )
 import Hydra.Chain.Direct.Tx (headPolicyId)
+import Hydra.Crypto (hashVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (pparams)
+import Hydra.Party (Party (..))
 import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin)
 import qualified Test.Cardano.Ledger.Alonzo.AlonzoEraGen as Ledger.Alonzo
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck.Instances ()
+
+-- * Party / key utilities
+
+-- | Generate some 'a' given the Party as a seed. NOTE: While this is useful to
+-- generate party-specific values, it DOES depend on the generator used. For
+-- example, `genForParty genVerificationKey` and `genForParty (fst <$>
+-- genKeyPair)` do not yield the same verification keys!
+genForParty :: Gen a -> Party -> a
+genForParty gen Party{vkey} =
+  generateWith gen seed
+ where
+  seed =
+    fromIntegral
+      . uintegerFromBytes
+      . hashToBytes
+      $ hashVerificationKey vkey
+
+-- * Cardano tx utilities
 
 testNetworkId :: NetworkId
 testNetworkId = Testnet (NetworkMagic 42)

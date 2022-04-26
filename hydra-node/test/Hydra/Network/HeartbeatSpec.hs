@@ -5,10 +5,11 @@ import Test.Hydra.Prelude
 
 import Control.Monad.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
+import Hydra.Crypto (generateSigningKey)
 import Hydra.Network (Host (..), Network (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Message (Message (Connected, Disconnected, ReqTx))
-import Hydra.Party (Party, generateParty)
+import Hydra.Party (Party, deriveParty)
 
 spec :: Spec
 spec = parallel $
@@ -115,5 +116,5 @@ noop :: Monad m => b -> m ()
 noop = const $ pure ()
 
 alice, bob :: Party
-alice = generateParty "alice"
-bob = generateParty "bob"
+alice = deriveParty $ generateSigningKey "alice"
+bob = deriveParty $ generateSigningKey "bob"
