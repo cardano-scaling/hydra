@@ -8,8 +8,6 @@ import Test.Hydra.Prelude
 
 import qualified Data.List as List
 import Hydra.Chain (HeadParameters (HeadParameters))
-import Hydra.Crypto (generateSigningKey)
-import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
@@ -26,6 +24,7 @@ import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol)
 
 spec :: Spec
 spec = do
@@ -105,16 +104,6 @@ spec = do
 
           emitSnapshot (envFor aliceSk) [] st
             `shouldBe` (st', [NetworkEffect $ ReqSn alice 1 [tx]])
-
-aliceSk, bobSk, carolSk :: Hydra.SigningKey
-aliceSk = generateSigningKey "alice"
-bobSk = generateSigningKey "bob"
-carolSk = generateSigningKey "carol"
-
-alice, bob, carol :: Party
-alice = deriveParty aliceSk
-bob = deriveParty bobSk
-carol = deriveParty carolSk
 
 --
 -- Assertion utilities

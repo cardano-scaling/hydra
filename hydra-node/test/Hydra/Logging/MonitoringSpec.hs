@@ -6,7 +6,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Data.Text as Text
-import Hydra.Crypto (generateSigningKey)
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Event (NetworkEvent),
@@ -17,10 +16,10 @@ import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (ProcessedEffect, ProcessingEvent))
-import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.Snapshot (Snapshot (Snapshot))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
+import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (randomUnusedTCPPorts)
 
 spec :: Spec
@@ -40,6 +39,3 @@ spec = do
 
         metrics `shouldContain` ["hydra_head_confirmed_tx  2"]
         metrics `shouldContain` ["hydra_head_tx_confirmation_time_ms_bucket{le=\"1000.0\"} 2.0"]
-
-alice :: Party
-alice = deriveParty $ generateSigningKey "alice"

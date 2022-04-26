@@ -270,6 +270,7 @@ test-suite tests
     Hydra.SnapshotStrategySpec
     Paths_hydra_node
     Spec
+    Test.Hydra.Fixture
     Test.Util
 
   main-is:            Main.hs

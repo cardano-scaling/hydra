@@ -20,6 +20,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
+import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -83,11 +84,7 @@ healthyCloseDatum =
     }
 
 healthySigningKeys :: [Hydra.SigningKey]
-healthySigningKeys =
-  [ Hydra.generateSigningKey "alice"
-  , Hydra.generateSigningKey "bob"
-  , Hydra.generateSigningKey "carol"
-  ]
+healthySigningKeys = [aliceSk, bobSk, carolSk]
 
 healthyParties :: [Party]
 healthyParties = deriveParty <$> healthySigningKeys

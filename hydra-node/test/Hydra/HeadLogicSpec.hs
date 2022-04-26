@@ -33,10 +33,11 @@ import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
-import Hydra.Party (Party (..), deriveParty)
+import Hydra.Party (Party (..))
 import Hydra.ServerOutput (ServerOutput (PeerConnected, RolledBack))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.QuickCheck (forAll)
 import Test.QuickCheck.Monadic (monadicIO, run)
 
@@ -48,13 +49,7 @@ spec = do
 
   parallel $
     describe "Coordinated Head Protocol" $ do
-      let aliceSk = generateSigningKey "alice"
-          alice = deriveParty aliceSk
-          bobSk = generateSigningKey "bob"
-          bob = deriveParty bobSk
-          carolSk = generateSigningKey "carol"
-          carol = deriveParty carolSk
-          threeParties = [alice, bob, carol]
+      let threeParties = [alice, bob, carol]
           ledger = simpleLedger
           env =
             Environment

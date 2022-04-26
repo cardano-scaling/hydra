@@ -17,12 +17,11 @@ import Control.Monad.Class.MonadSTM (
  )
 import qualified Data.Aeson as Aeson
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
-import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), input)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
+import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (cover)
 import Test.QuickCheck.Monadic (monadicIO, monitor, run)
@@ -32,7 +31,7 @@ spec = parallel $ do
   it "greets" $ do
     failAfter 5 $
       withFreePort $ \port ->
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) party nullTracer noop $ \_ -> do
+        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice nullTracer noop $ \_ -> do
           withClient port $ \conn -> do
             received <- receiveData conn
             case Aeson.eitherDecode received of
@@ -43,7 +42,7 @@ spec = parallel $ do
     queue <- atomically newTQueue
     showLogsOnFailure $ \tracer -> failAfter 5 $
       withFreePort $ \port ->
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) party tracer noop $ \Server{sendOutput} -> do
+        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice tracer noop $ \Server{sendOutput} -> do
           semaphore <- newTVarIO 0
           withAsync
             ( concurrently_
@@ -64,7 +63,7 @@ spec = parallel $ do
     monitor $ cover 1 (length msgs > 1) "more than one message when reconnecting"
     run . failAfter 5 $ do
       withFreePort $ \port ->
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) party nullTracer noop $ \Server{sendOutput} -> do
+        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice nullTracer noop $ \Server{sendOutput} -> do
           mapM_ sendOutput (msgs :: [ServerOutput SimpleTx])
           withClient port $ \conn -> do
             received <- replicateM (length msgs + 1) (receiveData conn)
@@ -78,7 +77,7 @@ spec = parallel $ do
 
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
-  withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) party nullTracer noop $ \_server -> do
+  withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice nullTracer noop $ \_server -> do
     withClient port $ \con -> do
       _greeting :: ByteString <- receiveData con
       sendBinaryData con invalidInput
@@ -92,11 +91,8 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
     InvalidInput{input} -> input == invalidInput
     _ -> False
 
-party :: Party
-party = deriveParty $ generateSigningKey "alice"
-
 greeting :: ServerOutput SimpleTx
-greeting = Greetings party
+greeting = Greetings alice
 
 waitForClients :: (MonadSTM m, Ord a, Num a) => TVar m a -> m ()
 waitForClients semaphore = atomically $ readTVar semaphore >>= \n -> check (n >= 2)

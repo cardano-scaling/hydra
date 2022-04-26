@@ -23,7 +23,7 @@ import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
 import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.ClientInput
-import Hydra.Crypto (aggregate, generateSigningKey, sign)
+import Hydra.Crypto (aggregate, sign)
 import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (
   Effect (ClientEffect),
@@ -48,6 +48,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
 import Test.Util (shouldBe, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
@@ -393,14 +394,6 @@ spec = parallel $ do
           waitFor [n1] RolledBack
           waitFor [n1] $ Committed alice (utxoRef 1)
           waitFor [n1] $ HeadIsOpen (utxoRefs [1])
-
-aliceSk, bobSk :: Hydra.SigningKey
-aliceSk = generateSigningKey "alice"
-bobSk = generateSigningKey "bob"
-
-alice, bob :: Party
-alice = deriveParty aliceSk
-bob = deriveParty bobSk
 
 -- NOTE:
 -- In principle, we can observe any prefix of the following sequence

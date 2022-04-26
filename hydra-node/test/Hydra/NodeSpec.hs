@@ -15,7 +15,7 @@ import Hydra.Chain (
   PostTxError (NoSeedInput),
  )
 import Hydra.ClientInput (ClientInput (..))
-import Hydra.Crypto (generateSigningKey, sign)
+import Hydra.Crypto (sign)
 import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (
   Environment (..),
@@ -39,6 +39,7 @@ import Hydra.Node (
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (PostTxOnChainFailed))
 import Hydra.Snapshot (Snapshot (..))
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 
 spec :: Spec
 spec = parallel $ do
@@ -108,16 +109,6 @@ spec = parallel $ do
 
       outputs <- getServerOutputs
       outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters 10 [alice, bob, carol]) NoSeedInput]
-
-aliceSk, bobSk, carolSk :: Hydra.SigningKey
-aliceSk = generateSigningKey "alice"
-bobSk = generateSigningKey "bob"
-carolSk = generateSigningKey "carol"
-
-alice, bob, carol :: Party
-alice = deriveParty aliceSk
-bob = deriveParty bobSk
-carol = deriveParty carolSk
 
 isReqSn :: Message tx -> Bool
 isReqSn = \case
