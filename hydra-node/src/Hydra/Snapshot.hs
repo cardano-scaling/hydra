@@ -9,7 +9,7 @@ import Cardano.Crypto.Util (SignableRepresentation (..))
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (IsTx (..))
-import Test.QuickCheck (frequency)
+import Test.QuickCheck (frequency, suchThat)
 
 type SnapshotNumber = Natural
 
@@ -128,6 +128,8 @@ genConfirmedSnapshot sks =
     pure InitialSnapshot{snapshot = s{number = 0}}
 
   confirmedSnapshot = do
-    snapshot <- arbitrary
+    -- FIXME: This is another nail in the coffin to our current modeling of
+    -- snapshots
+    snapshot <- arbitrary `suchThat` \Snapshot{number} -> number > 0
     let signatures = Hydra.aggregate $ fmap (`Hydra.sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
