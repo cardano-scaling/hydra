@@ -15,11 +15,11 @@ import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (genVerificationKey)
-import Hydra.Party (Party, partyToChain, deriveParty)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
+import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (toData)
+import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -51,9 +51,6 @@ healthyCloseTx =
 
   lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
 
-  somePartyCardanoVerificationKey = flip generateWith 42 $ do
-    genForParty genVerificationKey <$> elements healthyParties
-
 addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
 addParticipationTokens parties (TxOut addr val datum) =
   TxOut addr val' datum
@@ -69,9 +66,14 @@ healthySnapshot :: Snapshot Tx
 healthySnapshot =
   Snapshot
     { number = healthySnapshotNumber
-    , utxo = mempty
+    , utxo = healthyCloseUTxO
     , confirmed = []
     }
+
+healthyCloseUTxO :: UTxO
+healthyCloseUTxO =
+  (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyUTxO))
+    `generateWith` 42
 
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotNumber = 1
@@ -80,8 +82,15 @@ healthyCloseDatum :: Head.State
 healthyCloseDatum =
   Head.Open
     { parties = healthyOnChainParties
-    , utxoHash = ""
+    , utxoHash = toBuiltin $ hashTxOuts $ toList healthyUTxO
     }
+
+healthyUTxO :: UTxO
+healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
+
+somePartyCardanoVerificationKey :: VerificationKey PaymentKey
+somePartyCardanoVerificationKey = flip generateWith 42 $ do
+  genForParty genVerificationKey <$> elements healthyParties
 
 healthySigningKeys :: [Hydra.SigningKey]
 healthySigningKeys = [aliceSk, bobSk, carolSk]
@@ -134,6 +143,11 @@ genCloseMutation (_tx, _utxo) =
             { parties = mutatedParties
             , utxoHash = ""
             }
+    , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
+        Head.Open{Head.parties = parties} ->
+          parties /= Head.parties healthyCloseDatum
+        _ ->
+          True
     , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
         Head.Open{Head.parties = parties} ->
           parties /= Head.parties healthyCloseDatum
