@@ -161,9 +161,10 @@ verify (HydraVerificationKey vk) (HydraSignature sig) a =
 -- * Multi-signatures
 
 -- | Naiively aggregated multi-signatures.
-newtype MultiSignature a = HydraMultiSignature [Signature a]
-  deriving (Eq, Show)
-  deriving newtype (ToJSON, FromJSON, Semigroup, Monoid)
+newtype MultiSignature a = HydraMultiSignature {multiSignature :: [Signature a]}
+  deriving (Eq, Show, Generic)
+  deriving newtype (Semigroup, Monoid)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Combine multiple signatures of 'a' into a 'MultiSignature a'.
 aggregate :: [Signature a] -> MultiSignature a

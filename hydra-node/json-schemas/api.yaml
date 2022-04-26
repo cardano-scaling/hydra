@@ -582,7 +582,7 @@ components:
         multiSignature:
           type: array
           items:
-            $ref: "#/components/schemas/Signed"
+            $ref: "#/components/schemas/Signature"
 
     Party:
       type: object
@@ -976,7 +976,7 @@ components:
             items:
               $ref: "#/components/schemas/Party"
 
-    Signed:
+    Signature:
       type: string
       description: >-
         A base64-encoded signature.
