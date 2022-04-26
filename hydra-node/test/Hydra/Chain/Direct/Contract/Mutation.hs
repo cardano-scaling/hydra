@@ -150,7 +150,7 @@ import Hydra.Ledger.Cardano (genKeyPair, genOutput, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (toData)
+import Plutus.V1.Ledger.Api (fromData, toData)
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -445,6 +445,20 @@ addDatum datum scriptData =
           let dat = toLedgerData sd
               newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
            in TxBodyScriptData newDats redeemers
+
+changeHeadOutputDatum :: (Head.State -> Head.State) -> TxOut CtxTx -> TxOut CtxTx
+changeHeadOutputDatum fn (TxOut addr value datum) =
+  case datum of
+    TxOutDatumNone ->
+      error "Unexpected empty head datum"
+    (TxOutDatumHash _ha) ->
+      error "Unexpected hash-only datum"
+    (TxOutDatum sd) ->
+      case fromData $ toPlutusData sd of
+        Just st ->
+          TxOut addr value (mkTxOutDatum $ fn st)
+        Nothing ->
+          error "Invalid data"
 
 -- | Ensures the included datums of given 'TxOut's are included in the transactions' 'TxBodyScriptData'.
 ensureDatums :: [TxOut CtxTx] -> TxBodyScriptData -> TxBodyScriptData

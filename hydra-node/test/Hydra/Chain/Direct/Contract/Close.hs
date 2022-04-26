@@ -8,7 +8,8 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize')
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
+import Data.Maybe (fromJust)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeHeadOutputDatum, genHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
@@ -112,10 +113,11 @@ data CloseMutation
   | MutateSnapshotToIllFormedValue
   | MutateParties
   | MutateRequiredSigner
+  | MutateCloseUTxOHash
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
-genCloseMutation (_tx, _utxo) =
+genCloseMutation (tx, _utxo) =
   -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
   -- the power of the mutators, we should test at the level of the validator.
   -- That is, using the on-chain types. 'closeRedeemer' is also not used
@@ -156,11 +158,23 @@ genCloseMutation (_tx, _utxo) =
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
     ]
  where
+  headTxOut = fromJust $ txOuts' tx !!? 0
+
   closeRedeemer snapshotNumber sig =
     Head.Close
       { snapshotNumber = toInteger snapshotNumber
       , signature = toPlutusSignatures sig
       , utxoHash = ""
       }
+
+  mutateCloseUTxOHash :: Gen (TxOut CtxTx)
+  mutateCloseUTxOHash = do
+    mutatedUTxOHash <- genHash
+    pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
+
+  mutateState mutatedUTxOHash = \case
+    Head.Closed{snapshotNumber} -> Head.Closed{snapshotNumber, utxoHash = toBuiltin mutatedUTxOHash}
+    st -> error $ "unexpected state " <> show st
