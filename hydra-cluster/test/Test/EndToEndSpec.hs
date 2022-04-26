@@ -43,6 +43,7 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   serialiseAddress,
  )
+import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -215,9 +216,9 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
     bobKeys@(bobCardanoVk, _) <- generate genKeyPair
     carolKeys@(carolCardanoVk, _) <- generate genKeyPair
 
-    let aliceSk = Party.generateKey (10 + toInteger clusterIx)
-    let bobSk = Party.generateKey (20 + toInteger clusterIx)
-    let carolSk = Party.generateKey (30 + toInteger clusterIx)
+    let aliceSk = generateSigningKey ("alice-" <> show clusterIx)
+    let bobSk = generateSigningKey ("bob-" <> show clusterIx)
+    let carolSk = generateSigningKey ("carol-" <> show clusterIx)
 
     let alice = deriveParty aliceSk
     let bob = deriveParty bobSk
