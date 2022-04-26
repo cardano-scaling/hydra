@@ -22,7 +22,6 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN), rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (
   isEmptyTQueue,
@@ -36,7 +35,10 @@ import Control.Monad.Class.MonadSTM (
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Chain (Chain (..), ChainEvent, PostTxError)
 import Hydra.ClientInput (ClientInput)
-import Hydra.Crypto (SigningKey (HydraSigningKey), VerificationKey (HydraVerificationKey))
+import Hydra.Crypto (
+  deserialiseSigningKeyFromRawBytes,
+  deserialiseVerificationKeyFromRawBytes,
+ )
 import Hydra.HeadLogic (
   Effect (..),
   Environment (..),
@@ -67,22 +69,14 @@ initEnvironment Options{hydraSigningKey, hydraVerificationKeys} = do
       , otherParties
       }
  where
-  loadSigningKey p = do
-    mKey <- rawDeserialiseSignKeyDSIGN <$> readFileBS p
-    case mKey of
-      Nothing -> fail $ "Failed to decode signing key from " <> p
-      Just key -> pure $ HydraSigningKey key
+  loadSigningKey p =
+    readFileBS p >>= deserialiseSigningKeyFromRawBytes
 
   loadParty p =
-    Party . HydraVerificationKey <$> loadVerificationKey p
+    Party <$> loadVerificationKey p
 
   loadVerificationKey p = do
-    mKey <- rawDeserialiseVerKeyDSIGN <$> readFileBS p
-    case mKey of
-      Nothing -> fail $ "Failed to decode verification key from " <> p
-      Just key -> pure key
-
---
+    readFileBS p >>= deserialiseVerificationKeyFromRawBytes
 
 -- ** Create and run a hydra node
 
