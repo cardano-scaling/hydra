@@ -26,7 +26,6 @@ import Hydra.Chain.Direct.Fixture (
 import Hydra.Chain.Direct.Tx (
   assetNameFromVerificationKey,
   collectComTx,
-  convertPartyToChain,
   headPolicyId,
   headValue,
   mkCommitDatum,
@@ -37,7 +36,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)
-import Hydra.Party (Party)
+import Hydra.Party (Party, convertPartyToChain)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat)

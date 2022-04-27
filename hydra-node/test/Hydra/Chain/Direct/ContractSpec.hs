@@ -27,7 +27,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
   propTransactionValidates,
  )
 import Hydra.Chain.Direct.State (SomeOnChainHeadState (..))
-import Hydra.Chain.Direct.Tx (convertPartyToChain)
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.Head (
   verifyPartySignature,
@@ -42,7 +41,7 @@ import Hydra.Ledger.Cardano (
   shrinkUTxO,
  )
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Party (deriveParty)
+import Hydra.Party (convertPartyToChain, deriveParty)
 import Hydra.Snapshot (Snapshot (..))
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromBuiltin)

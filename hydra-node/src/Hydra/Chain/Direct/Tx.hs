@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Smart constructors for creating Hydra protocol transactions to be used in
 -- the 'Hydra.Chain.Direct' way of talking to the main-chain.
@@ -25,9 +24,7 @@ import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
-import qualified Hydra.Crypto as Hydra
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
-import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Ledger.Cardano.Builder (
@@ -40,7 +37,7 @@ import Hydra.Ledger.Cardano.Builder (
   mintTokens,
   unsafeBuildTransaction,
  )
-import Hydra.Party (Party (Party), vkey)
+import Hydra.Party (Party, convertPartyFromChain, convertPartyToChain)
 import Hydra.Snapshot (Snapshot (..))
 import Ledger.Typed.Scripts (DatumType)
 import Plutus.V1.Ledger.Api (fromBuiltin, fromData)
@@ -63,15 +60,6 @@ hydraHeadV1AssetName = AssetName (fromBuiltin Head.hydraHeadV1)
 -- FIXME: sould not be hardcoded
 headValue :: Value
 headValue = lovelaceToValue (Lovelace 2_000_000)
-
--- TODO: move somewhere better.. or avoid it completely!
-convertPartyFromChain :: OnChain.Party -> Party
-convertPartyFromChain =
-  Party . Hydra.HydraVerificationKey . partyToVerKey
-
-convertPartyToChain :: Party -> OnChain.Party
-convertPartyToChain Party{vkey = Hydra.HydraVerificationKey vk} =
-  partyFromVerKey vk
 
 -- * Create Hydra Head transactions
 
@@ -419,7 +407,7 @@ observeInitTx networkId cardanoKeys party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
-  let parties = map convertPartyFromChain ps
+  parties <- mapM convertPartyFromChain ps
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
   (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
@@ -495,7 +483,8 @@ observeCommitTx networkId initials tx = do
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
   -- TODO: This 'party' would be available from the spent 'initial' utxo (PT eventually)
-  (party, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
+  (onChainParty, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
+  party <- convertPartyFromChain onChainParty
   let mCommittedTxOut = convertTxOut serializedTxOut
 
   comittedUTxO <-
@@ -505,7 +494,7 @@ observeCommitTx networkId initials tx = do
       (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
       (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
 
-  let onChainTx = OnCommitTx (convertPartyFromChain party) comittedUTxO
+  let onChainTx = OnCommitTx party comittedUTxO
   pure
     ( onChainTx
     , (commitIn, toUTxOContext commitOut, dat)

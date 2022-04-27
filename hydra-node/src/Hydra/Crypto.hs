@@ -11,8 +11,6 @@
 -- Cardano keys & signatures.
 module Hydra.Crypto where
 
--- TODO: explicit exports and hide 'HydraSigningeKey' and 'HydraVerificationKey'?
-
 import Hydra.Prelude hiding (show)
 
 import Cardano.Crypto.DSIGN (
@@ -61,16 +59,6 @@ newtype SigningKey = HydraSigningKey (SignKeyDSIGN SignAlg)
 instance Arbitrary SigningKey where
   arbitrary = generateSigningKey <$> arbitrary
 
--- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
--- not random and insecure, so don't use this is production code!
-generateSigningKey :: ByteString -> SigningKey
-generateSigningKey seed =
-  HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes padded
- where
-  needed = fromIntegral $ seedSizeDSIGN (Proxy :: Proxy SignAlg)
-  provided = BS.length seed
-  padded = seed <> BS.pack (replicate (needed - provided) 0)
-
 -- | Serialise the signing key material as raw bytes.
 serialiseSigningKeyToRawBytes :: SigningKey -> ByteString
 serialiseSigningKeyToRawBytes (HydraSigningKey sk) = rawSerialiseSignKeyDSIGN sk
@@ -85,6 +73,16 @@ deserialiseSigningKeyFromRawBytes bytes =
 -- | Get the 'VerificationKey' for a given 'SigningKey'.
 deriveVerificationKey :: SigningKey -> VerificationKey
 deriveVerificationKey (HydraSigningKey sk) = HydraVerificationKey (deriveVerKeyDSIGN sk)
+
+-- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
+-- not random and insecure, so don't use this in production code!
+generateSigningKey :: ByteString -> SigningKey
+generateSigningKey seed =
+  HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes padded
+ where
+  needed = fromIntegral $ seedSizeDSIGN (Proxy :: Proxy SignAlg)
+  provided = BS.length seed
+  padded = seed <> BS.pack (replicate (needed - provided) 0)
 
 -- | Hydra verification key, which can be used to 'verify' signed messages.
 newtype VerificationKey = HydraVerificationKey (VerKeyDSIGN SignAlg)

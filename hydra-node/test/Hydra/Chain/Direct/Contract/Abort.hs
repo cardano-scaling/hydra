@@ -20,13 +20,13 @@ import Hydra.Chain.Direct.Contract.Mutation (
   headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId, testSeedInput)
-import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, convertPartyToChain, mkHeadOutputInitial, mkHeadTokenScript)
+import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial, mkHeadTokenScript)
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genVerificationKey)
-import Hydra.Party (Party)
+import Hydra.Party (Party, convertPartyToChain)
 import Hydra.Prelude
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchThat)
 

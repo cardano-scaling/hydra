@@ -9,6 +9,7 @@ import Data.Aeson (ToJSONKey)
 import Data.Aeson.Types (FromJSONKey)
 import Hydra.Crypto (hashVerificationKey)
 import qualified Hydra.Crypto as Hydra
+import qualified Hydra.Data.Party as OnChain
 
 -- | Identifies a party in a Hydra head by it's 'VerificationKey'.
 newtype Party = Party {vkey :: Hydra.VerificationKey}
@@ -33,3 +34,11 @@ instance ToCBOR Party where
 -- | Get the 'Party' given some Hydra 'SigningKey'.
 deriveParty :: Hydra.SigningKey -> Party
 deriveParty = Party . Hydra.deriveVerificationKey
+
+convertPartyFromChain :: MonadFail m => OnChain.Party -> m Party
+convertPartyFromChain =
+  fmap Party . Hydra.deserialiseVerificationKeyFromRawBytes . OnChain.partyToVerficationKeyBytes
+
+convertPartyToChain :: Party -> OnChain.Party
+convertPartyToChain Party{vkey} =
+  OnChain.partyFromVerificationKeyBytes $ Hydra.serialiseVerificationKeyToRawBytes vkey

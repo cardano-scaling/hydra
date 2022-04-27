@@ -8,9 +8,7 @@ module Hydra.Data.Party where
 
 import Hydra.Prelude hiding (init)
 
-import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), Ed25519DSIGN, VerKeyDSIGN (..))
 import qualified Data.ByteString as BS
-import Data.Maybe (fromJust)
 import qualified PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)
 import PlutusTx.IsData
@@ -38,10 +36,10 @@ instance PlutusTx.FromData Party where
 instance PlutusTx.UnsafeFromData Party where
   unsafeFromBuiltinData = UnsafeParty . unsafeFromBuiltinData
 
-partyFromVerKey :: VerKeyDSIGN Ed25519DSIGN -> Party
-partyFromVerKey =
-  UnsafeParty . toBuiltin . rawSerialiseVerKeyDSIGN
+partyFromVerificationKeyBytes :: ByteString -> Party
+partyFromVerificationKeyBytes =
+  UnsafeParty . toBuiltin
 
-partyToVerKey :: HasCallStack => Party -> VerKeyDSIGN Ed25519DSIGN
-partyToVerKey (UnsafeParty bytes) =
-  fromJust $ rawDeserialiseVerKeyDSIGN (fromBuiltin bytes)
+partyToVerficationKeyBytes :: Party -> ByteString
+partyToVerficationKeyBytes (UnsafeParty bytes) =
+  fromBuiltin bytes

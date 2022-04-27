@@ -46,7 +46,7 @@ import Hydra.Ledger.Cardano (
   renderTx,
   simplifyUTxO,
  )
-import Hydra.Party (Party)
+import Hydra.Party (Party, convertPartyToChain)
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
