@@ -14,7 +14,7 @@ import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
-import Hydra.Data.Party (Party (UnsafeParty))
+import Hydra.Data.Party (Party (vkey))
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (RedeemerType))
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Scripts.Validators (DatumType)
@@ -373,9 +373,9 @@ verifySnapshotSignature parties snapshotNumber sigs =
 {-# INLINEABLE verifySnapshotSignature #-}
 
 verifyPartySignature :: SnapshotNumber -> Party -> Signature -> Bool
-verifyPartySignature snapshotNumber (UnsafeParty vkey) signed =
+verifyPartySignature snapshotNumber party signed =
   traceIfFalse "party signature verification failed" $
-    verifySignature vkey message (getSignature signed)
+    verifySignature (vkey party) message (getSignature signed)
  where
   message = encodingToBuiltinByteString (encodeInteger snapshotNumber)
 {-# INLINEABLE verifyPartySignature #-}

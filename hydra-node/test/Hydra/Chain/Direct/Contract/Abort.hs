@@ -26,7 +26,7 @@ import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genVerificationKey)
-import Hydra.Party (Party, convertPartyToChain)
+import Hydra.Party (Party, partyToChain)
 import Hydra.Prelude
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchThat)
 
@@ -127,7 +127,7 @@ genAbortMutation (tx, utxo) =
     [ SomeMutation MutateParties . ChangeHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
-        pure $ Head.Initial c (convertPartyToChain <$> moreParties)
+        pure $ Head.Initial c (partyToChain <$> moreParties)
     , SomeMutation DropOneCommitOutput
         . RemoveOutput
         <$> choose (0, fromIntegral (length (txOuts' tx) - 1))

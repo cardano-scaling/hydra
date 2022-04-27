@@ -41,7 +41,7 @@ import Hydra.Ledger.Cardano (
   shrinkUTxO,
  )
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Party (convertPartyToChain, deriveParty)
+import Hydra.Party (partyToChain, deriveParty)
 import Hydra.Snapshot (Snapshot (..))
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromBuiltin)
@@ -136,7 +136,7 @@ prop_verifyOffChainSignatures =
       let sk = Hydra.generateSigningKey seed
           offChainSig = Hydra.sign sk snapshot
           onChainSig = List.head . toPlutusSignatures $ aggregate [offChainSig]
-          onChainParty = convertPartyToChain $ deriveParty sk
+          onChainParty = partyToChain $ deriveParty sk
           snapshotNumber = toInteger $ number snapshot
        in verifyPartySignature snapshotNumber onChainParty onChainSig
             & counterexample ("signed: " <> show onChainSig)
@@ -148,7 +148,7 @@ prop_verifySnapshotSignatures =
   forAll arbitrary $ \(snapshot :: Snapshot SimpleTx) ->
     forAll arbitrary $ \sks ->
       let parties = deriveParty <$> sks
-          onChainParties = convertPartyToChain <$> parties
+          onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger $ number snapshot
        in verifySnapshotSignature onChainParties snapshotNumber signatures

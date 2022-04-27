@@ -36,7 +36,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)
-import Hydra.Party (Party, convertPartyToChain)
+import Hydra.Party (Party, partyToChain)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat)
@@ -95,7 +95,7 @@ healthyCollectComInitialDatum =
 
 healthyOnChainParties :: [OnChain.Party]
 healthyOnChainParties =
-  convertPartyToChain <$> healthyParties
+  partyToChain <$> healthyParties
 
 healthyParties :: [Party]
 healthyParties = flip generateWith 42 $ do

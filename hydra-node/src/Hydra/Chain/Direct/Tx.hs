@@ -37,7 +37,7 @@ import Hydra.Ledger.Cardano.Builder (
   mintTokens,
   unsafeBuildTransaction,
  )
-import Hydra.Party (Party, convertPartyFromChain, convertPartyToChain)
+import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..))
 import Ledger.Typed.Scripts (DatumType)
 import Plutus.V1.Ledger.Api (fromBuiltin, fromData)
@@ -102,7 +102,7 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
     mkTxOutDatum $
       Head.Initial
         (contestationPeriodFromDiffTime contestationPeriod)
-        (map convertPartyToChain parties)
+        (map partyToChain parties)
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
 mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
@@ -165,7 +165,7 @@ commitTx networkId party utxo (initialInput, out, vkh) =
 
 mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> Plutus.Datum
 mkCommitDatum party headValidatorHash utxo =
-  Commit.datum (convertPartyToChain party, headValidatorHash, serializedUTxO)
+  Commit.datum (partyToChain party, headValidatorHash, serializedUTxO)
  where
   serializedUTxO = case utxo of
     Nothing ->
@@ -407,7 +407,7 @@ observeInitTx networkId cardanoKeys party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
-  parties <- mapM convertPartyFromChain ps
+  parties <- mapM partyFromChain ps
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
   (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
@@ -484,7 +484,7 @@ observeCommitTx networkId initials tx = do
   dat <- getScriptData commitOut
   -- TODO: This 'party' would be available from the spent 'initial' utxo (PT eventually)
   (onChainParty, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
-  party <- convertPartyFromChain onChainParty
+  party <- partyFromChain onChainParty
   let mCommittedTxOut = convertTxOut serializedTxOut
 
   comittedUTxO <-

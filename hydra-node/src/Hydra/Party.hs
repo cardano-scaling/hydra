@@ -35,10 +35,17 @@ instance ToCBOR Party where
 deriveParty :: Hydra.SigningKey -> Party
 deriveParty = Party . Hydra.deriveVerificationKey
 
-convertPartyFromChain :: MonadFail m => OnChain.Party -> m Party
-convertPartyFromChain =
-  fmap Party . Hydra.deserialiseVerificationKeyFromRawBytes . OnChain.partyToVerficationKeyBytes
-
-convertPartyToChain :: Party -> OnChain.Party
-convertPartyToChain Party{vkey} =
+-- | Convert "high-level" 'Party' to the "low-level" representation as used
+-- on-chain. See 'Hydra.Data.Party.Party' for an explanation why this is a
+-- distinct type.
+partyToChain :: Party -> OnChain.Party
+partyToChain Party{vkey} =
   OnChain.partyFromVerificationKeyBytes $ Hydra.serialiseVerificationKeyToRawBytes vkey
+
+-- | Retrieve the "high-level" 'Party from the "low-level" on-chain
+-- representation. This can fail because of the lower type-safety used on-chain
+-- and a non-guaranteed verification key length. See 'Hydra.Data.Party.Party'
+-- for an explanation why this is a distinct type.
+partyFromChain :: MonadFail m => OnChain.Party -> m Party
+partyFromChain =
+  fmap Party . Hydra.deserialiseVerificationKeyFromRawBytes . OnChain.partyToVerficationKeyBytes

@@ -16,7 +16,7 @@ import Hydra.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genVerificationKey)
-import Hydra.Party (Party, convertPartyToChain, deriveParty)
+import Hydra.Party (Party, partyToChain, deriveParty)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
@@ -90,7 +90,7 @@ healthyParties :: [Party]
 healthyParties = deriveParty <$> healthySigningKeys
 
 healthyOnChainParties :: [OnChain.Party]
-healthyOnChainParties = convertPartyToChain <$> healthyParties
+healthyOnChainParties = partyToChain <$> healthyParties
 
 healthySignature :: SnapshotNumber -> Hydra.MultiSignature (Snapshot Tx)
 healthySignature number = aggregate [sign sk snapshot | sk <- healthySigningKeys]

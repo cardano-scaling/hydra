@@ -46,7 +46,7 @@ import Hydra.Ledger.Cardano (
   renderTx,
   simplifyUTxO,
  )
-import Hydra.Party (Party, convertPartyToChain)
+import Hydra.Party (Party, partyToChain)
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
@@ -79,7 +79,7 @@ spec =
               forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
                 let onChainUTxO = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUTxO
                     headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
-                    onChainParties = convertPartyToChain <$> parties
+                    onChainParties = partyToChain <$> parties
                     headDatum = Head.Initial cperiod onChainParties
                     tx =
                       collectComTx
@@ -155,7 +155,7 @@ spec =
                     headDatum =
                       Head.Initial
                         (contestationPeriodFromDiffTime contestationPeriod)
-                        (map convertPartyToChain parties)
+                        (map partyToChain parties)
                     initials = Map.fromList (drop2nd <$> resolvedInitials)
                     initialsUTxO = drop3rd <$> resolvedInitials
                     commits = Map.fromList (drop2nd <$> resolvedCommits)
