@@ -51,8 +51,9 @@ type SignAlg = Ed25519DSIGN
 -- | Hydra signing key which can be used to 'sign' messages and 'aggregate'
 -- multi-signatures or 'deriveVerificationKey'.
 --
--- FIXME: rewrite Show instance to /not/ expose secret, eg. 8 bytes from the hash of
--- the key
+-- REVIEW: Maybe rewrite Show instance to /not/ expose secret, eg. 8 bytes from
+-- the hash of the key? Although both, cardano-api and cardano-crypto-class are
+-- both deriving this and thus showing secret key material as well.
 newtype SigningKey = HydraSigningKey (SignKeyDSIGN SignAlg)
   deriving (Eq, Show)
 
