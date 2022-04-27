@@ -55,45 +55,47 @@ encodeUnsigned32 encodeUnsigned32339,340
 encodeUnsigned64 encodeUnsigned64344,345
 
 ./exe/encoding-cost/Main.hs,723
-maxExecutionUnits maxExecutionUnits39,40
-main main54,55
-type Term Term122,123
-runTerm runTerm124,125
-mkScriptUsingEncode mkScriptUsingEncode133,134
-mkScriptUsingEncode' mkScriptUsingEncode'143,144
-mkScriptUsingBuiltin mkScriptUsingBuiltin153,154
-relativeCostOf relativeCostOf173,174
-rationalToPercent rationalToPercent196,197
-genTxOut genTxOut206,207
-genAdaOnlyTxOut genAdaOnlyTxOut213,214
-genAddress genAddress220,221
-genValue genValue226,227
-genAdaOnlyValue genAdaOnlyValue236,237
-genAssetQuantity genAssetQuantity244,245
-genCurrencySymbol genCurrencySymbol247,248
-genTokenName genTokenName252,253
-genDatumHash genDatumHash257,258
-genByteStringOf genByteStringOf262,263
-f f267,268
+maxExecutionUnits maxExecutionUnits41,42
+main main56,57
+type Term Term147,148
+runTerm runTerm149,150
+mkScriptUsingEncode mkScriptUsingEncode156,157
+mkScriptUsingEncode' mkScriptUsingEncode'166,167
+mkScriptUsingBuiltin mkScriptUsingBuiltin176,177
+relativeCostOf relativeCostOf196,197
+rationalToPercent rationalToPercent219,220
+genTxOut genTxOut229,230
+genAdaOnlyTxOut genAdaOnlyTxOut236,237
+genAddress genAddress243,244
+genValue genValue249,250
+genAdaOnlyValue genAdaOnlyValue259,260
+genAssetQuantity genAssetQuantity267,268
+genCurrencySymbol genCurrencySymbol270,271
+genTokenName genTokenName275,276
+genDatumHash genDatumHash280,281
+genByteStringOf genByteStringOf285,286
+f f290,291
 
-./exe/encoding-cost/Plutus/Codec/CBOR/Encoding/Validator.hs,862
+./exe/encoding-cost/Plutus/Codec/CBOR/Encoding/Validator.hs,970
 module Plutus.Codec.CBOR.Encoding.Validator Plutus.Codec.CBOR.Encoding.Validator4,5
-data EncodeValidator EncodeValidator25,26
-data ValidatorKind ValidatorKind27,28
-data ValidatorKind = BaselineValidator BaselineValidator27,28
-data ValidatorKind = BaselineValidator | RealValidatorRealValidator27,28
-instance Scripts.ValidatorTypes Scripts-ValidatorTypes (EncodeValidator a)31,32
-  type DatumType DatumType32,33
-  type RedeemerType RedeemerType33,34
-encodeIntegerValidator encodeIntegerValidator35,36
-encodeByteStringValidator encodeByteStringValidator54,55
-encodeListValidator encodeListValidator73,74
-encodeTxOutValidator encodeTxOutValidator94,95
-encodeTxOutsValidator encodeTxOutsValidator113,114
-encodeTxOut encodeTxOut132,133
-encodeAddress encodeAddress146,147
-encodeValue encodeValue155,156
-encodeDatum encodeDatum163,164
+data EncodeValidator EncodeValidator26,27
+data ValidatorKind ValidatorKind28,29
+data ValidatorKind = BaselineValidator BaselineValidator28,29
+data ValidatorKind = BaselineValidator | RealValidatorRealValidator28,29
+instance Scripts.ValidatorTypes Scripts-ValidatorTypes (EncodeValidator a)32,33
+  type DatumType DatumType33,34
+  type RedeemerType RedeemerType34,35
+encodeIntegerValidator encodeIntegerValidator36,37
+encodeByteStringValidator encodeByteStringValidator55,56
+encodeListValidator encodeListValidator74,75
+encodeTxOutValidator encodeTxOutValidator95,96
+encodeTxOutsValidator encodeTxOutsValidator114,115
+encodeTxOutValidator2 encodeTxOutValidator2133,134
+encodeTxOutsValidator2 encodeTxOutsValidator2152,153
+encodeTxOut encodeTxOut171,172
+encodeAddress encodeAddress185,186
+encodeValue encodeValue194,195
+encodeDatum encodeDatum202,203
 
 ./bench/BenchHaskell.hs,243
 module Main Main2,3
@@ -105,28 +107,24 @@ encodeAddress encodeAddress76,77
 encodeValue encodeValue85,86
 encodeDatum encodeDatum93,94
 
-./bench/BenchPlc.hs,733
+./bench/BenchPlc.hs,696
 module Main Main4,5
-main main45,46
-type Term Term72,73
-mkTestTerm mkTestTerm77,78
-benchCek benchCek84,85
-benchTermCek benchTermCek97,98
-cborgSerialize cborgSerialize102,103
-plutusSerialize plutusSerialize106,107
-encodeTxOut encodeTxOut109,110
-encodeAddress encodeAddress123,124
-encodeValue encodeValue132,133
-encodeDatum encodeDatum140,141
-getConfig getConfig166,167
-type Term Term176,177
-toNamedDeBruijnTerm toNamedDeBruijnTerm184,185
-toAnonDeBruijnTerm toAnonDeBruijnTerm190,191
-compiledCodeToTerm compiledCodeToTerm195,196
-haskellValueToTerm haskellValueToTerm201,202
-runTermCek runTermCek205,206
-type Result Result208,209
-cekResultMatchesHaskellValue cekResultMatchesHaskellValue216,217
+main main49,50
+type Program Program79,80
+type Term Term80,81
+bodyOf bodyOf82,83
+serialiseMultipleTxOutsUsingBuiltin serialiseMultipleTxOutsUsingBuiltin85,86
+serialiseSingleTxOutUsingBuiltin serialiseSingleTxOutUsingBuiltin98,99
+serialiseMultipleTxOutsUsingLibrary serialiseMultipleTxOutsUsingLibrary110,111
+serialiseSingleTxOutUsingLibrary serialiseSingleTxOutUsingLibrary123,124
+benchCek benchCek136,137
+benchTermCek benchTermCek149,150
+cborgSerialize cborgSerialize154,155
+plutusSerialize plutusSerialize158,159
+encodeTxOut encodeTxOut161,162
+encodeAddress encodeAddress175,176
+encodeValue encodeValue184,185
+encodeDatum encodeDatum192,193
 
 ./bench/TxGen.hs,369
 module TxGenTxGen0,1

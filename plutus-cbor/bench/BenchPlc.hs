@@ -16,10 +16,12 @@ import           Criterion.Main                           (Benchmarkable, bench,
                                                            defaultMainWith, nf,
                                                            whnf)
 import           Criterion.Types                          (timeLimit)
+import           Test.QuickCheck                          (vectorOf)
 
 import           Plutus.Codec.CBOR.Encoding               (Encoding,
                                                            encodeByteString,
                                                            encodeInteger,
+                                                           encodeList,
                                                            encodeListLen,
                                                            encodeMap,
                                                            encodeMaybe,
@@ -43,43 +45,93 @@ import qualified PlutusCore                               as PLC
 import qualified UntypedPlutusCore                        as UPLC
 import           UntypedPlutusCore.Evaluation.Machine.Cek as Cek
 
+-- Bench both lists of Ada-only TxOuts and single multi-asset TxOuts
+
 main :: IO ()
 main = do
+  let sizes = [10,20..150]
   defaultMainWith (defaultConfig { timeLimit = 5 }) $
     [ bgroup
-      "TxOut"
-      (
-       (bgroup
-        "ada only"
-        [ bench "plutus-cbor" $ whnf plutusSerialize txOutAdaOnly
-        , bench "cborg"       $ whnf cborgSerialize  txOutAdaOnly
-        ]
-        )
-       : map mkMultiAssetBM [10,20..150]
-      )
+      "serialiseData"
+      [ bgroup "ada.only"
+        (map (mkAdaOnlyBM serialiseMultipleTxOutsUsingBuiltin) sizes)
+      , bgroup "multi.asset"
+        (map (mkMultiAssetBM serialiseSingleTxOutUsingBuiltin) sizes)
+      ]
+    , bgroup
+      "onchain.encoder"
+      [ bgroup "ada.only"
+        (map (mkAdaOnlyBM serialiseMultipleTxOutsUsingLibrary) sizes)
+      , bgroup "multi.asset"
+        (map (mkMultiAssetBM serialiseSingleTxOutUsingLibrary) sizes)
+      ]
     ]
  where
-  txOutAdaOnly   = generateWith genAdaOnlyTxOut 42
-  mkMultiAssetBM n =
-      let assets = generateWith (genTxOut n) 42
-      in bgroup
-             (show n ++ " assets")
-             [ bench "plutus-cbor" $ whnf plutusSerialize assets
-             , bench "cborg"       $ whnf cborgSerialize assets
-             ]
+   mkAdaOnlyBM encoder n =
+       let txouts = generateWith (vectorOf n genAdaOnlyTxOut) 42
+       in bench (show n) $ whnf encoder txouts
+
+   mkMultiAssetBM encoder n =
+       let txout = generateWith (genTxOut n) 42
+       in bench (show n) $ whnf encoder txout
 
 --
 
+type Program name = UPLC.Program name UPLC.DefaultUni UPLC.DefaultFun ()
 type Term name = UPLC.Term name UPLC.DefaultUni UPLC.DefaultFun ()
 
--- runTermCek :: Term -> EvaluationResult Term
--- runTermCek = runCek PLC.defaultCekParameters Cek.restrictingEnormous Cek.noEmitter
+bodyOf :: Program name -> Term name
+bodyOf (UPLC.Program _ _ term) = term
 
-mkTestTerm :: Term UPLC.NamedDeBruijn
-mkTestTerm =
- let (UPLC.Program _ _ code) = Tx.getPlc $ $$(Tx.compile [|| Tx.serialiseData ||])
- in code
+serialiseMultipleTxOutsUsingBuiltin :: [TxOut] -> Term UPLC.NamedDeBruijn
+serialiseMultipleTxOutsUsingBuiltin txOuts =
+      bodyOf . Tx.getPlc $
+                 $$(Tx.compile
+                          [||
+                           \(xs::[TxOut]) ->
+                               let bytes = Tx.serialiseData (Tx.toBuiltinData xs)
+                               in Tx.lengthOfByteString bytes
+                          ||]
+                   )
+                 `Tx.applyCode` (Tx.liftCode txOuts)
 
+
+serialiseSingleTxOutUsingBuiltin :: TxOut -> Term UPLC.NamedDeBruijn
+serialiseSingleTxOutUsingBuiltin txOut =
+      bodyOf . Tx.getPlc $
+                 $$(Tx.compile
+                          [||
+                           \(x::TxOut) ->
+                               let bytes = Tx.serialiseData (Tx.toBuiltinData x)
+                               in Tx.lengthOfByteString bytes
+                          ||]
+                   )
+                 `Tx.applyCode` (Tx.liftCode txOut)
+
+serialiseMultipleTxOutsUsingLibrary :: [TxOut] -> Term UPLC.NamedDeBruijn
+serialiseMultipleTxOutsUsingLibrary txOuts =
+      bodyOf . Tx.getPlc $
+                 $$(Tx.compile
+                          [||
+                           \(xs::[TxOut]) ->
+                               let bytes = encodingToBuiltinByteString (encodeList encodeTxOut xs)
+                               in Tx.lengthOfByteString bytes
+                          ||]
+                   )
+                 `Tx.applyCode` (Tx.liftCode txOuts)
+
+
+serialiseSingleTxOutUsingLibrary :: TxOut -> Term UPLC.NamedDeBruijn
+serialiseSingleTxOutUsingLibrary txOut =
+      bodyOf . Tx.getPlc $
+                 $$(Tx.compile
+                          [||
+                           \(x::TxOut) ->
+                               let bytes = encodingToBuiltinByteString (encodeTxOut x)
+                               in Tx.lengthOfByteString bytes
+                          ||]
+                   )
+                 `Tx.applyCode` (Tx.liftCode txOut)
 
 
 benchCek :: Term UPLC.NamedDeBruijn -> Benchmarkable
@@ -143,77 +195,3 @@ encodeDatum =
   encodeMaybe (\(DatumHash h) -> encodeByteString h)
 {-# INLINEABLE encodeDatum #-}
 
--- mkClausifyCode :: StaticFormula -> Tx.CompiledCode [LRVars]
--- mkClausifyCode formula = $$(Tx.compile [|| runClausify ||])`Tx.applyCode` Tx.liftCode formula
-
-
-{-
-
-import PlutusTx qualified as Tx
-
-import PlutusCore qualified as PLC
-import PlutusCore.Default
-import UntypedPlutusCore qualified as UPLC
-import UntypedPlutusCore.Evaluation.Machine.Cek as Cek
-
-import Criterion.Main
-import Criterion.Types (Config (..))
-import System.FilePath
-
-{- | The Criterion configuration returned by `getConfig` will cause an HTML report
-   to be generated.  If run via stack/cabal this will be written to the
-   `plutus-benchmark` directory by default.  The -o option can be used to change
-   this, but an absolute path will probably be required (eg, "-o=$PWD/report.html") . -}
-getConfig :: Double -> IO Config
-getConfig limit = do
-  templateDir <- getDataFileName ("common" </> "templates")
-  let templateFile = templateDir </> "with-iterations" <.> "tpl" -- Include number of iterations in HTML report
-  pure $ defaultConfig {
-                template = templateFile,
-                reportFile = Just "report.html",
-                timeLimit = limit
-              }
-
-type Term    = UPLC.Term PLC.NamedDeBruijn DefaultUni DefaultFun ()
-
-{- | Given a DeBruijn-named term, give every variable the name "v".  If we later
-   call unDeBruijn, that will rename the variables to things like "v123", where
-   123 is the relevant de Bruijn index.-}
-toNamedDeBruijnTerm
-    :: UPLC.Term UPLC.DeBruijn DefaultUni DefaultFun ()
-    -> UPLC.Term UPLC.NamedDeBruijn DefaultUni DefaultFun ()
-toNamedDeBruijnTerm = UPLC.termMapNames UPLC.fakeNameDeBruijn
-
-{- | Remove the textual names from a NamedDeBruijn term -}
-toAnonDeBruijnTerm
-    :: Term
-    -> UPLC.Term UPLC.DeBruijn DefaultUni DefaultFun ()
-toAnonDeBruijnTerm = UPLC.termMapNames (\(UPLC.NamedDeBruijn _ ix) -> UPLC.DeBruijn ix)
-
-{- | Just extract the body of a program wrapped in a 'CompiledCodeIn'.  We use this a lot. -}
-compiledCodeToTerm
-    :: Tx.CompiledCodeIn DefaultUni DefaultFun a -> Term
-compiledCodeToTerm (Tx.getPlc -> UPLC.Program _ _ body) = body
-
-{- | Lift a Haskell value to a PLC term.  The constraints get a bit out of control
-   if we try to do this over an arbitrary universe.-}
-haskellValueToTerm
-    :: Tx.Lift DefaultUni a => a -> Term
-haskellValueToTerm = compiledCodeToTerm . Tx.liftCode
-
-
-{- | Just run a term (used for tests etc.) -}
-runTermCek :: Term -> EvaluationResult Term
-runTermCek = unsafeExtractEvaluationResult . (\ (fstT,_,_) -> fstT) . runCekDeBruijn PLC.defaultCekParameters Cek.restrictingEnormous Cek.noEmitter
-
-type Result = EvaluationResult Term
-
-{- | Evaluate a PLC term and check that the result matches a given Haskell value
-   (perhaps obtained by running the Haskell code that the term was compiled
-   from).  We evaluate the lifted Haskell value as well, because lifting may
-   produce reducible terms. The function is polymorphic in the comparison
-   operator so that we can use it with both HUnit Assertions and QuickCheck
-   Properties.  -}
-cekResultMatchesHaskellValue :: Tx.Lift DefaultUni a => Term -> (Result -> Result -> b) -> a -> b
-cekResultMatchesHaskellValue term matches value = (runTermCek term) `matches` (runTermCek $ haskellValueToTerm value)
--}

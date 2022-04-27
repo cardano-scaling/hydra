@@ -1,0 +1,166 @@
+cabal-version: 2.2
+name: plutus-benchmark
+version: 0.1.0.0
+license: Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+maintainer: radu.ometita@iohk.io
+author: Radu Ometita
+homepage: https://github.com/iohk/plutus#readme
+bug-reports: https://github.com/iohk/plutus/issues
+description:
+    Please see the README on GitHub at <https://github.com/input-output-hk/plutus#readme>
+build-type: Simple
+
+data-files:
+        templates/*.tpl
+        validation/data/*.flat
+
+source-repository head
+    type: git
+    location: https://github.com/iohk/plutus
+
+common lang
+  default-language: Haskell2010
+  ghc-options:
+    -fno-specialise
+    -fno-spec-constr
+    -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas
+  ghc-options:
+     -Wall -Wnoncanonical-monad-instances -Wunused-packages
+     -Wincomplete-uni-patterns -Wincomplete-record-updates
+     -Wredundant-constraints -Widentities
+     -Wnoncanonical-monoid-instances
+
+library
+  import: lang
+  exposed-modules:
+      Plutus.Benchmark.Clausify
+      Plutus.Benchmark.Queens
+      Plutus.Benchmark.Knights
+      Plutus.Benchmark.Knights.ChessSetList
+      Plutus.Benchmark.Knights.KnightHeuristic
+      Plutus.Benchmark.Knights.Queue
+      Plutus.Benchmark.Knights.Sort
+      Plutus.Benchmark.Knights.Utils
+      Plutus.Benchmark.LastPiece
+      Plutus.Benchmark.Prime
+  hs-source-dirs:
+      nofib/src
+  build-depends:
+      base >=4.7 && <5
+    , plutus-tx -any
+    , plutus-tx-plugin -any
+    , plutus-core -any
+    , deepseq -any
+  default-extensions:
+    DataKinds
+    NamedFieldPuns
+    OverloadedStrings
+    TemplateHaskell
+    TypeApplications
+    MultiParamTypeClasses
+    ScopedTypeVariables
+
+executable nofib-exe
+  import: lang
+  main-is: Main.hs
+  hs-source-dirs:
+      nofib/exe
+  build-depends:
+      base >=4.7 && <5
+    , plutus-benchmark
+    , plutus-tx -any
+    , plutus-tx-plugin -any
+    , plutus-core -any
+    , ansi-wl-pprint -any
+    , bytestring -any
+    , containers -any
+    , flat -any
+    , optparse-applicative -any
+    , serialise -any
+    , transformers -any
+
+benchmark nofib
+  import: lang
+  type: exitcode-stdio-1.0
+  main-is: BenchPlc.hs
+  hs-source-dirs:
+    nofib/bench
+  other-modules:
+    Common
+    Paths_plutus_benchmark
+  build-depends:
+      base >=4.7 && <5
+    , plutus-benchmark
+    , plutus-tx -any
+    , plutus-tx-plugin -any
+    , plutus-core -any
+    , containers -any
+    , criterion >= 1.5.9.0
+    , filepath -any
+    , mtl -any
+
+benchmark nofib-hs
+  import: lang
+  type: exitcode-stdio-1.0
+  main-is: BenchHaskell.hs
+  hs-source-dirs:
+    nofib/bench
+  other-modules:
+    Common
+    Paths_plutus_benchmark
+  build-depends:
+      base >=4.7 && <5
+    , plutus-benchmark
+    , plutus-tx -any
+    , plutus-tx-plugin -any
+    , plutus-core -any
+    , containers -any
+    , criterion -any
+    , filepath -any
+
+
+benchmark validation
+  import: lang
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs:
+      validation
+  other-modules:
+      NaturalSort
+      Paths_plutus_benchmark
+  build-depends:
+      base >=4.7 && <5
+    , plutus-core -any
+    , bytestring -any
+    , containers -any
+    , criterion >= 1.5.9.0
+    , deepseq -any
+    , directory -any
+    , filepath -any
+    , flat -any
+    , optparse-applicative -any
+    , text -any
+    , transformers -any
+
+test-suite plutus-benchmark-nofib-tests
+    import: lang
+    type: exitcode-stdio-1.0
+    main-is: Spec.hs
+    hs-source-dirs: nofib/test
+    ghc-options: -threaded -rtsopts -with-rtsopts=-N
+    default-language: Haskell2010
+    build-depends:
+        base >=4.7 && <5
+      , plutus-benchmark -any
+      , plutus-tx -any
+      , plutus-tx-plugin -any
+      , plutus-core -any
+      , containers -any
+      , tasty -any
+      , tasty-hunit -any
+      , tasty-quickcheck -any
+      , mtl -any

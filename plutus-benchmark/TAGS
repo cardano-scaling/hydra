@@ -1,0 +1,470 @@
+
+./validation/Main.hs,642
+module Main Main3,4
+getScriptDirectory getScriptDirectory57,58
+quickPrefixes quickPrefixes63,64
+withAnyPrefixFrom withAnyPrefixFrom73,74
+type Term Term77,78
+type Program Program78,79
+type DbProgram DbProgram79,80
+fromDeBruijn fromDeBruijn81,82
+loadFlat loadFlat88,89
+mkCekBM mkCekBM98,99
+mkScriptBM mkScriptBM101,102
+mkBMs mkBMs106,107
+getConfig getConfig117,118
+data BenchOptions BenchOptions128,129
+data BenchOptions = BenchOptionsBenchOptions128,129
+  { quick quick129,130
+  , otherOptions otherOptions130,131
+parseBenchOptions parseBenchOptions133,134
+parserInfo parserInfo141,142
+main main150,151
+
+./validation/NaturalSort.hs,252
+module NaturalSort NaturalSort2,3
+data Component Component16,17
+    Numeric Numeric17,18
+  | Other Other18,19
+getComponent getComponent22,23
+toComponents toComponents32,33
+naturalCompare naturalCompare48,49
+naturalSort naturalSort56,57
+
+./nofib/test/Spec.hs,697
+module Main Main9,10
+type Term Term31,32
+type Term' Term'32,33
+runCek runCek34,35
+termOfHaskellValue termOfHaskellValue39,40
+runCekWithErrMsg runCekWithErrMsg44,45
+runAndCheck runAndCheck60,61
+mkClausifyTest mkClausifyTest69,70
+testClausify testClausify73,74
+mkKnightsTest mkKnightsTest85,86
+testKnights testKnights89,90
+mkQueensTest mkQueensTest102,103
+testQueens testQueens106,107
+mkPrimalityTest mkPrimalityTest130,131
+testPrimalityHs testPrimalityHs145,146
+testPrimalityPlc testPrimalityPlc150,151
+sixDigits sixDigits156,157
+prop_primalityTest prop_primalityTest159,160
+testPrimalityQC testPrimalityQC163,164
+allTests allTests168,169
+main main179,180
+
+./nofib/src/Plutus/Benchmark/Clausify.hs,1196
+module Plutus.Benchmark.Clausify Plutus.Benchmark.Clausify6,7
+type Var Var14,15
+type LRVars LRVars16,17
+data Formula Formula18,19
+  Sym Sym19,20
+  Not Not20,21
+  Dis Dis21,22
+  Con Con22,23
+  Imp Imp23,24
+  Eqv Eqv24,25
+clause clause30,31
+clauses clauses39,40
+conjunct conjunct43,44
+disin disin49,50
+split split63,64
+elim elim71,72
+insert insert82,83
+negin negin91,92
+tautclause tautclause101,102
+unicl unicl106,107
+while while114,115
+replicate replicate118,119
+formula1 formula1123,124
+formula2 formula2129,130
+formula3 formula3134,135
+formula4 formula4140,141
+formula5 formula5146,147
+formula6 formula6152,153
+formula7 formula7158,159
+data StaticFormula StaticFormula163,164
+data StaticFormula = F1 F1163,164
+data StaticFormula = F1 | F2 F2163,164
+data StaticFormula = F1 | F2 | F3 F3163,164
+data StaticFormula = F1 | F2 | F3 | F4 F4163,164
+data StaticFormula = F1 | F2 | F3 | F4 | F5 F5163,164
+data StaticFormula = F1 | F2 | F3 | F4 | F5 | F6 F6163,164
+data StaticFormula = F1 | F2 | F3 | F4 | F5 | F6 | F7F7163,164
+getFormula getFormula167,168
+runClausify runClausify180,181
+mkClausifyTerm mkClausifyTerm184,185
+
+./nofib/src/Plutus/Benchmark/Prime.hs,1741
+module Plutus.Benchmark.Prime Plutus.Benchmark.Prime13,14
+even even31,32
+makeNumber makeNumber41,42
+chop chop46,47
+powerMod powerMod62,63
+cubeRoot cubeRoot84,85
+log2 log295,96
+data RNGstate RNGstate101,102
+data RNGstate = RNGstate RNGstate101,102
+initRNG initRNG112,113
+getRandom getRandom124,125
+getRandoms getRandoms139,140
+singleTestX singleTestX152,153
+singleTest singleTest165,166
+findKQ findKQ173,174
+multiTest multiTest183,184
+iterateN iterateN197,198
+boundedRandom boundedRandom207,208
+uniform uniform216,217
+data PrimeID PrimeID225,226
+data PrimeID = P5 P5225,226
+data PrimeID = P5 | P8 P8225,226
+data PrimeID = P5 | P8 | P10 P10225,226
+data PrimeID = P5 | P8 | P10 | P20 P20225,226
+data PrimeID = P5 | P8 | P10 | P20 | P30 P30225,226
+data PrimeID = P5 | P8 | P10 | P20 | P30 | P40 P40225,226
+data PrimeID = P5 | P8 | P10 | P20 | P30 | P40 | P50 P50225,226
+data PrimeID = P5 | P8 | P10 | P20 | P30 | P40 | P50 | P60 P60225,226
+data PrimeID = P5 | P8 | P10 | P20 | P30 | P40 | P50 | P60 | P100 P100225,226
+data PrimeID = P5 | P8 | P10 | P20 | P30 | P40 | P50 | P60 | P100 | P150 P150225,226
+data PrimeID = P5 | P8 | P10 | P20 | P30 | P40 | P50 | P60 | P100 | P150 | P200P200225,226
+getPrime getPrime233,234
+unindent unindent250,251
+initState initState256,257
+numTests numTests261,262
+data Result Result264,265
+data Result = Composite Composite264,265
+data Result = Composite | PrimePrime264,265
+processList processList271,272
+testInteger testInteger281,282
+runPrimalityTest runPrimalityTest288,289
+mkPrimalityTestTerm mkPrimalityTestTerm292,293
+runFixedPrimalityTest runFixedPrimalityTest301,302
+mkPrimalityBenchTerm mkPrimalityBenchTerm306,307
+
+./nofib/src/Plutus/Benchmark/Queens.hs,2756
+module Plutus.Benchmark.Queens Plutus.Benchmark.Queens10,11
+allAlgorithms allAlgorithms64,65
+data Algorithm Algorithm67,68
+data Algorithm = BtBt67,68
+               | BmBm68,69
+               | Bjbt1Bjbt169,70
+               | Bjbt2Bjbt270,71
+               | FcFc71,72
+lookupAlgorithm lookupAlgorithm75,76
+nqueens nqueens83,84
+runQueens runQueens88,89
+mkQueensTerm mkQueensTerm92,93
+main2 main2102,103
+unindent unindent114,115
+iterateN iterateN124,125
+interval interval131,132
+abs abs137,138
+deleteBy deleteBy143,144
+unionBy unionBy148,149
+union union152,153
+sortBy sortBy157,158
+type Var Var192,193
+type Value Value193,194
+data Assign Assign195,196
+data Assign = Var Var195,196
+instance TxPrelude.Eq TxPrelude-Eq Assign197,198
+    where (a(a:=b)198,199
+instance TxPrelude.Ord TxPrelude-Ord Assign199,200
+    where (a(a:=b)200,201
+type Relation Relation202,203
+data CSP CSP204,205
+data CSP = CSP CSP204,205
+data CSP = CSP { vars, vals vals204,205
+data CSP = CSP { vars, vals :: Integer, rel rel204,205
+type State State206,207
+level level209,210
+value value213,214
+maxLevel maxLevel217,218
+complete complete222,223
+generate generate226,227
+inconsistencies inconsistencies232,233
+consistent consistent236,237
+test test240,241
+solver solver244,245
+queens queens249,250
+data Tree Tree257,258
+data Tree a = Node Node257,258
+label label259,260
+type Transform Transform262,263
+mapTree mapTree265,266
+foldTree foldTree269,270
+filterTree filterTree273,274
+prune prune278,279
+leaves leaves282,283
+initTree initTree287,288
+mkTree mkTree295,296
+earliestInconsistency earliestInconsistency301,302
+labelInconsistencies labelInconsistencies309,310
+btsolver0 btsolver0314,315
+data ConflictSet ConflictSet323,324
+data ConflictSet = Known Known323,324
+data ConflictSet = Known [Var] | UnknownUnknown323,324
+instance TxPrelude.Eq TxPrelude-Eq ConflictSet324,325
+    Known Known325,326
+    Unknown Unknown326,327
+    _ _327,328
+knownConflict knownConflict330,331
+knownSolution knownSolution335,336
+checkComplete checkComplete340,341
+type Labeler Labeler343,344
+search search346,347
+bt bt351,352
+btsolver btsolver359,360
+hrandom hrandom367,368
+btr btr372,373
+random2 random2380,381
+randoms randoms387,388
+random random391,392
+randomList randomList397,398
+type Table Table404,405
+type Row Row405,406
+bm bm408,409
+emptyTable emptyTable412,413
+cacheChecks cacheChecks416,417
+fillTable fillTable421,422
+lookupCache lookupCache430,431
+bjbt bjbt442,443
+bjbt' bjbt'446,447
+bj bj450,451
+combine combine457,458
+bj' bj'463,464
+fc fc474,475
+collect collect478,479
+domainWipeOut domainWipeOut483,484
+
+./nofib/src/Plutus/Benchmark/Knights.hs,367
+module Plutus.Benchmark.Knights Plutus.Benchmark.Knights3,4
+zipConst zipConst19,20
+grow grow24,25
+isFinished isFinished28,29
+interval interval32,33
+repl repl39,40
+mkStarts mkStarts46,47
+root root53,54
+type Solution Solution66,67
+depthSearch depthSearch70,71
+unindent unindent83,84
+runKnights runKnights89,90
+mkKnightsTerm mkKnightsTerm93,94
+
+./nofib/src/Plutus/Benchmark/LastPiece.hs,1377
+module Plutus.Benchmark.LastPiece Plutus.Benchmark.LastPiece14,15
+type Offset Offset27,28
+type Square Square28,29
+type PieceId PieceId31,32
+type Board Board33,34
+data Piece Piece35,36
+data Piece = P P35,36
+data Solution Solution41,42
+data Solution = Soln Soln41,42
+              | Choose Choose42,43
+              | Fail Fail43,44
+data Sex Sex46,47
+data Sex = Male Male46,47
+data Sex = Male | FemaleFemale46,47
+sumList sumList50,51
+numSolutions numSolutions55,56
+sizeOfSolution sizeOfSolution60,61
+flipSex flipSex66,67
+search search73,74
+prune prune97,98
+try try107,108
+fit fit115,116
+add add127,128
+next next131,132
+maxRow,maxCol maxCol136,137
+maxRow,maxRow136,137
+maxCol maxCol138,139
+emptyBoard emptyBoard145,146
+check check149,150
+extend extend156,157
+extend_maybe extend_maybe160,161
+pickOne pickOne174,175
+fromJust fromJust186,187
+initialBoard initialBoard191,192
+initialPieces initialPieces195,196
+nPiece nPiece201,202
+mPiece mPiece207,208
+lPiece lPiece213,214
+kPiece kPiece220,221
+jPiece jPiece226,227
+iPiece iPiece233,234
+hPiece hPiece240,241
+gPiece gPiece248,249
+fPiece fPiece256,257
+ePiece ePiece264,265
+dPiece dPiece271,272
+cPiece cPiece278,279
+bPiece bPiece286,287
+unindent unindent292,293
+runLastPiece runLastPiece295,296
+mkLastPieceTerm mkLastPieceTerm298,299
+
+./nofib/src/Plutus/Benchmark/Knights/ChessSetList.hs,822
+module Plutus.Benchmark.Knights.ChessSetListPlutus.Benchmark.Knights.ChessSetList6,7
+type Tile Tile32,33
+data ChessSet ChessSet34,35
+data ChessSet = BoardBoard34,35
+instance Tx.Eq Tx-Eq ChessSet40,41
+    _ _41,42
+instance Tx.Ord Tx-Ord ChessSet43,44
+    _ _44,45
+createBoard createBoard47,48
+sizeBoard sizeBoard51,52
+noPieces noPieces55,56
+addPiece addPiece59,60
+init init64,65
+secondLast secondLast70,71
+deleteFirst deleteFirst91,92
+positionPiece positionPiece98,99
+lastPiece lastPiece102,103
+firstPiece firstPiece107,108
+pieceAtTile pieceAtTile113,114
+notIn notIn124,125
+isSquareFree isSquareFree129,130
+instance Haskell.Show Haskell-Show ChessSet136,137
+   showsPrec showsPrec137,138
+assignMoveNo assignMoveNo141,142
+printBoard printBoard147,148
+spaces spaces161,162
+
+./nofib/src/Plutus/Benchmark/Knights/KnightHeuristic.hs,869
+module Plutus.Benchmark.Knights.KnightHeuristicPlutus.Benchmark.Knights.KnightHeuristic2,3
+data Direction Direction14,15
+data Direction = UL UL14,15
+data Direction = UL | UR UR14,15
+data Direction = UL | UR | DL DL14,15
+data Direction = UL | UR | DL |DR | LU LU14,15
+data Direction = UL | UR | DL |DR | LU | LD LD14,15
+data Direction = UL | UR | DL |DR | LU | LD | RU RU14,15
+data Direction = UL | UR | DL |DR | LU | LD | RU | RDRD14,15
+move move17,18
+startTour startTour28,29
+   | (size `Tx.remainder`Tx.remainder30,31
+moveKnight moveKnight34,35
+canMove canMove39,40
+canMoveTo canMoveTo44,45
+descendents descendents53,54
+singleDescend singleDescend67,68
+descAndNo descAndNo71,72
+allDescend allDescend76,77
+possibleMoves possibleMoves81,82
+deadEnd deadEnd86,87
+canJumpFirst canJumpFirst90,91
+tourFinished tourFinished95,96
+
+./nofib/src/Plutus/Benchmark/Knights/Utils.hs,91
+module Plutus.Benchmark.Knights.Utils Plutus.Benchmark.Knights.Utils2,3
+take' take'7,8
+
+./nofib/src/Plutus/Benchmark/Knights/Sort.hs,815
+module Plutus.Benchmark.Knights.SortPlutus.Benchmark.Knights.Sort2,3
+insertSort insertSort11,12
+insertion insertion15,16
+mergeSort mergeSort22,23
+mergeList mergeList33,34
+quickSort quickSort41,42
+lazySortLe lazySortLe48,49
+lazySort lazySort52,53
+lazyQsort lazyQsort57,58
+rlazyQsort rlazyQsort65,66
+qpart qpart74,75
+rqpart rqpart84,85
+randomIntegers randomIntegers95,96
+rands rands106,107
+test1,test2,test3,test4,test5,test6,test7:test7125,126
+test1,test2,test3,test4,test5,test6,test6125,126
+test1,test2,test3,test4,test5,test5125,126
+test1,test2,test3,test4,test4125,126
+test1,test2,test3,test3125,126
+test1,test2,test2125,126
+test1,test1125,126
+test2 test2128,129
+test3 test3129,130
+test4 test4130,131
+test5 test5132,133
+test6 test6133,134
+test7 test7134,135
+
+./nofib/src/Plutus/Benchmark/Knights/Queue.hs,415
+module Plutus.Benchmark.Knights.QueuePlutus.Benchmark.Knights.Queue0,1
+type Queue Queue9,10
+createQueue createQueue12,13
+addFront addFront16,17
+addBack addBack20,21
+addAllFront addAllFront24,25
+addAllBack addAllBack28,29
+inquireFront inquireFront32,33
+inquireBack inquireBack38,39
+removeFront removeFront44,45
+removeBack removeBack49,50
+emptyQueue emptyQueue55,56
+sizeQueue sizeQueue62,63
+
+./nofib/exe/Main.hs,1266
+module Main Main3,4
+failWithMsg failWithMsg33,34
+data ProgAndArgs ProgAndArgs38,39
+    Clausify Clausify39,40
+  | Queens Queens40,41
+  | Knights Knights41,42
+  | LastPieceLastPiece42,43
+  | Prime Prime43,44
+  | Primetest Primetest44,45
+data OptionsOptions47,48
+    = RunPLC RunPLC48,49
+    | RunHaskell RunHaskell49,50
+    | DumpPLC DumpPLC50,51
+    | DumpFlatNamed DumpFlatNamed51,52
+    | DumpFlatDeBruijn DumpFlatDeBruijn52,53
+knownFormulae knownFormulae57,58
+clausifyFormulaReader clausifyFormulaReader60,61
+clausifyOptions clausifyOptions70,71
+knightsOptions knightsOptions79,80
+lastpieceOptions lastpieceOptions89,90
+knownPrimes knownPrimes95,96
+primeIdReader primeIdReader98,99
+primeOptions primeOptions113,114
+primetestOptions primetestOptions122,123
+knownAlgorithms knownAlgorithms129,130
+queensAlgorithmReader queensAlgorithmReader132,133
+queensOptions queensOptions140,141
+progAndArgs progAndArgs150,151
+options options160,161
+evaluateWithCek evaluateWithCek188,189
+toDeBruijn toDeBruijn191,192
+writeFlatNamed writeFlatNamed198,199
+writeFlatDeBruijn writeFlatDeBruijn201,202
+description description205,206
+knownProgs knownProgs212,213
+footerInfo footerInfo219,220
+main main233,234
+
+./nofib/bench/BenchHaskell.hs,167
+module Main Main3,4
+benchClausify benchClausify14,15
+benchKnights benchKnights17,18
+benchPrime benchPrime20,21
+benchQueens benchQueens23,24
+main main26,27
+
+./nofib/bench/BenchPlc.hs,192
+module Main Main3,4
+benchCek benchCek24,25
+benchClausify benchClausify29,30
+benchPrime benchPrime32,33
+benchQueens benchQueens35,36
+benchKnights benchKnights38,39
+main main66,67
+
+./nofib/bench/Common.hs,132
+module Common Common1,2
+getConfig getConfig18,19
+type BenchmarkRunners BenchmarkRunners29,30
+mkBenchMarks mkBenchMarks38,39

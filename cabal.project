@@ -12,6 +12,7 @@ packages:
   plutus-merkle-tree
   hydraw
   freer-extras
+  plutus-benchmark
   plutus-core
   plutus-ledger
   plutus-ledger-api

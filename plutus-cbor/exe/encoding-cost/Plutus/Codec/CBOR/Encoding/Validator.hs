@@ -20,6 +20,7 @@ import           Plutus.V1.Ledger.Api       (Address (..), Credential (..),
                                              TokenName (..), TxOut (..),
                                              ValidatorHash (..), Value (..))
 import qualified PlutusTx                   as Plutus
+import qualified PlutusTx.Builtins          as Plutus
 
 -- | A validator for measuring cost of encoding values. The validator is
 -- parameterized by the type of value.
@@ -127,6 +128,44 @@ encodeTxOutsValidator = \case
             ||]
         )
       $$(Plutus.compile [||wrap||])
+ where
+  wrap = Scripts.wrapValidator @() @[TxOut]
+
+encodeTxOutValidator2 :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator TxOut)
+encodeTxOutValidator2 = \case
+  BaselineValidator ->
+    Scripts.mkTypedValidator @(EncodeValidator TxOut)
+      $$(Plutus.compile [||\() _ _ctx -> True||])
+      $$(Plutus.compile [||wrap||])
+  RealValidator ->
+    Scripts.mkTypedValidator @(EncodeValidator TxOut)
+      $$( Plutus.compile
+            [||
+            \() o _ctx ->
+                let bytes = Plutus.serialiseData (Plutus.toBuiltinData o)
+                in lengthOfByteString bytes > 0
+            ||]
+        )
+      $$(Plutus.compile [||wrap||])
+ where
+  wrap = Scripts.wrapValidator @() @TxOut
+
+encodeTxOutsValidator2 :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator [TxOut])
+encodeTxOutsValidator2 = \case
+  BaselineValidator ->
+    Scripts.mkTypedValidator @(EncodeValidator [TxOut])
+      $$(Plutus.compile [||\() _ _ctx -> True||])
+      $$(Plutus.compile [||wrap||])
+  RealValidator ->
+    Scripts.mkTypedValidator @(EncodeValidator [TxOut])
+      $$( Plutus.compile
+            [||
+            \() xs _ctx ->
+              let bytes = Plutus.serialiseData (Plutus.toBuiltinData xs)
+               in lengthOfByteString bytes > 0
+            ||]
+        )
+      $$(Plutus.compile [|| wrap ||])
  where
   wrap = Scripts.wrapValidator @() @[TxOut]
 

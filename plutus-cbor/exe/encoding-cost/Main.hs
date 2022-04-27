@@ -19,7 +19,9 @@ import           Plutus.Codec.CBOR.Encoding.Validator     (EncodeValidator,
                                                            ValidatorKind (..),
                                                            encodeTxOut,
                                                            encodeTxOutValidator,
-                                                           encodeTxOutsValidator)
+                                                           encodeTxOutValidator2,
+                                                           encodeTxOutsValidator,
+                                                           encodeTxOutsValidator2)
 import qualified Plutus.V1.Ledger.Api                     as Plutus
 import qualified PlutusCore                               as PLC
 import qualified PlutusTx                                 as Tx
@@ -54,12 +56,23 @@ maxExecutionUnits =  ExUnits
 
 main :: IO ()
 main = do
-  printf "# List of ADA-only TxOut, by list size.\n"
+  printf "# List of ADA-only TxOut; Scott-encoded TxOut serialised using encoder on-chain.\n"
   printf "   n         mem         cpu        %%mem      %%cpu\n"
   forM_ [0,10..150] $ \n -> do
     let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
     let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutsValidator
     case evaluateScriptExecutionUnits (encodeTxOutsValidator RealValidator) x of
+      Right (ExUnits absMem absCpu) ->
+           printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
+      Left e -> printf "ERROR: %s\n" e
+
+  printf "\n"
+
+  printf "# List of ADA-only TxOut; serialised on-chain using serialiseData . toBuiltinData.\n"
+  forM_ [0,10..150] $ \n -> do
+    let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
+    let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutsValidator2
+    case evaluateScriptExecutionUnits (encodeTxOutsValidator2 RealValidator) x of
       Right (ExUnits absMem absCpu) ->
            printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
       Left e -> printf "ERROR: %s\n" e
@@ -88,12 +101,24 @@ main = do
   printf "----------------------------------------------------------------"
   printf "\n\n"
 
-  printf "# Single multi-asset TxOut, by number of assets.\n"
+  printf "# Single multi-asset TxOut; Scott-encoded TxOut serialised using encoder on-chain.\n"
   printf "   n         mem         cpu       %%mem      %%cpu\n"
   forM_ [0,10..150] $ \n -> do
     let x = generateWith (genTxOut n) 42
     let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutValidator
     case evaluateScriptExecutionUnits (encodeTxOutValidator RealValidator) x of
+      Right (ExUnits absMem absCpu) ->
+           printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
+      Left e -> printf "ERROR: %s\n" e
+
+
+  printf "\n"
+  printf "# Single multi-asset TxOut; serialised on-chain using serialiseData . toBuiltinData.\n"
+  printf "   n         mem         cpu       %%mem      %%cpu\n"
+  forM_ [0,10..150] $ \n -> do
+    let x = generateWith (genTxOut n) 42
+    let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutValidator2
+    case evaluateScriptExecutionUnits (encodeTxOutValidator2 RealValidator) x of
       Right (ExUnits absMem absCpu) ->
            printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
       Left e -> printf "ERROR: %s\n" e
@@ -129,14 +154,12 @@ runTerm t = case runExcept @PLC.FreeVariableError $ PLC.runQuoteT $ UPLC.unDeBru
                   (_result, Cek.CountingSt budget) -> budget
 
 
--- Where does the TxOut get converted to Data?
-
 mkScriptUsingEncode ::  Plutus.TxOut -> Term UPLC.NamedDeBruijn
 mkScriptUsingEncode x =
  let (UPLC.Program _ _ code) = Tx.getPlc $
                                $$(Tx.compile [||
                                               \y -> encodingToBuiltinByteString (encodeTxOut y)
-                                                    ||])
+                                             ||])
                                   `Tx.applyCode`
                                        (Tx.liftCode x)
  in code
@@ -145,8 +168,8 @@ mkScriptUsingEncode' ::  [Plutus.TxOut] -> Term UPLC.NamedDeBruijn
 mkScriptUsingEncode' x =
  let (UPLC.Program _ _ code) = Tx.getPlc $
                                $$(Tx.compile [||
-                                              \y -> encodingToBuiltinByteString (encodeList encodeTxOut y)
-                                                    ||])
+                                             \y -> encodingToBuiltinByteString (encodeList encodeTxOut y)
+                                             ||])
                                   `Tx.applyCode`
                                        (Tx.liftCode x)
  in code
