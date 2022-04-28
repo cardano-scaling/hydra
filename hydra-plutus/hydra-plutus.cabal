@@ -102,7 +102,6 @@ library
     , openapi3
     , plutus-cbor
     , plutus-core
-    , plutus-ledger
     , plutus-ledger-api
     , plutus-tx
     , plutus-tx-plugin
@@ -131,7 +130,6 @@ executable inspect-script
     , hydra-plutus
     , hydra-prelude
     , optparse-applicative
-    , plutus-ledger
     , plutus-ledger-api
     , plutus-tx
     , prettyprinter

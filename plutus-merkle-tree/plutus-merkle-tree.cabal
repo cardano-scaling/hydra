@@ -76,7 +76,6 @@ library
     , base
     , base16
     , plutus-core
-    , plutus-ledger
     , plutus-ledger-api
     , plutus-tx
     , plutus-tx-plugin
@@ -102,7 +101,6 @@ test-suite unit
     , hydra-prelude
     , hydra-test-utils
     , plutus-core
-    , plutus-ledger
     , plutus-ledger-api
     , plutus-merkle-tree
     , plutus-tx
