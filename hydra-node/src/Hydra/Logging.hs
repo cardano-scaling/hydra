@@ -29,7 +29,15 @@ import Hydra.Prelude
 
 import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
 import Control.Monad.Class.MonadFork (myThreadId)
-import Control.Monad.Class.MonadSTM (MonadSTMTx (readTBQueue), flushTBQueue, modifyTVar, newTBQueueIO, newTVarIO, readTVarIO, writeTBQueue)
+import Control.Monad.Class.MonadSTM (
+  flushTBQueue,
+  modifyTVar,
+  newTBQueueIO,
+  newTVarIO,
+  readTBQueue,
+  readTVarIO,
+  writeTBQueue,
+ )
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (
   Tracer (..),
