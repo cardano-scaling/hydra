@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Main where
 
 import Hydra.Prelude
@@ -8,18 +10,16 @@ import Codec.Serialise (serialise)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
-import Data.Text.Prettyprint.Doc.Extras (pretty)
+import Hydra.Cardano.Api (PlutusScriptV1, fromPlutusScript, hashScriptData)
 import Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
 import Hydra.Contract.Initial as Initial
-import Ledger (Datum (..), datumHash)
-import Ledger.Scripts (Script, toCardanoApiScript)
-import Plutus.V1.Ledger.Api (Data, dataToBuiltinData, toData)
+import Plutus.V1.Ledger.Api (Data, Script, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)
-import Prettyprinter (defaultLayoutOptions, layoutPretty)
+import Prettyprinter (defaultLayoutOptions, layoutPretty, pretty)
 import Prettyprinter.Render.Text (renderStrict)
 
 -- | Serialise Hydra scripts to files for submission through cardano-cli.
@@ -41,13 +41,16 @@ main = do
 
   putTextLn "Datum hashes:"
   forM_ datums $ \(aDatum, datumName) ->
-    putTextLn $ toText $ datumName <> ": " <> show (datumHash $ Datum $ dataToBuiltinData $ aDatum)
+    putTextLn $ toText $ datumName <> ": " <> show (hashScriptData $ fromPlutusData aDatum)
  where
   writeScripts :: [(Script, String)] -> IO ()
   writeScripts plutus =
     forM_ plutus $ \(item, itemName) -> do
       let itemFile = itemName <> ".plutus"
-          serialised = Aeson.encode $ serialiseToTextEnvelope (Just $ fromString itemName) $ toCardanoApiScript item
+          serialised =
+            Aeson.encode $
+              serialiseToTextEnvelope (Just $ fromString itemName) $
+                fromPlutusScript @PlutusScriptV1 item
       BL.writeFile itemFile serialised
       putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb (serialise item)
 

@@ -83,7 +83,6 @@ library
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party
     Hydra.Data.Utxo
-    Hydra.OnChain.Util
     Plutus.Orphans
 
   hs-source-dirs:  src
@@ -128,10 +127,10 @@ executable inspect-script
     , containers
     , data-default
     , directory
+    , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
     , optparse-applicative
-    , plutus-ledger
     , plutus-ledger-api
     , plutus-tx
     , prettyprinter
