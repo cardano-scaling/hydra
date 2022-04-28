@@ -165,8 +165,6 @@ source-repository-package
     io-classes
     monoidal-synchronisation
     network-mux
-    -- | only used by cardano-wallet
-    ntp-client
     ouroboros-consensus
     ouroboros-consensus-byron
     ouroboros-consensus-cardano
@@ -218,36 +216,13 @@ allow-newer:
   size-based:template-haskell
 
 -- NOTE(SN): plutus-apps usually also follows cardano-node versioning, so we
--- would determine a suitable version targeting the same cardano-node
+-- would determine a suitable version targeting the same cardano-node.
 
+-- NOTE(SN): We use a fork of this which avoids cardano-wallet dependency
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/plutus-apps
-  tag: 27641e02941ec77caaa456812712ab3c18798225
+  location: https://github.com/ch1bo/plutus-apps
+  tag: d8a17ebceff0e6e46ade5b29bebc08c198807e08
   --sha256: 0000000000000000000000000000000000000000000000000000
   subdir:
     plutus-ledger
-
--- NOTE(SN): This is taken from whatever plutus-apps uses. Maybe we need to
--- switch to track plutus-apps altogether (again).
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/cardano-wallet
-  tag: f6d4db733c4e47ee11683c343b440552f59beff7
-  --sha256: 0000000000000000000000000000000000000000000000000000
-  subdir:
-    lib/core
-    lib/dbvar
-    lib/numeric
-    lib/strict-non-empty-containers
-    lib/test-utils
-    lib/text-class
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/cardano-addresses
-  tag: 71006f9eb956b0004022e80aadd4ad50d837b621
-  --sha256: 0000000000000000000000000000000000000000000000000000
-  subdir:
-    core
