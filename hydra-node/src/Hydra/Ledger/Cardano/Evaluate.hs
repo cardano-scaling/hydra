@@ -10,14 +10,9 @@ module Hydra.Ledger.Cardano.Evaluate where
 
 import Hydra.Prelude hiding (label)
 
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
-import Cardano.Ledger.Alonzo.Scripts (
-  CostModel,
-  ExUnits (..),
-  Prices (..),
-  defaultCostModel,
- )
+import Cardano.Ledger.Alonzo.Scripts (CostModel (..), ExUnits (..), Prices (..))
 import Cardano.Ledger.Alonzo.Tools (
   BasicFailure,
   ScriptFailure,
@@ -37,6 +32,8 @@ import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (ExecutionUnits, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
 import Hydra.Chain.Direct.Util (Era)
+import qualified Plutus.V1.Ledger.Api as PV1
+import qualified Plutus.V2.Ledger.Api as PV2
 
 type RedeemerReport =
   (Map RdmrPtr (Either (ScriptFailure StandardCrypto) ExUnits))
@@ -63,6 +60,13 @@ evaluateTx' maxTxExUnits tx utxo =
       systemStart
       costModels
 
+-- | Cost models used in 'evaluateTx'. See also 'pparams' and 'defaultCostModel'
+costModels :: Array Language CostModel
+costModels =
+  array
+    (PlutusV1, PlutusV1)
+    [(PlutusV1, fromJust $ defaultCostModel PlutusV1)]
+
 -- | Current mainchain cost parameters.
 pparams :: PParams Era
 pparams =
@@ -80,15 +84,14 @@ pparams =
           }
     }
 
+-- | Default cost model used in 'pparams'.
+defaultCostModel :: Language -> Maybe CostModel
+defaultCostModel = \case
+  PlutusV1 -> CostModel <$> PV1.defaultCostModelParams
+  PlutusV2 -> CostModel <$> PV2.defaultCostModelParams
+
 epochInfo :: Monad m => EpochInfo m
 epochInfo = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
 
 systemStart :: SystemStart
 systemStart = SystemStart $ posixSecondsToUTCTime 0
-
--- NOTE(SN): copied from Test.Cardano.Ledger.Alonzo.Tools as not exported
-costModels :: Array Language CostModel
-costModels =
-  array
-    (PlutusV1, PlutusV1)
-    [(PlutusV1, fromJust $ defaultCostModel PlutusV1)]
