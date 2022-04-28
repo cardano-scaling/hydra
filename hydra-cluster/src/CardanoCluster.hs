@@ -44,6 +44,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Hydra.Chain.Direct.Util (markerDatumHash, retry)
 import qualified Hydra.Chain.Direct.Util as Cardano
+import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (
   ChainConfig (..),
   defaultChainConfig,
@@ -317,13 +318,6 @@ newNodeConfig stateDirectory = do
       , systemStart
       , ports = PortsConfig nodePort []
       }
-
--- | Lookup a config file similar reading a file from disk.
-readConfigFile :: FilePath -> IO ByteString
-readConfigFile source = do
-  filename <- Pkg.getDataFileName ("config" </> source)
-  BS.readFile filename
-
 --
 -- Logging
 --

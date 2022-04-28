@@ -116,6 +116,7 @@ library
     CardanoClient
     CardanoCluster
     CardanoNode
+    Hydra.Cluster.Util
     Hydra.Generator
     Hydra.LogFilter
     HydraNode

@@ -18,6 +18,7 @@ import qualified Data.HashMap.Strict as HM
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), PaymentKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
 import System.Directory (doesFileExist, removeFile)
+import Hydra.Cluster.Util (readConfigFile)
 import System.Exit (ExitCode (..))
 import System.FilePath ((<.>), (</>))
 import System.Process (
