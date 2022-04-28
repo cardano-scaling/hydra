@@ -62,19 +62,19 @@ runTerm runTerm149,150
 mkScriptUsingEncode mkScriptUsingEncode156,157
 mkScriptUsingEncode' mkScriptUsingEncode'166,167
 mkScriptUsingBuiltin mkScriptUsingBuiltin176,177
-relativeCostOf relativeCostOf196,197
-rationalToPercent rationalToPercent219,220
-genTxOut genTxOut229,230
-genAdaOnlyTxOut genAdaOnlyTxOut236,237
-genAddress genAddress243,244
-genValue genValue249,250
-genAdaOnlyValue genAdaOnlyValue259,260
-genAssetQuantity genAssetQuantity267,268
-genCurrencySymbol genCurrencySymbol270,271
-genTokenName genTokenName275,276
-genDatumHash genDatumHash280,281
-genByteStringOf genByteStringOf285,286
-f f290,291
+relativeCostOf relativeCostOf184,185
+rationalToPercent rationalToPercent207,208
+genTxOut genTxOut217,218
+genAdaOnlyTxOut genAdaOnlyTxOut224,225
+genAddress genAddress231,232
+genValue genValue237,238
+genAdaOnlyValue genAdaOnlyValue247,248
+genAssetQuantity genAssetQuantity255,256
+genCurrencySymbol genCurrencySymbol258,259
+genTokenName genTokenName263,264
+genDatumHash genDatumHash268,269
+genByteStringOf genByteStringOf273,274
+f f278,279
 
 ./exe/encoding-cost/Plutus/Codec/CBOR/Encoding/Validator.hs,970
 module Plutus.Codec.CBOR.Encoding.Validator Plutus.Codec.CBOR.Encoding.Validator4,5
@@ -107,24 +107,23 @@ encodeAddress encodeAddress76,77
 encodeValue encodeValue85,86
 encodeDatum encodeDatum93,94
 
-./bench/BenchPlc.hs,696
+./bench/BenchPlc.hs,917
 module Main Main4,5
-main main49,50
-type Program Program79,80
-type Term Term80,81
-bodyOf bodyOf82,83
-serialiseMultipleTxOutsUsingBuiltin serialiseMultipleTxOutsUsingBuiltin85,86
-serialiseSingleTxOutUsingBuiltin serialiseSingleTxOutUsingBuiltin98,99
-serialiseMultipleTxOutsUsingLibrary serialiseMultipleTxOutsUsingLibrary110,111
-serialiseSingleTxOutUsingLibrary serialiseSingleTxOutUsingLibrary123,124
-benchCek benchCek136,137
-benchTermCek benchTermCek149,150
-cborgSerialize cborgSerialize154,155
-plutusSerialize plutusSerialize158,159
-encodeTxOut encodeTxOut161,162
-encodeAddress encodeAddress175,176
-encodeValue encodeValue184,185
-encodeDatum encodeDatum192,193
+type Program Program47,48
+type Term Term48,49
+bodyOf bodyOf50,51
+benchCek benchCek53,54
+serialiseMultipleTxOutsUsingBuiltin_toData_onchain serialiseMultipleTxOutsUsingBuiltin_toData_onchain58,59
+serialiseSingleTxOutUsingBuiltin_toData_onchain serialiseSingleTxOutUsingBuiltin_toData_onchain71,72
+serialiseMultipleTxOutsUsingBuiltin_toData_offchain serialiseMultipleTxOutsUsingBuiltin_toData_offchain83,84
+serialiseSingleTxOutUsingBuiltin_toData_offchain serialiseSingleTxOutUsingBuiltin_toData_offchain96,97
+serialiseMultipleTxOutsUsingLibrary_toData_onchain serialiseMultipleTxOutsUsingLibrary_toData_onchain108,109
+serialiseSingleTxOutUsingLibrary_toData_onchain serialiseSingleTxOutUsingLibrary_toData_onchain121,122
+encodeTxOut encodeTxOut138,139
+encodeAddress encodeAddress152,153
+encodeValue encodeValue161,162
+encodeDatum encodeDatum169,170
+main main178,179
 
 ./bench/TxGen.hs,369
 module TxGenTxGen0,1

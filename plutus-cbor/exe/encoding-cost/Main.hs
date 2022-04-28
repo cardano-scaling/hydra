@@ -182,18 +182,6 @@ mkScriptUsingBuiltin x =
                                           (Tx.liftCode (Tx.toBuiltinData x))
  in code
 
-
-
-{-    Scripts.mkTypedValidator @(EncodeValidator TxOut)
-      $$( Plutus.compile
-            [||
-            \() o _ctx ->
-              let bytes = encodingToBuiltinByteString (encodeTxOut o)
-               in lengthOfByteString bytes > 0
-            ||]
-        )
--}
-
 relativeCostOf ::
   (Plutus.ToData a) =>
   a ->
