@@ -7,7 +7,6 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import Control.Retry (constantDelay, limitRetriesByCumulativeDelay, retrying)
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
@@ -23,7 +22,6 @@ import System.Process (
   CreateProcess (..),
   StdStream (UseHandle),
   proc,
-  readCreateProcessWithExitCode,
   readProcess,
   withCreateProcess,
  )
@@ -290,78 +288,6 @@ generateCardanoKey :: IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 generateCardanoKey = do
   sk <- generateSigningKey AsPaymentKey
   pure (getVerificationKey sk, sk)
-
--- | Make a 'CreateProcess' for running @cardano-cli@. The program must be on
--- the @PATH@, as normal. Sets @CARDANO_NODE_SOCKET_PATH@ for the subprocess, if
--- a 'CardanoNodeConn' is provided.
-cliCreateProcess ::
-  -- | for logging the command
-  Tracer IO NodeLog ->
-  -- | cardano node socket path
-  FilePath ->
-  -- | command-line arguments
-  [Text] ->
-  IO CreateProcess
-cliCreateProcess tr sock args = do
-  traceWith tr (MsgCLI args)
-  let socketEnv = ("CARDANO_NODE_SOCKET_PATH", sock)
-  let cp = proc "cardano-cli" $ fmap toString args
-  pure $ cp{env = Just (socketEnv : fromMaybe [] (env cp))}
-
-data ChainTip = ChainTip
-  { slot :: Integer
-  , hash :: Text
-  , block :: Integer
-  }
-  deriving stock (Show, Generic)
-  deriving anyclass (FromJSON)
-
--- | Query a cardano node tip with retrying.
-cliQueryTip ::
-  Tracer IO NodeLog ->
-  -- | cardano node socket path
-  FilePath ->
-  IO ChainTip
-cliQueryTip tr sock = do
-  let msg = "Checking for usable socket file " <> toText sock
-  bytes <-
-    cliRetry tr msg
-      =<< cliCreateProcess
-        tr
-        sock
-        ["query", "tip", "--testnet-magic", "42", "--cardano-mode"]
-  traceWith tr $ MsgSocketIsReady sock
-  case Aeson.eitherDecode' (fromStrict bytes) of
-    Left e -> fail e
-    Right tip -> pure tip
-
--- | Runs a @cardano-cli@ command and retries for up to 30 seconds if the
--- command failed.
---
--- Assumes @cardano-cli@ is available in @PATH@.
-cliRetry ::
-  Tracer IO NodeLog ->
-  -- | message to print before running command
-  Text ->
-  CreateProcess ->
-  IO ByteString
-cliRetry tracer msg cp = do
-  (st, out, err) <- retrying pol (const isFail) (const cmd)
-  traceWith tracer $ MsgCLIStatus msg (show st)
-  case st of
-    ExitSuccess -> pure $ encodeUtf8 out
-    ExitFailure _ ->
-      throwIO $ ProcessHasExited ("cardano-cli failed: " <> toText err) st
- where
-  cmd = do
-    traceWith tracer $ MsgCLIRetry msg
-    (st, out, err) <- readCreateProcessWithExitCode cp mempty
-    case st of
-      ExitSuccess -> pure ()
-      ExitFailure code -> traceWith tracer (MsgCLIRetryResult msg code)
-    pure (st, out, err)
-  isFail (st, _, _) = pure (st /= ExitSuccess)
-  pol = limitRetriesByCumulativeDelay 30_000_000 $ constantDelay 1_000_000
 
 data ProcessHasExited = ProcessHasExited Text ExitCode
   deriving (Show)

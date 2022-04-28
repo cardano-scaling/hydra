@@ -79,7 +79,7 @@ You can also use `nix-build` to build the project and all executables. You will 
     </TerminalWindow>
     ````
 
-1. To run integration tests, we need to install `cardano-node` & `cardano-cli` v1.32.0-rc2 to path. For example, see the official doc [here](https://developers.cardano.org/docs/get-started/installing-cardano-node).
+1. To run integration tests & benchmarks, do install a recent `cardano-node` to the path. For example, see the official doc [here](https://developers.cardano.org/docs/get-started/installing-cardano-node).
 
 1. Build and test everything:
 

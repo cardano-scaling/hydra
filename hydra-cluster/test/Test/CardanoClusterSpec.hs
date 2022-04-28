@@ -3,6 +3,7 @@ module Test.CardanoClusterSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import CardanoClient (queryTip)
 import CardanoCluster (
   Actor (Alice),
   ClusterConfig (..),
@@ -14,7 +15,8 @@ import CardanoCluster (
   seedFromFaucet_,
   withCluster,
  )
-import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
+import CardanoNode (RunningNode (..))
+import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 
 spec :: Spec
@@ -32,17 +34,15 @@ spec =
           failAfter 30 $ assertCanSpendInitialFunds cluster
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
-assertNetworkIsProducingBlock tracer = go (-1)
+assertNetworkIsProducingBlock _ = \case
+  (RunningCluster _ (RunningNode _ socket : _)) -> go socket
+  _ -> error "empty cluster?"
  where
-  go blk cluster = case cluster of
-    RunningCluster _ (RunningNode nodeId socket : _) -> do
-      waitForNewBlock
-      tip <- cliQueryTip (contramap (MsgFromNode nodeId) tracer) socket
-      if block tip > blk
-        then pure ()
-        else go (block tip) cluster
-    _ ->
-      error "empty cluster?"
+  go socket = do
+    waitForNewBlock
+    queryTip defaultNetworkId socket >>= \case
+      ChainPointAtGenesis -> go socket
+      ChainPoint{} -> pure ()
 
 assertCanSpendInitialFunds :: HasCallStack => RunningCluster -> IO ()
 assertCanSpendInitialFunds = \case
