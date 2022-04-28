@@ -22,15 +22,15 @@
     configureFlags = "--enable-static";
   })
 
-, # Feed cardano-node & cardano-cli to our shell.
-  # This is stable as it doesn't mix dependencies with this code-base;
-  # the fetched binaries are the "standard" builds that people test.
-  # This should be fast as it mostly fetches Hydra caches without building much.
+, # Add cardano-node & cardano-cli for our shell environment.
+  # This is stable as it doesn't mix dependencies with this code-base; the
+  # fetched binaries are the "standard" builds that people test. This should be
+  # fast as it mostly fetches Hydra (CI) caches without building much.
   cardano-node ? import
     (pkgs.fetchgit {
       url = "https://github.com/input-output-hk/cardano-node";
-      rev = "b91eb99f40f8ea88a3b6d9fb130667121ecbe522"; # 1.32.0-rc2 matching cabal.project.
-      sha256 = "1p862an7ddx4c1i0jsm2zimgh3x16ldsw0iccz8l39xg5d6m3vww";
+      rev = "1.34.1";
+      sha256 = "1hh53whcj5y9kw4qpkiza7rmkniz18r493vv4dzl1a8r5fy3b2bv";
     })
     { }
 }:

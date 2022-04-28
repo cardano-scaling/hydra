@@ -16,7 +16,7 @@ spec = do
   -- false positives test errors in case someone uses an "untested" /
   -- different than in shell.nix version of cardano-node and cardano-cli.
   it "has expected cardano-node version available" $
-    getCardanoNodeVersion >>= (`shouldContain` "1.31.0")
+    getCardanoNodeVersion >>= (`shouldContain` "1.34.1")
 
   it "withBFTNode does start a node within 3 seconds" $
     failAfter 3 $
