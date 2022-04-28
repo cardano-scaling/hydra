@@ -41,7 +41,7 @@ library
     , hydra-prelude
     , io-classes
     , network
-    , plutus-ledger-api
+    , plutus-ledger
     , plutus-tx
     , process
     , QuickCheck
