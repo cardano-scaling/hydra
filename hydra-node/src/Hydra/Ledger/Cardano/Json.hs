@@ -400,9 +400,6 @@ txInFromText t = do
       pure
       (decode (encodeUtf8 $ Text.drop 1 txIxText))
 
-instance FromJSONKey TxIn where
-  fromJSONKey = FromJSONKeyTextParser (fmap fromLedgerTxIn . txInFromText)
-
 --
 -- TxOut
 --
