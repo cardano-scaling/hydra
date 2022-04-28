@@ -53,6 +53,8 @@ let
     pkgs.python3Packages.jsonschema
     # For plotting results of hydra-cluster benchmarks
     pkgs.gnuplot
+    # For integration tests
+    cardano-node.cardano-node
   ];
 
   devInputs = if withoutDevTools then [] else [
@@ -68,8 +70,7 @@ let
     pkgs.yq
     # For docs/ (i.e. Docusaurus, Node.js & React)
     pkgs.yarn
-    # cardano-node
-    cardano-node.cardano-node
+    # To interact with cardano-node and testing out things
     cardano-node.cardano-cli
   ];
 
