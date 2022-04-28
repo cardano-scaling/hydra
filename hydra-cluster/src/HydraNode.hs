@@ -25,7 +25,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
-import CardanoCluster (ClusterLog)
+import CardanoNode (NodeLog)
 import Control.Concurrent.Async (
   forConcurrently_,
  )
@@ -183,7 +183,7 @@ data EndToEndLog
   | StartWaiting [Int] [Aeson.Value]
   | ReceivedMessage Int Aeson.Value
   | EndWaiting Int
-  | FromCluster ClusterLog
+  | FromCardanoNode NodeLog
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can
