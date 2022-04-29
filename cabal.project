@@ -211,9 +211,9 @@ source-repository-package
 -- NOTE(SN): We use a fork of this which avoids cardano-wallet dependency
 source-repository-package
   type: git
-  location: https://github.com/ch1bo/plutus-apps
-  tag: d8a17ebceff0e6e46ade5b29bebc08c198807e08
-  --sha256: 18danjhaz2v2rni46n3dfa20spvsfbhpjmkwl34l784ng9aq4p6l
+  location: https://github.com/input-output-hk/plutus-apps
+  tag: fdb0eec477fc0f99f5edfdbc11c041dbd35ca6bb
+  --sha256: 1n6wam6k6lp7c20mxslh08shrzv3xwvmgnmajzry78wkml5241kq
   subdir:
     freer-extras
     plutus-ledger
