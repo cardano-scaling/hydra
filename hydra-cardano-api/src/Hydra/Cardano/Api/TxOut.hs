@@ -22,8 +22,8 @@ modifyTxOutAddress ::
   (AddressInEra era -> AddressInEra era) ->
   TxOut ctx era ->
   TxOut ctx era
-modifyTxOutAddress fn (TxOut addr value dat) =
-  TxOut (fn addr) value dat
+modifyTxOutAddress fn (TxOut addr value dat ref) =
+  TxOut (fn addr) value dat ref
 
 -- | Alter the value of a 'TxOut' with the given transformation.
 modifyTxOutValue ::
@@ -31,16 +31,16 @@ modifyTxOutValue ::
   (Value -> Value) ->
   TxOut ctx era ->
   TxOut ctx era
-modifyTxOutValue fn (TxOut addr value dat) =
-  TxOut addr (mkTxOutValue $ fn $ txOutValueToValue value) dat
+modifyTxOutValue fn (TxOut addr value dat ref) =
+  TxOut addr (mkTxOutValue $ fn $ txOutValueToValue value) dat ref
 
 -- | Alter the datum of a 'TxOut' with the given transformation.
 modifyTxOutDatum ::
   (TxOutDatum ctx0 era -> TxOutDatum ctx1 era) ->
   TxOut ctx0 era ->
   TxOut ctx1 era
-modifyTxOutDatum fn (TxOut addr value dat) =
-  TxOut addr value (fn dat)
+modifyTxOutDatum fn (TxOut addr value dat ref) =
+  TxOut addr value (fn dat) ref
 
 -- | Find first 'TxOut' which pays to given address and also return the
 -- corresponding 'TxIn' to reference it.
@@ -49,7 +49,7 @@ findTxOutByAddress ::
   Tx era ->
   Maybe (TxIn, TxOut CtxTx era)
 findTxOutByAddress address tx =
-  flip find indexedOutputs $ \(_, TxOut addr _ _) -> addr == address
+  flip find indexedOutputs $ \(_, TxOut addr _ _ _) -> addr == address
  where
   indexedOutputs = zip [mkTxIn tx ix | ix <- [0 ..]] (txOuts' tx)
 
@@ -64,7 +64,7 @@ findTxOutByScript utxo script =
  where
   version = plutusScriptVersion (proxyToAsType $ Proxy @lang)
   matchScript = \case
-    (_, TxOut (AddressInEra _ (ShelleyAddress _ (Ledger.ScriptHashObj scriptHash') _)) _ _) ->
+    (_, TxOut (AddressInEra _ (ShelleyAddress _ (Ledger.ScriptHashObj scriptHash') _)) _ _ _) ->
       let scriptHash = toShelleyScriptHash $ hashScript $ PlutusScript version script
        in scriptHash == scriptHash'
     _ ->

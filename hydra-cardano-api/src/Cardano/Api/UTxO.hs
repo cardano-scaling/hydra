@@ -57,7 +57,7 @@ inputSet = Map.keysSet . toMap
 
 -- | Get a human-readable pretty text representation of a UTxO.
 render :: (TxIn, TxOut ctx era) -> Text
-render (k, TxOut _ (txOutValueToValue -> v) _) =
+render (k, TxOut _ (txOutValueToValue -> v) _ _) =
   T.drop 54 (renderTxIn k) <> " ↦ " <> renderValue v
 
 -- | Select the minimum (by TxIn) utxo entry from the UTxO map.

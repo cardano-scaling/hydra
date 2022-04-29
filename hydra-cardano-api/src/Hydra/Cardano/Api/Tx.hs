@@ -32,6 +32,7 @@ txFee' (getTxBody -> TxBody body) =
     TxFeeExplicit TxFeesExplicitInAllegraEra fee -> fee
     TxFeeExplicit TxFeesExplicitInMaryEra fee -> fee
     TxFeeExplicit TxFeesExplicitInAlonzoEra fee -> fee
+    TxFeeExplicit TxFeesExplicitInBabbageEra fee -> fee
     TxFeeImplicit _ -> error "impossible: TxFeeImplicit on non-Byron transaction."
 
 -- | Calculate the total execution cost of a transaction, according to the

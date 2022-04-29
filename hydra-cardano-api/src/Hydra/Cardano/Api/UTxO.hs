@@ -7,6 +7,7 @@ import Hydra.Cardano.Api.TxOut (fromLedgerTxOut, toLedgerTxOut)
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
+import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Data.Map as Map
@@ -24,7 +25,7 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
   let txOuts = toList $ Ledger.outputs' ledgerBody
       txIns =
         [ Ledger.TxIn (toLedgerTxId $ getTxId body) ix
-        | ix <- [0 .. fromIntegral (length txOuts)]
+        | ix <- [Ledger.TxIx 0 .. toEnum (length txOuts)]
         ]
    in fromLedgerUTxO $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
 

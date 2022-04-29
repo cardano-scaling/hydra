@@ -8,7 +8,7 @@ import qualified Cardano.Ledger.Coin as Ledger
 
 -- | Directly retrieve the amount of 'Lovelace' stored in a 'TxOut'.
 txOutLovelace :: TxOut ctx era -> Lovelace
-txOutLovelace (TxOut _ v _) = txOutValueToLovelace v
+txOutLovelace (TxOut _ v _ _) = txOutValueToLovelace v
 
 -- * Type Conversions
 
