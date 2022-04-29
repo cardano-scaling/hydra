@@ -42,8 +42,8 @@ test-show-details: direct
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-node.git
-  tag: 1.34.1
-  --sha256: 1hh53whcj5y9kw4qpkiza7rmkniz18r493vv4dzl1a8r5fy3b2bv
+  tag: 98892cb1196f09481c0eefc6bcb9216f580cba79
+  --sha256: 05zicb6i73ksf1jhxzdgw04x32sm1b09kswpjq18wabidgvd4sfa
   subdir:
     cardano-api
     cardano-git-rev
@@ -66,14 +66,14 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/hedgehog-extras
-  tag: edf6945007177a638fbeb8802397f3a6f4e47c14
-  --sha256: 0wc7qzkc7j4ns2rz562h6qrx2f8xyq7yjcb7zidnj7f6j0pcd0i9
+  tag: 967d79533c21e33387d0227a5f6cc185203fe658
+  --sha256: 0rbqb7a64aya1qizlr3im06hdydg9zr6sl3i8bvqqlf7kpa647sd
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
-  tag: 41545ba3ac6b3095966316a99883d678b5ab8da8
-  --sha256: 0icq9y3nnl42fz536da84414av36g37894qnyw4rk3qkalksqwir
+  tag: 394c4637c24d82325bd04ceb99c8e8df5617e663
+  --sha256: 02q8y69za5b0vsnj9qga1364vkmfc1kh35d0yshw1lf7nw9bls8m
   subdir:
     base-deriving-via
     binary
@@ -95,11 +95,13 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-ledger
-  tag: 1a9ec4ae9e0b09d54e49b2a40c4ead37edadcce5
-  --sha256: 0avzyiqq0m8njd41ck9kpn992yq676b1az9xs77977h7cf85y4wm
+  tag: bb739a2d3b888829135c1a62cea9e0e9dfd7a651
+  --sha256: 0r4ifqifv7k18hq1wj90xnf9qhnhlpawjmbs4fcxs7p8hdvvbpzy
   subdir:
     eras/alonzo/impl
     eras/alonzo/test-suite
+    eras/babbage/impl
+    eras/babbage/test-suite
     eras/byron/chain/executable-spec
     eras/byron/crypto
     eras/byron/crypto/test
@@ -139,8 +141,8 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/iohk-monitoring-framework
-  tag: 808724ff8a19a33d0ed06f9ef59fbd900b08553c
-  --sha256: 0298dpl29gxzs9as9ha6y0w18hqwc00ipa3hzkxv7nlfrjjz8hmz
+  tag: eb7854d1337637b8672af1227b276aa33a658f47
+  --sha256: 1ll81hlhkhj96f5v6lswjkq2h8f7zcmdrj2azqhi4ylzafn026r3
   subdir:
     contra-tracer
     iohk-monitoring
@@ -148,6 +150,7 @@ source-repository-package
     plugins/backend-ekg
     plugins/backend-monitoring
     plugins/backend-trace-forwarder
+    plugins/scribe-systemd
     tracer-transformers
 
 source-repository-package
@@ -159,8 +162,8 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/ouroboros-network
-  tag: 4fac197b6f0d2ff60dc3486c593b68dc00969fbf
-  --sha256: 1b43vbdsr9m3ry1kgag2p2ixpv54gw7a4vvmndxl6knqg8qbsb8b
+  tag: 4b44e8d8cde4431cb40ad868ce851400b5087094
+  --sha256: 0hcl8l3g46dwg3faq76p10cbd0dai7hpij7fan8xr2jzfb87mj26
   subdir:
     io-sim
     io-classes
@@ -179,11 +182,13 @@ source-repository-package
     typed-protocols-cborg
     typed-protocols-examples
 
+-- NOTE: further up-to-date than cardano-node as we need serialiseData support.
+-- Tracking release/1.0.0 branch of plutus
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/plutus
-  tag: fc5fe94d3d9525d032bcbc79ff0e1ebcfd8ef143
-  --sha256: 1gnzhns44rzvf9cw84jaqajqqbi9xdcpyy2sapa890vwf796nigv
+  tag: 5cc518f1202930ad52b8ba838af32af084c0e754
+  --sha256: 0000000000000000000000000000000000000000000000000000
   subdir:
     plutus-core
     plutus-ledger-api
@@ -207,13 +212,13 @@ source-repository-package
 
 -- Most constraints are from cardano-node + some from plutus-apps
 constraints:
-  -- cardano-ledger-byron-test fails with too new hedgehog
-    hedgehog >= 1.0 && < 1.1
+    hedgehog >= 1.0
   , bimap >= 0.4.0
   , libsystemd-journal >= 1.4.4
   , systemd >= 2.3.0
   , network >= 3.1.1.0
 
 allow-newer:
+  *:aeson,
   monoidal-containers:aeson,
   size-based:template-haskell
