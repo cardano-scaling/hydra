@@ -19,6 +19,7 @@ package hydra-cluster
 
 package hydra-node
   tests: True
+  benchmarks: True
 
 package hydra-plutus
   tests: True
@@ -204,18 +205,6 @@ source-repository-package
   tag: ee59880f47ab835dbd73bea0847dab7869fc20d8
   --sha256: 1lrzknw765pz2j97nvv9ip3l1mcpf2zr4n56hwlz0rk7wq7ls4cm
 
-constraints:
-  -- cardano-ledger-byron-test fails with too new hedgehog
-    hedgehog >= 1.0 && < 1.1
-  , bimap >= 0.4.0
-  , libsystemd-journal >= 1.4.4
-  , systemd >= 2.3.0
-  , network >= 3.1.1.0
-
-allow-newer:
-  monoidal-containers:aeson,
-  size-based:template-haskell
-
 -- NOTE(SN): plutus-apps usually also follows cardano-node versioning, so we
 -- would determine a suitable version targeting the same cardano-node.
 
@@ -228,3 +217,18 @@ source-repository-package
   subdir:
     freer-extras
     plutus-ledger
+
+-- Most constraints are from cardano-node + some from plutus-apps
+constraints:
+  -- cardano-ledger-byron-test fails with too new hedgehog
+    hedgehog >= 1.0 && < 1.1
+  , bimap >= 0.4.0
+  , libsystemd-journal >= 1.4.4
+  , systemd >= 2.3.0
+  , network >= 3.1.1.0
+  -- needed for plutus-apps
+  , servant >= 0.18
+
+allow-newer:
+  monoidal-containers:aeson,
+  size-based:template-haskell
