@@ -4,17 +4,34 @@
 -- | Minting policy for a single head tokens.
 module Hydra.Contract.HeadTokens where
 
-import Ledger hiding (Mint)
 import PlutusTx.Prelude
 
-import Hydra.Contract.Head (Head)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
-import Ledger.Typed.Scripts (ValidatorTypes (..), wrapMintingPolicy)
-import Plutus.V1.Ledger.Api (fromBuiltinData)
-import Plutus.V1.Ledger.Value (getValue)
+import Plutus.Extras (wrapMintingPolicy)
+import Plutus.V1.Ledger.Api (
+  CurrencySymbol,
+  Datum (getDatum),
+  DatumHash,
+  FromData (fromBuiltinData),
+  MintingPolicy (getMintingPolicy),
+  Script,
+  ScriptContext (ScriptContext, scriptContextTxInfo),
+  TxInInfo (..),
+  TxInfo (..),
+  TxOut (..),
+  TxOutRef,
+  ValidatorHash,
+  Value (getValue),
+  mkMintingPolicyScript,
+ )
+import Plutus.V1.Ledger.Contexts (
+  findDatum,
+  ownCurrencySymbol,
+  scriptOutputsAt,
+ )
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 
@@ -64,7 +81,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
         case getDatum <$> findDatum dh txInfo of
           Nothing -> traceError "expected optional commit datum"
           Just da ->
-            case fromBuiltinData @(DatumType Head) da of
+            case fromBuiltinData @Head.DatumType da of
               Nothing -> traceError "expected commit datum type, got something else"
               Just Head.Initial{Head.parties = parties} -> length parties
               Just _ -> traceError "unexpected State in datum"
