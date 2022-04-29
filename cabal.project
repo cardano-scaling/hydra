@@ -41,6 +41,9 @@ package plutus-cbor
   tests: True
   haddock-options: "--optghc=-fplugin-opt PlutusTx.Plugin:defer-errors"
 
+package plutus-core
+  benchmarks: True
+
 package plutus-merkle-tree
   tests: True
   haddock-options: "--optghc=-fplugin-opt PlutusTx.Plugin:defer-errors"
