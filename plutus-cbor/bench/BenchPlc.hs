@@ -1,7 +1,8 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
--- | Criterion benchmark of serializing some Plutus values to ByteString using
--- this library, but also `cborg` as a reference.
+-- | Criterion benchmark of on-chain serialisation times of some Plutus values
+-- to ByteString using the plutus-cbor library and also the serialiseData
+-- built-in function.
 module Main where
 
 import           Control.Exception
@@ -9,12 +10,10 @@ import           Control.Monad.Except
 import           Hydra.Prelude                            hiding ((<>))
 import           TxGen
 
-import           Codec.Serialise                          (serialise)
 import           Criterion.Main                           (Benchmarkable, bench,
                                                            bgroup,
                                                            defaultConfig,
-                                                           defaultMainWith, nf,
-                                                           whnf)
+                                                           defaultMainWith, nf)
 import           Criterion.Types                          (timeLimit)
 import           Test.QuickCheck                          (vectorOf)
 
@@ -27,7 +26,6 @@ import           Plutus.Codec.CBOR.Encoding               (Encoding,
                                                            encodeMaybe,
                                                            encodingToBuiltinByteString)
 import           Plutus.V1.Ledger.Api                     (Address (..),
-                                                           BuiltinByteString,
                                                            Credential (PubKeyCredential, ScriptCredential),
                                                            CurrencySymbol (CurrencySymbol),
                                                            DatumHash (DatumHash),
@@ -35,8 +33,7 @@ import           Plutus.V1.Ledger.Api                     (Address (..),
                                                            TokenName (TokenName),
                                                            TxOut (TxOut),
                                                            ValidatorHash (ValidatorHash),
-                                                           Value (getValue),
-                                                           toBuiltin, toData)
+                                                           Value (getValue))
 import qualified PlutusTx                                 as Tx
 import qualified PlutusTx.Builtins                        as Tx
 import           PlutusTx.Semigroup                       ((<>))
@@ -86,8 +83,8 @@ serialiseMultipleTxOutsUsingBuiltin_toData_offchain txOuts =
       bodyOf . Tx.getPlc $
                  $$(Tx.compile
                           [||
-                           \xs ->
-                               let bytes = Tx.serialiseData xs
+                           \d ->
+                               let bytes = Tx.serialiseData d
                                in Tx.lengthOfByteString bytes `Tx.greaterThanInteger` 0
                           ||]
                    )
@@ -99,8 +96,8 @@ serialiseSingleTxOutUsingBuiltin_toData_offchain txOut =
       bodyOf . Tx.getPlc $
                  $$(Tx.compile
                           [||
-                           \x ->
-                               let bytes = Tx.serialiseData x
+                           \d ->
+                               let bytes = Tx.serialiseData d
                                in Tx.lengthOfByteString bytes `Tx.greaterThanInteger` 0
                           ||]
                    )
