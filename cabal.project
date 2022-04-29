@@ -223,6 +223,7 @@ source-repository-package
   type: git
   location: https://github.com/ch1bo/plutus-apps
   tag: d8a17ebceff0e6e46ade5b29bebc08c198807e08
-  --sha256: 0000000000000000000000000000000000000000000000000000
+  --sha256: 18danjhaz2v2rni46n3dfa20spvsfbhpjmkwl34l784ng9aq4p6l
   subdir:
+    freer-extras
     plutus-ledger

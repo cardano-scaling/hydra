@@ -94,8 +94,6 @@ library
     , cardano-crypto-class
     , containers
     , directory
-    , freer-extras
-    , freer-simple
     , hydra-prelude
     , lens
     , openapi3
