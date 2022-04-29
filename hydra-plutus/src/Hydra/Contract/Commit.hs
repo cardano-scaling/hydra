@@ -5,21 +5,31 @@
 -- | The validator used to collect & open or abort a Head.
 module Hydra.Contract.Commit where
 
-import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
 import Hydra.Contract.Encoding (encodeTxOut)
 import Hydra.Contract.HeadState (State (..))
 import Hydra.Data.Party (Party)
-import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
-import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
-import Plutus.V1.Ledger.Api (Credential (ScriptCredential))
-import PlutusTx (CompiledCode)
+import Plutus.V1.Ledger.Api (
+  Address (Address),
+  Credential (ScriptCredential),
+  Datum (..),
+  FromData (fromBuiltinData),
+  Redeemer (Redeemer),
+  Script,
+  ScriptContext (ScriptContext, scriptContextTxInfo),
+  TxInInfo (txInInfoResolved),
+  TxInfo (txInfoInputs, txInfoOutputs),
+  TxOut (TxOut, txOutAddress),
+  Validator (getValidator),
+  ValidatorHash,
+  mkValidatorScript,
+ )
+import Plutus.V1.Ledger.Contexts (findDatum)
+import PlutusTx (toBuiltinData)
 import qualified PlutusTx
-import PlutusTx.IsData.Class (FromData (fromBuiltinData), ToData (..))
-
-data Commit
+import Test.Plutus.Validator (wrapValidator)
 
 data CommitRedeemer = CollectCom | Abort
 
@@ -31,14 +41,13 @@ PlutusTx.unstableMakeIsData ''SerializedTxOut
 instance Eq SerializedTxOut where
   SerializedTxOut bs == SerializedTxOut bs' = bs == bs'
 
-instance Scripts.ValidatorTypes Commit where
-  -- TODO: Party is not used on-chain but is needed off-chain while it's still
-  -- based on mock crypto. When we move to real crypto we could simply use
-  -- the PT's token name to identify the committing party
-  type DatumType Commit = (Party, ValidatorHash, Maybe SerializedTxOut)
-  type RedeemerType Commit = CommitRedeemer
+-- TODO: Party is not used on-chain but is needed off-chain while it's still
+-- based on mock crypto. When we move to real crypto we could simply use
+-- the PT's token name to identify the committing party
+type DatumType = (Party, ValidatorHash, Maybe SerializedTxOut)
+type RedeemerType = CommitRedeemer
 
-validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
+validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
 validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextTxInfo = txInfo} =
   case txInInfoResolved <$> findHeadScript of
     Nothing -> traceError "Cannot find Head script"
@@ -75,31 +84,20 @@ validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextT
     TxOut{txOutAddress = Address (ScriptCredential s) _} -> s == headScriptHash
     _ -> False
 
-{- ORMOLU_DISABLE -}
-typedValidator :: TypedValidator Commit
-typedValidator = Scripts.mkTypedValidator @Commit
-  compiledValidator
-  $$(PlutusTx.compile [|| wrap ||])
+compiledValidator :: Validator
+compiledValidator =
+  mkValidatorScript
+    $$(PlutusTx.compile [||wrap validator||])
  where
-  wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
-{- ORMOLU_ENABLE -}
-
-compiledValidator :: CompiledCode (ValidatorType Commit)
-compiledValidator = $$(PlutusTx.compile [||validator||])
+  wrap = wrapValidator @DatumType @RedeemerType
 
 -- | Get the actual plutus script. Mainly used to serialize and use in
 -- transactions.
 validatorScript :: Script
-validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
+validatorScript = getValidator compiledValidator
 
-validatorHash :: ValidatorHash
-validatorHash = Scripts.validatorHash typedValidator
-
-address :: Address
-address = scriptHashAddress validatorHash
-
-datum :: DatumType Commit -> Datum
+datum :: DatumType -> Datum
 datum a = Datum (toBuiltinData a)
 
-redeemer :: RedeemerType Commit -> Redeemer
+redeemer :: RedeemerType -> Redeemer
 redeemer a = Redeemer (toBuiltinData a)
