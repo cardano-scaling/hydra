@@ -205,7 +205,8 @@ source-repository-package
   --sha256: 1lrzknw765pz2j97nvv9ip3l1mcpf2zr4n56hwlz0rk7wq7ls4cm
 
 constraints:
-    hedgehog >= 1.0
+  -- cardano-ledger-byron-test fails with too new hedgehog
+    hedgehog >= 1.0 && < 1.1
   , bimap >= 0.4.0
   , libsystemd-journal >= 1.4.4
   , systemd >= 2.3.0
