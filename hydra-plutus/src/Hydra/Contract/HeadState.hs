@@ -5,12 +5,12 @@
 
 module Hydra.Contract.HeadState where
 
-import Ledger hiding (txOutDatum, validatorHash)
 import PlutusTx.Prelude
 
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
+import Plutus.V1.Ledger.Crypto (Signature)
 import qualified PlutusTx
 import Text.Show (Show)
 
