@@ -6,7 +6,6 @@ module Plutus.Codec.CBOR.Encoding.Validator where
 
 import PlutusTx.Prelude
 
-import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (
   Encoding,
   encodeByteString,
@@ -25,10 +24,13 @@ import Plutus.V1.Ledger.Api (
   PubKeyHash (..),
   TokenName (..),
   TxOut (..),
+  Validator,
   ValidatorHash (..),
   Value (..),
+  mkValidatorScript,
  )
 import qualified PlutusTx as Plutus
+import Test.Plutus.Validator (wrapValidator)
 
 -- | A validator for measuring cost of encoding values. The validator is
 -- parameterized by the type of value.
@@ -38,106 +40,81 @@ data ValidatorKind = BaselineValidator | RealValidator
 
 Plutus.unstableMakeIsData ''ValidatorKind
 
-instance Scripts.ValidatorTypes (EncodeValidator a) where
-  type DatumType (EncodeValidator a) = ()
-  type RedeemerType (EncodeValidator a) = a
-
-encodeIntegerValidator :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator Integer)
+encodeIntegerValidator :: ValidatorKind -> Validator
 encodeIntegerValidator = \case
   BaselineValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator Integer)
-      $$(Plutus.compile [||\() _ _ctx -> True||])
-      $$(Plutus.compile [||wrap||])
+    mkValidatorScript $$(Plutus.compile [||wrapValidator $ \() (_ :: Integer) _ctx -> True||])
   RealValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator Integer)
+    mkValidatorScript
       $$( Plutus.compile
             [||
-            \() a _ctx ->
+            wrapValidator $ \() a _ctx ->
               let bytes = encodingToBuiltinByteString (encodeInteger a)
                in lengthOfByteString bytes > 0
             ||]
         )
-      $$(Plutus.compile [||wrap||])
- where
-  wrap = Scripts.wrapValidator @() @Integer
 
-encodeByteStringValidator :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator BuiltinByteString)
+encodeByteStringValidator :: ValidatorKind -> Validator
 encodeByteStringValidator = \case
   BaselineValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator BuiltinByteString)
-      $$(Plutus.compile [||\() _ _ctx -> True||])
-      $$(Plutus.compile [||wrap||])
+    mkValidatorScript
+      $$(Plutus.compile [||wrapValidator $ \() (_ :: BuiltinByteString) _ctx -> True||])
   RealValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator BuiltinByteString)
+    mkValidatorScript
       $$( Plutus.compile
             [||
-            \() a _ctx ->
+            wrapValidator $ \() a _ctx ->
               let bytes = encodingToBuiltinByteString (encodeByteString a)
                in lengthOfByteString bytes > 0
             ||]
         )
-      $$(Plutus.compile [||wrap||])
- where
-  wrap = Scripts.wrapValidator @() @BuiltinByteString
 
-encodeListValidator :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator [BuiltinByteString])
+encodeListValidator :: ValidatorKind -> Validator
 encodeListValidator = \case
   BaselineValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator [BuiltinByteString])
-      $$(Plutus.compile [||\() _ _ctx -> True||])
-      $$(Plutus.compile [||wrap||])
+    mkValidatorScript
+      $$(Plutus.compile [||wrapValidator $ \() (_ :: [BuiltinByteString]) _ctx -> True||])
   RealValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator [BuiltinByteString])
+    mkValidatorScript
       $$( Plutus.compile
             [||
-            \() xs _ctx ->
+            wrapValidator $ \() xs _ctx ->
               let bytes =
                     encodingToBuiltinByteString $
                       encodeList encodeByteString xs
                in lengthOfByteString bytes > 0
             ||]
         )
-      $$(Plutus.compile [||wrap||])
- where
-  wrap = Scripts.wrapValidator @() @[BuiltinByteString]
 
-encodeTxOutValidator :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator TxOut)
+encodeTxOutValidator :: ValidatorKind -> Validator
 encodeTxOutValidator = \case
   BaselineValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator TxOut)
-      $$(Plutus.compile [||\() _ _ctx -> True||])
-      $$(Plutus.compile [||wrap||])
+    mkValidatorScript
+      $$(Plutus.compile [||wrapValidator $ \() (_ :: TxOut) _ctx -> True||])
   RealValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator TxOut)
+    mkValidatorScript
       $$( Plutus.compile
             [||
-            \() o _ctx ->
+            wrapValidator $ \() o _ctx ->
               let bytes = encodingToBuiltinByteString (encodeTxOut o)
                in lengthOfByteString bytes > 0
             ||]
         )
-      $$(Plutus.compile [||wrap||])
- where
-  wrap = Scripts.wrapValidator @() @TxOut
 
-encodeTxOutsValidator :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator [TxOut])
+encodeTxOutsValidator :: ValidatorKind -> Validator
 encodeTxOutsValidator = \case
   BaselineValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator [TxOut])
-      $$(Plutus.compile [||\() _ _ctx -> True||])
-      $$(Plutus.compile [||wrap||])
+    mkValidatorScript
+      $$(Plutus.compile [||wrapValidator $ \() (_ :: [TxOut]) _ctx -> True||])
   RealValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator [TxOut])
+    mkValidatorScript
       $$( Plutus.compile
             [||
-            \() xs _ctx ->
+            wrapValidator $ \() xs _ctx ->
               let bytes = encodingToBuiltinByteString (encodeList encodeTxOut xs)
                in lengthOfByteString bytes > 0
             ||]
         )
-      $$(Plutus.compile [||wrap||])
- where
-  wrap = Scripts.wrapValidator @() @[TxOut]
 
 encodeTxOut :: TxOut -> Encoding
 encodeTxOut (TxOut addr value datum) =
