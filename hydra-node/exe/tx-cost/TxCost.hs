@@ -119,6 +119,7 @@ computeInitCost =
         genTxIn >>= \seedInput ->
           pure $ initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
 
+-- REVIEW: This is resulting in many "holes" -> some generate utxos/values very expensive?
 computeCommitCost :: IO [(NumUTxO, ValueSize, TxSize, MemUnit, CpuUnit)]
 computeCommitCost =
   concat
@@ -227,6 +228,7 @@ computeAbortCost =
             let stInitialized = executeCommits initTx commits stIdle
              in pure (abort stInitialized, getKnownUTxO stInitialized)
 
+-- NOTE: This also includes cost of burning the Head tokens
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
 computeFanOutCost =
   catMaybes
@@ -234,17 +236,18 @@ computeFanOutCost =
       [1 .. 100]
       ( \numElems -> do
           (tx, knownUtxo) <- generate $ genFanoutTx numElems
+          let txSize = LBS.length $ serialize tx
           case evaluateTx tx knownUtxo of
-            (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
-              pure (Just (NumUTxO numElems, TxSize $ LBS.length $ serialize tx, MemUnit mem, CpuUnit cpu))
-            _ ->
-              pure Nothing
+            (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
+              | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
+                pure (Just (NumUTxO numElems, TxSize txSize, MemUnit mem, CpuUnit cpu))
+            _ -> pure Nothing
       )
  where
   genFanoutTx numOutputs = do
     ctx <- genHydraContext 3
-    stClosed <- genStClosed ctx
     utxo <- genSimpleUTxOOfSize numOutputs
+    stClosed <- genStClosed ctx utxo
     pure (fanout utxo stClosed, getKnownUTxO stClosed)
 
 genSimpleUTxOOfSize :: Int -> Gen UTxO
