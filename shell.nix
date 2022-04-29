@@ -38,6 +38,7 @@ let
   libs = [
     libsodium-vrf
     pkgs.glibcLocales
+    pkgs.secp256k1
     pkgs.zlib
     pkgs.lzma
   ]
