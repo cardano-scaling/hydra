@@ -41,10 +41,10 @@ import System.Exit (ExitCode (..))
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 import System.Info (os)
 import System.Process (ProcessHandle, waitForProcess)
-import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
+import Test.Hspec.JUnit (defaultJUnitConfig, junitFormat, setJUnitConfigOutputFile)
 import Test.QuickCheck (Property, Testable, coverTable, forAll, tabulate)
 
 -- | Create a unique temporary directory.
@@ -98,14 +98,18 @@ location = case reverse $ getCallStack callStack of
 -- | An HSpec test formatter that outputs __both__ a JUnit formatted file and stdout test results.
 dualFormatter ::
   -- | The name of the test suite run, for reporting purpose.
-  String ->
+  Text ->
   -- | Configuration, will be passed by the HSpec test runner.
   FormatConfig ->
   IO Format
 dualFormatter suiteName config = do
-  junit <- junitFormat "test-results.xml" suiteName config
+  junit <- junitFormat junitConfig config
   docSpec <- formatterToFormat specdoc config
   pure $ \e -> junit e >> docSpec e
+ where
+  junitConfig =
+    defaultJUnitConfig suiteName
+      & setJUnitConfigOutputFile "test-results.xml"
 
 -- | Wait for process termination and do 'failure' on non-zero exit code.
 -- This function is useful for end-to-end testing of external processes esp. in
