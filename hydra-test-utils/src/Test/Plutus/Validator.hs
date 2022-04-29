@@ -77,6 +77,8 @@ import PlutusTx.Prelude (check)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import qualified Prelude
 
+-- TODO: DRY with hydra-plutus
+
 -- | Wrap a typed validator to get the basic `Validator` signature which can be passed to
 -- `Plutus.compile`. Vendored from `plutus-ledger`.
 -- REVIEW: There might be better ways to name this than "wrap"
