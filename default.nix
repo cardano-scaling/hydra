@@ -2,7 +2,7 @@
 , system ? builtins.currentSystem
 , haskellNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/haskell.nix/archive/6208f052027b7e8587a041bcaa590dbe0cdc38b3.tar.gz")
+      "https://github.com/input-output-hk/haskell.nix/archive/28dbf2f4bd32a4fbd1a2e9de45d02ad977b062d9.tar.gz")
     { }
 , iohkNix ? import
     (builtins.fetchTarball
