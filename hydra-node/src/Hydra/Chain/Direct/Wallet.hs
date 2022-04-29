@@ -49,7 +49,6 @@ import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
-import Cardano.Ledger.Shelley.BlockChain (HashHeader)
 import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (..))
@@ -137,6 +136,7 @@ import Ouroboros.Network.NodeToClient (
   NodeToClientVersion,
   connectTo,
   localSnocket,
+  localTxMonitorPeerNull,
   localTxSubmissionPeerNull,
   nodeToClientProtocols,
  )
@@ -516,12 +516,21 @@ client tracer tipVar utxoVar address nodeToClientV =
                 InitiatorProtocolOnly $
                   let peer = localStateQueryClientPeer $ stateQueryClient tracer tipVar utxoVar address
                    in MuxPeer nullTracer cStateQueryCodec peer
+            , localTxMonitorProtocol =
+                InitiatorProtocolOnly $
+                  let peer = localTxMonitorPeerNull
+                   in MuxPeer nullTracer cTxMonitorCodec peer
             }
     )
     nodeToClientV
  where
-  Codecs{cChainSyncCodec, cTxSubmissionCodec, cStateQueryCodec} =
-    defaultCodecs nodeToClientV
+  Codecs
+    { cChainSyncCodec
+    , cTxSubmissionCodec
+    , cStateQueryCodec
+    , cTxMonitorCodec
+    } =
+      defaultCodecs nodeToClientV
 
 type OnRollback m = ChainSyncClient Block (Point Block) (Tip Block) m ()
 
