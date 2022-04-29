@@ -25,9 +25,10 @@ toScriptData =
 -- the 'CtxTx' context. To get script data in a 'CtxUTxO' context, see
 -- 'lookupScriptData'.
 getScriptData :: TxOut CtxTx era -> Maybe ScriptData
-getScriptData (TxOut _ _ d) =
+getScriptData (TxOut _ _ d _) =
   case d of
-    TxOutDatum _ dat -> Just dat
+    TxOutDatumInTx _ sd -> Just sd
+    TxOutDatumInline _ sd -> Just sd
     _ -> Nothing
 
 -- | Lookup included datum of given 'TxOut'.
@@ -39,13 +40,15 @@ lookupScriptData ::
   Tx era ->
   TxOut CtxUTxO era ->
   Maybe ScriptData
-lookupScriptData (Tx ByronTxBody{} _) =
-  const Nothing
-lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) = \case
-  TxOut _ _ TxOutDatumNone ->
-    Nothing
-  TxOut _ _ (TxOutDatumHash _ (ScriptDataHash h)) ->
-    fromPlutusData . Ledger.getPlutusData <$> Map.lookup h datums
+lookupScriptData (Tx ByronTxBody{} _) _ = Nothing
+lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) (TxOut _ _ datum _) =
+  case datum of
+    TxOutDatumNone ->
+      Nothing
+    (TxOutDatumHash _ (ScriptDataHash h)) ->
+      fromPlutusData . Ledger.getPlutusData <$> Map.lookup h datums
+    (TxOutDatumInline _ dat) ->
+      Just dat
  where
   datums = case scriptsData of
     TxBodyNoScriptData -> mempty
