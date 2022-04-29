@@ -80,7 +80,7 @@ import Test.Plutus.Validator (
   evaluateScriptExecutionUnits,
  )
 import Test.QuickCheck (generate, resize, sublistOf, vectorOf)
-import Validators (merkleTreeValidator, mtBuilderValidator)
+import Validators (merkleTreeBuilderValidator, merkleTreeMemberValidator)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
@@ -279,7 +279,7 @@ executionCostForMember utxo =
       accumulateCost e acc =
         acc >>= \(curMem, curCpu) ->
           let proof = fromJust $ MT.mkProof e tree
-           in case evaluateScriptExecutionUnits merkleTreeValidator (e, MT.rootHash tree, proof) of
+           in case evaluateScriptExecutionUnits merkleTreeMemberValidator (e, MT.rootHash tree, proof) of
                 Right (ExUnits mem cpu) ->
                   Right (mem + curMem, cpu + curCpu)
                 Left err -> Left err
@@ -289,7 +289,7 @@ executionCostForBuilder :: [Plutus.BuiltinByteString] -> Either Text (Natural, N
 executionCostForBuilder utxo =
   let tree = MT.fromList utxo
       root = rootHash tree
-   in evaluateScriptExecutionUnits mtBuilderValidator (utxo, root) <&> \case
+   in evaluateScriptExecutionUnits merkleTreeBuilderValidator (utxo, root) <&> \case
         ExUnits mem cpu -> (mem, cpu)
 
 computeHashingCost :: [(Int, Int, [Either Text (Hash.HashAlgorithm, CpuUnit, MemUnit, CpuUnit, MemUnit)])]

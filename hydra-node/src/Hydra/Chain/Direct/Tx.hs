@@ -39,10 +39,8 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..))
-import Ledger.Typed.Scripts (DatumType)
-import Plutus.V1.Ledger.Api (fromBuiltin, fromData)
+import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V1.Ledger.Api as Plutus
-import Plutus.V2.Ledger.Api (toBuiltin)
 
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
 
@@ -214,7 +212,7 @@ collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
   extractSerialisedTxOut d =
     case fromData $ toPlutusData d of
       Nothing -> error "SNAFU"
-      Just ((_, _, Just o) :: DatumType Commit.Commit) -> Just o
+      Just ((_, _, Just o) :: Commit.DatumType) -> Just o
       _ -> Nothing
   utxoHash =
     Head.hashPreSerializedCommits $
@@ -374,7 +372,7 @@ abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
 
   mkCommitOutput :: ScriptData -> Maybe (TxOut CtxTx)
   mkCommitOutput x =
-    case fromData @(DatumType Commit.Commit) $ toPlutusData x of
+    case fromData @Commit.DatumType $ toPlutusData x of
       Just (_party, _validatorHash, serialisedTxOut) ->
         toTxContext <$> convertTxOut serialisedTxOut
       Nothing -> error "Invalid Commit datum"
@@ -483,7 +481,7 @@ observeCommitTx networkId initials tx = do
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
   -- TODO: This 'party' would be available from the spent 'initial' utxo (PT eventually)
-  (onChainParty, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
+  (onChainParty, _, serializedTxOut) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
   let mCommittedTxOut = convertTxOut serializedTxOut
 
