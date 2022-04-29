@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 -- | This modules provide a mock server for the ouroboros mini-protocols. The
 -- mocking behavior is rather simple and only good to cover a few uses-cases.
 --
@@ -96,6 +94,7 @@ import Ouroboros.Network.Protocol.LocalStateQuery.Server (
   localStateQueryServerPeer,
  )
 import qualified Ouroboros.Network.Protocol.LocalStateQuery.Server as LSQ
+import Ouroboros.Network.Protocol.LocalTxMonitor.Server (LocalTxMonitorServer (LocalTxMonitorServer), localTxMonitorServerPeer)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Server (
   LocalTxSubmissionServer (..),
   localTxSubmissionServerPeer,
@@ -166,6 +165,10 @@ mockServer db nodeToClientV =
                 ResponderProtocolOnly $
                   let peer = localStateQueryServerPeer $ mockStateQueryServer db
                    in MuxPeer nullTracer cStateQueryCodec peer
+            , localTxMonitorProtocol =
+                ResponderProtocolOnly $
+                  let peer = localTxMonitorServerPeer (LocalTxMonitorServer . forever $ threadDelay 1)
+                   in MuxPeer nullTracer cTxMonitorCodec peer
             }
     )
     nodeToClientV
@@ -174,6 +177,7 @@ mockServer db nodeToClientV =
     { cChainSyncCodec
     , cTxSubmissionCodec
     , cStateQueryCodec
+    , cTxMonitorCodec
     } = defaultCodecs nodeToClientV
 
 mockChainSyncServer ::
