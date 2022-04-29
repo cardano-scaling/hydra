@@ -5,14 +5,13 @@ module Plutus.Extras where
 import Hydra.Prelude
 
 import Plutus.V1.Ledger.Api (ScriptContext)
-import qualified Plutus.V1.Ledger.Scripts as Scripts
-import PlutusTx (BuiltinData, CompiledCode, UnsafeFromData (..), applyCode)
+import PlutusTx (BuiltinData, UnsafeFromData (..))
 import PlutusTx.Prelude (check)
 
 -- * Vendored from plutus-ledger
 
 -- | Wrap a typed validator to get the basic `WrappedValidatorType` signature
--- which can be passed to `Plutus.compile`. Vendored from `plutus-ledger`.
+-- which can be passed to `PlutusTx.compile`.
 -- REVIEW: There might be better ways to name this than "wrap"
 wrapValidator ::
   (UnsafeFromData datum, UnsafeFromData redeemer) =>
@@ -23,3 +22,15 @@ wrapValidator f d r p = check $ f (unsafeFromBuiltinData d) (unsafeFromBuiltinDa
 {-# INLINEABLE wrapValidator #-}
 
 type WrappedValidatorType = BuiltinData -> BuiltinData -> BuiltinData -> ()
+
+-- | Wrap a typed minting policy to get the basic `WrappedMintintPolicyType`
+-- signature which can be passed to `PlutusTx.compile`.
+wrapMintingPolicy ::
+  UnsafeFromData redeemer =>
+  (redeemer -> ScriptContext -> Bool) ->
+  WrappedMintingPolicyType
+-- We can use unsafeFromBuiltinData here as we would fail immediately anyway if parsing failed
+wrapMintingPolicy f r p = check $ f (unsafeFromBuiltinData r) (unsafeFromBuiltinData p)
+{-# INLINEABLE wrapMintingPolicy #-}
+
+type WrappedMintingPolicyType = BuiltinData -> BuiltinData -> ()
