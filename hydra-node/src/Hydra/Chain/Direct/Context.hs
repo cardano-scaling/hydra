@@ -151,6 +151,15 @@ genStOpen ctx = do
   let collectComTx = collect stInitialized
   pure $ snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized
 
+genStClosed ::
+  HydraContext ->
+  Gen (OnChainHeadState 'StClosed)
+genStClosed ctx = do
+  stOpen <- genStOpen ctx
+  snapshot <- arbitrary
+  let closeTx = close snapshot stOpen
+  pure $ snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
+
 --
 -- Here be dragons
 --

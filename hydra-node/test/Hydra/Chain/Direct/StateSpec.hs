@@ -55,9 +55,9 @@ import Hydra.Chain.Direct.Context (
   genCommits,
   genHydraContext,
   genInitTx,
+  genStClosed,
   genStIdle,
   genStInitialized,
-  genStOpen,
   unsafeCommit,
   unsafeObserveTx,
  )
@@ -71,7 +71,6 @@ import Hydra.Chain.Direct.State (
   SomeOnChainHeadState (..),
   TransitionFrom (..),
   abort,
-  close,
   commit,
   fanout,
   getKnownUTxO,
@@ -538,15 +537,6 @@ genByronCommit = do
   addr <- ByronAddressInEra <$> arbitrary
   value <- genValue
   pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone)
-
-genStClosed ::
-  HydraContext ->
-  Gen (OnChainHeadState 'StClosed)
-genStClosed ctx = do
-  stOpen <- genStOpen ctx
-  snapshot <- arbitrary
-  let closeTx = close snapshot stOpen
-  pure $ snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
 
 genBlockAt :: SlotNo -> [Tx] -> Gen Block
 genBlockAt sl txs = do
