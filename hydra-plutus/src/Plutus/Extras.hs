@@ -11,48 +11,49 @@ import Hydra.Cardano.Api (
   hashScript,
   pattern PlutusScript,
  )
-import Plutus.V1.Ledger.Api (ScriptContext, Validator, ValidatorHash (ValidatorHash), getValidator)
+import Plutus.V1.Ledger.Api (Script, ScriptContext, ValidatorHash (ValidatorHash))
 import PlutusTx (BuiltinData, UnsafeFromData (..))
 import PlutusTx.Prelude (check, toBuiltin)
 
 -- * Vendored from plutus-ledger
 
--- | Wrap a typed validator to get the basic `WrappedValidatorType` signature
--- which can be passed to `PlutusTx.compile`.
+-- | Signature of an untyped validator script.
+type ValidatorType = BuiltinData -> BuiltinData -> BuiltinData -> ()
+
+-- | Wrap a typed validator to get the basic `ValidatorType` signature which can
+-- be passed to `PlutusTx.compile`.
 -- REVIEW: There might be better ways to name this than "wrap"
 wrapValidator ::
   (UnsafeFromData datum, UnsafeFromData redeemer) =>
   (datum -> redeemer -> ScriptContext -> Bool) ->
-  (BuiltinData -> BuiltinData -> BuiltinData -> ())
+  ValidatorType
 -- We can use unsafeFromBuiltinData here as we would fail immediately anyway if parsing failed
 wrapValidator f d r p = check $ f (unsafeFromBuiltinData d) (unsafeFromBuiltinData r) (unsafeFromBuiltinData p)
 {-# INLINEABLE wrapValidator #-}
 
-type WrappedValidatorType = BuiltinData -> BuiltinData -> BuiltinData -> ()
+-- | Signature of an untyped minting policy script.
+type MintingPolicyType = BuiltinData -> BuiltinData -> ()
 
--- | Wrap a typed minting policy to get the basic `WrappedMintintPolicyType`
--- signature which can be passed to `PlutusTx.compile`.
+-- | Wrap a typed minting policy to get the basic `MintintPolicyType` signature
+-- which can be passed to `PlutusTx.compile`.
 wrapMintingPolicy ::
   UnsafeFromData redeemer =>
   (redeemer -> ScriptContext -> Bool) ->
-  WrappedMintingPolicyType
+  MintingPolicyType
 -- We can use unsafeFromBuiltinData here as we would fail immediately anyway if parsing failed
 wrapMintingPolicy f r p = check $ f (unsafeFromBuiltinData r) (unsafeFromBuiltinData p)
 {-# INLINEABLE wrapMintingPolicy #-}
 
-type WrappedMintingPolicyType = BuiltinData -> BuiltinData -> ()
-
 -- * Similar utilities as plutus-ledger
 
--- | Compute the 'ValidatorHash' for a given 'Validator'.
+-- | Compute the 'ValidatorHash' for a given plutus 'Script'.
 --
 -- NOTE: Implemented using hydra-cardano-api (PlutusScript pattern)
-getValidatorHash :: Validator -> ValidatorHash
-getValidatorHash =
+scriptValidatorHash :: Script -> ValidatorHash
+scriptValidatorHash =
   ValidatorHash
     . toBuiltin
     . serialiseToRawBytes
     . hashScript
     . PlutusScript
     . fromPlutusScript
-    . getValidator

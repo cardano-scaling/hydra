@@ -21,7 +21,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
   unsafeEncodeRaw,
  )
-import Plutus.Extras (getValidatorHash, wrapValidator)
+import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Ada (lovelaceValueOf)
 import Plutus.V1.Ledger.Address (scriptHashAddress)
 import Plutus.V1.Ledger.Api (
@@ -48,6 +48,7 @@ import Plutus.V1.Ledger.Api (
 import Plutus.V1.Ledger.Contexts (findDatum, findOwnInput)
 import Plutus.V1.Ledger.Crypto (Signature (getSignature))
 import Plutus.V1.Ledger.Value (valueOf)
+import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 
@@ -399,17 +400,16 @@ verifyPartySignature snapshotNumber party signed =
 -- TODO: Add a NetworkId so that we can properly serialise address hashes
 -- see 'encodeAddress' for details
 -- TODO: Use validatorHash directly in headValidator arguments
-compiledValidator :: Validator
+compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
-  mkValidatorScript $
-    $$(PlutusTx.compile [||\ca ia -> wrap (headValidator ca ia)||])
-      `PlutusTx.applyCode` PlutusTx.liftCode (scriptHashAddress Commit.validatorHash)
-      `PlutusTx.applyCode` PlutusTx.liftCode (scriptHashAddress Initial.validatorHash)
+  $$(PlutusTx.compile [||\ca ia -> wrap (headValidator ca ia)||])
+    `PlutusTx.applyCode` PlutusTx.liftCode (scriptHashAddress Commit.validatorHash)
+    `PlutusTx.applyCode` PlutusTx.liftCode (scriptHashAddress Initial.validatorHash)
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
 validatorScript :: Script
-validatorScript = getValidator compiledValidator
+validatorScript = getValidator $ mkValidatorScript compiledValidator
 
 validatorHash :: ValidatorHash
-validatorHash = getValidatorHash compiledValidator
+validatorHash = scriptValidatorHash validatorScript

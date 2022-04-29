@@ -10,17 +10,17 @@ import PlutusTx.Prelude
 
 import qualified Hydra.Prelude as Haskell
 
-import Plutus.Extras (getValidatorHash, wrapValidator)
+import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Api (
   Datum (Datum),
   Redeemer (Redeemer),
   Script,
   ScriptContext,
-  Validator,
   ValidatorHash,
   getValidator,
   mkValidatorScript,
  )
+import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import PlutusTx.Builtins (blake2b_256, equalsByteString)
 import PlutusTx.IsData.Class (ToData (..))
@@ -48,18 +48,17 @@ validator bytes algorithm _ctx =
     SHA3 -> not . equalsByteString bytes $ sha3_256 bytes
     Blake2b -> not . equalsByteString bytes $ blake2b_256 bytes
 
-compiledValidator :: Validator
+compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
-  mkValidatorScript
-    $$(PlutusTx.compile [||wrap validator||])
+  $$(PlutusTx.compile [||wrap validator||])
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
 validatorScript :: Script
-validatorScript = getValidator compiledValidator
+validatorScript = getValidator $ mkValidatorScript compiledValidator
 
 validatorHash :: ValidatorHash
-validatorHash = getValidatorHash compiledValidator
+validatorHash = scriptValidatorHash validatorScript
 
 datum :: DatumType -> Datum
 datum a = Datum (toBuiltinData a)

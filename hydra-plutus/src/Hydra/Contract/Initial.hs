@@ -12,7 +12,7 @@ import Hydra.Contract.Commit (SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (encodeTxOut)
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
-import Plutus.Extras (getValidatorHash, wrapValidator)
+import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Ada (Ada (getLovelace), fromValue)
 import Plutus.V1.Ledger.Api (
   Datum (..),
@@ -33,6 +33,7 @@ import Plutus.V1.Ledger.Api (
   mkValidatorScript,
  )
 import Plutus.V1.Ledger.Contexts (findDatum, findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
+import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
 
@@ -166,19 +167,18 @@ debugInteger i
   | otherwise = "-" `appendString` debugInteger (negate i)
 {-# INLINEABLE debugInteger #-}
 
-compiledValidator :: Validator
+compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
-  mkValidatorScript $
-    $$(PlutusTx.compile [||wrap . validator||])
-      `PlutusTx.applyCode` PlutusTx.liftCode Commit.validatorHash
+  $$(PlutusTx.compile [||wrap . validator||])
+    `PlutusTx.applyCode` PlutusTx.liftCode Commit.validatorHash
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
 validatorScript :: Script
-validatorScript = getValidator compiledValidator
+validatorScript = getValidator $ mkValidatorScript compiledValidator
 
 validatorHash :: ValidatorHash
-validatorHash = getValidatorHash compiledValidator
+validatorHash = scriptValidatorHash validatorScript
 
 datum :: DatumType -> Datum
 datum a = Datum (toBuiltinData a)

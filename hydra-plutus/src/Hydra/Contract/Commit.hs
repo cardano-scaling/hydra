@@ -11,7 +11,7 @@ import Hydra.Contract.Encoding (encodeTxOut)
 import Hydra.Contract.HeadState (State (..))
 import Hydra.Data.Party (Party)
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
-import Plutus.Extras (getValidatorHash, wrapValidator)
+import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Api (
   Address (Address),
   Credential (ScriptCredential),
@@ -28,7 +28,7 @@ import Plutus.V1.Ledger.Api (
   mkValidatorScript,
  )
 import Plutus.V1.Ledger.Contexts (findDatum)
-import PlutusTx (toBuiltinData)
+import PlutusTx (CompiledCode, toBuiltinData)
 import qualified PlutusTx
 
 data CommitRedeemer = CollectCom | Abort
@@ -84,18 +84,17 @@ validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextT
     TxOut{txOutAddress = Address (ScriptCredential s) _} -> s == headScriptHash
     _ -> False
 
-compiledValidator :: Validator
+compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
-  mkValidatorScript
-    $$(PlutusTx.compile [||wrap validator||])
+  $$(PlutusTx.compile [||wrap validator||])
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
 validatorScript :: Script
-validatorScript = getValidator compiledValidator
+validatorScript = getValidator $ mkValidatorScript compiledValidator
 
 validatorHash :: ValidatorHash
-validatorHash = getValidatorHash compiledValidator
+validatorHash = scriptValidatorHash validatorScript
 
 datum :: DatumType -> Datum
 datum a = Datum (toBuiltinData a)
