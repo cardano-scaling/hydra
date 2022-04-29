@@ -11,7 +11,7 @@ import Hydra.Contract.Encoding (encodeTxOut)
 import Hydra.Contract.HeadState (State (..))
 import Hydra.Data.Party (Party)
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
-import Plutus.Extras (getValidatorHash)
+import Plutus.Extras (getValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Api (
   Address (Address),
   Credential (ScriptCredential),
@@ -30,7 +30,6 @@ import Plutus.V1.Ledger.Api (
 import Plutus.V1.Ledger.Contexts (findDatum)
 import PlutusTx (toBuiltinData)
 import qualified PlutusTx
-import Test.Plutus.Validator (wrapValidator)
 
 data CommitRedeemer = CollectCom | Abort
 

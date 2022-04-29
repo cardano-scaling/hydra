@@ -83,6 +83,7 @@ library
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party
     Hydra.Data.Utxo
+    Plutus.Extras
     Plutus.Orphans
 
   hs-source-dirs:  src
@@ -94,6 +95,7 @@ library
     , cardano-crypto-class
     , containers
     , directory
+    , hydra-cardano-api
     , hydra-prelude
     , lens
     , openapi3
