@@ -11,6 +11,7 @@ import Hydra.Contract.Encoding (encodeTxOut)
 import Hydra.Contract.HeadState (State (..))
 import Hydra.Data.Party (Party)
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
+import Plutus.Extras (getValidatorHash)
 import Plutus.V1.Ledger.Api (
   Address (Address),
   Credential (ScriptCredential),
@@ -91,10 +92,11 @@ compiledValidator =
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
--- | Get the actual plutus script. Mainly used to serialize and use in
--- transactions.
 validatorScript :: Script
 validatorScript = getValidator compiledValidator
+
+validatorHash :: ValidatorHash
+validatorHash = getValidatorHash compiledValidator
 
 datum :: DatumType -> Datum
 datum a = Datum (toBuiltinData a)

@@ -1,12 +1,19 @@
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Plutus.Extras where
 
 import Hydra.Prelude
 
-import Plutus.V1.Ledger.Api (ScriptContext)
+import Hydra.Cardano.Api (
+  SerialiseAsRawBytes (serialiseToRawBytes),
+  fromPlutusScript,
+  hashScript,
+  pattern PlutusScript,
+ )
+import Plutus.V1.Ledger.Api (ScriptContext, Validator, ValidatorHash (ValidatorHash), getValidator)
 import PlutusTx (BuiltinData, UnsafeFromData (..))
-import PlutusTx.Prelude (check)
+import PlutusTx.Prelude (check, toBuiltin)
 
 -- * Vendored from plutus-ledger
 
@@ -34,3 +41,18 @@ wrapMintingPolicy f r p = check $ f (unsafeFromBuiltinData r) (unsafeFromBuiltin
 {-# INLINEABLE wrapMintingPolicy #-}
 
 type WrappedMintingPolicyType = BuiltinData -> BuiltinData -> ()
+
+-- * Similar utilities as plutus-ledger
+
+-- | Compute the 'ValidatorHash' for a given 'Validator'.
+--
+-- NOTE: Implemented using hydra-cardano-api (PlutusScript pattern)
+getValidatorHash :: Validator -> ValidatorHash
+getValidatorHash =
+  ValidatorHash
+    . toBuiltin
+    . serialiseToRawBytes
+    . hashScript
+    . PlutusScript
+    . fromPlutusScript
+    . getValidator
