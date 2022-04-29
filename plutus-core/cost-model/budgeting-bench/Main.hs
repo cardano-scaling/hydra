@@ -12,14 +12,12 @@ import qualified Benchmarks.Data
 import qualified Benchmarks.Integers
 import qualified Benchmarks.Lists
 import qualified Benchmarks.Misc
-import qualified Benchmarks.Nops
 import qualified Benchmarks.Pairs
 import qualified Benchmarks.Strings
 import qualified Benchmarks.Tracing
 import qualified Benchmarks.Unit
 
 import           Criterion.Main
-import           Criterion.Types            as C
 import           System.Random              (getStdGen)
 
 ---------------- Miscellaneous ----------------
@@ -46,17 +44,20 @@ main = do
   criterionMainWith
        True
        defaultConfig $
-            Benchmarks.Bool.makeBenchmarks            gen
-        <>  Benchmarks.ByteStrings.makeBenchmarks     gen
-        <>  Benchmarks.CryptoAndHashes.makeBenchmarks gen
-        <>  Benchmarks.Data.makeBenchmarks            gen
-        <>  Benchmarks.Integers.makeBenchmarks        gen
-        <>  Benchmarks.Lists.makeBenchmarks           gen
-        <>  Benchmarks.Misc.makeBenchmarks            gen
-        <>  Benchmarks.Pairs.makeBenchmarks           gen
-        <>  Benchmarks.Strings.makeBenchmarks         gen
-        <>  Benchmarks.Tracing.makeBenchmarks         gen
-        <>  Benchmarks.Unit.makeBenchmarks            gen
+{-
+           Benchmarks.Bool.makeBenchmarks            gen
+       <>  Benchmarks.ByteStrings.makeBenchmarks     gen
+       <>  Benchmarks.CryptoAndHashes.makeBenchmarks gen
+       <>  Benchmarks.Integers.makeBenchmarks        gen
+       <>  Benchmarks.Misc.makeBenchmarks            gen
+       <>  Benchmarks.Pairs.makeBenchmarks           gen
+       <>  Benchmarks.Strings.makeBenchmarks         gen
+       <>  Benchmarks.Tracing.makeBenchmarks         gen
+       <>  Benchmarks.Unit.makeBenchmarks            gen
+ -}
+        Benchmarks.Data.makeBenchmarks            gen
+    <>  Benchmarks.Lists.makeBenchmarks           gen
+
 
   {- Run the nop benchmarks with a large time limit (30 seconds) in an attempt to
      get accurate results. -}
@@ -65,7 +66,3 @@ main = do
   -- error when the argument gets passed to the nop benchmarks below (but the
   -- data will still be generated and saved in benching.csv).
 
-  criterionMainWith
-       False
-       (defaultConfig { C.timeLimit = 30 }) $
-       Benchmarks.Nops.makeBenchmarks gen

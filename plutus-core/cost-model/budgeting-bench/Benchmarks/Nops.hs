@@ -13,24 +13,28 @@
 
 module Benchmarks.Nops (makeBenchmarks) where
 
-import Common
-import Generators (randBool, randNwords)
+import           Common
+import           Generators                                      (randBool,
+                                                                  randNwords)
 
-import PlutusCore
-import PlutusCore.Builtin
-import PlutusCore.Evaluation.Machine.BuiltinCostModel hiding (BuiltinCostModel)
-import PlutusCore.Evaluation.Machine.ExMemory (ExMemoryUsage)
-import PlutusCore.Evaluation.Machine.MachineParameters (CostModel (..), MachineParameters, mkMachineParameters)
-import PlutusCore.Pretty
-import UntypedPlutusCore.Evaluation.Machine.Cek
+import           PlutusCore
+--import PlutusCore.Builtin
+import           PlutusCore.Constant
+import           PlutusCore.Evaluation.Machine.BuiltinCostModel  hiding
+                                                                 (BuiltinCostModel)
+import           PlutusCore.Evaluation.Machine.ExMemory          (ExMemoryUsage)
+import           PlutusCore.Evaluation.Machine.MachineParameters
+import           PlutusCore.Pretty
+import           UntypedPlutusCore.Evaluation.Machine.Cek
 
-import Criterion.Main (Benchmark, bgroup)
+import           Criterion.Main                                  (Benchmark,
+                                                                  bgroup)
 
-import Control.DeepSeq (NFData)
-import Data.Char (toLower)
-import Data.Ix (Ix)
-import GHC.Generics (Generic)
-import System.Random (StdGen)
+import           Control.DeepSeq                                 (NFData)
+import           Data.Char                                       (toLower)
+import           Data.Ix                                         (Ix)
+import           GHC.Generics                                    (Generic)
+import           System.Random                                   (StdGen)
 
 {- | A benchmark that just loads the unit constant, which is about the minimal
    amount of work we can do.  This should give an idea of the cost of starting
@@ -124,9 +128,7 @@ nopCostModel =
     }
 
 nopCostParameters :: MachineParameters CekMachineCosts CekValue DefaultUni NopFun
-nopCostParameters =
-    mkMachineParameters defaultUnliftingMode $
-        CostModel defaultCekMachineCosts nopCostModel
+nopCostParameters = undefined
 
 -- This is just to avoid some deeply nested case expressions for the NopNc
 -- functions below.  There is a Monad instance for EvaluationResult, but that
