@@ -61,7 +61,6 @@ import Cardano.Slotting.Time (
   SystemStart (SystemStart),
   mkSlotLength,
  )
-import Codec.Serialise (serialise)
 import Data.Array (array)
 import qualified Data.ByteString as BS
 import Data.Default (def)
@@ -69,7 +68,9 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Data.Set as Set
-import qualified Ledger.Typed.Scripts as Scripts
+import Hydra.Cardano.Api (PlutusScriptV1, fromPlutusScript)
+import Hydra.Cardano.Api.PlutusScript (toLedgerScript)
+import qualified Plutus.V1.Ledger.Api as PV1
 import qualified PlutusTx as Plutus
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import qualified Prelude
@@ -94,7 +95,7 @@ distanceExUnits (ExUnits m0 s0) (ExUnits m1 s1) =
 
 evaluateScriptExecutionUnits ::
   Plutus.ToData a =>
-  Scripts.TypedValidator v ->
+  PV1.Validator ->
   a ->
   Either Text ExUnits
 evaluateScriptExecutionUnits validator redeemer =
@@ -114,7 +115,7 @@ evaluateScriptExecutionUnits validator redeemer =
 
 transactionFromScript ::
   Plutus.ToData a =>
-  Scripts.TypedValidator v ->
+  PV1.Validator ->
   a ->
   (ValidatedTx (AlonzoEra StandardCrypto), Ledger.UTxO (AlonzoEra StandardCrypto))
 transactionFromScript validator redeemer =
@@ -129,9 +130,7 @@ transactionFromScript validator redeemer =
  where
   script :: Script (AlonzoEra StandardCrypto)
   script =
-    PlutusScript
-      PlutusV1
-      (toShort $ toStrict $ serialise $ Scripts.validatorScript validator)
+    toLedgerScript $ fromPlutusScript @PlutusScriptV1 $ PV1.getValidator validator
 
   scriptHash :: ScriptHash StandardCrypto
   scriptHash =
