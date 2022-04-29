@@ -1,14 +1,15 @@
+{-# LANGUAGE ImportQualifiedPost #-}
 module Benchmarks.Lists (makeBenchmarks) where
 
-import Common
-import Generators
+import           Common
+import           Generators
 
-import PlutusCore
+import           PlutusCore
 
-import Criterion.Main
-import Data.ByteString (ByteString)
-import Hedgehog qualified as H
-import System.Random (StdGen)
+import           Criterion.Main
+import           Data.ByteString (ByteString)
+import qualified Hedgehog        as H
+import           System.Random   (StdGen)
 
 
 

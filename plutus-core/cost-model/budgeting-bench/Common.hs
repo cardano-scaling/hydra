@@ -1,27 +1,28 @@
-{-# LANGUAGE BangPatterns     #-}
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies     #-}
-{-# LANGUAGE TypeOperators    #-}
-{-# LANGUAGE ViewPatterns     #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 module Common
 where
 
-import PlutusCore
-import PlutusCore.Data
-import PlutusCore.Evaluation.Machine.ExMemory
-import PlutusCore.Evaluation.Machine.MachineParameters
-import PlutusCore.MkPlc
-import PlutusCore.Pretty (Pretty)
-import UntypedPlutusCore as UPLC
-import UntypedPlutusCore.Evaluation.Machine.Cek
+import           PlutusCore
+import           PlutusCore.Data
+import           PlutusCore.Evaluation.Machine.ExMemory
+import           PlutusCore.Evaluation.Machine.MachineParameters
+import           PlutusCore.MkPlc
+import           PlutusCore.Pretty                               (Pretty)
+import           UntypedPlutusCore                               as UPLC
+import           UntypedPlutusCore.Evaluation.Machine.Cek
 
-import Control.DeepSeq (NFData, force)
-import Criterion.Main
-import Data.ByteString qualified as BS
-import Data.Ix (Ix)
-import Data.Typeable (Typeable)
+import           Control.DeepSeq                                 (NFData, force)
+import           Criterion.Main
+import qualified Data.ByteString                                 as BS
+import           Data.Ix                                         (Ix)
+import           Data.Typeable                                   (Typeable)
 
 type PlainTerm uni fun = UPLC.Term Name uni fun ()
 

@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE RecordWildCards     #-}
@@ -26,7 +27,8 @@ import           Data.Vector
 import           GHC.Generics
 
 import           Foreign.R
-import           H.Prelude                                      (MonadR, Region, r)
+import           H.Prelude                                      (MonadR, Region,
+                                                                 r)
 import           Language.R
 
 -- | Convert milliseconds represented as a float to picoseconds represented as a

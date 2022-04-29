@@ -1,15 +1,16 @@
+{-# LANGUAGE ImportQualifiedPost #-}
 {- | Benchmarks for string builtins.  Remember that "strings" are actually Text. -}
 
 module Benchmarks.Strings (makeSizedTextStrings, makeBenchmarks) where
 
-import Common
-import Generators
+import           Common
+import           Generators
 
-import PlutusCore
+import           PlutusCore
 
-import Criterion.Main
-import Data.Text qualified as T
-import System.Random (StdGen)
+import           Criterion.Main
+import qualified Data.Text      as T
+import           System.Random  (StdGen)
 
 
 {- The memory usage of a string is defined to be four bytes per character.  Plutus

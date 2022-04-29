@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -13,9 +14,12 @@ import           PlutusCore.Evaluation.Machine.BuiltinCostModel
 import           PlutusCore.Evaluation.Machine.ExBudget
 import           PlutusCore.Evaluation.Machine.ExMemory
 
-import           Foreign.R                                      hiding (unsafeCoerce)
-import           H.Prelude                                      (MonadR, Region, r)
-import           Language.R                                     hiding (unsafeCoerce)
+import           Foreign.R                                      hiding
+                                                                (unsafeCoerce)
+import           H.Prelude                                      (MonadR, Region,
+                                                                 r)
+import           Language.R                                     hiding
+                                                                (unsafeCoerce)
 
 import           Control.Applicative
 import           Control.Monad.Morph

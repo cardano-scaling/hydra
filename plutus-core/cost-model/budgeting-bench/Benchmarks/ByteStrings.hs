@@ -1,15 +1,16 @@
+{-# LANGUAGE ImportQualifiedPost #-}
 module Benchmarks.ByteStrings (makeBenchmarks) where
 
-import Common
-import Generators
+import           Common
+import           Generators
 
-import PlutusCore
+import           PlutusCore
 
-import Criterion.Main
-import Data.ByteString qualified as BS
-import System.Random (StdGen, randomR)
+import           Criterion.Main
+import qualified Data.ByteString as BS
+import           System.Random   (StdGen, randomR)
 
-import Hedgehog qualified as H
+import qualified Hedgehog        as H
 
 ---------------- ByteString builtins ----------------
 

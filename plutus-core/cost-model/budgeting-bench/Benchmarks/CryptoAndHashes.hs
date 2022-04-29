@@ -1,19 +1,20 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE OverloadedStrings   #-}
 
 module Benchmarks.CryptoAndHashes (makeBenchmarks) where
 
-import Common
-import Generators
+import           Common
+import           Generators
 
-import PlutusCore
+import           PlutusCore
 
-import Criterion.Main
-import Data.ByteString qualified as BS
-import System.Random (StdGen)
+import           Criterion.Main
+import qualified Data.ByteString         as BS
+import           System.Random           (StdGen)
 
-import Hedgehog qualified as H
-import Hedgehog.Internal.Gen qualified as G
-import Hedgehog.Internal.Range qualified as R
+import qualified Hedgehog                as H
+import qualified Hedgehog.Internal.Gen   as G
+import qualified Hedgehog.Internal.Range as R
 
 byteStringSizes :: [Int]
 byteStringSizes = fmap (100*) [0..100]

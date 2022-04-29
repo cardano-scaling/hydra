@@ -1,26 +1,26 @@
-{-# LANGUAGE TypeOperators #-}
-
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE TypeOperators       #-}
 -- See CostModelGeneration.md
 module Main (main) where
 
-import CriterionExtensions (criterionMainWith)
+import           CriterionExtensions        (criterionMainWith)
 
-import Benchmarks.Bool qualified
-import Benchmarks.ByteStrings qualified
-import Benchmarks.CryptoAndHashes qualified
-import Benchmarks.Data qualified
-import Benchmarks.Integers qualified
-import Benchmarks.Lists qualified
-import Benchmarks.Misc qualified
-import Benchmarks.Nops qualified
-import Benchmarks.Pairs qualified
-import Benchmarks.Strings qualified
-import Benchmarks.Tracing qualified
-import Benchmarks.Unit qualified
+import qualified Benchmarks.Bool
+import qualified Benchmarks.ByteStrings
+import qualified Benchmarks.CryptoAndHashes
+import qualified Benchmarks.Data
+import qualified Benchmarks.Integers
+import qualified Benchmarks.Lists
+import qualified Benchmarks.Misc
+import qualified Benchmarks.Nops
+import qualified Benchmarks.Pairs
+import qualified Benchmarks.Strings
+import qualified Benchmarks.Tracing
+import qualified Benchmarks.Unit
 
-import Criterion.Main
-import Criterion.Types as C
-import System.Random (getStdGen)
+import           Criterion.Main
+import           Criterion.Types            as C
+import           System.Random              (getStdGen)
 
 ---------------- Miscellaneous ----------------
 

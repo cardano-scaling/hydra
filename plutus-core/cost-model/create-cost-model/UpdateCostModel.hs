@@ -1,3 +1,4 @@
+{-# LANGUAGE ImportQualifiedPost #-}
 module Main where
 
 import           PlutusCore.DataFilePaths
