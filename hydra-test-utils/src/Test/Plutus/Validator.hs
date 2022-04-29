@@ -75,6 +75,17 @@ import qualified PlutusTx as Plutus
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import qualified Prelude
 
+-- | Wrap a typed validator to get the basic `Validator` signature which can be passed to
+-- `Plutus.compile`. Vendored from `plutus-ledger`.
+-- REVIEW: There might be better ways to name this than "wrap"
+wrapValidator ::
+  (UnsafeFromData datum, UnsafeFromData redeemer) =>
+  (datum -> redeemer -> ScriptContext -> Bool) ->
+  (BuiltinData -> BuiltinData -> BuiltinData -> ())
+-- We can use unsafeFromBuiltinData here as we would fail immediately anyway if parsing failed
+wrapValidator f d r p = check $ f (unsafeFromBuiltinData d) (unsafeFromBuiltinData r) (unsafeFromBuiltinData p)
+{-# INLINEABLE wrapValidator #-}
+
 --
 -- Compare scripts to baselines
 --
