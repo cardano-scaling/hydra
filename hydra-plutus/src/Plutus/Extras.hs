@@ -24,6 +24,10 @@ wrapValidator f d r p = check $ f (unsafeFromBuiltinData d) (unsafeFromBuiltinDa
 
 type WrappedValidatorType = BuiltinData -> BuiltinData -> BuiltinData -> ()
 
+-- ** Typed validator interface
+
+-- TODO: maybe not needed!?
+
 -- | A class that associates a type standing for a connection type with two types, the type of the redeemer
 -- and the data script for that connection type.
 class ValidatorTypes (a :: Type) where
