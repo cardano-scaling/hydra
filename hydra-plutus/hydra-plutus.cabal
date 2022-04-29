@@ -99,7 +99,6 @@ library
     , openapi3
     , plutus-cbor
     , plutus-core
-    , plutus-ledger
     , plutus-ledger-api
     , plutus-tx
     , plutus-tx-plugin

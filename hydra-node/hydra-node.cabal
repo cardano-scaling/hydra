@@ -155,7 +155,6 @@ library
     , ouroboros-consensus-shelley
     , ouroboros-network
     , ouroboros-network-framework
-    , plutus-ledger
     , plutus-ledger-api
     , prometheus
     , QuickCheck
@@ -214,7 +213,6 @@ benchmark tx-cost
     , hydra-test-utils
     , mtl
     , optparse-applicative
-    , plutus-ledger
     , plutus-ledger-api
     , plutus-merkle-tree
     , plutus-tx
@@ -318,7 +316,6 @@ test-suite tests
     , ouroboros-consensus-shelley
     , ouroboros-network
     , ouroboros-network-framework
-    , plutus-ledger
     , plutus-ledger-api
     , process
     , QuickCheck
