@@ -1,46 +1,35 @@
 # A shell setup providing build tools and utilities for a development
-# environment. This is now based on haskell.nix and it's haskell-nix.project
-# (see 'default.nix').
-{ compiler ? "ghc8107"
-  # nixpkgs 21.11
-, pkgs ? import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/a7ecde854aee5c4c7cd6177f54a99d2c1ff28a31.tar.gz") { }
+# environment. The main shell environment is based on haskell.nix and uses the
+# same nixpkgs as the default nix builds (see default.nix).
 
-, hsPkgs ? import ./default.nix { }
+{
+  # Used in CI to have a smaller closure
+  withoutDevTools ? false
+}:
+let
+  project = import ./default.nix { };
 
-, withoutDevTools ? false
+  inherit (project) pkgs hsPkgs compiler;
 
-, libsodium-vrf ? pkgs.libsodium.overrideAttrs (oldAttrs: {
-    name = "libsodium-1.0.18-vrf";
-    src = pkgs.fetchFromGitHub {
-      owner = "input-output-hk";
-      repo = "libsodium";
-      # branch tdammers/rebased-vrf
-      rev = "66f017f16633f2060db25e17c170c2afa0f2a8a1";
-      sha256 = "12g2wz3gyi69d87nipzqnq4xc6nky3xbmi2i2pb2hflddq8ck72f";
-    };
-    nativeBuildInputs = [ pkgs.autoreconfHook ];
-    configureFlags = "--enable-static";
-  })
-
-, # Add cardano-node & cardano-cli for our shell environment.
+  # Add cardano-node & cardano-cli for our shell environment.
   # This is stable as it doesn't mix dependencies with this code-base; the
   # fetched binaries are the "standard" builds that people test. This should be
   # fast as it mostly fetches Hydra (CI) caches without building much.
-  cardano-node ? import
+  cardano-node = import
     (pkgs.fetchgit {
       url = "https://github.com/input-output-hk/cardano-node";
       rev = "1.34.1";
       sha256 = "1hh53whcj5y9kw4qpkiza7rmkniz18r493vv4dzl1a8r5fy3b2bv";
     })
-    { }
-}:
-let
+    { };
+# }:
+# let
   libs = [
-    libsodium-vrf
     pkgs.glibcLocales
+    pkgs.libsodium-vrf
+    pkgs.lzma
     pkgs.secp256k1
     pkgs.zlib
-    pkgs.lzma
   ]
   ++
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];
@@ -58,7 +47,7 @@ let
     cardano-node.cardano-node
   ];
 
-  devInputs = if withoutDevTools then [] else [
+  devInputs = if withoutDevTools then [ ] else [
     # The interactive Glasgow Haskell Compiler as a Daemon
     pkgs.haskellPackages.ghcid
     # Generate a graph of the module dependencies in the "dot" format
@@ -80,12 +69,12 @@ let
     cabal = "3.4.0.0";
   };
 
-  devTools = if withoutDevTools then {} else {
+  devTools = if withoutDevTools then { } else {
     fourmolu = "0.4.0.0"; # 0.5.0.0 requires Cabal 3.6
     haskell-language-server = "latest";
   };
 
-  haskellNixShell = hsPkgs.shellFor {
+  haskellNixShell = project.hsPkgs.shellFor {
     # NOTE: Explicit list of local packages as hoogle would not work otherwise.
     # Make sure these are consistent with the packages in cabal.project.
     packages = ps: with ps; [
