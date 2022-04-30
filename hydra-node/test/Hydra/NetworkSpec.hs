@@ -9,6 +9,7 @@ import Test.Hydra.Prelude
 
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
+import Control.Monad.Class.MonadAsync (mapConcurrently_)
 import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
@@ -69,8 +70,9 @@ assertAllNodesBroadcast networks =
 
   checkQueues :: IO ()
   checkQueues =
-    sequence_ $
-      [ shouldEventuallyReceive receiver myPort (fromIntegral otherPort)
+    mapConcurrently_
+      (\(myPort, otherPort, receiver) -> shouldEventuallyReceive receiver myPort (fromIntegral otherPort))
+      [ (myPort, otherPort, receiver)
       | (myPort, _, receiver) <- networks
       , (otherPort, _, _) <- networks
       , otherPort /= myPort
