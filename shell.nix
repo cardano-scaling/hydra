@@ -22,11 +22,10 @@ let
       sha256 = "1hh53whcj5y9kw4qpkiza7rmkniz18r493vv4dzl1a8r5fy3b2bv";
     })
     { };
-# }:
-# let
+
   libs = [
     pkgs.glibcLocales
-    pkgs.libsodium-vrf
+    pkgs.libsodium-vrf # from iohk-nix overlay
     pkgs.lzma
     pkgs.secp256k1
     pkgs.zlib
