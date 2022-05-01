@@ -43,7 +43,7 @@ import Cardano.Ledger.Alonzo.TxWitness (
   TxDats (..),
   TxWitness (..),
  )
-import Cardano.Ledger.BaseTypes (Network (..))
+import Cardano.Ledger.BaseTypes (Network (..), TxIx (TxIx))
 import Cardano.Ledger.Credential (
   Credential (..),
   StakeReference (..),
@@ -65,7 +65,6 @@ import Data.Array (array)
 import qualified Data.ByteString as BS
 import Data.Default (def)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (PlutusScriptV1, fromPlutusScript)
@@ -74,7 +73,7 @@ import Plutus.V1.Ledger.Api (ScriptContext, Validator, getValidator)
 import PlutusTx (BuiltinData, UnsafeFromData (..))
 import qualified PlutusTx as Plutus
 import PlutusTx.Prelude (check)
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
+import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1)
 import qualified Prelude
 
 -- TODO: DRY with hydra-plutus
@@ -123,7 +122,7 @@ evaluateScriptExecutionUnits validator redeemer =
       Left ("unexpected failure: " <> show e)
  where
   (tx, utxo) = transactionFromScript validator redeemer
-  costModels = array (PlutusV1, PlutusV1) [(PlutusV1, fromJust defaultCostModel)]
+  costModels = array (PlutusV1, PlutusV1) [(PlutusV1, testingCostModelV1)]
   epoch = fixedEpochInfo (EpochSize 432000) (mkSlotLength 1)
   start = SystemStart $ Prelude.read "2017-09-23 21:44:51 UTC"
   pparams = def{_maxTxExUnits = ExUnits 9999999999 9999999999}
@@ -206,4 +205,4 @@ transactionFromScript validator redeemer =
       }
 
   defaultTxIn :: TxIn StandardCrypto
-  defaultTxIn = TxIn (unsafeDeserialize' $ BS.pack [88, 32] <> BS.replicate 32 0) 0
+  defaultTxIn = TxIn (unsafeDeserialize' $ BS.pack [88, 32] <> BS.replicate 32 0) (TxIx 0)
