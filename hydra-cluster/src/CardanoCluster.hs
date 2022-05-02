@@ -18,44 +18,26 @@ import CardanoClient (
   waitForPayment,
  )
 import CardanoNode (
-  CardanoNodeArgs (
-    nodeAlonzoGenesisFile,
-    nodeByronGenesisFile,
-    nodeConfigFile,
-    nodeDlgCertFile,
-    nodeKesKeyFile,
-    nodeOpCertFile,
-    nodePort,
-    nodeShelleyGenesisFile,
-    nodeSignKeyFile,
-    nodeVrfKeyFile
-  ),
   CardanoNodeConfig (..),
   NodeId,
   NodeLog,
   Port,
   PortsConfig (..),
   RunningNode (..),
-  defaultCardanoNodeArgs,
-  withCardanoNode,
+  initSystemStart,
+  withBFTNode,
  )
-import Control.Tracer (Tracer, traceWith)
+import Control.Tracer (Tracer)
 import qualified Data.Aeson as Aeson
-import qualified Data.ByteString as BS
 import Hydra.Chain.Direct.Util (markerDatumHash, retry)
 import qualified Hydra.Chain.Direct.Util as Cardano
+import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (
   ChainConfig (..),
   defaultChainConfig,
  )
-import qualified Paths_hydra_cluster as Pkg
-import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((<.>), (</>))
-import System.Posix.Files (
-  ownerReadMode,
-  setFileMode,
- )
-import Test.Network.Ports (randomUnusedTCPPort, randomUnusedTCPPorts)
+import Test.Network.Ports (randomUnusedTCPPorts)
 
 -- | TODO: This is hard-coded and must match what's in the genesis file, so
 -- ideally, we want to either:
@@ -114,7 +96,6 @@ chainConfigFor me targetDir nodeSocket them = do
   vkTarget x = targetDir </> vkName x
   skName x = actorName x <.> ".sk"
   vkName x = actorName x <.> ".vk"
-
 -- * Starting a cluster or single nodes
 
 data RunningCluster = RunningCluster ClusterConfig [RunningNode]
@@ -136,88 +117,25 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
     makeNodesConfig parentStateDirectory systemStart
       <$> randomUnusedTCPPorts 3
 
-  withBFTNode tr cfgA $ \nodeA -> do
-    withBFTNode tr cfgB $ \nodeB -> do
-      withBFTNode tr cfgC $ \nodeC -> do
+  withBFTNode (nodeTracer cfgA) cfgA $ \nodeA -> do
+    withBFTNode (nodeTracer cfgB) cfgB $ \nodeB -> do
+      withBFTNode (nodeTracer cfgC) cfgC $ \nodeC -> do
         let nodes = [nodeA, nodeB, nodeC]
         action (RunningCluster cfg nodes)
-
--- | Start a cardano-node in BFT mode using the config from config/ and
--- credentials from config/credentials/ using given 'nodeId'. NOTE: This means
--- that nodeId should only be 1,2 or 3 and that only the faucet receives
--- 'initialFunds'. Use 'seedFromFaucet' to distribute funds other wallets.
-withBFTNode ::
-  Tracer IO ClusterLog ->
-  CardanoNodeConfig ->
-  (RunningNode -> IO ()) ->
-  IO ()
-withBFTNode clusterTracer cfg action = do
-  createDirectoryIfMissing False (stateDirectory cfg)
-
-  [dlgCert, signKey, vrfKey, kesKey, opCert] <-
-    forM
-      [ dlgCertFilename nid
-      , signKeyFilename nid
-      , vrfKeyFilename nid
-      , kesKeyFilename nid
-      , opCertFilename nid
-      ]
-      (copyCredential (stateDirectory cfg))
-
-  let args =
-        defaultCardanoNodeArgs
-          { nodeDlgCertFile = Just dlgCert
-          , nodeSignKeyFile = Just signKey
-          , nodeVrfKeyFile = Just vrfKey
-          , nodeKesKeyFile = Just kesKey
-          , nodeOpCertFile = Just opCert
-          , nodePort = Just (ours (ports cfg))
-          }
-
-  readConfigFile "cardano-node.json"
-    >>= writeFileBS
-      (stateDirectory cfg </> nodeConfigFile args)
-
-  readConfigFile "genesis-byron.json"
-    >>= writeFileBS
-      (stateDirectory cfg </> nodeByronGenesisFile args)
-
-  readConfigFile "genesis-shelley.json"
-    >>= writeFileBS
-      (stateDirectory cfg </> nodeShelleyGenesisFile args)
-
-  readConfigFile "genesis-alonzo.json"
-    >>= writeFileBS
-      (stateDirectory cfg </> nodeAlonzoGenesisFile args)
-
-  withCardanoNode nodeTracer cfg args $ \rn -> do
-    traceWith clusterTracer $ MsgNodeStarting cfg
-    waitForSocket rn
-    action rn
  where
-  dlgCertFilename i = "delegation-cert.00" <> show (i - 1) <> ".json"
-  signKeyFilename i = "delegate-keys.00" <> show (i - 1) <> ".key"
-  vrfKeyFilename i = "delegate" <> show i <> ".vrf.skey"
-  kesKeyFilename i = "delegate" <> show i <> ".kes.skey"
-  opCertFilename i = "opcert" <> show i <> ".cert"
+  nodeTracer CardanoNodeConfig{nodeId} = contramap (MsgFromNode nodeId) tr
 
-  copyCredential parentDir file = do
-    bs <- readConfigFile ("credentials" </> file)
-    let destination = parentDir </> file
-    unlessM (doesFileExist destination) $
-      writeFileBS destination bs
-    setFileMode destination ownerReadMode
-    pure destination
-
-  nid = nodeId cfg
-
-  nodeTracer = contramap (MsgFromNode nid) clusterTracer
-
-  waitForSocket :: RunningNode -> IO ()
-  waitForSocket node@(RunningNode _ socket) = do
-    unlessM (doesFileExist socket) $ do
-      threadDelay 0.1
-      waitForSocket node
+  makeNodesConfig ::
+    FilePath ->
+    UTCTime ->
+    [Port] ->
+    (CardanoNodeConfig, CardanoNodeConfig, CardanoNodeConfig)
+  makeNodesConfig stateDirectory systemStart [a, b, c] =
+    ( CardanoNodeConfig 1 (stateDirectory </> "node-1") systemStart (PortsConfig a [b, c])
+    , CardanoNodeConfig 2 (stateDirectory </> "node-2") systemStart (PortsConfig b [a, c])
+    , CardanoNodeConfig 3 (stateDirectory </> "node-3") systemStart (PortsConfig c [a, b])
+    )
+  makeNodesConfig _ _ _ = error "we only support topology for 3 nodes"
 
 data Marked = Fuel | Normal
 
@@ -285,44 +203,6 @@ seedFromFaucet_ ::
   IO ()
 seedFromFaucet_ nid node vk ll marked =
   void $ seedFromFaucet nid node vk ll marked
-
--- | Initialize the system start time to now (modulo a small offset needed to
--- give time to the system to bootstrap correctly).
-initSystemStart :: IO UTCTime
-initSystemStart = do
-  addUTCTime 1 <$> getCurrentTime
-
-makeNodesConfig ::
-  FilePath ->
-  UTCTime ->
-  [Port] ->
-  (CardanoNodeConfig, CardanoNodeConfig, CardanoNodeConfig)
-makeNodesConfig stateDirectory systemStart [a, b, c] =
-  ( CardanoNodeConfig 1 (stateDirectory </> "node-1") systemStart (PortsConfig a [b, c])
-  , CardanoNodeConfig 2 (stateDirectory </> "node-2") systemStart (PortsConfig b [a, c])
-  , CardanoNodeConfig 3 (stateDirectory </> "node-3") systemStart (PortsConfig c [a, b])
-  )
-makeNodesConfig _ _ _ = error "we only support topology for 3 nodes"
-
-newNodeConfig ::
-  FilePath ->
-  IO CardanoNodeConfig
-newNodeConfig stateDirectory = do
-  nodePort <- randomUnusedTCPPort
-  systemStart <- initSystemStart
-  pure $
-    CardanoNodeConfig
-      { nodeId = 1
-      , stateDirectory
-      , systemStart
-      , ports = PortsConfig nodePort []
-      }
-
--- | Lookup a config file similar reading a file from disk.
-readConfigFile :: FilePath -> IO ByteString
-readConfigFile source = do
-  filename <- Pkg.getDataFileName ("config" </> source)
-  BS.readFile filename
 
 --
 -- Logging

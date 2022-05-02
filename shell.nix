@@ -21,10 +21,23 @@
     nativeBuildInputs = [ pkgs.autoreconfHook ];
     configureFlags = "--enable-static";
   })
+
+, # Feed cardano-node & cardano-cli to our shell.
+  # This is stable as it doesn't mix dependencies with this code-base;
+  # the fetched binaries are the "standard" builds that people test.
+  # This should be fast as it mostly fetches Hydra caches without building much.
+  cardano-node ? import
+    (pkgs.fetchgit {
+      url = "https://github.com/input-output-hk/cardano-node";
+      rev = "b91eb99f40f8ea88a3b6d9fb130667121ecbe522"; # 1.32.0-rc2 matching cabal.project.
+      sha256 = "1p862an7ddx4c1i0jsm2zimgh3x16ldsw0iccz8l39xg5d6m3vww";
+    })
+    { }
 }:
 let
   libs = [
     libsodium-vrf
+    pkgs.glibcLocales
     pkgs.zlib
     pkgs.lzma
   ]
@@ -32,6 +45,7 @@ let
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];
 
   buildInputs = [
+    pkgs.git
     pkgs.pkgconfig
     pkgs.haskellPackages.hspec-discover
     pkgs.haskellPackages.cabal-plan
@@ -39,6 +53,8 @@ let
     pkgs.python3Packages.jsonschema
     # For plotting results of hydra-cluster benchmarks
     pkgs.gnuplot
+    # For integration tests
+    cardano-node.cardano-node
   ];
 
   devInputs = if withoutDevTools then [] else [
@@ -54,6 +70,8 @@ let
     pkgs.yq
     # For docs/ (i.e. Docusaurus, Node.js & React)
     pkgs.yarn
+    # To interact with cardano-node and testing out things
+    cardano-node.cardano-cli
   ];
 
   # Haskell.nix managed tools (via hackage)
@@ -89,6 +107,12 @@ let
 
     # Always create missing golden files
     CREATE_MISSING_GOLDEN = 1;
+
+    # Force a UTF-8 locale because many Haskell programs and tests
+    # assume this.
+    LANG = "en_US.UTF-8";
+
+    GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
   };
 
   # A "cabal-only" shell which does not use haskell.nix
@@ -98,7 +122,6 @@ let
     buildInputs = libs ++ [
       pkgs.haskell.compiler.${compiler}
       pkgs.cabal-install
-      pkgs.git
       pkgs.pkgconfig
     ] ++ buildInputs ++ devInputs;
 

@@ -8,8 +8,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoClient (submit, waitForTransaction)
-import CardanoCluster (Marked (Fuel), defaultNetworkId, newNodeConfig, seedFromFaucet, withBFTNode)
-import CardanoNode (RunningNode (..))
+import CardanoCluster (Marked (Fuel), defaultNetworkId, seedFromFaucet)
+import CardanoNode (RunningNode (..), newNodeConfig, withBFTNode)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Control.Monad.Class.MonadSTM (
@@ -37,7 +37,7 @@ import Hydra.Ledger (txId)
 import Hydra.Logging (withTracerOutputTo)
 import Hydra.Party (deriveParty)
 import HydraNode (
-  EndToEndLog (..),
+  EndToEndLog (FromCardanoNode),
   HydraClient,
   hydraNodeId,
   input,
@@ -81,7 +81,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
           let parties = Set.fromList (deriveParty <$> hydraKeys)
           config <- newNodeConfig workDir
           withOSStats workDir $
-            withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+            withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
               withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys $ \(leader :| followers) -> do
                 let clients = leader : followers
                 waitForNodesConnected tracer clients

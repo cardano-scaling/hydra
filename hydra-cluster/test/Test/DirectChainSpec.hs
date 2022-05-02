@@ -14,16 +14,13 @@ import CardanoClient (
  )
 import CardanoCluster (
   Actor (Alice, Bob, Carol),
-  ClusterLog,
   Marked (Fuel, Normal),
   defaultNetworkId,
   keysFor,
-  newNodeConfig,
   seedFromFaucet,
   seedFromFaucet_,
-  withBFTNode,
  )
-import CardanoNode (NodeLog, RunningNode (..))
+import CardanoNode (NodeLog, RunningNode (..), newNodeConfig, withBFTNode)
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
@@ -63,7 +60,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor Bob
         cardanoKeys <- fmap fst <$> mapM keysFor [Alice, Bob, Carol]
         withIOManager $ \iocp -> do
@@ -86,7 +83,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor Bob
         cardanoKeys <- fmap fst <$> mapM keysFor [Alice, Bob, Carol]
         withIOManager $ \iocp -> do
@@ -124,7 +121,7 @@ spec = around showLogsOnFailure $ do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       (carolCardanoVk, _) <- keysFor Carol
-      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor Bob
         let cardanoKeys = [aliceCardanoVk, carolCardanoVk]
         withIOManager $ \iocp -> do
@@ -143,7 +140,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
@@ -172,7 +169,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
@@ -189,7 +186,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
@@ -238,7 +235,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "direct-chain" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           tip <- withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
@@ -256,7 +253,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "direct-chain" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withBFTNode (contramap FromCluster tracer) config $ \(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromNode tracer) config $ \(RunningNode _ nodeSocket) -> do
         let aliceTrace = contramap (FromDirectChain "alice") tracer
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
@@ -275,8 +272,7 @@ aliceSigningKey :: Hydra.SigningKey
 aliceSigningKey = generateSigningKey "alice"
 
 data TestClusterLog
-  = FromCluster ClusterLog
-  | FromNode NodeLog
+  = FromNode NodeLog
   | FromDirectChain Text DirectChainLog
   deriving (Show)
 

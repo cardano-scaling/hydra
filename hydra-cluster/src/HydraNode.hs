@@ -25,8 +25,10 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
-import CardanoCluster (ClusterLog, readConfigFile)
-import Control.Concurrent.Async (forConcurrently_)
+import CardanoNode (NodeLog)
+import Control.Concurrent.Async (
+  forConcurrently_,
+ )
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson (Value (String), object, (.=))
@@ -35,6 +37,7 @@ import Data.Aeson.Types (Pair)
 import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
+import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Crypto (deriveVerificationKey, serialiseSigningKeyToRawBytes, serialiseVerificationKeyToRawBytes)
 import qualified Hydra.Crypto as Hydra
 import Hydra.Logging (Tracer, traceWith)
@@ -180,7 +183,7 @@ data EndToEndLog
   | StartWaiting [Int] [Aeson.Value]
   | ReceivedMessage Int Aeson.Value
   | EndWaiting Int
-  | FromCluster ClusterLog
+  | FromCardanoNode NodeLog
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can

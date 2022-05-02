@@ -8,16 +8,13 @@ import Test.Hydra.Prelude
 import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoCluster (
   Actor (Alice),
-  ClusterLog,
   Marked (Fuel, Normal),
   chainConfigFor,
   defaultNetworkId,
   keysFor,
-  newNodeConfig,
   seedFromFaucet_,
-  withBFTNode,
  )
-import CardanoNode (RunningNode (RunningNode))
+import CardanoNode (NodeLog, RunningNode (RunningNode), newNodeConfig, withBFTNode)
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
 import Graphics.Vty (
@@ -215,7 +212,7 @@ withTUITest region action = do
       }
 
 data TUILog
-  = FromCardano ClusterLog
+  = FromCardano NodeLog
   | FromHydra EndToEndLog
   deriving (Show)
 

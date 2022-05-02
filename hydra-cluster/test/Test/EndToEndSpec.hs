@@ -13,12 +13,10 @@ import CardanoCluster (
   chainConfigFor,
   defaultNetworkId,
   keysFor,
-  newNodeConfig,
   seedFromFaucet,
   seedFromFaucet_,
-  withBFTNode,
  )
-import CardanoNode (RunningNode (RunningNode))
+import CardanoNode (RunningNode (RunningNode), newNodeConfig, withBFTNode)
 import Control.Lens ((^?))
 import Data.Aeson (Result (..), Value (Object, String), fromJSON, object, (.=))
 import Data.Aeson.Lens (key)
@@ -91,14 +89,14 @@ spec = around showLogsOnFailure $ do
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            withBFTNode (contramap FromCluster tracer) config $ \node -> do
+            withBFTNode (contramap FromCardanoNode tracer) config $ \node -> do
               initAndClose tracer 1 node
 
     describe "start chain observer from the past" $
       it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
         withTempDir "end-to-end-chain-observer" $ \tmp -> do
           config <- newNodeConfig tmp
-          withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+          withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
             tip <- withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] $ \n1 -> do
@@ -123,7 +121,7 @@ spec = around showLogsOnFailure $ do
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            withBFTNode (contramap FromCluster tracer) config $ \node -> do
+            withBFTNode (contramap FromCardanoNode tracer) config $ \node -> do
               concurrently_
                 (initAndClose tracer 0 node)
                 (initAndClose tracer 1 node)
@@ -132,7 +130,7 @@ spec = around showLogsOnFailure $ do
         failAfter 60 $
           withTempDir "end-to-end-two-heads" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+            withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket []
@@ -168,7 +166,7 @@ spec = around showLogsOnFailure $ do
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, _) <- keysFor Alice
-          withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+          withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [Bob, Carol]
             bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice, Carol]
             carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket [Bob, Carol]

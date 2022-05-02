@@ -116,6 +116,7 @@ library
     CardanoClient
     CardanoCluster
     CardanoNode
+    Hydra.Cluster.Util
     Hydra.Generator
     Hydra.LogFilter
     HydraNode
@@ -189,6 +190,7 @@ test-suite integration
     Paths_hydra_cluster
     Spec
     Test.CardanoClusterSpec
+    Test.CardanoNodeSpec
     Test.DirectChainSpec
     Test.EndToEndSpec
     Test.GeneratorSpec
@@ -206,6 +208,7 @@ test-suite integration
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
     , containers
+    , directory
     , filepath
     , hedgehog-quickcheck
     , hspec
@@ -230,8 +233,7 @@ test-suite integration
     , text
 
   build-tool-depends:
-    hspec-discover:hspec-discover -any, hydra-node:hydra-node -any,
-    cardano-node:cardano-node -any, cardano-cli:cardano-cli -any
+    hspec-discover:hspec-discover -any, hydra-node:hydra-node -any
 
   ghc-options:        -threaded -rtsopts
 
@@ -266,7 +268,5 @@ benchmark bench-e2e
     , strict-containers
     , time
 
-  build-tool-depends:
-    hydra-node:hydra-node -any, cardano-node:cardano-node -any
-
+  build-tool-depends: hydra-node:hydra-node -any
   ghc-options:        -threaded -rtsopts
