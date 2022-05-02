@@ -16,19 +16,17 @@ import Hydra.Chain.Direct.Contract.Mutation (
   SomeMutation (..),
   addPTWithQuantity,
   anyPayToPubKeyTxOut,
-  cardanoCredentialsFor,
   changeMintedValueQuantityFrom,
   headTxIn,
  )
-import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
+import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial, mkHeadTokenScript)
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
-import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (genVerificationKey)
-import Hydra.Party (Party, vkey)
+import Hydra.Party (Party, partyToChain)
 import Hydra.Prelude
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchThat)
 
@@ -48,14 +46,14 @@ healthyAbortTx =
   tx =
     either (error . show) id $
       abortTx
-        (fst somePartyCredentials)
+        somePartyCardanoVerificationKey
         (headInput, toUTxOContext headOutput, headDatum)
         headTokenScript
         (Map.fromList (tripleToPair <$> healthyInitials))
         (Map.fromList (tripleToPair <$> healthyCommits))
 
-  somePartyCredentials = flip generateWith 42 $ do
-    cardanoCredentialsFor <$> elements healthyParties
+  somePartyCardanoVerificationKey = flip generateWith 42 $ do
+    genForParty genVerificationKey <$> elements healthyParties
 
   headInput = generateWith arbitrary 42
 
@@ -129,7 +127,7 @@ genAbortMutation (tx, utxo) =
     [ SomeMutation MutateParties . ChangeHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
-        pure $ Head.Initial c (partyFromVerKey . vkey <$> moreParties)
+        pure $ Head.Initial c (partyToChain <$> moreParties)
     , SomeMutation DropOneCommitOutput
         . RemoveOutput
         <$> choose (0, fromIntegral (length (txOuts' tx) - 1))

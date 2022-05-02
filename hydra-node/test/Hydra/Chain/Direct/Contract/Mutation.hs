@@ -146,11 +146,8 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.State (SomeOnChainHeadState (..), observeSomeTx, reifyState)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
-import qualified Hydra.Data.Party as Party
 import Hydra.Ledger.Cardano (genKeyPair, genOutput, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import Hydra.Party (Party, generateKey, vkey)
-import qualified Hydra.Party as Party
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
@@ -159,7 +156,6 @@ import Test.Hydra.Prelude
 import Test.QuickCheck (
   Property,
   checkCoverage,
-  choose,
   conjoin,
   counterexample,
   forAll,
@@ -409,9 +405,6 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 -- Generators
 --
 
-genListOfSigningKeys :: Gen [Party.SigningKey]
-genListOfSigningKeys = choose (1, 20) <&> fmap generateKey . enumFromTo 1
-
 genBytes :: Gen ByteString
 genBytes = arbitrary
 
@@ -574,7 +567,3 @@ addPTWithQuantity tx quantity =
         pure mempty
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
-
-cardanoCredentialsFor :: Party -> (VerificationKey PaymentKey, SigningKey PaymentKey)
-cardanoCredentialsFor (Party.partyFromVerKey . vkey -> (Party.UnsafeParty (fromIntegral -> seed))) =
-  generateWith genKeyPair seed

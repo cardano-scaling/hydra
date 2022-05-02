@@ -17,6 +17,11 @@ changes.
   - Reports them to clients and do not crash
   - Rewind the internal head state to the point prior to rollback point
 
+#### Changed
+
+- **BREAKING** Use Ed25519 keys and proper EdDSA signatures
+  + the `--hydra-signing-key` and consequently `--hydra-verification-key` are now longer and not compatible with previous versions
+
 ## [0.4.0] - 2022-03-23
 
 #### Added

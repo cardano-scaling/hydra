@@ -24,11 +24,12 @@ import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol)
 
 spec :: Spec
 spec = do
   parallel $ do
-    let threeParties = [1, 2, 3]
+    let threeParties = [alice, bob, carol]
         Ledger{initUTxO} = simpleLedger
         envFor signingKey =
           let party = deriveParty signingKey
@@ -50,7 +51,7 @@ spec = do
                 , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
                 , seenSnapshot = NoSeenSnapshot
                 }
-        newSn (envFor 1) params st `shouldBe` ShouldSnapshot 1 [tx]
+        newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
 
       it "do not send ReqSn when we aren't leader" $ do
         let tx = aValidTx 1
@@ -61,7 +62,7 @@ spec = do
                 , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
                 , seenSnapshot = NoSeenSnapshot
                 }
-        newSn (envFor 2) params st `shouldBe` ShouldNotSnapshot (NotLeader 1)
+        newSn (envFor bobSk) params st `shouldBe` ShouldNotSnapshot (NotLeader 1)
 
       it "do not send ReqSn when there is a snapshot in flight" $ do
         let sn1 = Snapshot 1 initUTxO mempty :: Snapshot SimpleTx
@@ -72,7 +73,7 @@ spec = do
                 , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
                 , seenSnapshot = SeenSnapshot sn1 mempty
                 }
-        newSn (envFor 1) params st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
+        newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
 
       it "do not send ReqSn when there's no seen transactions" $ do
         let st =
@@ -83,7 +84,7 @@ spec = do
                 , seenSnapshot = NoSeenSnapshot
                 } ::
                 CoordinatedHeadState SimpleTx
-        newSn (envFor 1) params st `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
+        newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
 
       describe "Snapshot Emission" $ do
         it "update seenSnapshot state when sending ReqSn" $ do
@@ -101,8 +102,8 @@ spec = do
                 inOpenState' @SimpleTx threeParties $
                   coordinatedState{seenSnapshot = RequestedSnapshot}
 
-          emitSnapshot (envFor 1) [] st
-            `shouldBe` (st', [NetworkEffect $ ReqSn 1 1 [tx]])
+          emitSnapshot (envFor aliceSk) [] st
+            `shouldBe` (st', [NetworkEffect $ ReqSn alice 1 [tx]])
 
 --
 -- Assertion utilities

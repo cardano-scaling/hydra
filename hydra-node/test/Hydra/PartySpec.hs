@@ -11,11 +11,6 @@ import Test.QuickCheck ((==>))
 
 spec :: Spec
 spec = do
-  it "can be constructed fromInteger" $ do
-    (10 :: Party) `shouldBe` Party{vkey = 10}
-  it "shows verification key as hex" $ do
-    show (10 :: Party) `shouldContain` "000a"
-
   describe "Ord" $ do
     prop "is transitive" $ \(x :: Party, y, z) ->
       x <= y && y <= z ==> x <= z

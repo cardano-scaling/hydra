@@ -83,6 +83,7 @@ library
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
     Hydra.ClientInput
+    Hydra.Crypto
     Hydra.HeadLogic
     Hydra.Ledger
     Hydra.Ledger.Cardano
@@ -252,6 +253,7 @@ test-suite tests
     Hydra.Chain.Direct.WalletSpec
     Hydra.Chain.DirectSpec
     Hydra.ClientInputSpec
+    Hydra.CryptoSpec
     Hydra.FireForgetSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchema
@@ -268,6 +270,7 @@ test-suite tests
     Hydra.SnapshotStrategySpec
     Paths_hydra_node
     Spec
+    Test.Hydra.Fixture
     Test.Util
 
   main-is:            Main.hs

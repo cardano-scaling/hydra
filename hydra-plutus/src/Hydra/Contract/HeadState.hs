@@ -8,7 +8,6 @@ module Hydra.Contract.HeadState where
 import Ledger hiding (txOutDatum, validatorHash)
 import PlutusTx.Prelude
 
-import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
@@ -25,7 +24,6 @@ data State
   | Closed {snapshotNumber :: SnapshotNumber, utxoHash :: Hash}
   | Final
   deriving stock (Generic, Show)
-  deriving anyclass (FromJSON, ToJSON)
 
 PlutusTx.unstableMakeIsData ''State
 

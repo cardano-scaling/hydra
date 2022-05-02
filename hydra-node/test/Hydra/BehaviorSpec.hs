@@ -23,6 +23,8 @@ import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
 import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.ClientInput
+import Hydra.Crypto (aggregate, sign)
+import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Environment (..),
@@ -42,10 +44,11 @@ import Hydra.Node (
   handleMessage,
   runHydraNode,
  )
-import Hydra.Party (Party, SigningKey, aggregate, deriveParty, sign)
+import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
 import Test.Util (shouldBe, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
@@ -58,7 +61,7 @@ spec = parallel $ do
       it "does detect when no responses are sent" $ do
         let action = shouldRunInSim $ do
               chain <- simulatedChainAndNetwork
-              withHydraNode 1 [] chain $ \n ->
+              withHydraNode aliceSk [] chain $ \n ->
                 waitForNext n >> failure "unexpected output"
         action `shouldThrow` \case
           FailureDeadlock _ -> True
@@ -68,26 +71,26 @@ spec = parallel $ do
       it "accepts Init command" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [] chain $ \n ->
+          withHydraNode aliceSk [] chain $ \n ->
             send n (Init testContestationPeriod)
 
       it "accepts Commit after successful Init" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [] chain $ \n1 -> do
+          withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 (Init testContestationPeriod)
-            waitFor [n1] $ ReadyToCommit (fromList [1])
+            waitFor [n1] $ ReadyToCommit (fromList [alice])
             send n1 (Commit (utxoRef 1))
-            waitFor [n1] $ Committed 1 (utxoRef 1)
+            waitFor [n1] $ Committed alice (utxoRef 1)
 
       it "not accepts commits when the head is open" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [] chain $ \n1 -> do
+          withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 (Init testContestationPeriod)
-            waitFor [n1] $ ReadyToCommit (fromList [1])
+            waitFor [n1] $ ReadyToCommit (fromList [alice])
             send n1 (Commit (utxoRef 1))
-            waitFor [n1] $ Committed 1 (utxoRef 1)
+            waitFor [n1] $ Committed alice (utxoRef 1)
             waitFor [n1] $ HeadIsOpen (utxoRef 1)
             send n1 (Commit (utxoRef 2))
             waitFor [n1] CommandFailed
@@ -95,11 +98,11 @@ spec = parallel $ do
       it "can close an open head" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [] chain $ \n1 -> do
+          withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 (Init testContestationPeriod)
-            waitFor [n1] $ ReadyToCommit (fromList [1])
+            waitFor [n1] $ ReadyToCommit (fromList [alice])
             send n1 (Commit (utxoRef 1))
-            waitFor [n1] $ Committed 1 (utxoRef 1)
+            waitFor [n1] $ Committed alice (utxoRef 1)
             waitFor [n1] $ HeadIsOpen (utxoRef 1)
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
@@ -108,11 +111,11 @@ spec = parallel $ do
         failAfter 5 $
           shouldRunInSim $ do
             chain <- simulatedChainAndNetwork
-            withHydraNode 1 [] chain $ \n1 -> do
+            withHydraNode aliceSk [] chain $ \n1 -> do
               send n1 (Init testContestationPeriod)
-              waitFor [n1] $ ReadyToCommit (fromList [1])
+              waitFor [n1] $ ReadyToCommit (fromList [alice])
               send n1 (Commit (utxoRef 1))
-              waitFor [n1] $ Committed 1 (utxoRef 1)
+              waitFor [n1] $ Committed alice (utxoRef 1)
               waitFor [n1] $ HeadIsOpen (utxoRef 1)
               send n1 Close
               waitForNext n1 >>= assertHeadIsClosed
@@ -123,41 +126,41 @@ spec = parallel $ do
       it "only opens the head after all nodes committed" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] chain $ \n1 ->
-            withHydraNode 2 [1] chain $ \n2 -> do
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
-              waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
+              waitFor [n1, n2] $ ReadyToCommit (fromList [alice, bob])
 
               send n1 (Commit (utxoRef 1))
-              waitFor [n1] $ Committed 1 (utxoRef 1)
+              waitFor [n1] $ Committed alice (utxoRef 1)
               let veryLong = timeout 1000
               veryLong (waitForNext n1) >>= (`shouldNotBe` Just (HeadIsOpen (utxoRef 1)))
 
               send n2 (Commit (utxoRef 2))
-              waitFor [n1] $ Committed 2 (utxoRef 2)
+              waitFor [n1] $ Committed bob (utxoRef 2)
               waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
 
       it "can abort and re-open a head when one party has not committed" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] chain $ \n1 ->
-            withHydraNode 2 [1] chain $ \n2 -> do
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
-              waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
+              waitFor [n1, n2] $ ReadyToCommit (fromList [alice, bob])
               send n1 (Commit (utxoRefs [1, 2]))
-              waitFor [n1, n2] $ Committed 1 (utxoRefs [1, 2])
+              waitFor [n1, n2] $ Committed alice (utxoRefs [1, 2])
               send n2 Abort
               waitFor [n1, n2] $ HeadIsAborted (utxoRefs [1, 2])
               send n1 (Init testContestationPeriod)
-              waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
+              waitFor [n1, n2] $ ReadyToCommit (fromList [alice, bob])
 
       it "cannot abort head when commits have been collected" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] chain $ \n1 ->
-            withHydraNode 2 [1] chain $ \n2 -> do
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
-              waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
+              waitFor [n1, n2] $ ReadyToCommit (fromList [alice, bob])
               send n1 (Commit (utxoRef 1))
               send n2 (Commit (utxoRef 2))
 
@@ -169,18 +172,18 @@ spec = parallel $ do
       it "cannot commit twice" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] chain $ \n1 ->
-            withHydraNode 2 [1] chain $ \n2 -> do
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
-              waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
+              waitFor [n1, n2] $ ReadyToCommit (fromList [alice, bob])
 
               send n1 (Commit (utxoRef 1))
-              waitFor [n1] $ Committed 1 (utxoRef 1)
+              waitFor [n1] $ Committed alice (utxoRef 1)
               send n1 (Commit (utxoRef 11))
               waitFor [n1] CommandFailed
 
               send n2 (Commit (utxoRef 2))
-              waitFor [n1] $ Committed 2 (utxoRef 2)
+              waitFor [n1] $ Committed bob (utxoRef 2)
               waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
 
               send n1 (Commit (utxoRef 11))
@@ -190,13 +193,13 @@ spec = parallel $ do
         shouldRunInSim $
           do
             chain <- simulatedChainAndNetwork
-            withHydraNode 1 [2] chain $ \n1 ->
-              withHydraNode 2 [1] chain $ \n2 -> do
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
                 send n1 (Init testContestationPeriod)
-                waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
+                waitFor [n1, n2] $ ReadyToCommit (fromList [alice, bob])
                 send n1 (Commit (utxoRef 1))
 
-                waitFor [n2] $ Committed 1 (utxoRef 1)
+                waitFor [n2] $ Committed alice (utxoRef 1)
                 send n2 GetUTxO
 
                 waitFor [n2] $ UTxO (utxoRefs [1])
@@ -204,18 +207,18 @@ spec = parallel $ do
     describe "in an open head" $ do
       let openHead n1 n2 = do
             send n1 (Init testContestationPeriod)
-            waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
+            waitFor [n1, n2] $ ReadyToCommit (fromList [alice, bob])
             send n1 (Commit (utxoRef 1))
-            waitFor [n1, n2] $ Committed 1 (utxoRef 1)
+            waitFor [n1, n2] $ Committed alice (utxoRef 1)
             send n2 (Commit (utxoRef 2))
-            waitFor [n1, n2] $ Committed 2 (utxoRef 2)
+            waitFor [n1, n2] $ Committed bob (utxoRef 2)
             waitFor [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
 
       it "sees the head closed by other nodes" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] chain $ \n1 ->
-            withHydraNode 2 [1] chain $ \n2 -> do
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
               openHead n1 n2
 
               send n1 Close
@@ -225,8 +228,8 @@ spec = parallel $ do
       it "valid new transactions are seen by all parties" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] chain $ \n1 ->
-            withHydraNode 2 [1] chain $ \n2 -> do
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
@@ -236,8 +239,8 @@ spec = parallel $ do
       it "valid new transactions get snapshotted" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] chain $ \n1 ->
-            withHydraNode 2 [1] chain $ \n2 -> do
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
@@ -245,7 +248,7 @@ spec = parallel $ do
               waitFor [n1, n2] $ TxSeen (aValidTx 42)
 
               let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
-                  sigs = aggregate [sign 1 snapshot, sign 2 snapshot]
+                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
               waitFor [n1] $ SnapshotConfirmed snapshot sigs
 
               send n1 Close
@@ -260,8 +263,8 @@ spec = parallel $ do
       it "reports transactions as seen only when they validate (against the confirmed ledger)" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] chain $ \n1 ->
-            withHydraNode 2 [1] chain $ \n2 -> do
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
               openHead n1 n2
 
               let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
@@ -274,7 +277,7 @@ spec = parallel $ do
 
               waitFor [n1, n2] $ TxSeen firstTx
               let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
-                  sigs = aggregate [sign 1 snapshot, sign 2 snapshot]
+                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
               waitFor [n1, n2] $ SnapshotConfirmed snapshot sigs
 
@@ -286,8 +289,8 @@ spec = parallel $ do
         pendingWith "This test is not longer true after recent changes which simplify the snapshot construction."
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] chain $ \n1 ->
-            withHydraNode 2 [1] chain $ \n2 -> do
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
@@ -300,21 +303,21 @@ spec = parallel $ do
               waitFor [n1] $ TxSeen (aValidTx 43)
 
               let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43]
-                  sigs = aggregate [sign 1 snapshot, sign 2 snapshot]
+                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
               waitFor [n1] $ SnapshotConfirmed snapshot sigs
 
       it "outputs utxo from confirmed snapshot when client requests it" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] chain $ \n1 ->
-            withHydraNode 2 [1] chain $ \n2 -> do
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
               openHead n1 n2
               let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
               send n1 (NewTx newTx)
 
               let snapshot = Snapshot 1 (utxoRefs [2, 42]) [newTx]
-                  sigs = aggregate [sign 1 snapshot, sign 2 snapshot]
+                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
               waitUntil [n1, n2] $ SnapshotConfirmed snapshot sigs
 
@@ -325,8 +328,8 @@ spec = parallel $ do
       it "when closing head is finalized after contestation period and all parties post fanout tx" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] chain $ \n1 ->
-            withHydraNode 2 [1] chain $ \n2 -> do
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
               openHead n1 n2
               send n1 Close
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
@@ -339,30 +342,30 @@ spec = parallel $ do
       it "traces processing of events" $ do
         let result = runSimTrace $ do
               chain <- simulatedChainAndNetwork
-              withHydraNode 1 [] chain $ \n1 -> do
+              withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 (Init testContestationPeriod)
-                waitFor [n1] $ ReadyToCommit (fromList [1])
+                waitFor [n1] $ ReadyToCommit (fromList [alice])
                 send n1 (Commit (utxoRef 1))
 
             logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
         logs
-          `shouldContain` [ProcessingEvent 1 $ ClientEvent $ Init testContestationPeriod]
+          `shouldContain` [ProcessingEvent alice $ ClientEvent $ Init testContestationPeriod]
         logs
-          `shouldContain` [ProcessedEvent 1 $ ClientEvent $ Init testContestationPeriod]
+          `shouldContain` [ProcessedEvent alice $ ClientEvent $ Init testContestationPeriod]
 
       it "traces handling of effects" $ do
         let result = runSimTrace $ do
               chain <- simulatedChainAndNetwork
-              withHydraNode 1 [] chain $ \n1 -> do
+              withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 (Init testContestationPeriod)
-                waitFor [n1] $ ReadyToCommit (fromList [1])
+                waitFor [n1] $ ReadyToCommit (fromList [alice])
                 send n1 (Commit (utxoRef 1))
 
             logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-        logs `shouldContain` [ProcessingEffect 1 (ClientEffect $ ReadyToCommit $ fromList [1])]
-        logs `shouldContain` [ProcessedEffect 1 (ClientEffect $ ReadyToCommit $ fromList [1])]
+        logs `shouldContain` [ProcessingEffect alice (ClientEffect $ ReadyToCommit $ fromList [alice])]
+        logs `shouldContain` [ProcessedEffect alice (ClientEffect $ ReadyToCommit $ fromList [alice])]
 
       roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
@@ -370,34 +373,34 @@ spec = parallel $ do
     it "resets head to just after init" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 [] chain $ \n1 -> do
+        withHydraNode aliceSk [] chain $ \n1 -> do
           send n1 (Init testContestationPeriod)
-          waitFor [n1] $ ReadyToCommit (fromList [1])
+          waitFor [n1] $ ReadyToCommit (fromList [alice])
           chainEvent n1 (Rollback 1)
           waitFor [n1] RolledBack
-          waitFor [n1] $ ReadyToCommit (fromList [1])
+          waitFor [n1] $ ReadyToCommit (fromList [alice])
 
     it "resets head to just after collect-com" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 [] chain $ \n1 -> do
+        withHydraNode aliceSk [] chain $ \n1 -> do
           send n1 (Init testContestationPeriod)
-          waitFor [n1] $ ReadyToCommit (fromList [1])
+          waitFor [n1] $ ReadyToCommit (fromList [alice])
           send n1 (Commit (utxoRef 1))
-          waitFor [n1] $ Committed 1 (utxoRef 1)
+          waitFor [n1] $ Committed alice (utxoRef 1)
           waitFor [n1] $ HeadIsOpen (utxoRefs [1])
           -- NOTE: Rollback affects the commit AND collect-com tx
           chainEvent n1 (Rollback 2)
           waitFor [n1] RolledBack
-          waitFor [n1] $ Committed 1 (utxoRef 1)
+          waitFor [n1] $ Committed alice (utxoRef 1)
           waitFor [n1] $ HeadIsOpen (utxoRefs [1])
 
 -- NOTE:
 -- In principle, we can observe any prefix of the following sequence
 -- of events.
 --
--- waitFor [n1] $ Committed 1 (utxoRef 1)
--- waitFor [n1] $ Committed 2 (utxoRef 2)
+-- waitFor [n1] $ Committed alice (utxoRef 1)
+-- waitFor [n1] $ Committed bob (utxoRef 2)
 -- waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
 
 waitFor ::
@@ -496,7 +499,7 @@ testContestationPeriod = 3600
 
 withHydraNode ::
   forall s a.
-  SigningKey ->
+  Hydra.SigningKey ->
   [Party] ->
   ConnectToChain SimpleTx (IOSim s) ->
   (TestHydraNode SimpleTx (IOSim s) -> IOSim s a) ->

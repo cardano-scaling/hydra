@@ -29,7 +29,7 @@ import Hydra.Chain.Direct.Util (Era, retry)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
 import Hydra.Ledger.Cardano (Tx, genKeyPair)
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Party (Party, deriveParty, generateKey)
+import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (generate)
 
 spec :: Spec
@@ -74,11 +74,6 @@ spec = do
 mkSeedPayment :: NetworkId -> VerificationKey PaymentKey -> (ValidatedTx Era -> IO ()) -> IO ()
 mkSeedPayment networkId vk submitTx =
   generate (genPaymentTo networkId vk) >>= submitTx
-
-alice, bob, carol :: Party
-alice = deriveParty $ generateKey 10
-bob = deriveParty $ generateKey 20
-carol = deriveParty $ generateKey 30
 
 data Log
   = FromAlice DirectChainLog

@@ -20,10 +20,10 @@ import Data.List (intersectBy)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Mutation (cardanoCredentialsFor)
 import Hydra.Chain.Direct.Fixture (
   costModels,
   epochInfo,
+  genForParty,
   maxTxExecutionUnits,
   pparams,
   systemStart,
@@ -37,16 +37,16 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
-import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
   adaOnly,
   genOneUTxOFor,
   genUTxO,
+  genVerificationKey,
   hashTxOuts,
   renderTx,
   simplifyUTxO,
  )
-import Hydra.Party (Party, vkey)
+import Hydra.Party (Party, partyToChain)
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
@@ -75,11 +75,11 @@ spec =
       modifyMaxSuccess (const 10) $
         prop "validates" $ \headInput cperiod ->
           forAll (vectorOf 3 arbitrary) $ \parties ->
-            forAll (cardanoCredentialsFor <$> elements parties) $ \(signer, _) ->
+            forAll (genForParty genVerificationKey <$> elements parties) $ \signer ->
               forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
                 let onChainUTxO = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUTxO
                     headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
-                    onChainParties = partyFromVerKey . vkey <$> parties
+                    onChainParties = partyToChain <$> parties
                     headDatum = Head.Initial cperiod onChainParties
                     tx =
                       collectComTx
@@ -148,14 +148,14 @@ spec =
       prop "validates" $
         forAll (vectorOf 4 arbitrary) $ \parties ->
           \txIn contestationPeriod -> forAll (genAbortableOutputs parties) $
-            \(resolvedInitials, resolvedCommits) -> forAll (cardanoCredentialsFor <$> elements parties) $
-              \(signer, _) ->
+            \(resolvedInitials, resolvedCommits) -> forAll (genForParty genVerificationKey <$> elements parties) $
+              \signer ->
                 let headUTxO = (txIn :: TxIn, headOutput)
                     headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
                     headDatum =
                       Head.Initial
                         (contestationPeriodFromDiffTime contestationPeriod)
-                        (map (partyFromVerKey . vkey) parties)
+                        (map partyToChain parties)
                     initials = Map.fromList (drop2nd <$> resolvedInitials)
                     initialsUTxO = drop3rd <$> resolvedInitials
                     commits = Map.fromList (drop2nd <$> resolvedCommits)
@@ -186,7 +186,7 @@ spec =
 
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys walletUTxO ->
-          forAll (cardanoCredentialsFor <$> elements (party : parties)) $ \(signer, _) ->
+          forAll (genForParty genVerificationKey <$> elements (party : parties)) $ \signer ->
             let params = HeadParameters cperiod (party : parties)
                 tx = initTx testNetworkId cardanoKeys params txIn
              in case observeInitTx testNetworkId cardanoKeys party tx of
@@ -252,7 +252,7 @@ withinTxExecutionBudget redeemers =
 generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData))
 generateCommitUTxOs parties = do
   txins <- vectorOf (length parties) (arbitrary @TxIn)
-  let vks = (\p -> (fst (cardanoCredentialsFor p), p)) <$> parties
+  let vks = (\p -> (genVerificationKey `genForParty` p, p)) <$> parties
   committedUTxO <-
     vectorOf (length parties) $
       oneof
@@ -359,13 +359,14 @@ genAbortableOutputs parties =
   notConflict (is, cs) =
     null $ intersectBy (\(i, _, _) (c, _, _) -> i == c) is cs
 
-  genInitial p = mkInitial (cardanoCredentialsFor p) <$> arbitrary
+  genInitial p =
+    mkInitial (genVerificationKey `genForParty` p) <$> arbitrary
 
   mkInitial ::
-    (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+    VerificationKey PaymentKey ->
     TxIn ->
     UTxOWithScript
-  mkInitial (vk, _) txin =
+  mkInitial vk txin =
     ( txin
     , initialTxOut vk
     , fromPlutusData (toData initialDatum)

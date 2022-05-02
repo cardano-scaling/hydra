@@ -37,11 +37,10 @@ import Graphics.Vty (
   termName,
  )
 import Graphics.Vty.Image (DisplayRegion)
+import qualified Hydra.Crypto as Hydra
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Options (ChainConfig (..))
-import Hydra.Party (generateKey)
-import qualified Hydra.Party as Hydra
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
@@ -221,4 +220,4 @@ data TUILog
   deriving (Show)
 
 aliceSk :: Hydra.SigningKey
-aliceSk = generateKey 10
+aliceSk = Hydra.generateSigningKey "alice"

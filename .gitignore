@@ -9,6 +9,7 @@
 *.eventlog
 *.hp
 *.prof
+.hspec-failures
 
 # Nix
 result*
@@ -29,6 +30,4 @@ test-results.xml
 
 # Getting started / demo instructions
 devnet/
-
-# faulty golden files
-*.faulty.json
+testnet/

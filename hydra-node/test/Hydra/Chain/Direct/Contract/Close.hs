@@ -3,34 +3,24 @@
 
 module Hydra.Chain.Direct.Contract.Close where
 
-import Hydra.Cardano.Api hiding (SigningKey)
+import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize')
-import Hydra.Chain.Direct.Contract.Mutation (
-  Mutation (..),
-  SomeMutation (..),
-  cardanoCredentialsFor,
- )
-import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
+import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Data.Party (partyFromVerKey)
+import Hydra.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
+import qualified Hydra.Crypto as Hydra
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genVerificationKey)
-import Hydra.Party (
-  MultiSigned (MultiSigned),
-  Party,
-  SigningKey,
-  deriveParty,
-  sign,
-  toPlutusSignatures,
-  vkey,
- )
+import Hydra.Party (Party, partyToChain, deriveParty)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
+import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -44,19 +34,25 @@ healthyCloseTx =
  where
   tx =
     closeTx
-      (fst somePartyCredentials)
+      somePartyCardanoVerificationKey
       healthySnapshot
       (healthySignature healthySnapshotNumber)
       (headInput, headResolvedInput, headDatum)
+
   headInput = generateWith arbitrary 42
+
   headResolvedInput =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum
       & addParticipationTokens healthyParties
+
   headTxOutDatum = toUTxOContext (mkTxOutDatum healthyCloseDatum)
+
   headDatum = fromPlutusData $ toData healthyCloseDatum
+
   lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
-  somePartyCredentials = flip generateWith 42 $ do
-    cardanoCredentialsFor <$> elements healthyParties
+
+  somePartyCardanoVerificationKey = flip generateWith 42 $ do
+    genForParty genVerificationKey <$> elements healthyParties
 
 addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
 addParticipationTokens parties (TxOut addr val datum) =
@@ -66,7 +62,7 @@ addParticipationTokens parties (TxOut addr val datum) =
     val
       <> valueFromList
         [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
-        | (cardanoVk, _) <- cardanoCredentialsFor <$> parties
+        | cardanoVk <- genForParty genVerificationKey <$> parties
         ]
 
 healthySnapshot :: Snapshot Tx
@@ -87,17 +83,17 @@ healthyCloseDatum =
     , utxoHash = ""
     }
 
-healthyPartyCredentials :: [SigningKey]
-healthyPartyCredentials = [1, 2, 3]
+healthySigningKeys :: [Hydra.SigningKey]
+healthySigningKeys = [aliceSk, bobSk, carolSk]
 
 healthyParties :: [Party]
-healthyParties = deriveParty <$> healthyPartyCredentials
+healthyParties = deriveParty <$> healthySigningKeys
 
 healthyOnChainParties :: [OnChain.Party]
-healthyOnChainParties = partyFromVerKey . vkey <$> healthyParties
+healthyOnChainParties = partyToChain <$> healthyParties
 
-healthySignature :: SnapshotNumber -> MultiSigned (Snapshot Tx)
-healthySignature number = MultiSigned [sign sk snapshot | sk <- healthyPartyCredentials]
+healthySignature :: SnapshotNumber -> Hydra.MultiSignature (Snapshot Tx)
+healthySignature number = aggregate [sign sk snapshot | sk <- healthySigningKeys]
  where
   snapshot = healthySnapshot{number}
 
@@ -117,14 +113,14 @@ genCloseMutation (_tx, _utxo) =
   -- anywhere after changing this and can be moved into the closeTx
   oneof
     [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        closeRedeemer (number healthySnapshot) <$> arbitrary
+        closeRedeemer (number healthySnapshot) <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
     , SomeMutation MutateSnapshotNumberButNotSignature . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
         pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
     , SomeMutation MutateSnapshotToIllFormedValue . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
         let mutatedSignature =
-              MultiSigned [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthyPartyCredentials]
+              aggregate [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthySigningKeys]
         pure
           Head.Close
             { snapshotNumber = mutatedSnapshotNumber

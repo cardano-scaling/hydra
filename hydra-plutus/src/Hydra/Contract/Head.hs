@@ -14,7 +14,7 @@ import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
-import Hydra.Data.Party (Party (UnsafeParty))
+import Hydra.Data.Party (Party (vkey))
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (RedeemerType))
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Scripts.Validators (DatumType)
@@ -373,25 +373,12 @@ verifySnapshotSignature parties snapshotNumber sigs =
 {-# INLINEABLE verifySnapshotSignature #-}
 
 verifyPartySignature :: SnapshotNumber -> Party -> Signature -> Bool
-verifyPartySignature snapshotNumber vkey signed =
+verifyPartySignature snapshotNumber party signed =
   traceIfFalse "party signature verification failed" $
-    mockVerifySignature vkey snapshotNumber (getSignature signed)
-{-# INLINEABLE verifyPartySignature #-}
-
--- TODO: This really should be the builtin Plutus function 'verifySignature' but as we
--- are using Mock crypto in the Head, so must we use Mock crypto on-chain to verify
--- signatures.
-mockVerifySignature :: Party -> SnapshotNumber -> BuiltinByteString -> Bool
-mockVerifySignature (UnsafeParty vkey) snapshotNumber signed =
-  traceIfFalse "mock signed message is not equal to signed" $
-    mockSign vkey (encodingToBuiltinByteString $ encodeInteger snapshotNumber) == signed
-{-# INLINEABLE mockVerifySignature #-}
-
-mockSign :: Integer -> BuiltinByteString -> BuiltinByteString
-mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (encodingToBuiltinByteString $ encodeInteger vkey)
+    verifySignature (vkey party) message (getSignature signed)
  where
-  hashedMsg = sha2_256 msg
-{-# INLINEABLE mockSign #-}
+  message = encodingToBuiltinByteString (encodeInteger snapshotNumber)
+{-# INLINEABLE verifyPartySignature #-}
 
 -- | The script instance of the auction state machine. It contains the state
 -- machine compiled to a Plutus core validator script.

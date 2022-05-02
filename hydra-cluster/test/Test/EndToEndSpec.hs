@@ -6,12 +6,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Crypto.DSIGN (
-  DSIGNAlgorithm (deriveVerKeyDSIGN),
-  MockDSIGN,
-  SignKeyDSIGN,
-  VerKeyDSIGN,
- )
 import CardanoClient (queryTip, waitForUTxO)
 import CardanoCluster (
   Actor (Alice, Bob, Carol),
@@ -43,6 +37,8 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   serialiseAddress,
  )
+import Hydra.Crypto (deriveVerificationKey, generateSigningKey)
+import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -50,7 +46,6 @@ import Hydra.Options (
   ChainConfig (startChainFrom),
  )
 import Hydra.Party (Party, deriveParty)
-import qualified Hydra.Party as Party
 import HydraNode (
   EndToEndLog (..),
   getMetrics,
@@ -74,7 +69,22 @@ allNodeIds :: [Int]
 allNodeIds = [1 .. 3]
 
 spec :: Spec
-spec = around showLogsOnFailure $
+spec = around showLogsOnFailure $ do
+  let aliceSk, bobSk, carolSk :: Hydra.SigningKey
+      aliceSk = generateSigningKey "alice"
+      bobSk = generateSigningKey "bob"
+      carolSk = generateSigningKey "carol"
+
+      aliceVk, bobVk, carolVk :: Hydra.VerificationKey
+      aliceVk = deriveVerificationKey aliceSk
+      bobVk = deriveVerificationKey bobSk
+      carolVk = deriveVerificationKey carolSk
+
+      alice, bob, carol :: Party
+      alice = deriveParty aliceSk
+      bob = deriveParty bobSk
+      carol = deriveParty carolSk
+
   describe "End-to-end test using a single cardano-node" $ do
     describe "three hydra nodes scenario" $
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
@@ -89,8 +99,6 @@ spec = around showLogsOnFailure $
         withTempDir "end-to-end-chain-observer" $ \tmp -> do
           config <- newNodeConfig tmp
           withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
-            let aliceSk = 10
-            let alice = deriveParty aliceSk
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
             tip <- withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] $ \n1 -> do
@@ -121,17 +129,6 @@ spec = around showLogsOnFailure $
                 (initAndClose tracer 1 node)
 
       it "bob cannot abort alice's head" $ \tracer -> do
-        let aliceSk, bobSk :: SignKeyDSIGN MockDSIGN
-            aliceSk = 10
-            bobSk = 20
-
-        let aliceVk :: VerKeyDSIGN MockDSIGN
-            aliceVk = deriveVerKeyDSIGN aliceSk
-
-        let alice, bob :: Party
-            alice = deriveParty aliceSk
-            bob = deriveParty bobSk
-
         failAfter 60 $
           withTempDir "end-to-end-two-heads" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
@@ -168,21 +165,6 @@ spec = around showLogsOnFailure $
 
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
-        let aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
-            aliceSk = 10
-            bobSk = 20
-            carolSk = 30
-
-        let aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
-            aliceVk = deriveVerKeyDSIGN aliceSk
-            bobVk = deriveVerKeyDSIGN bobSk
-            carolVk = deriveVerKeyDSIGN carolSk
-
-        let alice, bob, carol :: Party
-            alice = deriveParty aliceSk
-            bob = deriveParty bobSk
-            carol = deriveParty carolSk
-
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, _) <- keysFor Alice
@@ -215,9 +197,9 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
     bobKeys@(bobCardanoVk, _) <- generate genKeyPair
     carolKeys@(carolCardanoVk, _) <- generate genKeyPair
 
-    let aliceSk = Party.generateKey (10 + toInteger clusterIx)
-    let bobSk = Party.generateKey (20 + toInteger clusterIx)
-    let carolSk = Party.generateKey (30 + toInteger clusterIx)
+    let aliceSk = generateSigningKey ("alice-" <> show clusterIx)
+    let bobSk = generateSigningKey ("bob-" <> show clusterIx)
+    let carolSk = generateSigningKey ("carol-" <> show clusterIx)
 
     let alice = deriveParty aliceSk
     let bob = deriveParty bobSk

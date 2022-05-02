@@ -7,11 +7,10 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize')
-import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
+import qualified Data.List as List
 import Hydra.Cardano.Api (
   UTxO,
   toLedgerTxOut,
@@ -23,7 +22,6 @@ import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Init (genHealthyIdleSt, genInitMutation, genObserveInitMutation, healthyInitTx)
 import Hydra.Chain.Direct.Contract.Mutation (
-  genListOfSigningKeys,
   propMutationOffChain,
   propMutationOnChain,
   propTransactionValidates,
@@ -35,26 +33,19 @@ import Hydra.Contract.Head (
   verifySnapshotSignature,
  )
 import qualified Hydra.Contract.Head as Head
-import Hydra.Data.Party (partyFromVerKey)
+import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
+import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (
   genUTxOWithSimplifiedAddresses,
   hashTxOuts,
   shrinkUTxO,
  )
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Party (
-  Signed (UnsafeSigned),
-  aggregate,
-  generateKey,
-  sign,
-  toPlutusSignatures,
- )
+import Hydra.Party (partyToChain, deriveParty)
 import Hydra.Snapshot (Snapshot (..))
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (fromBuiltin, toBuiltin)
-import Plutus.V1.Ledger.Crypto (Signature (Signature))
+import Plutus.V1.Ledger.Api (fromBuiltin)
 import Test.QuickCheck (
-  Positive (Positive),
   Property,
   conjoin,
   counterexample,
@@ -141,21 +132,23 @@ prop_consistentOnAndOffChainHashOfTxOuts =
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
   forAll arbitrary $ \(snapshot :: Snapshot SimpleTx) ->
-    forAll arbitrary $ \(Positive n) ->
-      let sk = generateKey n
-          UnsafeSigned signature = sign sk snapshot
-          party = partyFromVerKey $ deriveVerKeyDSIGN sk
+    forAll arbitrary $ \seed ->
+      let sk = Hydra.generateSigningKey seed
+          offChainSig = Hydra.sign sk snapshot
+          onChainSig = List.head . toPlutusSignatures $ aggregate [offChainSig]
+          onChainParty = partyToChain $ deriveParty sk
           snapshotNumber = toInteger $ number snapshot
-       in verifyPartySignature snapshotNumber party (Signature $ toBuiltin signature)
-            & counterexample ("signed: " <> show (BS.unpack signature))
-            & counterexample ("party: " <> show party)
+       in verifyPartySignature snapshotNumber onChainParty onChainSig
+            & counterexample ("signed: " <> show onChainSig)
+            & counterexample ("party: " <> show onChainParty)
             & counterexample ("message: " <> show (getSignableRepresentation snapshot))
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
   forAll arbitrary $ \(snapshot :: Snapshot SimpleTx) ->
-    forAll genListOfSigningKeys $ \sks ->
-      let parties = partyFromVerKey . deriveVerKeyDSIGN <$> sks
+    forAll arbitrary $ \sks ->
+      let parties = deriveParty <$> sks
+          onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger $ number snapshot
-       in verifySnapshotSignature parties snapshotNumber signatures
+       in verifySnapshotSignature onChainParties snapshotNumber signatures

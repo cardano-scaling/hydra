@@ -39,6 +39,7 @@ common project-config
     FlexibleInstances
     FunctionalDependencies
     GADTs
+    GeneralizedNewtypeDeriving
     InstanceSigs
     KindSignatures
     LambdaCase
@@ -80,7 +81,6 @@ library
     Hydra.Contract.Initial
     Hydra.Contract.MintAction
     Hydra.Data.ContestationPeriod
-    Hydra.Data.HeadParameters
     Hydra.Data.Party
     Hydra.Data.Utxo
     Hydra.OnChain.Util

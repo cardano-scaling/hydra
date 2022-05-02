@@ -7,12 +7,6 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Crypto.DSIGN (
-  DSIGNAlgorithm (deriveVerKeyDSIGN),
-  MockDSIGN,
-  SignKeyDSIGN,
-  VerKeyDSIGN,
- )
 import CardanoClient (submit, waitForTransaction)
 import CardanoCluster (Marked (Fuel), defaultNetworkId, newNodeConfig, seedFromFaucet, withBFTNode)
 import CardanoNode (RunningNode (..))
@@ -37,10 +31,11 @@ import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
+import qualified Hydra.Crypto as Hydra
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger (txId)
 import Hydra.Logging (withTracerOutputTo)
-import Hydra.Party (deriveParty, generateKey)
+import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (..),
   HydraClient,
@@ -67,16 +62,6 @@ import Text.Printf (printf)
 import Text.Regex.TDFA (getAllTextMatches, (=~))
 import Prelude (read)
 
-aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
-aliceSk = 10
-bobSk = 20
-carolSk = 30
-
-aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
-aliceVk = deriveVerKeyDSIGN aliceSk
-bobVk = deriveVerKeyDSIGN bobSk
-carolVk = deriveVerKeyDSIGN carolSk
-
 data Event = Event
   { submittedAt :: UTCTime
   , validAt :: Maybe UTCTime
@@ -92,7 +77,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
         failAfter timeoutSeconds $ do
           putTextLn "Starting benchmark"
           let cardanoKeys = map (\ClientDataset{signingKey} -> (getVerificationKey signingKey, signingKey)) clientDatasets
-          let hydraKeys = generateKey <$> [1 .. toInteger (length cardanoKeys)]
+          let hydraKeys = Hydra.generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
           let parties = Set.fromList (deriveParty <$> hydraKeys)
           config <- newNodeConfig workDir
           withOSStats workDir $

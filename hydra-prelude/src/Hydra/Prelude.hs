@@ -35,6 +35,7 @@ module Hydra.Prelude (
   padLeft,
   padRight,
   Except,
+  decodeBase16,
 ) where
 
 import Cardano.Binary (
@@ -94,6 +95,7 @@ import Data.Aeson (
 import Data.Aeson.Encode.Pretty (
   encodePretty,
  )
+import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Text as T
 import GHC.Generics (Rep)
 import qualified Generic.Random as Random
@@ -221,3 +223,11 @@ padLeft c n str = T.takeEnd n (T.replicate n (T.singleton c) <> str)
 -- NOTE: Truncate the string if longer than the given length.
 padRight :: Char -> Int -> Text -> Text
 padRight c n str = T.take n (str <> T.replicate n (T.singleton c))
+
+-- | Decode some hex-encoded text string to raw bytes.
+--
+-- >>> decodeBase16 "dflkgjdjgdh"
+-- Left "Not base 16"
+decodeBase16 :: MonadFail f => Text -> f ByteString
+decodeBase16 =
+  either fail pure . Base16.decode . encodeUtf8

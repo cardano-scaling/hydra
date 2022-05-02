@@ -3,9 +3,10 @@
 module Hydra.ServerOutput where
 
 import Hydra.Chain (PostChainTx, PostTxError)
+import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (IsTx, TxIdType, UTxOType, ValidationError)
 import Hydra.Network (Host)
-import Hydra.Party (MultiSigned, Party)
+import Hydra.Party (Party)
 import Hydra.Prelude
 import Hydra.Snapshot (Snapshot)
 
@@ -22,7 +23,10 @@ data ServerOutput tx
   | TxSeen {transaction :: tx}
   | TxValid {transaction :: tx}
   | TxInvalid {utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
-  | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSigned (Snapshot tx)}
+  | SnapshotConfirmed
+      { snapshot :: Snapshot tx
+      , signatures :: Hydra.MultiSignature (Snapshot tx)
+      }
   | -- XXX(SN): This is too vague of a name and prone to conflict. Also we want
     -- to relate it to 'GetUTxO' from 'ClientInput', so 'GetUTxOResult' might be
     -- a better name

@@ -546,7 +546,7 @@ components:
           snapshot:
             $ref: "#/components/schemas/Snapshot"
           signatures:
-            $ref: "#/components/schemas/MultiSigned"
+            $ref: "#/components/schemas/MultiSignature"
           tag:
             type: string
             enum: ["ConfirmedSnapshot"]
@@ -571,7 +571,7 @@ components:
           items:
             $ref: "#/components/schemas/Party"
 
-    MultiSigned:
+    MultiSignature:
       type: object
       description: |
         Aggregated signature produced by Head protocol when a Snapshot is confirmed by all parties.
@@ -582,7 +582,7 @@ components:
         multiSignature:
           type: array
           items:
-            $ref: "#/components/schemas/Signed"
+            $ref: "#/components/schemas/Signature"
 
     Party:
       type: object
@@ -597,7 +597,7 @@ components:
           contentEncoding: base16
       example:
         {
-            "vkey": "0000000000000000"
+            "vkey": "d0b8f28427aa7b640c636075905cbd6574a431aeaca5b3dbafd47cfe66c35043"
         }
 
     Peer:
@@ -976,7 +976,7 @@ components:
             items:
               $ref: "#/components/schemas/Party"
 
-    Signed:
+    Signature:
       type: string
       description: >-
         A base64-encoded signature.

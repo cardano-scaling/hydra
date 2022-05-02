@@ -5,7 +5,10 @@
 --
 -- == Node Architecture
 --
--- The following [diagram (click for a full-width version)](https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/images/hydra-architecture-direct.jpg) represents the internal structure of the Hydra Node and the interactions between its components.
+-- The following [diagram (click for a full-width
+-- version)](https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/images/hydra-architecture-direct.jpg)
+-- represents the internal structure of the Hydra Node and the interactions
+-- between its components.
 --
 -- ![Hydra Architecture](https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/images/hydra-architecture-direct_800x.jpg)
 --
@@ -19,7 +22,6 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN), deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (
   isEmptyTQueue,
@@ -33,6 +35,10 @@ import Control.Monad.Class.MonadSTM (
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Chain (Chain (..), ChainEvent, PostTxError)
 import Hydra.ClientInput (ClientInput)
+import Hydra.Crypto (
+  deserialiseSigningKeyFromRawBytes,
+  deserialiseVerificationKeyFromRawBytes,
+ )
 import Hydra.HeadLogic (
   Effect (..),
   Environment (..),
@@ -48,38 +54,29 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (Options (..))
-import Hydra.Party (Party (..))
+import Hydra.Party (Party (..), deriveParty)
 
 -- * Environment Handling
 
 initEnvironment :: Options -> IO Environment
 initEnvironment Options{hydraSigningKey, hydraVerificationKeys} = do
   sk <- loadSigningKey hydraSigningKey
-  let vk = deriveVerKeyDSIGN sk
   otherParties <- mapM loadParty hydraVerificationKeys
   pure $
     Environment
-      { party = Party vk
+      { party = deriveParty sk
       , signingKey = sk
       , otherParties
       }
  where
-  loadSigningKey p = do
-    mKey <- rawDeserialiseSignKeyDSIGN <$> readFileBS p
-    case mKey of
-      Nothing -> fail $ "Failed to decode signing key from " <> p
-      Just key -> pure key
+  loadSigningKey p =
+    readFileBS p >>= deserialiseSigningKeyFromRawBytes
 
   loadParty p =
     Party <$> loadVerificationKey p
 
   loadVerificationKey p = do
-    mKey <- rawDeserialiseVerKeyDSIGN <$> readFileBS p
-    case mKey of
-      Nothing -> fail $ "Failed to decode verification key from " <> p
-      Just key -> pure key
-
---
+    readFileBS p >>= deserialiseVerificationKeyFromRawBytes
 
 -- ** Create and run a hydra node
 

@@ -46,10 +46,12 @@ import Hydra.Chain.Direct (
   withDirectChain,
   withIOManager,
  )
+import Hydra.Crypto (aggregate, generateSigningKey, sign)
+import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Party (Party, SigningKey, aggregate, deriveParty, generateKey, sign)
+import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.QuickCheck (generate)
 
@@ -266,11 +268,11 @@ spec = around showLogsOnFailure $ do
 
 alice, bob, carol :: Party
 alice = deriveParty aliceSigningKey
-bob = deriveParty $ generateKey 20
-carol = deriveParty $ generateKey 30
+bob = deriveParty $ generateSigningKey "bob"
+carol = deriveParty $ generateSigningKey "carol"
 
-aliceSigningKey :: SigningKey
-aliceSigningKey = generateKey 10
+aliceSigningKey :: Hydra.SigningKey
+aliceSigningKey = generateSigningKey "alice"
 
 data TestClusterLog
   = FromCluster ClusterLog
