@@ -90,8 +90,8 @@ serialiseMultipleTxOutsUsingBuiltin_toData_offchain txOuts =
                    )
                  `Tx.applyCode` (Tx.liftCode (Tx.toBuiltinData txOuts))
 
-serialiseSingleTxOutUsingLibrary__onchain :: TxOut -> Term UPLC.NamedDeBruijn
-serialiseSingleTxOutUsingLibrary__onchain txOut =
+serialiseSingleTxOutUsingLibrary_onchain :: TxOut -> Term UPLC.NamedDeBruijn
+serialiseSingleTxOutUsingLibrary_onchain txOut =
       bodyOf . Tx.getPlc $
                  $$(Tx.compile
                           [||
