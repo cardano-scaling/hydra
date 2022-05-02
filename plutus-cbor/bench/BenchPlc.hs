@@ -53,6 +53,18 @@ benchCek t = case runExcept @PLC.FreeVariableError $ PLC.runQuoteT $ UPLC.unDeBr
     Left e   -> throw e
     Right t' -> nf (unsafeEvaluateCek noEmitter PLC.defaultCekParameters) t'
 
+serialiseMultipleTxOutsUsingLibrary_onchain :: [TxOut] -> Term UPLC.NamedDeBruijn
+serialiseMultipleTxOutsUsingLibrary_onchain txOuts =
+      bodyOf . Tx.getPlc $
+                 $$(Tx.compile
+                          [||
+                           \(xs::[TxOut]) ->
+                               let bytes = encodingToBuiltinByteString (encodeList encodeTxOut xs)
+                               in Tx.lengthOfByteString bytes `Tx.greaterThanInteger` 0
+                          ||]
+                   )
+                 `Tx.applyCode` (Tx.liftCode txOuts)
+
 serialiseMultipleTxOutsUsingBuiltin_toData_onchain :: [TxOut] -> Term UPLC.NamedDeBruijn
 serialiseMultipleTxOutsUsingBuiltin_toData_onchain txOuts =
       bodyOf . Tx.getPlc $
@@ -66,18 +78,6 @@ serialiseMultipleTxOutsUsingBuiltin_toData_onchain txOuts =
                  `Tx.applyCode` (Tx.liftCode txOuts)
 
 
-serialiseSingleTxOutUsingBuiltin_toData_onchain :: TxOut -> Term UPLC.NamedDeBruijn
-serialiseSingleTxOutUsingBuiltin_toData_onchain txOut =
-    bodyOf . Tx.getPlc $
-               $$(Tx.compile
-                        [||
-                         \(x::TxOut) ->
-                             let bytes = Tx.serialiseData (Tx.toBuiltinData x)
-                             in Tx.lengthOfByteString bytes `Tx.greaterThanInteger` 0
-                        ||]
-                   )
-                 `Tx.applyCode` (Tx.liftCode txOut)
-
 serialiseMultipleTxOutsUsingBuiltin_toData_offchain :: [TxOut] -> Term UPLC.NamedDeBruijn
 serialiseMultipleTxOutsUsingBuiltin_toData_offchain txOuts =
       bodyOf . Tx.getPlc $
@@ -89,6 +89,34 @@ serialiseMultipleTxOutsUsingBuiltin_toData_offchain txOuts =
                           ||]
                    )
                  `Tx.applyCode` (Tx.liftCode (Tx.toBuiltinData txOuts))
+
+serialiseSingleTxOutUsingLibrary__onchain :: TxOut -> Term UPLC.NamedDeBruijn
+serialiseSingleTxOutUsingLibrary__onchain txOut =
+      bodyOf . Tx.getPlc $
+                 $$(Tx.compile
+                          [||
+                           \(x::TxOut) ->
+                               let bytes = encodingToBuiltinByteString (encodeTxOut x)
+                               in Tx.lengthOfByteString bytes `Tx.greaterThanInteger` 0
+                          ||]
+                   )
+                 `Tx.applyCode` (Tx.liftCode txOut)
+
+-- We should also try converting to Data off chain then using the library to
+-- serialise on-chain, but there's no encoding function for Data. Maybe we
+-- should write one?
+
+serialiseSingleTxOutUsingBuiltin_toData_onchain :: TxOut -> Term UPLC.NamedDeBruijn
+serialiseSingleTxOutUsingBuiltin_toData_onchain txOut =
+    bodyOf . Tx.getPlc $
+               $$(Tx.compile
+                        [||
+                         \(x::TxOut) ->
+                             let bytes = Tx.serialiseData (Tx.toBuiltinData x)
+                             in Tx.lengthOfByteString bytes `Tx.greaterThanInteger` 0
+                        ||]
+                   )
+                 `Tx.applyCode` (Tx.liftCode txOut)
 
 
 serialiseSingleTxOutUsingBuiltin_toData_offchain :: TxOut -> Term UPLC.NamedDeBruijn
@@ -103,34 +131,6 @@ serialiseSingleTxOutUsingBuiltin_toData_offchain txOut =
                    )
                  `Tx.applyCode` (Tx.liftCode (Tx.toBuiltinData txOut))
 
-serialiseMultipleTxOutsUsingLibrary_toData_onchain :: [TxOut] -> Term UPLC.NamedDeBruijn
-serialiseMultipleTxOutsUsingLibrary_toData_onchain txOuts =
-      bodyOf . Tx.getPlc $
-                 $$(Tx.compile
-                          [||
-                           \(xs::[TxOut]) ->
-                               let bytes = encodingToBuiltinByteString (encodeList encodeTxOut xs)
-                               in Tx.lengthOfByteString bytes `Tx.greaterThanInteger` 0
-                          ||]
-                   )
-                 `Tx.applyCode` (Tx.liftCode txOuts)
-
-
-serialiseSingleTxOutUsingLibrary_toData_onchain :: TxOut -> Term UPLC.NamedDeBruijn
-serialiseSingleTxOutUsingLibrary_toData_onchain txOut =
-      bodyOf . Tx.getPlc $
-                 $$(Tx.compile
-                          [||
-                           \(x::TxOut) ->
-                               let bytes = encodingToBuiltinByteString (encodeTxOut x)
-                               in Tx.lengthOfByteString bytes `Tx.greaterThanInteger` 0
-                          ||]
-                   )
-                 `Tx.applyCode` (Tx.liftCode txOut)
-
--- We should also try converting to Data off chain then using the library to
--- serialise on-chain, but there's no encoding function for Data. Maybe we
--- should write one?
 
 
 encodeTxOut :: TxOut -> Encoding
@@ -178,6 +178,12 @@ main = do
   let sizes = [10,20..150]
   defaultMainWith (defaultConfig { timeLimit = 5 }) $
     [ bgroup
+      "onchain.encoder"
+      [ bgroup "ada.only"
+        (map (mkAdaOnlyBM serialiseMultipleTxOutsUsingLibrary_onchain) sizes)
+      , bgroup "multi.asset"
+        (map (mkMultiAssetBM serialiseSingleTxOutUsingLibrary_onchain) sizes)
+      , bgroup
       "serialiseData.toData.onChain"
       [ bgroup "ada.only"
         (map (mkAdaOnlyBM serialiseMultipleTxOutsUsingBuiltin_toData_onchain) sizes)
@@ -191,12 +197,6 @@ main = do
       , bgroup "multi.asset"
         (map (mkMultiAssetBM serialiseSingleTxOutUsingBuiltin_toData_offchain) sizes)
       ]
-    , bgroup
-      "onchain.encoder"
-      [ bgroup "ada.only"
-        (map (mkAdaOnlyBM serialiseMultipleTxOutsUsingLibrary_toData_onchain) sizes)
-      , bgroup "multi.asset"
-        (map (mkMultiAssetBM serialiseSingleTxOutUsingLibrary_toData_onchain) sizes)
       ]
     ]
  where

@@ -56,11 +56,16 @@ maxExecutionUnits =  ExUnits
 
 main :: IO ()
 main = do
+  printf "\n"
+  printf "Full validations\n"
+  printf "================\n\n"
+
   printf "# List of ADA-only TxOut; Scott-encoded TxOut serialised using encoder on-chain.\n"
   printf "   n         mem         cpu        %%mem      %%cpu\n"
   forM_ [0,10..150] $ \n -> do
     let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
     let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutsValidator
+    -- encodingToBuiltinByteString (encodeList encodeTxOut xs)
     case evaluateScriptExecutionUnits (encodeTxOutsValidator RealValidator) x of
       Right (ExUnits absMem absCpu) ->
            printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
@@ -72,30 +77,11 @@ main = do
   forM_ [0,10..150] $ \n -> do
     let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
     let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutsValidator2
+    -- Plutus.serialiseData (Plutus.toBuiltinData xs)
     case evaluateScriptExecutionUnits (encodeTxOutsValidator2 RealValidator) x of
       Right (ExUnits absMem absCpu) ->
            printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
       Left e -> printf "ERROR: %s\n" e
-
-  printf "\n"
-  printf "# List of ADA-only TxOut, by list size (library).\n"
-  printf "   n         mem         cpu\n"
-  forM_ [0,10..150] $ \n -> do
-    let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
-        term = mkScriptUsingEncode' x
-    case runTerm term of
-      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
-          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
-
-  printf "\n"
-  printf "# List of ADA-only TxOut, by list size (builtin).\n"
-  printf "   n         mem         cpu\n"
-  forM_ [0,10..150] $ \n -> do
-    let x =  generateWith (vectorOf n genAdaOnlyTxOut) 42
-        term = mkScriptUsingBuiltin x
-    case runTerm term of
-      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
-          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
 
   printf "\n"
   printf "----------------------------------------------------------------"
@@ -106,6 +92,7 @@ main = do
   forM_ [0,10..150] $ \n -> do
     let x = generateWith (genTxOut n) 42
     let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutValidator
+    -- encodingToBuiltinByteString . encodeTxOut
     case evaluateScriptExecutionUnits (encodeTxOutValidator RealValidator) x of
       Right (ExUnits absMem absCpu) ->
            printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
@@ -118,13 +105,52 @@ main = do
   forM_ [0,10..150] $ \n -> do
     let x = generateWith (genTxOut n) 42
     let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutValidator2
+      -- serialiseData . toBuiltinData
     case evaluateScriptExecutionUnits (encodeTxOutValidator2 RealValidator) x of
       Right (ExUnits absMem absCpu) ->
            printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
       Left e -> printf "ERROR: %s\n" e
 
 
+  printf "\n\n"
+  printf "Serialisation/toBuiltinData costs only\n"
+  printf "======================================\n\n"
+
+  printf "# List of ADA-only TxOut, by list size (library).\n"
+  printf "   n         mem         cpu\n"
+  forM_ [0,10..150] $ \n -> do
+    let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
+        term = mkScriptUsingEncode' x
+    case runTerm term of
+      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
+          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
+
   printf "\n"
+
+  printf "# List of ADA-only TxOut, by list size (builtin, toData on-chain).\n"
+  printf "   n         mem         cpu\n"
+  forM_ [0,10..150] $ \n -> do
+    let x =  generateWith (vectorOf n genAdaOnlyTxOut) 42
+        term = mkScriptUsingBuiltin_toData_onchain' x
+    case runTerm term of
+      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
+          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
+
+  printf "\n"
+
+  printf "# List of ADA-only TxOut, by list size (builtin, toData off-chain).\n"
+  printf "   n         mem         cpu\n"
+  forM_ [0,10..150] $ \n -> do
+    let x =  generateWith (vectorOf n genAdaOnlyTxOut) 42
+        term = mkScriptUsingBuiltin_toData_offchain x
+    case runTerm term of
+      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
+          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
+
+  printf "\n"
+  printf "----------------------------------------------------------------"
+  printf "\n\n"
+
   printf "# Single multi-asset TxOut, by number of assets (library).\n"
   printf "   n         mem         cpu\n"
   forM_ [0,10..150] $ \n -> do
@@ -135,17 +161,33 @@ main = do
           printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
 
   printf "\n"
-  printf "# Single multi-asset TxOut, by number of assets (builtin).\n"
+  printf "# Single multi-asset TxOut, by number of assets (builtin, toData on-chain).\n"
   printf "   n         mem         cpu\n"
   forM_ [0,10..150] $ \n -> do
     let x = generateWith (genTxOut n) 42
-        term = mkScriptUsingBuiltin x
+        term = mkScriptUsingBuiltin_toData_onchain x
+    case runTerm term of
+      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
+          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
+
+
+  printf "\n"
+  printf "# Single multi-asset TxOut, by number of assets (builtin, toData off-chain).\n"
+  printf "   n         mem         cpu\n"
+  forM_ [0,10..150] $ \n -> do
+    let x = generateWith (genTxOut n) 42
+        term = mkScriptUsingBuiltin_toData_offchain x
     case runTerm term of
       Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
           printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
 
 
 type Term name = UPLC.Term name UPLC.DefaultUni UPLC.DefaultFun ()
+type Program name = UPLC.Program name UPLC.DefaultUni UPLC.DefaultFun ()
+
+bodyOf :: Program name -> Term name
+bodyOf (UPLC.Program _ _ term) = term
+
 
 runTerm :: Term UPLC.NamedDeBruijn -> Plutus.ExBudget
 runTerm t = case runExcept @PLC.FreeVariableError $ PLC.runQuoteT $ UPLC.unDeBruijnTerm t of
@@ -154,33 +196,56 @@ runTerm t = case runExcept @PLC.FreeVariableError $ PLC.runQuoteT $ UPLC.unDeBru
                   (_result, Cek.CountingSt budget) -> budget
 
 
+-- Take a TxOut, lift it to a Scott object, then serialise "on chain" using the library
 mkScriptUsingEncode ::  Plutus.TxOut -> Term UPLC.NamedDeBruijn
-mkScriptUsingEncode x =
- let (UPLC.Program _ _ code) = Tx.getPlc $
-                               $$(Tx.compile [||
-                                              \y -> encodingToBuiltinByteString (encodeTxOut y)
-                                             ||])
-                                  `Tx.applyCode`
-                                       (Tx.liftCode x)
- in code
+mkScriptUsingEncode txout =
+    bodyOf . Tx.getPlc $
+               $$(Tx.compile [||
+                              \x -> let bytes = encodingToBuiltinByteString (encodeTxOut x)
+                                    in Tx.lengthOfByteString bytes `Tx.greaterThanInteger`  0
+                                           ||])
+                     `Tx.applyCode` Tx.liftCode txout
 
+-- Take a list of TxOuts, lift it to a Scott object, then serialise "on chain" using the library.
 mkScriptUsingEncode' ::  [Plutus.TxOut] -> Term UPLC.NamedDeBruijn
-mkScriptUsingEncode' x =
- let (UPLC.Program _ _ code) = Tx.getPlc $
-                               $$(Tx.compile [||
-                                             \y -> encodingToBuiltinByteString (encodeList encodeTxOut y)
-                                             ||])
-                                  `Tx.applyCode`
-                                       (Tx.liftCode x)
- in code
+mkScriptUsingEncode' txout =
+    bodyOf . Tx.getPlc $
+               $$(Tx.compile [||
+                              \x -> let bytes = encodingToBuiltinByteString (encodeList encodeTxOut x)
+                                    in Tx.lengthOfByteString bytes `Tx.greaterThanInteger`  0
+                                           ||])
+                     `Tx.applyCode` Tx.liftCode txout
 
-mkScriptUsingBuiltin :: Tx.ToData a => a -> Term UPLC.NamedDeBruijn
-mkScriptUsingBuiltin x =
- let (UPLC.Program _ _ code) = Tx.getPlc $
-                               $$(Tx.compile [|| Tx.serialiseData ||])
-                                     `Tx.applyCode`
-                                          (Tx.liftCode (Tx.toBuiltinData x))
- in code
+-- Take anything that can be converted to Data, do so off chain, lift the Data object, then serialise that using the builtin
+mkScriptUsingBuiltin_toData_offchain :: Tx.ToData a => a -> Term UPLC.NamedDeBruijn
+mkScriptUsingBuiltin_toData_offchain x =
+    bodyOf . Tx.getPlc $
+            $$(Tx.compile [||
+                           \y -> let bytes = Tx.serialiseData y
+                                 in Tx.lengthOfByteString bytes `Tx.greaterThanInteger` 0 ||])
+                  `Tx.applyCode` Tx.liftCode (Tx.toBuiltinData x)
+
+mkScriptUsingBuiltin_toData_onchain :: Plutus.TxOut -> Term UPLC.NamedDeBruijn
+mkScriptUsingBuiltin_toData_onchain txOut =
+    bodyOf . Tx.getPlc $
+            $$(Tx.compile [||
+                           \(x::Plutus.TxOut) ->
+                               let bytes = Tx.serialiseData (Tx.toBuiltinData x)  -- !!! REPLACE THIS WITH  Tx.serialiseData $ Tx.toBuiltinData x
+                               in Tx.lengthOfByteString bytes `Tx.greaterThanInteger` 0
+                          ||])
+                  `Tx.applyCode` Tx.liftCode txOut
+
+mkScriptUsingBuiltin_toData_onchain' :: [Plutus.TxOut] -> Term UPLC.NamedDeBruijn
+mkScriptUsingBuiltin_toData_onchain' txOuts =
+    bodyOf . Tx.getPlc $
+               $$(Tx.compile
+                        [||
+                         \(xs::[Plutus.TxOut]) ->
+                             let bytes = Tx.serialiseData (Tx.toBuiltinData xs)
+                             in Tx.lengthOfByteString bytes `Tx.greaterThanInteger` 0
+                        ||])
+                     `Tx.applyCode` Tx.liftCode txOuts
+
 
 relativeCostOf ::
   (Plutus.ToData a) =>
