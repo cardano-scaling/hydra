@@ -131,8 +131,8 @@ encodeTxOutsValidator = \case
  where
   wrap = Scripts.wrapValidator @() @[TxOut]
 
-encodeTxOutValidator2 :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator TxOut)
-encodeTxOutValidator2 = \case
+encodeTxOutValidatorUsingBuiltin :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator TxOut)
+encodeTxOutValidatorUsingBuiltin = \case
   BaselineValidator ->
     Scripts.mkTypedValidator @(EncodeValidator TxOut)
       $$(Plutus.compile [||\() _ _ctx -> True||])
@@ -150,8 +150,8 @@ encodeTxOutValidator2 = \case
  where
   wrap = Scripts.wrapValidator @() @TxOut
 
-encodeTxOutsValidator2 :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator [TxOut])
-encodeTxOutsValidator2 = \case
+encodeTxOutsValidatorUsingBuiltin :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator [TxOut])
+encodeTxOutsValidatorUsingBuiltin = \case
   BaselineValidator ->
     Scripts.mkTypedValidator @(EncodeValidator [TxOut])
       $$(Plutus.compile [||\() _ _ctx -> True||])

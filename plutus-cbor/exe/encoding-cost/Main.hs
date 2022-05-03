@@ -6,18 +6,18 @@ import           Hydra.Prelude                            hiding (label)
 
 import           Control.Exception                        (throw)
 import           Control.Monad.Except
-import           Data.Binary.Builder                      (toLazyByteString)
-import           Data.ByteString.Builder.Scientific       (FPFormat (Fixed),
-                                                           formatScientificBuilder)
-import           Data.Ratio                               ((%))
-import           Data.Scientific                          (unsafeFromRational)
+import           GHC.IO.Encoding
+import           Test.QuickCheck                          (vectorOf)
+import           Text.Printf                              (printf)
+
+
 import qualified Ledger.Typed.Scripts                     as Scripts
 import           Plutus.Codec.CBOR.Encoding.Validator     (EncodeValidator,
                                                            ValidatorKind (..),
                                                            encodeTxOutValidator,
-                                                           encodeTxOutValidator2,
+                                                           encodeTxOutValidatorUsingBuiltin,
                                                            encodeTxOutsValidator,
-                                                           encodeTxOutsValidator2)
+                                                           encodeTxOutsValidatorUsingBuiltin)
 import qualified Plutus.V1.Ledger.Api                     as Plutus
 import qualified PlutusCore                               as PLC
 import           Test.Plutus.Validator                    (ExUnits (..),
@@ -26,9 +26,6 @@ import           Test.Plutus.Validator                    (ExUnits (..),
 import qualified UntypedPlutusCore                        as UPLC
 import           UntypedPlutusCore.Evaluation.Machine.Cek as Cek
 
-import           Test.QuickCheck                          (vectorOf)
-
-import           Text.Printf                              (printf)
 
 
 import           Terms
@@ -40,152 +37,19 @@ maxExecutionUnits =  ExUnits
     , exUnitsSteps = 10_000_000_000
     }
 
-
-main :: IO ()
-main = do
-  printf "\n"
-  printf "Full validations\n"
-  printf "================\n\n"
-
-  printf "# List of ADA-only TxOut; Scott-encoded TxOut serialised using encoder on-chain.\n"
-  printf "   n         mem         cpu        %%mem      %%cpu\n"
-  forM_ [0,10..150] $ \n -> do
-    let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
-    let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutsValidator
-    -- encodingToBuiltinByteString (encodeList encodeTxOut xs)
-    case evaluateScriptExecutionUnits (encodeTxOutsValidator RealValidator) x of
-      Right (ExUnits absMem absCpu) ->
-           printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
-      Left e -> printf "ERROR: %s\n" e
-
-  printf "\n"
-
-  printf "# List of ADA-only TxOut; serialised on-chain using serialiseData . toBuiltinData.\n"
-  forM_ [0,10..150] $ \n -> do
-    let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
-    let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutsValidator2
-    -- Plutus.serialiseData (Plutus.toBuiltinData xs)
-    case evaluateScriptExecutionUnits (encodeTxOutsValidator2 RealValidator) x of
-      Right (ExUnits absMem absCpu) ->
-           printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
-      Left e -> printf "ERROR: %s\n" e
-
-  printf "\n"
-  printf "----------------------------------------------------------------"
-  printf "\n\n"
-
-  printf "# Single multi-asset TxOut; Scott-encoded TxOut serialised using encoder on-chain.\n"
-  printf "   n         mem         cpu       %%mem      %%cpu\n"
-  forM_ [0,10..150] $ \n -> do
-    let x = generateWith (genTxOut n) 42
-    let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutValidator
-    -- encodingToBuiltinByteString . encodeTxOut
-    case evaluateScriptExecutionUnits (encodeTxOutValidator RealValidator) x of
-      Right (ExUnits absMem absCpu) ->
-           printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
-      Left e -> printf "ERROR: %s\n" e
-
-
-  printf "\n"
-  printf "# Single multi-asset TxOut; serialised on-chain using serialiseData . toBuiltinData.\n"
-  printf "   n         mem         cpu       %%mem      %%cpu\n"
-  forM_ [0,10..150] $ \n -> do
-    let x = generateWith (genTxOut n) 42
-    let (mem, cpu) = relativeCostOf x maxExecutionUnits encodeTxOutValidator2
-      -- serialiseData . toBuiltinData
-    case evaluateScriptExecutionUnits (encodeTxOutValidator2 RealValidator) x of
-      Right (ExUnits absMem absCpu) ->
-           printf "%4d %12d %12d %s%% %s%%\n" n absMem absCpu (rationalToPercent mem) (rationalToPercent cpu)
-      Left e -> printf "ERROR: %s\n" e
-
-
-  printf "\n\n"
-  printf "Serialisation/toBuiltinData costs only\n"
-  printf "======================================\n\n"
-
-  printf "# List of ADA-only TxOut, by list size (library).\n"
-  printf "   n         mem         cpu\n"
-  forM_ [0,10..150] $ \n -> do
-    let txouts = generateWith (vectorOf n genAdaOnlyTxOut) 42
-        term = serialiseMultipleScottTxOutsUsingLibrary txouts
-    case runTerm term of
-      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
-          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
-
-  printf "\n"
-
-  printf "# List of ADA-only TxOut, by list size (builtin, toData on-chain).\n"
-  printf "   n         mem         cpu\n"
-  forM_ [0,10..150] $ \n -> do
-    let txouts =  generateWith (vectorOf n genAdaOnlyTxOut) 42
-        term = serialiseMultipleScottTxOutsUsingBuiltin txouts
-    case runTerm term of
-      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
-          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
-
-  printf "\n"
-
-  printf "# List of ADA-only TxOut, by list size (builtin, toData off-chain).\n"
-  printf "   n         mem         cpu\n"
-  forM_ [0,10..150] $ \n -> do
-    let txouts =  generateWith (vectorOf n genAdaOnlyTxOut) 42
-        term = serialiseUsingBuiltin_after_toDataOffChain txouts
-    case runTerm term of
-      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
-          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
-
-  printf "\n"
-  printf "----------------------------------------------------------------"
-  printf "\n\n"
-
-  printf "# Single multi-asset TxOut, by number of assets (library).\n"
-  printf "   n         mem         cpu\n"
-  forM_ [0,10..150] $ \n -> do
-    let txout = generateWith (genTxOut n) 42
-        term = serialiseSingleScottTxOutUsingLibrary txout
-    case runTerm term of
-      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
-          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
-
-  printf "\n"
-  printf "# Single multi-asset TxOut, by number of assets (builtin, toData on-chain).\n"
-  printf "   n         mem         cpu\n"
-  forM_ [0,10..150] $ \n -> do
-    let txout = generateWith (genTxOut n) 42
-        term = serialiseSingleScottTxOutUsingBuiltin txout
-    case runTerm term of
-      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
-          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
-
-
-  printf "\n"
-  printf "# Single multi-asset TxOut, by number of assets (builtin, toData off-chain).\n"
-  printf "   n         mem         cpu\n"
-  forM_ [0,10..150] $ \n -> do
-    let txout = generateWith (genTxOut n) 42
-        term = serialiseUsingBuiltin_after_toDataOffChain txout
-    case runTerm term of
-      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
-          printf "%4d %12s %12s\n" n (show absMem :: String) (show absCpu :: String)
-
-
-
-
 runTerm :: Term UPLC.NamedDeBruijn -> Plutus.ExBudget
 runTerm t = case runExcept @PLC.FreeVariableError $ PLC.runQuoteT $ UPLC.unDeBruijnTerm t of
     Left e   -> throw e
     Right t' -> case Cek.runCekNoEmit PLC.defaultCekParameters Cek.counting t' of
                   (_result, Cek.CountingSt budget) -> budget
 
-
-
-relativeCostOf ::
+relativeCostAsPercentage ::
   (Plutus.ToData a) =>
   a ->
   ExUnits ->
   (ValidatorKind -> Scripts.TypedValidator (EncodeValidator a)) ->
-  (Rational, Rational)
-relativeCostOf a (ExUnits maxMem maxCpu) validator =
+  (Float, Float)
+relativeCostAsPercentage a (ExUnits maxMem maxCpu) validator =
   (relativeMemCost, relativeCpuCost)
  where
   ExUnits mem cpu = either (error . show) id $ do
@@ -194,17 +58,141 @@ relativeCostOf a (ExUnits maxMem maxCpu) validator =
     pure $ distanceExUnits base real
 
   (relativeMemCost, relativeCpuCost) =
-    ( toInteger mem % toInteger maxMem
-    , toInteger cpu % toInteger maxCpu
+    ( (fromIntegral mem) / (fromIntegral maxMem) * 100
+    , (fromIntegral cpu) / (fromIntegral maxCpu) * 100
     )
 
---
--- Helpers
---
 
-rationalToPercent :: Rational -> Text
-rationalToPercent r =
-  padLeft ' ' 8 $ decodeUtf8 (toLazyByteString $ toFixedDecimals 2 $ 100 * r)
- where
-  toFixedDecimals n = formatScientificBuilder Fixed (Just n) . unsafeFromRational
+toMicroseconds :: Integral a => a -> Float
+toMicroseconds x = (fromIntegral x)/1e6
+
+-- Statistics for calculated budgets of full validators
+
+printRelativeHeader :: IO ()
+printRelativeHeader =
+    printf "   n         mem         cpu        %%mem      %%cpu\n"
+
+-- Some code abstracted from the original
+printRelativeBudget ::
+    (Plutus.ToData a)
+    => Int
+    -> a
+    -> (ValidatorKind -> Scripts.TypedValidator (EncodeValidator a))
+    -> IO ()
+printRelativeBudget n x encoder = do
+    let (mem, cpu) = relativeCostAsPercentage x maxExecutionUnits encoder
+    -- encodingToBuiltinByteString (encodeList encodeTxOut xs)
+    case evaluateScriptExecutionUnits (encoder RealValidator) x of
+      Right (ExUnits absMem absCpu) ->
+           printf "%4d %12d %8.0f µs %8.2f%% %8.2f%%\n" n absMem (toMicroseconds absCpu) mem cpu
+      Left e -> printf "ERROR: %s\n" e
+
+
+-- Statistics for calculated budgets of serialisation-only scripts.
+
+printBudgetHeader :: IO ()
+printBudgetHeader =
+    printf "   n         mem         cpu       cpu/1e6\n"
+
+printBudget :: Int -> Plutus.ExBudget -> IO ()
+printBudget n budget =
+    case budget of
+      Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
+          printf "%4d %12s %12s %8.0f µs\n" n (show absMem :: String) (show absCpu :: String) (toMicroseconds absCpu)
+
+main :: IO ()
+main = do
+  setLocaleEncoding utf8  -- problems with mu
+  printf "\n"
+  printf "Full validations\n"
+  printf "================\n\n"
+
+  printf "# List of ADA-only TxOut; Scott-encoded TxOut serialised using plutus-cbor on-chain.\n"
+  printRelativeHeader
+  forM_ [0,10..150] $ \n -> do
+    let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
+    printRelativeBudget n x encodeTxOutsValidator
+
+  printf "\n"
+
+  printf "# List of ADA-only TxOut; serialised on-chain using serialiseData . toBuiltinData.\n"
+  printRelativeHeader
+  forM_ [0,10..150] $ \n -> do
+    let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
+    printRelativeBudget n x encodeTxOutsValidatorUsingBuiltin
+
+  printf "\n"
+  printf "----------------------------------------------------------------"
+  printf "\n\n"
+
+  printf "# Single multi-asset TxOut; Scott-encoded TxOut serialised using plutus-cbor on-chain.\n"
+  printRelativeHeader
+  forM_ [0,10..150] $ \n -> do
+    let x = generateWith (genTxOut n) 42
+    printRelativeBudget n x encodeTxOutValidator
+
+  printf "\n"
+  printf "# Single multi-asset TxOut; serialised on-chain using serialiseData . toBuiltinData.\n"
+  printRelativeHeader
+  forM_ [0,10..150] $ \n -> do
+    let x = generateWith (genTxOut n) 42
+    printRelativeBudget n x encodeTxOutValidatorUsingBuiltin
+
+
+  printf "\n\n"
+  printf "Serialisation/toBuiltinData costs only\n"
+  printf "======================================\n\n"
+
+  printf "# List of ADA-only TxOut, by list size (library).\n"
+  printBudgetHeader
+  forM_ [0,10..150] $ \n -> do
+    let txouts = generateWith (vectorOf n genAdaOnlyTxOut) 42
+        term = serialiseMultipleScottTxOutsUsingLibrary txouts
+    printBudget n $ runTerm term
+
+  printf "\n"
+
+  printf "# List of ADA-only TxOut, by list size (builtin, toData on-chain).\n"
+  printBudgetHeader
+  forM_ [0,10..150] $ \n -> do
+    let txouts =  generateWith (vectorOf n genAdaOnlyTxOut) 42
+        term = serialiseMultipleScottTxOutsUsingBuiltin txouts
+    printBudget n $ runTerm term
+
+  printf "\n"
+
+  printf "# List of ADA-only TxOut, by list size (builtin, toData off-chain).\n"
+  printBudgetHeader
+  forM_ [0,10..150] $ \n -> do
+    let txouts =  generateWith (vectorOf n genAdaOnlyTxOut) 42
+        term = serialiseUsingBuiltin_after_toDataOffChain txouts
+    printBudget n $ runTerm term
+
+  printf "\n"
+  printf "----------------------------------------------------------------"
+  printf "\n\n"
+
+  printf "# Single multi-asset TxOut, by number of assets (library).\n"
+  printBudgetHeader
+  forM_ [0,10..150] $ \n -> do
+    let txout = generateWith (genTxOut n) 42
+        term = serialiseSingleScottTxOutUsingLibrary txout
+    printBudget n $ runTerm term
+
+  printf "\n"
+  printf "# Single multi-asset TxOut, by number of assets (builtin, toData on-chain).\n"
+  printBudgetHeader
+  forM_ [0,10..150] $ \n -> do
+    let txout = generateWith (genTxOut n) 42
+        term = serialiseSingleScottTxOutUsingBuiltin txout
+    printBudget n $ runTerm term
+
+
+  printf "\n"
+  printf "# Single multi-asset TxOut, by number of assets (builtin, toData off-chain).\n"
+  printBudgetHeader
+  forM_ [0,10..150] $ \n -> do
+    let txout = generateWith (genTxOut n) 42
+        term = serialiseUsingBuiltin_after_toDataOffChain txout
+    printBudget n $ runTerm term
 

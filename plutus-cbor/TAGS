@@ -85,14 +85,18 @@ encodeUnsigned16 encodeUnsigned16334,335
 encodeUnsigned32 encodeUnsigned32339,340
 encodeUnsigned64 encodeUnsigned64344,345
 
-./exe/encoding-cost/Main.hs,169
-maxExecutionUnits maxExecutionUnits36,37
-main main43,44
-runTerm runTerm173,174
-relativeCostOf relativeCostOf181,182
-rationalToPercent rationalToPercent204,205
+./exe/encoding-cost/Main.hs,347
+maxExecutionUnits maxExecutionUnits33,34
+runTerm runTerm39,40
+relativeCostAsPercentage relativeCostAsPercentage45,46
+toMicroseconds toMicroseconds65,66
+printRelativeHeader printRelativeHeader70,71
+printRelativeBudget printRelativeBudget75,76
+printBudgetHeader printBudgetHeader92,93
+printBudget printBudget96,97
+main main102,103
 
-./exe/encoding-cost/Plutus/Codec/CBOR/Encoding/Validator.hs,970
+./exe/encoding-cost/Plutus/Codec/CBOR/Encoding/Validator.hs,1014
 module Plutus.Codec.CBOR.Encoding.Validator Plutus.Codec.CBOR.Encoding.Validator4,5
 data EncodeValidator EncodeValidator26,27
 data ValidatorKind ValidatorKind28,29
@@ -106,8 +110,8 @@ encodeByteStringValidator encodeByteStringValidator55,56
 encodeListValidator encodeListValidator74,75
 encodeTxOutValidator encodeTxOutValidator95,96
 encodeTxOutsValidator encodeTxOutsValidator114,115
-encodeTxOutValidator2 encodeTxOutValidator2133,134
-encodeTxOutsValidator2 encodeTxOutsValidator2152,153
+encodeTxOutValidatorUsingBuiltin encodeTxOutValidatorUsingBuiltin133,134
+encodeTxOutsValidatorUsingBuiltin encodeTxOutsValidatorUsingBuiltin152,153
 encodeTxOut encodeTxOut171,172
 encodeAddress encodeAddress185,186
 encodeValue encodeValue194,195
