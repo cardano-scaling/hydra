@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
 -- | Criterion benchmark of on-chain serialisation times of some Plutus values
 -- to ByteString using the plutus-cbor library and also the serialiseData
@@ -48,7 +47,6 @@ main = do
         (map (mkAdaOnlyBM serialiseMultipleScottTxOutsUsingBuiltin) sizes)
       ,  bgroup "builtin.todata.offchain"
         (map (mkAdaOnlyBM serialiseUsingBuiltin_after_toDataOffChain) sizes)
-
       ]
     , bgroup
       "multi-asset"

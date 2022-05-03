@@ -113,17 +113,13 @@ encodeAddress encodeAddress185,186
 encodeValue encodeValue194,195
 encodeDatum encodeDatum202,203
 
-./bench/BenchHaskell.hs,243
+./bench/BenchHaskell.hs,115
 module Main Main2,3
-main main27,28
-cborgSerialize cborgSerialize55,56
-plutusSerialize plutusSerialize59,60
-encodeTxOut encodeTxOut62,63
-encodeAddress encodeAddress76,77
-encodeValue encodeValue85,86
-encodeDatum encodeDatum93,94
+cborgSerialize cborgSerialize18,19
+plutusSerialize plutusSerialize22,23
+main main25,26
 
 ./bench/BenchPlc.hs,64
-module Main Main5,6
-benchCek benchCek25,26
-main main32,33
+module Main Main4,5
+benchCek benchCek24,25
+main main31,32
