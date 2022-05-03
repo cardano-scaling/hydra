@@ -48,7 +48,6 @@ library
     , QuickCheck
     , random-shuffle
     , relude
-    , serialise
     , strict-containers
     , temporary
     , warp
