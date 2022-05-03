@@ -35,10 +35,13 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) wher
     , confirmed' <- shrink (confirmed s)
     ]
 
+-- | Binary representation of snapshot signatures
+-- TODO: document CDDL format, either here or on the verification site
 -- REVIEW: Why is the @tx necessary here? It surprised us a bit that we need it.
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation Snapshot{number, utxo} =
-    serialize' number <> hashUTxO @tx utxo
+    serialize' number -- CBOR integer
+      <> serialize' (hashUTxO @tx utxo) -- CBOR bytestring
 
 instance IsTx tx => ToJSON (Snapshot tx) where
   toJSON s =
