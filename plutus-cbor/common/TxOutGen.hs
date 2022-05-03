@@ -1,4 +1,6 @@
-module TxGen
+{-# LANGUAGE NumericUnderscores #-}
+
+module TxOutGen
 where
 
 import           Hydra.Prelude        hiding ((<>))

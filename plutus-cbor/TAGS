@@ -22,6 +22,37 @@ shrinkByteString shrinkByteString241,242
 genList genList245,246
 genMap genMap250,251
 
+./common/Terms.hs,532
+module Terms Terms4,5
+type Term Term22,23
+type Program Program23,24
+bodyOf bodyOf25,26
+serialiseSingleScottTxOutUsingLibrary serialiseSingleScottTxOutUsingLibrary32,33
+serialiseMultipleScottTxOutsUsingLibrary serialiseMultipleScottTxOutsUsingLibrary44,45
+serialiseSingleScottTxOutUsingBuiltin serialiseSingleScottTxOutUsingBuiltin60,61
+serialiseMultipleScottTxOutsUsingBuiltin serialiseMultipleScottTxOutsUsingBuiltin72,73
+serialiseUsingBuiltin_after_toDataOffChain serialiseUsingBuiltin_after_toDataOffChain89,90
+
+./common/TxOutGen.hs,375
+module TxOutGenTxOutGen2,3
+genTxOut genTxOut15,16
+genAdaOnlyTxOut genAdaOnlyTxOut22,23
+genAddress genAddress29,30
+genValue genValue35,36
+genAdaOnlyValue genAdaOnlyValue45,46
+genAssetQuantity genAssetQuantity53,54
+genCurrencySymbol genCurrencySymbol56,57
+genTokenName genTokenName61,62
+genDatumHash genDatumHash66,67
+genByteStringOf genByteStringOf71,72
+
+./common/EncodeTxOut.hs,164
+module EncodeTxOut EncodeTxOut4,5
+encodeTxOut encodeTxOut24,25
+encodeAddress encodeAddress38,39
+encodeValue encodeValue47,48
+encodeDatum encodeDatum55,56
+
 ./src/Plutus/Codec/CBOR/Encoding.hs,1145
 module Plutus.Codec.CBOR.Encoding Plutus.Codec.CBOR.Encoding41,42
 newtype Encoding Encoding85,86
@@ -54,31 +85,12 @@ encodeUnsigned16 encodeUnsigned16334,335
 encodeUnsigned32 encodeUnsigned32339,340
 encodeUnsigned64 encodeUnsigned64344,345
 
-./exe/encoding-cost/Main.hs,972
-maxExecutionUnits maxExecutionUnits41,42
-main main56,57
-type Term Term184,185
-type Program Program185,186
-bodyOf bodyOf187,188
-runTerm runTerm191,192
-mkScriptUsingEncode mkScriptUsingEncode199,200
-mkScriptUsingEncode' mkScriptUsingEncode'209,210
-mkScriptUsingBuiltin_toData_offchain mkScriptUsingBuiltin_toData_offchain219,220
-mkScriptUsingBuiltin_toData_onchain mkScriptUsingBuiltin_toData_onchain227,228
-mkScriptUsingBuiltin_toData_onchain' mkScriptUsingBuiltin_toData_onchain'237,238
-relativeCostOf relativeCostOf249,250
-rationalToPercent rationalToPercent272,273
-genTxOut genTxOut282,283
-genAdaOnlyTxOut genAdaOnlyTxOut289,290
-genAddress genAddress296,297
-genValue genValue302,303
-genAdaOnlyValue genAdaOnlyValue312,313
-genAssetQuantity genAssetQuantity320,321
-genCurrencySymbol genCurrencySymbol323,324
-genTokenName genTokenName328,329
-genDatumHash genDatumHash333,334
-genByteStringOf genByteStringOf338,339
-f f343,344
+./exe/encoding-cost/Main.hs,169
+maxExecutionUnits maxExecutionUnits36,37
+main main43,44
+runTerm runTerm173,174
+relativeCostOf relativeCostOf181,182
+rationalToPercent rationalToPercent204,205
 
 ./exe/encoding-cost/Plutus/Codec/CBOR/Encoding/Validator.hs,970
 module Plutus.Codec.CBOR.Encoding.Validator Plutus.Codec.CBOR.Encoding.Validator4,5
@@ -111,33 +123,7 @@ encodeAddress encodeAddress76,77
 encodeValue encodeValue85,86
 encodeDatum encodeDatum93,94
 
-./bench/BenchPlc.hs,889
+./bench/BenchPlc.hs,64
 module Main Main5,6
-type Program Program44,45
-type Term Term45,46
-bodyOf bodyOf47,48
-benchCek benchCek50,51
-serialiseMultipleTxOutsUsingLibrary_onchain serialiseMultipleTxOutsUsingLibrary_onchain55,56
-serialiseMultipleTxOutsUsingBuiltin_toData_onchain serialiseMultipleTxOutsUsingBuiltin_toData_onchain67,68
-serialiseMultipleTxOutsUsingBuiltin_toData_offchain serialiseMultipleTxOutsUsingBuiltin_toData_offchain80,81
-serialiseSingleTxOutUsingLibrary_onchain serialiseSingleTxOutUsingLibrary_onchain92,93
-serialiseSingleTxOutUsingBuiltin_toData_onchain serialiseSingleTxOutUsingBuiltin_toData_onchain108,109
-serialiseSingleTxOutUsingBuiltin_toData_offchain serialiseSingleTxOutUsingBuiltin_toData_offchain121,122
-encodeTxOut encodeTxOut135,136
-encodeAddress encodeAddress149,150
-encodeValue encodeValue158,159
-encodeDatum encodeDatum166,167
-main main175,176
-
-./bench/TxGen.hs,369
-module TxGenTxGen0,1
-genTxOut genTxOut13,14
-genAdaOnlyTxOut genAdaOnlyTxOut20,21
-genAddress genAddress27,28
-genValue genValue33,34
-genAdaOnlyValue genAdaOnlyValue43,44
-genAssetQuantity genAssetQuantity51,52
-genCurrencySymbol genCurrencySymbol54,55
-genTokenName genTokenName59,60
-genDatumHash genDatumHash64,65
-genByteStringOf genByteStringOf69,70
+benchCek benchCek25,26
+main main32,33
