@@ -49,7 +49,7 @@ import Hydra.HeadLogic (
   emitSnapshot,
  )
 import qualified Hydra.HeadLogic as Logic
-import Hydra.Ledger (IsTx, Ledger, TxIdType, UTxOType)
+import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -102,7 +102,7 @@ data HydraNodeLog tx
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrary (HydraNodeLog tx) where
+instance IsTx tx => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 createHydraNode ::

@@ -53,7 +53,7 @@ deriving instance IsTx tx => Show (PostChainTx tx)
 deriving instance IsTx tx => ToJSON (PostChainTx tx)
 deriving instance IsTx tx => FromJSON (PostChainTx tx)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (PostChainTx tx) where
+instance IsTx tx => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
 
 -- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
@@ -114,14 +114,7 @@ data PostTxError tx
 deriving instance IsTx tx => Eq (PostTxError tx)
 deriving instance IsTx tx => Show (PostTxError tx)
 
-instance
-  ( Arbitrary tx
-  , Arbitrary (UTxOType tx)
-  , Arbitrary (TxIdType tx)
-  , IsTx tx
-  ) =>
-  Arbitrary (PostTxError tx)
-  where
+instance IsTx tx => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary
 
 -- | Handle to interface with the main chain network

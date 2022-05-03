@@ -8,6 +8,7 @@ class
   ( Eq tx
   , Show tx
   , Typeable tx
+  , Arbitrary tx
   , FromCBOR tx
   , ToCBOR tx
   , FromJSON tx
@@ -17,11 +18,13 @@ class
   , Ord (TxIdType tx)
   , Show (TxIdType tx)
   , Typeable (TxIdType tx)
+  , Arbitrary (TxIdType tx)
   , FromJSON (TxIdType tx)
   , ToJSON (TxIdType tx)
   , --
     Eq (UTxOType tx)
   , Show (UTxOType tx)
+  , Arbitrary (UTxOType tx)
   , FromJSON (UTxOType tx)
   , Monoid (UTxOType tx)
   , ToJSON (UTxOType tx)

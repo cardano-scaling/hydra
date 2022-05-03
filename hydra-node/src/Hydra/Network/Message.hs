@@ -21,7 +21,7 @@ data Message tx
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Message tx) where
+instance IsTx tx => Arbitrary (Message tx) where
   arbitrary = genericArbitrary
 
 instance (ToCBOR tx, ToCBOR (UTxOType tx)) => ToCBOR (Message tx) where

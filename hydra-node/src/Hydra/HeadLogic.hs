@@ -27,7 +27,6 @@ import Hydra.Crypto (Signature, SigningKey, aggregateInOrder, sign, verify)
 import Hydra.Ledger (
   IsTx,
   Ledger,
-  TxIdType,
   UTxOType,
   ValidationError,
   ValidationResult (Invalid, Valid),
@@ -48,7 +47,7 @@ data Event tx
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrary (Event tx) where
+instance IsTx tx => Arbitrary (Event tx) where
   arbitrary = genericArbitrary
 
 data Effect tx
@@ -58,7 +57,7 @@ data Effect tx
   | Delay {delay :: DiffTime, reason :: WaitReason, event :: Event tx}
   deriving stock (Generic)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrary (Effect tx) where
+instance IsTx tx => Arbitrary (Effect tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (Effect tx)
@@ -104,7 +103,7 @@ data HeadState tx
       }
   deriving stock (Generic)
 
-instance (Arbitrary (UTxOType tx), Arbitrary tx, IsTx tx) => Arbitrary (HeadState tx) where
+instance IsTx tx => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (HeadState tx)
@@ -123,7 +122,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   }
   deriving stock (Generic)
 
-instance (Arbitrary (UTxOType tx), Arbitrary tx, IsTx tx) => Arbitrary (CoordinatedHeadState tx) where
+instance IsTx tx => Arbitrary (CoordinatedHeadState tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (CoordinatedHeadState tx)
@@ -140,7 +139,7 @@ data SeenSnapshot tx
       }
   deriving stock (Generic)
 
-instance (Arbitrary (UTxOType tx), Arbitrary tx, IsTx tx) => Arbitrary (SeenSnapshot tx) where
+instance IsTx tx => Arbitrary (SeenSnapshot tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (SeenSnapshot tx)
@@ -161,7 +160,7 @@ data LogicError tx
 
 instance IsTx tx => Exception (LogicError tx)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrary (LogicError tx) where
+instance IsTx tx => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => ToJSON (LogicError tx)

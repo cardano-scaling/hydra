@@ -92,13 +92,13 @@ isInitialSnapshot = \case
   InitialSnapshot{} -> True
   ConfirmedSnapshot{} -> False
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
+instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- fmap Hydra.generateSigningKey <$> arbitrary
     genConfirmedSnapshot ks
 
 genConfirmedSnapshot ::
-  (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) =>
+  IsTx tx =>
   [Hydra.SigningKey] ->
   Gen (ConfirmedSnapshot tx)
 genConfirmedSnapshot sks =
