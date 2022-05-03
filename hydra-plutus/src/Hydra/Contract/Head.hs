@@ -77,8 +77,8 @@ headValidator commitAddress initialAddress oldState input context =
       checkCollectCom context headContext (contestationPeriod, parties)
     (Initial{parties}, Abort) ->
       checkAbort context headContext parties
-    (Open{parties}, Close{snapshotNumber, utxoHash, signature}) ->
-      checkClose context headContext parties snapshotNumber utxoHash signature
+    (Open{parties, utxoHash = initialUtxoHash}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
+      checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
     _ -> traceError "invalid head state transition"
@@ -273,17 +273,22 @@ checkClose ::
   ScriptContext ->
   HeadContext ->
   [Party] ->
+  BuiltinByteString ->
   SnapshotNumber ->
   BuiltinByteString ->
   [Signature] ->
   Bool
-checkClose context headContext parties snapshotNumber utxoHash sig =
+checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig =
   checkSnapshot && mustBeSignedByParticipant context headContext
  where
   checkSnapshot
-    | snapshotNumber == 0 = True
-    | snapshotNumber > 0 = verifySnapshotSignature parties snapshotNumber utxoHash sig
+    | snapshotNumber == 0 = checkHeadOutputDatum (Closed 0 initialUtxoHash)
+    | snapshotNumber > 0 =
+      verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
+        && checkHeadOutputDatum (Closed snapshotNumber closedUtxoHash)
     | otherwise = traceError "negative snapshot number"
+
+  checkHeadOutputDatum _datum = traceError "not implemented"
 {-# INLINEABLE checkClose #-}
 
 txOutAdaValue :: TxOut -> Integer
