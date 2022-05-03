@@ -46,7 +46,7 @@ import Plutus.V1.Ledger.Api (
   adaToken,
   mkValidatorScript,
  )
-import Plutus.V1.Ledger.Contexts (findDatum, findOwnInput)
+import Plutus.V1.Ledger.Contexts (findDatum, findDatumHash, findOwnInput, getContinuingOutputs)
 import Plutus.V1.Ledger.Crypto (Signature (getSignature))
 import Plutus.V1.Ledger.Value (valueOf)
 import PlutusTx (CompiledCode)
@@ -269,6 +269,14 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
         traceError "fromBuiltinData failed"
 {-# INLINEABLE checkCollectCom #-}
 
+-- | The close validator must verify that:
+--
+--   * The closing snapshot number and signature is correctly signed
+--
+--   * The resulting closed state is consistent with the open state or the
+--     closing snapshot, depending on snapshot number
+--
+--   * The transaction is performed (i.e. signed) by one of the head participants
 checkClose ::
   ScriptContext ->
   HeadContext ->
@@ -278,18 +286,36 @@ checkClose ::
   BuiltinByteString ->
   [Signature] ->
   Bool
-checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig =
-  checkSnapshot && mustBeSignedByParticipant context headContext
+checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig =
+  checkSnapshot && mustBeSignedByParticipant ctx headContext
  where
   checkSnapshot
-    | snapshotNumber == 0 = checkHeadOutputDatum (Closed 0 initialUtxoHash)
+    | snapshotNumber == 0 = checkHeadOutputDatum ctx (Closed 0 initialUtxoHash)
     | snapshotNumber > 0 =
       verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
-        && checkHeadOutputDatum (Closed snapshotNumber closedUtxoHash)
+        && checkHeadOutputDatum ctx (Closed snapshotNumber closedUtxoHash)
     | otherwise = traceError "negative snapshot number"
-
-  checkHeadOutputDatum _datum = traceError "not implemented"
 {-# INLINEABLE checkClose #-}
+
+checkHeadOutputDatum :: ToData a => ScriptContext -> a -> Bool
+checkHeadOutputDatum ctx d =
+  case (ownDatumHash, expectedDatumHash) of
+    (Just actual, Just expected) ->
+      traceIfFalse "output datum hash mismatch" $ actual == expected
+    (Nothing, _) ->
+      traceError "no head output datum"
+    (_, Nothing) ->
+      traceError "expected datum hash not found"
+ where
+  expectedDatumHash = findDatumHash (Datum $ toBuiltinData d) txInfo
+
+  ownDatumHash =
+    case getContinuingOutputs ctx of
+      [o] -> txOutDatumHash o
+      _ -> traceError "expected only one head output"
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
+{-# INLINEABLE checkHeadOutputDatum #-}
 
 txOutAdaValue :: TxOut -> Integer
 txOutAdaValue o = valueOf (txOutValue o) adaSymbol adaToken
