@@ -167,10 +167,10 @@ jobs:
         name: benchmarks-and-haddocks
         path: ./docs
 
-  # TODO: this is actually only requiring the tx-cost benchmark results
   publish-benchmark-results:
     name: Publish benchmark results
-    needs: [build-test]
+    # TODO: this is actually only requires the tx-cost benchmark results
+    needs: [haddock-benchmarks]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.3.1
