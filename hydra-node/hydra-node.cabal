@@ -161,8 +161,6 @@ library
     , QuickCheck
     , req
     , serialise
-    , shelley-spec-ledger
-    , shelley-spec-ledger-test
     , small-steps
     , stm
     , strict-containers
@@ -326,8 +324,6 @@ test-suite tests
     , QuickCheck
     , quickcheck-instances
     , req
-    , shelley-spec-ledger
-    , shelley-spec-ledger-test
     , silently
     , strict-containers
     , temporary

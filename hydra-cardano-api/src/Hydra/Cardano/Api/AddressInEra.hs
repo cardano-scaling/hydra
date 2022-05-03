@@ -49,7 +49,7 @@ mkScriptAddress networkId script =
 
 -- | From a ledger 'Addr' to an api 'AddressInEra'
 fromLedgerAddr :: IsShelleyBasedEra era => Ledger.Addr StandardCrypto -> AddressInEra era
-fromLedgerAddr = fromShelleyAddr
+fromLedgerAddr = fromShelleyAddrIsSbe
 
 -- | From an api 'AddressInEra' to a ledger 'Addr'
 toLedgerAddr :: AddressInEra era -> Ledger.Addr StandardCrypto

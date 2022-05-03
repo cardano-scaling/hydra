@@ -121,6 +121,7 @@ import Ouroboros.Network.NodeToClient (
   connectTo,
   localSnocket,
   localStateQueryPeerNull,
+  localTxMonitorPeerNull,
   nodeToClientProtocols,
   withIOManager,
  )
@@ -283,6 +284,10 @@ ouroborosApplication tracer point queue handler nodeToClientV =
                 InitiatorProtocolOnly $
                   let peer = localStateQueryPeerNull
                    in MuxPeer nullTracer cStateQueryCodec peer
+            , localTxMonitorProtocol =
+                InitiatorProtocolOnly $
+                  let peer = localTxMonitorPeerNull
+                   in MuxPeer nullTracer cTxMonitorCodec peer
             }
     )
     nodeToClientV
@@ -291,6 +296,7 @@ ouroborosApplication tracer point queue handler nodeToClientV =
     { cChainSyncCodec
     , cTxSubmissionCodec
     , cStateQueryCodec
+    , cTxMonitorCodec
     } = defaultCodecs nodeToClientV
 
 -- | The on-chain head state is maintained in a mutually-recursive data-structure,

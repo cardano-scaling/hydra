@@ -145,7 +145,6 @@ library
     , plutus-ledger-api
     , QuickCheck
     , serialise
-    , shelley-spec-ledger
     , stm
     , strict-containers
     , text
