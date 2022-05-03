@@ -55,9 +55,9 @@ import Hydra.Chain.Direct.Context (
   genCommits,
   genHydraContext,
   genInitTx,
+  genStClosed,
   genStIdle,
   genStInitialized,
-  genStOpen,
   unsafeCommit,
   unsafeObserveTx,
  )
@@ -71,7 +71,6 @@ import Hydra.Chain.Direct.State (
   SomeOnChainHeadState (..),
   TransitionFrom (..),
   abort,
-  close,
   commit,
   fanout,
   getKnownUTxO,
@@ -110,7 +109,6 @@ import Test.QuickCheck (
   classify,
   counterexample,
   elements,
-  expectFailure,
   forAll,
   forAllBlind,
   forAllShow,
@@ -183,8 +181,8 @@ spec = parallel $ do
     propBelowSizeLimit (2 * maxTxSize) forAllAbort
 
   describe "collectCom" $ do
-    propBelowSizeLimit (2 * maxTxSize) forAllCollectCom
-    propIsValid tenTimesTxExecutionUnits forAllCollectCom
+    propBelowSizeLimit maxTxSize forAllCollectCom
+    propIsValid maxTxExecutionUnits forAllCollectCom
 
   describe "close" $ do
     propBelowSizeLimit maxTxSize forAllClose
@@ -192,8 +190,7 @@ spec = parallel $ do
 
   describe "fanout" $ do
     propBelowSizeLimit maxTxSize forAllFanout
-    -- TODO: look into why this is failing
-    propIsValid maxTxExecutionUnits (expectFailure . forAllFanout)
+    propIsValid maxTxExecutionUnits forAllFanout
 
   describe "ChainSyncHandler" $ do
     prop "yields observed transactions rolling forward" $ do
@@ -328,13 +325,6 @@ genSequenceOfObservableBlocks = do
     let commitTx = unsafeCommit utxo stInitialized
     putNextBlock commitTx
     pure $ snd $ unsafeObserveTx @_ @StInitialized commitTx stInitialized
-
-tenTimesTxExecutionUnits :: ExecutionUnits
-tenTimesTxExecutionUnits =
-  ExecutionUnits
-    { executionMemory = 100_000_000
-    , executionSteps = 100_000_000_000
-    }
 
 stAtGenesis :: SomeOnChainHeadState -> SomeOnChainHeadStateAt
 stAtGenesis currentOnChainHeadState =
@@ -513,8 +503,8 @@ forAllFanout ::
   Property
 forAllFanout action = do
   forAll (genHydraContext 3) $ \ctx ->
-    forAll (genStClosed ctx) $ \stClosed ->
-      forAllShow (resize maxAssetsSupported $ simplifyUTxO <$> genUTxO) renderUTxO $ \utxo ->
+    forAllShow (resize maxAssetsSupported $ simplifyUTxO <$> genUTxO) renderUTxO $ \utxo ->
+      forAll (genStClosed ctx utxo) $ \stClosed ->
         action stClosed (fanout utxo stClosed)
           & label ("Fanout size: " <> prettyLength (assetsInUtxo utxo))
  where
@@ -538,15 +528,6 @@ genByronCommit = do
   addr <- ByronAddressInEra <$> arbitrary
   value <- genValue
   pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone)
-
-genStClosed ::
-  HydraContext ->
-  Gen (OnChainHeadState 'StClosed)
-genStClosed ctx = do
-  stOpen <- genStOpen ctx
-  snapshot <- arbitrary
-  let closeTx = close snapshot stOpen
-  pure $ snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
 
 genBlockAt :: SlotNo -> [Tx] -> Gen Block
 genBlockAt sl txs = do

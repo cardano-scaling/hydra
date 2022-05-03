@@ -28,7 +28,7 @@ import Hydra.Chain.Direct.State (
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Snapshot (genConfirmedSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), genConfirmedSnapshot, getSnapshot)
 import Test.QuickCheck (choose, elements, frequency, vector)
 
 -- | Define some 'global' context from which generators can pick
@@ -150,6 +150,18 @@ genStOpen ctx = do
   stInitialized <- executeCommits initTx commits <$> genStIdle ctx
   let collectComTx = collect stInitialized
   pure $ snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized
+
+genStClosed ::
+  HydraContext ->
+  UTxO ->
+  Gen (OnChainHeadState 'StClosed)
+genStClosed ctx utxo = do
+  stOpen <- genStOpen ctx
+  -- Any confirmed snapshot suffices here, no signatures are checked
+  confirmed <- arbitrary
+  let snapshot = confirmed{snapshot = (getSnapshot confirmed){utxo = utxo}}
+  let closeTx = close snapshot stOpen
+  pure $ snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
 
 --
 -- Here be dragons

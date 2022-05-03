@@ -240,7 +240,7 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
  where
   markdownFanOutCost stats =
     unlines $
-      [ "## Cost of FanOut validator"
+      [ "## Cost of FanOut Transaction (spend Head + burn HeadTokens)"
       , ""
       , "| UTXO  | Tx. size | % max Mem |   % max CPU |"
       , "| :---- | -------: | --------: | ----------: |"

@@ -8,36 +8,22 @@ import Hydra.Prelude hiding (catch)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
-import qualified Cardano.Ledger.Alonzo as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import Cardano.Ledger.Alonzo.Language (Language (..))
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
-import Cardano.Ledger.Era (hashScript)
-import qualified Cardano.Ledger.Shelley.API as API
-import qualified Cardano.Ledger.Val as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import Data.Fixed (E2, Fixed)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import Data.Maybe.Strict (StrictMaybe (..))
 import Hydra.Cardano.Api (
   BuildTxWith (BuildTxWith),
   ExecutionUnits (..),
-  LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PlutusScriptV1,
-  StandardCrypto,
-  Tx,
   UTxO,
   fromLedgerExUnits,
-  fromLedgerScript,
-  fromLedgerTxOut,
   fromLedgerValue,
-  fromPlutusData,
   fromPlutusScript,
   lovelaceToValue,
   mkScriptAddress,
@@ -58,21 +44,21 @@ import Hydra.Chain.Direct.Context (
   genCloseTx,
   genCollectComTx,
   genCommits,
+  genHydraContext,
   genHydraContextFor,
   genInitTx,
+  genStClosed,
   genStIdle,
   genStInitialized,
  )
 import Hydra.Chain.Direct.State (
   abort,
   commit,
+  fanout,
   getKnownUTxO,
   initialize,
  )
-import Hydra.Chain.Direct.Tx (fanoutTx)
 import qualified Hydra.Contract.Hash as Hash
-import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.HeadState as Head
 import Hydra.Ledger.Cardano (
   adaOnly,
   addInputs,
@@ -80,7 +66,6 @@ import Hydra.Ledger.Cardano (
   genKeyPair,
   genOneUTxOFor,
   genTxIn,
-  hashTxOuts,
   simplifyUTxO,
   unsafeBuildTransaction,
  )
@@ -88,7 +73,7 @@ import Hydra.Ledger.Cardano.Evaluate (evaluateTx, pparams)
 import Plutus.MerkleTree (rootHash)
 import qualified Plutus.MerkleTree as MT
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (toBuiltin, toData)
+import Plutus.V1.Ledger.Api (toBuiltin)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Test.Plutus.Validator (
   ExUnits (ExUnits),
@@ -134,6 +119,7 @@ computeInitCost =
         genTxIn >>= \seedInput ->
           pure $ initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
 
+-- REVIEW: This is resulting in many "holes" -> some generate utxos/values very expensive?
 computeCommitCost :: IO [(NumUTxO, ValueSize, TxSize, MemUnit, CpuUnit)]
 computeCommitCost =
   concat
@@ -242,20 +228,27 @@ computeAbortCost =
             let stInitialized = executeCommits initTx commits stIdle
              in pure (abort stInitialized, getKnownUTxO stInitialized)
 
+-- NOTE: This also includes cost of burning the Head tokens
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
 computeFanOutCost =
   catMaybes
     <$> forM
       [1 .. 100]
       ( \numElems -> do
-          utxo <- generate (genSimpleUTxOOfSize numElems)
-          let (tx, lookupUTxO) = mkFanoutTx utxo
-          case evaluateTx tx lookupUTxO of
-            (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
-              pure (Just (NumUTxO numElems, TxSize $ LBS.length $ serialize tx, MemUnit mem, CpuUnit cpu))
-            _ ->
-              pure Nothing
+          (tx, knownUtxo) <- generate $ genFanoutTx numElems
+          let txSize = LBS.length $ serialize tx
+          case evaluateTx tx knownUtxo of
+            (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
+              | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
+                pure (Just (NumUTxO numElems, TxSize txSize, MemUnit mem, CpuUnit cpu))
+            _ -> pure Nothing
       )
+ where
+  genFanoutTx numOutputs = do
+    ctx <- genHydraContext 3
+    utxo <- genSimpleUTxOOfSize numOutputs
+    stClosed <- genStClosed ctx utxo
+    pure (fanout utxo stClosed, getKnownUTxO stClosed)
 
 genSimpleUTxOOfSize :: Int -> Gen UTxO
 genSimpleUTxOOfSize numUTxO =
@@ -264,28 +257,6 @@ genSimpleUTxOOfSize numUTxO =
       numUTxO
       ( genKeyPair >>= fmap (fmap adaOnly) . genOneUTxOFor . fst
       )
-
-mkFanoutTx :: UTxO -> (Tx, UTxO)
-mkFanoutTx utxo =
-  (tx, lookupUTxO)
- where
-  tx = fanoutTx utxo (headInput, headOutput, fromPlutusData headDatum) (fromLedgerScript headScript)
-  headInput = generateWith arbitrary 42
-  headScript = plutusScript Head.validatorScript
-  headOutput = fromLedgerTxOut $ mkHeadOutput (SJust $ Ledger.Data headDatum)
-  headDatum =
-    toData $
-      Head.Closed 1 (toBuiltin $ hashTxOuts $ toList utxo)
-
-  lookupUTxO = UTxO.singleton (headInput, headOutput)
-
-mkHeadOutput :: StrictMaybe (Ledger.Data LedgerEra) -> Ledger.Alonzo.TxOut LedgerEra
-mkHeadOutput headDatum =
-  Ledger.Alonzo.TxOut headAddress headValue headDatumHash
- where
-  headAddress = scriptAddr $ plutusScript Head.validatorScript
-  headValue = Ledger.inject (API.Coin 2_000_000)
-  headDatumHash = Ledger.hashData @LedgerEra <$> headDatum
 
 computeMerkleTreeCost :: IO [(Int, MemUnit, CpuUnit, MemUnit, CpuUnit)]
 computeMerkleTreeCost =
@@ -357,24 +328,16 @@ calculateHashExUnits n algorithm =
   input = generateWith arbitrary 42
   output = toCtxUTxOTxOut $ TxOut address value (mkTxOutDatum datum)
   value = lovelaceToValue 1_000_000
-  address = mkScriptAddress @PlutusScriptV1 (Testnet $ NetworkMagic 42) script
+  address = mkScriptAddress @PlutusScriptV1 networkId script
   witness = BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness script (mkScriptDatum datum) redeemer
   script = fromPlutusScript @PlutusScriptV1 Hash.validatorScript
   datum = Hash.datum $ toBuiltin bytes
   redeemer = toScriptData $ Hash.redeemer algorithm
   bytes = fold $ replicate n ("0" :: ByteString)
 
--- | Get the ledger address for a given plutus script.
-scriptAddr :: Ledger.Script LedgerEra -> API.Addr StandardCrypto
-scriptAddr script =
-  API.Addr
-    API.Testnet
-    (API.ScriptHashObj $ hashScript @LedgerEra script)
-    API.StakeRefNull
-
-plutusScript :: Plutus.Script -> Ledger.Script LedgerEra
-plutusScript = Ledger.PlutusScript PlutusV1 . toShort . fromLazy . serialize
-
 maxMem, maxCpu :: Fixed E2
 Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
   Ledger._maxTxExUnits pparams
+
+networkId :: NetworkId
+networkId = Testnet $ NetworkMagic 42
