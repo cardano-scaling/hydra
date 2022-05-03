@@ -17,6 +17,7 @@ import Hydra.Data.Party (Party (vkey))
 import Plutus.Codec.CBOR.Encoding (
   encodeBeginList,
   encodeBreak,
+  encodeByteString,
   encodeInteger,
   encodingToBuiltinByteString,
   unsafeEncodeRaw,
@@ -76,8 +77,8 @@ headValidator commitAddress initialAddress oldState input context =
       checkCollectCom context headContext (contestationPeriod, parties)
     (Initial{parties}, Abort) ->
       checkAbort context headContext parties
-    (Open{parties}, Close{snapshotNumber, signature}) ->
-      checkClose context headContext parties snapshotNumber signature
+    (Open{parties}, Close{snapshotNumber, utxoHash, signature}) ->
+      checkClose context headContext parties snapshotNumber utxoHash signature
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
     _ -> traceError "invalid head state transition"
@@ -273,14 +274,15 @@ checkClose ::
   HeadContext ->
   [Party] ->
   SnapshotNumber ->
+  BuiltinByteString ->
   [Signature] ->
   Bool
-checkClose context headContext parties snapshotNumber sig =
+checkClose context headContext parties snapshotNumber utxoHash sig =
   checkSnapshot && mustBeSignedByParticipant context headContext
  where
   checkSnapshot
     | snapshotNumber == 0 = True
-    | snapshotNumber > 0 = verifySnapshotSignature parties snapshotNumber sig
+    | snapshotNumber > 0 = verifySnapshotSignature parties snapshotNumber utxoHash sig
     | otherwise = traceError "negative snapshot number"
 {-# INLINEABLE checkClose #-}
 
@@ -382,19 +384,21 @@ hashTxOuts =
   sha2_256 . serialiseTxOuts
 {-# INLINEABLE hashTxOuts #-}
 
-verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
-verifySnapshotSignature parties snapshotNumber sigs =
+verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
+verifySnapshotSignature parties snapshotNumber utxoHash sigs =
   traceIfFalse "signature verification failed" $
     length parties == length sigs
-      && all (uncurry $ verifyPartySignature snapshotNumber) (zip parties sigs)
+      && all (uncurry $ verifyPartySignature snapshotNumber utxoHash) (zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 
-verifyPartySignature :: SnapshotNumber -> Party -> Signature -> Bool
-verifyPartySignature snapshotNumber party signed =
+verifyPartySignature :: SnapshotNumber -> BuiltinByteString -> Party -> Signature -> Bool
+verifyPartySignature snapshotNumber utxoHash party signed =
   traceIfFalse "party signature verification failed" $
     verifySignature (vkey party) message (getSignature signed)
  where
-  message = encodingToBuiltinByteString (encodeInteger snapshotNumber)
+  message =
+    encodingToBuiltinByteString $
+      encodeInteger snapshotNumber <> encodeByteString utxoHash
 {-# INLINEABLE verifyPartySignature #-}
 
 -- TODO: Add a NetworkId so that we can properly serialise address hashes

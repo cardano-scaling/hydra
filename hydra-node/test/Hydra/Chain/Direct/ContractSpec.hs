@@ -1,5 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Direct.ContractSpec where
 
@@ -35,16 +35,17 @@ import Hydra.Contract.Head (
 import qualified Hydra.Contract.Head as Head
 import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
+import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (
   genUTxOWithSimplifiedAddresses,
   hashTxOuts,
   shrinkUTxO,
  )
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Party (partyToChain, deriveParty)
+import Hydra.Party (deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..))
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (fromBuiltin)
+import Plutus.V1.Ledger.Api (fromBuiltin, toBuiltin)
 import Test.QuickCheck (
   Property,
   conjoin,
@@ -131,24 +132,26 @@ prop_consistentOnAndOffChainHashOfTxOuts =
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
-  forAll arbitrary $ \(snapshot :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{number, utxo} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \seed ->
       let sk = Hydra.generateSigningKey seed
           offChainSig = Hydra.sign sk snapshot
           onChainSig = List.head . toPlutusSignatures $ aggregate [offChainSig]
           onChainParty = partyToChain $ deriveParty sk
-          snapshotNumber = toInteger $ number snapshot
-       in verifyPartySignature snapshotNumber onChainParty onChainSig
+          snapshotNumber = toInteger number
+          utxoHash = toBuiltin $ hashUTxO @SimpleTx utxo
+       in verifyPartySignature snapshotNumber utxoHash onChainParty onChainSig
             & counterexample ("signed: " <> show onChainSig)
             & counterexample ("party: " <> show onChainParty)
             & counterexample ("message: " <> show (getSignableRepresentation snapshot))
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{number, utxo} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
-          snapshotNumber = toInteger $ number snapshot
-       in verifySnapshotSignature onChainParties snapshotNumber signatures
+          snapshotNumber = toInteger number
+          utxoHash = toBuiltin $ hashUTxO @SimpleTx utxo
+       in verifySnapshotSignature onChainParties snapshotNumber utxoHash signatures
