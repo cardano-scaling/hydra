@@ -42,7 +42,7 @@ deriving instance IsTx tx => Show (ServerOutput tx)
 deriving instance IsTx tx => ToJSON (ServerOutput tx)
 deriving instance IsTx tx => FromJSON (ServerOutput tx)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (ServerOutput tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'

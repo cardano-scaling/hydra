@@ -36,6 +36,9 @@ class
   txId :: tx -> TxIdType tx
   balance :: UTxOType tx -> ValueType tx
 
+  -- | Hash a utxo set to be able to sign (off-chain) and verify it (on-chain).
+  hashUTxO :: UTxOType tx -> ByteString
+
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business
 -- logic by forcing a closed interface.

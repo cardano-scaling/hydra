@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.Snapshot where
@@ -34,23 +35,10 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) wher
     , confirmed' <- shrink (confirmed s)
     ]
 
--- FIXME(1): Use extra key:value map to pass signable representation to on-chain code
---
--- We should use a proper signable representation which we can also
--- get back to on-chain. In practice, we probably want to define it as an extra
--- map data-hash -> data so that we can:
---
--- (a) Leverage the Ledger phase-1 validation to do the hashing off-chain and
--- verify it.
--- (b) Have an easy way to lookup data to get a hash representation of it, for
--- signature verification.
---
--- FIXME(2): Also include UTXO in the signable representation.
---
--- FIXME(3): Use hash digest as signable representations (not pre-images).
-instance SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{number} =
-    serialize' number
+-- REVIEW: Why is the @tx necessary here? It surprised us a bit that we need it.
+instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
+  getSignableRepresentation Snapshot{number, utxo} =
+    serialize' number <> hashUTxO @tx utxo
 
 instance IsTx tx => ToJSON (Snapshot tx) where
   toJSON s =
@@ -104,13 +92,13 @@ isInitialSnapshot = \case
   InitialSnapshot{} -> True
   ConfirmedSnapshot{} -> False
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ConfirmedSnapshot tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- fmap Hydra.generateSigningKey <$> arbitrary
     genConfirmedSnapshot ks
 
 genConfirmedSnapshot ::
-  (Arbitrary tx, Arbitrary (UTxOType tx)) =>
+  (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) =>
   [Hydra.SigningKey] ->
   Gen (ConfirmedSnapshot tx)
 genConfirmedSnapshot sks =

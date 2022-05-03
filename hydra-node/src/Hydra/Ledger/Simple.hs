@@ -11,6 +11,7 @@ module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
 
+import Codec.Serialise (serialise)
 import Data.Aeson (
   object,
   withObject,
@@ -40,6 +41,7 @@ instance IsTx SimpleTx where
 
   txId (SimpleTx tid _ _) = tid
   balance = Set.size
+  hashUTxO = toStrict . foldMap (serialise . unSimpleTxIn)
 
 instance Arbitrary SimpleTx where
   shrink = genericShrink

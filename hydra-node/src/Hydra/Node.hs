@@ -77,7 +77,6 @@ initEnvironment Options{hydraSigningKey, hydraVerificationKeys} = do
 
   loadVerificationKey p = do
     readFileBS p >>= deserialiseVerificationKeyFromRawBytes
-
 -- ** Create and run a hydra node
 
 data HydraNode tx m = HydraNode
@@ -103,7 +102,7 @@ data HydraNodeLog tx
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (HydraNodeLog tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 createHydraNode ::

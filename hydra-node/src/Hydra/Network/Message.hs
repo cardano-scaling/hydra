@@ -5,7 +5,7 @@ module Hydra.Network.Message where
 import Hydra.Prelude
 
 import qualified Hydra.Crypto as Hydra
-import Hydra.Ledger (UTxOType)
+import Hydra.Ledger (IsTx, UTxOType)
 import Hydra.Network (Host)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
@@ -21,7 +21,7 @@ data Message tx
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Message tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Message tx) where
   arbitrary = genericArbitrary
 
 instance (ToCBOR tx, ToCBOR (UTxOType tx)) => ToCBOR (Message tx) where
