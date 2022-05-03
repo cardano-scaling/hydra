@@ -72,7 +72,12 @@ printRelativeHeader :: IO ()
 printRelativeHeader =
     printf "   n         mem         cpu        %%mem      %%cpu\n"
 
--- Some code abstracted from the original
+-- Some code abstracted from the original.
+
+-- This is a bit odd: we report the cost as a percentage of the maximum
+-- execution units as specified above, but not the total cost. Instead we report
+-- (as a percentage of the maximum) the difference from a baseline validator
+-- which contains all the same data but doesn't do any serialisation.
 printRelativeBudget ::
     (Plutus.ToData a)
     => Int
@@ -89,7 +94,7 @@ printRelativeBudget n x encoder = do
 
 
 -- Statistics for calculated budgets of serialisation-only scripts.
-
+-- This just shows the absolute numbers.
 printBudgetHeader :: IO ()
 printBudgetHeader =
     printf "   n         mem         cpu       cpu/1e6\n"
