@@ -394,7 +394,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       )
       [ ClientEffect $
           HeadIsClosed
-            { latestSnapshot = getSnapshot confirmedSnapshot
+            { snapshot = getSnapshot confirmedSnapshot
             }
       , Delay
           { -- TODO: In principle, we want to start the stopwatch from the

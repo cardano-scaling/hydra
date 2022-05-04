@@ -16,7 +16,7 @@ data ServerOutput tx
   | ReadyToCommit {parties :: Set Party}
   | Committed {party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {utxo :: UTxOType tx}
-  | HeadIsClosed {latestSnapshot :: Snapshot tx}
+  | HeadIsClosed {snapshot :: Snapshot tx}
   | HeadIsAborted {utxo :: UTxOType tx}
   | HeadIsFinalized {utxo :: UTxOType tx}
   | CommandFailed

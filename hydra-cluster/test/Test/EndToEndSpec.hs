@@ -281,7 +281,7 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
       send n1 $ input "Close" []
       waitMatch 3 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "HeadIsClosed"
-        snapshot <- v ^? key "latestSnapshot"
+        snapshot <- v ^? key "snapshot"
         guard $ snapshot == expectedSnapshot
 
       waitFor tracer (contestationPeriod + 3) [n1] $

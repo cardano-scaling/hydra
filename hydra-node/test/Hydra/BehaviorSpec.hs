@@ -584,6 +584,6 @@ assertHeadIsClosed = \case
 
 assertHeadIsClosedWith :: (HasCallStack, MonadThrow m, IsTx tx) => Snapshot tx -> ServerOutput tx -> m ()
 assertHeadIsClosedWith expectedSnapshot = \case
-  HeadIsClosed{latestSnapshot} -> do
-    latestSnapshot `shouldBe` expectedSnapshot
+  HeadIsClosed{snapshot} -> do
+    snapshot `shouldBe` expectedSnapshot
   _ -> failure "expected HeadIsClosed"

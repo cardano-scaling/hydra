@@ -1,7 +1,7 @@
 {
     "samples": [
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": 3,
@@ -197,7 +197,7 @@
             }
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [],
                 "snapshotNumber": 6,
                 "utxo": [
@@ -277,7 +277,7 @@
             ]
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": 6,
@@ -546,7 +546,7 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": -4,
@@ -681,7 +681,7 @@
             }
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": -2,
@@ -1166,7 +1166,7 @@
             "tag": "RolledBack"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": 4,
@@ -1731,7 +1731,7 @@
             "tag": "InvalidInput"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": -2,
@@ -2227,7 +2227,7 @@
             }
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": -4,
@@ -2311,7 +2311,7 @@
             "tag": "InvalidInput"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": 0,
@@ -2545,7 +2545,7 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [],
                 "snapshotNumber": 0,
                 "utxo": [
@@ -2558,7 +2558,7 @@
             "tag": "RolledBack"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": -6,
@@ -2611,7 +2611,7 @@
             "utxo": []
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": -4,
@@ -2876,7 +2876,7 @@
             }
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [],
                 "snapshotNumber": 1,
                 "utxo": [
@@ -2889,7 +2889,7 @@
             "tag": "HeadIsClosed"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": 0,
@@ -3024,7 +3024,7 @@
             "utxo": []
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": 6,
@@ -3135,7 +3135,7 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": 3,
@@ -3198,7 +3198,7 @@
             "tag": "InvalidInput"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "id": -2,

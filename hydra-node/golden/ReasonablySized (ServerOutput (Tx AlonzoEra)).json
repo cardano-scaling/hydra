@@ -951,7 +951,7 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "auxiliaryData": "d90103a300a20040030401848200581c1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb488204198c64830302828201818201858200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a8200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b78200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e782041a00014cfc8200581c1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48028146450100002601",
@@ -1474,7 +1474,7 @@
             }
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "body": {
@@ -3858,7 +3858,7 @@
             }
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "body": {
@@ -5485,7 +5485,7 @@
             "tag": "ReadyToCommit"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "body": {
@@ -6159,7 +6159,7 @@
             }
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "body": {
@@ -7320,7 +7320,7 @@
             }
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [],
                 "snapshotNumber": 5,
                 "utxo": {
@@ -9502,7 +9502,7 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [
                     {
                         "auxiliaryData": "d90103a200a40283824042485583030244b74dc848a141f843ca038205240781a121200a419601828202818201818201848200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825418200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28202848204199c388200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8820419083583030181820280",
@@ -10311,7 +10311,7 @@
             }
         },
         {
-            "latestSnapshot": {
+            "snapshot": {
                 "confirmedTransactions": [],
                 "snapshotNumber": 5,
                 "utxo": {}
