@@ -903,10 +903,14 @@ definitions:
         additionalProperties: false
         required:
         - tag
+        - snapshotNumber
         properties:
           tag:
             type: string
             enum: ["OnContestTx"]
+          snapshotNumber:
+            type: integer
+            minimum: 0
       - title: OnFanoutTx
         type: object
         additionalProperties: false

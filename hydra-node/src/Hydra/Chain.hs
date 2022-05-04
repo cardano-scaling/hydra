@@ -83,7 +83,7 @@ data OnChainTx tx
   | OnAbortTx
   | OnCollectComTx
   | OnCloseTx {snapshotNumber :: SnapshotNumber}
-  | OnContestTx
+  | OnContestTx {snapshotNumber :: SnapshotNumber}
   | OnFanoutTx
   deriving (Generic)
 
