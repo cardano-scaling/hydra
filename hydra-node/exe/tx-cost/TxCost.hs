@@ -5,7 +5,6 @@ module TxCost where
 
 import Hydra.Prelude hiding (catch)
 
-import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
@@ -18,8 +17,6 @@ import Hydra.Cardano.Api (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   UTxO,
-  fromLedgerValue,
-  modifyTxOutValue,
  )
 import Hydra.Chain.Direct.Context (
   HydraContext (ctxVerificationKeys),
@@ -58,16 +55,13 @@ import Test.Plutus.Validator (
   ExUnits (ExUnits),
   evaluateScriptExecutionUnits,
  )
-import Test.QuickCheck (generate, resize, sublistOf, vectorOf)
+import Test.QuickCheck (generate, sublistOf, vectorOf)
 import Validators (merkleTreeBuilderValidator, merkleTreeMemberValidator)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
 
 newtype NumUTxO = NumUTxO Int
-  deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
-
-newtype ValueSize = ValueSize Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
 
 newtype TxSize = TxSize Int64
@@ -98,27 +92,14 @@ computeInitCost = do
         genTxIn >>= \seedInput ->
           pure $ initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
 
--- REVIEW: This is resulting in many "holes" -> some generate utxos/values very expensive?
-computeCommitCost :: IO [(NumUTxO, ValueSize, TxSize, MemUnit, CpuUnit)]
-computeCommitCost =
-  concat
-    <$> forM
-      [0 .. 100]
-      ( \numUTxO -> do
-          let valueSizes =
-                if numUTxO == 0
-                  then [0]
-                  else 1 : [5, 10 .. 100]
-          catMaybes
-            <$> forM
-              valueSizes
-              (compute numUTxO)
-      )
+computeCommitCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
+computeCommitCost = do
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100 .. 500]
+  pure $ interesting <> limit
  where
-  compute numUTxO sz = do
-    -- FIXME: genSimpleUTxOOfSize only produces ada-only, so the separation of
-    -- generating and resizing is moot
-    utxo <- generate $ genSimpleUTxOOfSize numUTxO >>= resizeValuesTo sz
+  compute numUTxO = do
+    utxo <- generate $ genSimpleUTxOOfSize numUTxO
     (commitTx, knownUtxo) <- generate $ genCommitTx utxo
     case commitTx of
       Left _ -> pure Nothing
@@ -127,24 +108,15 @@ computeCommitCost =
         if txSize < fromIntegral (Ledger._maxTxSize pparams)
           then case evaluateTx tx (utxo <> knownUtxo) of
             (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
-              pure $ Just (NumUTxO $ length utxo, ValueSize sz, TxSize txSize, MemUnit mem, CpuUnit cpu)
+              pure $ Just (NumUTxO $ length utxo, TxSize txSize, MemUnit mem, CpuUnit cpu)
             _ -> pure Nothing
           else pure Nothing
 
   genCommitTx utxo = do
     -- NOTE: number of parties is irrelevant for commit tx
-    genHydraContextFor 1
-      >>= ( genStInitialized
-              >=> ( \stInitialized ->
-                      pure (commit utxo stInitialized, getKnownUTxO stInitialized)
-                  )
-          )
-  resizeValuesTo sz utxo =
-    UTxO.fromPairs <$> foldMapM (resizeValue sz) (UTxO.pairs utxo)
-
-  resizeValue sz (i, o) = do
-    value <- fromLedgerValue <$> resize sz arbitrary
-    pure [(i, modifyTxOutValue (const value) o)]
+    ctx <- genHydraContextFor 1
+    stInitialized <- genStInitialized ctx
+    pure (commit utxo stInitialized, getKnownUTxO stInitialized)
 
 computeCollectComCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeCollectComCost =
