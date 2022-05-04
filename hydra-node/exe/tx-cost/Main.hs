@@ -30,7 +30,6 @@ import TxCost (
   computeCollectComCost,
   computeCommitCost,
   computeFanOutCost,
-  computeHashingCost,
   computeInitCost,
   computeMerkleTreeCost,
   maxCpu,
@@ -83,7 +82,6 @@ writeTransactionCostMarkdown hdl = do
   abortC <- costOfAbort
   fanout <- costOfFanOut
   mt <- costOfMerkleTree
-  let h = costOfHashing
   hPut hdl $
     encodeUtf8 $
       unlines $
@@ -97,7 +95,6 @@ writeTransactionCostMarkdown hdl = do
             , abortC
             , fanout
             , mt
-            , h
             ]
 
 -- NOTE: Github Actions CI depends on the number of header lines, see
@@ -287,39 +284,5 @@ costOfMerkleTree = markdownMerkleTreeCost <$> computeMerkleTreeCost
                 <> " | "
                 <> show (100 * fromIntegral builderCpu / maxCpu)
                 <> " |"
-          )
-          stats
-
-costOfHashing :: Text
-costOfHashing = markdownHashingCost computeHashingCost
- where
-  markdownHashingCost stats =
-    unlines $
-      [ "##  Cost of on-chain Hashing"
-      , ""
-      ]
-        <> concatMap
-          ( \(n, s, costs) ->
-              [ "###  n = " <> show n <> ", s = " <> show s
-              , ""
-              , "| Algorithm | Cpu  | Mem  | Δcpu | Δmem |"
-              , "| :-------- | ---: | ---: | ---: | ---: |"
-              ]
-                <> fmap
-                  ( \case
-                      Right (algorithm, baseCpu, baseMem, cpu, mem) ->
-                        "| " <> show algorithm
-                          <> " | "
-                          <> show baseCpu
-                          <> " | "
-                          <> show baseMem
-                          <> " | "
-                          <> show (toInteger cpu - toInteger baseCpu)
-                          <> " | "
-                          <> show (toInteger mem - toInteger baseMem)
-                          <> " |"
-                      Left _ -> "| - | - |"
-                  )
-                  costs
           )
           stats

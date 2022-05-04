@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 module TxCost where
@@ -16,26 +15,11 @@ import Data.Fixed (E2, Fixed)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
-  BuildTxWith (BuildTxWith),
-  ExecutionUnits (..),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
-  PlutusScriptV1,
   UTxO,
-  fromLedgerExUnits,
   fromLedgerValue,
-  fromPlutusScript,
-  lovelaceToValue,
-  mkScriptAddress,
-  mkScriptDatum,
-  mkScriptWitness,
-  mkTxOutDatum,
   modifyTxOutValue,
-  scriptWitnessCtx,
-  toCtxUTxOTxOut,
-  toScriptData,
-  pattern ScriptWitness,
-  pattern TxOut,
  )
 import Hydra.Chain.Direct.Context (
   HydraContext (ctxVerificationKeys),
@@ -58,22 +42,17 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialize,
  )
-import qualified Hydra.Contract.Hash as Hash
 import Hydra.Ledger.Cardano (
   adaOnly,
-  addInputs,
-  emptyTxBody,
   genKeyPair,
   genOneUTxOFor,
   genTxIn,
   simplifyUTxO,
-  unsafeBuildTransaction,
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx, pparams)
 import Plutus.MerkleTree (rootHash)
 import qualified Plutus.MerkleTree as MT
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (toBuiltin)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Test.Plutus.Validator (
   ExUnits (ExUnits),
@@ -287,49 +266,6 @@ executionCostForBuilder utxo =
       root = rootHash tree
    in evaluateScriptExecutionUnits merkleTreeBuilderValidator (utxo, root) <&> \case
         ExUnits mem cpu -> (mem, cpu)
-
-computeHashingCost :: [(Int, Int, [Either Text (Hash.HashAlgorithm, CpuUnit, MemUnit, CpuUnit, MemUnit)])]
-computeHashingCost =
-  [0 .. 5] <&> \(power :: Integer) ->
-    let n = 8 ^ power
-        s = n `quot` 8
-     in ( n
-        , s
-        , [minBound .. maxBound] <&> \algorithm ->
-            costOfHashingFor n algorithm
-        )
- where
-  costOfHashingFor n algorithm =
-    let ExecutionUnits
-          { executionSteps = baseCpu
-          , executionMemory = baseMem
-          } = either (error . ("unexpected failure evaluating baseline " <>) . show) id $ calculateHashExUnits n Hash.Base
-     in calculateHashExUnits n algorithm <&> \ExecutionUnits{executionSteps = cpu, executionMemory = mem} ->
-          (algorithm, CpuUnit baseCpu, MemUnit baseMem, CpuUnit cpu, MemUnit mem)
-
-calculateHashExUnits :: Int -> Hash.HashAlgorithm -> Either Text ExecutionUnits
-calculateHashExUnits n algorithm =
-  case evaluateTx tx utxo of
-    Left basicFailure ->
-      Left ("Basic failure: " <> show basicFailure)
-    Right report ->
-      case Map.elems report of
-        [Right units] ->
-          Right $ fromLedgerExUnits units
-        _ ->
-          error $ "Too many redeemers in report: " <> show report
- where
-  tx = unsafeBuildTransaction $ emptyTxBody & addInputs [(input, witness)]
-  utxo = UTxO.singleton (input, output)
-  input = generateWith arbitrary 42
-  output = toCtxUTxOTxOut $ TxOut address value (mkTxOutDatum datum)
-  value = lovelaceToValue 1_000_000
-  address = mkScriptAddress @PlutusScriptV1 networkId script
-  witness = BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness script (mkScriptDatum datum) redeemer
-  script = fromPlutusScript @PlutusScriptV1 Hash.validatorScript
-  datum = Hash.datum $ toBuiltin bytes
-  redeemer = toScriptData $ Hash.redeemer algorithm
-  bytes = fold $ replicate n ("0" :: ByteString)
 
 maxMem, maxCpu :: Fixed E2
 Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
