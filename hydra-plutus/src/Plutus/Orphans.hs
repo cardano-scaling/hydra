@@ -15,10 +15,8 @@ import Plutus.V1.Ledger.Api (
   Value,
   upperBound,
  )
-import Plutus.V1.Ledger.Crypto (Signature (..))
 import qualified PlutusTx.AssocMap as AssocMap
 import PlutusTx.Prelude (BuiltinByteString, toBuiltin)
-import Test.QuickCheck (vector)
 
 instance Arbitrary BuiltinByteString where
   arbitrary = toBuiltin <$> (arbitrary :: Gen ByteString)
@@ -37,9 +35,6 @@ instance Arbitrary Value where
 
 instance (Arbitrary k, Arbitrary v) => Arbitrary (AssocMap.Map k v) where
   arbitrary = AssocMap.fromList <$> arbitrary
-
-instance Arbitrary Signature where
-  arbitrary = Signature . toBuiltin . BS.pack <$> vector 64
 
 instance Arbitrary POSIXTime where
   arbitrary = POSIXTime <$> arbitrary
