@@ -469,16 +469,14 @@ toArgs
       Testnet (NetworkMagic magic) -> show magic
 
     argsChainConfig =
-      mempty
-        <> ["--network-id", toArgNetworkId networkId]
+      ["--network-id", toArgNetworkId networkId]
         <> ["--node-socket", nodeSocket]
         <> ["--cardano-signing-key", cardanoSigningKey]
         <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
         <> toArgStartChainFrom startChainFrom
 
     argsLedgerConfig =
-      mempty
-        <> ["--ledger-genesis", cardanoLedgerGenesisFile]
+      ["--ledger-genesis", cardanoLedgerGenesisFile]
         <> ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]
 
     CardanoLedgerConfig
