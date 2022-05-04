@@ -189,7 +189,7 @@ jobs:
       id: comment-body
       run: |
         # Drop first 5 header lines and demote headlines one level
-        body="$(cat artifact/benchmarks/transaction-cost.md) | sed '1,5d;s/#/##/;s/'"
+        body="$(cat artifact/benchmarks/transaction-cost.md | sed '1,5d;s/#/##/')"
         body="${body//'%'/'%25'}"
         body="${body//$'\n'/'%0A'}"
         body="${body//$'\r'/'%0D'}"
