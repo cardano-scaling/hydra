@@ -113,13 +113,14 @@ defaultCodecs nodeToClientV =
   clientCodecs cfg (supportedVersions ! nodeToClientV) nodeToClientV
  where
   supportedVersions = supportedNodeToClientVersions (Proxy @Block)
-  cfg = CardanoCodecConfig byron shelley allegra mary alonzo
+  cfg = CardanoCodecConfig byron shelley allegra mary alonzo babbage
    where
     byron = ByronCodecConfig epochSlots
     shelley = ShelleyCodecConfig
     allegra = ShelleyCodecConfig
     mary = ShelleyCodecConfig
     alonzo = ShelleyCodecConfig
+    babbage = ShelleyCodecConfig
 
   -- Fixed epoch slots used in the ByronCodecConfig.
   --
