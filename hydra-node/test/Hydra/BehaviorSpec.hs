@@ -335,13 +335,22 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               openHead n1 n2
+
+              -- Perform a transaction to produce the latest snapshot, number 1
               let tx = aValidTx 42
               send n2 (NewTx tx)
               waitUntilMatch [n1, n2] $ \case
-                SnapshotConfirmed{} -> True
+                SnapshotConfirmed{snapshot = Snapshot{number}} -> number == 1
                 _ -> False
+
+              -- Have n1 observe a close with not the latest snapshot
               chainEvent n1 (Observation (OnCloseTx 0))
-    -- Observe TX
+              waitUntilMatch [n1, n2] $ \case
+                HeadIsClosed{snapshot = Snapshot{number}} -> number == 0
+                _ -> False
+
+              -- Expect n1 to contest with latest snapshot, number 1
+              waitFor [n1, n2] HeadIsContested{snapshotNumber = 1}
 
     describe "Hydra Node Logging" $ do
       it "traces processing of events" $ do
