@@ -101,18 +101,18 @@ newtype CpuUnit = CpuUnit Natural
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
 
 computeInitCost :: IO [(NumParties, TxSize)]
-computeInitCost =
-  catMaybes
-    <$> forM
-      [1 .. 100]
-      ( \numParties -> do
-          tx <- generate $ genInitTx' numParties
-          let txSize = LBS.length $ serialize tx
-          if txSize < fromIntegral (Ledger._maxTxSize pparams)
-            then pure (Just (NumParties numParties, TxSize txSize))
-            else pure Nothing
-      )
+computeInitCost = do
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 30]
+  pure $ interesting <> limit
  where
+  compute numParties = do
+    tx <- generate $ genInitTx' numParties
+    let txSize = LBS.length $ serialize tx
+    if txSize < fromIntegral (Ledger._maxTxSize pparams)
+      then pure (Just (NumParties numParties, TxSize txSize))
+      else pure Nothing
+
   genInitTx' numParties = do
     genHydraContextFor numParties >>= \ctx ->
       genStIdle ctx >>= \stIdle ->
@@ -133,25 +133,25 @@ computeCommitCost =
           catMaybes
             <$> forM
               valueSizes
-              ( \sz -> do
-                  utxo <-
-                    generate $
-                      genSimpleUTxOOfSize numUTxO
-                        >>= resizeValuesTo sz
-                  (commitTx, knownUtxo) <- generate $ genCommitTx utxo
-                  case commitTx of
-                    Left _ -> pure Nothing
-                    Right tx -> do
-                      let txSize = LBS.length $ serialize tx
-                      if txSize < fromIntegral (Ledger._maxTxSize pparams)
-                        then case evaluateTx tx (utxo <> knownUtxo) of
-                          (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
-                            pure $ Just (NumUTxO $ length utxo, ValueSize sz, TxSize txSize, MemUnit mem, CpuUnit cpu)
-                          _ -> pure Nothing
-                        else pure Nothing
-              )
+              (compute numUTxO)
       )
  where
+  compute numUTxO sz = do
+    -- FIXME: genSimpleUTxOOfSize only produces ada-only, so the separation of
+    -- generating and resizing is moot
+    utxo <- generate $ genSimpleUTxOOfSize numUTxO >>= resizeValuesTo sz
+    (commitTx, knownUtxo) <- generate $ genCommitTx utxo
+    case commitTx of
+      Left _ -> pure Nothing
+      Right tx -> do
+        let txSize = LBS.length $ serialize tx
+        if txSize < fromIntegral (Ledger._maxTxSize pparams)
+          then case evaluateTx tx (utxo <> knownUtxo) of
+            (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
+              pure $ Just (NumUTxO $ length utxo, ValueSize sz, TxSize txSize, MemUnit mem, CpuUnit cpu)
+            _ -> pure Nothing
+          else pure Nothing
+
   genCommitTx utxo = do
     -- NOTE: number of parties is irrelevant for commit tx
     genHydraContextFor 1
@@ -169,57 +169,55 @@ computeCommitCost =
 
 computeCollectComCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeCollectComCost =
-  catMaybes
-    <$> forM
-      [1 .. 100]
-      ( \numParties -> do
-          (st, tx) <- generate $ genCollectComTx numParties
-          let utxo = getKnownUTxO st
-          let txSize = LBS.length $ serialize tx
-          if txSize < fromIntegral (Ledger._maxTxSize pparams)
-            then case evaluateTx tx utxo of
-              (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
-                | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
-                  pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
-              _ -> pure Nothing
-            else pure Nothing
-      )
+  catMaybes <$> mapM compute [1 .. 100]
+ where
+  compute numParties = do
+    (st, tx) <- generate $ genCollectComTx numParties
+    let utxo = getKnownUTxO st
+    let txSize = LBS.length $ serialize tx
+    if txSize < fromIntegral (Ledger._maxTxSize pparams)
+      then case evaluateTx tx utxo of
+        (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
+          | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
+            pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
+        _ -> pure Nothing
+      else pure Nothing
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
-computeCloseCost =
-  catMaybes
-    <$> forM
-      [1 .. 100]
-      ( \numParties -> do
-          (st, tx) <- generate $ genCloseTx numParties
-          let utxo = getKnownUTxO st
-          let txSize = LBS.length $ serialize tx
-          if txSize < fromIntegral (Ledger._maxTxSize pparams)
-            then case evaluateTx tx utxo of
-              (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
-                | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
-                  pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
-              _ -> pure Nothing
-            else pure Nothing
-      )
+computeCloseCost = do
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 30]
+  pure $ interesting <> limit
+ where
+  compute numParties = do
+    (st, tx) <- generate $ genCloseTx numParties
+    let utxo = getKnownUTxO st
+    let txSize = LBS.length $ serialize tx
+    if txSize < fromIntegral (Ledger._maxTxSize pparams)
+      then case evaluateTx tx utxo of
+        (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
+          | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
+            pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
+        _ -> pure Nothing
+      else pure Nothing
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeAbortCost =
-  catMaybes
-    <$> forM
-      [1 .. 100]
-      ( \numParties -> do
-          (tx, knownUtxo) <- generate $ genAbortTx numParties
-          let txSize = LBS.length $ serialize tx
-          if txSize < fromIntegral (Ledger._maxTxSize pparams)
-            then case evaluateTx tx knownUtxo of
-              (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
-                | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
-                  pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
-              _ -> pure Nothing
-            else pure Nothing
-      )
+  -- NOTE: We can't even close with one party right now, so no point in
+  -- determining interesting values
+  catMaybes <$> forM [1 .. 100] compute
  where
+  compute numParties = do
+    (tx, knownUtxo) <- generate $ genAbortTx numParties
+    let txSize = LBS.length $ serialize tx
+    if txSize < fromIntegral (Ledger._maxTxSize pparams)
+      then case evaluateTx tx knownUtxo of
+        (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
+          | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
+            pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
+        _ -> pure Nothing
+      else pure Nothing
+
   genAbortTx numParties =
     genHydraContextFor numParties >>= \ctx ->
       genInitTx ctx >>= \initTx ->
@@ -228,22 +226,21 @@ computeAbortCost =
             let stInitialized = executeCommits initTx commits stIdle
              in pure (abort stInitialized, getKnownUTxO stInitialized)
 
--- NOTE: This also includes cost of burning the Head tokens
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
-computeFanOutCost =
-  catMaybes
-    <$> forM
-      [1 .. 100]
-      ( \numElems -> do
-          (tx, knownUtxo) <- generate $ genFanoutTx numElems
-          let txSize = LBS.length $ serialize tx
-          case evaluateTx tx knownUtxo of
-            (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
-              | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
-                pure (Just (NumUTxO numElems, TxSize txSize, MemUnit mem, CpuUnit cpu))
-            _ -> pure Nothing
-      )
+computeFanOutCost = do
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100 .. 500]
+  pure $ interesting <> limit
  where
+  compute numElems = do
+    (tx, knownUtxo) <- generate $ genFanoutTx numElems
+    let txSize = LBS.length $ serialize tx
+    case evaluateTx tx knownUtxo of
+      (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
+        | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
+          pure (Just (NumUTxO numElems, TxSize txSize, MemUnit mem, CpuUnit cpu))
+      _ -> pure Nothing
+
   genFanoutTx numOutputs = do
     ctx <- genHydraContext 3
     utxo <- genSimpleUTxOOfSize numOutputs
