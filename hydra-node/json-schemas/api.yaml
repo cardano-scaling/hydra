@@ -295,13 +295,13 @@ components:
         type: object
         required:
           - tag
-          - snapshot
+          - snapshotNumber
         properties:
           tag:
             type: string
             enum: ["HeadIsClosed"]
-          snapshot:
-            $ref: "#/components/schemas/Snapshot"
+          snapshotNumber:
+            $ref: "#/components/schemas/SnapshotNumber"
 
     HeadIsContested:
       title: HeadIsContested

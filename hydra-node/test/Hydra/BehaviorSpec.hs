@@ -46,7 +46,7 @@ import Hydra.Node (
  )
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
-import Hydra.Snapshot (Snapshot (..), getSnapshot)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
 import Test.Util (shouldBe, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
@@ -214,7 +214,7 @@ spec = parallel $ do
 
               send n1 Close
               waitForNext n2
-                >>= assertHeadIsClosedWith (Snapshot 0 (utxoRefs [1, 2]) [])
+                >>= assertHeadIsClosedWith 0
 
       it "valid new transactions are seen by all parties" $
         shouldRunInSim $ do
@@ -243,13 +243,7 @@ spec = parallel $ do
               waitFor [n1] $ SnapshotConfirmed snapshot sigs
 
               send n1 Close
-              let expectedSnapshot =
-                    Snapshot
-                      { number = 1
-                      , utxo = utxoRefs [42, 1, 2]
-                      , confirmed = [aValidTx 42]
-                      }
-              waitForNext n1 >>= assertHeadIsClosedWith expectedSnapshot
+              waitForNext n1 >>= assertHeadIsClosedWith 1
 
       it "reports transactions as seen only when they validate (against the confirmed ledger)" $
         shouldRunInSim $ do
@@ -348,7 +342,7 @@ spec = parallel $ do
               chainEvent n2 (Observation (OnCloseTx 0))
 
               waitUntilMatch [n1, n2] $ \case
-                HeadIsClosed{snapshot = Snapshot{number}} -> number == 0
+                HeadIsClosed{snapshotNumber} -> snapshotNumber == 0
                 _ -> False
 
               -- Expect n1 to contest with latest snapshot, number 1
@@ -594,8 +588,8 @@ assertHeadIsClosed = \case
   HeadIsClosed{} -> pure ()
   _ -> failure "expected HeadIsClosed"
 
-assertHeadIsClosedWith :: (HasCallStack, MonadThrow m, IsTx tx) => Snapshot tx -> ServerOutput tx -> m ()
-assertHeadIsClosedWith expectedSnapshot = \case
-  HeadIsClosed{snapshot} -> do
-    snapshot `shouldBe` expectedSnapshot
+assertHeadIsClosedWith :: (HasCallStack, MonadThrow m) => SnapshotNumber -> ServerOutput tx -> m ()
+assertHeadIsClosedWith expectedSnapshotNumber = \case
+  HeadIsClosed{snapshotNumber} -> do
+    snapshotNumber `shouldBe` expectedSnapshotNumber
   _ -> failure "expected HeadIsClosed"
