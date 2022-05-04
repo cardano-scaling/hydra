@@ -46,6 +46,7 @@ channels:
           - $ref: "#/components/messages/Committed"
           - $ref: "#/components/messages/HeadIsOpen"
           - $ref: "#/components/messages/HeadIsClosed"
+          - $ref: "#/components/messages/HeadIsContested"
           - $ref: "#/components/messages/HeadIsAborted"
           - $ref: "#/components/messages/HeadIsFinalized"
           - $ref: "#/components/messages/TxSeen"
@@ -742,7 +743,7 @@ components:
           additionalProperties: false
           required:
             - tag
-            - snapshot
+            - confirmedSnapshot
           description: |
             Contest a previously posted snapshot (from a Close or Contest
             transaction) with a newer snapshot.
@@ -750,8 +751,8 @@ components:
             tag:
               type: string
               enum: ["ContestTx"]
-            snapshot:
-              $ref: "#/components/schemas/Snapshot"
+            confirmedSnapshot:
+              $ref: "#/components/schemas/ConfirmedSnapshot"
         - title: FanoutTx
           type: object
           additionalProperties: false

@@ -376,39 +376,44 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                         }
                     )
                     []
-  (previousRecoverableState@OpenState{parameters = parameters@HeadParameters{contestationPeriod}, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, OnChainEvent (Observation OnCloseTx{})) ->
-    -- TODO(1): Should check whether we want / can contest the close snapshot by
-    --       comparing with our local state / utxo.
-    --
-    -- TODO(2): In principle here, we want to:
-    --
-    --   a) Warn the user about a close tx outside of an open state
-    --   b) Move to close state, using information from the close tx
-    nextState
-      ( ClosedState
-          { parameters
-          , utxos = getField @"utxo" $ getSnapshot confirmedSnapshot
-          , previousRecoverableState
-          }
-      )
-      [ ClientEffect $
-          HeadIsClosed
-            { snapshot = getSnapshot confirmedSnapshot
-            }
-      , Delay
-          { -- TODO: In principle, we want to start the stopwatch from the
-            -- upper validity bound of the close transaction. The contestation
-            -- period here is really a minimum. At the moment, this isn't enforced
-            -- on-chain anyway so it's only faking it (until we make it).
-            delay = contestationPeriod
-          , reason = WaitOnContestationPeriod
-          , event = ShouldPostFanout
-          }
-      ]
+  (previousRecoverableState@OpenState{parameters, coordinatedHeadState}, OnChainEvent (Observation OnCloseTx{snapshotNumber = closedSnapshotNumber})) ->
+    let HeadParameters{contestationPeriod} = parameters
+        CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+     in -- TODO(2): In principle here, we want to:
+        --
+        --   a) Warn the user about a close tx outside of an open state
+        --   b) Move to close state, using information from the close tx
+        nextState
+          ( ClosedState
+              { parameters
+              , utxos = getField @"utxo" $ getSnapshot confirmedSnapshot
+              , previousRecoverableState
+              }
+          )
+          ( [ ClientEffect
+                HeadIsClosed
+                  { snapshot = getSnapshot confirmedSnapshot
+                  }
+            , -- FIXME(MB): This is most likely wrong in the case of contestation. We
+              -- may want to only post fanout once we have contested.
+              Delay
+                { -- TODO: In principle, we want to start the stopwatch from the
+                  -- upper validity bound of the close transaction. The contestation
+                  -- period here is really a minimum. At the moment, this isn't enforced
+                  -- on-chain anyway so it's only faking it (until we make it).
+                  delay = contestationPeriod
+                , reason = WaitOnContestationPeriod
+                , event = ShouldPostFanout
+                }
+            ]
+              ++ [ OnChainEffect ContestTx{confirmedSnapshot}
+                 | number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
+                 ]
+          )
   --
-  (_, OnChainEvent (Observation OnContestTx{})) ->
+  (_, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
     -- TODO: Handle contest tx
-    sameState []
+    sameState [ClientEffect HeadIsContested{snapshotNumber}]
   (ClosedState{utxos}, ShouldPostFanout) ->
     sameState [OnChainEffect (FanoutTx utxos)]
   (ClosedState{utxos}, OnChainEvent (Observation OnFanoutTx{})) ->
