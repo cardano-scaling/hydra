@@ -64,6 +64,8 @@ emptyTxBody =
     (TxInsCollateral mempty)
     TxInsReferenceNone
     mempty
+    TxTotalCollateralNone
+    TxReturnCollateralNone
     (TxFeeExplicit 0)
     (TxValidityNoLowerBound, TxValidityNoUpperBound)
     TxMetadataNone
