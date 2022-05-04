@@ -62,6 +62,7 @@ emptyTxBody =
   TxBodyContent
     mempty
     (TxInsCollateral mempty)
+    TxInsReferenceNone
     mempty
     (TxFeeExplicit 0)
     (TxValidityNoLowerBound, TxValidityNoUpperBound)
