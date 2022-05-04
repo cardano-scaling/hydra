@@ -21,6 +21,7 @@ import Control.Lens ((^?))
 import Data.Aeson (Result (..), Value (Object, String), fromJSON, object, (.=))
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
+import Data.List ((!!))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
@@ -115,6 +116,52 @@ spec = around showLogsOnFailure $ do
             withHydraNode tracer aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
               waitFor tracer 10 [n1] $
                 output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+
+    describe "contestation scenarios" $ do
+      it "close of an initial snapshot from restarting node is contested" $ \tracer -> do
+        withTempDir "end-to-end-chain-observer" $ \tmp -> do
+          config <- newNodeConfig tmp
+          withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+            tip <- queryTip defaultNetworkId nodeSocket
+
+            (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+            (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
+
+            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
+            bobChainConfig <- chainConfigFor Bob tmp nodeSocket []
+
+            let allNodesIds = [1, 2]
+            withHydraNode tracer aliceChainConfig tmp (allNodesIds !! 0) aliceSk [bobVk] allNodesIds $ \n1 -> do
+              withHydraNode tracer bobChainConfig tmp (allNodesIds !! 1) bobSk [aliceVk] allNodesIds $ \n2 -> do
+                seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+                let contestationPeriod = 10 :: Natural
+                send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                waitFor tracer 10 [n1, n2] $
+                  output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
+
+                committedUTxOByAlice <- seedFromFaucet defaultNetworkId node aliceCardanoVk aliceCommittedToHead Normal
+                send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
+                send n2 $ input "Commit" ["utxo" .= Object mempty]
+                waitFor tracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice]
+
+                -- Create an arbitrary transaction using some input.
+                let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
+                let Right tx =
+                      mkSimpleTx
+                        firstCommittedUTxO
+                        (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
+                        aliceCardanoSk
+                send n1 $ input "NewTx" ["transaction" .= tx]
+
+                waitMatch 10 n1 $ \v -> do
+                  guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+
+              withHydraNode tracer bobChainConfig tmp (allNodesIds !! 1) bobSk [aliceVk] allNodesIds $ \n2 -> do
+                waitMatch 10 n2 $ \v -> do
+                  guard $ v ^? key "tag" == Just "HeadIsOpen"
+                send n2 $ input "Close" []
+                waitFor tracer 10 [n1, n2] $ output "HeadIsClosed" ["snapshotNumber" .= (0 :: Word)]
+                waitFor tracer 10 [n1, n2] $ output "HeadIsContested" ["snapshotNumber" .= (1 :: Word)]
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
