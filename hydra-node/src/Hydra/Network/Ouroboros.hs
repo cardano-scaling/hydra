@@ -10,7 +10,6 @@ module Hydra.Network.Ouroboros (
 
 import Hydra.Prelude
 
-import Cardano.Tracing.OrphanInstances.Network ()
 import Codec.CBOR.Term (Term)
 import qualified Codec.CBOR.Term as CBOR
 import Control.Concurrent.STM (
