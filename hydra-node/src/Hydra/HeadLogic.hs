@@ -392,7 +392,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
           )
           ( [ ClientEffect
                 HeadIsClosed
-                  { snapshot = getSnapshot confirmedSnapshot
+                  { snapshotNumber = closedSnapshotNumber
                   }
             , -- FIXME(MB): This is most likely wrong in the case of contestation. We
               -- may want to only post fanout once we have contested.

@@ -265,10 +265,11 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
 
       let expectedSnapshot =
             object
-              [ "snapshotNumber" .= int 1
+              [ "snapshotNumber" .= int expectedSnapshotNumber
               , "utxo" .= newUTxO
               , "confirmedTransactions" .= [tx]
               ]
+          expectedSnapshotNumber = 1
 
       waitMatch 10 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
@@ -281,8 +282,8 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
       send n1 $ input "Close" []
       waitMatch 3 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "HeadIsClosed"
-        snapshot <- v ^? key "snapshot"
-        guard $ snapshot == expectedSnapshot
+        snapshotNumber <- v ^? key "snapshotNumber"
+        guard $ snapshotNumber == toJSON expectedSnapshotNumber
 
       waitFor tracer (contestationPeriod + 3) [n1] $
         output "HeadIsFinalized" ["utxo" .= newUTxO]
