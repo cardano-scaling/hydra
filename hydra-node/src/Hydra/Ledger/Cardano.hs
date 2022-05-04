@@ -274,8 +274,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
       "TxOutDatumNone"
     TxOutDatumHash h ->
       "TxOutDatumHash " <> show h
-    TxOutDatum scriptData ->
-      "TxOutDatum " <> prettyScriptData scriptData
+    TxOutDatumInTx scriptData ->
+      "TxOutDatumInTx " <> prettyScriptData scriptData
 
   scriptLines =
     [ "== SCRIPTS (" <> show (length scripts) <> ")"
