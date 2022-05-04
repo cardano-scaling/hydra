@@ -294,12 +294,12 @@ components:
         type: object
         required:
           - tag
-          - latestSnapshot
+          - snapshot
         properties:
           tag:
             type: string
             enum: ["HeadIsClosed"]
-          latestSnapshot:
+          snapshot:
             $ref: "#/components/schemas/Snapshot"
 
     HeadIsAborted:

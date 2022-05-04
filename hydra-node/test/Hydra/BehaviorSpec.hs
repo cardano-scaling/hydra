@@ -341,7 +341,7 @@ spec = parallel $ do
                 SnapshotConfirmed{} -> True
                 _ -> False
               chainEvent n1 (Observation (OnCloseTx 0))
-              -- Observe TX
+    -- Observe TX
 
     describe "Hydra Node Logging" $ do
       it "traces processing of events" $ do
@@ -418,7 +418,6 @@ waitFor nodes expected =
     forConcurrently_ nodes $ \n ->
       waitForNext n `shouldReturn` expected
 
-
 -- | Wait for some output at some node(s) to be produced /eventually/.
 -- The difference with 'waitFor' is that there can be other messages in between which
 -- are simply discarded.
@@ -430,7 +429,7 @@ waitUntil ::
 waitUntil nodes expected =
   waitUntilMatch nodes (== expected)
 
-waitUntilMatch
+waitUntilMatch ::
   (HasCallStack, MonadThrow m, IsTx tx, MonadAsync m, MonadTimer m) =>
   [TestHydraNode tx m] ->
   (ServerOutput tx -> Bool) ->
@@ -584,6 +583,6 @@ assertHeadIsClosed = \case
 
 assertHeadIsClosedWith :: (HasCallStack, MonadThrow m, IsTx tx) => Snapshot tx -> ServerOutput tx -> m ()
 assertHeadIsClosedWith expectedSnapshot = \case
-  HeadIsClosed{latestSnapshot} -> do
-    latestSnapshot `shouldBe` expectedSnapshot
+  HeadIsClosed{snapshot} -> do
+    snapshot `shouldBe` expectedSnapshot
   _ -> failure "expected HeadIsClosed"
