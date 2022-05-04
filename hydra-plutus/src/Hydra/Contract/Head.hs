@@ -23,7 +23,6 @@ import Plutus.Codec.CBOR.Encoding (
   unsafeEncodeRaw,
  )
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Ada (lovelaceValueOf)
 import Plutus.V1.Ledger.Address (scriptHashAddress)
 import Plutus.V1.Ledger.Api (
   Address,
@@ -52,7 +51,7 @@ import Plutus.V1.Ledger.Api (
  )
 import Plutus.V1.Ledger.Contexts (findDatum, findDatumHash, findOwnInput, getContinuingOutputs)
 import Plutus.V1.Ledger.Interval (Extended (Finite))
-import Plutus.V1.Ledger.Value (valueOf)
+import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
@@ -474,9 +473,11 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
       True
     [o]
       | txOutAddress o /= headAddress ->
-        txOutValue o == lovelaceValueOf changeValue
+        txOutValue o == lovelaceValue changeValue
     _ ->
       traceError "invalid collect-com outputs: more than 2 outputs."
+
+  lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
 {-# INLINEABLE mustContinueHeadWith #-}
 
 txOutDatum :: TxInfo -> TxOut -> Datum
