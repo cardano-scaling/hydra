@@ -130,8 +130,8 @@ costOfInit = markdownInitCost <$> computeInitCost
     unlines $
       [ "## Cost of Init Transaction"
       , ""
-      , "| # Parties | Tx size |"
-      , "| :-------- | -------: |"
+      , "| Parties | Tx size |"
+      , "| :------ | -------: |"
       ]
         <> fmap
           ( \(numParties, txSize) ->
@@ -150,8 +150,8 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
       [ "## Cost of Commit Transaction"
       , " Uses ada-only UTxO for better comparability."
       , ""
-      , "| # UTxO Committed | Assets size | Tx size | % max Mem | % max CPU |"
-      , "| :--------------- | ----------: | -------: | --------: | ----------: |"
+      , "| UTxO | Assets size | Tx size | % max Mem | % max CPU |"
+      , "| :--- | ----------: | -------: | --------: | ----------: |"
       ]
         <> map
           ( \(ulen, valueSz, txSize, mem, cpu) ->
@@ -175,8 +175,8 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
     unlines $
       [ "## Cost of CollectCom Transaction"
       , ""
-      , "| # Parties | Tx size | % max Mem | % max CPU |"
-      , "| :-------- | -------: | --------: | ----------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU |"
+      , "| :------ | -------: | --------: | ----------: |"
       ]
         <> fmap
           ( \(numParties, txSize, mem, cpu) ->
@@ -198,8 +198,8 @@ costOfClose = markdownClose <$> computeCloseCost
     unlines $
       [ "## Cost of Close Transaction"
       , ""
-      , "| # Parties | Tx size | % max Mem | % max CPU |"
-      , "| :-------- | -------: | --------: | ----------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU |"
+      , "| :------ | -------: | --------: | ----------: |"
       ]
         <> fmap
           ( \(numParties, txSize, mem, cpu) ->
@@ -221,8 +221,8 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
     unlines $
       [ "## Cost of Abort Transaction"
       , ""
-      , "| # Parties | Tx size | % max Mem | % max CPU |"
-      , "| :-------- | -------: | --------: | ----------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU |"
+      , "| :------ | -------: | --------: | ----------: |"
       ]
         <> fmap
           ( \(numParties, txSize, mem, cpu) ->
