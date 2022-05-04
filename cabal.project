@@ -43,38 +43,43 @@ test-show-details: direct
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-node.git
-  tag: 98892cb1196f09481c0eefc6bcb9216f580cba79
-  --sha256: 05zicb6i73ksf1jhxzdgw04x32sm1b09kswpjq18wabidgvd4sfa
+  tag: c2ac65a345c259159a0e8c37c38ef26e62b56c62
+  --sha256: 0a9dkycm5m75q5amhbmbkap6bkvwvipzidwv7j1z3d93vclmkcls
   subdir:
     cardano-api
-    cardano-git-rev
-    cardano-node
-    trace-dispatcher
-    trace-resources
-    trace-forward
 
 -- NOTE(SN): These source-repository-package tags are copied from the
 -- 'cardano-node' repository cabal.project at the revision given above. Make
 -- sure to update 'tag' and 'sha256' entries when you do an upgrade. Or just
 -- copy the whole thing and drop not-required packages and constraints.
 
+-- Tracking cardano-node
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/optparse-applicative
   tag: 7497a29cb998721a9068d5725d49461f2bba0e7a
   --sha256: 1gvsrg925vynwgqwplgjmp53vj953qyh3wbdf34pw21c8r47w35r
 
+-- Tracking cardano-node
+source-repository-package
+  type: git
+  location: https://github.com/vshabanov/ekg-json
+  tag: 00ebe7211c981686e65730b7144fbf5350462608
+  --sha256: 1zvjm3pb38w0ijig5wk5mdkzcszpmlp5d4zxvks2jk1rkypi8gsm
+
+-- Tracking cardano-node
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/hedgehog-extras
   tag: 967d79533c21e33387d0227a5f6cc185203fe658
   --sha256: 0rbqb7a64aya1qizlr3im06hdydg9zr6sl3i8bvqqlf7kpa647sd
 
+-- Tracking cardano-node
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
-  tag: 394c4637c24d82325bd04ceb99c8e8df5617e663
-  --sha256: 02q8y69za5b0vsnj9qga1364vkmfc1kh35d0yshw1lf7nw9bls8m
+  tag: d0408d7421b9c9b1a4018c05d30118bfce5e1aac
+  --sha256: 0p29l1c4cnwx9bl2bdnckj63iqv2sgpq2jisswszvmqvz4c3dgxd
   subdir:
     base-deriving-via
     binary
@@ -87,12 +92,14 @@ source-repository-package
     slotting
     strict-containers
 
+-- Tracking cardano-node
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-crypto
   tag: f73079303f663e028288f9f4a9e08bcca39a923e
   --sha256: 1n87i15x54s0cjkh3nsxs4r1x016cdw1fypwmr68936n3xxsjn6q
 
+-- Tracking cardano-node
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-ledger
@@ -124,6 +131,7 @@ source-repository-package
     libs/small-steps-test
     libs/non-integral
 
+-- Tracking cardano-node
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-prelude
@@ -133,12 +141,14 @@ source-repository-package
     cardano-prelude
     cardano-prelude-test
 
+-- Tracking cardano-node
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/goblins
   tag: cde90a2b27f79187ca8310b6549331e59595e7ba
   --sha256: 17c88rbva3iw82yg9srlxjv2ia5wjb9cyqw44hik565f5v9svnyg
 
+-- Tracking cardano-node
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/iohk-monitoring-framework
@@ -147,24 +157,26 @@ source-repository-package
   subdir:
     contra-tracer
     iohk-monitoring
-    plugins/backend-aggregation
-    plugins/backend-ekg
-    plugins/backend-monitoring
-    plugins/backend-trace-forwarder
-    plugins/scribe-systemd
+    -- plugins/backend-aggregation
+    -- plugins/backend-ekg
+    -- plugins/backend-monitoring
+    -- plugins/backend-trace-forwarder
+    -- plugins/scribe-systemd
     tracer-transformers
 
+-- Tracking cardano-node
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/Win32-network
   tag: 3825d3abf75f83f406c1f7161883c438dac7277d
   --sha256: 19wahfv726fa3mqajpqdqhnl9ica3xmf68i254q45iyjcpj1psqx
 
+-- Tracking cardano-node
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/ouroboros-network
-  tag: 4b44e8d8cde4431cb40ad868ce851400b5087094
-  --sha256: 0hcl8l3g46dwg3faq76p10cbd0dai7hpij7fan8xr2jzfb87mj26
+  tag: ed5db33e0f0d44b175c25974b6305bfd36e88278
+  --sha256: 1331xpas1vpzliwqkwjzpy42anywf0gx85p6g4x23haphq7limcr
   subdir:
     io-sim
     io-classes
@@ -183,6 +195,20 @@ source-repository-package
     typed-protocols-cborg
     typed-protocols-examples
 
+-- Tracking cardano-node
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/ekg-forward
+  tag: 297cd9db5074339a2fb2e5ae7d0780debb670c63
+  --sha256: 1zcwry3y5rmd9lgxy89wsb3k4kpffqji35dc7ghzbz603y1gy24g
+
+-- Tracking cardano-node
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/flat
+  tag: ee59880f47ab835dbd73bea0847dab7869fc20d8
+  --sha256: 1lrzknw765pz2j97nvv9ip3l1mcpf2zr4n56hwlz0rk7wq7ls4cm
+
 -- NOTE: further up-to-date than cardano-node as we need serialiseData support.
 -- Tracking release/1.0.0 branch of plutus
 source-repository-package
@@ -199,19 +225,6 @@ source-repository-package
     stubs/plutus-ghc-stub
     word-array
 
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ekg-forward
-  tag: 297cd9db5074339a2fb2e5ae7d0780debb670c63
-  --sha256: 1zcwry3y5rmd9lgxy89wsb3k4kpffqji35dc7ghzbz603y1gy24g
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/flat
-  tag: ee59880f47ab835dbd73bea0847dab7869fc20d8
-  --sha256: 1lrzknw765pz2j97nvv9ip3l1mcpf2zr4n56hwlz0rk7wq7ls4cm
-
--- Most constraints are from cardano-node + some from plutus-apps
 constraints:
     hedgehog >= 1.0
   , bimap >= 0.4.0
