@@ -131,7 +131,7 @@ costOfInit = markdownInitCost <$> computeInitCost
     unlines $
       [ "## Cost of Init Transaction"
       , ""
-      , "| # Parties | Tx. size |"
+      , "| # Parties | Tx size |"
       , "| :-------- | -------: |"
       ]
         <> fmap
@@ -149,8 +149,9 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
   markdownCommitCost stats =
     unlines $
       [ "## Cost of Commit Transaction"
+      , " Uses ada-only UTxO for better comparability."
       , ""
-      , "| # UTxO Committed | Assets size | Tx. size | % max Mem |   % max CPU |"
+      , "| # UTxO Committed | Assets size | Tx size | % max Mem | % max CPU |"
       , "| :--------------- | ----------: | -------: | --------: | ----------: |"
       ]
         <> map
@@ -175,7 +176,7 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
     unlines $
       [ "## Cost of CollectCom Transaction"
       , ""
-      , "| # Parties | Tx. size | % max Mem |   % max CPU |"
+      , "| # Parties | Tx size | % max Mem | % max CPU |"
       , "| :-------- | -------: | --------: | ----------: |"
       ]
         <> fmap
@@ -198,7 +199,7 @@ costOfClose = markdownClose <$> computeCloseCost
     unlines $
       [ "## Cost of Close Transaction"
       , ""
-      , "| # Parties | Tx. size | % max Mem |   % max CPU |"
+      , "| # Parties | Tx size | % max Mem | % max CPU |"
       , "| :-------- | -------: | --------: | ----------: |"
       ]
         <> fmap
@@ -221,7 +222,7 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
     unlines $
       [ "## Cost of Abort Transaction"
       , ""
-      , "| # Parties | Tx. size | % max Mem |   % max CPU |"
+      , "| # Parties | Tx size | % max Mem | % max CPU |"
       , "| :-------- | -------: | --------: | ----------: |"
       ]
         <> fmap
@@ -242,10 +243,11 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
  where
   markdownFanOutCost stats =
     unlines $
-      [ "## Cost of FanOut Transaction (spend Head + burn HeadTokens)"
+      [ "## Cost of FanOut Transaction"
+      , " Involves spending head output and burning head tokens. Uses ada-only UTxO for better comparability."
       , ""
-      , "| UTXO  | Tx. size | % max Mem |   % max CPU |"
-      , "| :---- | -------: | --------: | ----------: |"
+      , "| UTxO  | Tx size | % max Mem | % max CPU |"
+      , "| :---- | ------: | --------: | --------: |"
       ]
         <> fmap
           ( \(numElems, txSize, mem, cpu) ->
