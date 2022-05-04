@@ -7,7 +7,7 @@ module Plutus.Orphans where
 import Hydra.Prelude
 
 import qualified Data.ByteString as BS
-import Ledger (CurrencySymbol, TokenName, Value)
+import Plutus.V1.Ledger.Api (CurrencySymbol, TokenName, Value)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified Plutus.V1.Ledger.Crypto as Plutus
 import qualified PlutusTx.AssocMap as AssocMap

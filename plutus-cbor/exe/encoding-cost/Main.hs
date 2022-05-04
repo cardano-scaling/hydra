@@ -7,13 +7,12 @@ import qualified Data.ByteString as BS
 import Data.ByteString.Builder.Scientific (FPFormat (Fixed), formatScientificBuilder)
 import Data.Ratio ((%))
 import Data.Scientific (unsafeFromRational)
-import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding.Validator (
-  EncodeValidator,
   ValidatorKind (..),
   encodeTxOutValidator,
   encodeTxOutsValidator,
  )
+import Plutus.V1.Ledger.Api (Validator)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified PlutusTx.AssocMap as Plutus.Map
 import Test.Plutus.Validator (
@@ -58,14 +57,14 @@ relativeCostOf ::
   (Plutus.ToData a) =>
   a ->
   ExUnits ->
-  (ValidatorKind -> Scripts.TypedValidator (EncodeValidator a)) ->
+  (ValidatorKind -> Validator) ->
   (Rational, Rational)
-relativeCostOf a (ExUnits maxMem maxCpu) validator =
+relativeCostOf a (ExUnits maxMem maxCpu) mkValidator =
   (relativeMemCost, relativeCpuCost)
  where
   ExUnits mem cpu = either (error . show) id $ do
-    base <- evaluateScriptExecutionUnits (validator BaselineValidator) a
-    real <- evaluateScriptExecutionUnits (validator RealValidator) a
+    base <- evaluateScriptExecutionUnits (mkValidator BaselineValidator) a
+    real <- evaluateScriptExecutionUnits (mkValidator RealValidator) a
     pure $ distanceExUnits base real
 
   (relativeMemCost, relativeCpuCost) =

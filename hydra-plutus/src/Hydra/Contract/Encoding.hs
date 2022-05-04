@@ -2,7 +2,6 @@
 
 module Hydra.Contract.Encoding where
 
-import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
 import Plutus.Codec.CBOR.Encoding (
@@ -17,10 +16,16 @@ import Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
  )
 import Plutus.V1.Ledger.Api (
-  Credential (PubKeyCredential, ScriptCredential),
-  CurrencySymbol (CurrencySymbol),
+  Address (..),
+  Credential (..),
+  CurrencySymbol (..),
+  DatumHash (..),
+  PubKeyHash (..),
   StakingCredential (..),
-  TokenName (TokenName),
+  TokenName (..),
+  TxOut (..),
+  ValidatorHash (..),
+  Value,
   adaSymbol,
   adaToken,
   getValue,

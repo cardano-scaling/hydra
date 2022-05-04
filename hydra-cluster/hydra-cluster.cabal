@@ -222,7 +222,6 @@ test-suite integration
     , hydra-test-utils
     , lens
     , lens-aeson
-    , plutus-ledger
     , plutus-ledger-api
     , process
     , QuickCheck

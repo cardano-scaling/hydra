@@ -38,16 +38,16 @@ library
     , hspec-core
     , hspec-junit-formatter
     , HUnit
+    , hydra-cardano-api
     , hydra-prelude
     , io-classes
     , network
-    , plutus-ledger
+    , plutus-ledger-api
     , plutus-tx
     , process
     , QuickCheck
     , random-shuffle
     , relude
-    , serialise
     , strict-containers
     , temporary
     , warp

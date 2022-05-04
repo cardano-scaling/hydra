@@ -141,7 +141,6 @@ library
     , ouroboros-consensus-cardano
     , ouroboros-consensus-shelley
     , ouroboros-network
-    , plutus-ledger
     , plutus-ledger-api
     , QuickCheck
     , serialise

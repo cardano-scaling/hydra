@@ -5,19 +5,15 @@
 
 module Hydra.Contract.Head where
 
-import Ledger hiding (txOutDatum, validatorHash)
 import PlutusTx.Prelude
 
-import Hydra.Contract.Commit (Commit, SerializedTxOut (..))
+import Hydra.Contract.Commit (SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (vkey))
-import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (RedeemerType))
-import qualified Ledger.Typed.Scripts as Scripts
-import Ledger.Typed.Scripts.Validators (DatumType)
 import Plutus.Codec.CBOR.Encoding (
   encodeBeginList,
   encodeBreak,
@@ -25,18 +21,39 @@ import Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
   unsafeEncodeRaw,
  )
-import Plutus.V1.Ledger.Ada (adaSymbol, adaToken, lovelaceValueOf)
-import Plutus.V1.Ledger.Value (TokenName (..), Value (..), valueOf)
-import PlutusTx (fromBuiltinData, toBuiltinData)
+import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import Plutus.V1.Ledger.Ada (lovelaceValueOf)
+import Plutus.V1.Ledger.Address (scriptHashAddress)
+import Plutus.V1.Ledger.Api (
+  Address,
+  CurrencySymbol,
+  Datum (..),
+  DatumHash,
+  FromData (fromBuiltinData),
+  PubKeyHash (getPubKeyHash),
+  Script,
+  ScriptContext (..),
+  ToData (toBuiltinData),
+  TokenName (..),
+  TxInInfo (..),
+  TxInfo (..),
+  TxOut (..),
+  Validator (getValidator),
+  ValidatorHash,
+  Value (Value),
+  adaSymbol,
+  adaToken,
+  mkValidatorScript,
+ )
+import Plutus.V1.Ledger.Contexts (findDatum, findOwnInput)
+import Plutus.V1.Ledger.Crypto (Signature (getSignature))
+import Plutus.V1.Ledger.Value (valueOf)
+import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
-import PlutusTx.Code (CompiledCode)
 
-data Head
-
-instance Scripts.ValidatorTypes Head where
-  type DatumType Head = State
-  type RedeemerType Head = Input
+type DatumType = State
+type RedeemerType = Input
 
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
@@ -242,7 +259,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
   lookupCommit :: DatumHash -> Maybe SerializedTxOut
   lookupCommit h = do
     d <- getDatum <$> findDatum h txInfo
-    case fromBuiltinData @(DatumType Commit) d of
+    case fromBuiltinData @Commit.DatumType d of
       Just (_p, _, Just o) ->
         Just o
       Just (_p, _, Nothing) ->
@@ -380,31 +397,19 @@ verifyPartySignature snapshotNumber party signed =
   message = encodingToBuiltinByteString (encodeInteger snapshotNumber)
 {-# INLINEABLE verifyPartySignature #-}
 
--- | The script instance of the auction state machine. It contains the state
--- machine compiled to a Plutus core validator script.
 -- TODO: Add a NetworkId so that we can properly serialise address hashes
 -- see 'encodeAddress' for details
-typedValidator :: TypedValidator Head
-typedValidator =
-  Scripts.mkTypedValidator @Head
-    compiledValidator
-    $$(PlutusTx.compile [||wrap||])
- where
-  wrap = Scripts.wrapValidator @(DatumType Head) @(RedeemerType Head)
-
-compiledValidator :: CompiledCode (ValidatorType Head)
+-- TODO: Use validatorHash directly in headValidator arguments
+compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
-  $$(PlutusTx.compile [||headValidator||])
-    `PlutusTx.applyCode` PlutusTx.liftCode Commit.address
-    `PlutusTx.applyCode` PlutusTx.liftCode Initial.address
+  $$(PlutusTx.compile [||\ca ia -> wrap (headValidator ca ia)||])
+    `PlutusTx.applyCode` PlutusTx.liftCode (scriptHashAddress Commit.validatorHash)
+    `PlutusTx.applyCode` PlutusTx.liftCode (scriptHashAddress Initial.validatorHash)
+ where
+  wrap = wrapValidator @DatumType @RedeemerType
+
+validatorScript :: Script
+validatorScript = getValidator $ mkValidatorScript compiledValidator
 
 validatorHash :: ValidatorHash
-validatorHash = Scripts.validatorHash typedValidator
-
-address :: Address
-address = scriptHashAddress validatorHash
-
--- | Get the actual plutus script. Mainly used to serialize and use in
--- transactions.
-validatorScript :: Script
-validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
+validatorHash = scriptValidatorHash validatorScript

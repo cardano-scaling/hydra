@@ -97,7 +97,6 @@ test-suite unit
     , hydra-prelude
     , hydra-test-utils
     , plutus-cbor
-    , plutus-ledger
     , plutus-ledger-api
     , plutus-tx
     , plutus-tx-plugin
@@ -143,7 +142,6 @@ executable encoding-cost
     , hydra-prelude
     , hydra-test-utils
     , plutus-cbor
-    , plutus-ledger
     , plutus-ledger-api
     , plutus-tx
     , plutus-tx-plugin

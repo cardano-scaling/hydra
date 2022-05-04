@@ -6,23 +6,36 @@
 -- focus on the off-chain datum types this is currently 'const True'.
 module Hydra.Contract.Initial where
 
-import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (encodeTxOut)
-import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
-import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
-import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
-import Plutus.V1.Ledger.Api (TokenName (unTokenName), getValue)
+import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import Plutus.V1.Ledger.Ada (Ada (getLovelace), fromValue)
+import Plutus.V1.Ledger.Api (
+  Datum (..),
+  FromData (fromBuiltinData),
+  PubKeyHash (getPubKeyHash),
+  Redeemer (Redeemer),
+  Script,
+  ScriptContext (ScriptContext, scriptContextTxInfo),
+  ToData (toBuiltinData),
+  TokenName (unTokenName),
+  TxInInfo (txInInfoResolved),
+  TxInfo (txInfoSignatories),
+  TxOut (txOutValue),
+  TxOutRef,
+  Validator (getValidator),
+  ValidatorHash,
+  Value (getValue),
+  mkValidatorScript,
+ )
+import Plutus.V1.Ledger.Contexts (findDatum, findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
-import PlutusTx.IsData.Class (ToData (..), fromBuiltinData)
-
-data Initial
 
 data InitialRedeemer
   = Abort
@@ -33,9 +46,8 @@ data InitialRedeemer
 
 PlutusTx.unstableMakeIsData ''InitialRedeemer
 
-instance Scripts.ValidatorTypes Initial where
-  type DatumType Initial = ()
-  type RedeemerType Initial = InitialRedeemer
+type DatumType = ()
+type RedeemerType = InitialRedeemer
 
 -- | The initial validator has two responsibilities:
 --
@@ -129,7 +141,7 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
         case getDatum <$> findDatum dh txInfo of
           Nothing -> traceError "expected optional commit datum"
           (Just da) ->
-            case fromBuiltinData @(DatumType Commit.Commit) da of
+            case fromBuiltinData @Commit.DatumType da of
               Nothing -> traceError "expected commit datum type, got something else"
               Just (_party, _headScriptHash, mSerializedTxOut) ->
                 mSerializedTxOut
@@ -155,32 +167,21 @@ debugInteger i
   | otherwise = "-" `appendString` debugInteger (negate i)
 {-# INLINEABLE debugInteger #-}
 
-typedValidator :: TypedValidator Initial
-typedValidator =
-  Scripts.mkTypedValidator @Initial
-    compiledValidator
-    $$(PlutusTx.compile [||wrap||])
- where
-  wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
-
-compiledValidator :: CompiledCode (ValidatorType Initial)
+compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
-  $$(PlutusTx.compile [||validator||])
+  $$(PlutusTx.compile [||wrap . validator||])
     `PlutusTx.applyCode` PlutusTx.liftCode Commit.validatorHash
+ where
+  wrap = wrapValidator @DatumType @RedeemerType
 
--- | Get the actual plutus script. Mainly used to serialize and use in
--- transactions.
 validatorScript :: Script
-validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
+validatorScript = getValidator $ mkValidatorScript compiledValidator
 
 validatorHash :: ValidatorHash
-validatorHash = Scripts.validatorHash typedValidator
+validatorHash = scriptValidatorHash validatorScript
 
-datum :: DatumType Initial -> Datum
+datum :: DatumType -> Datum
 datum a = Datum (toBuiltinData a)
 
-redeemer :: RedeemerType Initial -> Redeemer
+redeemer :: RedeemerType -> Redeemer
 redeemer a = Redeemer (toBuiltinData a)
-
-address :: Address
-address = scriptHashAddress validatorHash
