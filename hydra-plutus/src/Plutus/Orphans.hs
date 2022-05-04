@@ -6,11 +6,13 @@ module Plutus.Orphans where
 
 import Hydra.Prelude
 
+import qualified Data.Aeson as Aeson
 import Plutus.V1.Ledger.Api (
   CurrencySymbol,
   POSIXTime (..),
   TokenName,
   UpperBound (..),
+  ValidatorHash,
   Value,
   upperBound,
  )
@@ -40,3 +42,6 @@ instance Arbitrary POSIXTime where
 
 instance Arbitrary a => Arbitrary (UpperBound a) where
   arbitrary = upperBound <$> arbitrary
+
+instance ToJSON ValidatorHash where
+  toJSON = Aeson.String . show

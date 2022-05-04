@@ -13,7 +13,6 @@ import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (encodeTxOut)
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Ada (Ada (getLovelace), fromValue)
 import Plutus.V1.Ledger.Api (
   Datum (..),
   FromData (fromBuiltinData),
@@ -30,9 +29,12 @@ import Plutus.V1.Ledger.Api (
   Validator (getValidator),
   ValidatorHash,
   Value (getValue),
+  adaSymbol,
+  adaToken,
   mkValidatorScript,
  )
 import Plutus.V1.Ledger.Contexts (findDatum, findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
+import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
@@ -150,7 +152,8 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
                 mCommit
       _ -> traceError "expected single commit output"
 
-  debugValue = debugInteger . getLovelace . fromValue
+  debugValue v =
+    debugInteger . assetClassValueOf v $ assetClass adaSymbol adaToken
 
 -- | Show an 'Integer' as decimal number. This is very inefficient and only
 -- should be used for debugging.

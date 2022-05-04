@@ -11,7 +11,6 @@ import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
-import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Codec.CBOR.Encoding (
@@ -23,7 +22,6 @@ import Plutus.Codec.CBOR.Encoding (
   unsafeEncodeRaw,
  )
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Ada (lovelaceValueOf)
 import Plutus.V1.Ledger.Api (
   Address,
   CurrencySymbol,
@@ -51,7 +49,7 @@ import Plutus.V1.Ledger.Api (
  )
 import Plutus.V1.Ledger.Contexts (findDatum, findDatumHash, findOwnInput, getContinuingOutputs)
 import Plutus.V1.Ledger.Interval (Extended (Finite))
-import Plutus.V1.Ledger.Value (valueOf)
+import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
@@ -456,9 +454,11 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
       True
     [o]
       | txOutAddress o /= headAddress ->
-        txOutValue o == lovelaceValueOf changeValue
+        txOutValue o == lovelaceValue changeValue
     _ ->
       traceError "invalid collect-com outputs: more than 2 outputs."
+
+  lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
 {-# INLINEABLE mustContinueHeadWith #-}
 
 txOutDatum :: TxInfo -> TxOut -> Datum

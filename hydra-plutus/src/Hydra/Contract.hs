@@ -6,6 +6,7 @@ import Hydra.Prelude
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
+import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (ValidatorHash)
 
 -- | Information about relevant Hydra scripts.
