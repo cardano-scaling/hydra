@@ -512,7 +512,7 @@ toOnChainTx =
       OnCloseTx
         { snapshotNumber = number (getSnapshot confirmedSnapshot)
         }
-    ContestTx{} -> OnContestTx
+    ContestTx{snapshot = Snapshot{number}} -> OnContestTx{snapshotNumber = number}
     FanoutTx{} -> OnFanoutTx
 
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
