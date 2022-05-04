@@ -45,7 +45,6 @@ import Data.Aeson (
   FromJSONKeyFunction (FromJSONKeyTextParser),
   ToJSONKey,
   Value (String),
-  decode,
   object,
   toJSONKey,
   withObject,
@@ -55,6 +54,7 @@ import Data.Aeson (
   (.:?),
   (.=),
  )
+import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (
   Pair,
   Parser,
@@ -64,7 +64,6 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..), isSJust)
 import qualified Data.Set as Set
-import qualified Data.Text as Text
 import Ouroboros.Consensus.Shelley.Eras (StandardAlonzo)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
@@ -292,7 +291,7 @@ instance ToJSON (Ledger.Alonzo.TxBody StandardAlonzo) where
         , onlyIf (const True) "fees" (Ledger.Alonzo.txfee' b)
         , onlyIf (not . isOpenInterval) "validity" (Ledger.Alonzo.vldt' b)
         , onlyIf (not . null) "requiredSignatures" (Ledger.Alonzo.reqSignerHashes' b)
-        , onlyIf ((/=) mempty) "mint" (fromLedgerValue (Ledger.Alonzo.mint' b))
+        , onlyIf (/= mempty) "mint" (fromLedgerValue (Ledger.Alonzo.mint' b))
         , onlyIf isSJust "scriptIntegrityHash" (Ledger.Alonzo.scriptIntegrityHash' b)
         , onlyIf isSJust "auxiliaryDataHash" (Ledger.Alonzo.adHash' b)
         , onlyIf isSJust "networkId" (Ledger.Alonzo.txnetworkid' b)
@@ -386,19 +385,6 @@ txIdFromText = fmap Ledger.TxId . safeHashFromText
 
 instance FromJSON (Ledger.TxIn StandardCrypto) where
   parseJSON = fmap toLedgerTxIn . parseJSON
-
-txInFromText :: (Crypto crypto, MonadFail m) => Text -> m (Ledger.TxIn crypto)
-txInFromText t = do
-  let (txIdText, txIxText) = Text.breakOn "#" t
-  Ledger.TxIn
-    <$> txIdFromText txIdText
-    <*> parseIndex txIxText
- where
-  parseIndex txIxText =
-    maybe
-      (fail $ "cannot parse " <> show txIxText <> " as a natural index")
-      pure
-      (decode (encodeUtf8 $ Text.drop 1 txIxText))
 
 --
 -- TxOut
@@ -588,7 +574,7 @@ instance Crypto crypto => FromJSON (Ledger.WitVKey 'Ledger.Witness crypto) where
 -- Helpers
 --
 
-onlyIf :: ToJSON a => (a -> Bool) -> Text -> a -> [Pair]
+onlyIf :: ToJSON a => (a -> Bool) -> Aeson.Key -> a -> [Pair]
 onlyIf predicate k v =
   [(k, toJSON v) | predicate v]
 
