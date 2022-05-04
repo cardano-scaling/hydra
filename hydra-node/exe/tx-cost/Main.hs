@@ -100,6 +100,8 @@ writeTransactionCostMarkdown hdl = do
             , h
             ]
 
+-- NOTE: Github Actions CI depends on the number of header lines, see
+-- .github/workflows/ci.yaml
 pageHeader :: [Text]
 pageHeader =
   [ "--- "
@@ -111,8 +113,8 @@ pageHeader =
   , ""
   , "Sizes and execution budgets for Hydra protocol transactions. Note that unlisted parameters are currently using `arbitrary` values and results are not fully deterministic and comparable to previous runs."
   , ""
-  , "| Metadata   |"
-  , "| ---    | ----    |"
+  , "| Metadata | |"
+  , "| :--- | :--- |"
   , "| _Generated at_ | " <> show now <> " |"
   , "| _Max. memory units_ | " <> show maxMem <> " |"
   , "| _Max. CPU units_ | " <> show maxCpu <> " |"

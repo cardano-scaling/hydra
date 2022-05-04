@@ -257,16 +257,15 @@ genSimpleUTxOOfSize numUTxO =
 
 computeMerkleTreeCost :: IO [(Int, MemUnit, CpuUnit, MemUnit, CpuUnit)]
 computeMerkleTreeCost =
-  forM
-    ([1 .. 10] <> [20, 30 .. 100] <> [120, 140 .. 500])
-    ( \numElems -> do
-        utxo <- fmap Plutus.toBuiltin <$> genFakeUTxOs numElems
-
-        let (memberMem, memberCpu) = fromRight (0, 0) $ executionCostForMember utxo
-            (builderMem, builderCpu) = fromRight (0, 0) $ executionCostForBuilder utxo
-        pure (numElems, MemUnit memberMem, CpuUnit memberCpu, MemUnit builderMem, CpuUnit builderCpu)
-    )
+  mapM compute ([1 .. 10] <> [20, 30 .. 100] <> [120, 140 .. 500])
  where
+  compute numElems = do
+    utxo <- fmap Plutus.toBuiltin <$> genFakeUTxOs numElems
+
+    let (memberMem, memberCpu) = fromRight (0, 0) $ executionCostForMember utxo
+        (builderMem, builderCpu) = fromRight (0, 0) $ executionCostForBuilder utxo
+    pure (numElems, MemUnit memberMem, CpuUnit memberCpu, MemUnit builderMem, CpuUnit builderCpu)
+
   -- NOTE: assume size of a UTXO is around  60 bytes
   genFakeUTxOs numElems = generate (vectorOf numElems $ BS.pack <$> vectorOf 60 arbitrary)
 
