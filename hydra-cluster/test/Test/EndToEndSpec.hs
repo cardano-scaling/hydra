@@ -124,11 +124,14 @@ spec = around showLogsOnFailure $ do
             (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
 
+            seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+            seedFromFaucet_ defaultNetworkId node bobCardanoVk 100_000_000 Fuel
+
             tip <- queryTip defaultNetworkId nodeSocket
             let startFromTip x = x{startChainFrom = Just tip}
 
-            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [] <&> startFromTip
-            bobChainConfig <- chainConfigFor Bob tmp nodeSocket [] <&> startFromTip
+            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Bob] <&> startFromTip
+            bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice] <&> startFromTip
 
             let aliceNodeId = 1
                 bobNodeId = 2
@@ -138,7 +141,6 @@ spec = around showLogsOnFailure $ do
 
             withAliceNode $ \n1 -> do
               withBobNode $ \n2 -> do
-                seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
                 let contestationPeriod = 10 :: Natural
                 send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
                 waitFor tracer 10 [n1, n2] $
