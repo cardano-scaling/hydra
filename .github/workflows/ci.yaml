@@ -207,8 +207,10 @@ jobs:
       uses: peter-evans/create-or-update-comment@v2
       with:
         comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        edit-mode: replace
         issue-number: ${{ github.event.pull_request.number }}
         body: ${{ steps.comment-body.outputs.body }}
+        reactions: rocket
 
   documentation:
     name: Documentation
