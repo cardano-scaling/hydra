@@ -412,7 +412,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
           )
   --
   (_, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
-    -- TODO: Handle contest tx
+    -- TODO: Is there more to handle contestation?
     sameState [ClientEffect HeadIsContested{snapshotNumber}]
   (ClosedState{utxos}, ShouldPostFanout) ->
     sameState [OnChainEffect (FanoutTx utxos)]
