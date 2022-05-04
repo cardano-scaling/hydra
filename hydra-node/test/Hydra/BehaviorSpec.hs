@@ -345,6 +345,8 @@ spec = parallel $ do
 
               -- Have n1 observe a close with not the latest snapshot
               chainEvent n1 (Observation (OnCloseTx 0))
+              chainEvent n2 (Observation (OnCloseTx 0))
+
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshot = Snapshot{number}} -> number == 0
                 _ -> False
@@ -512,8 +514,10 @@ toOnChainTx =
       OnCloseTx
         { snapshotNumber = number (getSnapshot confirmedSnapshot)
         }
-    ContestTx{snapshot = Snapshot{number}} -> OnContestTx{snapshotNumber = number}
-    FanoutTx{} -> OnFanoutTx
+    ContestTx{confirmedSnapshot} ->
+      OnContestTx{snapshotNumber = number (getSnapshot confirmedSnapshot)}
+    FanoutTx{} ->
+      OnFanoutTx
 
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: DiffTime
