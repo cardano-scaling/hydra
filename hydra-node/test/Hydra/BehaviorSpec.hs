@@ -205,15 +205,6 @@ spec = parallel $ do
                 waitFor [n2] $ UTxO (utxoRefs [1])
 
     describe "in an open head" $ do
-      let openHead n1 n2 = do
-            send n1 (Init testContestationPeriod)
-            waitFor [n1, n2] $ ReadyToCommit (fromList [alice, bob])
-            send n1 (Commit (utxoRef 1))
-            waitFor [n1, n2] $ Committed alice (utxoRef 1)
-            send n2 (Commit (utxoRef 2))
-            waitFor [n1, n2] $ Committed bob (utxoRef 2)
-            waitFor [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
-
       it "sees the head closed by other nodes" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
@@ -338,6 +329,20 @@ spec = parallel $ do
               allTxs <- reverse <$> readTVarIO (history chain)
               length (filter matchFanout allTxs) `shouldBe` 2
 
+      it "contest automatically when detecting closing with old snapshot" $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead n1 n2
+              let tx = aValidTx 42
+              send n2 (NewTx tx)
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{} -> True
+                _ -> False
+              chainEvent n1 (Observation (OnCloseTx 0))
+              -- Observe TX
+
     describe "Hydra Node Logging" $ do
       it "traces processing of events" $ do
         let result = runSimTrace $ do
@@ -413,6 +418,7 @@ waitFor nodes expected =
     forConcurrently_ nodes $ \n ->
       waitForNext n `shouldReturn` expected
 
+
 -- | Wait for some output at some node(s) to be produced /eventually/.
 -- The difference with 'waitFor' is that there can be other messages in between which
 -- are simply discarded.
@@ -422,11 +428,19 @@ waitUntil ::
   ServerOutput tx ->
   m ()
 waitUntil nodes expected =
+  waitUntilMatch nodes (== expected)
+
+waitUntilMatch
+  (HasCallStack, MonadThrow m, IsTx tx, MonadAsync m, MonadTimer m) =>
+  [TestHydraNode tx m] ->
+  (ServerOutput tx -> Bool) ->
+  m ()
+waitUntilMatch nodes predicate =
   failAfter 1 $ forConcurrently_ nodes go
  where
   go n = do
     next <- waitForNext n
-    unless (next == expected) $ go n
+    unless (predicate next) $ go n
 
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
@@ -544,6 +558,19 @@ withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} act
               , otherParties
               }
         }
+
+openHead ::
+  TestHydraNode SimpleTx (IOSim s) ->
+  TestHydraNode SimpleTx (IOSim s) ->
+  IOSim s ()
+openHead n1 n2 = do
+  send n1 (Init testContestationPeriod)
+  waitFor [n1, n2] $ ReadyToCommit (fromList [alice, bob])
+  send n1 (Commit (utxoRef 1))
+  waitFor [n1, n2] $ Committed alice (utxoRef 1)
+  send n2 (Commit (utxoRef 2))
+  waitFor [n1, n2] $ Committed bob (utxoRef 2)
+  waitFor [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
 
 matchFanout :: PostChainTx tx -> Bool
 matchFanout = \case
