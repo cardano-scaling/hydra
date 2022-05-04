@@ -439,7 +439,7 @@ waitUntil nodes expected =
   waitUntilMatch nodes (== expected)
 
 waitUntilMatch ::
-  (HasCallStack, MonadThrow m, IsTx tx, MonadAsync m, MonadTimer m) =>
+  (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
   [TestHydraNode tx m] ->
   (ServerOutput tx -> Bool) ->
   m ()
