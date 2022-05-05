@@ -34,6 +34,11 @@ data Input
       , utxoHash :: Hash
       , signature :: [Signature]
       }
+  | Contest
+      { snapshotNumber :: SnapshotNumber
+      , utxoHash :: Hash
+      , signature :: [Signature]
+      }
   | Abort
   | Fanout {numberOfFanoutOutputs :: Integer}
   deriving (Generic, Show)

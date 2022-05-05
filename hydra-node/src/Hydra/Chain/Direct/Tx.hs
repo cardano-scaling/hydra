@@ -302,6 +302,50 @@ closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatum
     CloseWithInitialSnapshot{} -> mempty
     CloseWithConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
 
+-- TODO: This function is VERY similar to the 'closeTx' function (only notable
+-- difference being the redeemer, which is in itself also the same structure as
+-- the close's one. We could potentially refactor this to avoid repetition or do
+-- something more principled at the protocol level itself and "merge" close and
+-- contest as one operation.
+contestTx ::
+  -- | Party who's authorizing this transaction
+  VerificationKey PaymentKey ->
+  -- | Contested snapshot number (i.e. the one we contest to)
+  Snapshot Tx ->
+  -- | Multi-signature of the whole snapshot
+  MultiSignature (Snapshot Tx) ->
+  -- | Everything needed to spend the Head state-machine output.
+  -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
+  UTxOWithScript ->
+  Tx
+contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
+  unsafeBuildTransaction $
+    emptyTxBody
+      & addInputs [(headInput, headWitness)]
+      & addOutputs [headOutputAfter]
+      & addExtraRequiredSigners [verificationKeyHash vk]
+ where
+  headWitness =
+    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
+  headScript =
+    fromPlutusScript @PlutusScriptV1 Head.validatorScript
+  headRedeemer =
+    toScriptData
+      Head.Contest
+        { snapshotNumber = toInteger number
+        , signature = toPlutusSignatures sig
+        , utxoHash
+        }
+  headOutputAfter =
+    modifyTxOutDatum (const headDatumAfter) headOutputBefore
+  headDatumAfter =
+    mkTxOutDatum
+      Head.Closed
+        { snapshotNumber = toInteger number
+        , utxoHash
+        }
+  utxoHash = toBuiltin $ hashTxOuts $ toList utxo
+
 fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
