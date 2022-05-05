@@ -25,7 +25,9 @@ import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
+import qualified Cardano.Ledger.Crypto as Ledger.Crypto
 import qualified Cardano.Ledger.Era as Ledger
+import qualified Cardano.Ledger.Era as Ledger.Era
 import qualified Cardano.Ledger.Mary.Value as Ledger
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
@@ -101,18 +103,26 @@ cardanoLedger globals ledgerEnv =
   applyTx ::
     ( Ledger.ApplyTx era
     , Default (Ledger.State (Ledger.EraRule "PPUP" era))
+    , Ledger.Crypto.Crypto (Ledger.Era.Crypto era)
     ) =>
     Ledger.LedgerEnv era ->
     Ledger.UTxO era ->
     Ledger.Tx era ->
     Either (Ledger.Tx era, ValidationError) (Ledger.UTxO era)
   applyTx env utxo tx =
-    case Ledger.applyTxsTransition globals env (pure tx) memPoolState of
-      Left err -> Left (tx, toValidationError err)
-      Right (ls, _ds) -> Right $ Ledger._utxo ls
+    case Ledger.applyTx globals env memPoolState tx of
+      Left err ->
+        Left (tx, toValidationError err)
+      Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
+        Right $ Ledger._utxo us
    where
     toValidationError = ValidationError . show
-    memPoolState = (def{Ledger._utxo = utxo}, def)
+
+    memPoolState =
+      Ledger.LedgerState
+        { Ledger.lsUTxOState = def{Ledger._utxo = utxo}
+        , Ledger.lsDPState = def
+        }
 -- * Cardano Tx
 
 instance IsTx Tx where
@@ -395,10 +405,13 @@ genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs = do
       Right newUTxOs -> pure (newUTxOs, tx : acc)
 
   genTx genEnv utxos = do
-    fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv (utxoState, dpState)
+    fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv ledgerState
    where
-    utxoState = def{Ledger._utxo = toLedgerUTxO utxos}
-    dpState = Ledger.DPState def def
+    ledgerState =
+      Ledger.LedgerState
+        { Ledger.lsUTxOState = def{Ledger._utxo = toLedgerUTxO utxos}
+        , Ledger.lsDPState = Ledger.DPState def def
+        }
 
   -- NOTE(AB): This sets some parameters for the tx generator that will affect
   -- the structure of generated transactions. In our case, we want to remove
@@ -443,7 +456,7 @@ genTxIn =
   fmap fromLedgerTxIn . Ledger.TxIn
     -- NOTE: [88, 32] is a CBOR prefix for a bytestring of 32 bytes.
     <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
-    <*> fmap fromIntegral (choose @Int (0, 99))
+    <*> fmap Ledger.TxIx (choose (0, 99))
 
 -- | Generate some number of 'UTxO'. NOTE: We interpret the QuickCheck 'size' as
 -- the upper bound of "assets" in this UTxO. That is, instead of sizing on the
