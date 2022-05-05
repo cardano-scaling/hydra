@@ -12,7 +12,7 @@ import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.Data (Data (Data))
 import Cardano.Ledger.Alonzo.PParams (PParams' (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Tag (Spend), txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (CostModels (..), ExUnits (..), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (
   BasicFailure (..),
   ScriptFailure (..),
@@ -33,14 +33,13 @@ import Cardano.Ledger.Alonzo.TxWitness (
   Redeemers (..),
   TxWitness (..),
  )
-import Cardano.Ledger.BaseTypes (StrictMaybe (SJust))
+import Cardano.Ledger.BaseTypes (StrictMaybe (SJust), TxIx (..))
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams)
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Era (ValidateScript (..))
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
-import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
 import Cardano.Ledger.Val (Val (..), invert)
@@ -54,14 +53,13 @@ import Control.Monad.Class.MonadSTM (
   writeTVar,
  )
 import Data.Aeson (Value (String), object, (.=))
-import Data.Array (Array, array)
+import Data.Array (array)
 import qualified Data.List as List
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
 import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import GHC.Ix (Ix)
 import Hydra.Cardano.Api (
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
@@ -84,21 +82,14 @@ import Hydra.Chain.Direct.Util (
  )
 import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Logging (Tracer, traceWith)
-import Ouroboros.Consensus.Cardano.Block (CardanoEras, pattern BlockAlonzo)
-import Ouroboros.Consensus.HardFork.Combinator (MismatchEraInfo)
+import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.HardFork.History (PastHorizonException)
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..))
-import Ouroboros.Network.Block (Point (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 type Address = Ledger.Addr StandardCrypto
-type TxBody = Ledger.TxBody Era
 type TxIn = Ledger.TxIn StandardCrypto
 type TxOut = Ledger.TxOut Era
-type VkWitness = Ledger.WitVKey 'Ledger.Witness StandardCrypto
-type QueryResult result = Either (MismatchEraInfo (CardanoEras StandardCrypto)) result
-type UTxOSet = Ledger.UTxO Era
-type AlonzoPoint = Point (ShelleyBlock Era)
 
 -- | A 'TinyWallet' is a small abstraction of a wallet with basic UTXO
 -- management. The wallet is assumed to have only one address, and only one UTXO
@@ -199,8 +190,8 @@ applyBlock blk isOurs utxo = case blk of
         modify (`Map.withoutKeys` inputs (body tx))
         let indexedOutputs =
               let outs = outputs (body tx)
-               in StrictSeq.zip (StrictSeq.fromList [0 .. length outs]) outs
-        forM_ indexedOutputs $ \(fromIntegral -> ix, out@(TxOut addr _ _)) ->
+               in StrictSeq.zip (StrictSeq.fromList [TxIx 0 .. (TxIx . fromIntegral $ length outs)]) outs
+        forM_ indexedOutputs $ \(ix, out@(TxOut addr _ _)) ->
           when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
   _ ->
     utxo
@@ -388,6 +379,8 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   case result of
     Left pastHorizonException ->
       throw pastHorizonException
+    Right (Left (BadTranslation _)) ->
+      throw BadTranslationException
     Right (Left (UnknownTxIns ins)) ->
       throw (UnknownTxInsException ins)
     Right (Right units) ->
@@ -402,19 +395,19 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
           (Ledger.UTxO utxo)
           epochInfo
           systemStart
-          (mapToArray (_costmdls pparams))
+          (costModelsToArray (_costmdls pparams))
 
-newtype UnknownTxInsException
-  = UnknownTxInsException (Set TxIn)
+  costModelsToArray (CostModels m) =
+    array
+      (fst (Map.findMin m), fst (Map.findMax m))
+      $ Map.toList m
+
+data EstimateScriptCostException
+  = BadTranslationException
+  | UnknownTxInsException (Set TxIn)
   deriving (Show)
 
-instance Exception UnknownTxInsException
-
-mapToArray :: Ix k => Map k v -> Array k v
-mapToArray m =
-  array
-    (fst (Map.findMin m), fst (Map.findMax m))
-    (Map.toList m)
+instance Exception EstimateScriptCostException
 
 --
 -- Logs
