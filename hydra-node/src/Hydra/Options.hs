@@ -17,6 +17,7 @@ import Hydra.Prelude
 import qualified Data.ByteString as BS
 import Data.IP (IP (IPv4), toIPv4w)
 import qualified Data.Text as T
+import Data.Version (showVersion)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   NetworkId (..),
@@ -30,7 +31,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
-import Hydra.Node.Version (gitRevision, showFullVersion, version)
+import Hydra.Node.Version (gitDescribe)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -59,6 +60,7 @@ import Options.Applicative (
   value,
  )
 import Options.Applicative.Builder (str)
+import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
 
 data Options = Options
@@ -396,15 +398,15 @@ startChainFromParser =
 hydraNodeOptions :: ParserInfo Options
 hydraNodeOptions =
   info
-    (hydraNodeParser <**> helper <**> displayVersion)
+    (hydraNodeParser <**> helper <**> versionInfo)
     ( fullDesc
         <> progDesc "Starts a Hydra Node"
         <> header "hydra-node - A prototype of Hydra Head protocol"
     )
  where
-  displayVersion =
+  versionInfo =
     infoOption
-      (showFullVersion version gitRevision)
+      (fromMaybe (showVersion version) gitDescribe)
       (long "version" <> help "Show version")
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
@@ -469,16 +471,14 @@ toArgs
       Testnet (NetworkMagic magic) -> show magic
 
     argsChainConfig =
-      mempty
-        <> ["--network-id", toArgNetworkId networkId]
+      ["--network-id", toArgNetworkId networkId]
         <> ["--node-socket", nodeSocket]
         <> ["--cardano-signing-key", cardanoSigningKey]
         <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
         <> toArgStartChainFrom startChainFrom
 
     argsLedgerConfig =
-      mempty
-        <> ["--ledger-genesis", cardanoLedgerGenesisFile]
+      ["--ledger-genesis", cardanoLedgerGenesisFile]
         <> ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]
 
     CardanoLedgerConfig
