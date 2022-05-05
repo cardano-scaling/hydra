@@ -141,6 +141,8 @@ spec = around showLogsOnFailure $ do
 
             withAliceNode $ \n1 -> do
               withBobNode $ \n2 -> do
+                waitForNodesConnected tracer [n1, n2]
+
                 let contestationPeriod = 10 :: Natural
                 send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
                 waitFor tracer 10 [n1, n2] $
