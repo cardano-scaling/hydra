@@ -291,49 +291,9 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
         Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
   (OpenState{parameters, coordinatedHeadState = headState@CoordinatedHeadState{seenTxs, seenUTxO}, previousRecoverableState}, NetworkEvent (ReqTx _ tx)) ->
-    case applyTransactions ledger seenUTxO [tx] of
-      Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
-      Right utxo' ->
-        let newSeenTxs = seenTxs <> [tx]
-         in nextState
-              ( OpenState
-                  { parameters
-                  , coordinatedHeadState =
-                      headState
-                        { seenTxs = newSeenTxs
-                        , seenUTxO = utxo'
-                        }
-                  , previousRecoverableState
-                  }
-              )
-              [ClientEffect $ TxSeen tx]
-  (OpenState{parameters, coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousRecoverableState}, e@(NetworkEvent (ReqSn otherParty sn txs)))
-    | (number . getSnapshot) confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
-      -- TODO: Also we might be robust against multiple ReqSn for otherwise
-      -- valid request, which is currently leading to 'Error'
-      -- TODO: Verify the request is signed by (?) / comes from the leader
-      -- (Can we prove a message comes from a given peer, without signature?)
-      case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
-        Left (_, err) -> Wait $ WaitOnNotApplicableTx err
-        Right u ->
-          let nextSnapshot = Snapshot sn u txs
-              snapshotSignature = sign signingKey nextSnapshot
-           in nextState
-                ( OpenState
-                    { parameters
-                    , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
-                    , previousRecoverableState
-                    }
-                )
-                [NetworkEffect $ AckSn party snapshotSignature sn]
-    | sn > (number . getSnapshot) confirmedSnapshot && isLeader parameters otherParty sn ->
-      -- TODO: How to handle ReqSN with sn > confirmed + 1
-      -- This code feels contrived
-      case seenSnapshot of
-        SeenSnapshot{snapshot}
-          | number snapshot == sn -> Error (InvalidEvent e st)
-          | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
-        _ -> Wait WaitOnSeenSnapshot
+    onReqTx ledger tx parameters headState seenTxs seenUTxO previousRecoverableState
+  (OpenState{coordinatedHeadState = CoordinatedHeadState{}}, e@(NetworkEvent ReqSn{})) ->
+    onReqSn ledger party signingKey e st
   (OpenState{parameters = parameters@HeadParameters{parties}, coordinatedHeadState = headState@CoordinatedHeadState{seenSnapshot, seenTxs}, previousRecoverableState}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     case seenSnapshot of
       NoSeenSnapshot -> Wait WaitOnSeenSnapshot
@@ -438,10 +398,87 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
 
   sameState = nextState st
 
-  snapshotPending :: SeenSnapshot tx -> Bool
-  snapshotPending = \case
-    SeenSnapshot{} -> True
-    _ -> False
+-- | Handle 'ReqTx' message
+--
+-- \[
+-- \begin{array}{l}
+-- \mathbf{wait} (\hat{\mathcal{L}} \circ \mathtt{tx} \neq \bot) \\
+-- \begin{array}{|l}
+-- \hat{\mathcal{T}} \leftarrow \hat{\mathcal{T}} \cup \{\mathtt{tx}\} \\
+-- \hat{\mathcal{L}} \leftarrow \hat{\mathcal{L}} \circ \mathtt{tx} \\
+-- \mathbf{output}(\mathtt{seen}, \mathtt{tx}) \\
+-- \end{array} \\
+-- \end{array}
+-- \]
+onReqTx ::
+  Ledger tx ->
+  tx ->
+  HeadParameters ->
+  CoordinatedHeadState tx ->
+  [tx] ->
+  UTxOType tx ->
+  HeadState tx ->
+  Outcome tx
+onReqTx ledger tx parameters headState seenTxs seenUTxO previousRecoverableState =
+  case applyTransactions ledger seenUTxO [tx] of
+    Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
+    Right utxo' ->
+      let newSeenTxs = seenTxs <> [tx]
+       in NewState
+            ( OpenState
+                { parameters
+                , coordinatedHeadState =
+                    headState
+                      { seenTxs = newSeenTxs
+                      , seenUTxO = utxo'
+                      }
+                , previousRecoverableState
+                }
+            )
+            [ClientEffect $ TxSeen tx]
+
+-- | Handles `ReqSn` messages.
+--
+-- \[
+-- \begin{array}{l}
+-- \mathbf{require} (s \gt \bar{s} \land leader(s) = \mathtt{otherParty}) \\
+-- \begin{array}{|l}
+-- \mathbf{wait} (\hat{s} = \bar{s} \land \bar{\mathcal{L}} \circ s) \\
+-- \mathbf{output}(\mathtt{seen}, \mathtt{tx}) \\
+-- \end{array} \\
+-- \end{array}
+-- \]
+onReqSn :: Ledger tx -> Party -> SigningKey -> Event tx -> HeadState tx -> Outcome tx
+onReqSn ledger party signingKey e@(NetworkEvent (ReqSn otherParty sn txs)) st@OpenState{parameters, coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousRecoverableState}
+  | (number . getSnapshot) confirmedSnapshot + 1 == sn
+      && isLeader parameters otherParty sn
+      && not (snapshotPending seenSnapshot) =
+    -- TODO: Also we might be robust against multiple ReqSn for otherwise
+    -- valid request, which is currently leading to 'Error'
+    -- TODO: Verify the request is signed by (?) / comes from the leader
+    -- (Can we prove a message comes from a given peer, without signature?)
+    case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
+      Left (_, err) -> Wait $ WaitOnNotApplicableTx err
+      Right u ->
+        let nextSnapshot = Snapshot sn u txs
+            snapshotSignature = sign signingKey nextSnapshot
+         in NewState
+              ( OpenState
+                  { parameters
+                  , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
+                  , previousRecoverableState
+                  }
+              )
+              [NetworkEffect $ AckSn party snapshotSignature sn]
+  | sn > (number . getSnapshot) confirmedSnapshot && isLeader parameters otherParty sn =
+    -- TODO: How to handle ReqSN with sn > confirmed + 1
+    -- This code feels contrived
+    case seenSnapshot of
+      SeenSnapshot{snapshot}
+        | number snapshot == sn -> Error (InvalidEvent e st)
+        | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
+      _ -> Wait WaitOnSeenSnapshot
+onReqSn _ _ _ e st = Error (InvalidEvent e st)
 
 data SnapshotOutcome tx
   = ShouldSnapshot SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
@@ -459,6 +496,11 @@ isLeader HeadParameters{parties} p sn =
   case p `elemIndex` parties of
     Just i -> ((fromIntegral @Natural @Int sn - 1) `mod` length parties) == i
     _ -> False
+
+snapshotPending :: SeenSnapshot tx -> Bool
+snapshotPending = \case
+  SeenSnapshot{} -> True
+  _ -> False
 
 -- | Snapshot emission decider
 newSn :: IsTx tx => Environment -> HeadParameters -> CoordinatedHeadState tx -> SnapshotOutcome tx
