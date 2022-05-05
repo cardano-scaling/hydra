@@ -692,6 +692,45 @@ observeCloseTx utxo tx = do
  where
   headScript = fromPlutusScript Head.validatorScript
 
+data ContestObservation = ContestObservation
+  { contestedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData)
+  , headId :: HeadId
+  }
+  deriving (Show, Eq)
+
+-- | Identify a close tx by lookup up the input spending the Head output and
+-- decoding its redeemer.
+observeContestTx ::
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
+  Tx ->
+  Maybe (OnChainTx Tx, ContestObservation)
+observeContestTx utxo tx = do
+  (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- lookupScriptData tx headOutput
+  datum <- fromData $ toPlutusData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+    (Head.Closed{}, Head.Contest{snapshotNumber = onChainSnapshotNumber}) -> do
+      (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
+      newHeadDatum <- lookupScriptData tx newHeadOutput
+      snapshotNumber <- integerToNatural onChainSnapshotNumber
+      pure
+        ( OnContestTx{snapshotNumber}
+        , ContestObservation
+            { contestedThreadOutput =
+                ( newHeadInput
+                , newHeadOutput
+                , newHeadDatum
+                )
+            , headId
+            }
+        )
+    _ -> Nothing
+ where
+  headScript = fromPlutusScript Head.validatorScript
+
 type FanoutObservation = ()
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and

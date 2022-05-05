@@ -44,6 +44,7 @@ import Hydra.Chain.Direct.Tx (
   CloseObservation (..),
   ClosingSnapshot (..),
   CollectComObservation (..),
+  ContestObservation (..),
   InitObservation (..),
   abortTx,
   closeTx,
@@ -56,6 +57,7 @@ import Hydra.Chain.Direct.Tx (
   observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
+  observeContestTx,
   observeFanoutTx,
   observeInitTx,
   ownInitial,
@@ -510,6 +512,7 @@ instance ObserveTx 'StOpen 'StClosed where
 instance HasTransition 'StClosed where
   transitions _ =
     [ TransitionTo (Proxy @ 'StIdle)
+    , TransitionTo (Proxy @ 'StClosed)
     ]
 
 instance ObserveTx 'StClosed 'StIdle where
@@ -525,6 +528,34 @@ instance ObserveTx 'StClosed 'StIdle where
             , stateMachine = Idle
             }
     pure (event, st')
+
+instance ObserveTx 'StClosed 'StClosed where
+  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
+    let utxo = getKnownUTxO st
+    (event, observation) <- observeContestTx utxo tx
+    -- FIXME: remove (a,b,c) nonsense...
+    let ContestObservation{contestedThreadOutput = (a, b, c), headId} = observation
+    guard (headId == closedHeadId)
+    let st' =
+          OnChainHeadState
+            { networkId
+            , peerVerificationKeys
+            , ownVerificationKey
+            , ownParty
+            , stateMachine =
+                Closed
+                  { closedThreadOutput = (a, b, c, parties)
+                  , closedHeadId
+                  , closedHeadTokenScript
+                  }
+            }
+    pure (event, st')
+   where
+    Closed
+      { closedHeadId
+      , closedHeadTokenScript
+      , closedThreadOutput = (_, _, _, parties)
+      } = stateMachine
 
 -- | A convenient way to apply transition to 'SomeOnChainHeadState' without
 -- bothering about the internal details.
