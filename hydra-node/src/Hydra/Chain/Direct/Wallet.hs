@@ -111,6 +111,7 @@ import Ouroboros.Consensus.HardFork.Combinator.Ledger.Query (QueryHardFork (..))
 import Ouroboros.Consensus.HardFork.History (Interpreter, PastHorizonException, interpreterToEpochInfo)
 import Ouroboros.Consensus.Ledger.Query (Query (..))
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
+import Ouroboros.Consensus.Protocol.TPraos (TPraos)
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..), ShelleyHash (..))
 import Ouroboros.Consensus.Shelley.Ledger.Query (BlockQuery (..))
 import Ouroboros.Network.Block (
@@ -161,7 +162,7 @@ type TxOut = Ledger.TxOut Era
 type VkWitness = Ledger.WitVKey 'Ledger.Witness StandardCrypto
 type QueryResult result = Either (MismatchEraInfo (CardanoEras StandardCrypto)) result
 type UTxOSet = Ledger.UTxO Era
-type AlonzoPoint = Point (ShelleyBlock Era)
+type AlonzoPoint = Point (ShelleyBlock (TPraos StandardCrypto) Era)
 
 -- | A 'TinyWallet' is a small abstraction of a wallet with basic UTXO
 -- management. The wallet is assumed to have only one address, and only one
@@ -644,11 +645,12 @@ stateQueryClient tracer tipVar utxoVar address =
             pure $ LSQ.SendMsgQuery (BlockQuery query) continuation
       }
 
+  fromPoint :: AlonzoPoint -> Point Block
   fromPoint = \case
     GenesisPoint -> GenesisPoint
     (BlockPoint slot h) -> BlockPoint slot (fromShelleyHash h)
    where
-    fromShelleyHash (Ledger.unHashHeader . unShelleyHash -> UnsafeHash h) = coerce h
+    fromShelleyHash h = OneEraHash . hashToBytesShort $ unShelleyHash h
 
   clientStQueryingPParams ::
     Point Block ->
