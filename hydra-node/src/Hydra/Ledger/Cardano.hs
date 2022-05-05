@@ -23,11 +23,8 @@ import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.BaseTypes as Ledger
-import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
-import qualified Cardano.Ledger.Crypto as Ledger.Crypto
 import qualified Cardano.Ledger.Era as Ledger
-import qualified Cardano.Ledger.Era as Ledger.Era
 import qualified Cardano.Ledger.Mary.Value as Ledger
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
@@ -40,11 +37,10 @@ import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
 import Control.Arrow (left)
 import Control.Monad (foldM)
-import qualified Control.State.Transition as Ledger
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
-import Data.Default (Default, def)
+import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -75,8 +71,7 @@ import Test.QuickCheck (
 
 -- * Ledger
 
--- TODO(SN): Pre-validate transactions to get less confusing errors on
--- transactions which are not expected to working on a layer-2
+-- | Use the cardano-ledger as an in-hydra 'Ledger'.
 cardanoLedger :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Ledger Tx
 cardanoLedger globals ledgerEnv =
   Ledger
@@ -92,6 +87,8 @@ cardanoLedger globals ledgerEnv =
       utxo' <- left (first fromLedgerTx) $ fromLedgerUTxO <$> applyTx ledgerEnv (toLedgerUTxO utxo) (toLedgerTx tx)
       applyAll utxo' txs
 
+  -- TODO(SN): Pre-validate transactions to get less confusing errors on
+  -- transactions which are not expected to work on a layer-2
   -- NOTE(SN): This is will fail on any transaction requiring the 'DPState' to be
   -- in a certain state as we do throw away the resulting 'DPState' and only take
   -- the ledger's 'UTxO' forward.
@@ -100,15 +97,6 @@ cardanoLedger globals ledgerEnv =
   -- got confused why a sequence of transactions worked but sequentially applying
   -- single transactions didn't. This was because of this not-keeping the'DPState'
   -- as described above.
-  applyTx ::
-    ( Ledger.ApplyTx era
-    , Default (Ledger.State (Ledger.EraRule "PPUP" era))
-    , Ledger.Crypto.Crypto (Ledger.Era.Crypto era)
-    ) =>
-    Ledger.LedgerEnv era ->
-    Ledger.UTxO era ->
-    Ledger.Tx era ->
-    Either (Ledger.Tx era, ValidationError) (Ledger.UTxO era)
   applyTx env utxo tx =
     case Ledger.applyTx globals env memPoolState tx of
       Left err ->
@@ -123,6 +111,7 @@ cardanoLedger globals ledgerEnv =
         { Ledger.lsUTxOState = def{Ledger._utxo = utxo}
         , Ledger.lsDPState = def
         }
+
 -- * Cardano Tx
 
 instance IsTx Tx where
