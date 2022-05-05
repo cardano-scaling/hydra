@@ -167,6 +167,51 @@ jobs:
         name: benchmarks-and-haddocks
         path: ./docs
 
+  publish-benchmark-results:
+    name: Publish benchmark results
+    # TODO: this is actually only requires the tx-cost benchmark results
+    needs: [haddock-benchmarks]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: benchmarks-and-haddocks
+        path: artifact
+
+    - run: find artifact
+
+    - name: Prepare comment body
+      id: comment-body
+      run: |
+        # Drop first 5 header lines and demote headlines one level
+        body="$(cat artifact/benchmarks/transaction-cost.md | sed '1,5d;s/^#/##/')"
+        body="${body//'%'/'%25'}"
+        body="${body//$'\n'/'%0A'}"
+        body="${body//$'\r'/'%0D'}"
+        echo "::set-output name=body::$body"
+
+    - name: Find Comment
+      uses: peter-evans/find-comment@v2
+      id: find-comment
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: Transactions Costs
+
+    - name: Create or update comment
+      uses: peter-evans/create-or-update-comment@v2
+      with:
+        comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        edit-mode: replace
+        issue-number: ${{ github.event.pull_request.number }}
+        body: ${{ steps.comment-body.outputs.body }}
+        reactions: rocket
+
   documentation:
     name: Documentation
     needs: [haddock-benchmarks]

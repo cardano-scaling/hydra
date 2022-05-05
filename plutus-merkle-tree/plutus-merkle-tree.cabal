@@ -112,3 +112,28 @@ test-suite unit
     Spec
 
   main-is:            Main.hs
+
+benchmark on-chain-cost
+  import:         project-config
+  hs-source-dirs: bench
+  main-is:        Main.hs
+  other-modules:  Validators
+  type:           exitcode-stdio-1.0
+  ghc-options:    -threaded -rtsopts
+  build-depends:
+    , base
+    , bytestring
+    , cardano-binary
+    , cardano-ledger-alonzo
+    , containers
+    , hydra-prelude
+    , hydra-test-utils
+    , plutus-core
+    , plutus-ledger-api
+    , plutus-merkle-tree
+    , plutus-tx
+    , plutus-tx-plugin
+    , QuickCheck
+  if flag(hydra-development)
+    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
+    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors

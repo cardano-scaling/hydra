@@ -30,9 +30,7 @@ import TxCost (
   computeCollectComCost,
   computeCommitCost,
   computeFanOutCost,
-  computeHashingCost,
   computeInitCost,
-  computeMerkleTreeCost,
   maxCpu,
   maxMem,
  )
@@ -81,9 +79,7 @@ writeTransactionCostMarkdown hdl = do
   collectComC <- costOfCollectCom
   closeC <- costOfClose
   abortC <- costOfAbort
-  fanout <- costOfFanOut
-  mt <- costOfMerkleTree
-  let h = costOfHashing
+  fanoutC <- costOfFanOut
   hPut hdl $
     encodeUtf8 $
       unlines $
@@ -95,11 +91,11 @@ writeTransactionCostMarkdown hdl = do
             , collectComC
             , closeC
             , abortC
-            , fanout
-            , mt
-            , h
+            , fanoutC
             ]
 
+-- NOTE: Github Actions CI depends on the number of header lines, see
+-- .github/workflows/ci.yaml
 pageHeader :: [Text]
 pageHeader =
   [ "--- "
@@ -109,8 +105,10 @@ pageHeader =
   , ""
   , "# Transactions Costs "
   , ""
-  , "|  |   |"
-  , "| ---    | ----    |"
+  , "Sizes and execution budgets for Hydra protocol transactions. Note that unlisted parameters are currently using `arbitrary` values and results are not fully deterministic and comparable to previous runs."
+  , ""
+  , "| Metadata | |"
+  , "| :--- | :--- |"
   , "| _Generated at_ | " <> show now <> " |"
   , "| _Max. memory units_ | " <> show maxMem <> " |"
   , "| _Max. CPU units_ | " <> show maxCpu <> " |"
@@ -129,8 +127,8 @@ costOfInit = markdownInitCost <$> computeInitCost
     unlines $
       [ "## Cost of Init Transaction"
       , ""
-      , "| # Parties | Tx. size |"
-      , "| :-------- | -------: |"
+      , "| Parties | Tx size |"
+      , "| :------ | ------: |"
       ]
         <> fmap
           ( \(numParties, txSize) ->
@@ -147,15 +145,14 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
   markdownCommitCost stats =
     unlines $
       [ "## Cost of Commit Transaction"
+      , " Uses ada-only UTxO for better comparability."
       , ""
-      , "| # UTxO Committed | Assets size | Tx. size | % max Mem |   % max CPU |"
-      , "| :--------------- | ----------: | -------: | --------: | ----------: |"
+      , "| UTxO | Tx size | % max Mem | % max CPU |"
+      , "| :--- | ------: | --------: | --------: |"
       ]
         <> map
-          ( \(ulen, valueSz, txSize, mem, cpu) ->
+          ( \(ulen, txSize, mem, cpu) ->
               "| " <> show ulen
-                <> "| "
-                <> show valueSz
                 <> "| "
                 <> show txSize
                 <> " | "
@@ -173,8 +170,8 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
     unlines $
       [ "## Cost of CollectCom Transaction"
       , ""
-      , "| # Parties | Tx. size | % max Mem |   % max CPU |"
-      , "| :-------- | -------: | --------: | ----------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU |"
+      , "| :------ | ------: | --------: | --------: |"
       ]
         <> fmap
           ( \(numParties, txSize, mem, cpu) ->
@@ -196,8 +193,8 @@ costOfClose = markdownClose <$> computeCloseCost
     unlines $
       [ "## Cost of Close Transaction"
       , ""
-      , "| # Parties | Tx. size | % max Mem |   % max CPU |"
-      , "| :-------- | -------: | --------: | ----------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU |"
+      , "| :------ | ------: | --------: | --------: |"
       ]
         <> fmap
           ( \(numParties, txSize, mem, cpu) ->
@@ -219,8 +216,8 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
     unlines $
       [ "## Cost of Abort Transaction"
       , ""
-      , "| # Parties | Tx. size | % max Mem |   % max CPU |"
-      , "| :-------- | -------: | --------: | ----------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU |"
+      , "| :------ | ------: | --------: | --------: |"
       ]
         <> fmap
           ( \(numParties, txSize, mem, cpu) ->
@@ -240,10 +237,11 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
  where
   markdownFanOutCost stats =
     unlines $
-      [ "## Cost of FanOut Transaction (spend Head + burn HeadTokens)"
+      [ "## Cost of FanOut Transaction"
+      , " Involves spending head output and burning head tokens. Uses ada-only UTxO for better comparability."
       , ""
-      , "| UTXO  | Tx. size | % max Mem |   % max CPU |"
-      , "| :---- | -------: | --------: | ----------: |"
+      , "| UTxO  | Tx size | % max Mem | % max CPU |"
+      , "| :---- | ------: | --------: | --------: |"
       ]
         <> fmap
           ( \(numElems, txSize, mem, cpu) ->
@@ -255,65 +253,5 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
                 <> " | "
                 <> show (100 * fromIntegral cpu / maxCpu)
                 <> " |"
-          )
-          stats
-
-costOfMerkleTree :: IO Text
-costOfMerkleTree = markdownMerkleTreeCost <$> computeMerkleTreeCost
- where
-  markdownMerkleTreeCost stats =
-    unlines $
-      [ "## Cost of on-chain Merkle-Tree"
-      , ""
-      , "| Size | % member max mem | % member max cpu | % builder max mem | % builder max cpu |"
-      , "| :--- | ---------------: | ---------------: | ----------------: | ----------------: |"
-      ]
-        <> fmap
-          ( \(numElems, memberMem, memberCpu, builderMem, builderCpu) ->
-              "| "
-                <> show numElems
-                <> " | "
-                <> show (100 * fromIntegral (fromIntegral memberMem `div` numElems) / maxMem)
-                <> " | "
-                <> show (100 * fromIntegral (fromIntegral memberCpu `div` numElems) / maxCpu)
-                <> " | "
-                <> show (100 * fromIntegral builderMem / maxMem)
-                <> " | "
-                <> show (100 * fromIntegral builderCpu / maxCpu)
-                <> " |"
-          )
-          stats
-
-costOfHashing :: Text
-costOfHashing = markdownHashingCost computeHashingCost
- where
-  markdownHashingCost stats =
-    unlines $
-      [ "##  Cost of on-chain Hashing"
-      , ""
-      ]
-        <> concatMap
-          ( \(n, s, costs) ->
-              [ "###  n = " <> show n <> ", s = " <> show s
-              , ""
-              , "| Algorithm | Cpu  | Mem  | Δcpu | Δmem |"
-              , "| :-------- | ---: | ---: | ---: | ---: |"
-              ]
-                <> fmap
-                  ( \case
-                      Right (algorithm, baseCpu, baseMem, cpu, mem) ->
-                        "| " <> show algorithm
-                          <> " | "
-                          <> show baseCpu
-                          <> " | "
-                          <> show baseMem
-                          <> " | "
-                          <> show (toInteger cpu - toInteger baseCpu)
-                          <> " | "
-                          <> show (toInteger mem - toInteger baseMem)
-                          <> " |"
-                      Left _ -> "| - | - |"
-                  )
-                  costs
           )
           stats
