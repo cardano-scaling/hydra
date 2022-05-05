@@ -25,6 +25,11 @@ jobs:
       with:
         repository: input-output-hk/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
+        # On pull_request events, we want to check out the latest commit of the
+        # PR, which is different to github.ref (the default, which would point
+        # to a "fake merge" commit). On push events, the default is fine as it
+        # refers to the pushed commit.
+        ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
     - name: Prepare nix
       uses: cachix/install-nix-action@v13
