@@ -145,7 +145,7 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
   markdownCommitCost stats =
     unlines $
       [ "## Cost of Commit Transaction"
-      , " Uses ada-only UTxO for better comparability."
+      , " Currently only one UTxO per commit allowed (this is about to change soon)"
       , ""
       , "| UTxO | Tx size | % max Mem | % max CPU |"
       , "| :--- | ------: | --------: | --------: |"
