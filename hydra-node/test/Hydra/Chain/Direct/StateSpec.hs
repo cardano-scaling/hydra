@@ -409,6 +409,10 @@ forAllSt action =
           , Transition @ 'StOpen (TransitionTo (Proxy @ 'StClosed))
           )
         ,
+          ( forAllClose action
+          , Transition @ 'StClosed (TransitionTo (Proxy @ 'StClosed))
+          )
+        ,
           ( forAllFanout action
           , Transition @ 'StClosed (TransitionTo (Proxy @ 'StIdle))
           )

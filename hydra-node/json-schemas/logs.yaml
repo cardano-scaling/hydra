@@ -949,6 +949,7 @@ definitions:
             - $ref: "api.yaml#/components/messages/Committed/payload"
             - $ref: "api.yaml#/components/messages/HeadIsOpen/payload"
             - $ref: "api.yaml#/components/messages/HeadIsClosed/payload"
+            - $ref: "api.yaml#/components/messages/HeadIsContested/payload"
             - $ref: "api.yaml#/components/messages/HeadIsAborted/payload"
             - $ref: "api.yaml#/components/messages/HeadIsFinalized/payload"
             - $ref: "api.yaml#/components/messages/TxSeen/payload"
