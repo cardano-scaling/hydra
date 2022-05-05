@@ -190,7 +190,6 @@ benchmark tx-cost
   main-is:        Main.hs
   other-modules:
     TxCost
-    Validators
 
   type:           exitcode-stdio-1.0
   build-depends:
@@ -214,7 +213,6 @@ benchmark tx-cost
     , mtl
     , optparse-applicative
     , plutus-ledger-api
-    , plutus-merkle-tree
     , plutus-tx
     , plutus-tx-plugin
     , QuickCheck

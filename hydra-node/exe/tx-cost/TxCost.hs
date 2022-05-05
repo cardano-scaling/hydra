@@ -8,11 +8,9 @@ import Hydra.Prelude hiding (catch)
 import Cardano.Binary (serialize)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import Data.Fixed (E2, Fixed)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
@@ -47,16 +45,8 @@ import Hydra.Ledger.Cardano (
   simplifyUTxO,
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx, pparams)
-import Plutus.MerkleTree (rootHash)
-import qualified Plutus.MerkleTree as MT
 import Plutus.Orphans ()
-import qualified Plutus.V1.Ledger.Api as Plutus
-import Test.Plutus.Validator (
-  ExUnits (ExUnits),
-  evaluateScriptExecutionUnits,
- )
 import Test.QuickCheck (generate, sublistOf, vectorOf)
-import Validators (merkleTreeBuilderValidator, merkleTreeMemberValidator)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
@@ -205,39 +195,6 @@ genSimpleUTxOOfSize numUTxO =
       numUTxO
       ( genKeyPair >>= fmap (fmap adaOnly) . genOneUTxOFor . fst
       )
-
-computeMerkleTreeCost :: IO [(Int, MemUnit, CpuUnit, MemUnit, CpuUnit)]
-computeMerkleTreeCost =
-  mapM compute ([1 .. 10] <> [20, 30 .. 100] <> [120, 140 .. 500])
- where
-  compute numElems = do
-    utxo <- fmap Plutus.toBuiltin <$> genFakeUTxOs numElems
-
-    let (memberMem, memberCpu) = fromRight (0, 0) $ executionCostForMember utxo
-        (builderMem, builderCpu) = fromRight (0, 0) $ executionCostForBuilder utxo
-    pure (numElems, MemUnit memberMem, CpuUnit memberCpu, MemUnit builderMem, CpuUnit builderCpu)
-
-  -- NOTE: assume size of a UTXO is around  60 bytes
-  genFakeUTxOs numElems = generate (vectorOf numElems $ BS.pack <$> vectorOf 60 arbitrary)
-
-executionCostForMember :: [Plutus.BuiltinByteString] -> Either Text (Natural, Natural)
-executionCostForMember utxo =
-  let tree = MT.fromList utxo
-      accumulateCost e acc =
-        acc >>= \(curMem, curCpu) ->
-          let proof = fromJust $ MT.mkProof e tree
-           in case evaluateScriptExecutionUnits merkleTreeMemberValidator (e, MT.rootHash tree, proof) of
-                Right (ExUnits mem cpu) ->
-                  Right (mem + curMem, cpu + curCpu)
-                Left err -> Left err
-   in foldr accumulateCost (Right (0, 0)) utxo
-
-executionCostForBuilder :: [Plutus.BuiltinByteString] -> Either Text (Natural, Natural)
-executionCostForBuilder utxo =
-  let tree = MT.fromList utxo
-      root = rootHash tree
-   in evaluateScriptExecutionUnits merkleTreeBuilderValidator (utxo, root) <&> \case
-        ExUnits mem cpu -> (mem, cpu)
 
 maxMem, maxCpu :: Fixed E2
 Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =

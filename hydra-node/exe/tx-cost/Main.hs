@@ -31,7 +31,6 @@ import TxCost (
   computeCommitCost,
   computeFanOutCost,
   computeInitCost,
-  computeMerkleTreeCost,
   maxCpu,
   maxMem,
  )
@@ -80,8 +79,7 @@ writeTransactionCostMarkdown hdl = do
   collectComC <- costOfCollectCom
   closeC <- costOfClose
   abortC <- costOfAbort
-  fanout <- costOfFanOut
-  mt <- costOfMerkleTree
+  fanoutC <- costOfFanOut
   hPut hdl $
     encodeUtf8 $
       unlines $
@@ -93,8 +91,7 @@ writeTransactionCostMarkdown hdl = do
             , collectComC
             , closeC
             , abortC
-            , fanout
-            , mt
+            , fanoutC
             ]
 
 -- NOTE: Github Actions CI depends on the number of header lines, see
@@ -255,32 +252,6 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
                 <> show (100 * fromIntegral mem / maxMem)
                 <> " | "
                 <> show (100 * fromIntegral cpu / maxCpu)
-                <> " |"
-          )
-          stats
-
-costOfMerkleTree :: IO Text
-costOfMerkleTree = markdownMerkleTreeCost <$> computeMerkleTreeCost
- where
-  markdownMerkleTreeCost stats =
-    unlines $
-      [ "## Cost of on-chain Merkle-Tree"
-      , ""
-      , "| Size | % member max mem | % member max cpu | % builder max mem | % builder max cpu |"
-      , "| :--- | ---------------: | ---------------: | ----------------: | ----------------: |"
-      ]
-        <> fmap
-          ( \(numElems, memberMem, memberCpu, builderMem, builderCpu) ->
-              "| "
-                <> show numElems
-                <> " | "
-                <> show (100 * fromIntegral (fromIntegral memberMem `div` numElems) / maxMem)
-                <> " | "
-                <> show (100 * fromIntegral (fromIntegral memberCpu `div` numElems) / maxCpu)
-                <> " | "
-                <> show (100 * fromIntegral builderMem / maxMem)
-                <> " | "
-                <> show (100 * fromIntegral builderCpu / maxCpu)
                 <> " |"
           )
           stats
