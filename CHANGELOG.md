@@ -12,15 +12,48 @@ changes.
 
 #### Added
 
-- Can start hydra-node with `--start-chain-from` argument to start following the chain at a previous point
-- Handle rollbacks:
-  - Reports them to clients and do not crash
-  - Rewind the internal head state to the point prior to rollback point
+- Start `hydra-node` tracking the chain starting at a previous point using new `--start-chain-from` command line option [#300](https://github.com/input-output-hk/hydra-poc/issues/300).
+  + This is handy to re-initialize a stopped (or crashed) `hydra-node` with an already inititalized Head
+  + Note that off-chain state is NOT persisted, but this feature is good enough to continue opening or closing/finalizing a Head
+
+- Handle rollbacks [#184](https://github.com/input-output-hk/hydra-poc/issues/184)
+  + Not crash anymore on rollbacks
+  + Rewind the internal head state to the point prior to rollback point
+  + Added `RolledBack` server output, see [API reference](https://hydra.family/head-protocol/api-reference)
+  + See the [user manual](https://hydra.family/head-protocol/core-concepts/rollbacks/) for a detailed explanation on how rollbacks are handled.
+
+- [Hydra Network](https://hydra.family/head-protocol/core-concepts/networking) section on the website about networking requirements and considerations
+
+- [Benchmarks](https://hydra.family/head-protocol/benchmarks) section on the website with continuously updated and published results on transaction costs of Hydra protocol transactions
+  + These are also performed and reported now on every PR -> [Example](https://github.com/input-output-hk/hydra-poc/pull/340#issuecomment-1116247611)
+
+- New architectural decision records:
+  - [ADR-0017: UDP for Hydra networking](https://hydra.family/head-protocol/adr/17)
+  - [ADR-0018: Single state in Hydra.Node](https://hydra.family/head-protocol/adr/18)
 
 #### Changed
 
-- **BREAKING** Use Ed25519 keys and proper EdDSA signatures
-  + the `--hydra-signing-key` and consequently `--hydra-verification-key` are now longer and not compatible with previous versions
+- **BREAKING** Switch to Ed25519 keys and proper EdDSA signatures for the Hydra Head protocol
+  + The `--hydra-signing-key` and consequently `--hydra-verification-key` are now longer and not compatible with previous versions!
+
+- **BREAKING** The Hydra plutus scripts have changed in course of finalizing [#181](https://github.com/input-output-hk/hydra-poc/issues/181)
+  - All Hydra protocol transactions need to be signed by a Head participant now
+  - This changes the script address(es) and the current `hydra-node` would not detect old Heads on the testnet.
+
+- Updated our dependencies (`plutus`, `cardano-ledger`, ..) to most recent released versions making scripts smaller and Head transactions slighly cheaper already, see benchmarks for current limits.
+
+#### Fixed
+
+- Reject commit transactions locking a UTxO locked by Byron addresses, part of [#182](https://github.com/input-output-hk/hydra-poc/issues/182)
+  + This would render a Head unclosable because Byron addresses are filtered out by the ledger and not visible to plutus scripts 
+
+- Fix instructions in [demo setup without docker](https://hydra.family/head-protocol/docs/getting-started/demo/without-docker) to use `0.0.0.0` and correct paths.
+
+#### Known Issues
+
+- Recipient addresses to send money to in the TUI are inferred from the current UTXO set. If a party does not commit a UTXO or consumes all its UTXO in a Head, it won't be able to send or receive anything anymore.
+- TUI crashes when user tries to post a new transaction without any UTXO remaining.
+- The internal wallet of hydra-node requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](https://hydra.family/head-protocol/docs/getting-started/demo/with-docker/#seeding-the-network).
 
 ## [0.4.0] - 2022-03-23
 
@@ -31,7 +64,6 @@ changes.
 - Mint and burn state token used to thread state across the OCV state machine, and participation tokens for each party in the head [#181](https://github.com/input-output-hk/hydra-poc/issues/181)
 - Provide (mandatory) command-line options `--ledger-genesis` and `--ledger-protocol-parameters` to configure the ledger that runs _inside a head_. Options are provided as filepath to JSON files which match formats from `cardano-cli` and `cardano-node` [#180](https://github.com/input-output-hk/hydra-poc/issues/180).
 - Created [hydra-cardano-api](https://hydra.family/head-protocol/haddock/hydra-cardano-api/) as wrapper around [cardano-api](https://github.com/input-output-hk/cardano-node/tree/master/cardano-api#cardano-api) specialized to the latest Cardano's era, and with useful extra utility functions.
-- Wrapped up work on [plutus-cbor](https://hydra.family/head-protocol/haddock/plutus-cbor) and [plutus-merkle-tree](https://hydra.family/head-protocol/haddock/plutus-merkle-tree) to bring them into a releasable first version; including full test coverage and low-level Plutus code benchmarks.
 - Two new architectural decision records:
   - [ADR-0014: Token usage in Hydra Scripts](https://hydra.family/head-protocol/adr/14)
   - [ADR-0015: Configuration Through an Admin API](https://hydra.family/head-protocol/adr/15)
@@ -51,6 +83,16 @@ changes.
 - `hydra-tui` to show form focus, indicate invalid fields in dialogs and only allow valid values to be submitted [#224](https://github.com/input-output-hk/hydra-poc/issues/224).
 - Repaired benchmarks and improved collected metrics; in particular, benchmarks now collect CPU usage and provide average confirmation times over 5s windows.
 - Fixed a bug in the Fanout transaction scheduling and submission where clients would attempt to post a fanout transaction before a 'Close' transaction is even observed. Now, every participant of the head will attempt to post a fanout a transaction after they successfully observed a transaction. Of course, the layer 1 will enforce that only one fanout is posted [#279](https://github.com/input-output-hk/hydra-poc/issues/279).
+
+#### Known Issues
+
+- Only no or one utxo can be committed to a Head.
+- Recipient addresses to send money to in the TUI are inferred from the current UTXO set. If a party does not commit a UTXO or consumes all its UTXO in a Head, it won't be able to send or receive anything anymore.
+- TUI crashes when user tries to post a new transaction without any UTXO remaining.
+- The internal wallet of hydra-node requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](https://hydra.family/head-protocol/docs/getting-started/demo/with-docker/#seeding-the-network).
+- Aborting a head with more than 2 participants (i.e. `> 2`) requires increase in tx size limit over current mainchain parameters to ~20KB. 
+- Head can collect at most 3 commits and each party can commit either 1 or 0 UTXO to a Head.
+- The head cannot be finalized if holding more than ~100 assets (or ~50 ada-only UTxO entries) with the standard tx size of 16KB. 
 
 ## [0.3.0] - 2022-02-02
 
