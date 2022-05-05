@@ -30,6 +30,8 @@ jobs:
         # to a "fake merge" commit). On push events, the default is fine as it
         # refers to the pushed commit.
         ref: ${{ github.event.pull_request.head.sha || github.ref }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
 
     - name: Prepare nix
       uses: cachix/install-nix-action@v13
