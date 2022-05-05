@@ -11,7 +11,7 @@ import Hydra.ClientInput (ClientInput (GetUTxO, NewTx))
 import Hydra.Ledger.Cardano (emptyTxBody)
 import Hydra.Network (Host (..))
 import Hydra.Prelude
-import qualified Hydra.ServerOutput as ServerOutput
+import Hydra.ServerOutput (ServerOutput (GetUTxOResponse))
 import Network.WebSockets (
   Connection,
   runClient,
@@ -31,9 +31,9 @@ paintPixel signingKeyPath cnx pixel = do
   sendTextData @Text cnx $ decodeUtf8 $ Aeson.encode (GetUTxO @Tx)
   msg <- receiveData cnx
   putStrLn $ "Received from Hydra-node: " <> show msg
-  case Aeson.eitherDecode @(ServerOutput.ServerOutput Tx) msg of
+  case Aeson.eitherDecode @(ServerOutput Tx) msg of
     Left e -> error $ "Failed to decode server answer:  " <> show e
-    Right (ServerOutput.UTxO (UTxO utxo)) -> do
+    Right (GetUTxOResponse (UTxO utxo)) -> do
       let myAddress = mkVkAddress networkId vk
           (txIn, txOut) = Map.findMin $ Map.filter (\(TxOut addr _ _) -> addr == myAddress) utxo
       case mkPaintTx (txIn, txOut) (myAddress, txOutValue txOut) sk pixel of

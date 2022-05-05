@@ -202,7 +202,7 @@ spec = parallel $ do
                 waitFor [n2] $ Committed alice (utxoRef 1)
                 send n2 GetUTxO
 
-                waitFor [n2] $ UTxO (utxoRefs [1])
+                waitFor [n2] $ GetUTxOResponse (utxoRefs [1])
 
     describe "in an open head" $ do
       let openHead n1 n2 = do
@@ -323,7 +323,7 @@ spec = parallel $ do
 
               send n1 GetUTxO
 
-              waitFor [n1] $ UTxO (utxoRefs [2, 42])
+              waitFor [n1] $ GetUTxOResponse (utxoRefs [2, 42])
 
       it "when closing head is finalized after contestation period and all parties post fanout tx" $
         shouldRunInSim $ do

@@ -27,10 +27,7 @@ data ServerOutput tx
       { snapshot :: Snapshot tx
       , signatures :: Hydra.MultiSignature (Snapshot tx)
       }
-  | -- XXX(SN): This is too vague of a name and prone to conflict. Also we want
-    -- to relate it to 'GetUTxO' from 'ClientInput', so 'GetUTxOResult' might be
-    -- a better name
-    UTxO {utxo :: UTxOType tx}
+  | GetUTxOResponse {utxo :: UTxOType tx}
   | InvalidInput {reason :: String, input :: Text}
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
@@ -63,7 +60,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arb
     TxValid tx -> TxValid <$> shrink tx
     TxInvalid u tx err -> TxInvalid <$> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed s ms -> SnapshotConfirmed <$> shrink s <*> shrink ms
-    UTxO u -> UTxO <$> shrink u
+    GetUTxOResponse u -> GetUTxOResponse <$> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
     Greetings me -> Greetings <$> shrink me
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e

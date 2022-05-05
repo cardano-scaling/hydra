@@ -250,7 +250,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     canCollectCom = null remainingParties && pt == party
     collectedUTxO = mconcat $ Map.elems newCommitted
   (InitialState{committed}, ClientEvent GetUTxO) ->
-    sameState [ClientEffect $ UTxO (mconcat $ Map.elems committed)]
+    sameState [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
   (InitialState{committed}, ClientEvent Abort) ->
     sameState [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
   (_, OnChainEvent (Observation OnCommitTx{})) ->
@@ -281,7 +281,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
     sameState
-      [ClientEffect . UTxO $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+      [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}, ClientEvent (NewTx tx)) ->
     sameState effects

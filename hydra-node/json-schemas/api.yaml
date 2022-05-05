@@ -52,7 +52,7 @@ channels:
           - $ref: "#/components/messages/TxValid"
           - $ref: "#/components/messages/TxInvalid"
           - $ref: "#/components/messages/SnapshotConfirmed"
-          - $ref: "#/components/messages/UTxO"
+          - $ref: "#/components/messages/GetUTxOResponse"
           - $ref: "#/components/messages/RolledBack"
           - $ref: "#/components/messages/InvalidInput"
           - $ref: "#/components/messages/PostTxOnChainFailed"
@@ -408,18 +408,19 @@ components:
           snapshot:
             $ref: "#/components/schemas/Snapshot"
 
-    UTxO:
-      title: UTxO
+    GetUTxOResponse:
+      title: GetUTxOResponse
       description: |
         Emitted as a result of a `GetUTxO` to reflect the current UTxO of the underlying node.
       payload:
         type: object
         required:
         - tag
+        - utxo
         properties:
           tag:
             type: string
-            enum: ["UTxO"]
+            enum: ["GetUTxOResponse"]
           utxo:
             $ref: "#/components/schemas/UTxO"
 
