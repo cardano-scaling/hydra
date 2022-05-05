@@ -29,6 +29,7 @@ import Hydra.Cardano.Api (
   proxyToAsType,
   serialiseToRawBytesHexText,
  )
+import qualified Hydra.Contract as Contract
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
 import Hydra.Node.Version (gitDescribe)
@@ -398,7 +399,7 @@ startChainFromParser =
 hydraNodeOptions :: ParserInfo Options
 hydraNodeOptions =
   info
-    (hydraNodeParser <**> helper <**> versionInfo)
+    (hydraNodeParser <**> helper <**> versionInfo <**> scriptInfo)
     ( fullDesc
         <> progDesc "Starts a Hydra Node"
         <> header "hydra-node - A prototype of Hydra Head protocol"
@@ -408,6 +409,11 @@ hydraNodeOptions =
     infoOption
       (fromMaybe (showVersion version) gitDescribe)
       (long "version" <> help "Show version")
+
+  scriptInfo =
+    infoOption
+      (decodeUtf8 $ encodePretty Contract.scriptInfo)
+      (long "script-info" <> help "Dump script info as JSON")
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraOptions :: IO Options

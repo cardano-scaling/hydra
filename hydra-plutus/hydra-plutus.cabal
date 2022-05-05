@@ -72,6 +72,7 @@ common project-config
 library
   import:          project-config
   exposed-modules:
+    Hydra.Contract
     Hydra.Contract.Commit
     Hydra.Contract.Encoding
     Hydra.Contract.Hash
