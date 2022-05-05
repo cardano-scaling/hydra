@@ -55,10 +55,12 @@ import Hydra.ServerOutput (
     HeadIsClosed,
     HeadIsFinalized,
     HeadIsOpen,
+    InvalidInput,
     PeerConnected,
     PeerDisconnected,
     PostTxOnChainFailed,
     ReadyToCommit,
+    RolledBack,
     SnapshotConfirmed,
     TxInvalid,
     TxSeen,
@@ -67,11 +69,13 @@ import Hydra.ServerOutput (
     parties,
     party,
     postTxError,
+    reason,
     snapshot,
     utxo,
     validationError
   ),
  )
+import qualified Hydra.ServerOutput as ServerOutput
 import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Options (Options (..))
 import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
@@ -257,24 +261,28 @@ handleAppEvent s = \case
   Update HeadIsClosed{} ->
     s & headStateL .~ Closed{}
       & feedbackL ?~ UserFeedback Info "Head closed."
+  Update HeadIsAborted{} ->
+    s & headStateL .~ Ready
+      & feedbackL ?~ UserFeedback Info "Head aborted, back to square one."
   Update HeadIsFinalized{utxo} ->
     s & headStateL .~ Final{utxo}
       & feedbackL ?~ UserFeedback Info "Head finalized."
   Update TxSeen{} ->
-    s
-  Update TxInvalid{validationError} ->
-    s & feedbackL ?~ UserFeedback Error (show validationError)
+    s -- TUI is not needing this response, ignore it
   Update TxValid{} ->
     s & feedbackL ?~ UserFeedback Success "Transaction submitted successfully!"
+  Update TxInvalid{validationError} ->
+    s & feedbackL ?~ UserFeedback Error (show validationError)
   Update SnapshotConfirmed{snapshot} ->
     snapshotConfirmed snapshot
-  Update HeadIsAborted{} ->
-    s & headStateL .~ Ready
-      & feedbackL ?~ UserFeedback Info "Head aborted, back to square one."
+  Update ServerOutput.UTxO{} ->
+    s -- TUI is currently not requesting UTxO itself, ignore it
+  Update InvalidInput{reason} ->
+    s & feedbackL ?~ UserFeedback Error ("Invalid input error: " <> toText reason)
   Update PostTxOnChainFailed{postTxError} ->
     s & feedbackL ?~ UserFeedback Error ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
-  Update anyUpdate ->
-    s & feedbackL ?~ UserFeedback Error ("Unhandled app event: " <> show anyUpdate)
+  Update RolledBack ->
+    s & feedbackL ?~ UserFeedback Info "Chain rolled back! You might need to re-submit Head transactions manually now."
  where
   partyCommitted party commit = \case
     Initializing{parties, remainingParties, utxo} ->
