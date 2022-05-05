@@ -28,8 +28,8 @@ changes.
   + These are also performed and reported now on every PR -> [Example](https://github.com/input-output-hk/hydra-poc/pull/340#issuecomment-1116247611)
 
 - New architectural decision records:
-  - [ADR-0017: UDP for Hydra networking](https://hydra.family/head-protocol/adr/17)
-  - [ADR-0018: Single state in Hydra.Node](https://hydra.family/head-protocol/adr/18)
+  + [ADR-0017: UDP for Hydra networking](https://hydra.family/head-protocol/adr/17)
+  + [ADR-0018: Single state in Hydra.Node](https://hydra.family/head-protocol/adr/18)
 
 #### Changed
 
@@ -37,8 +37,11 @@ changes.
   + The `--hydra-signing-key` and consequently `--hydra-verification-key` are now longer and not compatible with previous versions!
 
 - **BREAKING** The Hydra plutus scripts have changed in course of finalizing [#181](https://github.com/input-output-hk/hydra-poc/issues/181)
-  - All Hydra protocol transactions need to be signed by a Head participant now
-  - This changes the script address(es) and the current `hydra-node` would not detect old Heads on the testnet.
+  + All Hydra protocol transactions need to be signed by a Head participant now
+  + This changes the script address(es) and the current `hydra-node` would not detect old Heads on the testnet.
+
+- **BREAKING** Renamed server output `UTxO -> GetUTxOResponse`
+  + This should be a better name for the response of `GetUTxO` client input on our API :)
 
 - Updated our dependencies (`plutus`, `cardano-ledger`, ..) to most recent released versions making scripts smaller and Head transactions slighly cheaper already, see benchmarks for current limits.
 

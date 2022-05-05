@@ -276,7 +276,7 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
         guard $ snapshot == expectedSnapshot
 
       send n1 $ input "GetUTxO" []
-      waitFor tracer 10 [n1] $ output "UTxO" ["utxo" .= newUTxO]
+      waitFor tracer 10 [n1] $ output "GetUTxOResponse" ["utxo" .= newUTxO]
 
       send n1 $ input "Close" []
       waitMatch 3 n1 $ \v -> do

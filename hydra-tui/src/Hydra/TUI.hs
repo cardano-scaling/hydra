@@ -46,36 +46,7 @@ import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Network (Host (..))
 import Hydra.Party (Party)
-import Hydra.ServerOutput (
-  ServerOutput (
-    CommandFailed,
-    Committed,
-    Greetings,
-    HeadIsAborted,
-    HeadIsClosed,
-    HeadIsFinalized,
-    HeadIsOpen,
-    InvalidInput,
-    PeerConnected,
-    PeerDisconnected,
-    PostTxOnChainFailed,
-    ReadyToCommit,
-    RolledBack,
-    SnapshotConfirmed,
-    TxInvalid,
-    TxSeen,
-    TxValid,
-    me,
-    parties,
-    party,
-    postTxError,
-    reason,
-    snapshot,
-    utxo,
-    validationError
-  ),
- )
-import qualified Hydra.ServerOutput as ServerOutput
+import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Options (Options (..))
 import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
@@ -275,7 +246,7 @@ handleAppEvent s = \case
     s & feedbackL ?~ UserFeedback Error (show validationError)
   Update SnapshotConfirmed{snapshot} ->
     snapshotConfirmed snapshot
-  Update ServerOutput.UTxO{} ->
+  Update GetUTxOResponse{} ->
     s -- TUI is currently not requesting UTxO itself, ignore it
   Update InvalidInput{reason} ->
     s & feedbackL ?~ UserFeedback Error ("Invalid input error: " <> toText reason)

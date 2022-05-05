@@ -951,7 +951,7 @@ definitions:
             - $ref: "api.yaml#/components/messages/TxValid/payload"
             - $ref: "api.yaml#/components/messages/TxInvalid/payload"
             - $ref: "api.yaml#/components/messages/SnapshotConfirmed/payload"
-            - $ref: "api.yaml#/components/messages/UTxO/payload"
+            - $ref: "api.yaml#/components/messages/GetUTxOResponse/payload"
             - $ref: "api.yaml#/components/messages/InvalidInput/payload"
             - $ref: "api.yaml#/components/messages/PostTxOnChainFailed/payload"
             - $ref: "api.yaml#/components/messages/CommandFailed/payload"
