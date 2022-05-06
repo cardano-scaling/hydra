@@ -381,6 +381,9 @@ propIsValid exUnits forAllTx =
 -- QuickCheck Extras
 --
 
+-- XXX: This is very fancy, but does not prevent us of not aligning forAll
+-- generators with Transition labels. Ideally we would would use the actual
+-- states/transactions or observed states/transactions for labeling.
 forAllSt ::
   (Testable property) =>
   (forall st. (HasTransition st) => OnChainHeadState st -> Tx -> property) ->
@@ -409,7 +412,7 @@ forAllSt action =
           , Transition @ 'StOpen (TransitionTo (Proxy @ 'StClosed))
           )
         ,
-          ( forAllClose action
+          ( forAllClose action -- FIXME: this should be forAllContest
           , Transition @ 'StClosed (TransitionTo (Proxy @ 'StClosed))
           )
         ,
