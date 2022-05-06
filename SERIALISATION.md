@@ -209,7 +209,7 @@ method used in the original `encoding-cost` executable.
 ----------------------------------------------------------------
 
 
-#### Single _n_-asset `TxOut`, serialised using `plutus-cbor` on-chain
+#### Single n-asset `TxOut`, serialised using `plutus-cbor` on-chain
 
 |   n  |     mem     |      cpu      |   %mem    |   %cpu   |
 |-----:|------------:|--------------:|----------:|---------:|
@@ -232,7 +232,7 @@ method used in the original `encoding-cost` executable.
 
 ----------------------------------------------------------------
 
-#### Single _n_-asset `TxOut`, serialised using `serialiseData . toBuiltinData` on-chain
+#### Single n-asset `TxOut`, serialised using `serialiseData . toBuiltinData` on-chain
 
 |   n  |     mem     |      cpu      |   %mem    |   %cpu   |
 |-----:|------------:|--------------:|----------:|---------:|
