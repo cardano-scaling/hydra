@@ -27,13 +27,15 @@ import Cardano.Ledger.Alonzo.TxBody (
   txfee,
   pattern TxOut,
  )
+import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
 import Cardano.Ledger.Alonzo.TxWitness (
   RdmrPtr (RdmrPtr),
   Redeemers (..),
   TxWitness (..),
  )
-import Cardano.Ledger.BaseTypes (StrictMaybe (SJust), TxIx (..))
+import Cardano.Ledger.BaseTypes (StrictMaybe (SJust))
+import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams)
 import qualified Cardano.Ledger.Core as Ledger
@@ -190,7 +192,8 @@ applyBlock blk isOurs utxo = case blk of
         modify (`Map.withoutKeys` inputs (body tx))
         let indexedOutputs =
               let outs = outputs (body tx)
-               in StrictSeq.zip (StrictSeq.fromList [TxIx 0 .. (TxIx . fromIntegral $ length outs)]) outs
+                  maxIx = fromIntegral $ length outs
+               in StrictSeq.zip (StrictSeq.fromList [Ledger.TxIx ix | ix <- [0 .. maxIx]]) outs
         forM_ indexedOutputs $ \(ix, out@(TxOut addr _ _)) ->
           when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
   _ ->
@@ -376,13 +379,15 @@ estimateScriptsCost ::
   ValidatedTx Era ->
   Either (RdmrPtr, ScriptFailure StandardCrypto) (Map RdmrPtr ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
+  -- FIXME: throwing exceptions in pure code is discouraged! Convert them to
+  -- throwM or throwIO or represent thes situations in the return type!
   case result of
     Left pastHorizonException ->
       throw pastHorizonException
-    Right (Left (BadTranslation _)) ->
-      throw BadTranslationException
     Right (Left (UnknownTxIns ins)) ->
       throw (UnknownTxInsException ins)
+    Right (Left (BadTranslation translationError)) ->
+      throw (BadTranslationException translationError)
     Right (Right units) ->
       Map.traverseWithKey (\ptr -> left (ptr,)) units
  where
@@ -400,14 +405,18 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   costModelsToArray (CostModels m) =
     array
       (fst (Map.findMin m), fst (Map.findMax m))
-      $ Map.toList m
+      (Map.toList m)
 
-data EstimateScriptCostException
-  = BadTranslationException
-  | UnknownTxInsException (Set TxIn)
+newtype UnknownTxInsException = UnknownTxInsException (Set TxIn)
   deriving (Show)
 
-instance Exception EstimateScriptCostException
+instance Exception UnknownTxInsException
+
+newtype BadTranslationException
+  = BadTranslationException TranslationError
+  deriving (Show)
+
+instance Exception BadTranslationException
 
 --
 -- Logs
