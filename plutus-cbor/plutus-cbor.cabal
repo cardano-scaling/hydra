@@ -184,6 +184,7 @@ executable encoding-cost
     , bytestring
     , cardano-ledger-alonzo
     , containers
+    , flat
     , hspec
     , hydra-prelude
     , hydra-test-utils

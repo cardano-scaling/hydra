@@ -85,7 +85,7 @@ encodeUnsigned16 encodeUnsigned16334,335
 encodeUnsigned32 encodeUnsigned32339,340
 encodeUnsigned64 encodeUnsigned64344,345
 
-./exe/encoding-cost/Main.hs,349
+./exe/encoding-cost/Main.hs,408
 maxExecutionUnits maxExecutionUnits33,34
 runTerm runTerm39,40
 relativeCostAsPercentage relativeCostAsPercentage45,46
@@ -93,8 +93,9 @@ toMicroseconds toMicroseconds65,66
 printRelativeHeader printRelativeHeader70,71
 printRelativeBudget printRelativeBudget80,81
 printBudgetHeader printBudgetHeader97,98
-printBudget printBudget101,102
-main main107,108
+sizeOfFlatSerialisedTerm sizeOfFlatSerialisedTerm104,105
+printBudget printBudget109,110
+main main120,121
 
 ./exe/encoding-cost/Plutus/Codec/CBOR/Encoding/Validator.hs,1014
 module Plutus.Codec.CBOR.Encoding.Validator Plutus.Codec.CBOR.Encoding.Validator4,5

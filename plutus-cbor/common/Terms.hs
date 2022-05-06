@@ -99,6 +99,3 @@ serialiseUsingBuiltin_after_toDataOffChain x =
                    )
                  `Tx.applyCode` (Tx.liftCode $ Tx.toBuiltinData x)
 
-
-
-

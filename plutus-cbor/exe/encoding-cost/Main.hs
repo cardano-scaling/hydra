@@ -6,6 +6,8 @@ import           Hydra.Prelude                            hiding (label)
 
 import           Control.Exception                        (throw)
 import           Control.Monad.Except
+import           Data.ByteString                          as BS
+import           Flat                                     (flat)
 import           GHC.IO.Encoding
 import           Test.QuickCheck                          (vectorOf)
 import           Text.Printf                              (printf)
@@ -25,8 +27,6 @@ import           Test.Plutus.Validator                    (ExUnits (..),
                                                            evaluateScriptExecutionUnits)
 import qualified UntypedPlutusCore                        as UPLC
 import           UntypedPlutusCore.Evaluation.Machine.Cek as Cek
-
-
 
 import           Terms
 import           TxOutGen
@@ -70,7 +70,7 @@ toMicroseconds x = (fromIntegral x)/1e6
 
 printRelativeHeader :: IO ()
 printRelativeHeader =
-    printf "   n         mem         cpu        %%mem      %%cpu\n"
+    printf "   n         mem         cpu      %%mem      %%cpu\n"
 
 -- Some code abstracted from the original.
 
@@ -97,17 +97,32 @@ printRelativeBudget n x encoder = do
 -- This just shows the absolute numbers.
 printBudgetHeader :: IO ()
 printBudgetHeader =
-    printf "   n         mem         cpu       cpu/1e6\n"
+    printf "   n         mem         cpu       cpu/1e6     size\n"
 
-printBudget :: Int -> Plutus.ExBudget -> IO ()
-printBudget n budget =
-    case budget of
+-- Return the number of bytes in the serialised form of a term.
+-- In reality the term would be wrapped in a Program, but that would only add a few bytes.
+-- Also, get rid of the names; the evaluator expects these, but we don't serialise them.
+sizeOfFlatSerialisedTerm :: Term UPLC.NamedDeBruijn -> Integer
+sizeOfFlatSerialisedTerm term =
+    let term' = UPLC.termMapNames (\(UPLC.NamedDeBruijn _ ix) -> UPLC.DeBruijn ix) term
+    in fromIntegral . BS.length $ flat term'
+
+printBudget :: Int -> Term UPLC.NamedDeBruijn -> IO ()
+printBudget n term =
+    case runTerm term of
       Plutus.ExBudget (Plutus.ExCPU absCpu) (Plutus.ExMemory absMem) ->
-          printf "%4d %12s %12s %8.0f µs\n" n (show absMem :: String) (show absCpu :: String) (toMicroseconds absCpu)
+          printf "%4d %12s %12s %8.0f µs %8d\n" n
+                     (show absMem :: String)
+                     (show absCpu :: String)
+                     (toMicroseconds absCpu)
+                     (sizeOfFlatSerialisedTerm term)
+
 
 main :: IO ()
 main = do
   setLocaleEncoding utf8  -- problems with mu
+
+  -- Print calculated budgets for full validators
   printf "\n"
   printf "Full validations\n"
   printf "================\n\n"
@@ -144,60 +159,62 @@ main = do
     printRelativeBudget n x encodeTxOutValidatorUsingBuiltin
 
 
+  -- Print calculated budgets for scripts that just do serialisation using different methods.
+  -- Maybe this should be in a separate executable, but I'm too lazy.
   printf "\n\n"
   printf "Serialisation/toBuiltinData costs only\n"
   printf "======================================\n\n"
 
-  printf "# List of ADA-only TxOut, by list size (library).\n"
+  printf "# List of ADA-only TxOut, by list size (plutus-cbor).\n"
   printBudgetHeader
   forM_ [0,10..150] $ \n -> do
     let txouts = generateWith (vectorOf n genAdaOnlyTxOut) 42
         term = serialiseMultipleScottTxOutsUsingLibrary txouts
-    printBudget n $ runTerm term
+    printBudget n term
 
   printf "\n"
 
-  printf "# List of ADA-only TxOut, by list size (builtin, toData on-chain).\n"
+  printf "# List of ADA-only TxOut, by list size (builtin serialiseData, toData on-chain).\n"
   printBudgetHeader
   forM_ [0,10..150] $ \n -> do
     let txouts =  generateWith (vectorOf n genAdaOnlyTxOut) 42
         term = serialiseMultipleScottTxOutsUsingBuiltin txouts
-    printBudget n $ runTerm term
+    printBudget n term
 
   printf "\n"
 
-  printf "# List of ADA-only TxOut, by list size (builtin, toData off-chain).\n"
+  printf "# List of ADA-only TxOut, by list size (builtin serialiseData, toData off-chain).\n"
   printBudgetHeader
   forM_ [0,10..150] $ \n -> do
     let txouts =  generateWith (vectorOf n genAdaOnlyTxOut) 42
         term = serialiseUsingBuiltin_after_toDataOffChain txouts
-    printBudget n $ runTerm term
+    printBudget n term
 
   printf "\n"
   printf "----------------------------------------------------------------"
   printf "\n\n"
 
-  printf "# Single multi-asset TxOut, by number of assets (library).\n"
+  printf "# Single multi-asset TxOut, by number of assets (plutus-cbor).\n"
   printBudgetHeader
   forM_ [0,10..150] $ \n -> do
     let txout = generateWith (genTxOut n) 42
         term = serialiseSingleScottTxOutUsingLibrary txout
-    printBudget n $ runTerm term
+    printBudget n term
 
   printf "\n"
-  printf "# Single multi-asset TxOut, by number of assets (builtin, toData on-chain).\n"
+  printf "# Single multi-asset TxOut, by number of assets (builtin serialiseData, toData on-chain).\n"
   printBudgetHeader
   forM_ [0,10..150] $ \n -> do
     let txout = generateWith (genTxOut n) 42
         term = serialiseSingleScottTxOutUsingBuiltin txout
-    printBudget n $ runTerm term
+    printBudget n term
 
 
   printf "\n"
-  printf "# Single multi-asset TxOut, by number of assets (builtin, toData off-chain).\n"
+  printf "# Single multi-asset TxOut, by number of assets (builtin serialiseData, toData off-chain).\n"
   printBudgetHeader
   forM_ [0,10..150] $ \n -> do
     let txout = generateWith (genTxOut n) 42
         term = serialiseUsingBuiltin_after_toDataOffChain txout
-    printBudget n $ runTerm term
+    printBudget n term
 
