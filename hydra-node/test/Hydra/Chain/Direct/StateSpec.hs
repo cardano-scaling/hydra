@@ -189,6 +189,10 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllClose
     propIsValid maxTxExecutionUnits forAllClose
 
+  describe "contest" $ do
+    propBelowSizeLimit maxTxSize forAllContest
+    propIsValid maxTxExecutionUnits forAllContest
+
   describe "fanout" $ do
     propBelowSizeLimit maxTxSize forAllFanout
     propIsValid maxTxExecutionUnits forAllFanout
