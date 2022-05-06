@@ -11,6 +11,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
 import Hydra.Cardano.Api (PlutusScriptV1, fromPlutusScript, hashScriptData)
+import Hydra.Contract (scriptInfo)
 import Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Head as Head
@@ -27,6 +28,9 @@ import Prettyprinter.Render.Text (renderStrict)
 -- protocol.
 main :: IO ()
 main = do
+  putTextLn "Script info:"
+  putLBSLn $ encodePretty scriptInfo
+
   putTextLn "Serialise scripts:"
   writeScripts scripts
 

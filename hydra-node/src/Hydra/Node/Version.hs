@@ -1,49 +1,33 @@
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Provides version number with optional Git SHA1.
-module Hydra.Node.Version (
-  -- * Values computed at compile-time
-  version,
-  gitRevision,
-  GitRevision,
-  Version,
-
-  -- * Displaying Versions
-  showVersion,
-  showFullVersion,
-) where
+-- | Provides version numbers from git identifiers. Based on 'gitrev' package
+-- with a 'Maybe' interface around it.
+module Hydra.Node.Version where
 
 import Hydra.Prelude
 
-import Data.Version (
-  Version,
-  showVersion,
- )
-import Paths_hydra_node (
-  version,
- )
+import qualified Development.GitRev as GitRev
 
-import qualified Data.Text as T
-import Development.GitRev (gitHash)
+-- | Determine the version during build time using `git describe`.
+gitDescribe :: Maybe String
+gitDescribe
+  | fromGit == unknownFromGit = Nothing
+  | otherwise = Just fromGit
+ where
+  -- Git describe version found during compilation by running git. If git could
+  -- not be run, then this will be "UNKNOWN".
+  fromGit = $(GitRev.gitDescribe)
 
-newtype GitRevision = GitRevision Text deriving (Show, Eq)
-
--- | Like 'showVersion', but also show the git revision.
-showFullVersion :: Version -> GitRevision -> String
-showFullVersion v (GitRevision r) =
-  showVersion v <> toString r
-
--- | The Git revision ID (40 character hex string) of this build.
---
--- This requires @git@ do be available when building.
-gitRevision :: GitRevision
+-- | Determine the version during build time using `git rev-parse`.
+gitRevision :: Maybe String
 gitRevision
-  | T.null fromGit = GitRevision zeroRev
-  | otherwise = GitRevision fromGit
+  | fromGit == unknownFromGit = Nothing
+  | otherwise = Just fromGit
  where
   -- Git revision found during compilation by running git. If
-  -- git could not be run, then this will be empty.
-  fromGit = T.strip (fromString $(gitHash))
+  -- git could not be run, then this will be "UNKNOWN".
+  fromGit = $(GitRev.gitHash)
 
-  zeroRev :: Text
-  zeroRev = "0000000000000000000000000000000000000000"
+-- According to 'gitrev' docs, this is the default value returned on errors.
+unknownFromGit :: String
+unknownFromGit = "UNKNOWN"

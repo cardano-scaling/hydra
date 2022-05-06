@@ -85,7 +85,7 @@ computeInitCost = do
 computeCommitCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
 computeCommitCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100 .. 500]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [500, 499 .. 101]
   pure $ interesting <> limit
  where
   compute numUTxO = do
@@ -127,7 +127,7 @@ computeCollectComCost =
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeCloseCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 30]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 31]
   pure $ interesting <> limit
  where
   compute numParties = do
@@ -170,7 +170,7 @@ computeAbortCost =
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
 computeFanOutCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100 .. 500]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [500, 499 .. 101]
   pure $ interesting <> limit
  where
   compute numElems = do
