@@ -21,6 +21,7 @@ import Hydra.Chain.Direct.State (
   close,
   collect,
   commit,
+  contest,
   idleOnChainHeadState,
   initialize,
   observeTx,
@@ -144,6 +145,13 @@ genCloseTx numParties = do
   -- the generated open state.
   snapshot <- genConfirmedSnapshot utxo (ctxHydraSigningKeys ctx)
   pure (stOpen, close snapshot stOpen)
+
+genContestTx :: Int -> Gen (OnChainHeadState 'StClosed, Tx)
+genContestTx numParties = do
+  ctx <- genHydraContextFor numParties
+  stClosed <- genStClosed ctx =<< arbitrary
+  snapshot <- genConfirmedSnapshot (ctxHydraSigningKeys ctx)
+  pure (stClosed, contest snapshot stClosed)
 
 genStOpen ::
   HydraContext ->

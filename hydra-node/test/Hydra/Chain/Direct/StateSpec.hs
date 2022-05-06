@@ -53,6 +53,7 @@ import Hydra.Chain.Direct.Context (
   genCollectComTx,
   genCommit,
   genCommits,
+  genContestTx,
   genHydraContext,
   genInitTx,
   genStClosed,
@@ -412,7 +413,7 @@ forAllSt action =
           , Transition @ 'StOpen (TransitionTo (Proxy @ 'StClosed))
           )
         ,
-          ( forAllClose action -- FIXME: this should be forAllContest
+          ( forAllContest action
           , Transition @ 'StClosed (TransitionTo (Proxy @ 'StClosed))
           )
         ,
@@ -502,7 +503,15 @@ forAllClose ::
   Property
 forAllClose action = do
   -- TODO: label / classify tx and snapshots to understand test failures
+  -- FIXME: we should not hardcode number of parties but generate it within bounds
   forAll (genCloseTx 3) $ uncurry action
+
+forAllContest ::
+  (Testable property) =>
+  (OnChainHeadState 'StClosed -> Tx -> property) ->
+  Property
+forAllContest action =
+  forAll (genContestTx 3) $ uncurry action
 
 forAllFanout ::
   (Testable property) =>
