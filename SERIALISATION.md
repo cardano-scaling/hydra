@@ -150,8 +150,7 @@ Both of these use `TxOut` data of the types A and B mentioned earlier.
 ## Results for `encoding-cost`
 
 The results produced by the `encoding-cost` executable for budgets (not actual
-excution times) for full validators are shown in
-Figures~\ref{fig:validation-1}--\ref{fig:validatione4}. The "mem" and "cpu"
+excution times) for full validators are shown below. The "mem" and "cpu"
 columns show the total memory usage and CPU time according to the cost model.
 The CPU times have been adjusted from picoseconds to microseconds by dividing by
 $10^6$ in order to make them easier to read.  The "%mem" and "%cpu" costs show
