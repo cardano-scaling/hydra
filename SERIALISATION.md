@@ -147,7 +147,7 @@ I added two main extensions to the `plutus-cbor` benchmarks:
 
 Both of these use `TxOut` data of the types A and B mentioned earlier.
 
-## Results for `encoding-cost`
+### Results for `encoding-cost`
 
 The results produced by the `encoding-cost` executable for budgets (not actual
 excution times) for full validators are shown below. The "mem" and "cpu"
@@ -267,7 +267,7 @@ reflected in the cost model), so we can expect some improvement on the
 results above.
 
 
-## Results for `bench-plc`
+### Results for `bench-plc`
 
 The results for the `bench-plc` benchmarks are shown below; note that all of the
 graphs have the same vertical scale.  Execution times as predicted by the cost
