@@ -16,7 +16,7 @@ import Cardano.Ledger.Alonzo.Data (Data (Data))
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams' (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Tag (Spend), txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (..), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (
   BasicFailure (..),
   ScriptFailure (..),
@@ -32,6 +32,7 @@ import Cardano.Ledger.Alonzo.TxBody (
   txfee,
   pattern TxOut,
  )
+import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
 import Cardano.Ledger.Alonzo.TxWitness (
   RdmrPtr (RdmrPtr),
@@ -40,6 +41,7 @@ import Cardano.Ledger.Alonzo.TxWitness (
   unRedeemers,
  )
 import Cardano.Ledger.BaseTypes (StrictMaybe (SJust))
+import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams)
 import qualified Cardano.Ledger.Core as Ledger
@@ -253,8 +255,9 @@ applyBlock blk isOurs utxo = case blk of
         modify (`Map.withoutKeys` inputs (body tx))
         let indexedOutputs =
               let outs = outputs (body tx)
-               in StrictSeq.zip (StrictSeq.fromList [0 .. length outs]) outs
-        forM_ indexedOutputs $ \(fromIntegral -> ix, out@(TxOut addr _ _)) ->
+                  maxIx = fromIntegral $ length outs
+               in StrictSeq.zip (StrictSeq.fromList [Ledger.TxIx ix | ix <- [0 .. maxIx]]) outs
+        forM_ indexedOutputs $ \(ix, out@(TxOut addr _ _)) ->
           when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
   _ ->
     utxo
@@ -439,11 +442,15 @@ estimateScriptsCost ::
   ValidatedTx Era ->
   Either (RdmrPtr, ScriptFailure StandardCrypto) (Map RdmrPtr ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
+  -- FIXME: throwing exceptions in pure code is discouraged! Convert them to
+  -- throwM or throwIO or represent thes situations in the return type!
   case result of
     Left pastHorizonException ->
       throw pastHorizonException
     Right (Left (UnknownTxIns ins)) ->
       throw (UnknownTxInsException ins)
+    Right (Left (BadTranslation translationError)) ->
+      throw (BadTranslationException translationError)
     Right (Right units) ->
       Map.traverseWithKey (\ptr -> left (ptr,)) units
  where
@@ -456,7 +463,12 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
           (Ledger.UTxO utxo)
           epochInfo
           systemStart
-          (mapToArray (_costmdls pparams))
+          (costModelsToArray (_costmdls pparams))
+
+  costModelsToArray (CostModels m) =
+    array
+      (fst (Map.findMin m), fst (Map.findMax m))
+      (Map.toList m)
 
 newtype UnknownTxInsException
   = UnknownTxInsException (Set TxIn)
@@ -464,11 +476,11 @@ newtype UnknownTxInsException
 
 instance Exception UnknownTxInsException
 
-mapToArray :: Ix k => Map k v -> Array k v
-mapToArray m =
-  array
-    (fst (Map.findMin m), fst (Map.findMax m))
-    (Map.toList m)
+newtype BadTranslationException
+  = BadTranslationException TranslationError
+  deriving (Show)
+
+instance Exception BadTranslationException
 
 -- | The idea for this wallet client is rather simple:
 --
