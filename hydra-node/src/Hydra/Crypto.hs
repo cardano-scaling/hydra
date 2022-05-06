@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 -- | Hydra multi-signature credentials and cryptographic primitives used to sign
 -- and verify snapshots (or any messages) within the Hydra protocol.
 --
@@ -39,6 +37,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
+import Hydra.Cardano.Api (HasTypeProxy (..), SerialiseAsRawBytes (..), serialiseToRawBytesHexText)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified Plutus.V1.Ledger.Crypto as Plutus
 import Text.Show (Show (show))
@@ -90,9 +89,19 @@ newtype VerificationKey = HydraVerificationKey (VerKeyDSIGN SignAlg)
   deriving (Eq, Show)
   deriving newtype (ToCBOR, FromCBOR)
 
+instance HasTypeProxy VerificationKey where
+  data AsType VerificationKey = AsHydraVerificationKey
+  proxyToAsType _ = AsHydraVerificationKey
+
+instance SerialiseAsRawBytes VerificationKey where
+  serialiseToRawBytes (HydraVerificationKey vk) =
+    rawSerialiseVerKeyDSIGN vk
+
+  deserialiseFromRawBytes AsHydraVerificationKey bs =
+    HydraVerificationKey <$> rawDeserialiseVerKeyDSIGN bs
+
 instance ToJSON VerificationKey where
-  toJSON (HydraVerificationKey vk) =
-    toJSON (decodeUtf8 @Text $ Base16.encode $ rawSerialiseVerKeyDSIGN vk)
+  toJSON = toJSON . serialiseToRawBytesHexText
 
 -- TODO: It would be nice(r) to have a bech32 representation for verification
 -- keys BUT cardano-api decided to not expose the class internals which makes it
