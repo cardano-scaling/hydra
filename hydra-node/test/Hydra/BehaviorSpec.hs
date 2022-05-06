@@ -500,16 +500,22 @@ simulatedChainAndNetwork = do
 toOnChainTx :: PostChainTx tx -> ChainEvent tx
 toOnChainTx =
   Observation . \case
-    InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
-    (CommitTx pa ut) -> OnCommitTx pa ut
-    AbortTx{} -> OnAbortTx
-    CollectComTx{} -> OnCollectComTx
+    InitTx HeadParameters{contestationPeriod, parties} ->
+      OnInitTx{contestationPeriod, parties}
+    (CommitTx pa ut) ->
+      OnCommitTx pa ut
+    AbortTx{} ->
+      OnAbortTx
+    CollectComTx{} ->
+      OnCollectComTx
     (CloseTx confirmedSnapshot) ->
       OnCloseTx
         { snapshotNumber = number (getSnapshot confirmedSnapshot)
         }
     ContestTx{confirmedSnapshot} ->
-      OnContestTx{snapshotNumber = number (getSnapshot confirmedSnapshot)}
+      OnContestTx
+        { snapshotNumber = number (getSnapshot confirmedSnapshot)
+        }
     FanoutTx{} ->
       OnFanoutTx
 
