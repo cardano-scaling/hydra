@@ -45,7 +45,7 @@ import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Network (Host (..))
-import Hydra.Party (Party)
+import Hydra.Party (Party (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Options (Options (..))
@@ -426,7 +426,7 @@ draw Client{sk} CardanoClient{networkId} s =
 
     ownParty =
       case s ^? meL of
-        Just (Just me) -> str "Party " <+> withAttr own (txt $ show me)
+        Just (Just Party{vkey}) -> str "Party " <+> withAttr own (txt $ serialiseToRawBytesHexText vkey)
         _ -> emptyWidget
 
     ownAddress =
@@ -558,17 +558,20 @@ draw Client{sk} CardanoClient{networkId} s =
       Nothing -> emptyWidget
       Just ps -> vBox $ str "Head participants:" : map drawParty ps
 
-  drawParty p =
+  drawParty p@Party{vkey} =
     case s ^? meL of
-      Just (Just me) | p == me -> withAttr own $ drawShow p
-      _ -> drawShow p
+      Just (Just me) | p == me -> withAttr own $ drawHex vkey
+      _ -> drawHex vkey
 
   drawPeers = case s of
     Disconnected{} -> emptyWidget
     Connected{peers} -> vBox $ str "Connected peers:" : map drawShow peers
 
+  drawHex :: SerialiseAsRawBytes a => a -> Widget n
+  drawHex = txt . (" - " <>) . serialiseToRawBytesHexText
+
   drawShow :: forall a n. Show a => a -> Widget n
-  drawShow = str . (" - " <>) . show
+  drawShow = txt . (" - " <>) . show
 
 -- HACK(SN): This might be too expensive for a general case and we should move
 -- this somehwere.

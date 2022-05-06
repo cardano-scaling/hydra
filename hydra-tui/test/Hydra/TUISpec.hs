@@ -51,6 +51,8 @@ spec =
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "TUI"
+          -- Using hex representation of aliceSk's HydraVerificationKey
+          shouldRender "Party 38088e4c2ae82"
           sendInputEvent $ EvKey (KChar 'q') []
 
       it "supports the init & abort Head life cycle" $
@@ -130,7 +132,10 @@ data TUITest = TUITest
   { buildVty :: IO Vty
   , sendInputEvent :: Event -> IO ()
   , getPicture :: IO ByteString
-  , shouldRender :: HasCallStack => ByteString -> Expectation
+  , -- | Assert that some bytes are present in the frame. The unescaped image
+    -- data is used in this assertion. That means, you do not need to include
+    -- color switching escape codes etc. in your 'expected' bytes.
+    shouldRender :: HasCallStack => ByteString -> Expectation
   }
 
 withTUITest :: DisplayRegion -> (TUITest -> Expectation) -> Expectation
@@ -145,12 +150,14 @@ withTUITest region action = do
       , getPicture
       , shouldRender = \expected -> do
           bytes <- getPicture
-          unless (expected `BS.isInfixOf` bytes) $
+          -- Split at '\ESC' (27) and drop until 'm' (109)
+          let unescaped = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
+          unless (expected `BS.isInfixOf` unescaped) $
             failure $
               "Expected bytes not found in frame: "
                 <> decodeUtf8 expected
                 <> "\n"
-                <> decodeUtf8 bytes
+                <> decodeUtf8 bytes -- use colored frame (= with escape codes)
       }
  where
   buildVty q frameBuffer = do
