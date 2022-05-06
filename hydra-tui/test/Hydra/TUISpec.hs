@@ -51,6 +51,8 @@ spec =
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "TUI"
+          -- Using hex representation of aliceSk's HydraVerificationKey
+          shouldRender "Party 38088e4c2ae82"
           sendInputEvent $ EvKey (KChar 'q') []
 
       it "supports the init & abort Head life cycle" $
