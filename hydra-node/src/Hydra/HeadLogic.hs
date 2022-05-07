@@ -9,9 +9,7 @@
 --     * Another part detailing how the Head reacts to _peers input_ provided by the network, `Message`
 module Hydra.HeadLogic where
 
-import Hydra.Prelude
-
-import Data.List (elemIndex, (\\))
+import Data.List ((!!), (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import GHC.Records (getField)
@@ -36,6 +34,7 @@ import Hydra.Ledger (
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
+import Hydra.Prelude
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
@@ -442,16 +441,16 @@ onReqTx ledger tx parameters headState seenTxs seenUTxO previousRecoverableState
 -- \[
 -- \begin{array}{l}
 -- \mathbf{require} (s \gt \bar{s} \land leader(s) = \mathtt{otherParty}) \\
--- \begin{array}{|l}
 -- \mathbf{wait} (\hat{s} = \bar{s} \land \bar{\mathcal{L}} \circ s) \\
+-- \begin{array}{|l}
 -- \mathbf{output}(\mathtt{seen}, \mathtt{tx}) \\
 -- \end{array} \\
 -- \end{array}
 -- \]
 onReqSn :: Ledger tx -> Party -> SigningKey -> Event tx -> HeadState tx -> Outcome tx
-onReqSn ledger party signingKey e@(NetworkEvent (ReqSn otherParty sn txs)) st@OpenState{parameters, coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousRecoverableState}
-  | (number . getSnapshot) confirmedSnapshot + 1 == sn
-      && isLeader parameters otherParty sn
+onReqSn ledger party signingKey e@(NetworkEvent (ReqSn otherParty s txs)) st@OpenState{parameters, coordinatedHeadState = chs@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousRecoverableState}
+  | (number . getSnapshot) confirmedSnapshot + 1 == s
+      && leader parameters s == otherParty
       && not (snapshotPending seenSnapshot) =
     -- TODO: Also we might be robust against multiple ReqSn for otherwise
     -- valid request, which is currently leading to 'Error'
@@ -460,22 +459,23 @@ onReqSn ledger party signingKey e@(NetworkEvent (ReqSn otherParty sn txs)) st@Op
     case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
       Left (_, err) -> Wait $ WaitOnNotApplicableTx err
       Right u ->
-        let nextSnapshot = Snapshot sn u txs
+        let nextSnapshot = Snapshot s u txs
             snapshotSignature = sign signingKey nextSnapshot
          in NewState
               ( OpenState
                   { parameters
-                  , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
+                  , coordinatedHeadState = chs{seenSnapshot = SeenSnapshot nextSnapshot mempty}
                   , previousRecoverableState
                   }
               )
-              [NetworkEffect $ AckSn party snapshotSignature sn]
-  | sn > (number . getSnapshot) confirmedSnapshot && isLeader parameters otherParty sn =
-    -- TODO: How to handle ReqSN with sn > confirmed + 1
+              [NetworkEffect $ AckSn party snapshotSignature s]
+  | s > (number . getSnapshot) confirmedSnapshot
+      && leader parameters s == otherParty =
+    -- TODO: How to handle ReqSN with s > confirmed + 1
     -- This code feels contrived
     case seenSnapshot of
       SeenSnapshot{snapshot}
-        | number snapshot == sn -> Error (InvalidEvent e st)
+        | number snapshot == s -> Error (InvalidEvent e st)
         | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
       _ -> Wait WaitOnSeenSnapshot
 onReqSn _ _ _ e st = Error (InvalidEvent e st)
@@ -491,11 +491,10 @@ data NoSnapshotReason
   | NoTransactionsToSnapshot
   deriving (Eq, Show, Generic)
 
-isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
-isLeader HeadParameters{parties} p sn =
-  case p `elemIndex` parties of
-    Just i -> ((fromIntegral @Natural @Int sn - 1) `mod` length parties) == i
-    _ -> False
+leader :: HeadParameters -> SnapshotNumber -> Party
+leader HeadParameters{parties} sn =
+  let ix = (fromIntegral @Natural @Int sn - 1) `mod` length parties
+   in parties !! ix
 
 snapshotPending :: SeenSnapshot tx -> Bool
 snapshotPending = \case
@@ -508,7 +507,7 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
   let Snapshot{number} = getSnapshot confirmedSnapshot
       nextSnapshotNumber = succ number
    in if
-          | not (isLeader parameters party nextSnapshotNumber) ->
+          | leader parameters nextSnapshotNumber /= party ->
             ShouldNotSnapshot $ NotLeader nextSnapshotNumber
           | seenSnapshot /= NoSeenSnapshot ->
             ShouldNotSnapshot $ SnapshotInFlight nextSnapshotNumber
