@@ -6,7 +6,13 @@
 --
 -- * The protocol is described in two parts in the [Hydra paper](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/):
 --     * One part detailing how the Head deals with _clients input_, `ClientInput` and `ServerOutput`
---     * Another part detailing how the Head reacts to _peers input_ provided by the network, `Message`
+--     * Another part detailing how the Head reacts to _peers input_ provided by the network, `Message`.
+--
+-- ## Notations
+--
+--  * $\bar{s}$: Latest confirmed snapshot number
+--  * $\hat{s}$: Latest seen snapshot number
+--  * $\hat{\mathcal{L}}: Latest state of ledger with only seen transactions
 module Hydra.HeadLogic where
 
 import Data.List ((!!), (\\))
@@ -293,49 +299,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     onReqTx ledger tx parameters headState seenTxs seenUTxO previousRecoverableState
   (OpenState{coordinatedHeadState = CoordinatedHeadState{}}, e@(NetworkEvent ReqSn{})) ->
     onReqSn ledger party signingKey e st
-  (OpenState{parameters = parameters@HeadParameters{parties}, coordinatedHeadState = headState@CoordinatedHeadState{seenSnapshot, seenTxs}, previousRecoverableState}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
-    case seenSnapshot of
-      NoSeenSnapshot -> Wait WaitOnSeenSnapshot
-      RequestedSnapshot -> Wait WaitOnSeenSnapshot
-      SeenSnapshot snapshot sigs
-        | number snapshot /= sn -> Wait $ WaitOnSnapshotNumber (number snapshot)
-        | otherwise ->
-          let sigs'
-                -- TODO: Must check whether we know the 'otherParty' signing the snapshot
-                | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
-                | otherwise = sigs
-              multisig = aggregateInOrder sigs' parties
-           in if Map.keysSet sigs' == Set.fromList parties
-                then
-                  nextState
-                    ( OpenState
-                        { parameters
-                        , coordinatedHeadState =
-                            headState
-                              { confirmedSnapshot =
-                                  ConfirmedSnapshot
-                                    { snapshot
-                                    , signatures = multisig
-                                    }
-                              , seenSnapshot = NoSeenSnapshot
-                              , seenTxs = seenTxs \\ confirmed snapshot
-                              }
-                        , previousRecoverableState
-                        }
-                    )
-                    [ClientEffect $ SnapshotConfirmed snapshot multisig]
-                else
-                  nextState
-                    ( OpenState
-                        { parameters
-                        , coordinatedHeadState =
-                            headState
-                              { seenSnapshot = SeenSnapshot snapshot sigs'
-                              }
-                        , previousRecoverableState
-                        }
-                    )
-                    []
+  (OpenState{parameters = HeadParameters{}, coordinatedHeadState = CoordinatedHeadState{}}, NetworkEvent e@AckSn{}) ->
+    onAckSn st e
   (previousRecoverableState@OpenState{parameters, coordinatedHeadState}, OnChainEvent (Observation OnCloseTx{snapshotNumber = closedSnapshotNumber})) ->
     let HeadParameters{contestationPeriod} = parameters
         CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
@@ -479,6 +444,68 @@ onReqSn ledger party signingKey e@(NetworkEvent (ReqSn otherParty s txs)) st@Ope
         | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
       _ -> Wait WaitOnSeenSnapshot
 onReqSn _ _ _ e st = Error (InvalidEvent e st)
+
+-- | Handles `AckSn` messages.
+--
+-- \[
+-- \begin{array}{l}
+-- \mathbf{wait} (\hat{s} = s) \\
+-- \begin{array}{|l}
+-- \mathbf{output}(\mathtt{seen}, \mathtt{tx}) \\
+-- \end{array} \\
+-- \end{array}
+-- \]
+onAckSn :: Eq tx => HeadState tx -> Message tx -> Outcome tx
+onAckSn
+  OpenState
+    { parameters = parameters@HeadParameters{parties}
+    , coordinatedHeadState = headState@CoordinatedHeadState{seenSnapshot, seenTxs}
+    , previousRecoverableState
+    }
+  AckSn{party, signed, snapshotNumber} =
+    case seenSnapshot of
+      NoSeenSnapshot -> Wait WaitOnSeenSnapshot
+      RequestedSnapshot -> Wait WaitOnSeenSnapshot
+      SeenSnapshot snapshot sigs
+        | number snapshot /= snapshotNumber -> Wait $ WaitOnSnapshotNumber (number snapshot)
+        | otherwise ->
+          let sigs'
+                -- TODO: Must check whether we know the 'otherParty' signing the snapshot
+                | verify (vkey party) signed snapshot = Map.insert party signed sigs
+                | otherwise = sigs
+              multisig = aggregateInOrder sigs' parties
+           in if Map.keysSet sigs' == Set.fromList parties
+                then
+                  NewState
+                    ( OpenState
+                        { parameters
+                        , coordinatedHeadState =
+                            headState
+                              { confirmedSnapshot =
+                                  ConfirmedSnapshot
+                                    { snapshot
+                                    , signatures = multisig
+                                    }
+                              , seenSnapshot = NoSeenSnapshot
+                              , seenTxs = seenTxs \\ confirmed snapshot
+                              }
+                        , previousRecoverableState
+                        }
+                    )
+                    [ClientEffect $ SnapshotConfirmed snapshot multisig]
+                else
+                  NewState
+                    ( OpenState
+                        { parameters
+                        , coordinatedHeadState =
+                            headState
+                              { seenSnapshot = SeenSnapshot snapshot sigs'
+                              }
+                        , previousRecoverableState
+                        }
+                    )
+                    []
+onAckSn st e = Error (InvalidEvent (NetworkEvent e) st)
 
 data SnapshotOutcome tx
   = ShouldSnapshot SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
