@@ -138,6 +138,9 @@ genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   stOpen <- genStOpen ctx
+  -- FIXME: this is problematic for generated 'InitialSnapshot' values, because
+  -- then the 'utxo' contained in here needs to be consistent with the utxo of
+  -- the generated open state.
   snapshot <- genConfirmedSnapshot (ctxHydraSigningKeys ctx)
   pure (stOpen, close snapshot stOpen)
 
