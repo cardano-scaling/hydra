@@ -12,14 +12,6 @@ import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod)
 import Hydra.Data.Party (Party (vkey))
-import Plutus.Codec.CBOR.Encoding (
-  encodeBeginList,
-  encodeBreak,
-  encodeByteString,
-  encodeInteger,
-  encodingToBuiltinByteString,
-  unsafeEncodeRaw,
- )
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
   Address,
@@ -471,13 +463,10 @@ findTxOutDatum txInfo o =
 {-# INLINEABLE findTxOutDatum #-}
 
 hashPreSerializedCommits :: [Commit] -> BuiltinByteString
-hashPreSerializedCommits commits =
-  sha2_256 . encodingToBuiltinByteString $
-    encodeBeginList
-      <> foldMap
-        (unsafeEncodeRaw . preSerializedOutput)
-        (sortBy (\a b -> compareRef (input a) (input b)) commits)
-      <> encodeBreak
+hashPreSerializedCommits =
+  -- REVIEW: Ensure BuiltinData 'List [Data]' is encoded like we expect
+  sha2_256 . Builtins.serialiseData . toBuiltinData $
+    sortBy (\a b -> compareRef (input a) (input b)) commits
 {-# INLINEABLE hashPreSerializedCommits #-}
 
 hashTxOuts :: [TxOut] -> BuiltinByteString
@@ -498,8 +487,8 @@ verifyPartySignature snapshotNumber utxoHash party signed =
     verifySignature (vkey party) message signed
  where
   message =
-    encodingToBuiltinByteString $
-      encodeInteger snapshotNumber <> encodeByteString utxoHash
+    Builtins.serialiseData (toBuiltinData snapshotNumber)
+      <> Builtins.serialiseData (toBuiltinData utxoHash)
 {-# INLINEABLE verifyPartySignature #-}
 
 compareRef :: TxOutRef -> TxOutRef -> Ordering
