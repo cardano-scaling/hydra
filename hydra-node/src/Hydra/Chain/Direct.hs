@@ -14,13 +14,16 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
-import Cardano.Ledger.Alonzo.Rules.Utxos (TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
-import Cardano.Ledger.Alonzo.Rules.Utxow (AlonzoPredFail (WrappedShelleyEraFailure))
+import Cardano.Ledger.Alonzo.Rules.Utxos (
+  FailureDescription (PlutusFailure),
+  TagMismatchDescription (FailedUnexpectedly),
+  UtxosPredicateFailure (ValidationTagMismatch),
+ )
+import Cardano.Ledger.Alonzo.Rules.Utxow (UtxowPredicateFail (WrappedShelleyEraFailure))
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
-import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure), debugPlutus, slotToPOSIXTime)
+import Cardano.Ledger.Alonzo.TxInfo (debugPlutus, slotToPOSIXTime)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId)
@@ -561,8 +564,8 @@ txSubmissionClient tracer queue =
 
   unwrapPlutus :: LedgerPredicateFailure Era -> Maybe (PostTxError Tx)
   unwrapPlutus = \case
-    UtxowFailure (WrappedShelleyEraFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly [PlutusFailure plutusFailure debug]))))) ->
-      Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo = show (debugPlutus PlutusV1 (decodeUtf8 debug))}
+    UtxowFailure (WrappedShelleyEraFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure plutusFailure debug :| _)))))) ->
+      Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo = show (debugPlutus (decodeUtf8 debug))}
     _ ->
       Nothing
 
