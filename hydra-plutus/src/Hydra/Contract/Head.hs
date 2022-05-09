@@ -13,14 +13,6 @@ import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (.
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod)
 import Hydra.Data.Party (Party (vkey))
-import Plutus.Codec.CBOR.Encoding (
-  encodeBeginList,
-  encodeBreak,
-  encodeByteString,
-  encodeInteger,
-  encodingToBuiltinByteString,
-  unsafeEncodeRaw,
- )
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
   Address,
@@ -220,15 +212,12 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
 
   (expectedChangeValue, collectedCommits, nTotalCommits) =
     traverseInputs
-      (negate (txInfoAdaFee txInfo), encodeBeginList, 0)
+      (negate (txInfoAdaFee txInfo), [], 0)
       (txInfoInputs txInfo)
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
-    let utxoHash =
-          (collectedCommits <> encodeBreak)
-            & encodingToBuiltinByteString
-            & sha2_256
+    let utxoHash = Builtins.serialiseData $ toBuiltinData collectedCommits
      in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod}
 
   traverseInputs (fuel, commits, nCommits) = \case
@@ -245,7 +234,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
             case matchParticipationToken headCurrencySymbol commitValue of
               [_] ->
                 traverseInputs
-                  (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
+                  (fuel, commits <> [commit], succ nCommits)
                   rest
               _ ->
                 traceError "Invalid commit: does not contain valid PT."
@@ -484,11 +473,9 @@ findTxOutDatum txInfo o =
 {-# INLINEABLE findTxOutDatum #-}
 
 hashPreSerializedCommits :: [SerializedTxOut] -> BuiltinByteString
-hashPreSerializedCommits o =
-  sha2_256 . encodingToBuiltinByteString $
-    encodeBeginList
-      <> foldMap (\(SerializedTxOut bytes) -> unsafeEncodeRaw bytes) o
-      <> encodeBreak
+hashPreSerializedCommits =
+  -- REVIEW: Ensure BuiltinData 'List [Data]' is encoded like we expect
+  sha2_256 . Builtins.serialiseData . toBuiltinData
 {-# INLINEABLE hashPreSerializedCommits #-}
 
 hashTxOuts :: [TxOut] -> BuiltinByteString
@@ -509,8 +496,8 @@ verifyPartySignature snapshotNumber utxoHash party signed =
     verifySignature (vkey party) message signed
  where
   message =
-    encodingToBuiltinByteString $
-      encodeInteger snapshotNumber <> encodeByteString utxoHash
+    Builtins.serialiseData (toBuiltinData snapshotNumber)
+      <> Builtins.serialiseData (toBuiltinData utxoHash)
 {-# INLINEABLE verifyPartySignature #-}
 
 -- TODO: Add a NetworkId so that we can properly serialise address hashes
