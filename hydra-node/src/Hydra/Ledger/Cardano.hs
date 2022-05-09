@@ -337,6 +337,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
 hashTxOuts :: [TxOut CtxUTxO] -> ByteString
 hashTxOuts =
+  -- FIXME: This needs to be a hash of CBOR of a list of Plutus' TxOut values
   digest @SHA256 Proxy . serialize' . fmap toLedgerTxOut
 
 deriving newtype instance ToJSON UTxO

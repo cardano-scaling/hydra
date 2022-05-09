@@ -9,7 +9,6 @@ import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
-import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod)
 import Hydra.Data.Party (Party (vkey))
@@ -22,13 +21,15 @@ import Plutus.Codec.CBOR.Encoding (
   unsafeEncodeRaw,
  )
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Api (
+import Plutus.V2.Ledger.Api (
   Address,
   CurrencySymbol,
   Datum (..),
+  Extended (..),
   FromData (fromBuiltinData),
   Interval (..),
   LowerBound (LowerBound),
+  OutputDatum (..),
   POSIXTime,
   PubKeyHash (getPubKeyHash),
   Script,
@@ -47,12 +48,15 @@ import Plutus.V1.Ledger.Api (
   adaToken,
   mkValidatorScript,
  )
-import Plutus.V1.Ledger.Contexts (findDatum, findDatumHash, findOwnInput, getContinuingOutputs)
-import Plutus.V1.Ledger.Interval (Extended (Finite))
-import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
+import Plutus.V2.Ledger.Contexts (findDatum, findDatumHash, findOwnInput, getContinuingOutputs)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
+import qualified PlutusTx.Builtins as Builtins
+
+-- NOTE: Functions not re-exported "as V2", but using the same data types.
+import Plutus.V1.Ledger.Address (scriptHashAddress)
+import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 
 type DatumType = State
 type RedeemerType = Input
@@ -249,15 +253,12 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
 
   commitDatum :: TxOut -> Maybe Commit
   commitDatum o = do
-    dh <- txOutDatumHash o
-    d <- getDatum <$> findDatum dh txInfo
-    case fromBuiltinData @Commit.DatumType d of
-      Just (_p, _, Just serializedTxOut) ->
-        Just serializedTxOut
-      Just (_p, _, Nothing) ->
-        Nothing
+    let d = findTxOutDatum txInfo o
+    case fromBuiltinData @Commit.DatumType $ getDatum d of
+      Just (_p, _, mCommit) ->
+        mCommit
       Nothing ->
-        traceError "fromBuiltinData failed"
+        traceError "commitDatum failed fromBuiltinData"
 {-# INLINEABLE checkCollectCom #-}
 
 -- | The close validator must verify that:
@@ -444,7 +445,7 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
       traceError "no continuing head output"
     (o : rest)
       | txOutAddress o == headAddress ->
-        traceIfFalse "wrong output head datum" (txOutDatum txInfo o == datum)
+        traceIfFalse "wrong output head datum" (findTxOutDatum txInfo o == datum)
           && traceIfFalse "wrong output value" (checkOutputValue (xs <> rest))
     (o : rest) ->
       checkOutputDatum (o : xs) rest
@@ -461,12 +462,13 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
   lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
 {-# INLINEABLE mustContinueHeadWith #-}
 
-txOutDatum :: TxInfo -> TxOut -> Datum
-txOutDatum txInfo o =
-  case txOutDatumHash o >>= (`findDatum` txInfo) of
-    Nothing -> traceError "no datum"
-    Just dt -> dt
-{-# INLINEABLE txOutDatum #-}
+findTxOutDatum :: TxInfo -> TxOut -> Datum
+findTxOutDatum txInfo o =
+  case txOutDatum o of
+    NoOutputDatum -> traceError "no output datum"
+    OutputDatumHash dh -> fromMaybe (traceError "datum not found") $ findDatum dh txInfo
+    OutputDatum d -> d
+{-# INLINEABLE findTxOutDatum #-}
 
 hashPreSerializedCommits :: [Commit] -> BuiltinByteString
 hashPreSerializedCommits commits =
@@ -480,7 +482,7 @@ hashPreSerializedCommits commits =
 
 hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
-  sha2_256 . serialiseTxOuts
+  sha2_256 . Builtins.serialiseData . toBuiltinData
 {-# INLINEABLE hashTxOuts #-}
 
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
