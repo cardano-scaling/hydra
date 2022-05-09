@@ -1,19 +1,46 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
--- | Implements the Head Protocol's _state machine_ as a _pure function_.
+-- | Implements the Head Protocol's /state machine/ as a /pure function/.
 --
--- * The protocol is described in two parts in the [Hydra paper](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/):
---     * One part detailing how the Head deals with _clients input_, `ClientInput` and `ServerOutput`
---     * Another part detailing how the Head reacts to _peers input_ provided by the network, `Message`.
---
--- ## Notations
---
---  * $\bar{s}$: Latest confirmed snapshot number
---  * $\hat{s}$: Latest seen snapshot number
---  * $\hat{\mathcal{L}}: Latest state of ledger with only seen transactions
-module Hydra.HeadLogic where
+-- * The protocol is described in three parts in the [Hydra paper](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/):
+--     * One part detailing how the Head deals with /clients input/, `ClientInput` and `ServerOutput`
+--     * Another part detailing how the Head reacts to peers /input/ provided by the network, `Message`.
+--     * A third part detailing the /On-Chain Verification/ protocol, eg. the abstract "smart contracts" that are need to provide
+--       on-chain security
+module Hydra.HeadLogic (
+  -- * Formal specification
+
+  -- ** Notations
+  -- $notations
+
+  -- ** Off-chain Head Protocol
+  onReqTx,
+  onReqSn,
+  onAckSn,
+
+  -- ** Client Protocol
+  onInit,
+  onCommit,
+  onAbort,
+  onNewTx,
+  onClose,
+
+  -- * Types
+  Event (..),
+  Effect (..),
+  Environment (..),
+  HeadState (..),
+  LogicError (..),
+  Outcome (..),
+
+  -- * Logic
+  update,
+  -- NOTE(AB): Should probably be moved to own module?
+  emitSnapshot,
+) where
 
 import Data.List ((!!), (\\))
 import qualified Data.Map.Strict as Map
@@ -216,13 +243,7 @@ update ::
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   -- TODO(SN) at least contestation period could be easily moved into the 'Init' client input
   (ReadyState, ClientEvent (Init contestationPeriod)) ->
-    nextState ReadyState [OnChainEffect (InitTx parameters)]
-   where
-    parameters =
-      HeadParameters
-        { contestationPeriod
-        , parties = party : otherParties
-        }
+    onInit contestationPeriod party otherParties
   (ReadyState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
     NewState
       ( InitialState
@@ -234,10 +255,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       )
       [ClientEffect $ ReadyToCommit $ fromList parties]
   --
-  (InitialState{pendingCommits}, ClientEvent (Commit utxo))
-    | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
-   where
-    canCommit = party `Set.member` pendingCommits
+  (InitialState{}, ClientEvent (Commit utxo)) ->
+    onCommit st utxo party
   (previousRecoverableState@InitialState{parameters, pendingCommits, committed}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
     nextState newHeadState $
       [ClientEffect $ Committed pt utxo]
@@ -256,8 +275,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     collectedUTxO = mconcat $ Map.elems newCommitted
   (InitialState{committed}, ClientEvent GetUTxO) ->
     sameState [ClientEffect $ UTxO (mconcat $ Map.elems committed)]
-  (InitialState{committed}, ClientEvent Abort) ->
-    sameState [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
+  (InitialState{}, ClientEvent Abort) ->
+    onAbort st
   (_, OnChainEvent (Observation OnCommitTx{})) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
@@ -279,22 +298,15 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
     nextState ReadyState [ClientEffect $ HeadIsAborted $ fold committed]
   --
-  (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
-    sameState
-      [ OnChainEffect (CloseTx confirmedSnapshot)
-      ]
+  (OpenState{coordinatedHeadState = CoordinatedHeadState{}}, ClientEvent Close) ->
+    onClose st
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
     sameState
       [ClientEffect . UTxO $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --
-  (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}, ClientEvent (NewTx tx)) ->
-    sameState effects
-   where
-    effects =
-      case canApply ledger utxo tx of
-        Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
-        Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
+  (OpenState{coordinatedHeadState = CoordinatedHeadState{}}, ClientEvent (NewTx tx)) ->
+    onNewTx ledger st tx party
   (OpenState{parameters, coordinatedHeadState = headState@CoordinatedHeadState{seenTxs, seenUTxO}, previousRecoverableState}, NetworkEvent (ReqTx _ tx)) ->
     onReqTx ledger tx parameters headState seenTxs seenUTxO previousRecoverableState
   (OpenState{coordinatedHeadState = CoordinatedHeadState{}}, e@(NetworkEvent ReqSn{})) ->
@@ -362,6 +374,44 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
 
   sameState = nextState st
 
+-- $notations
+--
+--  * \(\bar{s}\): Latest confirmed snapshot number
+--  * \(\hat{s}\): Latest seen snapshot number
+--  * \(\hat{\mathcal{L}}\): Latest state of ledger with only seen transactions
+--  * \(\sigma_j\): Signature by party \(j\)
+
+onInit :: DiffTime -> Party -> [Party] -> Outcome tx
+onInit contestationPeriod party otherParties =
+  NewState ReadyState [OnChainEffect (InitTx parameters)]
+ where
+  parameters =
+    HeadParameters
+      { contestationPeriod
+      , parties = party : otherParties
+      }
+
+onCommit :: HeadState tx -> UTxOType tx -> Party -> Outcome tx
+onCommit st@InitialState{pendingCommits} utxo party
+  | party `Set.member` pendingCommits = NewState st [OnChainEffect (CommitTx party utxo)]
+
+onAbort :: Monoid (UTxOType tx) => HeadState tx -> Outcome tx
+onAbort st@InitialState{committed} =
+  NewState st [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
+
+onNewTx :: Ledger tx -> HeadState tx -> tx -> Party -> Outcome tx
+onNewTx ledger st@OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}} tx party =
+  NewState st effects
+ where
+  effects =
+    case canApply ledger utxo tx of
+      Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
+      Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
+
+onClose :: HeadState tx -> Outcome tx
+onClose st@OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} =
+  NewState st [OnChainEffect (CloseTx confirmedSnapshot)]
+
 -- | Handle 'ReqTx' message
 --
 -- \[
@@ -406,9 +456,9 @@ onReqTx ledger tx parameters headState seenTxs seenUTxO previousRecoverableState
 -- \[
 -- \begin{array}{l}
 -- \mathbf{require} (s \gt \bar{s} \land leader(s) = \mathtt{otherParty}) \\
--- \mathbf{wait} (\hat{s} = \bar{s} \land \bar{\mathcal{L}} \circ s) \\
--- \begin{array}{|l}
--- \mathbf{output}(\mathtt{seen}, \mathtt{tx}) \\
+-- \mathbf{wait} (\hat{s} = \bar{s} + 1 \land \bar{\mathcal{L}} \circ s \neq \bot) \\
+-- \begin{array}{l|l}
+-- \, & \mathbf{output}(\mathtt{broadcast} (\mathtt{ackSn}, \sigma_i, s) \\
 -- \end{array} \\
 -- \end{array}
 -- \]
@@ -449,9 +499,17 @@ onReqSn _ _ _ e st = Error (InvalidEvent e st)
 --
 -- \[
 -- \begin{array}{l}
+-- \mathbf{require}\,\mathsf{Verify}(\sigma_j,s) \\
 -- \mathbf{wait} (\hat{s} = s) \\
--- \begin{array}{|l}
--- \mathbf{output}(\mathtt{seen}, \mathtt{tx}) \\
+-- \begin{array}{l|l}
+-- \, & \hat{\mathcal{U}}.S[j] \leftarrow \sigma_j \\
+-- \, & \mathbf{if}\,\forall k: \hat{\mathcal{U}}.S[k] \neq \epsilon \\
+-- \, & \begin{array}{l|l}
+-- \, & \bar{\mathcal{U}} \leftarrow \hat{\mathcal{U}}  \\
+-- \, & \hat{s} \leftarrow \varnothing \\
+-- \, & \hat{\mathcal{T}} \leftarrow \hat{\mathcal{T}} \backslash \bar{s} \\
+-- \, & \mathbf{output}(\mathtt{confirmed}, s) \\
+-- \end{array} \\
 -- \end{array} \\
 -- \end{array}
 -- \]
@@ -478,8 +536,7 @@ onAckSn
                 then
                   NewState
                     ( OpenState
-                        { parameters
-                        , coordinatedHeadState =
+                        { coordinatedHeadState =
                             headState
                               { confirmedSnapshot =
                                   ConfirmedSnapshot
@@ -489,6 +546,7 @@ onAckSn
                               , seenSnapshot = NoSeenSnapshot
                               , seenTxs = seenTxs \\ confirmed snapshot
                               }
+                        , parameters
                         , previousRecoverableState
                         }
                     )
@@ -496,11 +554,11 @@ onAckSn
                 else
                   NewState
                     ( OpenState
-                        { parameters
-                        , coordinatedHeadState =
+                        { coordinatedHeadState =
                             headState
                               { seenSnapshot = SeenSnapshot snapshot sigs'
                               }
+                        , parameters
                         , previousRecoverableState
                         }
                     )
