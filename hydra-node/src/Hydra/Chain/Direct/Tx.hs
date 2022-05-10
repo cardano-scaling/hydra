@@ -26,7 +26,7 @@ import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano ()
+import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Ledger.Cardano.Builder (
   addExtraRequiredSigners,
   addInputs,
@@ -301,6 +301,50 @@ closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatum
   signature = case closing of
     CloseWithInitialSnapshot{} -> mempty
     CloseWithConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
+
+-- TODO: This function is VERY similar to the 'closeTx' function (only notable
+-- difference being the redeemer, which is in itself also the same structure as
+-- the close's one. We could potentially refactor this to avoid repetition or do
+-- something more principled at the protocol level itself and "merge" close and
+-- contest as one operation.
+contestTx ::
+  -- | Party who's authorizing this transaction
+  VerificationKey PaymentKey ->
+  -- | Contested snapshot number (i.e. the one we contest to)
+  Snapshot Tx ->
+  -- | Multi-signature of the whole snapshot
+  MultiSignature (Snapshot Tx) ->
+  -- | Everything needed to spend the Head state-machine output.
+  -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
+  UTxOWithScript ->
+  Tx
+contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
+  unsafeBuildTransaction $
+    emptyTxBody
+      & addInputs [(headInput, headWitness)]
+      & addOutputs [headOutputAfter]
+      & addExtraRequiredSigners [verificationKeyHash vk]
+ where
+  headWitness =
+    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
+  headScript =
+    fromPlutusScript @PlutusScriptV1 Head.validatorScript
+  headRedeemer =
+    toScriptData
+      Head.Contest
+        { snapshotNumber = toInteger number
+        , signature = toPlutusSignatures sig
+        , utxoHash
+        }
+  headOutputAfter =
+    modifyTxOutDatum (const headDatumAfter) headOutputBefore
+  headDatumAfter =
+    mkTxOutDatum
+      Head.Closed
+        { snapshotNumber = toInteger number
+        , utxoHash
+        }
+  utxoHash = toBuiltin $ hashTxOuts $ toList utxo
 
 fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
@@ -640,6 +684,45 @@ observeCloseTx utxo tx = do
                 , newHeadOutput
                 , newHeadDatum
                 , parties
+                )
+            , headId
+            }
+        )
+    _ -> Nothing
+ where
+  headScript = fromPlutusScript Head.validatorScript
+
+data ContestObservation = ContestObservation
+  { contestedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData)
+  , headId :: HeadId
+  }
+  deriving (Show, Eq)
+
+-- | Identify a close tx by lookup up the input spending the Head output and
+-- decoding its redeemer.
+observeContestTx ::
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
+  Tx ->
+  Maybe (OnChainTx Tx, ContestObservation)
+observeContestTx utxo tx = do
+  (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- lookupScriptData tx headOutput
+  datum <- fromData $ toPlutusData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+    (Head.Closed{}, Head.Contest{snapshotNumber = onChainSnapshotNumber}) -> do
+      (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
+      newHeadDatum <- lookupScriptData tx newHeadOutput
+      snapshotNumber <- integerToNatural onChainSnapshotNumber
+      pure
+        ( OnContestTx{snapshotNumber}
+        , ContestObservation
+            { contestedThreadOutput =
+                ( newHeadInput
+                , newHeadOutput
+                , newHeadDatum
                 )
             , headId
             }

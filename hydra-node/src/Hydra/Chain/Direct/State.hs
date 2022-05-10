@@ -22,6 +22,7 @@ module Hydra.Chain.Direct.State (
   commit,
   collect,
   close,
+  contest,
   fanout,
 
   -- ** Observing transitions
@@ -43,17 +44,20 @@ import Hydra.Chain.Direct.Tx (
   CloseObservation (..),
   ClosingSnapshot (..),
   CollectComObservation (..),
+  ContestObservation (..),
   InitObservation (..),
   abortTx,
   closeTx,
   collectComTx,
   commitTx,
+  contestTx,
   fanoutTx,
   initTx,
   observeAbortTx,
   observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
+  observeContestTx,
   observeFanoutTx,
   observeInitTx,
   ownInitial,
@@ -313,6 +317,20 @@ close confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} =
 
   Open{openThreadOutput, openUtxoHash} = stateMachine
 
+contest ::
+  ConfirmedSnapshot Tx ->
+  OnChainHeadState 'StClosed ->
+  Tx
+contest confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} = do
+  contestTx ownVerificationKey sn sigs (i, o, dat)
+ where
+  Closed{closedThreadOutput} = stateMachine
+  (i, o, dat, _) = closedThreadOutput
+  (sn, sigs) =
+    case confirmedSnapshot of
+      ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
+      InitialSnapshot{snapshot} -> (snapshot, mempty)
+
 fanout ::
   UTxO ->
   OnChainHeadState 'StClosed ->
@@ -494,6 +512,7 @@ instance ObserveTx 'StOpen 'StClosed where
 instance HasTransition 'StClosed where
   transitions _ =
     [ TransitionTo (Proxy @ 'StIdle)
+    , TransitionTo (Proxy @ 'StClosed)
     ]
 
 instance ObserveTx 'StClosed 'StIdle where
@@ -509,6 +528,34 @@ instance ObserveTx 'StClosed 'StIdle where
             , stateMachine = Idle
             }
     pure (event, st')
+
+instance ObserveTx 'StClosed 'StClosed where
+  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
+    let utxo = getKnownUTxO st
+    (event, observation) <- observeContestTx utxo tx
+    -- FIXME: remove (a,b,c) nonsense...
+    let ContestObservation{contestedThreadOutput = (a, b, c), headId} = observation
+    guard (headId == closedHeadId)
+    let st' =
+          OnChainHeadState
+            { networkId
+            , peerVerificationKeys
+            , ownVerificationKey
+            , ownParty
+            , stateMachine =
+                Closed
+                  { closedThreadOutput = (a, b, c, parties)
+                  , closedHeadId
+                  , closedHeadTokenScript
+                  }
+            }
+    pure (event, st')
+   where
+    Closed
+      { closedHeadId
+      , closedHeadTokenScript
+      , closedThreadOutput = (_, _, _, parties)
+      } = stateMachine
 
 -- | A convenient way to apply transition to 'SomeOnChainHeadState' without
 -- bothering about the internal details.

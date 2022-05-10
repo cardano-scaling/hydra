@@ -46,7 +46,7 @@ import Hydra.Node (
  )
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
-import Hydra.Snapshot (Snapshot (..), getSnapshot)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
 import Test.Util (shouldBe, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
@@ -205,15 +205,6 @@ spec = parallel $ do
                 waitFor [n2] $ GetUTxOResponse (utxoRefs [1])
 
     describe "in an open head" $ do
-      let openHead n1 n2 = do
-            send n1 (Init testContestationPeriod)
-            waitFor [n1, n2] $ ReadyToCommit (fromList [alice, bob])
-            send n1 (Commit (utxoRef 1))
-            waitFor [n1, n2] $ Committed alice (utxoRef 1)
-            send n2 (Commit (utxoRef 2))
-            waitFor [n1, n2] $ Committed bob (utxoRef 2)
-            waitFor [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
-
       it "sees the head closed by other nodes" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
@@ -223,7 +214,7 @@ spec = parallel $ do
 
               send n1 Close
               waitForNext n2
-                >>= assertHeadIsClosedWith (Snapshot 0 (utxoRefs [1, 2]) [])
+                >>= assertHeadIsClosedWith 0
 
       it "valid new transactions are seen by all parties" $
         shouldRunInSim $ do
@@ -252,13 +243,7 @@ spec = parallel $ do
               waitFor [n1] $ SnapshotConfirmed snapshot sigs
 
               send n1 Close
-              let expectedSnapshot =
-                    Snapshot
-                      { number = 1
-                      , utxo = utxoRefs [42, 1, 2]
-                      , confirmed = [aValidTx 42]
-                      }
-              waitForNext n1 >>= assertHeadIsClosedWith expectedSnapshot
+              waitForNext n1 >>= assertHeadIsClosedWith 1
 
       it "reports transactions as seen only when they validate (against the confirmed ledger)" $
         shouldRunInSim $ do
@@ -337,6 +322,31 @@ spec = parallel $ do
               waitFor [n1, n2] $ HeadIsFinalized (utxoRefs [1, 2])
               allTxs <- reverse <$> readTVarIO (history chain)
               length (filter matchFanout allTxs) `shouldBe` 2
+
+      it "contest automatically when detecting closing with old snapshot" $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead n1 n2
+
+              -- Perform a transaction to produce the latest snapshot, number 1
+              let tx = aValidTx 42
+              send n2 (NewTx tx)
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{number}} -> number == 1
+                _ -> False
+
+              -- Have n1 observe a close with not the latest snapshot
+              chainEvent n1 (Observation (OnCloseTx 0))
+              chainEvent n2 (Observation (OnCloseTx 0))
+
+              waitUntilMatch [n1, n2] $ \case
+                HeadIsClosed{snapshotNumber} -> snapshotNumber == 0
+                _ -> False
+
+              -- Expect n1 to contest with latest snapshot, number 1
+              waitFor [n1, n2] HeadIsContested{snapshotNumber = 1}
 
     describe "Hydra Node Logging" $ do
       it "traces processing of events" $ do
@@ -422,11 +432,19 @@ waitUntil ::
   ServerOutput tx ->
   m ()
 waitUntil nodes expected =
+  waitUntilMatch nodes (== expected)
+
+waitUntilMatch ::
+  (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
+  [TestHydraNode tx m] ->
+  (ServerOutput tx -> Bool) ->
+  m ()
+waitUntilMatch nodes predicate =
   failAfter 1 $ forConcurrently_ nodes go
  where
   go n = do
     next <- waitForNext n
-    unless (next == expected) $ go n
+    unless (predicate next) $ go n
 
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
@@ -482,16 +500,24 @@ simulatedChainAndNetwork = do
 toOnChainTx :: PostChainTx tx -> ChainEvent tx
 toOnChainTx =
   Observation . \case
-    InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
-    (CommitTx pa ut) -> OnCommitTx pa ut
-    AbortTx{} -> OnAbortTx
-    CollectComTx{} -> OnCollectComTx
+    InitTx HeadParameters{contestationPeriod, parties} ->
+      OnInitTx{contestationPeriod, parties}
+    (CommitTx pa ut) ->
+      OnCommitTx pa ut
+    AbortTx{} ->
+      OnAbortTx
+    CollectComTx{} ->
+      OnCollectComTx
     (CloseTx confirmedSnapshot) ->
       OnCloseTx
         { snapshotNumber = number (getSnapshot confirmedSnapshot)
         }
-    ContestTx{} -> OnContestTx
-    FanoutTx{} -> OnFanoutTx
+    ContestTx{confirmedSnapshot} ->
+      OnContestTx
+        { snapshotNumber = number (getSnapshot confirmedSnapshot)
+        }
+    FanoutTx{} ->
+      OnFanoutTx
 
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: DiffTime
@@ -545,6 +571,19 @@ withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} act
               }
         }
 
+openHead ::
+  TestHydraNode SimpleTx (IOSim s) ->
+  TestHydraNode SimpleTx (IOSim s) ->
+  IOSim s ()
+openHead n1 n2 = do
+  send n1 (Init testContestationPeriod)
+  waitFor [n1, n2] $ ReadyToCommit (fromList [alice, bob])
+  send n1 (Commit (utxoRef 1))
+  waitFor [n1, n2] $ Committed alice (utxoRef 1)
+  send n2 (Commit (utxoRef 2))
+  waitFor [n1, n2] $ Committed bob (utxoRef 2)
+  waitFor [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
+
 matchFanout :: PostChainTx tx -> Bool
 matchFanout = \case
   FanoutTx{} -> True
@@ -555,8 +594,8 @@ assertHeadIsClosed = \case
   HeadIsClosed{} -> pure ()
   _ -> failure "expected HeadIsClosed"
 
-assertHeadIsClosedWith :: (HasCallStack, MonadThrow m, IsTx tx) => Snapshot tx -> ServerOutput tx -> m ()
-assertHeadIsClosedWith expectedSnapshot = \case
-  HeadIsClosed{latestSnapshot} -> do
-    latestSnapshot `shouldBe` expectedSnapshot
+assertHeadIsClosedWith :: (HasCallStack, MonadThrow m) => SnapshotNumber -> ServerOutput tx -> m ()
+assertHeadIsClosedWith expectedSnapshotNumber = \case
+  HeadIsClosed{snapshotNumber} -> do
+    snapshotNumber `shouldBe` expectedSnapshotNumber
   _ -> failure "expected HeadIsClosed"

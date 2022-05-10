@@ -46,6 +46,7 @@ channels:
           - $ref: "#/components/messages/Committed"
           - $ref: "#/components/messages/HeadIsOpen"
           - $ref: "#/components/messages/HeadIsClosed"
+          - $ref: "#/components/messages/HeadIsContested"
           - $ref: "#/components/messages/HeadIsAborted"
           - $ref: "#/components/messages/HeadIsFinalized"
           - $ref: "#/components/messages/TxSeen"
@@ -294,13 +295,31 @@ components:
         type: object
         required:
           - tag
-          - latestSnapshot
+          - snapshotNumber
         properties:
           tag:
             type: string
             enum: ["HeadIsClosed"]
-          latestSnapshot:
-            $ref: "#/components/schemas/Snapshot"
+          snapshotNumber:
+            $ref: "#/components/schemas/SnapshotNumber"
+
+    HeadIsContested:
+      title: HeadIsContested
+      description: |
+        A `Contest` transaction has been observed on-chain, that means the head
+        state has been successfully contested and given snapshot number is now
+        the latest accepted snapshot.
+      payload:
+        type: object
+        required:
+          - tag
+          - snapshotNumber
+        properties:
+          tag:
+            type: string
+            enum: ["HeadIsContested"]
+          snapshotNumber:
+            $ref: "#/components/schemas/SnapshotNumber"
 
     HeadIsAborted:
       title: HeadIsAborted
@@ -724,7 +743,7 @@ components:
           additionalProperties: false
           required:
             - tag
-            - snapshot
+            - confirmedSnapshot
           description: |
             Contest a previously posted snapshot (from a Close or Contest
             transaction) with a newer snapshot.
@@ -732,8 +751,8 @@ components:
             tag:
               type: string
               enum: ["ContestTx"]
-            snapshot:
-              $ref: "#/components/schemas/Snapshot"
+            confirmedSnapshot:
+              $ref: "#/components/schemas/ConfirmedSnapshot"
         - title: FanoutTx
           type: object
           additionalProperties: false

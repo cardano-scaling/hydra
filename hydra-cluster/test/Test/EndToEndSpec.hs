@@ -116,6 +116,62 @@ spec = around showLogsOnFailure $ do
               waitFor tracer 10 [n1] $
                 output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
 
+    describe "contestation scenarios" $ do
+      it "close of an initial snapshot from restarting node is contested" $ \tracer -> do
+        withTempDir "end-to-end-chain-observer" $ \tmp -> do
+          config <- newNodeConfig tmp
+          withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+            (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+            (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
+
+            seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+            seedFromFaucet_ defaultNetworkId node bobCardanoVk 100_000_000 Fuel
+
+            tip <- queryTip defaultNetworkId nodeSocket
+            let startFromTip x = x{startChainFrom = Just tip}
+
+            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Bob] <&> startFromTip
+            bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice] <&> startFromTip
+
+            let aliceNodeId = 1
+                bobNodeId = 2
+                allNodesIds = [aliceNodeId, bobNodeId]
+                withAliceNode = withHydraNode tracer aliceChainConfig tmp aliceNodeId aliceSk [bobVk] allNodesIds
+                withBobNode = withHydraNode tracer bobChainConfig tmp bobNodeId bobSk [aliceVk] allNodesIds
+
+            withAliceNode $ \n1 -> do
+              withBobNode $ \n2 -> do
+                waitForNodesConnected tracer [n1, n2]
+
+                let contestationPeriod = 10 :: Natural
+                send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                waitFor tracer 10 [n1, n2] $
+                  output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
+
+                committedUTxOByAlice <- seedFromFaucet defaultNetworkId node aliceCardanoVk aliceCommittedToHead Normal
+                send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
+                send n2 $ input "Commit" ["utxo" .= Object mempty]
+                waitFor tracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice]
+
+                -- Create an arbitrary transaction using some input.
+                let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
+                let Right tx =
+                      mkSimpleTx
+                        firstCommittedUTxO
+                        (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
+                        aliceCardanoSk
+                send n1 $ input "NewTx" ["transaction" .= tx]
+
+                waitMatch 10 n1 $ \v -> do
+                  guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+
+              withBobNode $ \n2 -> do
+                waitMatch 10 n2 $ \v -> do
+                  guard $ v ^? key "tag" == Just "HeadIsOpen"
+                send n2 $ input "Close" []
+                waitFor tracer 10 [n1, n2] $ output "HeadIsClosed" ["snapshotNumber" .= (0 :: Word)]
+                waitFor tracer 10 [n1, n2] $ output "HeadIsContested" ["snapshotNumber" .= (1 :: Word)]
+
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
         failAfter 60 $
@@ -265,10 +321,11 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
 
       let expectedSnapshot =
             object
-              [ "snapshotNumber" .= int 1
+              [ "snapshotNumber" .= int expectedSnapshotNumber
               , "utxo" .= newUTxO
               , "confirmedTransactions" .= [tx]
               ]
+          expectedSnapshotNumber = 1
 
       waitMatch 10 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
@@ -281,8 +338,8 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
       send n1 $ input "Close" []
       waitMatch 3 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "HeadIsClosed"
-        snapshot <- v ^? key "latestSnapshot"
-        guard $ snapshot == expectedSnapshot
+        snapshotNumber <- v ^? key "snapshotNumber"
+        guard $ snapshotNumber == toJSON expectedSnapshotNumber
 
       waitFor tracer (contestationPeriod + 3) [n1] $
         output "HeadIsFinalized" ["utxo" .= newUTxO]

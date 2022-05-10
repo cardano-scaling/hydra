@@ -14,6 +14,9 @@ changes.
 
 - Head contract check UTxO hash upon closing the head [#338](https://github.com/input-output-hk/hydra-poc/pull/338). This prevents closing the head with arbitrary UTxO.
 
+- Implement on-chain contestation logic [#192](https://github.com/input-output-hk/hydra-poc/issues/192):
+  + Node will automatically post a `Contest` transaction when it observes a `Close` with an obsolete snapshot
+
 ## [0.5.0] - 2022-05-06
 
 #### Added

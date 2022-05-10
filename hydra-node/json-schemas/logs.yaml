@@ -903,10 +903,14 @@ definitions:
         additionalProperties: false
         required:
         - tag
+        - snapshotNumber
         properties:
           tag:
             type: string
             enum: ["OnContestTx"]
+          snapshotNumber:
+            type: integer
+            minimum: 0
       - title: OnFanoutTx
         type: object
         additionalProperties: false
@@ -945,6 +949,7 @@ definitions:
             - $ref: "api.yaml#/components/messages/Committed/payload"
             - $ref: "api.yaml#/components/messages/HeadIsOpen/payload"
             - $ref: "api.yaml#/components/messages/HeadIsClosed/payload"
+            - $ref: "api.yaml#/components/messages/HeadIsContested/payload"
             - $ref: "api.yaml#/components/messages/HeadIsAborted/payload"
             - $ref: "api.yaml#/components/messages/HeadIsFinalized/payload"
             - $ref: "api.yaml#/components/messages/TxSeen/payload"

@@ -79,9 +79,13 @@ headValidator commitAddress initialAddress oldState input context =
       checkAbort context headContext parties
     (Open{parties, utxoHash = initialUtxoHash}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
       checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature
+    -- FIXME: Implement contest logic.
+    (Closed{}, Contest{}) ->
+      True
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
-    _ -> traceError "invalid head state transition"
+    _ ->
+      traceError "invalid head state transition"
  where
   headContext = mkHeadContext context initialAddress commitAddress
 

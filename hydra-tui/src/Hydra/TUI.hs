@@ -232,6 +232,8 @@ handleAppEvent s = \case
   Update HeadIsClosed{} ->
     s & headStateL .~ Closed{}
       & feedbackL ?~ UserFeedback Info "Head closed."
+  Update HeadIsContested{} ->
+    s & feedbackL ?~ UserFeedback Info "Head contested."
   Update HeadIsAborted{} ->
     s & headStateL .~ Ready
       & feedbackL ?~ UserFeedback Info "Head aborted, back to square one."

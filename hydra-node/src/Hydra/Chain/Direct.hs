@@ -75,6 +75,7 @@ import Hydra.Chain.Direct.State (
   close,
   collect,
   commit,
+  contest,
   fanout,
   getKnownUTxO,
   idleOnChainHeadState,
@@ -579,6 +580,8 @@ fromPostChainTx cardanoKeys wallet someHeadState tx = do
       pure (collect st)
     (CloseTx{confirmedSnapshot}, TkOpen) ->
       pure (close confirmedSnapshot st)
+    (ContestTx{confirmedSnapshot}, TkClosed) ->
+      pure (contest confirmedSnapshot st)
     (FanoutTx{utxo}, TkClosed) ->
       pure (fanout utxo st)
     (_, _) ->

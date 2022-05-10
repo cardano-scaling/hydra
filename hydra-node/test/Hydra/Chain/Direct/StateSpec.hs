@@ -53,6 +53,7 @@ import Hydra.Chain.Direct.Context (
   genCollectComTx,
   genCommit,
   genCommits,
+  genContestTx,
   genHydraContext,
   genInitTx,
   genStClosed,
@@ -187,6 +188,10 @@ spec = parallel $ do
   describe "close" $ do
     propBelowSizeLimit maxTxSize forAllClose
     propIsValid maxTxExecutionUnits forAllClose
+
+  describe "contest" $ do
+    propBelowSizeLimit maxTxSize forAllContest
+    propIsValid maxTxExecutionUnits forAllContest
 
   describe "fanout" $ do
     propBelowSizeLimit maxTxSize forAllFanout
@@ -381,6 +386,9 @@ propIsValid exUnits forAllTx =
 -- QuickCheck Extras
 --
 
+-- XXX: This is very fancy, but does not prevent us of not aligning forAll
+-- generators with Transition labels. Ideally we would would use the actual
+-- states/transactions or observed states/transactions for labeling.
 forAllSt ::
   (Testable property) =>
   (forall st. (HasTransition st) => OnChainHeadState st -> Tx -> property) ->
@@ -407,6 +415,10 @@ forAllSt action =
         ,
           ( forAllClose action
           , Transition @ 'StOpen (TransitionTo (Proxy @ 'StClosed))
+          )
+        ,
+          ( forAllContest action
+          , Transition @ 'StClosed (TransitionTo (Proxy @ 'StClosed))
           )
         ,
           ( forAllFanout action
@@ -495,7 +507,15 @@ forAllClose ::
   Property
 forAllClose action = do
   -- TODO: label / classify tx and snapshots to understand test failures
+  -- FIXME: we should not hardcode number of parties but generate it within bounds
   forAll (genCloseTx 3) $ uncurry action
+
+forAllContest ::
+  (Testable property) =>
+  (OnChainHeadState 'StClosed -> Tx -> property) ->
+  Property
+forAllContest action =
+  forAll (genContestTx 3) $ uncurry action
 
 forAllFanout ::
   (Testable property) =>

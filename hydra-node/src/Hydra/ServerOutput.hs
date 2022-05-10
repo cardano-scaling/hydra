@@ -8,7 +8,7 @@ import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (Host)
 import Hydra.Party (Party)
 import Hydra.Prelude
-import Hydra.Snapshot (Snapshot)
+import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 data ServerOutput tx
   = PeerConnected {peer :: Host}
@@ -16,7 +16,8 @@ data ServerOutput tx
   | ReadyToCommit {parties :: Set Party}
   | Committed {party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {utxo :: UTxOType tx}
-  | HeadIsClosed {latestSnapshot :: Snapshot tx}
+  | HeadIsClosed {snapshotNumber :: SnapshotNumber}
+  | HeadIsContested {snapshotNumber :: SnapshotNumber}
   | HeadIsAborted {utxo :: UTxOType tx}
   | HeadIsFinalized {utxo :: UTxOType tx}
   | CommandFailed
@@ -53,6 +54,7 @@ instance IsTx tx => Arbitrary (ServerOutput tx) where
     Committed p u -> Committed <$> shrink p <*> shrink u
     HeadIsOpen u -> HeadIsOpen <$> shrink u
     HeadIsClosed s -> HeadIsClosed <$> shrink s
+    HeadIsContested sn -> HeadIsContested <$> shrink sn
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u
     HeadIsAborted u -> HeadIsAborted <$> shrink u
     CommandFailed -> []
