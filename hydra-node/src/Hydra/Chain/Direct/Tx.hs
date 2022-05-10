@@ -26,7 +26,7 @@ import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano ()
+import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Ledger.Cardano.Builder (
   addExtraRequiredSigners,
   addInputs,

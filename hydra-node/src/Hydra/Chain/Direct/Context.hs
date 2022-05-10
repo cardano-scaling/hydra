@@ -149,8 +149,9 @@ genCloseTx numParties = do
 genContestTx :: Int -> Gen (OnChainHeadState 'StClosed, Tx)
 genContestTx numParties = do
   ctx <- genHydraContextFor numParties
-  stClosed <- genStClosed ctx =<< arbitrary
-  snapshot <- genConfirmedSnapshot (ctxHydraSigningKeys ctx)
+  utxo <- arbitrary
+  stClosed <- genStClosed ctx utxo
+  snapshot <- genConfirmedSnapshot utxo (ctxHydraSigningKeys ctx)
   pure (stClosed, contest snapshot stClosed)
 
 genStOpen ::
