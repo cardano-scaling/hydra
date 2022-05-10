@@ -24,10 +24,10 @@ import qualified Cardano.Crypto.Hash.Class as Crypto
 import qualified Cardano.Ledger.Address as Ledger
 import qualified Cardano.Ledger.Alonzo.Data as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.AuxiliaryData as Ledger
+import qualified Cardano.Ledger.Babbage.Tx as Ledger.Babbage
+import qualified Cardano.Ledger.Babbage.TxBody as Ledger.Babbage
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Crypto (Crypto)
 import Cardano.Ledger.Era (Era)
@@ -64,7 +64,6 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..), isSJust)
 import qualified Data.Set as Set
-import Ouroboros.Consensus.Shelley.Eras (StandardAlonzo)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 --
@@ -152,11 +151,11 @@ instance Crypto crypto => FromJSON (Ledger.DCert crypto) where
 -- IsValid
 --
 
-instance ToJSON Ledger.Alonzo.IsValid where
-  toJSON (Ledger.Alonzo.IsValid b) = toJSON b
+instance ToJSON Ledger.Babbage.IsValid where
+  toJSON (Ledger.Babbage.IsValid b) = toJSON b
 
-instance FromJSON Ledger.Alonzo.IsValid where
-  parseJSON = fmap Ledger.Alonzo.IsValid . parseJSON
+instance FromJSON Ledger.Babbage.IsValid where
+  parseJSON = fmap Ledger.Babbage.IsValid . parseJSON
 
 --
 -- Redeemers
@@ -227,13 +226,6 @@ safeHashFromText t =
 --
 
 instance
-  ( ToCBOR (Ledger.Alonzo.Script era)
-  ) =>
-  ToJSON (Ledger.Alonzo.Script era)
-  where
-  toJSON = String . decodeUtf8 . Base16.encode . serialize'
-
-instance
   ( Crypto (Ledger.Crypto era)
   , Typeable era
   ) =>
@@ -279,40 +271,46 @@ instance FromJSON (Ledger.Mary.Timelock StandardCrypto) where
 -- TxBody
 --
 
-instance ToJSON (Ledger.Alonzo.TxBody StandardAlonzo) where
+instance ToJSON (Ledger.Babbage.TxBody LedgerEra) where
   toJSON b =
     object $
       mconcat
-        [ onlyIf (const True) "inputs" (Set.map fromLedgerTxIn (Ledger.Alonzo.inputs' b))
-        , onlyIf (not . null) "collateral" (Set.map fromLedgerTxIn (Ledger.Alonzo.collateral' b))
-        , onlyIf (const True) "outputs" (fromLedgerTxOut <$> Ledger.Alonzo.outputs' b)
-        , onlyIf (not . null) "certificates" (Ledger.Alonzo.certs' b)
-        , onlyIf (not . null . Ledger.unWdrl) "withdrawals" (Ledger.Alonzo.wdrls' b)
-        , onlyIf (const True) "fees" (Ledger.Alonzo.txfee' b)
-        , onlyIf (not . isOpenInterval) "validity" (Ledger.Alonzo.vldt' b)
-        , onlyIf (not . null) "requiredSignatures" (Ledger.Alonzo.reqSignerHashes' b)
-        , onlyIf (/= mempty) "mint" (fromLedgerValue (Ledger.Alonzo.mint' b))
-        , onlyIf isSJust "scriptIntegrityHash" (Ledger.Alonzo.scriptIntegrityHash' b)
-        , onlyIf isSJust "auxiliaryDataHash" (Ledger.Alonzo.adHash' b)
-        , onlyIf isSJust "networkId" (Ledger.Alonzo.txnetworkid' b)
+        [ onlyIf (const True) "inputs" (Set.map fromLedgerTxIn (Ledger.Babbage.inputs b))
+        , onlyIf (not . null) "collateral" (Set.map fromLedgerTxIn (Ledger.Babbage.collateral b))
+        , onlyIf (not . null) "referenceInputs" (Set.map fromLedgerTxIn (Ledger.Babbage.referenceInputs b))
+        , onlyIf (const True) "outputs" (fromLedgerTxOut <$> Ledger.Babbage.outputs b)
+        , onlyIf isSJust "collateralReturn" (fromLedgerTxOut <$> Ledger.Babbage.collateralReturn b)
+        , onlyIf isSJust "totalCollateral" (Ledger.Babbage.totalCollateral b)
+        , onlyIf (not . null) "certificates" (Ledger.Babbage.txcerts b)
+        , onlyIf (not . null . Ledger.unWdrl) "withdrawals" (Ledger.Babbage.txwdrls b)
+        , onlyIf (const True) "fees" (Ledger.Babbage.txfee b)
+        , onlyIf (not . isOpenInterval) "validity" (Ledger.Babbage.txvldt b)
+        , onlyIf (not . null) "requiredSignatures" (Ledger.Babbage.reqSignerHashes b)
+        , onlyIf (/= mempty) "mint" (fromLedgerValue (Ledger.Babbage.mint b))
+        , onlyIf isSJust "scriptIntegrityHash" (Ledger.Babbage.scriptIntegrityHash b)
+        , onlyIf isSJust "auxiliaryDataHash" (Ledger.Babbage.adHash b)
+        , onlyIf isSJust "networkId" (Ledger.Babbage.txnetworkid b)
         ]
 
 instance
-  ( Ledger.Alonzo.AlonzoBody era
+  ( Ledger.Babbage.BabbageBody era
   , Show (Core.Value era)
   , FromJSON (Core.Value era)
   , FromJSON (Ledger.Mary.Value (Ledger.Crypto era))
   , FromJSON (Core.AuxiliaryData era)
   , FromJSON (Ledger.TxIn (Ledger.Crypto era))
-  , FromJSON (Ledger.Alonzo.TxOut era)
+  , FromJSON (Ledger.Babbage.TxOut era)
   ) =>
-  FromJSON (Ledger.Alonzo.TxBody era)
+  FromJSON (Ledger.Babbage.TxBody era)
   where
   parseJSON = withObject "TxBody" $ \o -> do
-    Ledger.Alonzo.TxBody
+    Ledger.Babbage.TxBody
       <$> (o .: "inputs")
       <*> (o .:? "collateral" .!= mempty)
+      <*> (o .:? "referenceInputs" .!= mempty)
       <*> (o .: "outputs")
+      <*> (o .:? "collateralReturn" .!= SNothing)
+      <*> (o .:? "totalCollateral" .!= SNothing)
       <*> (o .:? "certificates" .!= mempty)
       <*> (o .:? "withdrawals" .!= Ledger.Wdrl mempty)
       <*> (o .:? "fees" .!= mempty)
@@ -390,7 +388,7 @@ instance FromJSON (Ledger.TxIn StandardCrypto) where
 -- TxOut
 --
 
-instance FromJSON (Ledger.Alonzo.TxOut StandardAlonzo) where
+instance FromJSON (Ledger.Babbage.TxOut LedgerEra) where
   parseJSON = fmap toLedgerTxOut . parseJSON
 
 --
@@ -441,9 +439,9 @@ instance
   , Core.Script era ~ Ledger.Alonzo.Script era
   , Era era
   ) =>
-  ToJSON (Ledger.Alonzo.ValidatedTx era)
+  ToJSON (Ledger.Babbage.ValidatedTx era)
   where
-  toJSON (Ledger.Alonzo.ValidatedTx body witnesses isValid auxiliaryData) =
+  toJSON (Ledger.Babbage.ValidatedTx body witnesses isValid auxiliaryData) =
     object $
       mconcat
         [ ["id" .= Ledger.txid body]
@@ -464,7 +462,7 @@ instance
   , Ledger.ValidateScript era
   , Era era
   ) =>
-  FromJSON (Ledger.Alonzo.ValidatedTx era)
+  FromJSON (Ledger.Babbage.ValidatedTx era)
   where
   parseJSON value =
     -- We accepts transactions in three forms:
@@ -501,10 +499,10 @@ instance
 
     parseAsAdHocJSONObject =
       withObject "Tx" $ \o -> do
-        Ledger.Alonzo.ValidatedTx
+        Ledger.Babbage.ValidatedTx
           <$> o .: "body"
           <*> o .: "witnesses"
-          <*> o .:? "isValid" .!= Ledger.Alonzo.IsValid True
+          <*> o .:? "isValid" .!= Ledger.Babbage.IsValid True
           <*> o .:? "auxiliaryData" .!= SNothing
 
 --

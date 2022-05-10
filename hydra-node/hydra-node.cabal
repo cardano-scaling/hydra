@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-node
-version:            0.5.0
+version:            0.6.0
 synopsis:           The Hydra node
 author:             IOG
 copyright:          2022 IOG
@@ -123,6 +123,7 @@ library
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
+    , cardano-ledger-babbage
     , cardano-ledger-byron
     , cardano-ledger-core
     , cardano-ledger-shelley
@@ -208,7 +209,6 @@ benchmark tx-cost
     , hydra-node
     , hydra-plutus
     , hydra-prelude
-    , hydra-test-utils
     , mtl
     , optparse-applicative
     , plutus-ledger-api
