@@ -64,8 +64,9 @@ addParticipationTokens parties (TxOut addr val datum) =
 
 healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =
-  ConfirmedSnapshot
-    { snapshot = healthySnapshot
+  CloseWithConfirmedSnapshot
+    { snapshotNumber = healthySnapshotNumber
+    , closeUtxoHash = hashTxOuts $ toList healthyCloseUTxO
     , signatures = healthySignature healthySnapshotNumber
     }
 

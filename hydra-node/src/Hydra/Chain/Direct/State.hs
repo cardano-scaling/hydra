@@ -41,6 +41,7 @@ import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Tx (
   CloseObservation (..),
+  ClosingSnapshot (..),
   CollectComObservation (..),
   InitObservation (..),
   abortTx,
@@ -57,10 +58,10 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
   ownInitial,
  )
-import qualified Hydra.Chain.Direct.Tx as Tx
 import qualified Hydra.Data.Party as OnChain
+import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import qualified Text.Show
 
 -- | An opaque on-chain head state, which records information and events
@@ -300,8 +301,15 @@ close confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} =
   (i, o, dat, _) = openThreadOutput
 
   closingSnapshot = case confirmedSnapshot of
-    ConfirmedSnapshot{snapshot, signatures} -> Tx.ConfirmedSnapshot{snapshot, signatures}
-    InitialSnapshot{} -> Tx.InitialSnapshot{utxoHash = openUtxoHash}
+    -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
+    -- we should not keep track of an actual initial 'Snapshot'
+    InitialSnapshot{} -> CloseWithInitialSnapshot{openUtxoHash}
+    ConfirmedSnapshot{snapshot = Snapshot{number, utxo}, signatures} ->
+      CloseWithConfirmedSnapshot
+        { snapshotNumber = number
+        , closeUtxoHash = hashTxOuts $ toList utxo
+        , signatures
+        }
 
   Open{openThreadOutput, openUtxoHash} = stateMachine
 

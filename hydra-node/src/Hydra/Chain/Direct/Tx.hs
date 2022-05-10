@@ -26,7 +26,7 @@ import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (hashTxOuts)
+import Hydra.Ledger.Cardano ()
 import Hydra.Ledger.Cardano.Builder (
   addExtraRequiredSigners,
   addInputs,
@@ -38,7 +38,7 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
-import Hydra.Snapshot (Snapshot (..))
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V1.Ledger.Api as Plutus
 
@@ -234,19 +234,26 @@ collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.CollectCom
 
--- XXX: Temporary data type to distinguish closing cases.
+-- | Low-level data type of a snapshot to close the head with. This is different
+-- to the 'Hydra.Chain.Direct.ClosingSnapshot' as it also contains relevant
+-- chain state like the 'openUtxoHash'.
 data ClosingSnapshot
-  = InitialSnapshot {utxoHash :: ByteString}
-  | ConfirmedSnapshot
-      { snapshot :: Snapshot Tx
-      , signatures :: MultiSignature (Snapshot Tx)
+  = CloseWithInitialSnapshot {openUtxoHash :: ByteString}
+  | CloseWithConfirmedSnapshot
+      { snapshotNumber :: SnapshotNumber
+      , closeUtxoHash :: ByteString
+      , -- XXX: This is a bit of a wart and stems from the fact that our
+        -- SignableRepresentation of 'Snapshot' is in fact the snapshotNumber
+        -- and the closeUtxoHash as also included above
+        signatures :: MultiSignature (Snapshot Tx)
       }
 
--- | Create a transaction closing a head with given snapshot number and utxo.
+-- | Create a transaction closing a head with either the initial snapshot or
+-- with a multi-signed confirmed snapshot.
 closeTx ::
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
-  -- | The snapshot to close with, can be either initial or a multi-signed confirmed one.
+  -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
@@ -269,8 +276,8 @@ closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatum
     toScriptData
       Head.Close
         { snapshotNumber
-        , signature
         , utxoHash
+        , signature
         }
 
   headOutputAfter =
@@ -284,16 +291,16 @@ closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatum
         }
 
   snapshotNumber = toInteger $ case closing of
-    InitialSnapshot{} -> 0
-    ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+    CloseWithInitialSnapshot{} -> 0
+    CloseWithConfirmedSnapshot{snapshotNumber = sn} -> sn
 
   utxoHash = toBuiltin $ case closing of
-    InitialSnapshot{utxoHash = h} -> h
-    ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> hashTxOuts $ toList utxo
+    CloseWithInitialSnapshot{openUtxoHash} -> openUtxoHash
+    CloseWithConfirmedSnapshot{closeUtxoHash} -> closeUtxoHash
 
   signature = case closing of
-    InitialSnapshot{} -> mempty
-    ConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
+    CloseWithInitialSnapshot{} -> mempty
+    CloseWithConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
 
 fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
