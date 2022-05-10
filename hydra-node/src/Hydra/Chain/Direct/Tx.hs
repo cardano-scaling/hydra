@@ -230,18 +230,25 @@ collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.CollectCom
 
+-- XXX: Temporary data type to distinguish closing cases.
+data ClosingSnapshot
+  = InitialSnapshot {utxoHash :: ByteString}
+  | ConfirmedSnapshot
+      { snapshot :: Snapshot Tx
+      , signatures :: MultiSignature (Snapshot Tx)
+      }
+
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
-  Snapshot Tx ->
-  -- | Multi-signature of the whole snapshot
-  MultiSignature (Snapshot Tx) ->
+  -- | The snapshot to close with, can be either initial or a multi-signed confirmed one.
+  ClosingSnapshot ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   UTxOWithScript ->
   Tx
-closeTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
+closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -250,24 +257,39 @@ closeTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumF
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
+
   headScript =
     fromPlutusScript @PlutusScriptV1 Head.validatorScript
+
   headRedeemer =
     toScriptData
       Head.Close
-        { snapshotNumber = toInteger number
-        , signature = toPlutusSignatures sig
+        { snapshotNumber
+        , signature
         , utxoHash
         }
+
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
+
   headDatumAfter =
     mkTxOutDatum
       Head.Closed
-        { snapshotNumber = toInteger number
+        { snapshotNumber
         , utxoHash
         }
-  utxoHash = toBuiltin $ hashTxOuts $ toList utxo
+
+  snapshotNumber = toInteger $ case closing of
+    InitialSnapshot{} -> 0
+    ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+
+  utxoHash = toBuiltin $ case closing of
+    InitialSnapshot{utxoHash = h} -> h
+    ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> hashTxOuts $ toList utxo
+
+  signature = case closing of
+    InitialSnapshot{} -> mempty
+    ConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
 
 fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1

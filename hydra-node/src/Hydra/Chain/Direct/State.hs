@@ -57,6 +57,7 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
   ownInitial,
  )
+import qualified Hydra.Chain.Direct.Tx as Tx
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..))
@@ -96,6 +97,7 @@ data HydraStateMachine (st :: HeadStateKind) where
     { openThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
     , openHeadId :: HeadId
     , openHeadTokenScript :: PlutusScript
+    , openUtxoHash :: ByteString
     } ->
     HydraStateMachine 'StOpen
   Closed ::
@@ -292,15 +294,16 @@ close ::
   ConfirmedSnapshot Tx ->
   OnChainHeadState 'StOpen ->
   Tx
-close confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} = do
-  let (sn, sigs) =
-        case confirmedSnapshot of
-          ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
-          InitialSnapshot{snapshot} -> (snapshot, mempty)
-      (i, o, dat, _) = openThreadOutput
-   in closeTx ownVerificationKey sn sigs (i, o, dat)
+close confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} =
+  closeTx ownVerificationKey closingSnapshot (i, o, dat)
  where
-  Open{openThreadOutput} = stateMachine
+  (i, o, dat, _) = openThreadOutput
+
+  closingSnapshot = case confirmedSnapshot of
+    ConfirmedSnapshot{snapshot, signatures} -> Tx.ConfirmedSnapshot{snapshot, signatures}
+    InitialSnapshot{} -> Tx.InitialSnapshot{utxoHash = openUtxoHash}
+
+  Open{openThreadOutput, openUtxoHash} = stateMachine
 
 fanout ::
   UTxO ->

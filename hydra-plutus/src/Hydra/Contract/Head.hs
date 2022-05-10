@@ -173,7 +173,8 @@ checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parti
 -- The 'CollectCom' transition must verify that:
 --
 -- - All participants have committed (even empty commits)
--- - All commits are properly collected and locked into the contract
+-- - All commits are properly collected and locked into the contract as a hash
+--   of serialized tx outputss in the same sequence as commit inputs!
 -- - The transaction is performed (i.e. signed) by one of the head participants
 --
 -- It must also Initialize the on-chain state η* with a snapshot number and a
