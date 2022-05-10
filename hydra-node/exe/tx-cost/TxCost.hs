@@ -162,7 +162,7 @@ computeAbortCost =
   genAbortTx numParties =
     genHydraContextFor numParties >>= \ctx ->
       genInitTx ctx >>= \initTx ->
-        (sublistOf =<< genCommits ctx initTx) >>= \commits ->
+        (sublistOf . snd =<< genCommits ctx initTx) >>= \commits ->
           genStIdle ctx >>= \stIdle ->
             let stInitialized = executeCommits initTx commits stIdle
              in pure (abort stInitialized, getKnownUTxO stInitialized)
