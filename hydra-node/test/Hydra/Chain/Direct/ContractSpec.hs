@@ -27,6 +27,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   propTransactionValidates,
  )
 import Hydra.Chain.Direct.State (SomeOnChainHeadState (..))
+import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.Head (
   verifyPartySignature,
@@ -70,8 +71,9 @@ spec = parallel $ do
       "verifies snapshot multi-signature for list of parties and signatures"
       prop_verifySnapshotSignatures
   describe "TxOut hashing" $ do
-    modifyMaxSuccess (const 20) $
+    modifyMaxSuccess (const 20) $ do
       prop "OffChain.hashTxOuts == OnChain.hashTxOuts" prop_consistentOnAndOffChainHashOfTxOuts
+      prop "serialize' commutes with hashing" prop_serialiseTxOutCommutesWithHash
 
   describe "Init" $ do
     prop "is healthy" $
@@ -129,6 +131,14 @@ prop_consistentOnAndOffChainHashOfTxOuts =
           & counterexample ("Ledger: " <> show ledgerTxOuts)
           & counterexample ("Ledger CBOR: " <> decodeUtf8 (Base16.encode ledgerBytes))
           & counterexample ("Plutus CBOR: " <> decodeUtf8 (Base16.encode $ fromBuiltin plutusBytes))
+
+prop_serialiseTxOutCommutesWithHash :: Property
+prop_serialiseTxOutCommutesWithHash =
+  forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
+    let ledgerTxOuts = toList utxo
+        serialisedUTxO = Head.hashPreSerializedCommits $ Commit.SerializedTxOut . toBuiltin . serialize' . toLedgerTxOut <$> ledgerTxOuts
+     in fromBuiltin serialisedUTxO === hashTxOuts ledgerTxOuts
+          & counterexample ("Hashed CBOR: " <> decodeUtf8 (Base16.encode $ fromBuiltin serialisedUTxO))
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
