@@ -40,11 +40,12 @@ package plutus-merkle-tree
 -- Always show detailed output for tests
 test-show-details: direct
 
+-- TODO: BabbageEra not exposed on upstream, so we needed to fork
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/cardano-node.git
-  tag: c2ac65a345c259159a0e8c37c38ef26e62b56c62
-  --sha256: 0a9dkycm5m75q5amhbmbkap6bkvwvipzidwv7j1z3d93vclmkcls
+  location: https://github.com/ch1bo/cardano-node.git
+  tag: 53bbca6b05b35f9eaba9f2fc9482f9eab934c89e
+  --sha256: 0jqhqhq5sm4b2y79652idzjabjrf064g4z13gv1fnknh75h45dpf
   subdir:
     cardano-api
 
@@ -78,8 +79,8 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
-  tag: d0408d7421b9c9b1a4018c05d30118bfce5e1aac
-  --sha256: 0p29l1c4cnwx9bl2bdnckj63iqv2sgpq2jisswszvmqvz4c3dgxd
+  tag: 8fe904d629194b1fbaaf2d0a4e0ccd17052e9103
+  --sha256: 1h6zac4h5vc79psxzc37dc0kc9mn5wrsjb8l13dqi6ylawj6a7p4
   subdir:
     base-deriving-via
     binary
@@ -103,8 +104,8 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-ledger
-  tag: bb739a2d3b888829135c1a62cea9e0e9dfd7a651
-  --sha256: 0r4ifqifv7k18hq1wj90xnf9qhnhlpawjmbs4fcxs7p8hdvvbpzy
+  tag: 461506591729379168a607c3298746d0784621f1
+  --sha256: 1ildfck6syrfi8xyw39c5qg3mnywyxfzsa0dhnsli6fayznr994x
   subdir:
     eras/alonzo/impl
     eras/alonzo/test-suite
@@ -157,11 +158,6 @@ source-repository-package
   subdir:
     contra-tracer
     iohk-monitoring
-    -- plugins/backend-aggregation
-    -- plugins/backend-ekg
-    -- plugins/backend-monitoring
-    -- plugins/backend-trace-forwarder
-    -- plugins/scribe-systemd
     tracer-transformers
 
 -- Tracking cardano-node
