@@ -6,7 +6,7 @@ import Hydra.Cardano.Api.TxIn (fromLedgerTxIn, toLedgerTxIn)
 import Hydra.Cardano.Api.TxOut (fromLedgerTxOut, toLedgerTxOut)
 
 import qualified Cardano.Api.UTxO as UTxO
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
+import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger

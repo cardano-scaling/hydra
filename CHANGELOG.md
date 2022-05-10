@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.7.0] - UNRELEASED
+
+#### Changed
+
+- **BREAKING** Switch to `BabbageEra` and `PlutusV2`
+  + `hydra-cardano-api` now uses `Era = BabbageEra` and constructs `PlutusV2` scripts
+  + `hydra-plutus` scripts now use the `serializeData` builtin to CBOR encode data on-chain
+
+#### Fixed
+
+- Head contract check UTxO hash upon closing the head [#338](https://github.com/input-output-hk/hydra-poc/pull/338). This prevents closing the head with arbitrary UTxO.
+
 ## [0.6.0] - 2022-06-22
 
 #### Added

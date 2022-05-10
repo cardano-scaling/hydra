@@ -89,7 +89,7 @@ toLedgerTx = \case
                 }
           }
 
--- | Convert a cardano-ledger's 'Tx' in the Alonzo era (a.k.a. 'ValidatedTx')
+-- | Convert a cardano-ledger's 'Tx' in the Babbage era (a.k.a. 'ValidatedTx')
 -- into a cardano-api's 'Tx'.
 fromLedgerTx :: Ledger.ValidatedTx (ShelleyLedgerEra Era) -> Tx Era
 fromLedgerTx (Ledger.ValidatedTx body wits isValid auxData) =
@@ -98,16 +98,19 @@ fromLedgerTx (Ledger.ValidatedTx body wits isValid auxData) =
     (fromLedgerTxWitness wits)
  where
   era =
-    ShelleyBasedEraAlonzo
+    ShelleyBasedEraBabbage
+
   scripts =
     Map.elems $ Ledger.txscripts' wits
+
   scriptsData =
     TxBodyScriptData
-      ScriptDataInAlonzoEra
+      ScriptDataInBabbageEra
       (Ledger.txdats' wits)
       (Ledger.txrdmrs' wits)
+
   validity = case isValid of
     Ledger.IsValid True ->
-      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptValid
+      TxScriptValidity TxScriptValiditySupportedInBabbageEra ScriptValid
     Ledger.IsValid False ->
-      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptInvalid
+      TxScriptValidity TxScriptValiditySupportedInBabbageEra ScriptInvalid

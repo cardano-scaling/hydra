@@ -26,7 +26,7 @@ toLedgerScript ::
   forall lang.
   (HasPlutusScriptVersion lang) =>
   PlutusScript lang ->
-  Ledger.Script (ShelleyLedgerEra AlonzoEra)
+  Ledger.Script (ShelleyLedgerEra Era)
 toLedgerScript (PlutusScriptSerialised bytes) =
   let lang = case plutusScriptVersion $ proxyToAsType (Proxy @lang) of
         PlutusScriptV1 -> Ledger.PlutusV1
