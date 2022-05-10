@@ -8,18 +8,19 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize')
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
+import Data.Maybe (fromJust)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeHeadOutputDatum, genHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, closeTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), assetNameFromVerificationKey, closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (genVerificationKey)
-import Hydra.Party (Party, partyToChain, deriveParty)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
+import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (toData)
+import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -35,8 +36,7 @@ healthyCloseTx =
   tx =
     closeTx
       somePartyCardanoVerificationKey
-      healthySnapshot
-      (healthySignature healthySnapshotNumber)
+      healthyClosingSnapshot
       (headInput, headResolvedInput, headDatum)
 
   headInput = generateWith arbitrary 42
@@ -51,9 +51,6 @@ healthyCloseTx =
 
   lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
 
-  somePartyCardanoVerificationKey = flip generateWith 42 $ do
-    genForParty genVerificationKey <$> elements healthyParties
-
 addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
 addParticipationTokens parties (TxOut addr val datum) =
   TxOut addr val' datum
@@ -65,13 +62,26 @@ addParticipationTokens parties (TxOut addr val datum) =
         | cardanoVk <- genForParty genVerificationKey <$> parties
         ]
 
+healthyClosingSnapshot :: ClosingSnapshot
+healthyClosingSnapshot =
+  CloseWithConfirmedSnapshot
+    { snapshotNumber = healthySnapshotNumber
+    , closeUtxoHash = hashTxOuts $ toList healthyCloseUTxO
+    , signatures = healthySignature healthySnapshotNumber
+    }
+
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
   Snapshot
     { number = healthySnapshotNumber
-    , utxo = mempty
+    , utxo = healthyCloseUTxO
     , confirmed = []
     }
+
+healthyCloseUTxO :: UTxO
+healthyCloseUTxO =
+  (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyUTxO))
+    `generateWith` 42
 
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotNumber = 1
@@ -80,8 +90,15 @@ healthyCloseDatum :: Head.State
 healthyCloseDatum =
   Head.Open
     { parties = healthyOnChainParties
-    , utxoHash = ""
+    , utxoHash = toBuiltin $ hashTxOuts $ toList healthyUTxO
     }
+
+healthyUTxO :: UTxO
+healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
+
+somePartyCardanoVerificationKey :: VerificationKey PaymentKey
+somePartyCardanoVerificationKey = flip generateWith 42 $ do
+  genForParty genVerificationKey <$> elements healthyParties
 
 healthySigningKeys :: [Hydra.SigningKey]
 healthySigningKeys = [aliceSk, bobSk, carolSk]
@@ -103,10 +120,11 @@ data CloseMutation
   | MutateSnapshotToIllFormedValue
   | MutateParties
   | MutateRequiredSigner
+  | MutateCloseUTxOHash
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
-genCloseMutation (_tx, _utxo) =
+genCloseMutation (tx, _utxo) =
   -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
   -- the power of the mutators, we should test at the level of the validator.
   -- That is, using the on-chain types. 'closeRedeemer' is also not used
@@ -139,14 +157,31 @@ genCloseMutation (_tx, _utxo) =
           parties /= Head.parties healthyCloseDatum
         _ ->
           True
+    , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
+        Head.Open{Head.parties = parties} ->
+          parties /= Head.parties healthyCloseDatum
+        _ ->
+          True
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
     ]
  where
+  headTxOut = fromJust $ txOuts' tx !!? 0
+
   closeRedeemer snapshotNumber sig =
     Head.Close
       { snapshotNumber = toInteger snapshotNumber
       , signature = toPlutusSignatures sig
       , utxoHash = ""
       }
+
+  mutateCloseUTxOHash :: Gen (TxOut CtxTx)
+  mutateCloseUTxOHash = do
+    mutatedUTxOHash <- genHash
+    pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
+
+  mutateState mutatedUTxOHash = \case
+    Head.Closed{snapshotNumber} -> Head.Closed{snapshotNumber, utxoHash = toBuiltin mutatedUTxOHash}
+    st -> error $ "unexpected state " <> show st

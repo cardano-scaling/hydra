@@ -17,6 +17,7 @@ import Hydra.Data.Party (Party (vkey))
 import Plutus.Codec.CBOR.Encoding (
   encodeBeginList,
   encodeBreak,
+  encodeByteString,
   encodeInteger,
   encodingToBuiltinByteString,
   unsafeEncodeRaw,
@@ -45,7 +46,7 @@ import Plutus.V1.Ledger.Api (
   adaToken,
   mkValidatorScript,
  )
-import Plutus.V1.Ledger.Contexts (findDatum, findOwnInput)
+import Plutus.V1.Ledger.Contexts (findDatum, findDatumHash, findOwnInput, getContinuingOutputs)
 import Plutus.V1.Ledger.Crypto (Signature (getSignature))
 import Plutus.V1.Ledger.Value (valueOf)
 import PlutusTx (CompiledCode)
@@ -76,8 +77,8 @@ headValidator commitAddress initialAddress oldState input context =
       checkCollectCom context headContext (contestationPeriod, parties)
     (Initial{parties}, Abort) ->
       checkAbort context headContext parties
-    (Open{parties}, Close{snapshotNumber, signature}) ->
-      checkClose context headContext parties snapshotNumber signature
+    (Open{parties, utxoHash = initialUtxoHash}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
+      checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
     _ -> traceError "invalid head state transition"
@@ -172,7 +173,8 @@ checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parti
 -- The 'CollectCom' transition must verify that:
 --
 -- - All participants have committed (even empty commits)
--- - All commits are properly collected and locked into the contract
+-- - All commits are properly collected and locked into the contract as a hash
+--   of serialized tx outputss in the same sequence as commit inputs!
 -- - The transaction is performed (i.e. signed) by one of the head participants
 --
 -- It must also Initialize the on-chain state η* with a snapshot number and a
@@ -268,21 +270,53 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
         traceError "fromBuiltinData failed"
 {-# INLINEABLE checkCollectCom #-}
 
+-- | The close validator must verify that:
+--
+--   * The closing snapshot number and signature is correctly signed
+--
+--   * The resulting closed state is consistent with the open state or the
+--     closing snapshot, depending on snapshot number
+--
+--   * The transaction is performed (i.e. signed) by one of the head participants
 checkClose ::
   ScriptContext ->
   HeadContext ->
   [Party] ->
+  BuiltinByteString ->
   SnapshotNumber ->
+  BuiltinByteString ->
   [Signature] ->
   Bool
-checkClose context headContext parties snapshotNumber sig =
-  checkSnapshot && mustBeSignedByParticipant context headContext
+checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig =
+  checkSnapshot && mustBeSignedByParticipant ctx headContext
  where
   checkSnapshot
-    | snapshotNumber == 0 = True
-    | snapshotNumber > 0 = verifySnapshotSignature parties snapshotNumber sig
+    | snapshotNumber == 0 = checkHeadOutputDatum ctx (Closed 0 initialUtxoHash)
+    | snapshotNumber > 0 =
+      verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
+        && checkHeadOutputDatum ctx (Closed snapshotNumber closedUtxoHash)
     | otherwise = traceError "negative snapshot number"
 {-# INLINEABLE checkClose #-}
+
+checkHeadOutputDatum :: ToData a => ScriptContext -> a -> Bool
+checkHeadOutputDatum ctx d =
+  case (ownDatumHash, expectedDatumHash) of
+    (Just actual, Just expected) ->
+      traceIfFalse "output datum hash mismatch" $ actual == expected
+    (Nothing, _) ->
+      traceError "no head output datum"
+    (_, Nothing) ->
+      traceError "expected datum hash not found"
+ where
+  expectedDatumHash = findDatumHash (Datum $ toBuiltinData d) txInfo
+
+  ownDatumHash =
+    case getContinuingOutputs ctx of
+      [o] -> txOutDatumHash o
+      _ -> traceError "expected only one head output"
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
+{-# INLINEABLE checkHeadOutputDatum #-}
 
 txOutAdaValue :: TxOut -> Integer
 txOutAdaValue o = valueOf (txOutValue o) adaSymbol adaToken
@@ -382,19 +416,21 @@ hashTxOuts =
   sha2_256 . serialiseTxOuts
 {-# INLINEABLE hashTxOuts #-}
 
-verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
-verifySnapshotSignature parties snapshotNumber sigs =
+verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
+verifySnapshotSignature parties snapshotNumber utxoHash sigs =
   traceIfFalse "signature verification failed" $
     length parties == length sigs
-      && all (uncurry $ verifyPartySignature snapshotNumber) (zip parties sigs)
+      && all (uncurry $ verifyPartySignature snapshotNumber utxoHash) (zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 
-verifyPartySignature :: SnapshotNumber -> Party -> Signature -> Bool
-verifyPartySignature snapshotNumber party signed =
+verifyPartySignature :: SnapshotNumber -> BuiltinByteString -> Party -> Signature -> Bool
+verifyPartySignature snapshotNumber utxoHash party signed =
   traceIfFalse "party signature verification failed" $
     verifySignature (vkey party) message (getSignature signed)
  where
-  message = encodingToBuiltinByteString (encodeInteger snapshotNumber)
+  message =
+    encodingToBuiltinByteString $
+      encodeInteger snapshotNumber <> encodeByteString utxoHash
 {-# INLINEABLE verifyPartySignature #-}
 
 -- TODO: Add a NetworkId so that we can properly serialise address hashes

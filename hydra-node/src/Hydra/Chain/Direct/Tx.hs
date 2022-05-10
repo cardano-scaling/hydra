@@ -26,7 +26,7 @@ import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (hashTxOuts)
+import Hydra.Ledger.Cardano ()
 import Hydra.Ledger.Cardano.Builder (
   addExtraRequiredSigners,
   addInputs,
@@ -38,7 +38,7 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
-import Hydra.Snapshot (Snapshot (..))
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V1.Ledger.Api as Plutus
 
@@ -189,7 +189,7 @@ collectComTx ::
 collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore, parties) commits =
   unsafeBuildTransaction $
     emptyTxBody
-      & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
+      & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
       & addOutputs [headOutput]
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
@@ -214,9 +214,13 @@ collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
       Nothing -> error "SNAFU"
       Just ((_, _, Just o) :: Commit.DatumType) -> Just o
       _ -> Nothing
+
   utxoHash =
-    Head.hashPreSerializedCommits $
-      mapMaybe (extractSerialisedTxOut . snd . snd) $ sortOn fst $ Map.toList commits
+    Head.hashPreSerializedCommits $ mapMaybe (extractSerialisedTxOut . snd . snd) orderedCommits
+
+  orderedCommits =
+    Map.toList commits
+
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( commitInput
     , mkCommitWitness commitDatum
@@ -230,18 +234,32 @@ collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.CollectCom
 
--- | Create a transaction closing a head with given snapshot number and utxo.
+-- | Low-level data type of a snapshot to close the head with. This is different
+-- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
+-- contains relevant chain state like the 'openUtxoHash'.
+data ClosingSnapshot
+  = CloseWithInitialSnapshot {openUtxoHash :: ByteString}
+  | CloseWithConfirmedSnapshot
+      { snapshotNumber :: SnapshotNumber
+      , closeUtxoHash :: ByteString
+      , -- XXX: This is a bit of a wart and stems from the fact that our
+        -- SignableRepresentation of 'Snapshot' is in fact the snapshotNumber
+        -- and the closeUtxoHash as also included above
+        signatures :: MultiSignature (Snapshot Tx)
+      }
+
+-- | Create a transaction closing a head with either the initial snapshot or
+-- with a multi-signed confirmed snapshot.
 closeTx ::
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
-  Snapshot Tx ->
-  -- | Multi-signature of the whole snapshot
-  MultiSignature (Snapshot Tx) ->
+  -- | The snapshot to close with, can be either initial or confirmed one.
+  ClosingSnapshot ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   UTxOWithScript ->
   Tx
-closeTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
+closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -250,24 +268,39 @@ closeTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumF
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
+
   headScript =
     fromPlutusScript @PlutusScriptV1 Head.validatorScript
+
   headRedeemer =
     toScriptData
       Head.Close
-        { snapshotNumber = toInteger number
-        , signature = toPlutusSignatures sig
+        { snapshotNumber
         , utxoHash
+        , signature
         }
+
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
+
   headDatumAfter =
     mkTxOutDatum
       Head.Closed
-        { snapshotNumber = toInteger number
+        { snapshotNumber
         , utxoHash
         }
-  utxoHash = toBuiltin $ hashTxOuts $ toList utxo
+
+  snapshotNumber = toInteger $ case closing of
+    CloseWithInitialSnapshot{} -> 0
+    CloseWithConfirmedSnapshot{snapshotNumber = sn} -> sn
+
+  utxoHash = toBuiltin $ case closing of
+    CloseWithInitialSnapshot{openUtxoHash} -> openUtxoHash
+    CloseWithConfirmedSnapshot{closeUtxoHash} -> closeUtxoHash
+
+  signature = case closing of
+    CloseWithInitialSnapshot{} -> mempty
+    CloseWithConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
 
 fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
@@ -286,15 +319,18 @@ fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) hea
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
+
   headScript =
     fromPlutusScript @PlutusScriptV1 Head.validatorScript
+
   headRedeemer =
     toScriptData (Head.Fanout $ fromIntegral $ length utxo)
+
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)
 
   fanoutOutputs =
-    foldr ((:) . toTxContext) [] utxo
+    map toTxContext $ toList utxo
 
 data AbortTxError = OverlappingInputs
   deriving (Show)
@@ -529,6 +565,7 @@ convertTxOut = \case
 data CollectComObservation = CollectComObservation
   { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
   , headId :: HeadId
+  , utxoHash :: ByteString
   }
   deriving (Show, Eq)
 
@@ -549,6 +586,7 @@ observeCollectComTx utxo tx = do
     (Head.Initial{parties}, Head.CollectCom) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
+      utxoHash <- decodeUtxoHash newHeadDatum
       pure
         ( OnCollectComTx
         , CollectComObservation
@@ -559,11 +597,16 @@ observeCollectComTx utxo tx = do
                 , parties
                 )
             , headId
+            , utxoHash
             }
         )
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
+  decodeUtxoHash datum =
+    case fromData $ toPlutusData datum of
+      Just Head.Open{utxoHash} -> Just $ fromBuiltin utxoHash
+      _ -> Nothing
 
 data CloseObservation = CloseObservation
   { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])

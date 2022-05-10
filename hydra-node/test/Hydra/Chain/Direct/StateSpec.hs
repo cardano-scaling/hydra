@@ -468,7 +468,7 @@ forAllAbort ::
 forAllAbort action = do
   forAll (genHydraContext 3) $ \ctx ->
     forAllShow (genInitTx ctx) renderTx $ \initTx -> do
-      forAllShow (sublistOf =<< genCommits ctx initTx) renderTxs $ \commits ->
+      forAllShow (sublistOf . snd =<< genCommits ctx initTx) renderTxs $ \commits ->
         forAll (genStIdle ctx) $ \stIdle ->
           let stInitialized = executeCommits initTx commits stIdle
            in action stInitialized (abort stInitialized)

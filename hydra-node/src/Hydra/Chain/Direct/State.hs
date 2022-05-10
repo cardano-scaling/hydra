@@ -41,6 +41,7 @@ import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Tx (
   CloseObservation (..),
+  ClosingSnapshot (..),
   CollectComObservation (..),
   InitObservation (..),
   abortTx,
@@ -58,8 +59,9 @@ import Hydra.Chain.Direct.Tx (
   ownInitial,
  )
 import qualified Hydra.Data.Party as OnChain
+import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import qualified Text.Show
 
 -- | An opaque on-chain head state, which records information and events
@@ -96,6 +98,7 @@ data HydraStateMachine (st :: HeadStateKind) where
     { openThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
     , openHeadId :: HeadId
     , openHeadTokenScript :: PlutusScript
+    , openUtxoHash :: ByteString
     } ->
     HydraStateMachine 'StOpen
   Closed ::
@@ -292,15 +295,23 @@ close ::
   ConfirmedSnapshot Tx ->
   OnChainHeadState 'StOpen ->
   Tx
-close confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} = do
-  let (sn, sigs) =
-        case confirmedSnapshot of
-          ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
-          InitialSnapshot{snapshot} -> (snapshot, mempty)
-      (i, o, dat, _) = openThreadOutput
-   in closeTx ownVerificationKey sn sigs (i, o, dat)
+close confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} =
+  closeTx ownVerificationKey closingSnapshot (i, o, dat)
  where
-  Open{openThreadOutput} = stateMachine
+  (i, o, dat, _) = openThreadOutput
+
+  closingSnapshot = case confirmedSnapshot of
+    -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
+    -- we should not keep track of an actual initial 'Snapshot'
+    InitialSnapshot{} -> CloseWithInitialSnapshot{openUtxoHash}
+    ConfirmedSnapshot{snapshot = Snapshot{number, utxo}, signatures} ->
+      CloseWithConfirmedSnapshot
+        { snapshotNumber = number
+        , closeUtxoHash = hashTxOuts $ toList utxo
+        , signatures
+        }
+
+  Open{openThreadOutput, openUtxoHash} = stateMachine
 
 fanout ::
   UTxO ->
@@ -404,7 +415,7 @@ instance ObserveTx 'StInitialized 'StOpen where
   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
     let utxo = getKnownUTxO st
     (event, observation) <- observeCollectComTx utxo tx
-    let CollectComObservation{threadOutput, headId} = observation
+    let CollectComObservation{threadOutput, headId, utxoHash} = observation
     guard (headId == initialHeadId)
     let st' =
           OnChainHeadState
@@ -417,6 +428,7 @@ instance ObserveTx 'StInitialized 'StOpen where
                   { openThreadOutput = threadOutput
                   , openHeadId = initialHeadId
                   , openHeadTokenScript = initialHeadTokenScript
+                  , openUtxoHash = utxoHash
                   }
             }
     pure (event, st')

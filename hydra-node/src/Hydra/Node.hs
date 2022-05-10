@@ -49,7 +49,7 @@ import Hydra.HeadLogic (
   emitSnapshot,
  )
 import qualified Hydra.HeadLogic as Logic
-import Hydra.Ledger (IsTx, Ledger, TxIdType, UTxOType)
+import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -77,7 +77,6 @@ initEnvironment Options{hydraSigningKey, hydraVerificationKeys} = do
 
   loadVerificationKey p = do
     readFileBS p >>= deserialiseVerificationKeyFromRawBytes
-
 -- ** Create and run a hydra node
 
 data HydraNode tx m = HydraNode
@@ -103,7 +102,7 @@ data HydraNodeLog tx
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (HydraNodeLog tx) where
+instance IsTx tx => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 createHydraNode ::

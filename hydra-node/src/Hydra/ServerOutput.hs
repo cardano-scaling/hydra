@@ -4,7 +4,7 @@ module Hydra.ServerOutput where
 
 import Hydra.Chain (PostChainTx, PostTxError)
 import qualified Hydra.Crypto as Hydra
-import Hydra.Ledger (IsTx, TxIdType, UTxOType, ValidationError)
+import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (Host)
 import Hydra.Party (Party)
 import Hydra.Prelude
@@ -42,7 +42,7 @@ deriving instance IsTx tx => Show (ServerOutput tx)
 deriving instance IsTx tx => ToJSON (ServerOutput tx)
 deriving instance IsTx tx => FromJSON (ServerOutput tx)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (ServerOutput tx) where
+instance IsTx tx => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'

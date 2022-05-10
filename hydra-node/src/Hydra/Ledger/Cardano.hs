@@ -122,6 +122,7 @@ instance IsTx Tx where
 
   txId = getTxId . getTxBody
   balance = foldMap txOutValue
+  hashUTxO = hashTxOuts . toList
 
 instance ToCBOR Tx where
   toCBOR = CBOR.encodeBytes . serialize' . toLedgerTx

@@ -8,6 +8,7 @@ class
   ( Eq tx
   , Show tx
   , Typeable tx
+  , Arbitrary tx
   , FromCBOR tx
   , ToCBOR tx
   , FromJSON tx
@@ -17,11 +18,13 @@ class
   , Ord (TxIdType tx)
   , Show (TxIdType tx)
   , Typeable (TxIdType tx)
+  , Arbitrary (TxIdType tx)
   , FromJSON (TxIdType tx)
   , ToJSON (TxIdType tx)
   , --
     Eq (UTxOType tx)
   , Show (UTxOType tx)
+  , Arbitrary (UTxOType tx)
   , FromJSON (UTxOType tx)
   , Monoid (UTxOType tx)
   , ToJSON (UTxOType tx)
@@ -35,6 +38,9 @@ class
   -- XXX(SN): this name easily conflicts
   txId :: tx -> TxIdType tx
   balance :: UTxOType tx -> ValueType tx
+
+  -- | Hash a utxo set to be able to sign (off-chain) and verify it (on-chain).
+  hashUTxO :: UTxOType tx -> ByteString
 
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business

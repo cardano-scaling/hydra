@@ -14,6 +14,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   anyPayToPubKeyTxOut,
+  changeHeadOutputDatum,
   genHash,
   headTxIn,
  )
@@ -38,7 +39,7 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
+import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
@@ -167,7 +168,7 @@ genCollectComMutation (tx, utxo) =
         pure $
           Changes
             [ ChangeHeadDatum $ Head.Initial c moreParties
-            , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties
+            , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties headTxOut
             ]
     , SomeMutation MutateHeadId <$> do
         illedHeadResolvedInput <-
@@ -181,55 +182,18 @@ genCollectComMutation (tx, utxo) =
         pure $ ChangeRequiredSigners [newSigner]
     ]
  where
-  TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
-    fromJust $ txOuts' tx !!? 0
+  headTxOut = fromJust $ txOuts' tx !!? 0
 
   mutatedPartiesHeadTxOut parties =
-    -- NOTE / TODO:
-    --
-    -- This should probably be defined a 'Mutation', but it is different
-    -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
-    -- to the script, whereas this one modifies the resulting head datum in
-    -- the output.
-    case collectComOutputDatum of
-      TxOutDatumNone ->
-        error "Unexpected empty head datum"
-      (TxOutDatumHash _ha) ->
-        error "Unexpected hash-only datum"
-      (TxOutDatum sd) ->
-        case fromData $ toPlutusData sd of
-          (Just Head.Open{utxoHash}) ->
-            TxOut
-              collectComOutputAddress
-              collectComOutputValue
-              (mkTxOutDatum Head.Open{parties, utxoHash})
-          (Just st) ->
-            error $ "Unexpected state " <> show st
-          Nothing ->
-            error "Invalid data"
+    changeHeadOutputDatum $ \case
+      Head.Open{utxoHash} -> Head.Open{Head.parties = parties, utxoHash}
+      st -> error $ "Unexpected state " <> show st
 
   mutateUTxOHash = do
     mutatedUTxOHash <- genHash
-    -- NOTE / TODO:
-    --
-    -- This should probably be defined a 'Mutation', but it is different
-    -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
-    -- to the script, whereas this one modifies the resulting head datum in
-    -- the output.
-    case collectComOutputDatum of
-      TxOutDatumNone ->
-        error "Unexpected empty head datum"
-      (TxOutDatumHash _ha) ->
-        error "Unexpected hash-only datum"
-      (TxOutDatum sd) ->
-        case fromData $ toPlutusData sd of
-          (Just Head.Open{parties}) ->
-            pure $
-              TxOut
-                collectComOutputAddress
-                collectComOutputValue
-                (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUTxOHash})
-          (Just st) ->
-            error $ "Unexpected state " <> show st
-          Nothing ->
-            error "Invalid data"
+    pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
+
+  mutateState mutatedUTxOHash = \case
+    Head.Open{parties} ->
+      Head.Open{parties, Head.utxoHash = toBuiltin mutatedUTxOHash}
+    st -> st

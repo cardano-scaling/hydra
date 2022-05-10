@@ -29,7 +29,7 @@ import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), genConfirmedSnapshot, getSnapshot)
-import Test.QuickCheck (choose, elements, frequency, vector)
+import Test.QuickCheck (choose, elements, frequency, suchThat, vector)
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -109,14 +109,15 @@ genInitTx ctx =
 genCommits ::
   HydraContext ->
   Tx ->
-  Gen [Tx]
+  Gen (UTxO, [Tx])
 genCommits ctx initTx = do
-  forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
+  commits <- forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
     let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
     let stIdle = idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p
     let (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
     utxo <- genCommit
-    pure $ unsafeCommit utxo stInitialized
+    pure (utxo, unsafeCommit utxo stInitialized)
+  pure (foldMap fst commits, map snd commits)
 
 genCommit :: Gen UTxO
 genCommit =
@@ -129,7 +130,7 @@ genCollectComTx :: Int -> Gen (OnChainHeadState 'StInitialized, Tx)
 genCollectComTx numParties = do
   ctx <- genHydraContextFor numParties
   initTx <- genInitTx ctx
-  commits <- genCommits ctx initTx
+  (_, commits) <- genCommits ctx initTx
   stIdle <- genStIdle ctx
   let stInitialized = executeCommits initTx commits stIdle
   pure (stInitialized, collect stInitialized)
@@ -137,28 +138,35 @@ genCollectComTx numParties = do
 genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
-  stOpen <- genStOpen ctx
-  snapshot <- genConfirmedSnapshot (ctxHydraSigningKeys ctx)
+  (utxo, stOpen) <- genStOpen ctx
+  -- FIXME: this is problematic for generated 'InitialSnapshot' values, because
+  -- then the 'utxo' contained in here needs to be consistent with the utxo of
+  -- the generated open state.
+  snapshot <- genConfirmedSnapshot utxo (ctxHydraSigningKeys ctx)
   pure (stOpen, close snapshot stOpen)
 
 genStOpen ::
   HydraContext ->
-  Gen (OnChainHeadState 'StOpen)
+  Gen (UTxO, OnChainHeadState 'StOpen)
 genStOpen ctx = do
   initTx <- genInitTx ctx
-  commits <- genCommits ctx initTx
+  (utxo, commits) <- genCommits ctx initTx
   stInitialized <- executeCommits initTx commits <$> genStIdle ctx
   let collectComTx = collect stInitialized
-  pure $ snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized
+  pure (utxo, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)
 
 genStClosed ::
   HydraContext ->
   UTxO ->
   Gen (OnChainHeadState 'StClosed)
 genStClosed ctx utxo = do
-  stOpen <- genStOpen ctx
-  -- Any confirmed snapshot suffices here, no signatures are checked
-  confirmed <- arbitrary
+  (_, stOpen) <- genStOpen ctx
+  -- FIXME: We need a ConfirmedSnapshot here because the utxo's in an
+  -- 'InitialSnapshot' are ignored and we would not be able to fan them out
+  confirmed <-
+    arbitrary `suchThat` \case
+      InitialSnapshot{} -> False
+      ConfirmedSnapshot{} -> True
   let snapshot = confirmed{snapshot = (getSnapshot confirmed){utxo = utxo}}
   let closeTx = close snapshot stOpen
   pure $ snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
