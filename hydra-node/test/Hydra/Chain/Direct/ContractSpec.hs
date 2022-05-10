@@ -33,7 +33,7 @@ import Hydra.Contract.Head (
   verifyPartySignature,
   verifySnapshotSignature,
  )
-import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.Head as OnChain
 import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (hashUTxO)
@@ -42,6 +42,7 @@ import Hydra.Ledger.Cardano (
   hashTxOuts,
   shrinkUTxO,
  )
+import qualified Hydra.Ledger.Cardano as OffChain
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..))
@@ -126,7 +127,7 @@ prop_consistentOnAndOffChainHashOfTxOuts =
         ledgerTxOuts = toList utxo
         plutusBytes = serialiseTxOuts plutusTxOuts
         ledgerBytes = serialize' (toLedgerTxOut <$> ledgerTxOuts)
-     in (hashTxOuts ledgerTxOuts === fromBuiltin (Head.hashTxOuts plutusTxOuts))
+     in (OffChain.hashTxOuts ledgerTxOuts === fromBuiltin (OnChain.hashTxOuts plutusTxOuts))
           & counterexample ("Plutus: " <> show plutusTxOuts)
           & counterexample ("Ledger: " <> show ledgerTxOuts)
           & counterexample ("Ledger CBOR: " <> decodeUtf8 (Base16.encode ledgerBytes))
@@ -136,7 +137,7 @@ prop_serialiseTxOutCommutesWithHash :: Property
 prop_serialiseTxOutCommutesWithHash =
   forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
     let ledgerTxOuts = toList utxo
-        serialisedUTxO = Head.hashPreSerializedCommits $ Commit.SerializedTxOut . toBuiltin . serialize' . toLedgerTxOut <$> ledgerTxOuts
+        serialisedUTxO = OnChain.hashPreSerializedCommits $ Commit.SerializedTxOut . toBuiltin . serialize' . toLedgerTxOut <$> ledgerTxOuts
      in fromBuiltin serialisedUTxO === hashTxOuts ledgerTxOuts
           & counterexample ("Hashed CBOR: " <> decodeUtf8 (Base16.encode $ fromBuiltin serialisedUTxO))
 

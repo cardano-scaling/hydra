@@ -312,15 +312,18 @@ fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) hea
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
+
   headScript =
     fromPlutusScript @PlutusScriptV1 Head.validatorScript
+
   headRedeemer =
     toScriptData (Head.Fanout $ fromIntegral $ length utxo)
+
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)
 
   fanoutOutputs =
-    foldr ((:) . toTxContext) [] utxo
+    map toTxContext $ toList utxo
 
 data AbortTxError = OverlappingInputs
   deriving (Show)
