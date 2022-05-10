@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.6.0] - Unreleased
+
+#### Fixed
+
+- Head contract check UTxO hash upon closing the head [#338](https://github.com/input-output-hk/hydra-poc/pull/338). This prevents closing the head with arbitrary UTxO.
+
 ## [0.5.0] - 2022-05-06
 
 #### Added
@@ -30,7 +36,7 @@ changes.
 - New architectural decision records:
   + [ADR-0017: UDP for Hydra networking](https://hydra.family/head-protocol/adr/17)
   + [ADR-0018: Single state in Hydra.Node](https://hydra.family/head-protocol/adr/18)
-  
+
 - Improved `hydra-node --version` to show an easier to understand and accurate revision based on `git describe`
 
 - Added `hydra-node --script-info` to check hashes of plutus scripts available in a `hydra-node`.
@@ -53,7 +59,7 @@ changes.
 #### Fixed
 
 - Reject commit transactions locking a UTxO locked by Byron addresses, part of [#182](https://github.com/input-output-hk/hydra-poc/issues/182)
-  + This would render a Head unclosable because Byron addresses are filtered out by the ledger and not visible to plutus scripts 
+  + This would render a Head unclosable because Byron addresses are filtered out by the ledger and not visible to plutus scripts
 
 - Fix instructions in [demo setup without docker](https://hydra.family/head-protocol/docs/getting-started/demo/without-docker) to use `0.0.0.0` and correct paths.
 
@@ -99,9 +105,9 @@ changes.
 - Recipient addresses to send money to in the TUI are inferred from the current UTXO set. If a party does not commit a UTXO or consumes all its UTXO in a Head, it won't be able to send or receive anything anymore.
 - TUI crashes when user tries to post a new transaction without any UTXO remaining.
 - The internal wallet of hydra-node requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](https://hydra.family/head-protocol/docs/getting-started/demo/with-docker/#seeding-the-network).
-- Aborting a head with more than 2 participants (i.e. `> 2`) requires increase in tx size limit over current mainchain parameters to ~20KB. 
+- Aborting a head with more than 2 participants (i.e. `> 2`) requires increase in tx size limit over current mainchain parameters to ~20KB.
 - Head can collect at most 3 commits and each party can commit either 1 or 0 UTXO to a Head.
-- The head cannot be finalized if holding more than ~100 assets (or ~50 ada-only UTxO entries) with the standard tx size of 16KB. 
+- The head cannot be finalized if holding more than ~100 assets (or ~50 ada-only UTxO entries) with the standard tx size of 16KB.
 
 ## [0.3.0] - 2022-02-02
 
