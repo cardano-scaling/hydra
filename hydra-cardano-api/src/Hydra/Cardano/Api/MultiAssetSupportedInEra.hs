@@ -12,3 +12,6 @@ instance HasMultiAsset MaryEra where
 
 instance HasMultiAsset AlonzoEra where
   multiAssetSupportedInEra = MultiAssetInAlonzoEra
+
+instance HasMultiAsset BabbageEra where
+  multiAssetSupportedInEra = MultiAssetInBabbageEra

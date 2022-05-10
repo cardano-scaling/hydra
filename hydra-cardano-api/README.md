@@ -4,15 +4,15 @@ A Haskell API for Cardano, tailored to the Hydra project. This package provides 
 
 Some of those addition may be likely candidates for upstream change requests, but having this extra space gives us an opportunity to iterate faster and to unify not-always-consistent names / approches across the Cardano ecosystem.
 
-In addition, the top-level module `Hydra.Cardano.Api` does re-export only specialized types and constructors for all underlying types. Everything is indeed specialized to the latest era (e.g. Alonzo) making the era type parameter redundant in most cases. This also removes the need for extra indirections or, for proxy-values witnessing era types as present in many `cardano-api` constructors. For example, a vanilla usage of the `cardano-api` would looks like the followings:
+In addition, the top-level module `Hydra.Cardano.Api` does re-export only specialized types and constructors for all underlying types. Everything is indeed specialized to the latest era (e.g. Babbage) making the era type parameter redundant in most cases. This also removes the need for extra indirections or, for proxy-values witnessing era types as present in many `cardano-api` constructors. For example, a vanilla usage of the `cardano-api` would looks like the followings:
 
 ```hs
-changeOutput :: Address ShelleyAddr -> TxOut CtxUTxO AlonzoEra
+changeOutput :: Address ShelleyAddr -> TxOut CtxUTxO BabbageEra
 changeOutput =
   TxOut
-    (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) addr)
-    (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ initialAmount - amount - fee))
-    (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData $ fromPlutusData someDatum))
+    (AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) addr)
+    (TxOutValue MultiAssetInBabbageEra (lovelaceToValue $ initialAmount - amount - fee))
+    (TxOutDatumHash ScriptDataInBabbageEra (hashScriptData $ fromPlutusData someDatum))
 ```
 
 ...whereas, the wrapped API would offer a more lightweight notation:
