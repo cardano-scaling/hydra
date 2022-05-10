@@ -15,6 +15,7 @@ changes.
 - **BREAKING** Switch to `BabbageEra` and `PlutusV2`
   + `hydra-cardano-api` now uses `Era = BabbageEra` and constructs `PlutusV2` scripts
   + `hydra-plutus` scripts now use the `serializeData` builtin to CBOR encode data on-chain
+  + `hydra-node` now deserializes `BabbageEra` transactions (should be backward-compatible)
 
 #### Fixed
 

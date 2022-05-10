@@ -17,11 +17,10 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeAnnotator, serialize, serialize', unsafeDeserialize')
 import qualified Cardano.Crypto.DSIGN as CC
 import Cardano.Crypto.Hash (SHA256, digest)
-import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
+import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Babbage.Tx as Ledger
+import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Era as Ledger
@@ -144,9 +143,9 @@ instance Arbitrary Tx where
   -- TODO: shrinker!
   arbitrary = fromLedgerTx . withoutProtocolUpdates <$> arbitrary
    where
-    withoutProtocolUpdates tx@(Ledger.Alonzo.ValidatedTx body _ _ _) =
-      let body' = body{Ledger.Alonzo.txUpdates = SNothing}
-       in tx{Ledger.Alonzo.body = body'}
+    withoutProtocolUpdates tx@(Ledger.ValidatedTx body _ _ _) =
+      let body' = body{Ledger.txUpdates = SNothing}
+       in tx{Ledger.body = body'}
 
 -- | Create a zero-fee, payment cardano transaction.
 mkSimpleTx ::
@@ -245,7 +244,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
   totalNumberOfAssets =
     sum $
       [ foldl' (\n inner -> n + Map.size inner) 0 outer
-      | Ledger.TxOut _ (Ledger.Value _ outer) _ <- toList outs
+      | Ledger.TxOut _ (Ledger.Value _ outer) _ _ <- toList outs
       ]
 
   mintLines =
@@ -324,8 +323,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
     unwords
       [ show tag <> "#" <> show ix
       , mconcat
-          [ "( cpu = " <> show (Ledger.Alonzo.exUnitsSteps redeemerBudget)
-          , ", mem = " <> show (Ledger.Alonzo.exUnitsMem redeemerBudget) <> " )"
+          [ "( cpu = " <> show (Ledger.exUnitsSteps redeemerBudget)
+          , ", mem = " <> show (Ledger.exUnitsMem redeemerBudget) <> " )"
           ]
       , "\n  " <> prettyScriptData (fromLedgerData redeemerData)
       ]

@@ -222,15 +222,7 @@ collectComTx networkId vk initialThreadOutput commits =
     } =
       initialThreadOutput
   headWitness =
-    BuildTxWith $
-      ScriptWitness scriptWitnessCtx $
-        Api.PlutusScriptWitness
-          PlutusScriptV2InBabbage
-          PlutusScriptV2
-          headScript
-          headDatum
-          headRedeemer
-          (ExecutionUnits 0 0)
+    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
   headRedeemer =

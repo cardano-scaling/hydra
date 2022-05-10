@@ -71,7 +71,7 @@ emptyTxBody =
     TxMetadataNone
     TxAuxScriptsNone
     TxExtraKeyWitnessesNone
-    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraAlonzo def) -- FIXME
+    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def) -- FIXME
     TxWithdrawalsNone
     TxCertificatesNone
     TxUpdateProposalNone

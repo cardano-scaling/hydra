@@ -124,6 +124,7 @@ library
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
+    , cardano-ledger-babbage
     , cardano-ledger-byron
     , cardano-ledger-core
     , cardano-ledger-shelley
@@ -209,7 +210,6 @@ benchmark tx-cost
     , hydra-node
     , hydra-plutus
     , hydra-prelude
-    , hydra-test-utils
     , mtl
     , optparse-applicative
     , plutus-ledger-api
