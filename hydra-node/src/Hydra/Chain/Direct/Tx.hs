@@ -189,7 +189,7 @@ collectComTx ::
 collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore, parties) commits =
   unsafeBuildTransaction $
     emptyTxBody
-      & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
+      & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
       & addOutputs [headOutput]
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
@@ -214,9 +214,13 @@ collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
       Nothing -> error "SNAFU"
       Just ((_, _, Just o) :: Commit.DatumType) -> Just o
       _ -> Nothing
+
   utxoHash =
-    Head.hashPreSerializedCommits committed
-  committed = sort $ mapMaybe (extractSerialisedTxOut . snd . snd) $ Map.toList commits
+    Head.hashPreSerializedCommits $ mapMaybe (extractSerialisedTxOut . snd . snd) orderedCommits
+
+  orderedCommits =
+    Map.toList commits
+
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( commitInput
     , mkCommitWitness commitDatum
@@ -551,6 +555,7 @@ convertTxOut = \case
 data CollectComObservation = CollectComObservation
   { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
   , headId :: HeadId
+  , utxoHash :: ByteString
   }
   deriving (Show, Eq)
 
@@ -571,6 +576,7 @@ observeCollectComTx utxo tx = do
     (Head.Initial{parties}, Head.CollectCom) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
+      utxoHash <- decodeUtxoHash newHeadDatum
       pure
         ( OnCollectComTx
         , CollectComObservation
@@ -581,11 +587,16 @@ observeCollectComTx utxo tx = do
                 , parties
                 )
             , headId
+            , utxoHash
             }
         )
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
+  decodeUtxoHash datum =
+    case fromData $ toPlutusData datum of
+      Just Head.Open{utxoHash} -> Just $ fromBuiltin utxoHash
+      _ -> Nothing
 
 data CloseObservation = CloseObservation
   { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])

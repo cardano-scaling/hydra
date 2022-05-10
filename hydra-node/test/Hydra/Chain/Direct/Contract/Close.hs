@@ -11,7 +11,7 @@ import Cardano.Binary (serialize')
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeHeadOutputDatum, genHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, closeTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), assetNameFromVerificationKey, closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
@@ -36,8 +36,7 @@ healthyCloseTx =
   tx =
     closeTx
       somePartyCardanoVerificationKey
-      healthySnapshot
-      (healthySignature healthySnapshotNumber)
+      healthyClosingSnapshot
       (headInput, headResolvedInput, headDatum)
 
   headInput = generateWith arbitrary 42
@@ -62,6 +61,13 @@ addParticipationTokens parties (TxOut addr val datum) =
         [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
         | cardanoVk <- genForParty genVerificationKey <$> parties
         ]
+
+healthyClosingSnapshot :: ClosingSnapshot
+healthyClosingSnapshot =
+  ConfirmedSnapshot
+    { snapshot = healthySnapshot
+    , signatures = healthySignature healthySnapshotNumber
+    }
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =

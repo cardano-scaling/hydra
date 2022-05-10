@@ -407,7 +407,7 @@ instance ObserveTx 'StInitialized 'StOpen where
   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
     let utxo = getKnownUTxO st
     (event, observation) <- observeCollectComTx utxo tx
-    let CollectComObservation{threadOutput, headId} = observation
+    let CollectComObservation{threadOutput, headId, utxoHash} = observation
     guard (headId == initialHeadId)
     let st' =
           OnChainHeadState
@@ -420,6 +420,7 @@ instance ObserveTx 'StInitialized 'StOpen where
                   { openThreadOutput = threadOutput
                   , openHeadId = initialHeadId
                   , openHeadTokenScript = initialHeadTokenScript
+                  , openUtxoHash = utxoHash
                   }
             }
     pure (event, st')
