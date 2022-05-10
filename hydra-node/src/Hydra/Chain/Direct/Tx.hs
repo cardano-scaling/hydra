@@ -242,12 +242,11 @@ closeTx ::
   UTxOWithScript ->
   Tx
 closeTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
-  trace ("close utxo hash: " <> (toString @String . decodeUtf8 . Aeson.encode $ utxoHash) <> "\n" <> renderUTxO utxo) $
-    unsafeBuildTransaction $
-      emptyTxBody
-        & addInputs [(headInput, headWitness)]
-        & addOutputs [headOutputAfter]
-        & addExtraRequiredSigners [verificationKeyHash vk]
+  unsafeBuildTransaction $
+    emptyTxBody
+      & addInputs [(headInput, headWitness)]
+      & addOutputs [headOutputAfter]
+      & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer

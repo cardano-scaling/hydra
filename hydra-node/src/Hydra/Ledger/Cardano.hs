@@ -16,7 +16,6 @@ import Hydra.Ledger.Cardano.Builder
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeAnnotator, serialize, serialize', unsafeDeserialize')
 import qualified Cardano.Crypto.DSIGN as CC
-import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo

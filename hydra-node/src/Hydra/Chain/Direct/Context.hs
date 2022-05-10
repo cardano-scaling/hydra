@@ -12,7 +12,6 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
   VerificationKey,
-  renderUTxO,
  )
 import Hydra.Chain (HeadParameters (..), OnChainTx)
 import Hydra.Chain.Direct.State (
@@ -154,7 +153,7 @@ genStOpen ctx = do
   (utxo, commits) <- genCommits ctx initTx
   stInitialized <- executeCommits initTx commits <$> genStIdle ctx
   let collectComTx = collect stInitialized
-  pure $ trace ("utxo in open state: " <> renderUTxO utxo) (utxo, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)
+  pure (utxo, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)
 
 genStClosed ::
   HydraContext ->
