@@ -29,7 +29,7 @@ import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), genConfirmedSnapshot, getSnapshot)
-import Test.QuickCheck (choose, elements, frequency, vector)
+import Test.QuickCheck (choose, elements, frequency, suchThat, vector)
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -161,8 +161,12 @@ genStClosed ::
   Gen (OnChainHeadState 'StClosed)
 genStClosed ctx utxo = do
   (_, stOpen) <- genStOpen ctx
-  -- Any confirmed snapshot suffices here, no signatures are checked
-  confirmed <- arbitrary
+  -- FIXME: We need a ConfirmedSnapshot here because the utxo's in an
+  -- 'InitialSnapshot' are ignored and we would not be able to fan them out
+  confirmed <-
+    arbitrary `suchThat` \case
+      InitialSnapshot{} -> False
+      ConfirmedSnapshot{} -> True
   let snapshot = confirmed{snapshot = (getSnapshot confirmed){utxo = utxo}}
   let closeTx = close snapshot stOpen
   pure $ snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
