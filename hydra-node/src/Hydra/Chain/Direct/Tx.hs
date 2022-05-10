@@ -235,8 +235,8 @@ collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
     toScriptData $ Commit.redeemer Commit.CollectCom
 
 -- | Low-level data type of a snapshot to close the head with. This is different
--- to the 'Hydra.Chain.Direct.ClosingSnapshot' as it also contains relevant
--- chain state like the 'openUtxoHash'.
+-- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
+-- contains relevant chain state like the 'openUtxoHash'.
 data ClosingSnapshot
   = CloseWithInitialSnapshot {openUtxoHash :: ByteString}
   | CloseWithConfirmedSnapshot
