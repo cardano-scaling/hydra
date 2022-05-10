@@ -98,25 +98,34 @@ isInitialSnapshot = \case
 instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- fmap Hydra.generateSigningKey <$> arbitrary
-    genConfirmedSnapshot ks
+    utxo <- arbitrary
+    genConfirmedSnapshot utxo ks
 
 genConfirmedSnapshot ::
   IsTx tx =>
+  UTxOType tx ->
   [Hydra.SigningKey] ->
   Gen (ConfirmedSnapshot tx)
-genConfirmedSnapshot sks =
+genConfirmedSnapshot utxo sks =
   frequency
     [ (1, initialSnapshot)
     , (9, confirmedSnapshot)
     ]
  where
   initialSnapshot = do
-    s <- arbitrary
     -- FIXME: The fact that we need to set a constant 0 here is a code smell.
     -- Initial snapshots with a different snapshot number are not valid and we
     -- should model 'InitialSnapshot' differently, i.e not holding a
     -- SnapshotNumber
-    pure InitialSnapshot{snapshot = s{number = 0}}
+    pure
+      InitialSnapshot
+        { snapshot =
+            Snapshot
+              { confirmed = []
+              , utxo
+              , number = 0
+              }
+        }
 
   confirmedSnapshot = do
     -- FIXME: This is another nail in the coffin to our current modeling of

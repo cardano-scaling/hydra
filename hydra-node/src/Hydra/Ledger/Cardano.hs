@@ -54,6 +54,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
+import Plutus.V1.Ledger.Api (fromBuiltin, toBuiltin)
 import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
 import qualified Test.Cardano.Ledger.Shelley.Generator.Constants as Ledger.Generator
 import qualified Test.Cardano.Ledger.Shelley.Generator.Core as Ledger.Generator
@@ -338,7 +339,10 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
 hashTxOuts :: [TxOut CtxUTxO] -> ByteString
 hashTxOuts =
-  digest @SHA256 Proxy . serialize' . fmap toLedgerTxOut
+  fromBuiltin
+    . Head.hashPreSerializedCommits
+    . sort
+    . fmap (Commit.SerializedTxOut . toBuiltin . serialize' . toLedgerTxOut)
 
 deriving newtype instance ToJSON UTxO
 

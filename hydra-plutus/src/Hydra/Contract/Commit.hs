@@ -30,16 +30,16 @@ import Plutus.V1.Ledger.Api (
 import Plutus.V1.Ledger.Contexts (findDatum)
 import PlutusTx (CompiledCode, toBuiltinData)
 import qualified PlutusTx
+import qualified Prelude
 
 data CommitRedeemer = CollectCom | Abort
 
 PlutusTx.unstableMakeIsData ''CommitRedeemer
 
 newtype SerializedTxOut = SerializedTxOut BuiltinByteString
-PlutusTx.unstableMakeIsData ''SerializedTxOut
+  deriving newtype (Eq, Prelude.Eq, Prelude.Show, Prelude.Ord)
 
-instance Eq SerializedTxOut where
-  SerializedTxOut bs == SerializedTxOut bs' = bs == bs'
+PlutusTx.unstableMakeIsData ''SerializedTxOut
 
 -- TODO: Party is not used on-chain but is needed off-chain while it's still
 -- based on mock crypto. When we move to real crypto we could simply use

@@ -12,6 +12,7 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
   VerificationKey,
+  renderUTxO,
  )
 import Hydra.Chain (HeadParameters (..), OnChainTx)
 import Hydra.Chain.Direct.State (
@@ -109,14 +110,15 @@ genInitTx ctx =
 genCommits ::
   HydraContext ->
   Tx ->
-  Gen [Tx]
+  Gen (UTxO, [Tx])
 genCommits ctx initTx = do
-  forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
+  commits <- forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
     let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
     let stIdle = idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p
     let (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
     utxo <- genCommit
-    pure $ unsafeCommit utxo stInitialized
+    pure (utxo, unsafeCommit utxo stInitialized)
+  pure (foldMap fst commits, map snd commits)
 
 genCommit :: Gen UTxO
 genCommit =
@@ -129,7 +131,7 @@ genCollectComTx :: Int -> Gen (OnChainHeadState 'StInitialized, Tx)
 genCollectComTx numParties = do
   ctx <- genHydraContextFor numParties
   initTx <- genInitTx ctx
-  commits <- genCommits ctx initTx
+  (_, commits) <- genCommits ctx initTx
   stIdle <- genStIdle ctx
   let stInitialized = executeCommits initTx commits stIdle
   pure (stInitialized, collect stInitialized)
@@ -137,29 +139,29 @@ genCollectComTx numParties = do
 genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
-  stOpen <- genStOpen ctx
+  (utxo, stOpen) <- genStOpen ctx
   -- FIXME: this is problematic for generated 'InitialSnapshot' values, because
   -- then the 'utxo' contained in here needs to be consistent with the utxo of
   -- the generated open state.
-  snapshot <- genConfirmedSnapshot (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot utxo (ctxHydraSigningKeys ctx)
   pure (stOpen, close snapshot stOpen)
 
 genStOpen ::
   HydraContext ->
-  Gen (OnChainHeadState 'StOpen)
+  Gen (UTxO, OnChainHeadState 'StOpen)
 genStOpen ctx = do
   initTx <- genInitTx ctx
-  commits <- genCommits ctx initTx
+  (utxo, commits) <- genCommits ctx initTx
   stInitialized <- executeCommits initTx commits <$> genStIdle ctx
   let collectComTx = collect stInitialized
-  pure $ snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized
+  pure $ trace ("utxo in open state: " <> renderUTxO utxo) (utxo, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)
 
 genStClosed ::
   HydraContext ->
   UTxO ->
   Gen (OnChainHeadState 'StClosed)
 genStClosed ctx utxo = do
-  stOpen <- genStOpen ctx
+  (_, stOpen) <- genStOpen ctx
   -- Any confirmed snapshot suffices here, no signatures are checked
   confirmed <- arbitrary
   let snapshot = confirmed{snapshot = (getSnapshot confirmed){utxo = utxo}}

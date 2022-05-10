@@ -215,8 +215,8 @@ collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
       Just ((_, _, Just o) :: Commit.DatumType) -> Just o
       _ -> Nothing
   utxoHash =
-    Head.hashPreSerializedCommits $
-      mapMaybe (extractSerialisedTxOut . snd . snd) $ sortOn fst $ Map.toList commits
+    Head.hashPreSerializedCommits committed
+  committed = sort $ mapMaybe (extractSerialisedTxOut . snd . snd) $ Map.toList commits
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( commitInput
     , mkCommitWitness commitDatum
@@ -242,11 +242,12 @@ closeTx ::
   UTxOWithScript ->
   Tx
 closeTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs [(headInput, headWitness)]
-      & addOutputs [headOutputAfter]
-      & addExtraRequiredSigners [verificationKeyHash vk]
+  trace ("close utxo hash: " <> (toString @String . decodeUtf8 . Aeson.encode $ utxoHash) <> "\n" <> renderUTxO utxo) $
+    unsafeBuildTransaction $
+      emptyTxBody
+        & addInputs [(headInput, headWitness)]
+        & addOutputs [headOutputAfter]
+        & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
