@@ -128,10 +128,6 @@ data ContestMutation
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
 genContestMutation (_tx, _utxo) =
-  -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
-  -- the power of the mutators, we should test at the level of the validator.
-  -- That is, using the on-chain types. 'closeRedeemer' is also not used
-  -- anywhere after changing this and can be moved into the closeTx
   oneof
     [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         mutatedSignature <- arbitrary :: Gen (Hydra.MultiSignature (Snapshot Tx))
