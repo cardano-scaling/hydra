@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 -- | Simplified interface to phase-2 validation of transaction, eg. evaluation of Plutus scripts.
 --
 -- The `evaluateTx` function simplifies the call to underlying Plutus providing execution report
@@ -10,7 +12,7 @@ module Hydra.Ledger.Cardano.Evaluate where
 
 import Hydra.Prelude hiding (label)
 
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
 import Cardano.Ledger.Alonzo.Scripts (CostModel, CostModels (CostModels), ExUnits (..), Prices (..))
 import Cardano.Ledger.Alonzo.Tools (BasicFailure, ScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
@@ -23,13 +25,14 @@ import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength (getSlotLe
 import Data.Array (Array, array)
 import Data.Bits (shift)
 import Data.Default (def)
+import Data.Fixed (E2, Fixed)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (ExecutionUnits, LedgerEra, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
 import qualified Plutus.V2.Ledger.Api as Plutus
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1)
+import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import Test.QuickCheck (choose)
 
 type RedeemerReport =
@@ -61,14 +64,21 @@ evaluateTx' maxTxExUnits tx utxo =
 costModels :: Array Language CostModel
 costModels =
   array
-    (PlutusV1, PlutusV1)
-    [(PlutusV1, testingCostModelV1)]
+    (PlutusV1, PlutusV2)
+    [ (PlutusV1, testingCostModelV1)
+    , (PlutusV2, testingCostModelV2)
+    ]
 
 -- | Current mainchain cost parameters.
 pparams :: PParams LedgerEra
 pparams =
   def
-    { _costmdls = CostModels $ Map.singleton PlutusV1 testingCostModelV1
+    { _costmdls =
+        CostModels $
+          Map.fromList
+            [ (PlutusV1, testingCostModelV1)
+            , (PlutusV2, testingCostModelV2)
+            ]
     , _maxValSize = 1000000000
     , _maxTxExUnits = ExUnits 14_000_000 10_000_000_000
     , _maxBlockExUnits = ExUnits 56_000_000 40_000_000_000
@@ -80,6 +90,15 @@ pparams =
           , prSteps = fromJust $ boundRational $ 577 % 10000
           }
     }
+
+-- | Max transaction size of the current 'pparams'.
+maxTxSize :: Natural
+maxTxSize = _maxTxSize pparams
+
+-- | Max memory and cpu units of the current 'pparams'.
+maxMem, maxCpu :: Fixed E2
+ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
+  _maxTxExUnits pparams
 
 epochInfo :: Monad m => EpochInfo m
 epochInfo = fixedEpochInfo (EpochSize 100) slotLength

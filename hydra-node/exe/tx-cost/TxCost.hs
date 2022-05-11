@@ -1,15 +1,11 @@
-{-# LANGUAGE TypeApplications #-}
-
 module TxCost where
 
 import Hydra.Prelude hiding (catch)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
-import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Data.ByteString.Lazy as LBS
-import Data.Fixed
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   NetworkId (Testnet),
@@ -48,7 +44,7 @@ import Hydra.Ledger.Cardano (
   genTxIn,
   genUTxOAdaOnlyOfSize,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, genPointInTimeAfter, pparams)
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, genPointInTimeAfter, maxCpu, maxMem, maxTxSize, pparams)
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
 import Test.QuickCheck (generate, sublistOf)
@@ -219,13 +215,6 @@ checkSizeAndEvaluate tx knownUTxO = do
     _ -> Nothing
  where
   txSize = fromIntegral $ LBS.length $ serialize tx
-
-maxTxSize :: Natural
-maxTxSize = Ledger._maxTxSize pparams
-
-maxMem, maxCpu :: Fixed E2
-Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
-  Ledger._maxTxExUnits pparams
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42
