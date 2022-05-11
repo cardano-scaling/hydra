@@ -14,18 +14,15 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
-import Cardano.Ledger.Alonzo.Rules.Utxos (
-  FailureDescription (PlutusFailure),
-  TagMismatchDescription (FailedUnexpectedly),
-  UtxosPredicateFailure (ValidationTagMismatch),
- )
+import Cardano.Ledger.Alonzo.Rules.Utxos (FailureDescription (PlutusFailure), TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
 import Cardano.Ledger.Alonzo.Rules.Utxow (UtxowPredicateFail (WrappedShelleyEraFailure))
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxInfo (debugPlutus, slotToPOSIXTime)
-import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
+import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
+import Cardano.Ledger.Babbage.Rules.Utxo (BabbageUtxoPred (FromAlonzoUtxoFail, FromAlonzoUtxowFail))
+import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
 import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
@@ -56,6 +53,7 @@ import Hydra.Cardano.Api (
   CardanoMode,
   ChainPoint (..),
   EraHistory (EraHistory),
+  EraInMode (BabbageEraInCardanoMode),
   LedgerEra,
   NetworkId,
   PaymentKey,
@@ -101,7 +99,6 @@ import Hydra.Chain.Direct.State (
 import Hydra.Chain.Direct.Tx (PointInTime)
 import Hydra.Chain.Direct.Util (
   Block,
-  Era,
   SomePoint (..),
   defaultCodecs,
   nullConnectTracers,
@@ -118,7 +115,11 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
-import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
+import Ouroboros.Consensus.Cardano.Block (
+  GenTx (..),
+  HardForkApplyTxErr (ApplyTxErrBabbage),
+  HardForkBlock (BlockBabbage),
+ )
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -319,7 +320,7 @@ ouroborosApplication ::
   (MonadST m, MonadTimer m, MonadThrow m) =>
   Tracer m DirectChainLog ->
   Maybe (Point Block) ->
-  TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
+  TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
   ChainSyncHandler m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
@@ -416,7 +417,7 @@ chainSyncHandler tracer callback headState =
 
   -- NOTE: We pass 'now' or current time because we need it for observing passing of time in the
   -- contestation phase.
-  withNextTx :: UTCTime -> Point Block -> [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
+  withNextTx :: UTCTime -> Point Block -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
   withNextTx now point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
     case observeSomeTx tx (currentOnChainHeadState st) of
@@ -530,7 +531,7 @@ txSubmissionClient ::
   forall m.
   (MonadSTM m) =>
   Tracer m DirectChainLog ->
-  TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
+  TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
 txSubmissionClient tracer queue =
   LocalTxSubmissionClient clientStIdle
@@ -541,7 +542,7 @@ txSubmissionClient tracer queue =
     traceWith tracer (PostingTx (getTxId tx, tx))
     pure $
       SendMsgSubmitTx
-        (GenTxAlonzo . mkShelleyTx $ tx)
+        (GenTxBabbage . mkShelleyTx $ tx)
         ( \case
             SubmitSuccess -> do
               traceWith tracer (PostedTx (getTxId tx))
@@ -555,16 +556,16 @@ txSubmissionClient tracer queue =
   -- XXX(SN): patch-work error pretty printing on single plutus script failures
   onFail err =
     case err of
-      ApplyTxErrAlonzo (ApplyTxError [failure]) ->
+      ApplyTxErrBabbage (ApplyTxError [failure]) ->
         fromMaybe failedToPostTx (unwrapPlutus failure)
       _ ->
         failedToPostTx
    where
     failedToPostTx = FailedToPostTx{failureReason = show err}
 
-  unwrapPlutus :: LedgerPredicateFailure Era -> Maybe (PostTxError Tx)
+  unwrapPlutus :: LedgerPredicateFailure LedgerEra -> Maybe (PostTxError Tx)
   unwrapPlutus = \case
-    UtxowFailure (WrappedShelleyEraFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure plutusFailure debug :| _)))))) ->
+    UtxowFailure (FromAlonzoUtxowFail (WrappedShelleyEraFailure (UtxoFailure (FromAlonzoUtxoFail (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure plutusFailure debug :| _)))))))) ->
       Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo = show (debugPlutus (decodeUtf8 debug))}
     _ ->
       Nothing
@@ -580,8 +581,8 @@ finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
-  ValidatedTx Era ->
-  STM m (ValidatedTx Era)
+  ValidatedTx LedgerEra ->
+  STM m (ValidatedTx LedgerEra)
 finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
   someSt <- currentOnChainHeadState <$> readTVar headState
   let headUTxO = (\(SomeOnChainHeadState st) -> getKnownUTxO st) someSt
@@ -667,10 +668,10 @@ fromPostChainTx TimeHandle{currentPointInTime, adjustPointInTime} cardanoKeys wa
 
 -- | This extract __Alonzo__ transactions from a block. If the block wasn't
 -- produced in the Alonzo era, it returns a empty sequence.
-getAlonzoTxs :: Block -> StrictSeq (ValidatedTx Era)
+getAlonzoTxs :: Block -> StrictSeq (ValidatedTx LedgerEra)
 getAlonzoTxs = \case
-  BlockAlonzo (ShelleyBlock (Ledger.Block _ txsSeq) _) ->
-    txSeqTxns txsSeq
+  BlockBabbage (ShelleyBlock (Ledger.Block _ txsSeq) _) ->
+    fromTxSeq txsSeq
   _ ->
     mempty
 
@@ -681,9 +682,9 @@ getAlonzoTxs = \case
 -- TODO add  ToJSON, FromJSON instances
 data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
-  | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx Era)}
+  | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx LedgerEra)}
   | PostedTx {postedTxId :: TxId StandardCrypto}
-  | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx Era)]}
+  | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx LedgerEra)]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)
