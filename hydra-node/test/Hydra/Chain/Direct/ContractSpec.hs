@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.Chain.Direct.ContractSpec where
 
@@ -23,6 +24,8 @@ import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Init (genHealthyIdleSt, genInitMutation, genObserveInitMutation, healthyInitTx)
 import Hydra.Chain.Direct.Contract.Mutation (
+  SomeMutation (..),
+  applyMutation,
   propMutationOffChain,
   propMutationOnChain,
   propTransactionValidates,
@@ -44,6 +47,7 @@ import Hydra.Ledger.Cardano (
   shrinkUTxO,
  )
 import qualified Hydra.Ledger.Cardano as OffChain
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..))
@@ -55,6 +59,7 @@ import Test.QuickCheck (
   counterexample,
   forAll,
   forAllShrink,
+  generate,
   (===),
  )
 import Test.QuickCheck.Instances ()
@@ -114,6 +119,13 @@ spec = parallel $ do
       propTransactionValidates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutationOnChain healthyContestTx genContestMutation
+    it "fail" $ do
+      SomeMutation _ mut <- generate $ genContestMutation healthyContestTx
+      let (tx, utxo) = applyMutation mut healthyContestTx
+          result = evaluateTx tx utxo
+      case result of
+        Right r -> trace (show r) $ all isRight r `shouldBe` True
+        Left err -> failure (show err)
   describe "Fanout" $ do
     prop "is healthy" $
       propTransactionValidates healthyFanoutTx

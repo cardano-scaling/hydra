@@ -18,7 +18,7 @@ import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (toBuiltin, toData)
+import Plutus.V1.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Gen (choose)
@@ -36,7 +36,7 @@ healthyContestTx =
     contestTx
       somePartyCardanoVerificationKey
       healthySnapshot
-      (healthySignature 1)
+      (healthySignature healthySnapshotNumber)
       (headInput, headResolvedInput, headDatum, healthyOnChainParties)
 
   headInput = generateWith arbitrary 42
@@ -84,10 +84,13 @@ healthyClosedSnapshotNumber = 3
 healthyContestDatum :: Head.State
 healthyContestDatum =
   Head.Closed
-    { snapshotNumber = healthyClosedSnapshotNumber
-    , utxoHash = toBuiltin $ hashTxOuts mempty
+    { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
+    , utxoHash = healthyUTxOHash
     , parties = healthyOnChainParties
     }
+
+healthyUTxOHash :: BuiltinByteString
+healthyUTxOHash = toBuiltin $ hashTxOuts mempty
 
 healthyUTxO :: UTxO
 healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
@@ -123,16 +126,23 @@ genContestMutation (_tx, _utxo) =
   -- That is, using the on-chain types. 'closeRedeemer' is also not used
   -- anywhere after changing this and can be moved into the closeTx
   oneof
-    [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        contestRedeemer (number healthySnapshot) <$> (arbitrary :: Gen (Hydra.MultiSignature (Snapshot Tx)))
-    , SomeMutation MutateToNonNewerSnapshot . ChangeHeadRedeemer <$> do
-        mutatedSnapshotNumer <- choose (0, healthyClosedSnapshotNumber)
-        undefined
+    [ -- SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+      --     contestRedeemer (number healthySnapshot) <$> (arbitrary :: Gen (Hydra.MultiSignature (Snapshot Tx)))
+      -- ,
+      SomeMutation MutateToNonNewerSnapshot . ChangeHeadRedeemer <$> do
+        mutatedSnapshotNumber <- choose (0, toInteger healthyClosedSnapshotNumber)
+        pure $
+          Head.Contest
+            { snapshotNumber = mutatedSnapshotNumber
+            , utxoHash = healthyUTxOHash
+            , signature = toPlutusSignatures $ healthySignature (fromInteger mutatedSnapshotNumber)
+            }
     ]
- where
-  contestRedeemer snapshotNumber sig =
-    Head.Contest
-      { snapshotNumber = toInteger snapshotNumber
-      , signature = toPlutusSignatures sig
-      , utxoHash = ""
-      }
+
+-- where
+--  contestRedeemer snapshotNumber sig =
+--    Head.Contest
+--      { snapshotNumber = toInteger snapshotNumber
+--      , signature = toPlutusSignatures sig
+--      , utxoHash = ""
+--      }

@@ -126,6 +126,7 @@ spec =
                 Head.Closed
                   { snapshotNumber = 1
                   , utxoHash = toBuiltin (hashTxOuts $ toList inHeadUTxO)
+                  , parties = []
                   }
            in checkCoverage $ case validateTxScriptsUnlimited onChainUTxO tx of
                 Left basicFailure ->
