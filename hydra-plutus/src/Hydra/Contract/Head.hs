@@ -79,9 +79,9 @@ headValidator commitAddress initialAddress oldState input context =
       checkAbort context headContext parties
     (Open{parties, utxoHash = initialUtxoHash}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
       checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature
-    -- FIXME: Implement contest logic.
-    (Closed{}, Contest{}) ->
-      True
+    (Closed{}, Contest{snapshotNumber, utxoHash = contestUtxoHash, signature}) ->
+      let parties = [] -- FIXME: Need to get parties in context
+       in checkContest context headContext parties snapshotNumber contestUtxoHash signature
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
     _ ->
@@ -301,6 +301,21 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
         && checkHeadOutputDatum ctx (Closed snapshotNumber closedUtxoHash)
     | otherwise = traceError "negative snapshot number"
 {-# INLINEABLE checkClose #-}
+
+checkContest ::
+  ScriptContext ->
+  HeadContext ->
+  [Party] ->
+  SnapshotNumber ->
+  BuiltinByteString ->
+  [Signature] ->
+  Bool
+checkContest ctx headContext parties snapshotNumber contestUtxoHash sig =
+  mustBeMultiSigned
+ where
+  mustBeMultiSigned =
+    verifySnapshotSignature parties snapshotNumber contestUtxoHash sig
+{-# INLINEABLE checkContest #-}
 
 checkHeadOutputDatum :: ToData a => ScriptContext -> a -> Bool
 checkHeadOutputDatum ctx d =
