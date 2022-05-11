@@ -19,7 +19,7 @@ import Hydra.Chain.Direct.Contract.Abort (genAbortMutation, healthyAbortTx, prop
 import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
-import Hydra.Chain.Direct.Contract.Contest (healthyContestTx)
+import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx)
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Init (genHealthyIdleSt, genInitMutation, genObserveInitMutation, healthyInitTx)
 import Hydra.Chain.Direct.Contract.Mutation (
@@ -112,6 +112,8 @@ spec = parallel $ do
   describe "Contest" $ do
     prop "is healthy" $
       propTransactionValidates healthyContestTx
+    prop "does not survive random adversarial mutations" $
+      propMutationOnChain healthyContestTx genContestMutation
   describe "Fanout" $ do
     prop "is healthy" $
       propTransactionValidates healthyFanoutTx

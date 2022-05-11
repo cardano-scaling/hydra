@@ -7,11 +7,11 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
-import Hydra.Chain.Direct.Contract.Mutation (SomeMutation)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, contestTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Crypto (aggregate, sign)
+import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
@@ -20,7 +20,7 @@ import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (elements, suchThat)
+import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 --
@@ -110,30 +110,19 @@ data ContestMutation
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
-genContestMutation (tx, _utxo) =
+genContestMutation (_tx, _utxo) =
   -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
   -- the power of the mutators, we should test at the level of the validator.
   -- That is, using the on-chain types. 'closeRedeemer' is also not used
   -- anywhere after changing this and can be moved into the closeTx
   oneof
     [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        closeRedeemer (number healthySnapshot) <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        contestRedeemer (number healthySnapshot) <$> (arbitrary :: Gen (Hydra.MultiSignature (Snapshot Tx)))
     ]
  where
-  headTxOut = fromJust $ txOuts' tx !!? 0
-
-  closeRedeemer snapshotNumber sig =
-    Head.Close
+  contestRedeemer snapshotNumber sig =
+    Head.Contest
       { snapshotNumber = toInteger snapshotNumber
       , signature = toPlutusSignatures sig
       , utxoHash = ""
       }
-
-  mutateCloseUTxOHash :: Gen (TxOut CtxTx)
-  mutateCloseUTxOHash = do
-    mutatedUTxOHash <- genHash
-    pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
-
-  mutateState mutatedUTxOHash = \case
-    Head.Closed{snapshotNumber} -> Head.Closed{snapshotNumber, utxoHash = toBuiltin mutatedUTxOHash}
-    st -> error $ "unexpected state " <> show st
