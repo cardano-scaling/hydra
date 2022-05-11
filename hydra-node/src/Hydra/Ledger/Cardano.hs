@@ -35,7 +35,6 @@ import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
 import Control.Arrow (left)
-import Control.Monad (foldM)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
@@ -52,11 +51,6 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
 import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
-import qualified Test.Cardano.Ledger.Shelley.Generator.Constants as Ledger.Generator
-import qualified Test.Cardano.Ledger.Shelley.Generator.Core as Ledger.Generator
-import qualified Test.Cardano.Ledger.Shelley.Generator.EraGen as Ledger.Generator
-import qualified Test.Cardano.Ledger.Shelley.Generator.Presets as Ledger.Generator
-import qualified Test.Cardano.Ledger.Shelley.Generator.Utxo as Ledger.Generator
 import Test.QuickCheck (
   choose,
   getSize,
@@ -379,48 +373,51 @@ genSequenceOfValidTransactions globals ledgerEnv = do
   genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs
 
 genFixedSizeSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Int -> Gen (UTxO, [Tx])
-genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs = do
-  n <- getSize
-  numUTxOs <- choose (0, n)
-  let genEnv = customGenEnv numUTxOs
-  initialUTxO <- fromLedgerUTxO <$> Ledger.Generator.genUtxo0 genEnv
-  (_, txs) <- foldM (nextTx genEnv) (initialUTxO, []) [1 .. numTxs]
-  pure (initialUTxO, reverse txs)
- where
-  nextTx genEnv (utxos, acc) _ = do
-    tx <- genTx genEnv utxos
-    case applyTransactions (cardanoLedger globals ledgerEnv) utxos [tx] of
-      Left err -> error $ show err
-      Right newUTxOs -> pure (newUTxOs, tx : acc)
+genFixedSizeSequenceOfValidTransactions _globals _ledgerEnv _numTxs = do
+  -- FIXME: There is no 'EraGen BabbageEra' instance!
+  error "missing EraGen BabbageEra"
 
-  genTx genEnv utxos = do
-    fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv ledgerState
-   where
-    ledgerState =
-      Ledger.LedgerState
-        { Ledger.lsUTxOState = def{Ledger._utxo = toLedgerUTxO utxos}
-        , Ledger.lsDPState = Ledger.DPState def def
-        }
+--  n <- getSize
+--  numUTxOs <- choose (0, n)
+--  let genEnv = customGenEnv numUTxOs
+--  initialUTxO <- fromLedgerUTxO <$> Ledger.Generator.genUtxo0 genEnv
+--  (_, txs) <- foldM (nextTx genEnv) (initialUTxO, []) [1 .. numTxs]
+--  pure (initialUTxO, reverse txs)
+-- where
+--  nextTx genEnv (utxos, acc) _ = do
+--    tx <- genTx genEnv utxos
+--    case applyTransactions (cardanoLedger globals ledgerEnv) utxos [tx] of
+--      Left err -> error $ show err
+--      Right newUTxOs -> pure (newUTxOs, tx : acc)
 
-  -- NOTE(AB): This sets some parameters for the tx generator that will affect
-  -- the structure of generated transactions. In our case, we want to remove
-  -- "special" capabilities which are irrelevant in the context of a Hydra head
-  -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
-  customGenEnv n =
-    (Ledger.Generator.genEnv Proxy)
-      { Ledger.Generator.geConstants = constants n
-      }
+--  genTx genEnv utxos = do
+--    fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv ledgerState
+--   where
+--    ledgerState =
+--      Ledger.LedgerState
+--        { Ledger.lsUTxOState = def{Ledger._utxo = toLedgerUTxO utxos}
+--        , Ledger.lsDPState = Ledger.DPState def def
+--        }
 
-  constants n =
-    Ledger.Generator.defaultConstants
-      { Ledger.Generator.minGenesisUTxOouts = 1
-      , -- NOTE: The genUtxo0 generator seems to draw twice from the range
-        -- [minGenesisUTxOouts, maxGenesisUTxOouts]
-        Ledger.Generator.maxGenesisUTxOouts = n `div` 2
-      , Ledger.Generator.frequencyTxUpdates = 0
-      , Ledger.Generator.frequencyTxWithMetadata = 0
-      , Ledger.Generator.maxCertsPerTx = 0
-      }
+--  -- NOTE(AB): This sets some parameters for the tx generator that will affect
+--  -- the structure of generated transactions. In our case, we want to remove
+--  -- "special" capabilities which are irrelevant in the context of a Hydra head
+--  -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
+--  customGenEnv n =
+--    (Ledger.Generator.genEnv Proxy)
+--      { Ledger.Generator.geConstants = constants n
+--      }
+
+--  constants n =
+--    Ledger.Generator.defaultConstants
+--      { Ledger.Generator.minGenesisUTxOouts = 1
+--      , -- NOTE: The genUtxo0 generator seems to draw twice from the range
+--        -- [minGenesisUTxOouts, maxGenesisUTxOouts]
+--        Ledger.Generator.maxGenesisUTxOouts = n `div` 2
+--      , Ledger.Generator.frequencyTxUpdates = 0
+--      , Ledger.Generator.frequencyTxWithMetadata = 0
+--      , Ledger.Generator.maxCertsPerTx = 0
+--      }
 
 -- TODO: Enable arbitrary datum in generators
 -- TODO: This should better be called 'genOutputFor'
