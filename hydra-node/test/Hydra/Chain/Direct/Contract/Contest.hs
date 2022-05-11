@@ -21,6 +21,7 @@ import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (elements, oneof, suchThat)
+import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
 --
@@ -75,12 +76,15 @@ healthyContestUTxO =
     `generateWith` 42
 
 healthySnapshotNumber :: SnapshotNumber
-healthySnapshotNumber = 1
+healthySnapshotNumber = 4
+
+healthyClosedSnapshotNumber :: SnapshotNumber
+healthyClosedSnapshotNumber = 3
 
 healthyContestDatum :: Head.State
 healthyContestDatum =
   Head.Closed
-    { snapshotNumber = 0
+    { snapshotNumber = healthyClosedSnapshotNumber
     , utxoHash = toBuiltin $ hashTxOuts mempty
     , parties = healthyOnChainParties
     }
@@ -106,8 +110,10 @@ healthySignature number = aggregate [sign sk snapshot | sk <- healthySigningKeys
  where
   snapshot = healthySnapshot{number}
 
+-- TODO: Test the same mutations as in CloseMutation
 data ContestMutation
   = MutateSignatureButNotSnapshotNumber
+  | MutateToNonNewerSnapshot
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -119,6 +125,9 @@ genContestMutation (_tx, _utxo) =
   oneof
     [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         contestRedeemer (number healthySnapshot) <$> (arbitrary :: Gen (Hydra.MultiSignature (Snapshot Tx)))
+    , SomeMutation MutateToNonNewerSnapshot . ChangeHeadRedeemer <$> do
+        mutatedSnapshotNumer <- choose (0, healthyClosedSnapshotNumber)
+        undefined
     ]
  where
   contestRedeemer snapshotNumber sig =
