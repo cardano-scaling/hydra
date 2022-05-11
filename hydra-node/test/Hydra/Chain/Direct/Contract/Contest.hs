@@ -122,8 +122,12 @@ healthySignature number =
 
 -- TODO: Test the same mutations as in CloseMutation
 data ContestMutation
-  = MutateSignatureButNotSnapshotNumber
-  | MutateToNonNewerSnapshot
+  = -- | Ensure signatures are actually checked.
+    MutateSignatureButNotSnapshotNumber
+  | -- | Ensure too old snapshot are not valid.
+    MutateToNonNewerSnapshot
+  | -- | Ensure that it's performed by a Head party
+    MutateRequiredSigner
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -147,4 +151,7 @@ genContestMutation (_tx, _utxo) =
                 toPlutusSignatures $
                   healthySignature (fromInteger mutatedSnapshotNumber)
             }
+    , SomeMutation MutateRequiredSigner <$> do
+        newSigner <- verificationKeyHash <$> genVerificationKey
+        pure $ ChangeRequiredSigners [newSigner]
     ]

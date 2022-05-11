@@ -322,9 +322,10 @@ checkContest ::
   BuiltinByteString ->
   [Signature] ->
   Bool
-checkContest _ctx _headContext parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
+checkContest ctx headContext parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
   mustBeNewer
     && mustBeMultiSigned
+    && mustBeSignedByParticipant ctx headContext
  where
   mustBeNewer =
     traceIfFalse "too old snapshot" $
