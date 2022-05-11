@@ -14,17 +14,16 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
-import Cardano.Ledger.Alonzo.Rules.Utxos (
-  FailureDescription (PlutusFailure),
-  TagMismatchDescription (FailedUnexpectedly),
-  UtxosPredicateFailure (ValidationTagMismatch),
- )
+import Cardano.Ledger.Alonzo.Rules.Utxos (FailureDescription (PlutusFailure), TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
 import Cardano.Ledger.Alonzo.Rules.Utxow (UtxowPredicateFail (WrappedShelleyEraFailure))
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxInfo (debugPlutus, slotToPOSIXTime)
-import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError))
+import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
+import Cardano.Ledger.Babbage.Rules.Utxo (BabbageUtxoPred (FromAlonzoUtxoFail, FromAlonzoUtxowFail))
+import Cardano.Ledger.Babbage.Tx (ValidatedTx)
+import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
+import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
@@ -47,6 +46,7 @@ import Hydra.Cardano.Api (
   CardanoMode,
   ChainPoint (..),
   EraHistory (EraHistory),
+  EraInMode (BabbageEraInCardanoMode),
   LedgerEra,
   NetworkId,
   PaymentKey,
@@ -90,7 +90,7 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.Util (
   Block,
-  Era,
+  SomePoint (..),
   defaultCodecs,
   nullConnectTracers,
   versions,
@@ -102,7 +102,11 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
-import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo))
+import Ouroboros.Consensus.Cardano.Block (
+  GenTx (..),
+  HardForkApplyTxErr (ApplyTxErrBabbage),
+  HardForkBlock (BlockBabbage),
+ )
 import Ouroboros.Consensus.HardFork.Combinator (PastHorizonException)
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
@@ -284,7 +288,7 @@ ouroborosApplication ::
   (MonadST m, MonadTimer m, MonadThrow m) =>
   Tracer m DirectChainLog ->
   Maybe (Point Block) ->
-  TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
+  TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
   ChainSyncHandler m ->
   TinyWallet m ->
   NodeToClientVersion ->
@@ -404,7 +408,7 @@ txSubmissionClient ::
   forall m.
   (MonadSTM m) =>
   Tracer m DirectChainLog ->
-  TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
+  TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
 txSubmissionClient tracer queue =
   LocalTxSubmissionClient clientStIdle
@@ -415,7 +419,7 @@ txSubmissionClient tracer queue =
     traceWith tracer (PostingTx (getTxId tx, tx))
     pure $
       SendMsgSubmitTx
-        (GenTxAlonzo . mkShelleyTx $ tx)
+        (GenTxBabbage . mkShelleyTx $ tx)
         ( \case
             SubmitSuccess -> do
               traceWith tracer (PostedTx (getTxId tx))
@@ -429,16 +433,16 @@ txSubmissionClient tracer queue =
   -- XXX(SN): patch-work error pretty printing on single plutus script failures
   onFail err =
     case err of
-      ApplyTxErrAlonzo (ApplyTxError [failure]) ->
+      ApplyTxErrBabbage (ApplyTxError [failure]) ->
         fromMaybe failedToPostTx (unwrapPlutus failure)
       _ ->
         failedToPostTx
    where
     failedToPostTx = FailedToPostTx{failureReason = show err}
 
-  unwrapPlutus :: LedgerPredicateFailure Era -> Maybe (PostTxError Tx)
+  unwrapPlutus :: LedgerPredicateFailure LedgerEra -> Maybe (PostTxError Tx)
   unwrapPlutus = \case
-    UtxowFailure (WrappedShelleyEraFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure plutusFailure debug :| _)))))) ->
+    UtxowFailure (FromAlonzoUtxowFail (WrappedShelleyEraFailure (UtxoFailure (FromAlonzoUtxoFail (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure plutusFailure debug :| _)))))))) ->
       Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo = show (debugPlutus (decodeUtf8 debug))}
     _ ->
       Nothing
