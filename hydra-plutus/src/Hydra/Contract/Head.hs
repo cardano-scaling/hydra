@@ -79,9 +79,8 @@ headValidator commitAddress initialAddress oldState input context =
       checkAbort context headContext parties
     (Open{parties, utxoHash = initialUtxoHash}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
       checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature
-    (Closed{}, Contest{snapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      let parties = [] -- FIXME: Need to get parties in context
-       in checkContest context headContext parties snapshotNumber contestUtxoHash signature
+    (Closed{parties}, Contest{snapshotNumber, utxoHash = contestUtxoHash, signature}) ->
+      checkContest context headContext parties snapshotNumber contestUtxoHash signature
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
     _ ->
@@ -295,10 +294,10 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
   checkSnapshot && mustBeSignedByParticipant ctx headContext
  where
   checkSnapshot
-    | snapshotNumber == 0 = checkHeadOutputDatum ctx (Closed 0 initialUtxoHash)
+    | snapshotNumber == 0 = checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = 0, utxoHash = initialUtxoHash})
     | snapshotNumber > 0 =
       verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
-        && checkHeadOutputDatum ctx (Closed snapshotNumber closedUtxoHash)
+        && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber, utxoHash = closedUtxoHash})
     | otherwise = traceError "negative snapshot number"
 {-# INLINEABLE checkClose #-}
 
@@ -310,7 +309,7 @@ checkContest ::
   BuiltinByteString ->
   [Signature] ->
   Bool
-checkContest ctx headContext parties snapshotNumber contestUtxoHash sig =
+checkContest _ctx _headContext parties snapshotNumber contestUtxoHash sig =
   mustBeMultiSigned
  where
   mustBeMultiSigned =

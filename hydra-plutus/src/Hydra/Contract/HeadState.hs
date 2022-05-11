@@ -21,7 +21,7 @@ type Hash = BuiltinByteString
 data State
   = Initial {contestationPeriod :: ContestationPeriod, parties :: [Party]}
   | Open {parties :: [Party], utxoHash :: Hash}
-  | Closed {snapshotNumber :: SnapshotNumber, utxoHash :: Hash}
+  | Closed {parties :: [Party], snapshotNumber :: SnapshotNumber, utxoHash :: Hash}
   | Final
   deriving stock (Generic, Show)
 

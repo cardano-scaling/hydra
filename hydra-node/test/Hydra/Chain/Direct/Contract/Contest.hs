@@ -36,7 +36,7 @@ healthyContestTx =
       somePartyCardanoVerificationKey
       healthySnapshot
       (healthySignature 1)
-      (headInput, headResolvedInput, headDatum)
+      (headInput, headResolvedInput, headDatum, healthyOnChainParties)
 
   headInput = generateWith arbitrary 42
 
@@ -82,6 +82,7 @@ healthyContestDatum =
   Head.Closed
     { snapshotNumber = 0
     , utxoHash = toBuiltin $ hashTxOuts mempty
+    , parties = healthyOnChainParties
     }
 
 healthyUTxO :: UTxO
