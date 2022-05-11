@@ -6,8 +6,15 @@ module Hydra.Chain.Direct.Contract.Contest where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
+import Data.Maybe (fromJust)
+
 import Cardano.Api.UTxO as UTxO
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
+import Hydra.Chain.Direct.Contract.Mutation (
+  Mutation (..),
+  SomeMutation (..),
+  changeHeadOutputDatum,
+  genHash,
+ )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, contestTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
@@ -128,30 +135,52 @@ data ContestMutation
     MutateToNonNewerSnapshot
   | -- | Ensure that it's performed by a Head party
     MutateRequiredSigner
+  | -- | Ensure output state is consistent with redeemer
+    MutateContestUTxOHash
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
-genContestMutation (_tx, _utxo) =
-  oneof
-    [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        mutatedSignature <- arbitrary :: Gen (Hydra.MultiSignature (Snapshot Tx))
-        pure $
-          Head.Contest
-            { snapshotNumber = toInteger healthyContestSnapshotNumber
-            , utxoHash = healthyContestUTxOHash
-            , signature = toPlutusSignatures mutatedSignature
-            }
-    , SomeMutation MutateToNonNewerSnapshot . ChangeHeadRedeemer <$> do
-        mutatedSnapshotNumber <- choose (0, toInteger healthyClosedSnapshotNumber)
-        pure $
-          Head.Contest
-            { snapshotNumber = mutatedSnapshotNumber
-            , utxoHash = healthyContestUTxOHash
-            , signature =
-                toPlutusSignatures $
-                  healthySignature (fromInteger mutatedSnapshotNumber)
-            }
-    , SomeMutation MutateRequiredSigner <$> do
-        newSigner <- verificationKeyHash <$> genVerificationKey
-        pure $ ChangeRequiredSigners [newSigner]
-    ]
+genContestMutation
+  ( tx
+    , _utxo
+    ) =
+    oneof
+      [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+          mutatedSignature <- arbitrary :: Gen (Hydra.MultiSignature (Snapshot Tx))
+          pure $
+            Head.Contest
+              { snapshotNumber = toInteger healthyContestSnapshotNumber
+              , utxoHash = healthyContestUTxOHash
+              , signature = toPlutusSignatures mutatedSignature
+              }
+      , SomeMutation MutateToNonNewerSnapshot . ChangeHeadRedeemer <$> do
+          mutatedSnapshotNumber <- choose (0, toInteger healthyClosedSnapshotNumber)
+          pure $
+            Head.Contest
+              { snapshotNumber = mutatedSnapshotNumber
+              , utxoHash = healthyContestUTxOHash
+              , signature =
+                  toPlutusSignatures $
+                    healthySignature (fromInteger mutatedSnapshotNumber)
+              }
+      , SomeMutation MutateRequiredSigner <$> do
+          newSigner <- verificationKeyHash <$> genVerificationKey
+          pure $ ChangeRequiredSigners [newSigner]
+      , SomeMutation MutateContestUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
+      ]
+   where
+    headTxOut = fromJust $ txOuts' tx !!? 0
+
+    mutateCloseUTxOHash :: Gen (TxOut CtxTx)
+    mutateCloseUTxOHash = do
+      mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
+      pure $
+        changeHeadOutputDatum
+          ( const $
+              Head.Closed
+                { snapshotNumber = fromIntegral healthyContestSnapshotNumber
+                , utxoHash = toBuiltin mutatedUTxOHash
+                , parties = healthyOnChainParties
+                }
+          )
+          headTxOut

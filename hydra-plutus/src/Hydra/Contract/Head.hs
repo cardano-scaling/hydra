@@ -307,9 +307,9 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
 --
 --   * The contest snapshot is correctly signed.
 --
---   * TODO: The resulting closed state is consistent with the contested snapshot.
+--   * The resulting closed state is consistent with the contested snapshot.
 --
---   * TODO: The transaction is performed (i.e. signed) by one of the head participants
+--   * The transaction is performed (i.e. signed) by one of the head participants
 checkContest ::
   ScriptContext ->
   HeadContext ->
@@ -325,6 +325,7 @@ checkContest ::
 checkContest ctx headContext parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
   mustBeNewer
     && mustBeMultiSigned
+    && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash})
     && mustBeSignedByParticipant ctx headContext
  where
   mustBeNewer =
