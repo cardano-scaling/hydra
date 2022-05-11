@@ -35,8 +35,8 @@ healthyContestTx =
   tx =
     contestTx
       somePartyCardanoVerificationKey
-      healthySnapshot
-      (healthySignature healthySnapshotNumber)
+      healthyContestSnapshot
+      (healthySignature healthyContestSnapshotNumber)
       (headInput, headResolvedInput, headDatum, healthyOnChainParties)
 
   headInput = generateWith arbitrary 42
@@ -45,9 +45,9 @@ healthyContestTx =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum
       & addParticipationTokens healthyParties
 
-  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyContestDatum)
+  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyClosedState)
 
-  headDatum = fromPlutusData $ toData healthyContestDatum
+  headDatum = fromPlutusData $ toData healthyClosedState
 
   lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
 
@@ -62,38 +62,44 @@ addParticipationTokens parties (TxOut addr val datum) =
         | cardanoVk <- genForParty genVerificationKey <$> parties
         ]
 
-healthySnapshot :: Snapshot Tx
-healthySnapshot =
+healthyContestSnapshot :: Snapshot Tx
+healthyContestSnapshot =
   Snapshot
-    { number = healthySnapshotNumber
+    { number = healthyContestSnapshotNumber
     , utxo = healthyContestUTxO
     , confirmed = []
     }
 
+healthyContestSnapshotNumber :: SnapshotNumber
+healthyContestSnapshotNumber = 4
+
 healthyContestUTxO :: UTxO
 healthyContestUTxO =
-  (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyUTxO))
+  (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyClosedUTxO))
     `generateWith` 42
 
-healthySnapshotNumber :: SnapshotNumber
-healthySnapshotNumber = 4
+healthyContestUTxOHash :: BuiltinByteString
+healthyContestUTxOHash =
+  toBuiltin $ hashTxOuts $ toList healthyContestUTxO
+
+healthyClosedState :: Head.State
+healthyClosedState =
+  Head.Closed
+    { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
+    , utxoHash = healthyClosedUTxOHash
+    , parties = healthyOnChainParties
+    }
 
 healthyClosedSnapshotNumber :: SnapshotNumber
 healthyClosedSnapshotNumber = 3
 
-healthyContestDatum :: Head.State
-healthyContestDatum =
-  Head.Closed
-    { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
-    , utxoHash = healthyUTxOHash
-    , parties = healthyOnChainParties
-    }
+healthyClosedUTxOHash :: BuiltinByteString
+healthyClosedUTxOHash =
+  toBuiltin $ hashTxOuts $ toList healthyClosedUTxO
 
-healthyUTxOHash :: BuiltinByteString
-healthyUTxOHash = toBuiltin $ hashTxOuts mempty
-
-healthyUTxO :: UTxO
-healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
+healthyClosedUTxO :: UTxO
+healthyClosedUTxO =
+  genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey = flip generateWith 42 $ do
@@ -109,9 +115,10 @@ healthyOnChainParties :: [OnChain.Party]
 healthyOnChainParties = partyToChain <$> healthyParties
 
 healthySignature :: SnapshotNumber -> Hydra.MultiSignature (Snapshot Tx)
-healthySignature number = aggregate [sign sk snapshot | sk <- healthySigningKeys]
+healthySignature number =
+  aggregate [sign sk snapshot | sk <- healthySigningKeys]
  where
-  snapshot = healthySnapshot{number}
+  snapshot = healthyContestSnapshot{number}
 
 -- TODO: Test the same mutations as in CloseMutation
 data ContestMutation
@@ -126,23 +133,22 @@ genContestMutation (_tx, _utxo) =
   -- That is, using the on-chain types. 'closeRedeemer' is also not used
   -- anywhere after changing this and can be moved into the closeTx
   oneof
-    [ -- SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-      --     contestRedeemer (number healthySnapshot) <$> (arbitrary :: Gen (Hydra.MultiSignature (Snapshot Tx)))
-      -- ,
-      SomeMutation MutateToNonNewerSnapshot . ChangeHeadRedeemer <$> do
+    [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+        mutatedSignature <- arbitrary :: Gen (Hydra.MultiSignature (Snapshot Tx))
+        pure $
+          Head.Contest
+            { snapshotNumber = toInteger healthyContestSnapshotNumber
+            , utxoHash = healthyContestUTxOHash
+            , signature = toPlutusSignatures mutatedSignature
+            }
+    , SomeMutation MutateToNonNewerSnapshot . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- choose (0, toInteger healthyClosedSnapshotNumber)
         pure $
           Head.Contest
             { snapshotNumber = mutatedSnapshotNumber
-            , utxoHash = healthyUTxOHash
-            , signature = toPlutusSignatures $ healthySignature (fromInteger mutatedSnapshotNumber)
+            , utxoHash = healthyContestUTxOHash
+            , signature =
+                toPlutusSignatures $
+                  healthySignature (fromInteger mutatedSnapshotNumber)
             }
     ]
-
--- where
---  contestRedeemer snapshotNumber sig =
---    Head.Contest
---      { snapshotNumber = toInteger snapshotNumber
---      , signature = toPlutusSignatures sig
---      , utxoHash = ""
---      }
