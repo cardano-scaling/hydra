@@ -11,42 +11,24 @@ import Hydra.Prelude
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
-import Cardano.Ledger.Alonzo (AlonzoEra)
 import Cardano.Ledger.Alonzo.Data (Data (Data))
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import Cardano.Ledger.Alonzo.PParams (PParams' (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
-import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (..), Tag (Spend), txscriptfee)
-import Cardano.Ledger.Alonzo.Tools (
-  BasicFailure (..),
-  ScriptFailure (..),
-  evaluateTransactionExecutionUnits,
- )
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..), hashData, hashScriptIntegrity)
-import Cardano.Ledger.Alonzo.TxBody (
-  TxBody,
-  collateral,
-  inputs,
-  outputs,
-  scriptIntegrityHash,
-  txfee,
-  pattern TxOut,
- )
+import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
+import Cardano.Ledger.Alonzo.Tools (BasicFailure (BadTranslation, UnknownTxIns), ScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
-import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
-import Cardano.Ledger.Alonzo.TxWitness (
-  RdmrPtr (RdmrPtr),
-  Redeemers (..),
-  TxWitness (..),
-  unRedeemers,
- )
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
+import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
+import qualified Cardano.Ledger.Babbage.Translation as Translation
+import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), hashData, hashScriptIntegrity)
+import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, scriptIntegrityHash, txfee)
+import qualified Cardano.Ledger.Babbage.TxBody as Ledger.Babbage
 import Cardano.Ledger.BaseTypes (StrictMaybe (SJust))
 import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (PParams)
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (DSIGN, HASH, StandardCrypto)
-import Cardano.Ledger.Era (ValidateScript (..))
+import Cardano.Ledger.Era (ValidateScript (..), fromTxSeq)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.SafeHash as SafeHash
@@ -74,6 +56,7 @@ import Data.Array (Array, array)
 import qualified Data.List as List
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
+import Data.Maybe.Strict (StrictMaybe (SNothing))
 import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -81,6 +64,7 @@ import GHC.Ix (Ix)
 import Hydra.Cardano.Api (
   AddressInEra,
   AddressTypeInEra,
+  LedgerEra,
   NetworkId,
   PaymentKey,
   SigningKey,
@@ -95,7 +79,6 @@ import Hydra.Cardano.Api (
 import qualified Hydra.Cardano.Api as Cardano.Api
 import Hydra.Chain.Direct.Util (
   Block,
-  Era,
   SomePoint (..),
   defaultCodecs,
   markerDatum,
@@ -105,7 +88,7 @@ import Hydra.Chain.Direct.Util (
 import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Ledger.Cardano (genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
-import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras, pattern BlockAlonzo)
+import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras, pattern BlockBabbage)
 import Ouroboros.Consensus.HardFork.Combinator (MismatchEraInfo)
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch, OneEraHash (..), mkEraMismatch)
 import qualified Ouroboros.Consensus.HardFork.Combinator.AcrossEras as Ouroboros
@@ -113,7 +96,7 @@ import Ouroboros.Consensus.HardFork.Combinator.Ledger.Query (QueryHardFork (..))
 import Ouroboros.Consensus.HardFork.History (Interpreter, PastHorizonException, interpreterToEpochInfo)
 import Ouroboros.Consensus.Ledger.Query (Query (..))
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
-import Ouroboros.Consensus.Protocol.TPraos (TPraos)
+import Ouroboros.Consensus.Protocol.Praos (Praos)
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..), ShelleyHash (..))
 import Ouroboros.Consensus.Shelley.Ledger.Query (BlockQuery (..))
 import Ouroboros.Network.Block (
@@ -153,18 +136,17 @@ import Ouroboros.Network.Protocol.LocalStateQuery.Client (
   localStateQueryClientPeer,
  )
 import qualified Ouroboros.Network.Protocol.LocalStateQuery.Client as LSQ
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (generate)
 import qualified Prelude
 
 type Address = Ledger.Addr StandardCrypto
-type TxBody = Ledger.TxBody Era
+type TxBody = Ledger.TxBody LedgerEra
 type TxIn = Ledger.TxIn StandardCrypto
-type TxOut = Ledger.TxOut Era
+type TxOut = Ledger.TxOut LedgerEra
 type VkWitness = Ledger.WitVKey 'Ledger.Witness StandardCrypto
 type QueryResult result = Either (MismatchEraInfo (CardanoEras StandardCrypto)) result
-type UTxOSet = Ledger.UTxO Era
-type AlonzoPoint = Point (ShelleyBlock (TPraos StandardCrypto) Era)
+type UTxOSet = Ledger.UTxO LedgerEra
+type PointInEra = Point (ShelleyBlock (Praos StandardCrypto) LedgerEra)
 
 -- | A 'TinyWallet' is a small abstraction of a wallet with basic UTXO
 -- management. The wallet is assumed to have only one address, and only one
@@ -175,8 +157,8 @@ data TinyWallet m = TinyWallet
   { -- | Return all known UTxO addressed to this wallet.
     getUTxO :: STM m (Map TxIn TxOut)
   , getAddress :: Address
-  , sign :: ValidatedTx Era -> ValidatedTx Era
-  , coverFee :: Map TxIn TxOut -> ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
+  , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
+  , coverFee :: Map TxIn TxOut -> ValidatedTx LedgerEra -> STM m (Either ErrCoverFee (ValidatedTx LedgerEra))
   , verificationKey :: VerificationKey PaymentKey
   }
 
@@ -248,16 +230,16 @@ withTinyWallet tracer networkId (vk, sk) iocp addr action = do
 -- checking the output's address.
 applyBlock :: Block -> (Address -> Bool) -> Map TxIn TxOut -> Map TxIn TxOut
 applyBlock blk isOurs utxo = case blk of
-  BlockAlonzo (ShelleyBlock (Ledger.Block _ bbody) _) ->
+  BlockBabbage (ShelleyBlock block _) ->
     flip execState utxo $ do
-      forM_ (txSeqTxns bbody) $ \tx -> do
+      forM_ (fromTxSeq $ bbody block) $ \tx -> do
         let txId = getTxId tx
         modify (`Map.withoutKeys` inputs (body tx))
         let indexedOutputs =
               let outs = outputs (body tx)
                   maxIx = fromIntegral $ length outs
                in StrictSeq.zip (StrictSeq.fromList [Ledger.TxIx ix | ix <- [0 .. maxIx]]) outs
-        forM_ indexedOutputs $ \(ix, out@(TxOut addr _ _)) ->
+        forM_ indexedOutputs $ \(ix, out@(Ledger.Babbage.TxOut addr _ _ _)) ->
           when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
   _ ->
     utxo
@@ -290,13 +272,13 @@ data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
 --
 -- TODO: The fee calculation is currently very dumb and static.
 coverFee_ ::
-  PParams Era ->
+  PParams LedgerEra ->
   SystemStart ->
   EpochInfo (Except PastHorizonException) ->
   Map TxIn TxOut ->
   Map TxIn TxOut ->
-  ValidatedTx Era ->
-  Either ErrCoverFee (Map TxIn TxOut, ValidatedTx Era)
+  ValidatedTx LedgerEra ->
+  Either ErrCoverFee (Map TxIn TxOut, ValidatedTx LedgerEra)
 coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@ValidatedTx{body, wits} = do
   (input, output) <- findUTxOToPayFees walletUTxO
 
@@ -326,7 +308,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
       langs =
         [ l
         | (_hash, script) <- Map.toList (txscripts wits)
-        , (not . isNativeScript @Era) script
+        , (not . isNativeScript @LedgerEra) script
         , Just l <- [language script]
         ]
       finalBody =
@@ -362,7 +344,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
      in Coin 2_000_000 <> executionCost
 
   getAdaValue :: TxOut -> Coin
-  getAdaValue (TxOut _ value _) =
+  getAdaValue (Ledger.Babbage.TxOut _ value _ _) =
     coin value
 
   resolveInput :: TxIn -> Either ErrCoverFee TxOut
@@ -377,7 +359,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
     [TxOut] ->
     Coin ->
     Either ChangeError TxOut
-  mkChange (TxOut addr _ datum) resolvedInputs otherOutputs fee
+  mkChange (Ledger.Babbage.TxOut addr _ datum _) resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
       Left $
@@ -386,13 +368,14 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
           , outputBalance = totalOut
           }
     | otherwise =
-      Right $ TxOut addr (inject changeOut) datum
+      Right $ Ledger.Babbage.TxOut addr (inject changeOut) datum refScript
    where
     totalOut = foldMap getAdaValue otherOutputs <> fee
     totalIn = foldMap getAdaValue resolvedInputs
     changeOut = totalIn <> invert totalOut
+    refScript = SNothing
 
-  adjustRedeemers :: Set TxIn -> Set TxIn -> Map RdmrPtr ExUnits -> Redeemers Era -> Redeemers Era
+  adjustRedeemers :: Set TxIn -> Set TxIn -> Map RdmrPtr ExUnits -> Redeemers LedgerEra -> Redeemers LedgerEra
   adjustRedeemers initialInputs finalInputs estimatedCosts (Redeemers initialRedeemers) =
     Redeemers $ Map.fromList $ map adjustOne $ Map.toList initialRedeemers
    where
@@ -422,8 +405,11 @@ findFuelUTxO utxo =
   Map.lookupMax (Map.filter hasMarkerDatum utxo)
  where
   hasMarkerDatum :: TxOut -> Bool
-  hasMarkerDatum (TxOut _ _ dh) =
-    dh == SJust (hashData $ Data @Era markerDatum)
+  hasMarkerDatum (Ledger.Babbage.TxOut _ _ datum _) = case datum of
+    NoDatum -> False
+    DatumHash dh ->
+      dh == hashData (Data @LedgerEra markerDatum)
+    Datum{} -> False -- Marker is not stored inline
 
 -- | Estimate cost of script executions on the transaction. This is only an
 -- estimates because the transaction isn't sealed at this point and adding new
@@ -431,7 +417,7 @@ findFuelUTxO utxo =
 -- cost a little.
 estimateScriptsCost ::
   -- | Protocol parameters
-  PParams Era ->
+  PParams LedgerEra ->
   -- | Start of the blockchain, for converting slots to UTC times
   SystemStart ->
   -- | Information about epoch sizes, for converting slots to UTC times
@@ -439,7 +425,7 @@ estimateScriptsCost ::
   -- | A UTXO needed to resolve inputs
   Map TxIn TxOut ->
   -- | The pre-constructed transaction
-  ValidatedTx Era ->
+  ValidatedTx LedgerEra ->
   Either (RdmrPtr, ScriptFailure StandardCrypto) (Map RdmrPtr ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   -- FIXME: throwing exceptions in pure code is discouraged! Convert them to
@@ -508,7 +494,7 @@ client ::
   (MonadST m, MonadTimer m) =>
   Tracer m TinyWalletLog ->
   TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut, PParams Era, SystemStart, EpochInfo (Except PastHorizonException)) ->
+  TMVar m (Map TxIn TxOut, PParams LedgerEra, SystemStart, EpochInfo (Except PastHorizonException)) ->
   Address ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
@@ -558,7 +544,7 @@ chainSyncClient ::
   (MonadSTM m) =>
   Tracer m TinyWalletLog ->
   TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut, PParams Era, SystemStart, EpochInfo (Except PastHorizonException)) ->
+  TMVar m (Map TxIn TxOut, PParams LedgerEra, SystemStart, EpochInfo (Except PastHorizonException)) ->
   Address ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
 chainSyncClient tracer tipVar utxoVar address =
@@ -621,7 +607,7 @@ stateQueryClient ::
   (MonadSTM m, MonadTimer m) =>
   Tracer m TinyWalletLog ->
   TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut, PParams Era, SystemStart, EpochInfo (Except PastHorizonException)) ->
+  TMVar m (Map TxIn TxOut, PParams LedgerEra, SystemStart, EpochInfo (Except PastHorizonException)) ->
   Address ->
   LocalStateQueryClient Block (Point Block) (Query Block) m ()
 stateQueryClient tracer tipVar utxoVar address =
@@ -640,24 +626,24 @@ stateQueryClient tracer tipVar utxoVar address =
 
   clientStAcquired :: LSQ.ClientStAcquired Block (Point Block) (Query Block) m ()
   clientStAcquired =
-    let query = QueryIfCurrentAlonzo GetLedgerTip
+    let query = QueryIfCurrentBabbage GetLedgerTip
      in LSQ.SendMsgQuery (BlockQuery query) clientStQueryingTip
 
-  clientStQueryingTip :: LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult AlonzoPoint)
+  clientStQueryingTip :: LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult PointInEra)
   clientStQueryingTip =
     LSQ.ClientStQuerying
       { LSQ.recvMsgResult = \case
-          -- Era mismatch, this can happen if the node is still syncing. In which
+          -- LedgerEra mismatch, this can happen if the node is still syncing. In which
           -- case, we can't do much but logging and retrying later.
           Left err ->
             handleEraMismatch err
           Right tip -> do
-            let query = QueryIfCurrentAlonzo GetCurrentPParams
+            let query = QueryIfCurrentBabbage GetCurrentPParams
             let continuation = clientStQueryingPParams $ fromPoint tip
             pure $ LSQ.SendMsgQuery (BlockQuery query) continuation
       }
 
-  fromPoint :: AlonzoPoint -> Point Block
+  fromPoint :: PointInEra -> Point Block
   fromPoint = \case
     GenesisPoint -> GenesisPoint
     (BlockPoint slot h) -> BlockPoint slot (fromShelleyHash h)
@@ -666,7 +652,7 @@ stateQueryClient tracer tipVar utxoVar address =
 
   clientStQueryingPParams ::
     Point Block ->
-    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult (PParams Era))
+    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult (PParams LedgerEra))
   clientStQueryingPParams tip =
     LSQ.ClientStQuerying
       { LSQ.recvMsgResult = \case
@@ -679,7 +665,7 @@ stateQueryClient tracer tipVar utxoVar address =
 
   clientStQueryingSystemStart ::
     Point Block ->
-    PParams Era ->
+    PParams LedgerEra ->
     LSQ.ClientStQuerying Block (Point Block) (Query Block) m () SystemStart
   clientStQueryingSystemStart tip pparams =
     LSQ.ClientStQuerying
@@ -690,20 +676,20 @@ stateQueryClient tracer tipVar utxoVar address =
 
   clientStQueryingInterpreter ::
     Point Block ->
-    PParams Era ->
+    PParams LedgerEra ->
     SystemStart ->
     LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (Interpreter (CardanoEras StandardCrypto))
   clientStQueryingInterpreter tip pparams systemStart =
     LSQ.ClientStQuerying
       { LSQ.recvMsgResult = \(interpreterToEpochInfo -> epochInfo) -> do
-          let query = QueryIfCurrentAlonzo $ GetUTxOByAddress (Set.singleton address)
+          let query = QueryIfCurrentBabbage $ GetUTxOByAddress (Set.singleton address)
           let continuation = clientStQueryingUTxO tip pparams systemStart epochInfo
           pure $ LSQ.SendMsgQuery (BlockQuery query) continuation
       }
 
   clientStQueryingUTxO ::
     Point Block ->
-    PParams Era ->
+    PParams LedgerEra ->
     SystemStart ->
     EpochInfo (Except PastHorizonException) ->
     LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult UTxOSet)
@@ -734,7 +720,7 @@ stateQueryClient tracer tipVar utxoVar address =
 
   handleEraMismatch :: MismatchEraInfo (CardanoEras StandardCrypto) -> m (LSQ.ClientStAcquired Block (Point Block) (Query Block) m ())
   handleEraMismatch (mkEraMismatch -> Ouroboros.EraMismatch{Ouroboros.ledgerEraName, Ouroboros.otherEraName}) = do
-    traceWith tracer $ EraMismatchError{expected = ledgerEraName, actual = otherEraName}
+    traceWith tracer $ LedgerEraMismatchError{expected = ledgerEraName, actual = otherEraName}
     threadDelay 30
     reset
 
@@ -745,7 +731,7 @@ stateQueryClient tracer tipVar utxoVar address =
 data TinyWalletLog
   = InitializingWallet SomePoint (Map TxIn TxOut)
   | ApplyBlock (Map TxIn TxOut) (Map TxIn TxOut)
-  | EraMismatchError {expected :: Text, actual :: Text}
+  | LedgerEraMismatchError {expected :: Text, actual :: Text}
   deriving (Eq, Generic, Show)
 
 instance ToJSON TinyWalletLog where
@@ -763,7 +749,7 @@ instance ToJSON TinyWalletLog where
           , "before" .= utxo
           , "after" .= utxo'
           ]
-      EraMismatchError{expected, actual} ->
+      LedgerEraMismatchError{expected, actual} ->
         object
           [ "tag" .= String "EraMismatchError"
           , "expected" .= expected
