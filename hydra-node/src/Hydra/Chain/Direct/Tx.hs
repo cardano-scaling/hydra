@@ -75,7 +75,7 @@ headPolicyId =
 
 mkHeadTokenScript :: TxIn -> PlutusScript
 mkHeadTokenScript =
-  fromPlutusScript @PlutusScriptV1 . HeadTokens.validatorScript . toPlutusTxOutRef
+  fromPlutusScript @PlutusScriptV2 . HeadTokens.validatorScript . toPlutusTxOutRef
 
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName (fromBuiltin Head.hydraHeadV1)
@@ -112,7 +112,7 @@ initTx networkId cardanoKeys parameters seed =
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId =
   TxOut
-    (mkScriptAddress @PlutusScriptV1 networkId headScript)
+    (mkScriptAddress @PlutusScriptV2 networkId headScript)
     (headValue <> valueFromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
  where
   headScript = fromPlutusScript Head.validatorScript
@@ -134,7 +134,7 @@ mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
   initialValue =
     headValue <> valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
   initialAddress =
-    mkScriptAddress @PlutusScriptV1 networkId initialScript
+    mkScriptAddress @PlutusScriptV2 networkId initialScript
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
@@ -162,7 +162,7 @@ commitTx networkId party utxo (initialInput, out, vkh) =
   initialWitness_ =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness initialScript initialDatum initialRedeemer
   initialScript =
-    fromPlutusScript @PlutusScriptV1 Initial.validatorScript
+    fromPlutusScript @PlutusScriptV2 Initial.validatorScript
   initialDatum =
     mkScriptDatum $ Initial.datum ()
   initialRedeemer =
@@ -175,7 +175,7 @@ commitTx networkId party utxo (initialInput, out, vkh) =
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitAddress =
-    mkScriptAddress @PlutusScriptV1 networkId commitScript
+    mkScriptAddress @PlutusScriptV2 networkId commitScript
   commitValue =
     txOutValue out <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
@@ -256,7 +256,7 @@ collectComTx networkId vk initialThreadOutput commits =
   commitValue =
     mconcat $ txOutValue . fst <$> Map.elems commits
   commitScript =
-    fromPlutusScript @PlutusScriptV1 Commit.validatorScript
+    fromPlutusScript @PlutusScriptV2 Commit.validatorScript
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.ViaCollectCom
 
@@ -482,7 +482,7 @@ abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
   mkAbortWitness initialDatum =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness initialScript initialDatum initialRedeemer
   initialScript =
-    fromPlutusScript @PlutusScriptV1 Initial.validatorScript
+    fromPlutusScript @PlutusScriptV2 Initial.validatorScript
   initialRedeemer =
     toScriptData $ Initial.redeemer Initial.ViaAbort
 
@@ -491,7 +491,7 @@ abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
   mkCommitWitness commitDatum =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness commitScript commitDatum commitRedeemer
   commitScript =
-    fromPlutusScript @PlutusScriptV1 Commit.validatorScript
+    fromPlutusScript @PlutusScriptV2 Commit.validatorScript
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
@@ -581,7 +581,7 @@ observeInitTx networkId cardanoKeys party tx = do
 
   isInitial (TxOut addr _ _) = addr == initialAddress
 
-  initialAddress = mkScriptAddress @PlutusScriptV1 networkId initialScript
+  initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
 
   initialScript = fromPlutusScript Initial.validatorScript
 
@@ -647,7 +647,7 @@ observeCommitTx networkId initials tx = do
       Initial.ViaCommit{committedRef} ->
         Just (fromPlutusTxOutRef <$> committedRef)
 
-  commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
+  commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
 
   commitScript = fromPlutusScript Commit.validatorScript
 
@@ -676,14 +676,14 @@ observeCollectComTx ::
   Tx ->
   Maybe CollectComObservation
 observeCollectComTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV1 utxo headScript
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Initial{parties, contestationPeriod}, Head.CollectCom) -> do
-      (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV1 (utxoFromTx tx) headScript
+      (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
       utxoHash <- decodeUtxoHash newHeadDatum
       pure
@@ -724,14 +724,14 @@ observeCloseTx ::
   Tx ->
   Maybe CloseObservation
 observeCloseTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV1 utxo headScript
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open{parties}, Head.Close{snapshotNumber = onChainSnapshotNumber}) -> do
-      (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV1 (utxoFromTx tx) headScript
+      (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
       closeContestationDeadline <- case fromData (toPlutusData newHeadDatum) of
         Just Head.Closed{contestationDeadline} -> pure contestationDeadline
@@ -771,14 +771,14 @@ observeContestTx ::
   Tx ->
   Maybe ContestObservation
 observeContestTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV1 utxo headScript
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Closed{}, Head.Contest{snapshotNumber = onChainSnapshotNumber}) -> do
-      (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV1 (utxoFromTx tx) headScript
+      (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
@@ -805,7 +805,7 @@ observeFanoutTx ::
   Tx ->
   Maybe FanoutObservation
 observeFanoutTx utxo tx = do
-  headInput <- fst <$> findTxOutByScript @PlutusScriptV1 utxo headScript
+  headInput <- fst <$> findTxOutByScript @PlutusScriptV2 utxo headScript
   findRedeemerSpending tx headInput
     >>= \case
       Head.Fanout{} -> pure FanoutObservation
@@ -825,7 +825,7 @@ observeAbortTx ::
   Tx ->
   Maybe AbortObservation
 observeAbortTx utxo tx = do
-  headInput <- fst <$> findTxOutByScript @PlutusScriptV1 utxo headScript
+  headInput <- fst <$> findTxOutByScript @PlutusScriptV2 utxo headScript
   findRedeemerSpending tx headInput >>= \case
     Head.Abort -> pure AbortObservation
     _ -> Nothing

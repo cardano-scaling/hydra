@@ -21,10 +21,9 @@ import qualified Plutus.V1.Ledger.Api as Plutus
 -- | Find and deserialise from 'ScriptData', a redeemer from the transaction
 -- associated to the given input.
 findRedeemerSpending ::
-  forall a.
   ( FromScriptData a
   ) =>
-  Tx AlonzoEra ->
+  Tx Era ->
   TxIn ->
   Maybe a
 findRedeemerSpending (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) txIn = do
@@ -39,7 +38,7 @@ findRedeemerMinting ::
   forall a.
   ( FromScriptData a
   ) =>
-  Tx AlonzoEra ->
+  Tx Era ->
   PolicyId ->
   Maybe a
 findRedeemerMinting (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) policyId = do
@@ -53,12 +52,12 @@ findRedeemerMinting (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) policyI
 findScriptMinting ::
   forall lang.
   () =>
-  Tx AlonzoEra ->
+  Tx Era ->
   PolicyId ->
   Maybe (PlutusScript lang)
 findScriptMinting (getTxBody -> ShelleyTxBody _ body scripts _ _ _) policyId = do
   _idx <- strictMaybeToMaybe $ Ledger.indexOf needle haystack
-  fromLedgerScript @_ @lang <$> find ((== needle) . Ledger.hashScript @(ShelleyLedgerEra AlonzoEra)) scripts
+  fromLedgerScript @_ @lang <$> find ((== needle) . Ledger.hashScript @(ShelleyLedgerEra Era)) scripts
  where
   needle = toLedgerScriptHash policyId
   haystack = getField @"minted" body :: Set (Ledger.ScriptHash StandardCrypto)
