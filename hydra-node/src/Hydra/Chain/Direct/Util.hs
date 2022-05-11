@@ -22,7 +22,6 @@ import qualified Hydra.Cardano.Api as Shelley
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
 import Ouroboros.Consensus.Cardano (CardanoBlock)
 import Ouroboros.Consensus.Cardano.Block (
-  AlonzoEra,
   CodecConfig (..),
  )
 import Ouroboros.Consensus.Network.NodeToClient (
@@ -52,8 +51,6 @@ import Test.QuickCheck (oneof)
 --
 
 type Block = CardanoBlock StandardCrypto
-
-type Era = AlonzoEra StandardCrypto
 type VerificationKey = Crypto.VerKeyDSIGN (DSIGN StandardCrypto)
 type SigningKey = Crypto.SignKeyDSIGN (DSIGN StandardCrypto)
 

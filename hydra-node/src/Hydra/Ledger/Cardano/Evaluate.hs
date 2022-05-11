@@ -27,8 +27,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (ExecutionUnits, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
-import Hydra.Chain.Direct.Util (Era)
+import Hydra.Cardano.Api (ExecutionUnits, LedgerEra, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1)
 import Test.QuickCheck (choose)
@@ -66,7 +65,7 @@ costModels =
     [(PlutusV1, testingCostModelV1)]
 
 -- | Current mainchain cost parameters.
-pparams :: PParams Era
+pparams :: PParams LedgerEra
 pparams =
   def
     { _costmdls = CostModels $ Map.singleton PlutusV1 testingCostModelV1
