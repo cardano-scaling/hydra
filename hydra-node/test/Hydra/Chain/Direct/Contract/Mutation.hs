@@ -400,6 +400,15 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
       ledgerBody
         { Ledger.reqSignerHashes = Set.fromList (toLedgerKeyHash <$> newSigners)
         }
+  ChangeValidityInterval (lb, up) ->
+    (Tx body' wits, utxo)
+   where
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+    body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
+    ledgerBody' =
+      ledgerBody
+        { Ledger.txvldt = toLedgerValidityInterval (lb, up)
+        }
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
 
