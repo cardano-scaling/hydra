@@ -47,7 +47,7 @@ import Hydra.Ledger.Cardano (
   simplifyUTxO,
  )
 import Hydra.Party (Party, partyToChain)
-import Plutus.V1.Ledger.Api (toBuiltin, toData)
+import Plutus.V1.Ledger.Api (toBuiltin, toData, upperBound)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
@@ -127,6 +127,7 @@ spec =
                   { snapshotNumber = 1
                   , utxoHash = toBuiltin (hashTxOuts $ toList inHeadUTxO)
                   , parties = []
+                  , closedAt = upperBound 0
                   }
            in checkCoverage $ case validateTxScriptsUnlimited onChainUTxO tx of
                 Left basicFailure ->

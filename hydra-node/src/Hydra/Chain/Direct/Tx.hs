@@ -39,7 +39,7 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
-import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin)
+import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin, upperBound)
 import qualified Plutus.V1.Ledger.Api as Plutus
 
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
@@ -288,6 +288,8 @@ closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatum
         { snapshotNumber
         , utxoHash
         , parties
+        , -- TODO: need to compute closed time from current slot
+          closedAt = upperBound 0
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -343,6 +345,7 @@ contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatu
         { snapshotNumber = toInteger number
         , utxoHash
         , parties
+        , closedAt = upperBound 0
         }
   utxoHash = toBuiltin $ hashTxOuts $ toList utxo
 

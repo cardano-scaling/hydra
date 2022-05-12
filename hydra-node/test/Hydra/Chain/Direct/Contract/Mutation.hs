@@ -150,7 +150,13 @@ import Hydra.Ledger.Cardano (genKeyPair, genOutput, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (fromData, toData)
+import Plutus.V1.Ledger.Api (
+  POSIXTime (..),
+  UpperBound,
+  fromData,
+  toData,
+  upperBound,
+ )
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -431,6 +437,9 @@ instance Arbitrary Head.Input where
 
 instance Arbitrary Head.State where
   arbitrary = genericArbitrary
+
+instance Arbitrary (UpperBound POSIXTime) where
+  arbitrary = upperBound . POSIXTime <$> arbitrary
 
 -- * Helpers
 

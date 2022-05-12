@@ -178,10 +178,11 @@ genCloseMutation (tx, _utxo) =
     pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
 
   mutateState mutatedUTxOHash = \case
-    Head.Closed{snapshotNumber, parties} ->
+    Head.Closed{snapshotNumber, parties, closedAt} ->
       Head.Closed
         { snapshotNumber
         , utxoHash = toBuiltin mutatedUTxOHash
         , parties
+        , closedAt
         }
     st -> error $ "unexpected state " <> show st

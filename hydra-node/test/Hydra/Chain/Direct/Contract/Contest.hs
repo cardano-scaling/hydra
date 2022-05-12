@@ -95,6 +95,7 @@ healthyClosedState =
     { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
     , utxoHash = healthyClosedUTxOHash
     , parties = healthyOnChainParties
+    , closedAt = arbitrary `generateWith` 42
     }
 
 healthyClosedSnapshotNumber :: SnapshotNumber
@@ -177,6 +178,7 @@ genContestMutation
               { parties = mutatedParties
               , utxoHash = healthyClosedUTxOHash
               , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
+              , closedAt = arbitrary `generateWith` 42
               }
       ]
    where
@@ -192,6 +194,7 @@ genContestMutation
                 { snapshotNumber = fromIntegral healthyContestSnapshotNumber
                 , utxoHash = toBuiltin mutatedUTxOHash
                 , parties = healthyOnChainParties
+                , closedAt = arbitrary `generateWith` 42
                 }
           )
           headTxOut
