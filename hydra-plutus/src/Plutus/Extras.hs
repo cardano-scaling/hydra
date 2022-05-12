@@ -11,9 +11,9 @@ import Hydra.Cardano.Api (
   hashScript,
   pattern PlutusScript,
  )
-import Plutus.V1.Ledger.Api (FromData (fromBuiltinData), Script, ValidatorHash (ValidatorHash))
+import Plutus.V1.Ledger.Api (Script, UnsafeFromData (unsafeFromBuiltinData), ValidatorHash (ValidatorHash))
 import PlutusTx (BuiltinData)
-import PlutusTx.Prelude (check, fromMaybe, toBuiltin, traceError)
+import PlutusTx.Prelude (check, toBuiltin)
 
 -- * Vendored from plutus-ledger
 
@@ -24,15 +24,15 @@ type ValidatorType = BuiltinData -> BuiltinData -> BuiltinData -> ()
 -- be passed to `PlutusTx.compile`.
 -- REVIEW: There might be better ways to name this than "wrap"
 wrapValidator ::
-  (FromData datum, FromData redeemer, FromData context) =>
+  (UnsafeFromData datum, UnsafeFromData redeemer, UnsafeFromData context) =>
   (datum -> redeemer -> context -> Bool) ->
   ValidatorType
 wrapValidator f d r c =
   check $ f datum redeemer context
  where
-  datum = fromMaybe (traceError "wrapValidator: converting datum") $ fromBuiltinData d
-  redeemer = fromMaybe (traceError "wrapValidator: converting redeemer") $ fromBuiltinData r
-  context = fromMaybe (traceError "wrapValidator: converting context") $ fromBuiltinData c
+  datum = unsafeFromBuiltinData d
+  redeemer = unsafeFromBuiltinData r
+  context = unsafeFromBuiltinData c
 {-# INLINEABLE wrapValidator #-}
 
 -- | Signature of an untyped minting policy script.
@@ -41,14 +41,14 @@ type MintingPolicyType = BuiltinData -> BuiltinData -> ()
 -- | Wrap a typed minting policy to get the basic `MintingPolicyType` signature
 -- which can be passed to `PlutusTx.compile`.
 wrapMintingPolicy ::
-  (FromData redeemer, FromData context) =>
+  (UnsafeFromData redeemer, UnsafeFromData context) =>
   (redeemer -> context -> Bool) ->
   MintingPolicyType
 wrapMintingPolicy f r c =
   check $ f redeemer context
  where
-  redeemer = fromMaybe (traceError "wrapMintingPolicy: converting redeemer") $ fromBuiltinData r
-  context = fromMaybe (traceError "wrapMintingPolicy: converting context") $ fromBuiltinData c
+  redeemer = unsafeFromBuiltinData r
+  context = unsafeFromBuiltinData c
 {-# INLINEABLE wrapMintingPolicy #-}
 
 -- * Similar utilities as plutus-ledger
