@@ -161,7 +161,7 @@ buildRaw ins outs fee =
       TxInsCollateralNone
       outs
       (TxFeeExplicit fee)
-      (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
+      (TxValidityNoLowerBound, TxValidityNoUpperBound)
       TxMetadataNone
       TxAuxScriptsNone
       TxExtraKeyWitnessesNone
@@ -205,7 +205,7 @@ build networkId socket changeAddress ins collateral outs = do
       (TxInsCollateral collateral)
       outs
       dummyFee
-      (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
+      (TxValidityNoLowerBound, TxValidityNoUpperBound)
       (TxMetadataInEra (TxMetadata noMetadataMap))
       (TxAuxScripts [])
       (TxExtraKeyWitnesses [])
