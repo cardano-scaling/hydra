@@ -561,7 +561,7 @@ observeInitTx networkId cardanoKeys party tx = do
       }
  where
   headOutput = \case
-    (ix, out@(TxOut _ _ (TxOutDatumInTx d))) ->
+    (ix, out@(TxOut _ _ (TxOutDatumInline d))) ->
       (ix,out,toLedgerData d,) <$> fromData (toPlutusData d)
     _ -> Nothing
 

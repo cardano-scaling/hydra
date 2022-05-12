@@ -452,6 +452,7 @@ addDatum datum scriptData =
   case datum of
     TxOutDatumNone -> error "unexpected datum none"
     TxOutDatumHash _ha -> error "hash only, expected full datum"
+    TxOutDatumInline sd -> error "not useful for inline datums"
     TxOutDatumInTx sd ->
       case scriptData of
         TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
@@ -467,7 +468,9 @@ changeHeadOutputDatum fn (TxOut addr value datum) =
       error "Unexpected empty head datum"
     (TxOutDatumHash _ha) ->
       error "Unexpected hash-only datum"
-    (TxOutDatumInTx sd) ->
+    (TxOutDatumInTx _sd) ->
+      error "Unexpected non-inlined datum"
+    (TxOutDatumInline sd) ->
       case fromData $ toPlutusData sd of
         Just st ->
           TxOut addr value (mkTxOutDatum $ fn st)
