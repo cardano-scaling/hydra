@@ -159,7 +159,7 @@ genCloseMutation (tx, _utxo) =
     , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
     , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
-        ub <- arbitrary `suchThat` (> lb)
+        ub <- arbitrary
         pure (lb, ub)
     ]
  where
