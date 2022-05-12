@@ -127,7 +127,6 @@ healthySignature number =
  where
   snapshot = healthyContestSnapshot{number}
 
--- TODO: Test the same mutations as in CloseMutation
 data ContestMutation
   = -- | Ensure signatures are actually checked.
     MutateSignatureButNotSnapshotNumber
@@ -137,6 +136,8 @@ data ContestMutation
     MutateRequiredSigner
   | -- | Ensure output state is consistent with redeemer
     MutateContestUTxOHash
+  | -- | Change parties stored in the state, causing multisig to fail
+    MutateParties
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -166,7 +167,16 @@ genContestMutation
       , SomeMutation MutateRequiredSigner <$> do
           newSigner <- verificationKeyHash <$> genVerificationKey
           pure $ ChangeRequiredSigners [newSigner]
-      , SomeMutation MutateContestUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
+      , SomeMutation MutateContestUTxOHash . ChangeOutput 0 <$> do
+          mutateCloseUTxOHash
+      , SomeMutation MutateParties . ChangeHeadDatum <$> do
+          mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
+          pure $
+            Head.Closed
+              { parties = mutatedParties
+              , utxoHash = healthyClosedUTxOHash
+              , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
+              }
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
