@@ -127,6 +127,7 @@ healthySignature number =
  where
   snapshot = healthyContestSnapshot{number}
 
+-- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation
   = -- | Ensure signatures are actually checked.
     MutateSignatureButNotSnapshotNumber

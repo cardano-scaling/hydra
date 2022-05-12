@@ -29,6 +29,9 @@ import Plutus.V1.Ledger.Api (
   Address,
   CurrencySymbol,
   Datum (..),
+  POSIXTime,
+  UpperBound(..),
+  Interval(..),
   DatumHash,
   FromData (fromBuiltinData),
   PubKeyHash (getPubKeyHash),
@@ -79,8 +82,8 @@ headValidator commitAddress initialAddress oldState input context =
       checkAbort context headContext parties
     (Open{parties, utxoHash = initialUtxoHash}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
       checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature
-    (Closed{parties, snapshotNumber = closedSnapshotNumber}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      checkContest context headContext parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, closedAt}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
+      checkContest context headContext closedAt parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
     _ ->
@@ -294,12 +297,30 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
   checkSnapshot && mustBeSignedByParticipant ctx headContext
  where
   checkSnapshot
-    | snapshotNumber == 0 = checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = 0, utxoHash = initialUtxoHash})
+    | snapshotNumber == 0 =
+        let expectedOutputDatum = Closed
+              { parties
+              , snapshotNumber = 0
+              , utxoHash = initialUtxoHash
+              , closedAt = startOfContestationPeriod ctx
+              }
+          in checkHeadOutputDatum ctx expectedOutputDatum
     | snapshotNumber > 0 =
-      verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
-        && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber, utxoHash = closedUtxoHash})
+      let expectedOutputDatum = Closed
+            { parties
+            , snapshotNumber
+            , utxoHash = closedUtxoHash
+            , closedAt = startOfContestationPeriod ctx
+            }
+       in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
+          && checkHeadOutputDatum ctx expectedOutputDatum
     | otherwise = traceError "negative snapshot number"
 {-# INLINEABLE checkClose #-}
+
+-- | Checks that the datum
+startOfContestationPeriod :: ScriptContext -> UpperBound POSIXTime
+startOfContestationPeriod ScriptContext{scriptContextTxInfo} =
+  ivTo (txInfoValidRange scriptContextTxInfo)
 
 -- | The contest validator must verify that:
 --
@@ -313,6 +334,7 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
 checkContest ::
   ScriptContext ->
   HeadContext ->
+  UpperBound POSIXTime ->
   [Party] ->
   -- | Snapshot number of the closed state.
   -- XXX: Having two snapshot numbers here is FRAGILE
@@ -322,10 +344,10 @@ checkContest ::
   BuiltinByteString ->
   [Signature] ->
   Bool
-checkContest ctx headContext parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
+checkContest ctx headContext closedAt parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
   mustBeNewer
     && mustBeMultiSigned
-    && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash})
+    && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, closedAt})
     && mustBeSignedByParticipant ctx headContext
  where
   mustBeNewer =
