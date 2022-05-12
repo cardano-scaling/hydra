@@ -1,10 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 import Hydra.Prelude hiding (catch)
 
-import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import Data.ByteString (hPut)
-import Hydra.Ledger.Cardano.Evaluate (pparams)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -33,6 +29,7 @@ import TxCost (
   computeInitCost,
   maxCpu,
   maxMem,
+  maxTxSize,
  )
 
 newtype Options = Options {outputDirectory :: Maybe FilePath}
@@ -112,7 +109,7 @@ pageHeader =
   , "| _Generated at_ | " <> show now <> " |"
   , "| _Max. memory units_ | " <> show maxMem <> " |"
   , "| _Max. CPU units_ | " <> show maxCpu <> " |"
-  , "| _Max. tx size (kB)_ | " <> show (Ledger._maxTxSize pparams) <> " |"
+  , "| _Max. tx size (kB)_ | " <> show maxTxSize <> " |"
   , ""
   ]
 
@@ -127,15 +124,19 @@ costOfInit = markdownInitCost <$> computeInitCost
     unlines $
       [ "## Cost of Init Transaction"
       , ""
-      , "| Parties | Tx size |"
-      , "| :------ | ------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU |"
+      , "| :------ | ------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numParties, txSize) ->
+          ( \(numParties, txSize, mem, cpu) ->
               "| " <> show numParties
                 <> "| "
                 <> show txSize
                 <> " | "
+                <> show (100 * fromIntegral mem / maxMem)
+                <> " | "
+                <> show (100 * fromIntegral cpu / maxCpu)
+                <> " |"
           )
           stats
 
