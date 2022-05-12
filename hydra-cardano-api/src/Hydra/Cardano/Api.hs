@@ -118,6 +118,7 @@ import Hydra.Cardano.Api.TxOutValue as Extras
 import Hydra.Cardano.Api.TxScriptValidity as Extras
 import Hydra.Cardano.Api.UTxO as Extras
 import Hydra.Cardano.Api.UsingRawBytesHex as Extras
+import Hydra.Cardano.Api.ValidityInterval as Extras
 import Hydra.Cardano.Api.Value as Extras
 import Hydra.Cardano.Api.Witness as Extras
 
