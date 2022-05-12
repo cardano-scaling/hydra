@@ -282,11 +282,11 @@ renderTxWithUTxO utxo (Tx body _wits) =
   totalScriptSize = sum $ BL.length . serialize <$> scripts
 
   prettyScript (fromLedgerScript -> script)
-    | script == fromPlutusScript @PlutusScriptV1 Initial.validatorScript =
+    | script == fromPlutusScript @PlutusScriptV2 Initial.validatorScript =
       "InitialScript Script (" <> scriptHash <> ")"
-    | script == fromPlutusScript @PlutusScriptV1 Commit.validatorScript =
+    | script == fromPlutusScript @PlutusScriptV2 Commit.validatorScript =
       "CommitScript Script (" <> scriptHash <> ")"
-    | script == fromPlutusScript @PlutusScriptV1 Head.validatorScript =
+    | script == fromPlutusScript @PlutusScriptV2 Head.validatorScript =
       "Head Script (" <> scriptHash <> ")"
     | otherwise =
       "Unknown Script (" <> scriptHash <> ")"
