@@ -40,12 +40,11 @@ package plutus-merkle-tree
 -- Always show detailed output for tests
 test-show-details: direct
 
--- TODO: BabbageEra not exposed on upstream, so we needed to fork
 source-repository-package
   type: git
-  location: https://github.com/ch1bo/cardano-node.git
-  tag: 53bbca6b05b35f9eaba9f2fc9482f9eab934c89e
-  --sha256: 0jqhqhq5sm4b2y79652idzjabjrf064g4z13gv1fnknh75h45dpf
+  location: https://github.com/input-output-hk/cardano-node.git
+  tag: a1e947e6e281f1b3739d34c74356f1b93ecc1d50
+  --sha256: 0g9np7ppliyb3bg1igbf9mbm21jcrgl2vvch6ckyczx4818qr31w
   subdir:
     cardano-api
 
