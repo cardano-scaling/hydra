@@ -504,8 +504,8 @@ instance
               <*> o .:? "isValid" .!= Ledger.Alonzo.IsValid True
               <*> o .:? "auxiliaryData" .!= SNothing
           Just str -> do
-            -- TODO Derive type from era
-            guard . (== ("Tx AlonzoEra" :: Text)) =<< (o .: "type")
+            let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
+            guard . (== envelopeType) =<< (o .: "type")
             parseAsBase16CBOR (String str)
 
     parseAsBase16CBOR =
