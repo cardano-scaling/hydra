@@ -185,7 +185,7 @@ computeFanOutCost = do
   genFanoutTx numOutputs = do
     ctx <- genHydraContext 3
     utxo <- genSimpleUTxOOfSize numOutputs
-    stClosed <- genStClosed ctx utxo
+    (_,stClosed) <- genStClosed ctx utxo
     pure (fanout utxo stClosed, getKnownUTxO stClosed)
 
 genSimpleUTxOOfSize :: Int -> Gen UTxO
