@@ -121,6 +121,7 @@ data CloseMutation
   | MutateParties
   | MutateRequiredSigner
   | MutateCloseUTxOHash
+  | MutateValidityInterval
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -156,6 +157,10 @@ genCloseMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
+    , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
+        lb <- arbitrary
+        ub <- arbitrary `suchThat` (> lb)
+        pure (lb, ub)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

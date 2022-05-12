@@ -293,6 +293,8 @@ data Mutation
     ChangeMintedValue Value
   | -- | Change required signers on a transaction'
     ChangeRequiredSigners [Hash PaymentKey]
+  | -- | Change the validity interval of the transaction.
+    ChangeValidityInterval (TxValidityLowerBound, TxValidityUpperBound)
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
     -- change of more than one thing in the transaction and/or UTxO set, for

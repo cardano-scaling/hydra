@@ -65,7 +65,7 @@ emptyTxBody =
     (TxInsCollateral mempty)
     mempty
     (TxFeeExplicit 0)
-    (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
+    (TxValidityNoLowerBound, TxValidityNoUpperBound)
     TxMetadataNone
     TxAuxScriptsNone
     TxExtraKeyWitnessesNone
