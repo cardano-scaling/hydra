@@ -9,6 +9,8 @@ const customFields = {
   apiSpecUrl: 'api.yaml',
 };
 
+const editUrl = 'https://github.com/input-output-hk/hydra-poc/tree/master/docs';
+
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Hydra: Head Protocol',
@@ -30,9 +32,7 @@ const config = {
       'classic',
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
-        docs: {
-          editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/docs'
-        },
+        docs: { editUrl },
         blog: {
           path: 'adr',
           routeBasePath: '/adr',
@@ -57,7 +57,7 @@ const config = {
         id: 'core-concepts',
         path: 'core-concepts',
         routeBasePath: 'core-concepts',
-        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/core-concepts'
+        editUrl
       })
     ],
     [
@@ -67,7 +67,7 @@ const config = {
         id: 'topologies',
         path: 'topologies',
         routeBasePath: 'topologies',
-        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/topologies'
+        editUrl
       }),
     ],
     [
@@ -77,7 +77,7 @@ const config = {
         id: 'benchmarks',
         path: 'benchmarks',
         routeBasePath: 'benchmarks',
-        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/benchmarks'
+        editUrl
       }),
     ],
   ],
