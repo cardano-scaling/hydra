@@ -90,6 +90,7 @@ library
     Hydra.Cardano.Api.Point
     Hydra.Cardano.Api.PolicyId
     Hydra.Cardano.Api.Prelude
+    Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra
     Hydra.Cardano.Api.ScriptData
     Hydra.Cardano.Api.ScriptDataSupportedInEra
     Hydra.Cardano.Api.ScriptDatum

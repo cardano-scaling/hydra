@@ -542,7 +542,7 @@ pattern TxOut{txOutAddress, txOutValue, txOutDatum} <-
 -- ** TxOutDatum
 
 type TxOutDatum ctx = Cardano.Api.TxOutDatum ctx Era
-{-# COMPLETE TxOutDatumNone, TxOutDatumHash, TxOutDatumInTx #-}
+{-# COMPLETE TxOutDatumNone, TxOutDatumHash, TxOutDatumInTx, TxOutDatumInline #-}
 
 pattern TxOutDatumNone :: TxOutDatum ctx
 pattern TxOutDatumNone <-
@@ -564,6 +564,13 @@ pattern TxOutDatumInTx{txOutDatumScriptData} <-
   where
     TxOutDatumInTx =
       Cardano.Api.TxOutDatumInTx ScriptDataInBabbageEra
+
+pattern TxOutDatumInline :: ScriptData -> TxOutDatum ctx
+pattern TxOutDatumInline{txOutDatumInlineScriptData} <-
+  Cardano.Api.TxOutDatumInline _ txOutDatumInlineScriptData
+  where
+    TxOutDatumInline =
+      Cardano.Api.TxOutDatumInline Cardano.Api.Shelley.ReferenceTxInsScriptsInlineDatumsInBabbageEra
 
 -- ** TxScriptValidity
 
