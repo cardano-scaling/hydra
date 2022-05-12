@@ -11,12 +11,12 @@ import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Plutus.Extras (scriptValidatorHash, wrapMintingPolicy)
-import Plutus.V1.Ledger.Api (
+import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   Datum (getDatum),
-  DatumHash,
   FromData (fromBuiltinData),
   MintingPolicy (getMintingPolicy),
+  OutputDatum (..),
   Script,
   ScriptContext (ScriptContext, scriptContextTxInfo),
   TxInInfo (..),
@@ -27,11 +27,7 @@ import Plutus.V1.Ledger.Api (
   Value (getValue),
   mkMintingPolicyScript,
  )
-import Plutus.V1.Ledger.Contexts (
-  findDatum,
-  ownCurrencySymbol,
-  scriptOutputsAt,
- )
+import Plutus.V2.Ledger.Contexts (findDatum, ownCurrencySymbol, scriptOutputsAt)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 
@@ -77,14 +73,17 @@ validateTokensMinting initialValidator headValidator seedInput context =
 
   nParties =
     case scriptOutputsAt headValidator txInfo of
-      [(dh, _)] ->
-        case getDatum <$> findDatum dh txInfo of
-          Nothing -> traceError "expected optional commit datum"
-          Just da ->
-            case fromBuiltinData @Head.DatumType da of
-              Nothing -> traceError "expected commit datum type, got something else"
-              Just Head.Initial{Head.parties = parties} -> length parties
-              Just _ -> traceError "unexpected State in datum"
+      [(datum, _)] ->
+        case datum of
+          NoOutputDatum -> traceError "missing datum"
+          OutputDatumHash dh -> case getDatum <$> findDatum dh txInfo of
+            Nothing -> traceError "expected optional commit datum"
+            Just da ->
+              case fromBuiltinData @Head.DatumType da of
+                Nothing -> traceError "expected commit datum type, got something else"
+                Just Head.Initial{Head.parties = parties} -> length parties
+                Just _ -> traceError "unexpected State in datum"
+          OutputDatum{} -> traceError "unexpected inline datum"
       _ -> traceError "expected single head output"
 
   seedInputIsConsumed = seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
@@ -127,7 +126,7 @@ participationTokensAreDistributed currency initialValidator txInfo nParties =
     [] -> traceIfFalse "no initial outputs for parties" $ nParties == (0 :: Integer)
     outs -> nParties == length outs && all hasParticipationToken outs
  where
-  hasParticipationToken :: (DatumHash, Value) -> Bool
+  hasParticipationToken :: (OutputDatum, Value) -> Bool
   hasParticipationToken (_, val) =
     case Map.lookup currency (getValue val) of
       Nothing -> traceError "no PT distributed"
