@@ -46,7 +46,7 @@ import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 import qualified PlutusTx.Builtins as Builtins
 
--- NOTE: Functions not re-exported "as V2", but using the same data types.
+-- REVIEW: Functions not re-exported "as V2", but using the same data types.
 import Plutus.V1.Ledger.Address (scriptHashAddress)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 

@@ -11,6 +11,10 @@ import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
+import qualified Plutus.V2.Ledger.Api as Plutus
+import Ouroboros.Consensus.Util (eitherToMaybe)
+import qualified Cardano.Ledger.Babbage.TxInfo as Ledger
+import Cardano.Ledger.Babbage.TxInfo (OutputSource(OutputFromOutput))
 
 -- * Extras
 
@@ -82,3 +86,9 @@ toLedgerTxOut =
 fromLedgerTxOut :: Ledger.TxOut (ShelleyLedgerEra Era) -> TxOut ctx Era
 fromLedgerTxOut =
   fromShelleyTxOut shelleyBasedEra
+
+-- | Convert a cardano-api's 'TxOut' into a plutus' 'TxOut'. Returns 'Nothing'
+-- if a byron address is used in the given 'TxOut'.
+toPlutusTxOut :: TxOut CtxUTxO Era -> Maybe Plutus.TxOut
+toPlutusTxOut =
+  eitherToMaybe . Ledger.txInfoOutV2 OutputFromOutput . toLedgerTxOut

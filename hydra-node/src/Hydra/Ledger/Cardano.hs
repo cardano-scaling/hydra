@@ -50,6 +50,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
+import Plutus.V2.Ledger.Api (toData)
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 import Test.QuickCheck (
   choose,
@@ -333,8 +334,10 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
 hashTxOuts :: [TxOut CtxUTxO] -> ByteString
 hashTxOuts =
-  -- FIXME: This needs to be a hash of CBOR of a list of Plutus' TxOut values
-  digest @SHA256 Proxy . serialize' . fmap toLedgerTxOut
+  -- REVIEW: Depends on the ToCBOR instance of 'Data' in plutus, is this fine?
+  -- NOTE: Silently drops outputs using byron addresses as they result in
+  -- 'Nothing' in 'toPlutusTxOut'.
+  digest @SHA256 Proxy . serialize' . toData . mapMaybe toPlutusTxOut
 
 deriving newtype instance ToJSON UTxO
 
