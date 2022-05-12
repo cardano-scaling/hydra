@@ -152,16 +152,6 @@ genCloseMutation (tx, _utxo) =
             { parties = mutatedParties
             , utxoHash = ""
             }
-    , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
-        Head.Open{Head.parties = parties} ->
-          parties /= Head.parties healthyCloseDatum
-        _ ->
-          True
-    , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
-        Head.Open{Head.parties = parties} ->
-          parties /= Head.parties healthyCloseDatum
-        _ ->
-          True
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
