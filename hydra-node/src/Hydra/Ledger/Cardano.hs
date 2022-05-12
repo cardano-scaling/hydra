@@ -258,8 +258,9 @@ renderTxWithUTxO utxo (Tx body _wits) =
       "TxOutDatumNone"
     TxOutDatumHash h ->
       "TxOutDatumHash " <> show h
-    _ ->
-      error "absurd"
+    TxOutDatumInline scriptData ->
+      "TxOutDatumInline " <> prettyScriptData scriptData
+    _ -> error "absurd"
 
   prettyDatumCtx = \case
     TxOutDatumNone ->
@@ -268,6 +269,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
       "TxOutDatumHash " <> show h
     TxOutDatumInTx scriptData ->
       "TxOutDatumInTx " <> prettyScriptData scriptData
+    TxOutDatumInline scriptData ->
+      "TxOutDatumInline " <> prettyScriptData scriptData
 
   scriptLines =
     [ "== SCRIPTS (" <> show (length scripts) <> ")"
