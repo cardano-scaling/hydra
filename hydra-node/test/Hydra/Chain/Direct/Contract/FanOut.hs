@@ -19,6 +19,7 @@ import Hydra.Ledger.Cardano (
   genValue,
   hashTxOuts,
  )
+import Hydra.Party (partyToChain)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
@@ -51,7 +52,11 @@ healthyFanoutUTxO =
 
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
-  Head.Closed 1 (toBuiltin $ hashTxOuts $ toList healthyFanoutUTxO)
+  Head.Closed
+    { snapshotNumber = 1
+    , utxoHash = toBuiltin $ hashTxOuts $ toList healthyFanoutUTxO
+    , parties = partyToChain <$> arbitrary `generateWith` 42
+    }
 
 data FanoutMutation
   = MutateAddUnexpectedOutput

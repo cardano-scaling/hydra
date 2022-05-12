@@ -524,7 +524,7 @@ forAllFanout ::
 forAllFanout action = do
   forAll (genHydraContext 3) $ \ctx ->
     forAllShow (resize maxAssetsSupported $ simplifyUTxO <$> genUTxO) renderUTxO $ \utxo ->
-      forAll (genStClosed ctx utxo) $ \stClosed ->
+      forAll (genStClosed ctx utxo) $ \(_,stClosed) ->
         action stClosed (fanout utxo stClosed)
           & label ("Fanout size: " <> prettyLength (assetsInUtxo utxo))
  where

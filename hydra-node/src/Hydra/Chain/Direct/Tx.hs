@@ -256,10 +256,9 @@ closeTx ::
   -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
   -- | Everything needed to spend the Head state-machine output.
-  -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
-  UTxOWithScript ->
+  (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party]) ->
   Tx
-closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
+closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore, parties) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -288,6 +287,7 @@ closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatum
       Head.Closed
         { snapshotNumber
         , utxoHash
+        , parties
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -315,10 +315,9 @@ contestTx ::
   -- | Multi-signature of the whole snapshot
   MultiSignature (Snapshot Tx) ->
   -- | Everything needed to spend the Head state-machine output.
-  -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
-  UTxOWithScript ->
+  (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party]) ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
+contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore, parties) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -343,6 +342,7 @@ contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatu
       Head.Closed
         { snapshotNumber = toInteger number
         , utxoHash
+        , parties
         }
   utxoHash = toBuiltin $ hashTxOuts $ toList utxo
 

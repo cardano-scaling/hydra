@@ -29,7 +29,7 @@ import Hydra.Chain.Direct.State (
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), genConfirmedSnapshot, getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot, getSnapshot)
 import Test.QuickCheck (choose, elements, frequency, suchThat, vector)
 
 -- | Define some 'global' context from which generators can pick
@@ -140,18 +140,15 @@ genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (utxo, stOpen) <- genStOpen ctx
-  -- FIXME: this is problematic for generated 'InitialSnapshot' values, because
-  -- then the 'utxo' contained in here needs to be consistent with the utxo of
-  -- the generated open state.
-  snapshot <- genConfirmedSnapshot utxo (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot 0 utxo (ctxHydraSigningKeys ctx)
   pure (stOpen, close snapshot stOpen)
 
 genContestTx :: Int -> Gen (OnChainHeadState 'StClosed, Tx)
 genContestTx numParties = do
   ctx <- genHydraContextFor numParties
   utxo <- arbitrary
-  stClosed <- genStClosed ctx utxo
-  snapshot <- genConfirmedSnapshot utxo (ctxHydraSigningKeys ctx)
+  (closedSnapshotNumber, stClosed) <- genStClosed ctx utxo
+  snapshot <- genConfirmedSnapshot closedSnapshotNumber utxo (ctxHydraSigningKeys ctx)
   pure (stClosed, contest snapshot stClosed)
 
 genStOpen ::
@@ -167,7 +164,7 @@ genStOpen ctx = do
 genStClosed ::
   HydraContext ->
   UTxO ->
-  Gen (OnChainHeadState 'StClosed)
+  Gen (SnapshotNumber, OnChainHeadState 'StClosed)
 genStClosed ctx utxo = do
   (_, stOpen) <- genStOpen ctx
   -- FIXME: We need a ConfirmedSnapshot here because the utxo's in an
@@ -177,8 +174,13 @@ genStClosed ctx utxo = do
       InitialSnapshot{} -> False
       ConfirmedSnapshot{} -> True
   let snapshot = confirmed{snapshot = (getSnapshot confirmed){utxo = utxo}}
+      -- FIXME: this is redundant with the above filter, this whole code becomes
+      -- annoyingly complicated
+      sn = case confirmed of
+        InitialSnapshot{} -> 0
+        ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
   let closeTx = close snapshot stOpen
-  pure $ snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
+  pure (sn, snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen)
 
 --
 -- Here be dragons

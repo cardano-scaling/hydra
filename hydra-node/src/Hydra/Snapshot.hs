@@ -99,18 +99,25 @@ instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- fmap Hydra.generateSigningKey <$> arbitrary
     utxo <- arbitrary
-    genConfirmedSnapshot utxo ks
+    genConfirmedSnapshot 0 utxo ks
 
 genConfirmedSnapshot ::
   IsTx tx =>
+  -- | The lower bound on snapshot number to generate.
+  -- If this is 0, then we can generate an `InitialSnapshot` or a `ConfirmedSnapshot`.
+  -- Otherwise we generate only `ConfirmedSnapshot` with a number strictly superior to
+  -- this lower bound.
+  SnapshotNumber ->
   UTxOType tx ->
   [Hydra.SigningKey] ->
   Gen (ConfirmedSnapshot tx)
-genConfirmedSnapshot utxo sks =
-  frequency
-    [ (1, initialSnapshot)
-    , (9, confirmedSnapshot)
-    ]
+genConfirmedSnapshot minSn utxo sks
+  | minSn > 0 = confirmedSnapshot
+  | otherwise =
+    frequency
+      [ (1, initialSnapshot)
+      , (9, confirmedSnapshot)
+      ]
  where
   initialSnapshot = do
     -- FIXME: The fact that we need to set a constant 0 here is a code smell.
@@ -130,6 +137,6 @@ genConfirmedSnapshot utxo sks =
   confirmedSnapshot = do
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
-    snapshot <- arbitrary `suchThat` \Snapshot{number} -> number > 0
+    snapshot <- arbitrary `suchThat` \Snapshot{number} -> number > minSn
     let signatures = Hydra.aggregate $ fmap (`Hydra.sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}

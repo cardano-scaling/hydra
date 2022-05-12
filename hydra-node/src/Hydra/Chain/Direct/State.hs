@@ -300,10 +300,8 @@ close ::
   OnChainHeadState 'StOpen ->
   Tx
 close confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} =
-  closeTx ownVerificationKey closingSnapshot (i, o, dat)
+  closeTx ownVerificationKey closingSnapshot openThreadOutput
  where
-  (i, o, dat, _) = openThreadOutput
-
   closingSnapshot = case confirmedSnapshot of
     -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
     -- we should not keep track of an actual initial 'Snapshot'
@@ -322,14 +320,14 @@ contest ::
   OnChainHeadState 'StClosed ->
   Tx
 contest confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} = do
-  contestTx ownVerificationKey sn sigs (i, o, dat)
+  contestTx ownVerificationKey sn sigs closedThreadOutput
  where
-  Closed{closedThreadOutput} = stateMachine
-  (i, o, dat, _) = closedThreadOutput
   (sn, sigs) =
     case confirmedSnapshot of
       ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
       InitialSnapshot{snapshot} -> (snapshot, mempty)
+
+  Closed{closedThreadOutput} = stateMachine
 
 fanout ::
   UTxO ->

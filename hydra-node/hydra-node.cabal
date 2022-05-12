@@ -234,6 +234,7 @@ test-suite tests
     Hydra.Chain.Direct.Contract.Close
     Hydra.Chain.Direct.Contract.CollectCom
     Hydra.Chain.Direct.Contract.Commit
+    Hydra.Chain.Direct.Contract.Contest
     Hydra.Chain.Direct.Contract.FanOut
     Hydra.Chain.Direct.Contract.Init
     Hydra.Chain.Direct.Contract.Mutation

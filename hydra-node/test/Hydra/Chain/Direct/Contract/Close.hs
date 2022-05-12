@@ -37,7 +37,7 @@ healthyCloseTx =
     closeTx
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
-      (headInput, headResolvedInput, headDatum)
+      (headInput, headResolvedInput, headDatum, healthyOnChainParties)
 
   headInput = generateWith arbitrary 42
 
@@ -152,16 +152,6 @@ genCloseMutation (tx, _utxo) =
             { parties = mutatedParties
             , utxoHash = ""
             }
-    , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
-        Head.Open{Head.parties = parties} ->
-          parties /= Head.parties healthyCloseDatum
-        _ ->
-          True
-    , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
-        Head.Open{Head.parties = parties} ->
-          parties /= Head.parties healthyCloseDatum
-        _ ->
-          True
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
@@ -183,5 +173,10 @@ genCloseMutation (tx, _utxo) =
     pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
 
   mutateState mutatedUTxOHash = \case
-    Head.Closed{snapshotNumber} -> Head.Closed{snapshotNumber, utxoHash = toBuiltin mutatedUTxOHash}
+    Head.Closed{snapshotNumber, parties} ->
+      Head.Closed
+        { snapshotNumber
+        , utxoHash = toBuiltin mutatedUTxOHash
+        , parties
+        }
     st -> error $ "unexpected state " <> show st

@@ -79,9 +79,8 @@ headValidator commitAddress initialAddress oldState input context =
       checkAbort context headContext parties
     (Open{parties, utxoHash = initialUtxoHash}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
       checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature
-    -- FIXME: Implement contest logic.
-    (Closed{}, Contest{}) ->
-      True
+    (Closed{parties, snapshotNumber = closedSnapshotNumber}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
+      checkContest context headContext parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
     _ ->
@@ -295,12 +294,47 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
   checkSnapshot && mustBeSignedByParticipant ctx headContext
  where
   checkSnapshot
-    | snapshotNumber == 0 = checkHeadOutputDatum ctx (Closed 0 initialUtxoHash)
+    | snapshotNumber == 0 = checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = 0, utxoHash = initialUtxoHash})
     | snapshotNumber > 0 =
       verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
-        && checkHeadOutputDatum ctx (Closed snapshotNumber closedUtxoHash)
+        && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber, utxoHash = closedUtxoHash})
     | otherwise = traceError "negative snapshot number"
 {-# INLINEABLE checkClose #-}
+
+-- | The contest validator must verify that:
+--
+--   * The contest snapshot number is strictly greater than the closed snapshot number.
+--
+--   * The contest snapshot is correctly signed.
+--
+--   * The resulting closed state is consistent with the contested snapshot.
+--
+--   * The transaction is performed (i.e. signed) by one of the head participants
+checkContest ::
+  ScriptContext ->
+  HeadContext ->
+  [Party] ->
+  -- | Snapshot number of the closed state.
+  -- XXX: Having two snapshot numbers here is FRAGILE
+  SnapshotNumber ->
+  -- | Snapshot number of the contestin snapshot.
+  SnapshotNumber ->
+  BuiltinByteString ->
+  [Signature] ->
+  Bool
+checkContest ctx headContext parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
+  mustBeNewer
+    && mustBeMultiSigned
+    && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash})
+    && mustBeSignedByParticipant ctx headContext
+ where
+  mustBeNewer =
+    traceIfFalse "too old snapshot" $
+      contestSnapshotNumber > closedSnapshotNumber
+
+  mustBeMultiSigned =
+    verifySnapshotSignature parties contestSnapshotNumber contestUtxoHash sig
+{-# INLINEABLE checkContest #-}
 
 checkHeadOutputDatum :: ToData a => ScriptContext -> a -> Bool
 checkHeadOutputDatum ctx d =
