@@ -51,8 +51,8 @@ import Test.QuickCheck (generate, sublistOf)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeInitCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 30]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 11]
   pure $ interesting <> limit
  where
   compute numParties = do
