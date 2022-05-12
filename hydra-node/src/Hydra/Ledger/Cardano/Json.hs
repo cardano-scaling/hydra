@@ -471,17 +471,52 @@ instance
   ( FromJSON (Core.TxBody era)
   , FromJSON (Core.AuxiliaryData era)
   , FromJSON (Core.Script era)
+  , FromCBOR (Annotator (Core.TxBody era))
+  , FromCBOR (Annotator (Core.AuxiliaryData era))
+  , FromCBOR (Annotator (Core.Witnesses era))
   , Core.Script era ~ Ledger.Alonzo.Script era
+  , Ledger.ValidateScript era
   , Era era
   ) =>
   FromJSON (Ledger.Alonzo.ValidatedTx era)
   where
-  parseJSON = withObject "Tx" $ \o ->
-    Ledger.Alonzo.ValidatedTx
-      <$> o .: "body"
-      <*> o .: "witnesses"
-      <*> o .:? "isValid" .!= Ledger.Alonzo.IsValid True
-      <*> o .:? "auxiliaryData" .!= SNothing
+  parseJSON value =
+    -- We accepts transactions in three forms:
+    --
+    -- (a) As high-level JSON object, which full format is specified via a
+    -- JSON-schema.
+    --
+    -- (b) As a JSON 'text-envelope', which is a format defined and produced by
+    -- the cardano-cli, wrapping base16-encoded strings as JSON objects with
+    -- tags.
+    --
+    -- (c) As base16 string representing a CBOR-serialized transaction, since
+    -- this is the most common medium of exchange used for transactions.
+    parseAsJSONObject value <|> parseAsBase16CBOR value
+   where
+    parseAsJSONObject =
+      withObject "Tx" $ \o -> do
+        o .:? "cborHex" >>= \case
+          Nothing ->
+            Ledger.Alonzo.ValidatedTx
+              <$> o .: "body"
+              <*> o .: "witnesses"
+              <*> o .:? "isValid" .!= Ledger.Alonzo.IsValid True
+              <*> o .:? "auxiliaryData" .!= SNothing
+          Just str -> do
+            -- TODO Derive type from era
+            guard . (== ("Tx AlonzoEra" :: Text)) =<< (o .: "type")
+            parseAsBase16CBOR (String str)
+
+    parseAsBase16CBOR =
+      withText "Tx" $ \t ->
+        case Base16.decode $ encodeUtf8 t of
+          Left base16Error ->
+            fail $ show base16Error
+          Right bytes ->
+            case decodeAnnotator "ValidatedTx" fromCBOR (fromStrict bytes) of
+              Left cborError -> fail $ show cborError
+              Right tx -> pure tx
 
 --
 -- ValidityInterval
