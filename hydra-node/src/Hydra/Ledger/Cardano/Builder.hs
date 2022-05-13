@@ -2,11 +2,10 @@
 -- cardano-api.
 module Hydra.Ledger.Cardano.Builder where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Data.Default (def)
-import Hydra.Cardano.Api
-
 import qualified Data.Map as Map
 
 -- * Types
@@ -132,3 +131,10 @@ mintTokens script redeemer assets tx =
 burnTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> [(AssetName, Quantity)] -> TxBuilder -> TxBuilder
 burnTokens script redeemer assets =
   mintTokens script redeemer (fmap (second negate) assets)
+
+-- | Set the upper validity bound for this transaction to some 'SlotNo'.
+setValiditityUpperBound :: SlotNo -> TxBuilder -> TxBuilder
+setValiditityUpperBound slotNo tx =
+  tx{txValidityRange = (lower, TxValidityUpperBound slotNo)}
+ where
+  (lower, _upper) = txValidityRange tx
