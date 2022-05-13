@@ -17,6 +17,10 @@ changes.
 - Implement on-chain contestation logic [#192](https://github.com/input-output-hk/hydra-poc/issues/192):
   + Node will automatically post a `Contest` transaction when it observes a `Close` with an obsolete snapshot
 
+#### Added
+
+- Transactions can now be submitted as raw CBOR-serialized object, base16 encoded, using the `NewTx` client input. This also supports the text-envelope format from cardano-cli out of the box. See the [api Reference](https://hydra.family/head-protocol/api-reference#operation-publish-/-message).
+
 ## [0.5.0] - 2022-05-06
 
 #### Added
