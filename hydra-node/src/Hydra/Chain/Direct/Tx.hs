@@ -321,9 +321,9 @@ contestTx ::
   -- | Multi-signature of the whole snapshot
   MultiSignature (Snapshot Tx) ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party]) ->
+  (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party], Plutus.UpperBound POSIXTime) ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore, parties) =
+contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore, parties, closedAt) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -349,7 +349,7 @@ contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatu
         { snapshotNumber = toInteger number
         , utxoHash
         , parties
-        , closedAt = upperBound 0
+        , closedAt
         }
   utxoHash = toBuiltin $ hashTxOuts $ toList utxo
 
@@ -660,7 +660,7 @@ observeCollectComTx utxo tx = do
       _ -> Nothing
 
 data CloseObservation = CloseObservation
-  { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+  { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party], Plutus.UpperBound POSIXTime)
   , headId :: HeadId
   }
   deriving (Show, Eq)
@@ -682,6 +682,9 @@ observeCloseTx utxo tx = do
     (Head.Open{parties}, Head.Close{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
+      closeUpperBound <- case fromData (toPlutusData newHeadDatum) of
+        Just Head.Closed{closedAt} -> pure closedAt
+        _ -> Nothing
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
         ( OnCloseTx{snapshotNumber}
@@ -691,6 +694,7 @@ observeCloseTx utxo tx = do
                 , newHeadOutput
                 , newHeadDatum
                 , parties
+                , closeUpperBound
                 )
             , headId
             }

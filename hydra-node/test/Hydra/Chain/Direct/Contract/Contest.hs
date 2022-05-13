@@ -25,7 +25,7 @@ import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (BuiltinByteString, toBuiltin, toData)
+import Plutus.V1.Ledger.Api (BuiltinByteString, POSIXTime, UpperBound, toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Gen (choose)
@@ -44,7 +44,7 @@ healthyContestTx =
       somePartyCardanoVerificationKey
       healthyContestSnapshot
       (healthySignature healthyContestSnapshotNumber)
-      (headInput, headResolvedInput, headDatum, healthyOnChainParties)
+      (headInput, headResolvedInput, headDatum, healthyOnChainParties, healthyClosedAt)
 
   headInput = generateWith arbitrary 42
 
@@ -95,8 +95,11 @@ healthyClosedState =
     { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
     , utxoHash = healthyClosedUTxOHash
     , parties = healthyOnChainParties
-    , closedAt = arbitrary `generateWith` 42
+    , closedAt = healthyClosedAt
     }
+
+healthyClosedAt :: UpperBound POSIXTime
+healthyClosedAt = arbitrary `generateWith` 42
 
 healthyClosedSnapshotNumber :: SnapshotNumber
 healthyClosedSnapshotNumber = 3

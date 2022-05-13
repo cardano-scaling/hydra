@@ -67,6 +67,7 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified Text.Show
 
 -- | An opaque on-chain head state, which records information and events
@@ -107,7 +108,7 @@ data HydraStateMachine (st :: HeadStateKind) where
     } ->
     HydraStateMachine 'StOpen
   Closed ::
-    { closedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+    { closedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party], Plutus.UpperBound Plutus.POSIXTime)
     , closedHeadId :: HeadId
     , closedHeadTokenScript :: PlutusScript
     } ->
@@ -129,7 +130,7 @@ getKnownUTxO OnChainHeadState{stateMachine} =
           take2Of4 initialThreadOutput : (take2Of3 <$> (initialInitials <> initialCommits))
     Open{openThreadOutput = (i, o, _, _)} ->
       UTxO.singleton (i, o)
-    Closed{closedThreadOutput = (i, o, _, _)} ->
+    Closed{closedThreadOutput = (i, o, _, _, _)} ->
       UTxO.singleton (i, o)
 
 -- Working with opaque states
@@ -336,7 +337,7 @@ fanout ::
   OnChainHeadState 'StClosed ->
   Tx
 fanout utxo OnChainHeadState{stateMachine} = do
-  let (i, o, dat, _) = closedThreadOutput
+  let (i, o, dat, _, _) = closedThreadOutput
    in fanoutTx utxo (i, o, dat) closedHeadTokenScript
  where
   Closed{closedThreadOutput, closedHeadTokenScript} = stateMachine
@@ -544,7 +545,7 @@ instance ObserveTx 'StClosed 'StClosed where
             , ownParty
             , stateMachine =
                 Closed
-                  { closedThreadOutput = (a, b, c, parties)
+                  { closedThreadOutput = (a, b, c, parties, closedAt)
                   , closedHeadId
                   , closedHeadTokenScript
                   }
@@ -554,7 +555,7 @@ instance ObserveTx 'StClosed 'StClosed where
     Closed
       { closedHeadId
       , closedHeadTokenScript
-      , closedThreadOutput = (_, _, _, parties)
+      , closedThreadOutput = (_, _, _, parties, closedAt)
       } = stateMachine
 
 -- | A convenient way to apply transition to 'SomeOnChainHeadState' without
