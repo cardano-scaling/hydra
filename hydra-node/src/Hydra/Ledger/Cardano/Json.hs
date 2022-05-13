@@ -492,22 +492,10 @@ instance
     --
     -- (c) As base16 string representing a CBOR-serialized transaction, since
     -- this is the most common medium of exchange used for transactions.
-    parseAsJSONObject value <|> parseAsBase16CBOR value
+    parseAsBase16CBOR value
+      <|> parseAsEnvelopedBase16CBOR value
+      <|> parseAsAdHocJSONObject value
    where
-    parseAsJSONObject =
-      withObject "Tx" $ \o -> do
-        o .:? "cborHex" >>= \case
-          Nothing ->
-            Ledger.Alonzo.ValidatedTx
-              <$> o .: "body"
-              <*> o .: "witnesses"
-              <*> o .:? "isValid" .!= Ledger.Alonzo.IsValid True
-              <*> o .:? "auxiliaryData" .!= SNothing
-          Just str -> do
-            let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
-            guard . (== envelopeType) =<< (o .: "type")
-            parseAsBase16CBOR (String str)
-
     parseAsBase16CBOR =
       withText "Tx" $ \t ->
         case Base16.decode $ encodeUtf8 t of
@@ -517,6 +505,21 @@ instance
             case decodeAnnotator "ValidatedTx" fromCBOR (fromStrict bytes) of
               Left cborError -> fail $ show cborError
               Right tx -> pure tx
+
+    parseAsEnvelopedBase16CBOR =
+      withObject "Tx" $ \o -> do
+        let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
+        str <- o .: "cborHex"
+        guard . (== envelopeType) =<< (o .: "type")
+        parseAsBase16CBOR (String str)
+
+    parseAsAdHocJSONObject =
+      withObject "Tx" $ \o -> do
+        Ledger.Alonzo.ValidatedTx
+          <$> o .: "body"
+          <*> o .: "witnesses"
+          <*> o .:? "isValid" .!= Ledger.Alonzo.IsValid True
+          <*> o .:? "auxiliaryData" .!= SNothing
 
 --
 -- ValidityInterval
