@@ -35,7 +35,7 @@ import Test.QuickCheck (generate)
 spec :: Spec
 spec = do
   it "can init and abort a head given nothing has been committed" $
-    failAfter 10 $
+    failAfter 20 $
       showLogsOnFailure $ \tracer -> do
         calledBackAlice <- newEmptyMVar
         calledBackBob <- newEmptyMVar
