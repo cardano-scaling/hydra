@@ -267,7 +267,10 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
 
 data TimeHandle m = TimeHandle
   { currentSlot :: m SlotNo
-  , convertSlot :: SlotNo -> m POSIXTime
+  , -- | Convert some slot into an absolute point in time.
+    -- It throws an exception when requesting a `SlotNo` that is
+    -- more than the current epoch length (5 days at time of writing this comment).
+    convertSlot :: MonadThrow m => SlotNo -> m POSIXTime
   }
 
 -- | Query ad-hoc epoch, system start and protocol parameters to determine
