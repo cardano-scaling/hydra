@@ -46,6 +46,7 @@ import Hydra.Chain.Direct.Tx (
   CollectComObservation (..),
   ContestObservation (..),
   InitObservation (..),
+  PointInTime,
   abortTx,
   closeTx,
   collectComTx,
@@ -66,7 +67,6 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
-import Plutus.V1.Ledger.Api (POSIXTime)
 import qualified Text.Show
 
 -- | An opaque on-chain head state, which records information and events
@@ -298,7 +298,7 @@ collect OnChainHeadState{networkId, ownVerificationKey, stateMachine} = do
 
 close ::
   ConfirmedSnapshot Tx ->
-  (SlotNo, POSIXTime) ->
+  PointInTime ->
   OnChainHeadState 'StOpen ->
   Tx
 close confirmedSnapshot pointInTime OnChainHeadState{ownVerificationKey, stateMachine} =

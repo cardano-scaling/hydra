@@ -248,6 +248,8 @@ data ClosingSnapshot
         signatures :: MultiSignature (Snapshot Tx)
       }
 
+type PointInTime = (SlotNo, POSIXTime)
+
 -- | Create a transaction closing a head with either the initial snapshot or
 -- with a multi-signed confirmed snapshot.
 closeTx ::
@@ -256,7 +258,7 @@ closeTx ::
   -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
   -- | Current slot and posix time to be recorded as the closing time.
-  (SlotNo, POSIXTime) ->
+  PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party]) ->
   Tx
