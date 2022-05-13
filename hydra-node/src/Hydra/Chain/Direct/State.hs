@@ -300,7 +300,7 @@ close ::
   OnChainHeadState 'StOpen ->
   Tx
 close confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} =
-  closeTx ownVerificationKey closingSnapshot openThreadOutput
+  closeTx ownVerificationKey closingSnapshot (error "TODO") openThreadOutput
  where
   closingSnapshot = case confirmedSnapshot of
     -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that

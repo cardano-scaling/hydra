@@ -37,6 +37,7 @@ healthyCloseTx =
     closeTx
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
+      healthyPointInTime
       (headInput, headResolvedInput, headDatum, healthyOnChainParties)
 
   headInput = generateWith arbitrary 42
@@ -50,6 +51,8 @@ healthyCloseTx =
   headDatum = fromPlutusData $ toData healthyCloseDatum
 
   lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
+
+  healthyPointInTime = arbitrary `generateWith` 42
 
 addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
 addParticipationTokens parties (TxOut addr val datum) =

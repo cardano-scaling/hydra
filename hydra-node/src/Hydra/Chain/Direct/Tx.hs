@@ -26,7 +26,7 @@ import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (hashTxOuts)
+import Hydra.Ledger.Cardano (hashTxOuts, setValiditityUpperBound)
 import Hydra.Ledger.Cardano.Builder (
   addExtraRequiredSigners,
   addInputs,
@@ -39,7 +39,7 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
-import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin, upperBound)
+import Plutus.V1.Ledger.Api (POSIXTime, fromBuiltin, fromData, toBuiltin, upperBound)
 import qualified Plutus.V1.Ledger.Api as Plutus
 
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
@@ -255,15 +255,18 @@ closeTx ::
   VerificationKey PaymentKey ->
   -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
+  -- | Current slot and posix time to be recorded as the closing time.
+  (SlotNo, POSIXTime) ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party]) ->
   Tx
-closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore, parties) =
+closeTx vk closing (slotNo, posixTime) (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore, parties) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
+      & setValiditityUpperBound slotNo
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -288,8 +291,7 @@ closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatum
         { snapshotNumber
         , utxoHash
         , parties
-        , -- TODO: need to compute closed time from current slot
-          closedAt = upperBound 0
+        , closedAt = upperBound posixTime
         }
 
   snapshotNumber = toInteger $ case closing of
