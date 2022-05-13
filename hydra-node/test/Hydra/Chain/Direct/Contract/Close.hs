@@ -17,6 +17,7 @@ import Hydra.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
+import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
@@ -37,7 +38,7 @@ healthyCloseTx =
     closeTx
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
-      healthyPointInTime
+      (healthySlotNo, slotNoToPOSIXTime healthySlotNo)
       (headInput, headResolvedInput, headDatum, healthyOnChainParties)
 
   headInput = generateWith arbitrary 42
@@ -52,7 +53,8 @@ healthyCloseTx =
 
   lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
 
-  healthyPointInTime = arbitrary `generateWith` 42
+healthySlotNo :: SlotNo
+healthySlotNo = arbitrary `generateWith` 42
 
 addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
 addParticipationTokens parties (TxOut addr val datum) =
@@ -162,7 +164,7 @@ genCloseMutation (tx, _utxo) =
     , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
     , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
-        ub <- arbitrary
+        ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
         pure (lb, ub)
     ]
  where

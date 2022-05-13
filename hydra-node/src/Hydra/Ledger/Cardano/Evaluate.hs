@@ -18,6 +18,7 @@ import Cardano.Ledger.Alonzo.Tools (
   ScriptFailure,
   evaluateTransactionExecutionUnits,
  )
+import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
@@ -30,9 +31,10 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (ExecutionUnits, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
+import Hydra.Cardano.Api (ExecutionUnits, SlotNo, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
 import Hydra.Chain.Direct.Util (Era)
 import qualified Plutus.V1.Ledger.Api as PV1
+import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified Plutus.V2.Ledger.Api as PV2
 
 type RedeemerReport =
@@ -75,7 +77,7 @@ pparams =
     , _maxValSize = 1000000000
     , _maxTxExUnits = ExUnits 14_000_000 10_000_000_000
     , _maxBlockExUnits = ExUnits 56_000_000 40_000_000_000
-    , _protocolVersion = ProtVer 5 0
+    , _protocolVersion = ProtVer 6 0
     , _maxTxSize = 1 `shift` 14 -- 16kB
     , _prices =
         Prices
@@ -95,3 +97,12 @@ epochInfo = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
 
 systemStart :: SystemStart
 systemStart = SystemStart $ posixSecondsToUTCTime 0
+
+-- | Using hard-coded defaults above
+slotNoToPOSIXTime :: SlotNo -> Plutus.POSIXTime
+slotNoToPOSIXTime =
+  runIdentity
+    . slotToPOSIXTime
+      pparams
+      epochInfo
+      systemStart
