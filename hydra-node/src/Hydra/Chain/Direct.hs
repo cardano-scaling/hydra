@@ -26,6 +26,7 @@ import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
+import Cardano.Ledger.Slot (EpochInfo)
 import Control.Exception (IOException)
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (
@@ -548,12 +549,13 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
 
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
+  EpochInfo m ->
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx cardanoKeys wallet someHeadState tx = do
+fromPostChainTx epochInfo cardanoKeys wallet someHeadState tx = do
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
@@ -579,7 +581,7 @@ fromPostChainTx cardanoKeys wallet someHeadState tx = do
     (CollectComTx{}, TkInitialized) -> do
       pure (collect st)
     (CloseTx{confirmedSnapshot}, TkOpen) ->
-      pure (close confirmedSnapshot st)
+      pure (close confirmedSnapshot pointInTime st)
     (ContestTx{confirmedSnapshot}, TkClosed) ->
       pure (contest confirmedSnapshot st)
     (FanoutTx{utxo}, TkClosed) ->

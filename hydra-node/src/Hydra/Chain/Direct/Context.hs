@@ -28,6 +28,7 @@ import Hydra.Chain.Direct.State (
  )
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTime)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot, getSnapshot)
 import Test.QuickCheck (choose, elements, frequency, suchThat, vector)
@@ -141,7 +142,8 @@ genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (utxo, stOpen) <- genStOpen ctx
   snapshot <- genConfirmedSnapshot 0 utxo (ctxHydraSigningKeys ctx)
-  pure (stOpen, close snapshot stOpen)
+  pointInTime <- genPointInTime
+  pure (stOpen, close snapshot pointInTime stOpen)
 
 genContestTx :: Int -> Gen (OnChainHeadState 'StClosed, Tx)
 genContestTx numParties = do
@@ -179,7 +181,8 @@ genStClosed ctx utxo = do
       sn = case confirmed of
         InitialSnapshot{} -> 0
         ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
-  let closeTx = close snapshot stOpen
+  pointInTime <- genPointInTime
+  let closeTx = close snapshot pointInTime stOpen
   pure (sn, snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen)
 
 --

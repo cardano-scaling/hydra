@@ -98,6 +98,12 @@ epochInfo = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
 systemStart :: SystemStart
 systemStart = SystemStart $ posixSecondsToUTCTime 0
 
+-- | Only for use in the context of `evaluateTx`.
+genPointInTime :: Gen (SlotNo, Plutus.POSIXTime)
+genPointInTime = do
+  slot <- arbitrary
+  pure (slot, slotNoToPOSIXTime slot)
+
 -- | Using hard-coded defaults above
 slotNoToPOSIXTime :: SlotNo -> Plutus.POSIXTime
 slotNoToPOSIXTime =

@@ -66,6 +66,7 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Plutus.V1.Ledger.Api (POSIXTime)
 import qualified Text.Show
 
 -- | An opaque on-chain head state, which records information and events
@@ -297,10 +298,11 @@ collect OnChainHeadState{networkId, ownVerificationKey, stateMachine} = do
 
 close ::
   ConfirmedSnapshot Tx ->
+  (SlotNo, POSIXTime) ->
   OnChainHeadState 'StOpen ->
   Tx
-close confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} =
-  closeTx ownVerificationKey closingSnapshot (error "TODO") openThreadOutput
+close confirmedSnapshot pointInTime OnChainHeadState{ownVerificationKey, stateMachine} =
+  closeTx ownVerificationKey closingSnapshot pointInTime openThreadOutput
  where
   closingSnapshot = case confirmedSnapshot of
     -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
