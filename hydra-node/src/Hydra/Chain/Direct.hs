@@ -106,7 +106,6 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
   reifyState,
  )
-import Hydra.Chain.Direct.Tx (PointInTime)
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
@@ -164,6 +163,7 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   SubmitResult (..),
   localTxSubmissionClientPeer,
  )
+import Plutus.V1.Ledger.Api (POSIXTime)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 withDirectChain ::
@@ -211,7 +211,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
               Chain
                 { postTx = \tx -> do
                     traceWith tracer $ ToPost tx
-                    pointInTime <- getPointInTime networkId socketPath
+                    timeHandle <- queryTimeHandle networkId socketPath
                     -- XXX(SN): 'finalizeTx' retries until a payment utxo is
                     -- found. See haddock for details
                     response <-
@@ -227,7 +227,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
                         -- bootstrap the init transaction.
                         -- For now, we bear with it and keep the static keys in
                         -- context.
-                        fromPostChainTx pointInTime cardanoKeys wallet headState tx
+                        fromPostChainTx timeHandle cardanoKeys wallet headState tx
                           >>= finalizeTx wallet headState . toLedgerTx
                           >>= \vtx -> do
                             response <- newEmptyTMVar
@@ -265,24 +265,31 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
         , networkId
         }
 
+data TimeHandle m = TimeHandle
+  { currentSlot :: m SlotNo
+  , convertSlot :: SlotNo -> m POSIXTime
+  }
+
 -- | Query ad-hoc epoch, system start and protocol parameters to determine
 -- current point in time.
-getPointInTime :: NetworkId -> FilePath -> IO PointInTime
-getPointInTime networkId socketPath = do
+queryTimeHandle :: MonadThrow m => NetworkId -> FilePath -> IO (TimeHandle m)
+queryTimeHandle networkId socketPath = do
   systemStart <- querySystemStart networkId socketPath
   eraHistory <- queryEraHistory networkId socketPath
   let epochInfo = toEpochInfo eraHistory
   pparams <- queryProtocolParameters networkId socketPath
   slotNo <- queryTipSlotNo networkId socketPath
-  posixTime <-
-    slotToPOSIXTime
-      (toLedgerPParams ShelleyBasedEraAlonzo pparams :: PParams LedgerEra)
-      epochInfo
-      systemStart
-      slotNo
-  pure (slotNo, posixTime)
+  pure $
+    TimeHandle
+      { currentSlot = pure slotNo
+      , convertSlot =
+          slotToPOSIXTime
+            (toLedgerPParams ShelleyBasedEraAlonzo pparams :: PParams LedgerEra)
+            epochInfo
+            systemStart
+      }
  where
-  toEpochInfo :: EraHistory CardanoMode -> EpochInfo IO
+  toEpochInfo :: MonadThrow m => EraHistory CardanoMode -> EpochInfo m
   toEpochInfo (EraHistory _ interpreter) =
     hoistEpochInfo (either throwIO pure . runExcept) $
       Consensus.interpreterToEpochInfo interpreter
@@ -594,15 +601,21 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
     Right validatedTx -> do
       pure $ sign validatedTx
 
+-- | Hardcoded grace time for close transaction to be valid.
+-- TODO: replace/remove with deadline contestation
+-- TODO: make it a node configuration parameter
+closeGraceTime :: SlotNo
+closeGraceTime = 100
+
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
-  PointInTime ->
+  TimeHandle (STM m) ->
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx pointInTime cardanoKeys wallet someHeadState tx = do
+fromPostChainTx TimeHandle{currentSlot, convertSlot} cardanoKeys wallet someHeadState tx = do
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
@@ -628,7 +641,9 @@ fromPostChainTx pointInTime cardanoKeys wallet someHeadState tx = do
     (CollectComTx{}, TkInitialized) -> do
       pure (collect st)
     (CloseTx{confirmedSnapshot}, TkOpen) -> do
-      pure (close confirmedSnapshot pointInTime st)
+      slot <- (+ closeGraceTime) <$> currentSlot
+      posixTime <- convertSlot slot
+      pure (close confirmedSnapshot (slot, posixTime) st)
     (ContestTx{confirmedSnapshot}, TkClosed) ->
       pure (contest confirmedSnapshot st)
     (FanoutTx{utxo}, TkClosed) ->
