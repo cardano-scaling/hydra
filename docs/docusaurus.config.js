@@ -14,7 +14,6 @@ const editUrl = 'https://github.com/input-output-hk/hydra-poc/tree/master/docs';
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Hydra: Head Protocol',
-  tagline: 'User Manual, Core Concepts and API Reference',
   url: 'https://input-output-hk.github.io',
   baseUrl: '/head-protocol/',
   onBrokenLinks: 'throw',
@@ -25,7 +24,18 @@ const config = {
   staticDirectories: ['static', customFields.apiSpecDir],
   customFields,
 
-  scripts: [{ src: 'https://plausible.io/js/script.js', defer: true, 'data-domain': 'hydra.family' }],
+  scripts: [
+    {
+      src: 'https://plausible.io/js/script.js',
+      defer: true,
+      'data-domain': 'hydra.family'
+    }
+  ],
+
+  i18n: {
+    defaultLocale: 'en',
+    locales: ['en', 'fr'],
+  },
 
   presets: [
     [
@@ -121,6 +131,10 @@ const config = {
           {
             href: 'https://github.com/input-output-hk/hydra-poc',
             label: 'GitHub',
+            position: 'right',
+          },
+          {
+            type: 'localeDropdown',
             position: 'right',
           },
         ],

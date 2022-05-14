@@ -1,0 +1,14 @@
+{
+  "version.label": {
+    "message": "Suivant",
+    "description": "The label for version current"
+  },
+  "sidebar.defaultSidebar.category.Getting Started": {
+    "message": "Démarrage rapide",
+    "description": "The label for category Getting Started in sidebar defaultSidebar"
+  },
+  "sidebar.defaultSidebar.category.Demo": {
+    "message": "Démo",
+    "description": "The label for category Demo in sidebar defaultSidebar"
+  }
+}

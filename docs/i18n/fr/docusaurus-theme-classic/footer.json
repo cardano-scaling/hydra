@@ -1,0 +1,54 @@
+{
+  "link.title.Contributing": {
+    "message": "Contribuer",
+    "description": "The title of the footer links column with title=Contributing in the footer"
+  },
+  "link.title.Community": {
+    "message": "Communauté",
+    "description": "The title of the footer links column with title=Community in the footer"
+  },
+  "link.title.More": {
+    "message": "Divers",
+    "description": "The title of the footer links column with title=More in the footer"
+  },
+  "link.item.label.Coding Standards": {
+    "message": "Conventions de programmation",
+    "description": "The label of footer link with label=Coding Standards linking to https://github.com/input-output-hk/hydra-poc/wiki/Coding-Standards"
+  },
+  "link.item.label.Architectural Decision Records": {
+    "message": "Décisions Architecturales",
+    "description": "The label of footer link with label=Architectural Decision Records linking to /adr"
+  },
+  "link.item.label.Testing Strategy": {
+    "message": "Contrôle qualité",
+    "description": "The label of footer link with label=Testing Strategy linking to https://github.com/input-output-hk/hydra-poc/wiki/Testing-Strategy"
+  },
+  "link.item.label.Discord (#ask-hydra)": {
+    "message": "Discord (#ask-hydra)",
+    "description": "The label of footer link with label=Discord (#ask-hydra) linking to https://discord.gg/Qq5vNTg9PT"
+  },
+  "link.item.label.Github Discussions": {
+    "message": "Github Discussions",
+    "description": "The label of footer link with label=Github Discussions linking to https://github.com/input-output-hk/hydra-poc/discussions"
+  },
+  "link.item.label.Stack Exchange": {
+    "message": "Stack Exchange",
+    "description": "The label of footer link with label=Stack Exchange linking to https://cardano.stackexchange.com/questions/tagged/hydra"
+  },
+  "link.item.label.Haskell Packages": {
+    "message": "Bibliothèques Haskell",
+    "description": "The label of footer link with label=Haskell Packages linking to /docs/haskell_packages"
+  },
+  "link.item.label.Logbook": {
+    "message": "Journal de bord",
+    "description": "The label of footer link with label=Logbook linking to https://github.com/input-output-hk/hydra-poc/wiki/Logbook"
+  },
+  "link.item.label.Input Output (Blog)": {
+    "message": "Input Output (Blog)",
+    "description": "The label of footer link with label=Input Output (Blog) linking to https://iohk.io/en/blog"
+  },
+  "copyright": {
+    "message": "Copyright © 2022 <strong>Input Output</strong> <br/> <small>Site réalisé avec Docusaurus</small>",
+    "description": "The footer copyright"
+  }
+}

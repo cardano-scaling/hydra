@@ -5,6 +5,7 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import styles from './index.module.css';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
+import Translate, {translate} from '@docusaurus/Translate';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
@@ -12,12 +13,24 @@ function HomepageHeader() {
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
         <h1 className="hero__title">{siteConfig.title}</h1>
-        <p className="hero__subtitle">{siteConfig.tagline}</p>
+        <p className="hero__subtitle">
+          <Translate
+            id="homepage.tagline"
+            description="Homepage tagline, below title."
+          >
+          User Manual, Core Concepts and API Reference
+          </Translate>
+        </p>
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
             to="/docs/getting-started">
-            Getting Started - 5min ⏱️
+              <Translate
+                id="homepage.gettingStarted"
+                description="'Getting Started' button in the home header."
+              >
+              Getting Started - 5min ⏱️
+              </Translate>
           </Link>
         </div>
       </div>
@@ -30,7 +43,7 @@ export default function Home() {
   return (
     <Layout
       title={""}
-      description={`${siteConfig.tagline}`}>
+      description={`${translate({ id: "homepage.tagline" })}`}>
       <HomepageHeader />
       <main>
         <HomepageFeatures />

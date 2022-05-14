@@ -1,34 +1,47 @@
 import React from 'react';
 import clsx from 'clsx';
 import styles from './styles.module.css';
+import {translate} from '@docusaurus/Translate';
 
 const FeatureList = [
   {
-    title: 'Secure',
+    title: translate({
+      id: "homepage.featureList.secure.title",
+      message: "Secure",
+      description: "Hydra heads' first highlight: security."
+    }),
     src: require('@site/static/img/knight.png').default,
-    description: (
-      <>
-        Stay confident that participants of a Hydra Head can’t lose funds they’ve not explicitly agreed to spend.
-      </>
-    ),
+    description: translate({
+      id: "homepage.featureList.secure.tagline",
+      message: "Stay confident that participants of a Hydra Head can’t lose funds they’ve not explicitly agreed to spend.",
+      description: "Tagline for the 'secure' property."
+    }),
   },
   {
-    title: 'Fast',
+    title: translate({
+      id: "homepage.featureList.fast.title",
+      message: "Fast",
+      description: "Hydra heads' second highlight: swiftness."
+    }),
     src: require('@site/static/img/runner.png').default,
-    description: (
-      <>
-        Benefit from near-instant settlement for transactions executed inside a Hydra Head.
-      </>
-    ),
+    description: translate({
+      id: "homepage.featureList.fast.tagline",
+      message: "Benefit from near-instant settlement for transactions executed inside a Hydra Head.",
+      description: "Tagline for the 'fast' property."
+    }),
   },
   {
-    title: 'Isomorphic',
+    title: translate({
+      id: "homepage.featureList.isomorphic.title",
+      message: "Isomorphic",
+      description: "Hydra heads' third highlight: isomorphism."
+    }),
     src: require('@site/static/img/astro_kitten.png').default,
-    description: (
-      <>
-        Harness robust capabilities, interfaces and safety of the Cardano main ledger.
-      </>
-    ),
+    description: translate({
+      id: "homepage.featureList.isomorphic.tagline",
+      message: "Harness robust capabilities, interfaces and safety of the Cardano main ledger.",
+      description: "Tagline for the 'isomorphic' property."
+    }),
   },
 ];
 
