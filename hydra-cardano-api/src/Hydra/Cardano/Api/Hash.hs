@@ -4,6 +4,7 @@ import Hydra.Cardano.Api.Prelude
 
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
+import Cardano.Ledger.SafeHash (unsafeMakeSafeHash)
 import qualified Data.ByteString as BS
 import qualified Plutus.V1.Ledger.Api as Plutus
 
@@ -30,15 +31,18 @@ unsafePaymentKeyHashFromBytes bytes
   | otherwise =
     PaymentKeyHash $ Ledger.KeyHash $ unsafeHashFromBytes bytes
 
--- NOTE: The constructor for Hash isn't exposed in the cardano-api. Although
--- there's a 'CastHash' type-class, there are not instances for everything, so
--- we have to resort to binary serialisation/deserialisation to cast hashes.
-unsafeCastHash ::
-  (SerialiseAsCBOR (Hash a), SerialiseAsCBOR (Hash b), HasCallStack) =>
-  Hash a ->
-  Hash b
-unsafeCastHash a =
-  either
-    (\e -> error $ "unsafeCastHash: incompatible hash: " <> show e)
-    identity
-    (deserialiseFromCBOR (proxyToAsType Proxy) (serialiseToCBOR a))
+-- | Unsafe wrap some bytes as a 'Hash ScriptData', relying on the fact that
+-- Plutus is using Blake2b_256 for hashing data.
+--
+-- Pre-condition: the input bytestring MUST be of length 32.
+unsafeScriptDataHashFromBytes ::
+  HasCallStack =>
+  ByteString ->
+  Hash ScriptData
+unsafeScriptDataHashFromBytes bytes
+  | BS.length bytes /= 32 =
+    error $ "unsafeScriptDataHashFromBytes: pre-condition failed: " <> show (BS.length bytes) <> " bytes."
+  | otherwise =
+    ScriptDataHash
+      . unsafeMakeSafeHash
+      $ unsafeHashFromBytes bytes

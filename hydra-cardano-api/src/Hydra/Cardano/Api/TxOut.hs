@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Cardano.Api.TxOut where
 
 import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset (..))
@@ -7,12 +9,19 @@ import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Ledger.Babbage.TxInfo (OutputSource (OutputFromOutput))
+import qualified Cardano.Ledger.Babbage.TxInfo as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
-import qualified Plutus.V2.Ledger.Api as Plutus
+import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
+import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
+import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInlineDatums, inlineDatumsSupportedInEra)
+import Hydra.Cardano.Api.ScriptData (toScriptData)
+import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupportedInEra)
 import Ouroboros.Consensus.Util (eitherToMaybe)
-import qualified Cardano.Ledger.Babbage.TxInfo as Ledger
-import Cardano.Ledger.Babbage.TxInfo (OutputSource(OutputFromOutput))
+import Plutus.V2.Ledger.Api (fromBuiltin, getDatum)
+import qualified Plutus.V2.Ledger.Api as Plutus
+import Plutus.V2.Ledger.Tx (OutputDatum (..))
 
 -- * Extras
 
@@ -96,8 +105,24 @@ toLedgerTxOut =
   toShelleyTxOut shelleyBasedEra
 
 -- | Convert a plutus 'TxOut' into a cardano-api 'TxOut'.
-fromPlutusTxOut :: Plutus.TxOut -> TxOut CtxUTxO Era
-fromPlutusTxOut = error "TODO"
+fromPlutusTxOut :: (HasScriptData era, HasInlineDatums era) => Plutus.TxOut -> TxOut CtxUTxO era
+fromPlutusTxOut out =
+  TxOut addressInEra value datum referenceScript
+ where
+  addressInEra = fromPlutusAddress plutusAddress
+
+  value = error "TODO: fromPlutusValue" plutusValue
+
+  datum = case plutusDatum of
+    NoOutputDatum -> TxOutDatumNone
+    OutputDatumHash (Plutus.DatumHash hashBytes) ->
+      TxOutDatumHash scriptDataSupportedInEra . unsafeScriptDataHashFromBytes $ fromBuiltin hashBytes
+    OutputDatum (Plutus.Datum datumData) ->
+      TxOutDatumInline inlineDatumsSupportedInEra $ toScriptData datumData
+
+  referenceScript = undefined
+
+  Plutus.TxOut plutusAddress plutusValue plutusDatum plutusReferenceScript = out
 
 -- | Convert a cardano-api 'TxOut' into a plutus 'TxOut'. Returns 'Nothing'
 -- if a byron address is used in the given 'TxOut'.
