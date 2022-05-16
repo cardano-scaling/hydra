@@ -2,20 +2,19 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
--- | The Initial validator which allows participants to commit or abort. To
--- focus on the off-chain datum types this is currently 'const True'.
+-- | The initial validator which allows participants to commit or abort.
 module Hydra.Contract.Initial where
 
 import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
-import Hydra.Contract.Encoding (encodeTxOut)
-import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Api (
+import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
+import Plutus.V2.Ledger.Api (
   Datum (..),
   FromData (fromBuiltinData),
+  OutputDatum (..),
   PubKeyHash (getPubKeyHash),
   Redeemer (Redeemer),
   Script,
@@ -33,11 +32,11 @@ import Plutus.V1.Ledger.Api (
   adaToken,
   mkValidatorScript,
  )
-import Plutus.V1.Ledger.Contexts (findDatum, findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
-import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
+import Plutus.V2.Ledger.Contexts (findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
+import qualified PlutusTx.Builtins as Builtins
 
 data InitialRedeemer
   = Abort
@@ -123,7 +122,7 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
         traceError "committed TxOut, but nothing in output datum"
       (Just txOut, Just serializedTxOut) ->
         traceIfFalse "mismatch committed TxOut in datum" $
-          SerializedTxOut (encodingToBuiltinByteString (encodeTxOut txOut)) == serializedTxOut
+          SerializedTxOut (Builtins.serialiseData $ toBuiltinData txOut) == serializedTxOut
 
   initialValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
@@ -139,11 +138,12 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
 
   commitLockedSerializedTxOut =
     case scriptOutputsAt commitValidator txInfo of
-      [(dh, _)] ->
-        case getDatum <$> findDatum dh txInfo of
-          Nothing -> traceError "expected optional commit datum"
-          (Just da) ->
-            case fromBuiltinData @Commit.DatumType da of
+      [(dat, _)] ->
+        case dat of
+          NoOutputDatum -> traceError "missing datum"
+          OutputDatumHash{} -> traceError "expected inline datum, not hash only"
+          OutputDatum da ->
+            case fromBuiltinData @Commit.DatumType $ getDatum da of
               Nothing -> traceError "expected commit datum type, got something else"
               Just (_party, _headScriptHash, mSerializedTxOut) ->
                 mSerializedTxOut
