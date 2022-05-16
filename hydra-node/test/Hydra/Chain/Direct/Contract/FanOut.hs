@@ -18,7 +18,6 @@ import Hydra.Ledger.Cardano (
   genOutput,
   genUTxOWithSimplifiedAddresses,
   genValue,
-  hashTxOuts,
  )
 import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
 import Hydra.Party (partyToChain)
@@ -76,7 +75,7 @@ healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
   Head.Closed
     { snapshotNumber = 1
-    , utxoHash = toBuiltin $ hashTxOuts $ toList healthyFanoutUTxO
+    , utxoHash = hashTxOuts . mapMaybe toPlutusTxOut $ toList healthyFanoutUTxO
     , parties = partyToChain <$> arbitrary `generateWith` 42
     , contestationDeadline = healthyContestationDeadline
     }

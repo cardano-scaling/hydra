@@ -16,7 +16,6 @@ import Hydra.Ledger.Cardano.Builder
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeAnnotator, serialize, serialize', unsafeDeserialize')
 import qualified Cardano.Crypto.DSIGN as CC
-import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
@@ -50,7 +49,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
-import Plutus.V2.Ledger.Api (toData)
+import Plutus.V2.Ledger.Api (fromBuiltin)
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 import Test.QuickCheck (
   choose,
@@ -331,13 +330,6 @@ renderTxWithUTxO utxo (Tx body _wits) =
     "== REQUIRED SIGNERS" : case txExtraKeyWits content of
       TxExtraKeyWitnessesNone -> ["[]"]
       TxExtraKeyWitnesses xs -> ("- " <>) . show <$> xs
-
-hashTxOuts :: [TxOut CtxUTxO] -> ByteString
-hashTxOuts =
-  -- REVIEW: Depends on the ToCBOR instance of 'Data' in plutus, is this fine?
-  -- NOTE: Silently drops outputs using byron addresses as they result in
-  -- 'Nothing' in 'toPlutusTxOut'.
-  digest @SHA256 Proxy . serialize' . toData . mapMaybe toPlutusTxOut
 
 deriving newtype instance ToJSON UTxO
 
