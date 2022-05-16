@@ -5,6 +5,7 @@ import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api.Byron (Address (..))
 import qualified Cardano.Ledger.Address as Ledger
+import qualified Plutus.V1.Ledger.Address as Plutus
 
 -- * Extras
 
@@ -58,3 +59,7 @@ toLedgerAddr = \case
     Ledger.AddrBootstrap (Ledger.BootstrapAddress addr)
   AddressInEra (ShelleyAddressInEra _) (ShelleyAddress ntwrk creds stake) ->
     Ledger.Addr ntwrk creds stake
+
+-- | Convert a plutus 'Address' to an api 'AddressInEra'.
+fromPlutusAddress :: Plutus.Address -> AddressInEra era
+fromPlutusAddress = error "TODO"
