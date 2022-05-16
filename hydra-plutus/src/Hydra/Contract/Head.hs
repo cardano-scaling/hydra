@@ -210,14 +210,14 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
     , commitAddress
     } = headContext
 
-  (expectedChangeValue, collectedCommits, nTotalCommits) =
+  (expectedChangeValue, comittedTxOuts, nTotalCommits) =
     traverseInputs
       (negate (txInfoAdaFee txInfo), [], 0)
       (txInfoInputs txInfo)
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
-    let utxoHash = Builtins.serialiseData $ toBuiltinData collectedCommits
+    let utxoHash = hashSerializedTxOuts comittedTxOuts
      in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod}
 
   traverseInputs (fuel, commits, nCommits) = \case
@@ -230,11 +230,11 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
           rest
       | txOutAddress txInInfoResolved == commitAddress ->
         case commitFrom txInInfoResolved of
-          (commitValue, Just (SerializedTxOut commit)) ->
+          (commitValue, Just committedTxOut) ->
             case matchParticipationToken headCurrencySymbol commitValue of
               [_] ->
                 traverseInputs
-                  (fuel, commits <> [commit], succ nCommits)
+                  (fuel, commits <> [committedTxOut], succ nCommits)
                   rest
               _ ->
                 traceError "Invalid commit: does not contain valid PT."
@@ -472,11 +472,10 @@ findTxOutDatum txInfo o =
     OutputDatum d -> d
 {-# INLINEABLE findTxOutDatum #-}
 
-hashPreSerializedCommits :: [SerializedTxOut] -> BuiltinByteString
-hashPreSerializedCommits =
-  -- REVIEW: Ensure BuiltinData 'List [Data]' is encoded like we expect
+hashSerializedTxOuts :: [SerializedTxOut] -> BuiltinByteString
+hashSerializedTxOuts =
   sha2_256 . Builtins.serialiseData . toBuiltinData
-{-# INLINEABLE hashPreSerializedCommits #-}
+{-# INLINEABLE hashSerializedTxOuts #-}
 
 hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =

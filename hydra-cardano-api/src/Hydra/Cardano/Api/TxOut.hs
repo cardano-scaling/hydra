@@ -85,17 +85,21 @@ findScriptOutput =
 
 -- * Type Conversions
 
--- | Convert a cardano-api's 'TxOut' into a cardano-ledger 'TxOut'
-toLedgerTxOut :: TxOut CtxUTxO Era -> Ledger.TxOut (ShelleyLedgerEra Era)
-toLedgerTxOut =
-  toShelleyTxOut shelleyBasedEra
-
--- | Convert a cardano-ledger's 'TxOut' into a cardano-api 'TxOut'
+-- | Convert a cardano-ledger 'TxOut' into a cardano-api 'TxOut'
 fromLedgerTxOut :: Ledger.TxOut (ShelleyLedgerEra Era) -> TxOut ctx Era
 fromLedgerTxOut =
   fromShelleyTxOut shelleyBasedEra
 
--- | Convert a cardano-api's 'TxOut' into a plutus' 'TxOut'. Returns 'Nothing'
+-- | Convert a cardano-api 'TxOut' into a cardano-ledger 'TxOut'
+toLedgerTxOut :: TxOut CtxUTxO Era -> Ledger.TxOut (ShelleyLedgerEra Era)
+toLedgerTxOut =
+  toShelleyTxOut shelleyBasedEra
+
+-- | Convert a plutus 'TxOut' into a cardano-api 'TxOut'.
+fromPlutusTxOut :: Plutus.TxOut -> TxOut CtxUTxO Era
+fromPlutusTxOut = error "TODO"
+
+-- | Convert a cardano-api 'TxOut' into a plutus 'TxOut'. Returns 'Nothing'
 -- if a byron address is used in the given 'TxOut'.
 toPlutusTxOut :: TxOut CtxUTxO Era -> Maybe Plutus.TxOut
 toPlutusTxOut =

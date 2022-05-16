@@ -7,6 +7,10 @@ module Hydra.Contract.Commit where
 
 import PlutusTx.Prelude
 
+import Codec.Serialise (deserialiseOrFail, serialise)
+import Data.ByteString.Lazy (fromStrict, toStrict)
+import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, toPlutusTxOut)
+import qualified Hydra.Cardano.Api as OffChain
 import Hydra.Contract.HeadState (State (..))
 import Hydra.Data.Party (Party)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -26,7 +30,7 @@ import Plutus.V2.Ledger.Api (
   ValidatorHash,
   mkValidatorScript,
  )
-import PlutusTx (CompiledCode, toBuiltinData)
+import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx
 import qualified PlutusTx.Builtins as Builtins
 import qualified Prelude as Haskell
@@ -35,10 +39,27 @@ data CommitRedeemer = CollectCom | Abort
 
 PlutusTx.unstableMakeIsData ''CommitRedeemer
 
+-- | A data type representing how comitted outputs are recorded on-chain. The
+-- format needs to be binary compatible between on- and off-chain code as we use
+-- hashes over these in validators.
 newtype SerializedTxOut = SerializedTxOut BuiltinByteString
   deriving newtype (Eq, Haskell.Eq, Haskell.Show, Haskell.Ord)
 
 PlutusTx.unstableMakeIsData ''SerializedTxOut
+
+-- | Record an off-chain 'TxOut' as a 'SerializedTxOut' on-chain.
+-- NOTE: Depends on the 'Serialise' instance for Plutus' 'Data'.
+serializeTxOut :: OffChain.TxOut CtxUTxO -> Maybe SerializedTxOut
+serializeTxOut o =
+  SerializedTxOut . toBuiltin . toStrict . serialise . toData <$> toPlutusTxOut o
+
+-- | Decode an on-chain 'SerializedTxOut' back into an off-chain 'TxOut'.
+-- NOTE: Depends on the 'Serialise' instance for Plutus' 'Data'.
+deserializeTxOut :: SerializedTxOut -> Maybe (OffChain.TxOut CtxUTxO)
+deserializeTxOut (SerializedTxOut bs) =
+  case deserialiseOrFail . fromStrict $ fromBuiltin bs of
+    Left{} -> Nothing
+    Right dat -> fromPlutusTxOut <$> fromData dat
 
 -- TODO: Party is not used on-chain but is needed off-chain while it's still
 -- based on mock crypto. When we move to real crypto we could simply use
