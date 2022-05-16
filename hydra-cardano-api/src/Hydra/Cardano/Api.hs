@@ -608,7 +608,7 @@ pattern TxValidityLowerBound{txValidityLowerBound} <-
   Cardano.Api.TxValidityLowerBound _ txValidityLowerBound
   where
     TxValidityLowerBound =
-      Cardano.Api.TxValidityLowerBound ValidityLowerBoundInAlonzoEra
+      Cardano.Api.TxValidityLowerBound ValidityLowerBoundInBabbageEra
 
 -- ** TxValidityUpperBound
 
@@ -617,17 +617,17 @@ type TxValidityUpperBound = Cardano.Api.TxValidityUpperBound Era
 
 pattern TxValidityNoUpperBound :: TxValidityUpperBound
 pattern TxValidityNoUpperBound <-
-  Cardano.Api.TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra
+  Cardano.Api.TxValidityNoUpperBound ValidityNoUpperBoundInBabbageEra
   where
     TxValidityNoUpperBound =
-      Cardano.Api.TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra
+      Cardano.Api.TxValidityNoUpperBound ValidityNoUpperBoundInBabbageEra
 
 pattern TxValidityUpperBound :: SlotNo -> TxValidityUpperBound
 pattern TxValidityUpperBound{txValidityUpperBound} <-
   Cardano.Api.TxValidityUpperBound _ txValidityUpperBound
   where
     TxValidityUpperBound =
-      Cardano.Api.TxValidityUpperBound ValidityUpperBoundInAlonzoEra
+      Cardano.Api.TxValidityUpperBound ValidityUpperBoundInBabbageEra
 
 -- ** Witness
 

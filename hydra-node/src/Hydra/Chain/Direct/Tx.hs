@@ -14,7 +14,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Binary (decodeFull', serialize')
 import qualified Data.Map as Map
 import Hydra.Chain (ContestationPeriod, HeadId (..), HeadParameters (..))
 import qualified Hydra.Contract.Commit as Commit
@@ -42,7 +41,6 @@ import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.V1.Ledger.Api (POSIXTime, fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V1.Ledger.Api as Plutus
-import Plutus.V2.Ledger.Api (toData)
 
 -- | Needed on-chain data to create Head transactions.
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
@@ -190,12 +188,7 @@ mkCommitDatum party headValidatorHash utxo =
     Nothing ->
       Nothing
     Just (i, o) ->
-      Just $
-        Commit.Commit
-          { input = toPlutusTxOutRef i
-          , -- REVIEW: Depends on the ToCBOR instance of 'Data' in plutus, is this fine?
-            preSerializedOutput = toBuiltin . serialize' . toData <$> toPlutusTxOut o
-          }
+      Commit.serializeCommit (i, o)
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -237,17 +230,16 @@ collectComTx networkId vk initialThreadOutput commits =
   headDatumAfter =
     mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash, contestationPeriod = initialContestationPeriod}
 
-  extractSerialisedTxOut d =
+  extractCommit d =
     case fromData $ toPlutusData d of
       Nothing -> error "SNAFU"
       Just ((_, _, Just o) :: Commit.DatumType) -> Just o
       _ -> Nothing
 
   utxoHash =
-    Head.hashPreSerializedCommits $ mapMaybe (extractSerialisedTxOut . snd . snd) orderedCommits
+    Head.hashPreSerializedCommits $ mapMaybe (extractCommit . snd . snd) orderedCommits
 
-  orderedCommits =
-    Map.toList commits
+  orderedCommits = Map.toList commits
 
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( commitInput
@@ -619,11 +611,13 @@ observeCommitTx networkId initials tx = do
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
-  (onChainParty, _, serializedTxOut) <- fromData @Commit.DatumType $ toPlutusData dat
+  (onChainParty, _, onChainCommit) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
-  let mCommittedTxOut = convertTxOut serializedTxOut
+  let mCommittedTxOut = convertTxOut onChainCommit
 
   committed <-
+    -- TODO: we do now record the TxOutRef also in the 'onChainCommit'. This
+    -- reduces the cases as we can either interpret the commit or not.
     case (mCommittedTxIn, mCommittedTxOut) of
       (Nothing, Nothing) -> Just mempty
       (Just i, Just o) -> Just $ UTxO.singleton (i, o)
@@ -656,12 +650,12 @@ observeCommitTx networkId initials tx = do
 convertTxOut :: Maybe Commit.Commit -> Maybe (TxOut CtxUTxO)
 convertTxOut = \case
   Nothing -> Nothing
-  Just Commit.Commit{preSerializedOutput} ->
-    -- XXX(SN): these errors might be more severe and we could throw an
-    -- exception here?
-    case fromLedgerTxOut <$> decodeFull' (fromBuiltin preSerializedOutput) of
-      Right result -> Just result
-      Left{} -> error "couldn't deserialize serialized output in commit's datum."
+  Just commit ->
+    case Commit.deserializeCommit commit of
+      Just (_i, o) -> Just o
+      -- XXX(SN): this error might be more severe and we could throw an
+      -- exception here?
+      Nothing -> error "couldn't deserialize serialized output in commit's datum."
 
 data CollectComObservation = CollectComObservation
   { threadOutput :: OpenThreadOutput

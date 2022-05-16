@@ -7,6 +7,10 @@ module Hydra.Contract.Commit where
 
 import PlutusTx.Prelude
 
+import Codec.Serialise (deserialiseOrFail, serialise)
+import Data.ByteString.Lazy (fromStrict, toStrict)
+import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
+import qualified Hydra.Cardano.Api as OffChain
 import Hydra.Contract.HeadState (State (..))
 import Hydra.Data.Party (Party)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -27,7 +31,7 @@ import Plutus.V2.Ledger.Api (
   ValidatorHash,
   mkValidatorScript,
  )
-import PlutusTx (CompiledCode, toBuiltinData)
+import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx
 import qualified PlutusTx.Builtins as Builtins
 import qualified Prelude as Haskell
@@ -38,6 +42,9 @@ data CommitRedeemer
 
 PlutusTx.unstableMakeIsData ''CommitRedeemer
 
+-- | A data type representing comitted outputs on-chain. Besides recording the
+-- original 'TxOutRef', it also stores a binary representation compatible
+-- between on- and off-chain code to be hashed in the validators.
 data Commit = Commit
   { input :: TxOutRef
   , preSerializedOutput :: BuiltinByteString
@@ -49,6 +56,27 @@ instance Eq Commit where
     i == i' && o == o'
 
 PlutusTx.unstableMakeIsData ''Commit
+
+-- | Record an off-chain 'TxOut' as a 'Commit' on-chain.
+-- NOTE: Depends on the 'Serialise' instance for Plutus' 'Data'.
+serializeCommit :: (OffChain.TxIn, OffChain.TxOut CtxUTxO) -> Maybe Commit
+serializeCommit (i, o) = do
+  preSerializedOutput <- toBuiltin . toStrict . serialise . toData <$> toPlutusTxOut o
+  pure
+    Commit
+      { input = toPlutusTxOutRef i
+      , preSerializedOutput
+      }
+
+-- | Decode an on-chain 'SerializedTxOut' back into an off-chain 'TxOut'.
+-- NOTE: Depends on the 'Serialise' instance for Plutus' 'Data'.
+deserializeCommit :: Commit -> Maybe (OffChain.TxIn, OffChain.TxOut CtxUTxO)
+deserializeCommit Commit{input, preSerializedOutput} =
+  case deserialiseOrFail . fromStrict $ fromBuiltin preSerializedOutput of
+    Left{} -> Nothing
+    Right dat -> do
+      txOut <- fromPlutusTxOut <$> fromData dat
+      pure (fromPlutusTxOutRef input, txOut)
 
 -- TODO: Party is not used on-chain but is needed off-chain while it's still
 -- based on mock crypto. When we move to real crypto we could simply use

@@ -463,7 +463,7 @@ findTxOutDatum txInfo o =
 {-# INLINEABLE findTxOutDatum #-}
 
 hashPreSerializedCommits :: [Commit] -> BuiltinByteString
-hashPreSerializedCommits =
+hashPreSerializedCommits commits =
   -- REVIEW: Ensure BuiltinData 'List [Data]' is encoded like we expect
   sha2_256 . Builtins.serialiseData . toBuiltinData $
     sortBy (\a b -> compareRef (input a) (input b)) commits
