@@ -10,7 +10,7 @@ import qualified Plutus.V1.Ledger.Api as Plutus
 
 -- * Type Conversions
 
--- | Convert a cardano-ledger's 'Script' into a cardano-api's 'PlutusScript'
+-- | Convert a cardano-ledger 'Script' into a cardano-api 'PlutusScript'
 --
 -- Note that this function is unsafe in two manners:
 --
@@ -21,7 +21,7 @@ fromLedgerScript = \case
   Ledger.TimelockScript{} -> error "fromLedgerScript: TimelockScript"
   Ledger.PlutusScript _ bytes -> PlutusScriptSerialised bytes
 
--- | Convert a cardano-api's 'PlutusScript' into a cardano-ledger's 'Script'.
+-- | Convert a cardano-api 'PlutusScript' into a cardano-ledger 'Script'.
 toLedgerScript ::
   forall lang.
   (HasPlutusScriptVersion lang) =>
@@ -33,7 +33,7 @@ toLedgerScript (PlutusScriptSerialised bytes) =
         PlutusScriptV2 -> Ledger.PlutusV2
    in Ledger.PlutusScript lang bytes
 
--- | Convert a plutus' 'Script' into a cardano-api's 'PlutusScript'
+-- | Convert a plutus 'Script' into a cardano-api 'PlutusScript'
 fromPlutusScript :: Plutus.Script -> PlutusScript lang
 fromPlutusScript =
   PlutusScriptSerialised . toShort . fromLazy . serialise

@@ -24,17 +24,17 @@ txMintAssets =
 
 -- * Type Conversions
 
--- | Convert a cardano-ledger's 'Value'  into a cardano-api's 'Value'
+-- | Convert a cardano-ledger 'Value'  into a cardano-api 'Value'
 fromLedgerValue :: Ledger.Value StandardCrypto -> Value
 fromLedgerValue =
   fromMaryValue
 
--- | Convert a cardano-api's 'Value'  into a cardano-ledger's 'Value'
+-- | Convert a cardano-api 'Value'  into a cardano-ledger 'Value'
 toLedgerValue :: Value -> Ledger.Value StandardCrypto
 toLedgerValue =
   toMaryValue
 
--- | Convert a cardano-api's 'Value'  into a plutus' 'Value'
+-- | Convert a cardano-api 'Value'  into a plutus 'Value'
 toPlutusValue :: Value -> Plutus.Value
 toPlutusValue =
   Ledger.transValue . toLedgerValue
