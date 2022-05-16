@@ -27,7 +27,7 @@ import Plutus.V2.Ledger.Api (
   Value (getValue),
   mkMintingPolicyScript,
  )
-import Plutus.V2.Ledger.Contexts (findDatum, ownCurrencySymbol, scriptOutputsAt)
+import Plutus.V2.Ledger.Contexts (ownCurrencySymbol, scriptOutputsAt)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 
@@ -76,14 +76,12 @@ validateTokensMinting initialValidator headValidator seedInput context =
       [(datum, _)] ->
         case datum of
           NoOutputDatum -> traceError "missing datum"
-          OutputDatumHash dh -> case getDatum <$> findDatum dh txInfo of
-            Nothing -> traceError "expected optional commit datum"
-            Just da ->
-              case fromBuiltinData @Head.DatumType da of
-                Nothing -> traceError "expected commit datum type, got something else"
-                Just Head.Initial{Head.parties = parties} -> length parties
-                Just _ -> traceError "unexpected State in datum"
-          OutputDatum{} -> traceError "unexpected inline datum"
+          OutputDatumHash{} -> traceError "expected inline datum, not hash only"
+          OutputDatum da ->
+            case fromBuiltinData @Head.DatumType $ getDatum da of
+              Nothing -> traceError "expected commit datum type, got something else"
+              Just Head.Initial{Head.parties = parties} -> length parties
+              Just _ -> traceError "unexpected State in datum"
       _ -> traceError "expected single head output"
 
   seedInputIsConsumed = seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
