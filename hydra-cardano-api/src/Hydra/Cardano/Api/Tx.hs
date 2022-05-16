@@ -53,7 +53,7 @@ totalExecutionCost pparams tx =
 
 -- * Type Conversions
 
--- | Convert a cardano-api's 'Tx' into a cardano-ledger's 'Tx' in the Alonzo era
+-- | Convert a cardano-api 'Tx' into a cardano-ledger 'Tx' in the Alonzo era
 -- (a.k.a. 'ValidatedTx').
 toLedgerTx :: Tx Era -> Ledger.ValidatedTx (ShelleyLedgerEra Era)
 toLedgerTx = \case
@@ -90,7 +90,7 @@ toLedgerTx = \case
           }
 
 -- | Convert a cardano-ledger's 'Tx' in the Babbage era (a.k.a. 'ValidatedTx')
--- into a cardano-api's 'Tx'.
+-- into a cardano-api 'Tx'.
 fromLedgerTx :: Ledger.ValidatedTx (ShelleyLedgerEra Era) -> Tx Era
 fromLedgerTx (Ledger.ValidatedTx body wits isValid auxData) =
   Tx

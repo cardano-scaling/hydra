@@ -4,7 +4,7 @@ import Hydra.Cardano.Api.Prelude
 
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger
 
--- | Convert a cardano-api's 'TxScriptValidity' into a cardano-ledger 'IsValid'
+-- | Convert a cardano-api 'TxScriptValidity' into a cardano-ledger 'IsValid'
 -- boolean wrapper.
 toLedgerScriptValidity :: TxScriptValidity era -> Ledger.IsValid
 toLedgerScriptValidity =

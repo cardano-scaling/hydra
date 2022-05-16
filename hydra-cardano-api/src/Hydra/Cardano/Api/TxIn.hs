@@ -41,6 +41,6 @@ fromPlutusTxOutRef (Plutus.TxOutRef (Plutus.TxId bytes) ix) =
     (TxId $ unsafeHashFromBytes $ Plutus.fromBuiltin bytes)
     (TxIx $ fromIntegral ix)
 
--- | Convert a cardano-api's 'TxIn' into a plutus' 'TxOutRef'.
+-- | Convert a cardano-api 'TxIn' into a plutus 'TxOutRef'.
 toPlutusTxOutRef :: TxIn -> Plutus.TxOutRef
 toPlutusTxOutRef = Ledger.txInfoIn' . toLedgerTxIn

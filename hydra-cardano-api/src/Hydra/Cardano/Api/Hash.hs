@@ -7,12 +7,12 @@ import qualified Cardano.Ledger.Keys as Ledger
 import qualified Data.ByteString as BS
 import qualified Plutus.V1.Ledger.Api as Plutus
 
--- | Convert a cardano-api's 'Hash' into a plutus' 'PubKeyHash'
+-- | Convert a cardano-api 'Hash' into a plutus 'PubKeyHash'
 toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
 toPlutusKeyHash (PaymentKeyHash vkh) =
   Ledger.transKeyHash vkh
 
--- | Convert a cardano-api's 'Hash' into a cardano-ledger's 'KeyHash'
+-- | Convert a cardano-api 'Hash' into a cardano-ledger 'KeyHash'
 toLedgerKeyHash :: Hash PaymentKey -> Ledger.KeyHash 'Ledger.Witness StandardCrypto
 toLedgerKeyHash (PaymentKeyHash (Ledger.KeyHash vkh)) =
   Ledger.KeyHash vkh

@@ -56,12 +56,12 @@ lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) (TxOut _ _ datum _
 
 -- * Type Conversions
 
--- | Convert a cardano-ledger's script 'Data' into a cardano-api's 'ScriptDatum'.
+-- | Convert a cardano-ledger script 'Data' into a cardano-api 'ScriptDatum'.
 fromLedgerData :: Ledger.Data era -> ScriptData
 fromLedgerData =
   fromAlonzoData
 
--- | Convert a cardano-api's 'ScriptData' into a cardano-ledger's script 'Data'.
+-- | Convert a cardano-api 'ScriptData' into a cardano-ledger script 'Data'.
 toLedgerData :: ScriptData -> Ledger.Data era
 toLedgerData =
   toAlonzoData

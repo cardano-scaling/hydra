@@ -16,6 +16,6 @@ txOutLovelace (TxOut _ v _ _) = txOutValueToLovelace v
 fromLedgerCoin :: Ledger.Coin -> Lovelace
 fromLedgerCoin (Ledger.Coin n) = Lovelace n
 
--- | Convert a cardano-api's 'Lovelace' into a cardano-ledger's 'Coin'.
+-- | Convert a cardano-api 'Lovelace' into a cardano-ledger 'Coin'.
 toLedgerCoin :: Lovelace -> Ledger.Coin
 toLedgerCoin (Lovelace n) = Ledger.Coin n
