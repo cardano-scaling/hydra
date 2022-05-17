@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.Contract.Close where
@@ -58,7 +59,7 @@ healthyCloseTx =
     OpenThreadOutput
       { openThreadUTxO = (headInput, headResolvedInput, headDatum)
       , openParties = healthyOnChainParties
-      , openContestationPeriod = arbitrary `generateWith` 42
+      , openContestationPeriod = healthyContestationPeriod
       }
 
 healthySlotNo :: SlotNo
@@ -108,7 +109,10 @@ healthyCloseDatum =
     }
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
-healthyContestationPeriod = arbitrary `generateWith` 42
+healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
+
+healthyContestationPeriodSeconds :: Integer
+healthyContestationPeriodSeconds = 10
 
 healthyUTxO :: UTxO
 healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
@@ -209,8 +213,10 @@ genCloseMutation (tx, _utxo) =
 
   mutateClosedContestationDeadline :: Gen (TxOut CtxTx)
   mutateClosedContestationDeadline = do
-    contestationPeriod <- arbitrary `suchThat` (/= healthyContestationPeriod)
-    pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriod) headTxOut
+    -- NOTE: we need to be sure the generated contestation period is large enough to have an impact on the on-chain
+    -- deadline computation, which means having a resolution of seconds instead of the default picoseconds
+    contestationPeriodSeconds <- arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds)
+    pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
 
   mutateContestationDeadline contestationPeriod = \case
     Head.Closed{snapshotNumber, utxoHash, parties} ->
@@ -219,8 +225,9 @@ genCloseMutation (tx, _utxo) =
         , utxoHash
         , parties
         , contestationDeadline =
+            -- FIXME: we don't have useful functions for manipulating time on-chain seemingly
             fromInteger
-              ( toInteger (fromEnum (OnChain.contestationPeriodToDiffTime contestationPeriod))
+              ( toInteger contestationPeriod
                   + toInteger (slotNoToPOSIXTime healthySlotNo)
               )
         }
