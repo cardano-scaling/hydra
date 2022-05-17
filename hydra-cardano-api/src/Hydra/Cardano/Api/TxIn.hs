@@ -5,7 +5,7 @@ import Hydra.Cardano.Api.Prelude
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Data.Set as Set
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- * Extras
 

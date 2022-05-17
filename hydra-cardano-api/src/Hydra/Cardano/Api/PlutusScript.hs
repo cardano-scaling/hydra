@@ -6,7 +6,7 @@ import qualified Cardano.Ledger.Alonzo.Language as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Codec.Serialise (serialise)
 import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- * Type Conversions
 

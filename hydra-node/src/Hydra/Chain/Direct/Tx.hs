@@ -304,7 +304,7 @@ closeTx vk closing (slotNo, posixTime) openThreadOutput =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
 
   headScript =
-    fromPlutusScript @PlutusScriptV1 Head.validatorScript
+    fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   headRedeemer =
     toScriptData
@@ -767,14 +767,14 @@ observeContestTx ::
   Tx ->
   Maybe ContestObservation
 observeContestTx utxo tx = do
-  (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
+  (headInput, headOutput) <- findScriptOutput @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Closed{}, Head.Contest{snapshotNumber = onChainSnapshotNumber}) -> do
-      (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
+      (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure

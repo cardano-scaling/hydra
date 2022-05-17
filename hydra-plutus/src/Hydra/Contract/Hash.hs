@@ -11,7 +11,7 @@ import PlutusTx.Prelude
 import qualified Hydra.Prelude as Haskell
 
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Api (
+import Plutus.V2.Ledger.Api (
   Datum (Datum),
   Redeemer (Redeemer),
   Script,
