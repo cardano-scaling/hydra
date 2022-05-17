@@ -10,14 +10,14 @@ import Codec.Serialise (serialise)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
-import Hydra.Cardano.Api (PlutusScriptV1, fromPlutusScript, hashScriptData)
+import Hydra.Cardano.Api (PlutusScriptV2, fromPlutusScript, hashScriptData)
 import Hydra.Contract (scriptInfo)
 import Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
 import Hydra.Contract.Initial as Initial
-import Plutus.V1.Ledger.Api (Data, Script, toData)
+import Plutus.V2.Ledger.Api (Data, Script, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)
 import Prettyprinter (defaultLayoutOptions, layoutPretty, pretty)
@@ -54,7 +54,7 @@ main = do
           serialised =
             Aeson.encode $
               serialiseToTextEnvelope (Just $ fromString itemName) $
-                fromPlutusScript @PlutusScriptV1 item
+                fromPlutusScript @PlutusScriptV2 item
       BL.writeFile itemFile serialised
       putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb (serialise item)
 

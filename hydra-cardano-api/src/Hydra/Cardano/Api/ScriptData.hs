@@ -6,7 +6,7 @@ import Cardano.Api.Byron (TxBody (..))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Data.Map as Map
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- * Extras
 

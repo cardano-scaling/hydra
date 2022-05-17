@@ -33,11 +33,9 @@ import qualified Cardano.Ledger.Babbage as Ledger
 import Cardano.Ledger.Crypto (StandardCrypto)
 import qualified Cardano.Ledger.Era as Ledger.Era
 
-type Era =
-  BabbageEra
+type Era = BabbageEra
 
-type LedgerEra =
-  Ledger.BabbageEra StandardCrypto
+type LedgerEra = Ledger.BabbageEra StandardCrypto
 
 type UsesStandardCrypto era =
   (Ledger.Era.Crypto (ShelleyLedgerEra era) ~ StandardCrypto)

@@ -16,7 +16,7 @@ import Control.Tracer (nullTracer)
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import Hydra.Cardano.Api hiding (AlonzoEra, Block, SigningKey, VerificationKey)
+import Hydra.Cardano.Api hiding (Block, SigningKey, VerificationKey)
 import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Cardano.Api as Shelley
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
@@ -42,7 +42,7 @@ import Ouroboros.Network.NodeToClient (
   simpleSingletonVersions,
  )
 import Ouroboros.Network.Protocol.Handshake.Version (Versions)
-import Plutus.V1.Ledger.Api (BuiltinByteString, Data, ToData (toBuiltinData), toData)
+import Plutus.V2.Ledger.Api (BuiltinByteString, Data, ToData (toBuiltinData), toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (oneof)
 

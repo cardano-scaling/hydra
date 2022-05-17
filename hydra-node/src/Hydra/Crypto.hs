@@ -39,7 +39,7 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (HasTypeProxy (..), SerialiseAsRawBytes (..), serialiseToRawBytesHexText)
 import qualified Hydra.Contract.HeadState as OnChain
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Plutus.V2.Ledger.Api as Plutus
 import Text.Show (Show (..))
 
 -- | The used signature algorithm

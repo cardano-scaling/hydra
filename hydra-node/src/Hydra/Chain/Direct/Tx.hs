@@ -302,7 +302,7 @@ closeTx vk closing (slotNo, posixTime) openThreadOutput =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
 
   headScript =
-    fromPlutusScript @PlutusScriptV1 Head.validatorScript
+    fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   headRedeemer =
     toScriptData

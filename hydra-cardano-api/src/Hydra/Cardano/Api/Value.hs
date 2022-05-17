@@ -5,9 +5,9 @@ import Hydra.Cardano.Api.Prelude
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger
 import Hydra.Cardano.Api.Hash (unsafeScriptHashFromBytes)
-import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (flattenValue)
-import Plutus.V2.Ledger.Api (adaSymbol, adaToken, fromBuiltin, getValue, unCurrencySymbol, unTokenName)
+import Plutus.V2.Ledger.Api (adaSymbol, adaToken, fromBuiltin, unCurrencySymbol, unTokenName)
+import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- * Extras
 
