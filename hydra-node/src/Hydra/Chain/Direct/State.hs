@@ -93,7 +93,7 @@ data OnChainHeadState (st :: HeadStateKind) = OnChainHeadState
 data HydraStateMachine (st :: HeadStateKind) where
   Idle :: HydraStateMachine 'StIdle
   Initialized ::
-    { initialThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+    { initialThreadOutput :: ThreadOutput 'StInitialized
     , initialInitials :: [UTxOWithScript]
     , initialCommits :: [UTxOWithScript]
     , initialHeadId :: HeadId
@@ -117,6 +117,17 @@ data HydraStateMachine (st :: HeadStateKind) where
 deriving instance Show (HydraStateMachine st)
 deriving instance Eq (HydraStateMachine st)
 
+-- | The Head state-machine UTxO along with decoded state.
+data ThreadOutput (st :: HeadStateKind) where
+  InitialThreadOutput ::
+    { threadUTxO :: UTxOWithScript
+    , initialParties :: [OnChain.Party]
+    } ->
+    ThreadOutput 'StInitialized
+
+deriving instance Show (ThreadOutput st)
+deriving instance Eq (ThreadOutput st)
+
 getKnownUTxO ::
   OnChainHeadState st ->
   UTxO
@@ -124,10 +135,10 @@ getKnownUTxO OnChainHeadState{stateMachine} =
   case stateMachine of
     Idle{} ->
       mempty
-    Initialized{initialThreadOutput, initialInitials, initialCommits} ->
+    Initialized{initialThreadOutput = InitialThreadOutput{threadUTxO}, initialInitials, initialCommits} ->
       UTxO $
         Map.fromList $
-          take2Of4 initialThreadOutput : (take2Of3 <$> (initialInitials <> initialCommits))
+          take2Of3 threadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
     Open{openThreadOutput = (i, o, _, _)} ->
       UTxO.singleton (i, o)
     Closed{closedThreadOutput = (i, o, _, _, _)} ->
@@ -269,7 +280,7 @@ abort ::
   OnChainHeadState 'StInitialized ->
   Tx
 abort OnChainHeadState{ownVerificationKey, stateMachine} = do
-  let (i, o, dat, _) = initialThreadOutput
+  let InitialThreadOutput{threadUTxO = (i, o, dat)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
    in case abortTx ownVerificationKey (i, o, dat) (initialHeadTokenScript stateMachine) initials commits of
@@ -290,10 +301,10 @@ collect ::
   Tx
 collect OnChainHeadState{networkId, ownVerificationKey, stateMachine} = do
   let commits = Map.fromList $ fmap tripleToPair initialCommits
-   in collectComTx networkId ownVerificationKey initialThreadOutput commits
+   in collectComTx networkId ownVerificationKey threadUTxO initialParties commits
  where
   Initialized
-    { initialThreadOutput
+    { initialThreadOutput = InitialThreadOutput{threadUTxO, initialParties}
     , initialCommits
     } = stateMachine
 
@@ -378,7 +389,7 @@ instance ObserveTx 'StIdle 'StInitialized where
   observeTx tx OnChainHeadState{networkId, peerVerificationKeys, ownParty, ownVerificationKey} = do
     let allVerificationKeys = ownVerificationKey : peerVerificationKeys
     (event, observation) <- observeInitTx networkId allVerificationKeys ownParty tx
-    let InitObservation{threadOutput, initials, commits, headId, headTokenScript} = observation
+    let InitObservation{threadOutput = (i, o, d, initialParties), initials, commits, headId, headTokenScript} = observation
     let st' =
           OnChainHeadState
             { networkId
@@ -387,7 +398,7 @@ instance ObserveTx 'StIdle 'StInitialized where
             , peerVerificationKeys
             , stateMachine =
                 Initialized
-                  { initialThreadOutput = threadOutput
+                  { initialThreadOutput = InitialThreadOutput{threadUTxO = (i, o, d), initialParties}
                   , initialInitials = initials
                   , initialCommits = commits
                   , initialHeadId = headId
@@ -613,9 +624,6 @@ fst3 (a, _b, _c) = a
 
 tripleToPair :: (a, b, c) -> (a, (b, c))
 tripleToPair (a, b, c) = (a, (b, c))
-
-take2Of4 :: (a, b, c, d) -> (a, b)
-take2Of4 (a, b, _c, _d) = (a, b)
 
 take2Of3 :: (a, b, c) -> (a, b)
 take2Of3 (a, b, _c) = (a, b)

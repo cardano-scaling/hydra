@@ -59,7 +59,8 @@ healthyCollectComTx =
     collectComTx
       testNetworkId
       somePartyCardanoVerificationKey
-      (healthyHeadInput, healthyHeadResolvedInput, headDatum, healthyOnChainParties)
+      (healthyHeadInput, healthyHeadResolvedInput, headDatum)
+      healthyOnChainParties
       commits
 
   somePartyCardanoVerificationKey = flip generateWith 42 $ do

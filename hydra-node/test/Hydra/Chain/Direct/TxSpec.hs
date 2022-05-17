@@ -88,8 +88,8 @@ spec =
                         ( headInput
                         , headOutput
                         , fromPlutusData $ toData headDatum
-                        , onChainParties
                         )
+                        onChainParties
                         commitsUTxO
                  in case validateTxScriptsUnlimited onChainUTxO tx of
                       Left basicFailure ->
