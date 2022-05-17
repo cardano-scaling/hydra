@@ -20,9 +20,8 @@ import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupportedInEra)
 import Hydra.Cardano.Api.Value (fromPlutusValue)
 import Ouroboros.Consensus.Util (eitherToMaybe)
-import Plutus.V2.Ledger.Api (fromBuiltin, getDatum)
+import Plutus.V2.Ledger.Api (OutputDatum (..), fromBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
-import Plutus.V2.Ledger.Tx (OutputDatum (..))
 
 -- * Extras
 
@@ -96,13 +95,14 @@ toLedgerTxOut =
   toShelleyTxOut shelleyBasedEra
 
 -- | Convert a plutus 'TxOut' into a cardano-api 'TxOut'.
-fromPlutusTxOut :: (HasScriptData era, HasInlineDatums era) => Plutus.TxOut -> TxOut CtxUTxO era
+-- NOTE: Reference scripts are not resolvable right now.
+fromPlutusTxOut :: (HasMultiAsset era, HasScriptData era, HasInlineDatums era) => Plutus.TxOut -> TxOut CtxUTxO era
 fromPlutusTxOut out =
-  TxOut addressInEra value datum referenceScript
+  TxOut addressInEra value datum ReferenceScriptNone
  where
   addressInEra = fromPlutusAddress plutusAddress
 
-  value = fromPlutusValue plutusValue
+  value = TxOutValue multiAssetSupportedInEra $ fromPlutusValue plutusValue
 
   datum = case plutusDatum of
     NoOutputDatum -> TxOutDatumNone
@@ -110,8 +110,6 @@ fromPlutusTxOut out =
       TxOutDatumHash scriptDataSupportedInEra . unsafeScriptDataHashFromBytes $ fromBuiltin hashBytes
     OutputDatum (Plutus.Datum datumData) ->
       TxOutDatumInline inlineDatumsSupportedInEra $ toScriptData datumData
-
-  referenceScript = undefined
 
   Plutus.TxOut plutusAddress plutusValue plutusDatum plutusReferenceScript = out
 
