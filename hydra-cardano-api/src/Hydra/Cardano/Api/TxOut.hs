@@ -11,10 +11,12 @@ import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Babbage.TxInfo (OutputSource (OutputFromOutput))
 import qualified Cardano.Ledger.Babbage.TxInfo as Ledger
+import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
 import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
+import Hydra.Cardano.Api.Network (Network)
 import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInlineDatums, inlineDatumsSupportedInEra)
 import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupportedInEra)
@@ -106,11 +108,17 @@ toLedgerTxOut =
 
 -- | Convert a plutus 'TxOut' into a cardano-api 'TxOut'.
 -- NOTE: Reference scripts are not resolvable right now.
-fromPlutusTxOut :: (HasMultiAsset era, HasScriptData era, HasInlineDatums era) => Plutus.TxOut -> TxOut CtxUTxO era
-fromPlutusTxOut out =
+-- NOTE: Requires the 'Network' discriminator (Testnet or Mainnet) because
+-- Plutus addresses are stripped off it.
+fromPlutusTxOut ::
+  (HasMultiAsset era, HasScriptData era, HasInlineDatums era, IsShelleyBasedEra era) =>
+  Network ->
+  Plutus.TxOut ->
+  TxOut CtxUTxO era
+fromPlutusTxOut network out =
   TxOut addressInEra value datum ReferenceScriptNone
  where
-  addressInEra = fromPlutusAddress plutusAddress
+  addressInEra = fromPlutusAddress network plutusAddress
 
   value = TxOutValue multiAssetSupportedInEra $ fromPlutusValue plutusValue
 
@@ -121,7 +129,7 @@ fromPlutusTxOut out =
     OutputDatum (Plutus.Datum datumData) ->
       TxOutDatumInline inlineDatumsSupportedInEra $ toScriptData datumData
 
-  Plutus.TxOut plutusAddress plutusValue plutusDatum plutusReferenceScript = out
+  Plutus.TxOut plutusAddress plutusValue plutusDatum _ = out
 
 -- | Convert a cardano-api 'TxOut' into a plutus 'TxOut'. Returns 'Nothing'
 -- if a byron address is used in the given 'TxOut'.
