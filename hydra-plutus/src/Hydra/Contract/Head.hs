@@ -46,6 +46,8 @@ import qualified PlutusTx.AssocMap as Map
 import qualified PlutusTx.Builtins as Builtins
 
 -- REVIEW: Functions not re-exported "as V2", but using the same data types.
+
+import qualified Cardano.Crypto.Util as Snapshot
 import Plutus.V1.Ledger.Address (scriptHashAddress)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 
@@ -491,6 +493,7 @@ verifyPartySignature snapshotNumber utxoHash party signed =
     verifySignature (vkey party) message signed
  where
   message =
+    -- TODO: document CDDL format, either here or in 'Hydra.Snapshot.getSignableRepresentation'
     Builtins.serialiseData (toBuiltinData snapshotNumber)
       <> Builtins.serialiseData (toBuiltinData utxoHash)
 {-# INLINEABLE verifyPartySignature #-}
