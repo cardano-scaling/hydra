@@ -36,6 +36,7 @@ import Hydra.Chain.Direct.Tx (
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
+import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)
 import Hydra.Party (Party, partyToChain)
@@ -81,7 +82,12 @@ healthyCollectComTx =
     InitialThreadOutput
       { initialThreadUTxO = (healthyHeadInput, healthyHeadResolvedInput, headDatum)
       , initialParties = healthyOnChainParties
+      , initialContestationPeriod = healthyContestationPeriod
       }
+
+healthyContestationPeriod :: OnChain.ContestationPeriod
+healthyContestationPeriod =
+  arbitrary `generateWith` 42
 
 healthyHeadInput :: TxIn
 healthyHeadInput =
@@ -97,7 +103,7 @@ healthyHeadResolvedInput =
 healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
   Head.Initial
-    { contestationPeriod = generateWith arbitrary 42
+    { contestationPeriod = healthyContestationPeriod
     , parties = healthyOnChainParties
     }
 
@@ -165,7 +171,7 @@ genCollectComMutation (tx, utxo) =
         <$> (ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut <*> pure Nothing)
     , SomeMutation MutateHeadTransition <$> do
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
-        changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
+        changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> arbitrary <*> (toBuiltin <$> genHash))
         pure $ Changes [changeRedeemer, changeDatum]
     , SomeMutation MutateNumberOfParties <$> do
         -- NOTE: This also mutates the contestation period becuase we could not
@@ -193,7 +199,7 @@ genCollectComMutation (tx, utxo) =
 
   mutatedPartiesHeadTxOut parties =
     changeHeadOutputDatum $ \case
-      Head.Open{utxoHash} -> Head.Open{Head.parties = parties, utxoHash}
+      Head.Open{utxoHash, contestationPeriod} -> Head.Open{Head.parties = parties, contestationPeriod, utxoHash}
       st -> error $ "Unexpected state " <> show st
 
   mutateUTxOHash = do
@@ -201,6 +207,6 @@ genCollectComMutation (tx, utxo) =
     pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
 
   mutateState mutatedUTxOHash = \case
-    Head.Open{parties} ->
-      Head.Open{parties, Head.utxoHash = toBuiltin mutatedUTxOHash}
+    Head.Open{parties, contestationPeriod} ->
+      Head.Open{parties, contestationPeriod, Head.utxoHash = toBuiltin mutatedUTxOHash}
     st -> st

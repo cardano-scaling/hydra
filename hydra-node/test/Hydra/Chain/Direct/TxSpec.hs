@@ -89,6 +89,7 @@ spec =
                             , fromPlutusData $ toData headDatum
                             )
                         , initialParties = onChainParties
+                        , initialContestationPeriod = cperiod
                         }
 
                     tx =

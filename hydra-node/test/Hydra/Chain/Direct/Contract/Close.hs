@@ -15,6 +15,7 @@ import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), asset
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
+import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
 import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
@@ -57,6 +58,7 @@ healthyCloseTx =
     OpenThreadOutput
       { openThreadUTxO = (headInput, headResolvedInput, headDatum)
       , openParties = healthyOnChainParties
+      , openContestationPeriod = arbitrary `generateWith` 42
       }
 
 healthySlotNo :: SlotNo
@@ -102,7 +104,11 @@ healthyCloseDatum =
   Head.Open
     { parties = healthyOnChainParties
     , utxoHash = toBuiltin $ hashTxOuts $ toList healthyUTxO
+    , contestationPeriod = healthyContestationPeriod
     }
+
+healthyContestationPeriod :: OnChain.ContestationPeriod
+healthyContestationPeriod = arbitrary `generateWith` 42
 
 healthyUTxO :: UTxO
 healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
@@ -163,6 +169,7 @@ genCloseMutation (tx, _utxo) =
           Head.Open
             { parties = mutatedParties
             , utxoHash = ""
+            , contestationPeriod = healthyContestationPeriod
             }
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey

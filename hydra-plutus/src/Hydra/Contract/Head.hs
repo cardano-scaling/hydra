@@ -29,11 +29,10 @@ import Plutus.V1.Ledger.Api (
   Address,
   CurrencySymbol,
   Datum (..),
-  POSIXTime,
-  UpperBound(..),
-  Interval(..),
   DatumHash,
   FromData (fromBuiltinData),
+  Interval (..),
+  POSIXTime,
   PubKeyHash (getPubKeyHash),
   Script,
   ScriptContext (..),
@@ -42,6 +41,7 @@ import Plutus.V1.Ledger.Api (
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
+  UpperBound (..),
   Validator (getValidator),
   ValidatorHash,
   Value (Value),
@@ -199,7 +199,7 @@ checkCollectCom ::
   -- | Initial state
   (ContestationPeriod, [Party]) ->
   Bool
-checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext (_, parties) =
+checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext (contestationPeriod, parties) =
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant context headContext
@@ -225,7 +225,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
           (collectedCommits <> encodeBreak)
             & encodingToBuiltinByteString
             & sha2_256
-     in Datum $ toBuiltinData Open{parties, utxoHash}
+     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod}
 
   traverseInputs (fuel, commits, nCommits) = \case
     [] ->
@@ -298,22 +298,24 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
  where
   checkSnapshot
     | snapshotNumber == 0 =
-        let expectedOutputDatum = Closed
+      let expectedOutputDatum =
+            Closed
               { parties
               , snapshotNumber = 0
               , utxoHash = initialUtxoHash
               , closedAt = startOfContestationPeriod ctx
               }
-          in checkHeadOutputDatum ctx expectedOutputDatum
+       in checkHeadOutputDatum ctx expectedOutputDatum
     | snapshotNumber > 0 =
-      let expectedOutputDatum = Closed
-            { parties
-            , snapshotNumber
-            , utxoHash = closedUtxoHash
-            , closedAt = startOfContestationPeriod ctx
-            }
+      let expectedOutputDatum =
+            Closed
+              { parties
+              , snapshotNumber
+              , utxoHash = closedUtxoHash
+              , closedAt = startOfContestationPeriod ctx
+              }
        in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
-          && checkHeadOutputDatum ctx expectedOutputDatum
+            && checkHeadOutputDatum ctx expectedOutputDatum
     | otherwise = traceError "negative snapshot number"
 {-# INLINEABLE checkClose #-}
 

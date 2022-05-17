@@ -25,6 +25,7 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
+import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (hashTxOuts, setValiditityUpperBound)
 import Hydra.Ledger.Cardano.Builder (
@@ -48,6 +49,7 @@ type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
 -- | Representation of the Head output after an Init transaction.
 data InitialThreadOutput = InitialThreadOutput
   { initialThreadUTxO :: UTxOWithScript
+  , initialContestationPeriod :: OnChain.ContestationPeriod
   , initialParties :: [OnChain.Party]
   }
   deriving (Eq, Show)
@@ -55,6 +57,7 @@ data InitialThreadOutput = InitialThreadOutput
 -- | Representation of the Head output after a CollectCom transaction.
 data OpenThreadOutput = OpenThreadOutput
   { openThreadUTxO :: UTxOWithScript
+  , openContestationPeriod :: OnChain.ContestationPeriod
   , openParties :: [OnChain.Party]
   }
   deriving (Eq, Show)
@@ -208,7 +211,7 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx networkId vk InitialThreadOutput{initialThreadUTxO = (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore), initialParties} commits =
+collectComTx networkId vk InitialThreadOutput{initialThreadUTxO = (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore), initialParties, initialContestationPeriod} commits =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
@@ -227,7 +230,7 @@ collectComTx networkId vk InitialThreadOutput{initialThreadUTxO = (headInput, in
       (txOutValue initialHeadOutput <> commitValue)
       headDatumAfter
   headDatumAfter =
-    mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash}
+    mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash, contestationPeriod = initialContestationPeriod}
   -- NOTE: We hash tx outs in an order that is recoverable on-chain.
   -- The simplest thing to do, is to make sure commit inputs are in the same
   -- order as their corresponding committed utxo.
@@ -533,6 +536,7 @@ observeInitTx networkId cardanoKeys party tx = do
                   , fromLedgerData headData
                   )
               , initialParties = ps
+              , initialContestationPeriod = cp
               }
         , initials
         , commits = []
@@ -659,7 +663,7 @@ observeCollectComTx utxo tx = do
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Initial{parties}, Head.CollectCom) -> do
+    (Head.Initial{parties, contestationPeriod}, Head.CollectCom) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
       utxoHash <- decodeUtxoHash newHeadDatum
@@ -674,6 +678,7 @@ observeCollectComTx utxo tx = do
                       , newHeadDatum
                       )
                   , openParties = parties
+                  , openContestationPeriod = contestationPeriod
                   }
             , headId
             , utxoHash
