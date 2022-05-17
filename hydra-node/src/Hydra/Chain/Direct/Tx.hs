@@ -40,7 +40,7 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
-import Plutus.V1.Ledger.Api (POSIXTime, fromBuiltin, fromData, toBuiltin, upperBound)
+import Plutus.V1.Ledger.Api (POSIXTime, fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V1.Ledger.Api as Plutus
 
 -- | Needed on-chain data to create Head transactions.
@@ -65,7 +65,7 @@ data OpenThreadOutput = OpenThreadOutput
 data ClosedThreadOutput = ClosedThreadOutput
   { closedThreadUTxO :: UTxOWithScript
   , closedParties :: [OnChain.Party]
-  , closedAtUpperBound :: Plutus.UpperBound Plutus.POSIXTime
+  , closedContestationDeadline :: Plutus.POSIXTime
   }
   deriving (Eq, Show)
 
@@ -318,7 +318,7 @@ closeTx vk closing (slotNo, posixTime) OpenThreadOutput{openThreadUTxO = (headIn
         { snapshotNumber
         , utxoHash
         , parties = openParties
-        , closedAt = upperBound posixTime
+        , contestationDeadline = posixTime
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -348,7 +348,7 @@ contestTx ::
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
   Tx
-contestTx vk Snapshot{number, utxo} sig ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedAtUpperBound} =
+contestTx vk Snapshot{number, utxo} sig ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline} =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -374,7 +374,7 @@ contestTx vk Snapshot{number, utxo} sig ClosedThreadOutput{closedThreadUTxO = (h
         { snapshotNumber = toInteger number
         , utxoHash
         , parties = closedParties
-        , closedAt = closedAtUpperBound
+        , contestationDeadline = closedContestationDeadline
         }
   utxoHash = toBuiltin $ hashTxOuts $ toList utxo
 
@@ -715,8 +715,8 @@ observeCloseTx utxo tx = do
     (Head.Open{parties}, Head.Close{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
-      closeUpperBound <- case fromData (toPlutusData newHeadDatum) of
-        Just Head.Closed{closedAt} -> pure closedAt
+      closeContestationDeadline <- case fromData (toPlutusData newHeadDatum) of
+        Just Head.Closed{contestationDeadline} -> pure contestationDeadline
         _ -> Nothing
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
@@ -730,7 +730,7 @@ observeCloseTx utxo tx = do
                       , newHeadDatum
                       )
                   , closedParties = parties
-                  , closedAtUpperBound = closeUpperBound
+                  , closedContestationDeadline = closeContestationDeadline
                   }
             , headId
             }

@@ -56,7 +56,7 @@ healthyFanoutDatum =
     { snapshotNumber = 1
     , utxoHash = toBuiltin $ hashTxOuts $ toList healthyFanoutUTxO
     , parties = partyToChain <$> arbitrary `generateWith` 42
-    , closedAt = arbitrary `generateWith` 42
+    , contestationDeadline = arbitrary `generateWith` 42
     }
 
 data FanoutMutation

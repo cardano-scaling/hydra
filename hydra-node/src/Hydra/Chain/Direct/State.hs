@@ -546,7 +546,7 @@ instance ObserveTx 'StClosed 'StClosed where
             , ownParty
             , stateMachine =
                 Closed
-                  { closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = contestedThreadOutput, closedParties, closedAtUpperBound}
+                  { closedThreadOutput = closedThreadOutput{closedThreadUTxO = contestedThreadOutput}
                   , closedHeadId
                   , closedHeadTokenScript
                   }
@@ -556,7 +556,7 @@ instance ObserveTx 'StClosed 'StClosed where
     Closed
       { closedHeadId
       , closedHeadTokenScript
-      , closedThreadOutput = ClosedThreadOutput{closedParties, closedAtUpperBound}
+      , closedThreadOutput
       } = stateMachine
 
 -- | A convenient way to apply transition to 'SomeOnChainHeadState' without

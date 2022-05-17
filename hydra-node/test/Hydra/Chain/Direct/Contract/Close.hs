@@ -139,6 +139,7 @@ data CloseMutation
   | MutateRequiredSigner
   | MutateCloseUTxOHash
   | MutateValidityInterval
+  | MutateCloseContestationDeadline
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -175,6 +176,7 @@ genCloseMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
+    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0 <$> mutateClosedContestationDeadline
     , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
         ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
@@ -193,14 +195,33 @@ genCloseMutation (tx, _utxo) =
   mutateCloseUTxOHash :: Gen (TxOut CtxTx)
   mutateCloseUTxOHash = do
     mutatedUTxOHash <- genHash
-    pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
+    pure $ changeHeadOutputDatum (mutateHash mutatedUTxOHash) headTxOut
 
-  mutateState mutatedUTxOHash = \case
-    Head.Closed{snapshotNumber, parties, closedAt} ->
+  mutateHash mutatedUTxOHash = \case
+    Head.Closed{snapshotNumber, parties, contestationDeadline} ->
       Head.Closed
         { snapshotNumber
         , utxoHash = toBuiltin mutatedUTxOHash
         , parties
-        , closedAt
+        , contestationDeadline
+        }
+    st -> error $ "unexpected state " <> show st
+
+  mutateClosedContestationDeadline :: Gen (TxOut CtxTx)
+  mutateClosedContestationDeadline = do
+    contestationPeriod <- arbitrary `suchThat` (/= healthyContestationPeriod)
+    pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriod) headTxOut
+
+  mutateContestationDeadline contestationPeriod = \case
+    Head.Closed{snapshotNumber, utxoHash, parties} ->
+      Head.Closed
+        { snapshotNumber
+        , utxoHash
+        , parties
+        , contestationDeadline =
+            fromInteger
+              ( toInteger (fromEnum (OnChain.contestationPeriodToDiffTime contestationPeriod))
+                  + toInteger (slotNoToPOSIXTime healthySlotNo)
+              )
         }
     st -> error $ "unexpected state " <> show st

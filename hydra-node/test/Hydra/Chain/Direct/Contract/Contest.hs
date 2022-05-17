@@ -25,7 +25,7 @@ import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (BuiltinByteString, POSIXTime, UpperBound, toBuiltin, toData)
+import Plutus.V1.Ledger.Api (BuiltinByteString, POSIXTime, toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Gen (choose)
@@ -63,7 +63,7 @@ healthyContestTx =
       { closedThreadUTxO = (headInput, headResolvedInput, headDatum)
       , closedParties =
           healthyOnChainParties
-      , closedAtUpperBound = healthyClosedAt
+      , closedContestationDeadline = healthyContestationDeadline
       }
 
 addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
@@ -103,11 +103,11 @@ healthyClosedState =
     { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
     , utxoHash = healthyClosedUTxOHash
     , parties = healthyOnChainParties
-    , closedAt = healthyClosedAt
+    , contestationDeadline = healthyContestationDeadline
     }
 
-healthyClosedAt :: UpperBound POSIXTime
-healthyClosedAt = arbitrary `generateWith` 42
+healthyContestationDeadline :: POSIXTime
+healthyContestationDeadline = arbitrary `generateWith` 42
 
 healthyClosedSnapshotNumber :: SnapshotNumber
 healthyClosedSnapshotNumber = 3
@@ -189,7 +189,7 @@ genContestMutation
               { parties = mutatedParties
               , utxoHash = healthyClosedUTxOHash
               , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
-              , closedAt = arbitrary `generateWith` 42
+              , contestationDeadline = arbitrary `generateWith` 42
               }
       ]
    where
@@ -205,7 +205,7 @@ genContestMutation
                 { snapshotNumber = fromIntegral healthyContestSnapshotNumber
                 , utxoHash = toBuiltin mutatedUTxOHash
                 , parties = healthyOnChainParties
-                , closedAt = arbitrary `generateWith` 42
+                , contestationDeadline = arbitrary `generateWith` 42
                 }
           )
           headTxOut

@@ -51,6 +51,7 @@ import Plutus.V1.Ledger.Api (
  )
 import Plutus.V1.Ledger.Contexts (findDatum, findDatumHash, findOwnInput, getContinuingOutputs)
 import Plutus.V1.Ledger.Crypto (Signature (getSignature))
+import Plutus.V1.Ledger.Interval (Extended (Finite))
 import Plutus.V1.Ledger.Value (valueOf)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
@@ -80,10 +81,10 @@ headValidator commitAddress initialAddress oldState input context =
       checkCollectCom context headContext (contestationPeriod, parties)
     (Initial{parties}, Abort) ->
       checkAbort context headContext parties
-    (Open{parties, utxoHash = initialUtxoHash}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
-      checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, closedAt}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      checkContest context headContext closedAt parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
+    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
+      checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
+      checkContest context headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
     _ ->
@@ -292,8 +293,9 @@ checkClose ::
   SnapshotNumber ->
   BuiltinByteString ->
   [Signature] ->
+  ContestationPeriod ->
   Bool
-checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig =
+checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod =
   checkSnapshot && mustBeSignedByParticipant ctx headContext
  where
   checkSnapshot
@@ -303,7 +305,7 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
               { parties
               , snapshotNumber = 0
               , utxoHash = initialUtxoHash
-              , closedAt = startOfContestationPeriod ctx
+              , contestationDeadline = makeContestationDeadline cperiod ctx
               }
        in checkHeadOutputDatum ctx expectedOutputDatum
     | snapshotNumber > 0 =
@@ -312,7 +314,7 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
               { parties
               , snapshotNumber
               , utxoHash = closedUtxoHash
-              , closedAt = startOfContestationPeriod ctx
+              , contestationDeadline = makeContestationDeadline cperiod ctx
               }
        in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
             && checkHeadOutputDatum ctx expectedOutputDatum
@@ -320,9 +322,11 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
 {-# INLINEABLE checkClose #-}
 
 -- | Checks that the datum
-startOfContestationPeriod :: ScriptContext -> UpperBound POSIXTime
-startOfContestationPeriod ScriptContext{scriptContextTxInfo} =
-  ivTo (txInfoValidRange scriptContextTxInfo)
+makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
+makeContestationDeadline _cperiod ScriptContext{scriptContextTxInfo} =
+  case ivTo (txInfoValidRange scriptContextTxInfo) of
+    UpperBound (Finite time) _ -> time
+    _ -> traceError "no upper bound validaty interval defined for close"
 
 -- | The contest validator must verify that:
 --
@@ -336,7 +340,7 @@ startOfContestationPeriod ScriptContext{scriptContextTxInfo} =
 checkContest ::
   ScriptContext ->
   HeadContext ->
-  UpperBound POSIXTime ->
+  POSIXTime ->
   [Party] ->
   -- | Snapshot number of the closed state.
   -- XXX: Having two snapshot numbers here is FRAGILE
@@ -346,10 +350,10 @@ checkContest ::
   BuiltinByteString ->
   [Signature] ->
   Bool
-checkContest ctx headContext closedAt parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
+checkContest ctx headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
   mustBeNewer
     && mustBeMultiSigned
-    && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, closedAt})
+    && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline})
     && mustBeSignedByParticipant ctx headContext
  where
   mustBeNewer =
