@@ -5,6 +5,7 @@ import Hydra.Cardano.Api.Prelude
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import Cardano.Ledger.SafeHash (unsafeMakeSafeHash)
+import qualified Cardano.Ledger.Shelley.Scripts as Ledger
 import qualified Data.ByteString as BS
 import qualified Plutus.V1.Ledger.Api as Plutus
 
@@ -31,8 +32,24 @@ unsafePaymentKeyHashFromBytes bytes
   | otherwise =
     PaymentKeyHash $ Ledger.KeyHash $ unsafeHashFromBytes bytes
 
+-- | Unsafe wrap some bytes as a 'ScriptHash', relying on the fact that Plutus
+-- is using Blake2b_224 for hashing data (according to 'cardano-ledger').
+--
+-- Pre-condition: the input bytestring MUST be of length 28.
+unsafeScriptHashFromBytes ::
+  HasCallStack =>
+  ByteString ->
+  ScriptHash
+unsafeScriptHashFromBytes bytes
+  | BS.length bytes /= 28 =
+    error $ "unsafeScriptHashFromBytes: pre-condition failed: " <> show (BS.length bytes) <> " bytes."
+  | otherwise =
+    fromShelleyScriptHash
+      . Ledger.ScriptHash
+      $ unsafeHashFromBytes bytes
+
 -- | Unsafe wrap some bytes as a 'Hash ScriptData', relying on the fact that
--- Plutus is using Blake2b_256 for hashing data.
+-- Plutus is using Blake2b_256 for hashing data (according to 'cardano-ledger').
 --
 -- Pre-condition: the input bytestring MUST be of length 32.
 unsafeScriptDataHashFromBytes ::
