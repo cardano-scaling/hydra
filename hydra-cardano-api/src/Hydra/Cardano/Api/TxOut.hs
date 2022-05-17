@@ -18,6 +18,7 @@ import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
 import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInlineDatums, inlineDatumsSupportedInEra)
 import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupportedInEra)
+import Hydra.Cardano.Api.Value (fromPlutusValue)
 import Ouroboros.Consensus.Util (eitherToMaybe)
 import Plutus.V2.Ledger.Api (fromBuiltin, getDatum)
 import qualified Plutus.V2.Ledger.Api as Plutus
@@ -101,7 +102,7 @@ fromPlutusTxOut out =
  where
   addressInEra = fromPlutusAddress plutusAddress
 
-  value = error "TODO: fromPlutusValue" plutusValue
+  value = fromPlutusValue plutusValue
 
   datum = case plutusDatum of
     NoOutputDatum -> TxOutDatumNone
