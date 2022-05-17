@@ -11,7 +11,7 @@ import Cardano.Binary (serialize')
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeHeadOutputDatum, genHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), assetNameFromVerificationKey, closeTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), assetNameFromVerificationKey, closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
@@ -39,7 +39,7 @@ healthyCloseTx =
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
       (healthySlotNo, slotNoToPOSIXTime healthySlotNo)
-      (headInput, headResolvedInput, headDatum, healthyOnChainParties)
+      openThreadOutput
 
   headInput = generateWith arbitrary 42
 
@@ -52,6 +52,12 @@ healthyCloseTx =
   headDatum = fromPlutusData $ toData healthyCloseDatum
 
   lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
+
+  openThreadOutput =
+    OpenThreadOutput
+      { openThreadUTxO = (headInput, headResolvedInput, headDatum)
+      , openParties = healthyOnChainParties
+      }
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42

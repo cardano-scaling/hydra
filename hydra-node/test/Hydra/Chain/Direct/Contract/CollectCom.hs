@@ -25,6 +25,7 @@ import Hydra.Chain.Direct.Fixture (
   testSeedInput,
  )
 import Hydra.Chain.Direct.Tx (
+  InitialThreadOutput (..),
   assetNameFromVerificationKey,
   collectComTx,
   headPolicyId,
@@ -59,8 +60,7 @@ healthyCollectComTx =
     collectComTx
       testNetworkId
       somePartyCardanoVerificationKey
-      (healthyHeadInput, healthyHeadResolvedInput, headDatum)
-      healthyOnChainParties
+      initialThreadOutput
       commits
 
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
@@ -76,6 +76,12 @@ healthyCollectComTx =
       & Map.fromList
 
   headDatum = fromPlutusData $ toData healthyCollectComInitialDatum
+
+  initialThreadOutput =
+    InitialThreadOutput
+      { initialThreadUTxO = (healthyHeadInput, healthyHeadResolvedInput, headDatum)
+      , initialParties = healthyOnChainParties
+      }
 
 healthyHeadInput :: TxIn
 healthyHeadInput =

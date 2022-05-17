@@ -16,7 +16,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   genHash,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, contestTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), assetNameFromVerificationKey, contestTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
@@ -44,7 +44,7 @@ healthyContestTx =
       somePartyCardanoVerificationKey
       healthyContestSnapshot
       (healthySignature healthyContestSnapshotNumber)
-      (headInput, headResolvedInput, headDatum, healthyOnChainParties, healthyClosedAt)
+      closedThreadOutput
 
   headInput = generateWith arbitrary 42
 
@@ -57,6 +57,14 @@ healthyContestTx =
   headDatum = fromPlutusData $ toData healthyClosedState
 
   lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
+
+  closedThreadOutput =
+    ClosedThreadOutput
+      { closedThreadUTxO = (headInput, headResolvedInput, headDatum)
+      , closedParties =
+          healthyOnChainParties
+      , closedAtUpperBound = healthyClosedAt
+      }
 
 addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
 addParticipationTokens parties (TxOut addr val datum) =

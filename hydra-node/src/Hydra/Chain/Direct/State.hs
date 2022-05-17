@@ -42,11 +42,15 @@ import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Tx (
   CloseObservation (..),
+  ClosedThreadOutput (..),
   ClosingSnapshot (..),
   CollectComObservation (..),
   ContestObservation (..),
   InitObservation (..),
+  InitialThreadOutput (..),
+  OpenThreadOutput (..),
   PointInTime,
+  UTxOWithScript,
   abortTx,
   closeTx,
   collectComTx,
@@ -63,11 +67,9 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
   ownInitial,
  )
-import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
-import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified Text.Show
 
 -- | An opaque on-chain head state, which records information and events
@@ -93,7 +95,7 @@ data OnChainHeadState (st :: HeadStateKind) = OnChainHeadState
 data HydraStateMachine (st :: HeadStateKind) where
   Idle :: HydraStateMachine 'StIdle
   Initialized ::
-    { initialThreadOutput :: ThreadOutput 'StInitialized
+    { initialThreadOutput :: InitialThreadOutput
     , initialInitials :: [UTxOWithScript]
     , initialCommits :: [UTxOWithScript]
     , initialHeadId :: HeadId
@@ -101,14 +103,14 @@ data HydraStateMachine (st :: HeadStateKind) where
     } ->
     HydraStateMachine 'StInitialized
   Open ::
-    { openThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+    { openThreadOutput :: OpenThreadOutput
     , openHeadId :: HeadId
     , openHeadTokenScript :: PlutusScript
     , openUtxoHash :: ByteString
     } ->
     HydraStateMachine 'StOpen
   Closed ::
-    { closedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party], Plutus.UpperBound Plutus.POSIXTime)
+    { closedThreadOutput :: ClosedThreadOutput
     , closedHeadId :: HeadId
     , closedHeadTokenScript :: PlutusScript
     } ->
@@ -117,17 +119,6 @@ data HydraStateMachine (st :: HeadStateKind) where
 deriving instance Show (HydraStateMachine st)
 deriving instance Eq (HydraStateMachine st)
 
--- | The Head state-machine UTxO along with decoded state.
-data ThreadOutput (st :: HeadStateKind) where
-  InitialThreadOutput ::
-    { threadUTxO :: UTxOWithScript
-    , initialParties :: [OnChain.Party]
-    } ->
-    ThreadOutput 'StInitialized
-
-deriving instance Show (ThreadOutput st)
-deriving instance Eq (ThreadOutput st)
-
 getKnownUTxO ::
   OnChainHeadState st ->
   UTxO
@@ -135,13 +126,13 @@ getKnownUTxO OnChainHeadState{stateMachine} =
   case stateMachine of
     Idle{} ->
       mempty
-    Initialized{initialThreadOutput = InitialThreadOutput{threadUTxO}, initialInitials, initialCommits} ->
+    Initialized{initialThreadOutput = InitialThreadOutput{initialThreadUTxO}, initialInitials, initialCommits} ->
       UTxO $
         Map.fromList $
-          take2Of3 threadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
-    Open{openThreadOutput = (i, o, _, _)} ->
+          take2Of3 initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
+    Open{openThreadOutput = OpenThreadOutput{openThreadUTxO = (i, o, _)}} ->
       UTxO.singleton (i, o)
-    Closed{closedThreadOutput = (i, o, _, _, _)} ->
+    Closed{closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}} ->
       UTxO.singleton (i, o)
 
 -- Working with opaque states
@@ -280,7 +271,7 @@ abort ::
   OnChainHeadState 'StInitialized ->
   Tx
 abort OnChainHeadState{ownVerificationKey, stateMachine} = do
-  let InitialThreadOutput{threadUTxO = (i, o, dat)} = initialThreadOutput
+  let InitialThreadOutput{initialThreadUTxO = (i, o, dat)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
    in case abortTx ownVerificationKey (i, o, dat) (initialHeadTokenScript stateMachine) initials commits of
@@ -301,10 +292,10 @@ collect ::
   Tx
 collect OnChainHeadState{networkId, ownVerificationKey, stateMachine} = do
   let commits = Map.fromList $ fmap tripleToPair initialCommits
-   in collectComTx networkId ownVerificationKey threadUTxO initialParties commits
+   in collectComTx networkId ownVerificationKey initialThreadOutput commits
  where
   Initialized
-    { initialThreadOutput = InitialThreadOutput{threadUTxO, initialParties}
+    { initialThreadOutput
     , initialCommits
     } = stateMachine
 
@@ -348,7 +339,7 @@ fanout ::
   OnChainHeadState 'StClosed ->
   Tx
 fanout utxo OnChainHeadState{stateMachine} = do
-  let (i, o, dat, _, _) = closedThreadOutput
+  let ClosedThreadOutput{closedThreadUTxO = (i, o, dat)} = closedThreadOutput
    in fanoutTx utxo (i, o, dat) closedHeadTokenScript
  where
   Closed{closedThreadOutput, closedHeadTokenScript} = stateMachine
@@ -389,7 +380,7 @@ instance ObserveTx 'StIdle 'StInitialized where
   observeTx tx OnChainHeadState{networkId, peerVerificationKeys, ownParty, ownVerificationKey} = do
     let allVerificationKeys = ownVerificationKey : peerVerificationKeys
     (event, observation) <- observeInitTx networkId allVerificationKeys ownParty tx
-    let InitObservation{threadOutput = (i, o, d, initialParties), initials, commits, headId, headTokenScript} = observation
+    let InitObservation{threadOutput, initials, commits, headId, headTokenScript} = observation
     let st' =
           OnChainHeadState
             { networkId
@@ -398,7 +389,7 @@ instance ObserveTx 'StIdle 'StInitialized where
             , peerVerificationKeys
             , stateMachine =
                 Initialized
-                  { initialThreadOutput = InitialThreadOutput{threadUTxO = (i, o, d), initialParties}
+                  { initialThreadOutput = threadOutput
                   , initialInitials = initials
                   , initialCommits = commits
                   , initialHeadId = headId
@@ -545,8 +536,7 @@ instance ObserveTx 'StClosed 'StClosed where
   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
     let utxo = getKnownUTxO st
     (event, observation) <- observeContestTx utxo tx
-    -- FIXME: remove (a,b,c) nonsense...
-    let ContestObservation{contestedThreadOutput = (a, b, c), headId} = observation
+    let ContestObservation{contestedThreadOutput, headId} = observation
     guard (headId == closedHeadId)
     let st' =
           OnChainHeadState
@@ -556,7 +546,7 @@ instance ObserveTx 'StClosed 'StClosed where
             , ownParty
             , stateMachine =
                 Closed
-                  { closedThreadOutput = (a, b, c, parties, closedAt)
+                  { closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = contestedThreadOutput, closedParties, closedAtUpperBound}
                   , closedHeadId
                   , closedHeadTokenScript
                   }
@@ -566,7 +556,7 @@ instance ObserveTx 'StClosed 'StClosed where
     Closed
       { closedHeadId
       , closedHeadTokenScript
-      , closedThreadOutput = (_, _, _, parties, closedAt)
+      , closedThreadOutput = ClosedThreadOutput{closedParties, closedAtUpperBound}
       } = stateMachine
 
 -- | A convenient way to apply transition to 'SomeOnChainHeadState' without
@@ -616,8 +606,6 @@ instance Eq (TransitionFrom st) where
 --
 -- Helpers
 --
-
-type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
 
 fst3 :: (a, b, c) -> a
 fst3 (a, _b, _c) = a

@@ -81,15 +81,21 @@ spec =
                     headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
                     onChainParties = partyToChain <$> parties
                     headDatum = Head.Initial cperiod onChainParties
+                    initialThreadOutput =
+                      InitialThreadOutput
+                        { initialThreadUTxO =
+                            ( headInput
+                            , headOutput
+                            , fromPlutusData $ toData headDatum
+                            )
+                        , initialParties = onChainParties
+                        }
+
                     tx =
                       collectComTx
                         testNetworkId
                         signer
-                        ( headInput
-                        , headOutput
-                        , fromPlutusData $ toData headDatum
-                        )
-                        onChainParties
+                        initialThreadOutput
                         commitsUTxO
                  in case validateTxScriptsUnlimited onChainUTxO tx of
                       Left basicFailure ->
@@ -193,7 +199,7 @@ spec =
                 tx = initTx testNetworkId cardanoKeys params txIn
              in case observeInitTx testNetworkId cardanoKeys party tx of
                   Just (_, InitObservation{initials, threadOutput}) -> do
-                    let (headInput, headOutput, headDatum, _) = threadOutput
+                    let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
                         initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
                         lookupUTxO =
                           ((headInput, headOutput) : [(a, b) | (a, b, _) <- initials])

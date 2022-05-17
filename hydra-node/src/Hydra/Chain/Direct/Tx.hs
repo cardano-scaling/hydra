@@ -42,7 +42,29 @@ import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.V1.Ledger.Api (POSIXTime, fromBuiltin, fromData, toBuiltin, upperBound)
 import qualified Plutus.V1.Ledger.Api as Plutus
 
+-- | Needed on-chain data to create Head transactions.
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
+
+-- | Representation of the Head output after an Init transaction.
+data InitialThreadOutput = InitialThreadOutput
+  { initialThreadUTxO :: UTxOWithScript
+  , initialParties :: [OnChain.Party]
+  }
+  deriving (Eq, Show)
+
+-- | Representation of the Head output after a CollectCom transaction.
+data OpenThreadOutput = OpenThreadOutput
+  { openThreadUTxO :: UTxOWithScript
+  , openParties :: [OnChain.Party]
+  }
+  deriving (Eq, Show)
+
+data ClosedThreadOutput = ClosedThreadOutput
+  { closedThreadUTxO :: UTxOWithScript
+  , closedParties :: [OnChain.Party]
+  , closedAtUpperBound :: Plutus.UpperBound Plutus.POSIXTime
+  }
+  deriving (Eq, Show)
 
 headPolicyId :: TxIn -> PolicyId
 headPolicyId =
@@ -178,9 +200,7 @@ collectComTx ::
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
-  UTxOWithScript ->
-  -- | List of on-chain parties from the head state
-  [OnChain.Party] ->
+  InitialThreadOutput ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
@@ -188,7 +208,7 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) parties commits =
+collectComTx networkId vk InitialThreadOutput{initialThreadUTxO = (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore), initialParties} commits =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
@@ -207,7 +227,7 @@ collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
       (txOutValue initialHeadOutput <> commitValue)
       headDatumAfter
   headDatumAfter =
-    mkTxOutDatum Head.Open{Head.parties = parties, utxoHash}
+    mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash}
   -- NOTE: We hash tx outs in an order that is recoverable on-chain.
   -- The simplest thing to do, is to make sure commit inputs are in the same
   -- order as their corresponding committed utxo.
@@ -262,9 +282,9 @@ closeTx ::
   -- | Current slot and posix time to be recorded as the closing time.
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party]) ->
+  OpenThreadOutput ->
   Tx
-closeTx vk closing (slotNo, posixTime) (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore, parties) =
+closeTx vk closing (slotNo, posixTime) OpenThreadOutput{openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), openParties} =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -294,7 +314,7 @@ closeTx vk closing (slotNo, posixTime) (headInput, headOutputBefore, ScriptDatum
       Head.Closed
         { snapshotNumber
         , utxoHash
-        , parties
+        , parties = openParties
         , closedAt = upperBound posixTime
         }
 
@@ -323,9 +343,9 @@ contestTx ::
   -- | Multi-signature of the whole snapshot
   MultiSignature (Snapshot Tx) ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party], Plutus.UpperBound POSIXTime) ->
+  ClosedThreadOutput ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore, parties, closedAt) =
+contestTx vk Snapshot{number, utxo} sig ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedAtUpperBound} =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -350,8 +370,8 @@ contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatu
       Head.Closed
         { snapshotNumber = toInteger number
         , utxoHash
-        , parties
-        , closedAt
+        , parties = closedParties
+        , closedAt = closedAtUpperBound
         }
   utxoHash = toBuiltin $ hashTxOuts $ toList utxo
 
@@ -359,7 +379,7 @@ fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, TxOut CtxUTxO, ScriptData) ->
+  UTxOWithScript ->
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
@@ -474,7 +494,7 @@ data InitObservation = InitObservation
     -- transactions.
     -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
     -- XXX(SN): Data and [OnChain.Party] are overlapping
-    threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+    threadOutput :: InitialThreadOutput
   , initials :: [UTxOWithScript]
   , commits :: [UTxOWithScript]
   , headId :: HeadId
@@ -506,11 +526,14 @@ observeInitTx networkId cardanoKeys party tx = do
     ( OnInitTx cperiod parties
     , InitObservation
         { threadOutput =
-            ( mkTxIn tx ix
-            , toCtxUTxOTxOut headOut
-            , fromLedgerData headData
-            , ps
-            )
+            InitialThreadOutput
+              { initialThreadUTxO =
+                  ( mkTxIn tx ix
+                  , toCtxUTxOTxOut headOut
+                  , fromLedgerData headData
+                  )
+              , initialParties = ps
+              }
         , initials
         , commits = []
         , headId = mkHeadId headTokenPolicyId
@@ -616,7 +639,7 @@ convertTxOut = \case
 -- TODO(SN): obviously the observeCollectComTx/observeAbortTx can be DRYed.. deliberately hold back on it though
 
 data CollectComObservation = CollectComObservation
-  { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+  { threadOutput :: OpenThreadOutput
   , headId :: HeadId
   , utxoHash :: ByteString
   }
@@ -644,11 +667,14 @@ observeCollectComTx utxo tx = do
         ( OnCollectComTx
         , CollectComObservation
             { threadOutput =
-                ( newHeadInput
-                , newHeadOutput
-                , newHeadDatum
-                , parties
-                )
+                OpenThreadOutput
+                  { openThreadUTxO =
+                      ( newHeadInput
+                      , newHeadOutput
+                      , newHeadDatum
+                      )
+                  , openParties = parties
+                  }
             , headId
             , utxoHash
             }
@@ -662,7 +688,7 @@ observeCollectComTx utxo tx = do
       _ -> Nothing
 
 data CloseObservation = CloseObservation
-  { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party], Plutus.UpperBound POSIXTime)
+  { threadOutput :: ClosedThreadOutput
   , headId :: HeadId
   }
   deriving (Show, Eq)
@@ -692,12 +718,15 @@ observeCloseTx utxo tx = do
         ( OnCloseTx{snapshotNumber}
         , CloseObservation
             { threadOutput =
-                ( newHeadInput
-                , newHeadOutput
-                , newHeadDatum
-                , parties
-                , closeUpperBound
-                )
+                ClosedThreadOutput
+                  { closedThreadUTxO =
+                      ( newHeadInput
+                      , newHeadOutput
+                      , newHeadDatum
+                      )
+                  , closedParties = parties
+                  , closedAtUpperBound = closeUpperBound
+                  }
             , headId
             }
         )
