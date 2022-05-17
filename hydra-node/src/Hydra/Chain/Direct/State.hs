@@ -71,10 +71,11 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
   ownInitial,
  )
-import Hydra.Ledger.Cardano (hashTxOuts)
+import qualified Hydra.Data.Party as OnChain
+import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
-import Plutus.V1.Ledger.Api (POSIXTime)
+import Plutus.V2.Ledger.Api (POSIXTime)
 import qualified Text.Show
 
 -- | An opaque on-chain head state, which records information and events
@@ -324,7 +325,7 @@ close confirmedSnapshot pointInTime OnChainHeadState{ownVerificationKey, stateMa
     ConfirmedSnapshot{snapshot = Snapshot{number, utxo}, signatures} ->
       CloseWithConfirmedSnapshot
         { snapshotNumber = number
-        , closeUtxoHash = hashTxOuts $ toList utxo
+        , closeUtxoHash = hashUTxO @Tx utxo
         , signatures
         }
 
