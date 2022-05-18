@@ -22,6 +22,7 @@ import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
+import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
@@ -66,6 +67,9 @@ healthyContestTx =
       , closedContestationDeadline = healthyContestationDeadline
       }
 
+healthySlotNo :: SlotNo
+healthySlotNo = arbitrary `generateWith` 42
+
 addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
 addParticipationTokens parties (TxOut addr val datum) =
   TxOut addr val' datum
@@ -107,7 +111,14 @@ healthyClosedState =
     }
 
 healthyContestationDeadline :: POSIXTime
-healthyContestationDeadline = arbitrary `generateWith` 42
+healthyContestationDeadline =
+  fromInteger
+    ( healthyContestationPeriodSeconds
+        + toInteger (slotNoToPOSIXTime healthySlotNo)
+    )
+
+healthyContestationPeriodSeconds :: Integer
+healthyContestationPeriodSeconds = 10
 
 healthyClosedSnapshotNumber :: SnapshotNumber
 healthyClosedSnapshotNumber = 3
@@ -151,6 +162,9 @@ data ContestMutation
     MutateContestUTxOHash
   | -- | Change parties stored in the state, causing multisig to fail
     MutateParties
+  | -- | Change the validity interval of the transaction to a value greater
+    -- than the contestation deadline
+    MutateValidityPastDeadline
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -191,6 +205,10 @@ genContestMutation
               , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
               , contestationDeadline = arbitrary `generateWith` 42
               }
+      , SomeMutation MutateValidityPastDeadline . ChangeValidityInterval <$> do
+          lb <- arbitrary
+          ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
+          pure (lb, ub)
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
@@ -209,3 +227,6 @@ genContestMutation
                 }
           )
           headTxOut
+
+    slotOverContestationDeadline slotNo =
+      slotNoToPOSIXTime slotNo > healthyContestationDeadline
