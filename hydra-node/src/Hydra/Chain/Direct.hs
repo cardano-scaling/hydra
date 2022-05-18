@@ -106,6 +106,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
   reifyState,
  )
+import Hydra.Chain.Direct.Tx (PointInTime)
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
@@ -163,7 +164,6 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   SubmitResult (..),
   localTxSubmissionClientPeer,
  )
-import Plutus.V1.Ledger.Api (POSIXTime)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 withDirectChain ::
@@ -266,11 +266,11 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
         }
 
 data TimeHandle m = TimeHandle
-  { currentSlot :: m SlotNo
-  , -- | Convert some slot into an absolute point in time.
-    -- It throws an exception when requesting a `SlotNo` that is
-    -- more than the current epoch length (5 days at time of writing this comment).
-    convertSlot :: MonadThrow m => SlotNo -> m POSIXTime
+  { -- | Get the current 'PointInTime'
+    currentSlot :: m PointInTime
+  , -- | Adjust a 'PointInTime' by some number of slots, positively or
+    -- negatively.
+    adjustSlot :: SlotNo -> PointInTime -> m PointInTime
   }
 
 -- | Query ad-hoc epoch, system start and protocol parameters to determine
@@ -282,14 +282,18 @@ queryTimeHandle networkId socketPath = do
   let epochInfo = toEpochInfo eraHistory
   pparams <- queryProtocolParameters networkId socketPath
   slotNo <- queryTipSlotNo networkId socketPath
+  let toTime =
+        slotToPOSIXTime
+          (toLedgerPParams ShelleyBasedEraAlonzo pparams :: PParams LedgerEra)
+          epochInfo
+          systemStart
   pure $
     TimeHandle
-      { currentSlot = pure slotNo
-      , convertSlot =
-          slotToPOSIXTime
-            (toLedgerPParams ShelleyBasedEraAlonzo pparams :: PParams LedgerEra)
-            epochInfo
-            systemStart
+      { currentSlot = (slotNo,) <$> toTime slotNo
+      , adjustSlot = \n (slot, _) -> do
+          let adjusted = slot + n
+          time <- toTime adjusted
+          pure (adjusted, time)
       }
  where
   toEpochInfo :: MonadThrow m => EraHistory CardanoMode -> EpochInfo m
@@ -618,10 +622,8 @@ fromPostChainTx ::
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx TimeHandle{currentSlot, convertSlot} cardanoKeys wallet someHeadState tx = do
-  slot <- (+ closeGraceTime) <$> currentSlot
-  posixTime <- convertSlot slot
-  let pointInTime = (slot, posixTime)
+fromPostChainTx TimeHandle{currentSlot, adjustSlot} cardanoKeys wallet someHeadState tx = do
+  pointInTime <- currentSlot
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
@@ -646,10 +648,12 @@ fromPostChainTx TimeHandle{currentSlot, convertSlot} cardanoKeys wallet someHead
     -- that both states are consistent.
     (CollectComTx{}, TkInitialized) -> do
       pure (collect st)
-    (CloseTx{confirmedSnapshot}, TkOpen) ->
-      pure (close confirmedSnapshot pointInTime st)
+    (CloseTx{confirmedSnapshot}, TkOpen) -> do
+      shifted <- adjustSlot closeGraceTime pointInTime
+      pure (close confirmedSnapshot shifted st)
     (ContestTx{confirmedSnapshot}, TkClosed) -> do
-      pure (contest confirmedSnapshot pointInTime st)
+      shifted <- adjustSlot closeGraceTime pointInTime
+      pure (contest confirmedSnapshot shifted st)
     (FanoutTx{utxo}, TkClosed) ->
       pure (fanout utxo pointInTime st)
     (_, _) ->

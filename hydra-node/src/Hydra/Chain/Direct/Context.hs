@@ -166,7 +166,7 @@ genFanoutTx numParties = do
   (_, stClosed) <- genStClosed ctx utxo
   pointInTime <-
     genPointInTime `suchThat` \(slot, _) ->
-      slotNoToPOSIXTime slot < getContestationDeadline stClosed
+      slotNoToPOSIXTime slot > getContestationDeadline stClosed
   pure (stClosed, fanout utxo pointInTime stClosed)
 
 genStOpen ::
