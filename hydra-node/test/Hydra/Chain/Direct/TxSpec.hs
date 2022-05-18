@@ -40,14 +40,11 @@ import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Ledger.Cardano (
   adaOnly,
   genOneUTxOFor,
-  genUTxO,
   genVerificationKey,
-  hashTxOuts,
   renderTx,
-  simplifyUTxO,
  )
 import Hydra.Party (Party, partyToChain)
-import Plutus.V1.Ledger.Api (toBuiltin, toData)
+import Plutus.V1.Ledger.Api (toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
@@ -61,7 +58,6 @@ import Test.QuickCheck (
   label,
   oneof,
   property,
-  resize,
   suchThat,
   vectorOf,
   withMaxSuccess,
@@ -108,50 +104,6 @@ spec =
                               & counterexample (prettyRedeemerReport redeemerReport)
                               & counterexample ("Tx: " <> renderTx tx)
                           ]
-
-    describe "fanoutTx" $ do
-      prop "validates" $ \headInput ->
-        forAll (resize 70 $ simplifyUTxO <$> genUTxO) $ \inHeadUTxO ->
-          let tx =
-                fanoutTx
-                  inHeadUTxO
-                  (headInput, headOutput, fromPlutusData $ toData headDatum)
-                  (mkHeadTokenScript testSeedInput)
-              onChainUTxO = UTxO.singleton (headInput, headOutput)
-              headScript = fromPlutusScript Head.validatorScript
-              -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUTxO
-              headOutput =
-                TxOut
-                  (mkScriptAddress @PlutusScriptV1 testNetworkId headScript)
-                  ( lovelaceToValue (Lovelace 10_000_000)
-                      <> valueFromList
-                        [ (AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)
-                        ]
-                  )
-                  (toUTxOContext $ mkTxOutDatum headDatum)
-              headDatum =
-                Head.Closed
-                  { snapshotNumber = 1
-                  , utxoHash = toBuiltin (hashTxOuts $ toList inHeadUTxO)
-                  , parties = []
-                  , contestationDeadline = 0
-                  }
-           in checkCoverage $ case validateTxScriptsUnlimited onChainUTxO tx of
-                Left basicFailure ->
-                  property False & counterexample ("Basic failure: " <> show basicFailure)
-                Right redeemerReport ->
-                  conjoin
-                    [ 1 == length (successfulRedeemersSpending redeemerReport)
-                        & counterexample "Wrong count of spend redeemer(s)"
-                    , 1 == length (successfulRedeemersMinting redeemerReport)
-                        & counterexample "Wrong count of mint redeemer(s)"
-                    , withinTxExecutionBudget redeemerReport
-                    ]
-                    & label (show (length inHeadUTxO) <> " UTXO")
-                    & label (show (valueSize $ foldMap txOutValue inHeadUTxO) <> " Assets")
-                    & counterexample ("Redeemer report: " <> show redeemerReport)
-                    & counterexample ("Tx: " <> renderTx tx)
-                    & cover 80 True "Success"
 
     describe "abortTx" $ do
       prop "validates" $

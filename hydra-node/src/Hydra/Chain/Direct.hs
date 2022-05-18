@@ -619,6 +619,9 @@ fromPostChainTx ::
   PostChainTx Tx ->
   STM m Tx
 fromPostChainTx TimeHandle{currentSlot, convertSlot} cardanoKeys wallet someHeadState tx = do
+  slot <- (+ closeGraceTime) <$> currentSlot
+  posixTime <- convertSlot slot
+  let pointInTime = (slot, posixTime)
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
@@ -643,16 +646,12 @@ fromPostChainTx TimeHandle{currentSlot, convertSlot} cardanoKeys wallet someHead
     -- that both states are consistent.
     (CollectComTx{}, TkInitialized) -> do
       pure (collect st)
-    (CloseTx{confirmedSnapshot}, TkOpen) -> do
-      slot <- (+ closeGraceTime) <$> currentSlot
-      posixTime <- convertSlot slot
-      pure (close confirmedSnapshot (slot, posixTime) st)
+    (CloseTx{confirmedSnapshot}, TkOpen) ->
+      pure (close confirmedSnapshot pointInTime st)
     (ContestTx{confirmedSnapshot}, TkClosed) -> do
-      slot <- (+ closeGraceTime) <$> currentSlot
-      posixTime <- convertSlot slot
-      pure (contest confirmedSnapshot (slot, posixTime) st)
+      pure (contest confirmedSnapshot pointInTime st)
     (FanoutTx{utxo}, TkClosed) ->
-      pure (fanout utxo st)
+      pure (fanout utxo pointInTime st)
     (_, _) ->
       throwIO $ InvalidStateToPost tx
 

@@ -133,8 +133,15 @@ burnTokens script redeemer assets =
   mintTokens script redeemer (fmap (second negate) assets)
 
 -- | Set the upper validity bound for this transaction to some 'SlotNo'.
-setValiditityUpperBound :: SlotNo -> TxBuilder -> TxBuilder
-setValiditityUpperBound slotNo tx =
+setValidityUpperBound :: SlotNo -> TxBuilder -> TxBuilder
+setValidityUpperBound slotNo tx =
   tx{txValidityRange = (lower, TxValidityUpperBound slotNo)}
  where
   (lower, _upper) = txValidityRange tx
+
+-- | Set the lower validity bound for this transaction to some 'SlotNo'.
+setValidityLowerBound :: SlotNo -> TxBuilder -> TxBuilder
+setValidityLowerBound slotNo tx =
+  tx{txValidityRange = (TxValidityLowerBound slotNo, upper)}
+ where
+  (_lower, upper) = txValidityRange tx

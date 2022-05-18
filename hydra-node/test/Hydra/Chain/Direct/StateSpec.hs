@@ -54,9 +54,9 @@ import Hydra.Chain.Direct.Context (
   genCommit,
   genCommits,
   genContestTx,
+  genFanoutTx,
   genHydraContext,
   genInitTx,
-  genStClosed,
   genStIdle,
   genStInitialized,
   unsafeCommit,
@@ -73,7 +73,6 @@ import Hydra.Chain.Direct.State (
   TransitionFrom (..),
   abort,
   commit,
-  fanout,
   getKnownUTxO,
   idleOnChainHeadState,
   initialize,
@@ -82,11 +81,9 @@ import Hydra.Chain.Direct.State (
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (
   genTxIn,
-  genUTxO,
   genValue,
   renderTx,
   renderTxs,
-  simplifyUTxO,
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
 import Ouroboros.Consensus.Block (Point, blockPoint)
@@ -114,7 +111,6 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShow,
   label,
-  resize,
   sublistOf,
   (==>),
  )
@@ -521,15 +517,11 @@ forAllFanout ::
   (Testable property) =>
   (OnChainHeadState 'StClosed -> Tx -> property) ->
   Property
-forAllFanout action = do
-  forAll (genHydraContext 3) $ \ctx ->
-    forAllShow (resize maxAssetsSupported $ simplifyUTxO <$> genUTxO) renderUTxO $ \utxo ->
-      forAll (genStClosed ctx utxo) $ \(_, stClosed) ->
-        action stClosed (fanout utxo stClosed)
-          & label ("Fanout size: " <> prettyLength (assetsInUtxo utxo))
+forAllFanout action =
+  forAll (genFanoutTx 3) $ \(stClosed, tx) ->
+    action stClosed tx
+      & label ("Fanout size: " <> prettyLength (assetsInUtxo $ getKnownUTxO stClosed))
  where
-  maxAssetsSupported = 1
-
   assetsInUtxo = valueSize . foldMap txOutValue
 
   prettyLength len

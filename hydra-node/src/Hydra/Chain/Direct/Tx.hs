@@ -27,7 +27,7 @@ import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (addContestationPeriod, contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (hashTxOuts, setValiditityUpperBound)
+import Hydra.Ledger.Cardano (hashTxOuts, setValidityLowerBound, setValidityUpperBound)
 import Hydra.Ledger.Cardano.Builder (
   addExtraRequiredSigners,
   addInputs,
@@ -293,7 +293,7 @@ closeTx vk closing (slotNo, posixTime) openThreadOutput =
       & addInputs [(headInput, headWitness)]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValiditityUpperBound slotNo
+      & setValidityUpperBound slotNo
  where
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore)
@@ -364,7 +364,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
       & addInputs [(headInput, headWitness)]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValiditityUpperBound slotNo
+      & setValidityUpperBound slotNo
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -394,15 +394,19 @@ fanoutTx ::
   UTxO ->
   -- | Everything needed to spend the Head state-machine output.
   UTxOWithScript ->
+  -- | Point in time at which this transaction is posted, used to set
+  -- lower bound.
+  PointInTime ->
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript =
+fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) (slotNo, _) headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs fanoutOutputs
       & burnTokens headTokenScript Burn headTokens
+      & setValidityLowerBound slotNo
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
