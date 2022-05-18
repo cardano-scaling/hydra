@@ -24,7 +24,7 @@ import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
-import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
+import Hydra.Data.ContestationPeriod (addContestationPeriod, contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (hashTxOuts, setValiditityUpperBound)
@@ -287,7 +287,7 @@ closeTx ::
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
   Tx
-closeTx vk closing (slotNo, posixTime) OpenThreadOutput{openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), openParties} =
+closeTx vk closing (slotNo, posixTime) openThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -295,6 +295,12 @@ closeTx vk closing (slotNo, posixTime) OpenThreadOutput{openThreadUTxO = (headIn
       & addExtraRequiredSigners [verificationKeyHash vk]
       & setValiditityUpperBound slotNo
  where
+  OpenThreadOutput
+    { openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore)
+    , openContestationPeriod
+    , openParties
+    } = openThreadOutput
+
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
 
@@ -318,7 +324,7 @@ closeTx vk closing (slotNo, posixTime) OpenThreadOutput{openThreadUTxO = (headIn
         { snapshotNumber
         , utxoHash
         , parties = openParties
-        , contestationDeadline = posixTime
+        , contestationDeadline
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -332,6 +338,8 @@ closeTx vk closing (slotNo, posixTime) OpenThreadOutput{openThreadUTxO = (headIn
   signature = case closing of
     CloseWithInitialSnapshot{} -> mempty
     CloseWithConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
+
+  contestationDeadline = addContestationPeriod posixTime openContestationPeriod
 
 -- TODO: This function is VERY similar to the 'closeTx' function (only notable
 -- difference being the redeemer, which is in itself also the same structure as

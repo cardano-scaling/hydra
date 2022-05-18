@@ -5,9 +5,11 @@ module Hydra.Data.ContestationPeriod where
 
 import Hydra.Prelude
 
+import qualified PlutusTx.Prelude as Plutus
+
 import Data.Time (diffTimeToPicoseconds, picosecondsToDiffTime)
 import Plutus.V1.Ledger.Api (POSIXTime)
-import Plutus.V1.Ledger.Time (DiffMilliSeconds)
+import Plutus.V1.Ledger.Time (DiffMilliSeconds, fromMilliSeconds)
 import qualified PlutusTx
 
 newtype ContestationPeriod = UnsafeContestationPeriod {milliseconds :: DiffMilliSeconds}
@@ -40,3 +42,7 @@ contestationPeriodToDiffTime cp =
 
 millisInPico :: Integer
 millisInPico = 10 ^ (9 :: Integer)
+
+addContestationPeriod :: POSIXTime -> ContestationPeriod -> POSIXTime
+addContestationPeriod time UnsafeContestationPeriod{milliseconds} = time Plutus.+ fromMilliSeconds milliseconds
+{-# INLINEABLE addContestationPeriod #-}

@@ -12,7 +12,7 @@ import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
 import qualified Hydra.Contract.Initial as Initial
-import Hydra.Data.ContestationPeriod (ContestationPeriod)
+import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Codec.CBOR.Encoding (
   encodeBeginList,
@@ -323,10 +323,11 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
 
 -- | Checks that the datum
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
-makeContestationDeadline _cperiod ScriptContext{scriptContextTxInfo} =
+makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
   case ivTo (txInfoValidRange scriptContextTxInfo) of
-    UpperBound (Finite time) _ -> time
+    UpperBound (Finite time) _ -> addContestationPeriod time cperiod
     _ -> traceError "no upper bound validaty interval defined for close"
+{-# INLINEABLE makeContestationDeadline #-}
 
 -- | The contest validator must verify that:
 --
