@@ -22,13 +22,14 @@ import Hydra.Chain.Direct.State (
   collect,
   commit,
   contest,
+  getContestationDeadline,
   idleOnChainHeadState,
   initialize,
   observeTx,
  )
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTime)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTime, slotNoToPOSIXTime)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot, getSnapshot)
 import Test.QuickCheck (choose, elements, frequency, suchThat, vector)
@@ -151,7 +152,10 @@ genContestTx numParties = do
   utxo <- arbitrary
   (closedSnapshotNumber, stClosed) <- genStClosed ctx utxo
   snapshot <- genConfirmedSnapshot closedSnapshotNumber utxo (ctxHydraSigningKeys ctx)
-  pure (stClosed, contest snapshot stClosed)
+  pointInTime <-
+    genPointInTime `suchThat` \(slot, _) ->
+      slotNoToPOSIXTime slot < getContestationDeadline stClosed
+  pure (stClosed, contest snapshot pointInTime stClosed)
 
 genStOpen ::
   HydraContext ->

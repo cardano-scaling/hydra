@@ -32,6 +32,7 @@ module Hydra.Chain.Direct.State (
   ObserveTx (..),
   HasTransition (..),
   TransitionFrom (..),
+  getContestationDeadline,
 ) where
 
 import Hydra.Cardano.Api
@@ -70,6 +71,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Plutus.V1.Ledger.Api (POSIXTime)
 import qualified Text.Show
 
 -- | An opaque on-chain head state, which records information and events
@@ -134,6 +136,11 @@ getKnownUTxO OnChainHeadState{stateMachine} =
       UTxO.singleton (i, o)
     Closed{closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}} ->
       UTxO.singleton (i, o)
+
+getContestationDeadline :: OnChainHeadState 'StClosed -> POSIXTime
+getContestationDeadline
+  OnChainHeadState{stateMachine = Closed{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}}} =
+    closedContestationDeadline
 
 -- Working with opaque states
 
@@ -322,10 +329,11 @@ close confirmedSnapshot pointInTime OnChainHeadState{ownVerificationKey, stateMa
 
 contest ::
   ConfirmedSnapshot Tx ->
+  PointInTime ->
   OnChainHeadState 'StClosed ->
   Tx
-contest confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} = do
-  contestTx ownVerificationKey sn sigs closedThreadOutput
+contest confirmedSnapshot pointInTime OnChainHeadState{ownVerificationKey, stateMachine} = do
+  contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput
  where
   (sn, sigs) =
     case confirmedSnapshot of

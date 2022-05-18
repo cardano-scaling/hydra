@@ -647,8 +647,10 @@ fromPostChainTx TimeHandle{currentSlot, convertSlot} cardanoKeys wallet someHead
       slot <- (+ closeGraceTime) <$> currentSlot
       posixTime <- convertSlot slot
       pure (close confirmedSnapshot (slot, posixTime) st)
-    (ContestTx{confirmedSnapshot}, TkClosed) ->
-      pure (contest confirmedSnapshot st)
+    (ContestTx{confirmedSnapshot}, TkClosed) -> do
+      slot <- (+ closeGraceTime) <$> currentSlot
+      posixTime <- convertSlot slot
+      pure (contest confirmedSnapshot (slot, posixTime) st)
     (FanoutTx{utxo}, TkClosed) ->
       pure (fanout utxo st)
     (_, _) ->

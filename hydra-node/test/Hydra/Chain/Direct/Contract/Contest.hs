@@ -45,6 +45,7 @@ healthyContestTx =
       somePartyCardanoVerificationKey
       healthyContestSnapshot
       (healthySignature healthyContestSnapshotNumber)
+      (healthySlotNo, slotNoToPOSIXTime healthySlotNo)
       closedThreadOutput
 
   headInput = generateWith arbitrary 42

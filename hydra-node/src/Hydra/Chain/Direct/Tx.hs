@@ -353,15 +353,18 @@ contestTx ::
   Snapshot Tx ->
   -- | Multi-signature of the whole snapshot
   MultiSignature (Snapshot Tx) ->
+  -- | Current slot and posix time to be recorded as the closing time.
+  PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
   Tx
-contestTx vk Snapshot{number, utxo} sig ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline} =
+contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline} =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
+      & setValiditityUpperBound slotNo
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer

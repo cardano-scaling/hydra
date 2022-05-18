@@ -351,11 +351,12 @@ checkContest ::
   BuiltinByteString ->
   [Signature] ->
   Bool
-checkContest ctx headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
+checkContest ctx@ScriptContext{scriptContextTxInfo} headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
   mustBeNewer
     && mustBeMultiSigned
     && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline})
     && mustBeSignedByParticipant ctx headContext
+    && mustBeWithinContestationPeriod
  where
   mustBeNewer =
     traceIfFalse "too old snapshot" $
@@ -363,6 +364,11 @@ checkContest ctx headContext contestationDeadline parties closedSnapshotNumber c
 
   mustBeMultiSigned =
     verifySnapshotSignature parties contestSnapshotNumber contestUtxoHash sig
+
+  mustBeWithinContestationPeriod =
+    case ivTo (txInfoValidRange scriptContextTxInfo) of
+      UpperBound (Finite time) _ -> traceIfFalse "upper bound validity beyond contestation deadline" $ time < contestationDeadline
+      _ -> traceError "no upper bound validity interval defined for close"
 {-# INLINEABLE checkContest #-}
 
 checkHeadOutputDatum :: ToData a => ScriptContext -> a -> Bool
