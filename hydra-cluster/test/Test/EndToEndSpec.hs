@@ -341,7 +341,8 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
         snapshotNumber <- v ^? key "snapshotNumber"
         guard $ snapshotNumber == toJSON expectedSnapshotNumber
 
-      waitFor tracer (contestationPeriod + 3) [n1] $
+      -- NOTE: 6 = 2 * hardcoded gracePeriod
+      waitFor tracer (contestationPeriod + 6) [n1] $
         output "HeadIsFinalized" ["utxo" .= newUTxO]
 
       case fromJSON $ toJSON newUTxO of

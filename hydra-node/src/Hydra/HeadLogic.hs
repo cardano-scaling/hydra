@@ -401,7 +401,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                   -- upper validity bound of the close transaction. The contestation
                   -- period here is really a minimum. At the moment, this isn't enforced
                   -- on-chain anyway so it's only faking it (until we make it).
-                  delay = contestationPeriod
+                  delay = contestationPeriod + gracePeriod
                 , reason = WaitOnContestationPeriod
                 , event = ShouldPostFanout
                 }
@@ -441,6 +441,11 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   snapshotPending = \case
     SeenSnapshot{} -> True
     _ -> False
+
+-- | Some time buffer before submitting `ShouldPostFanout` event to cope with time drifting.
+-- FIXME: we should rather follow chain's "time" (slots) and use at as reference
+gracePeriod :: DiffTime
+gracePeriod = 3
 
 data SnapshotOutcome tx
   = ShouldSnapshot SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
