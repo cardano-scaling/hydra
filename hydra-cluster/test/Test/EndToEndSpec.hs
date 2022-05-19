@@ -86,7 +86,7 @@ spec = around showLogsOnFailure $ do
   describe "End-to-end test using a single cardano-node" $ do
     describe "three hydra nodes scenario" $
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
-        failAfter 60 $
+        failAfter 600 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
             withBFTNode (contramap FromCardanoNode tracer) config $ \node -> do
@@ -341,8 +341,8 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
         snapshotNumber <- v ^? key "snapshotNumber"
         guard $ snapshotNumber == toJSON expectedSnapshotNumber
 
-      -- NOTE: 6 = 2 * hardcoded gracePeriod
-      waitFor tracer (contestationPeriod + 6) [n1] $
+      -- NOTE: Hardcoded 'fanoutGracePeriod' + some three secs longer
+      waitFor tracer (contestationPeriod + 100 + 3) [n1] $
         output "HeadIsFinalized" ["utxo" .= newUTxO]
 
       case fromJSON $ toJSON newUTxO of

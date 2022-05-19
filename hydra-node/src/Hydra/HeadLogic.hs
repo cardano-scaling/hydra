@@ -398,10 +398,10 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
               -- may want to only post fanout once we have contested.
               Delay
                 { -- TODO: In principle, we want to start the stopwatch from the
-                  -- upper validity bound of the close transaction. The contestation
-                  -- period here is really a minimum. At the moment, this isn't enforced
-                  -- on-chain anyway so it's only faking it (until we make it).
-                  delay = contestationPeriod + gracePeriod
+                  -- upper validity bound of the close transaction. The
+                  -- contestation period here is really a minimum. We add the
+                  -- grace period here to cope for this.
+                  delay = contestationPeriod + fanoutGracePeriod
                 , reason = WaitOnContestationPeriod
                 , event = ShouldPostFanout
                 }
@@ -442,10 +442,14 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     SeenSnapshot{} -> True
     _ -> False
 
--- | Some time buffer before submitting `ShouldPostFanout` event to cope with time drifting.
--- FIXME: we should rather follow chain's "time" (slots) and use at as reference
-gracePeriod :: DiffTime
-gracePeriod = 3
+-- | Some time buffer before submitting `ShouldPostFanout` event to cope with
+-- time drifting and the fact that we start our stopwatch when we observe the
+-- close transaction, not from it's upper bound validity.
+-- NOTE: This needs to be AT LEAST the 'closeGraceTime' equivalent of the
+-- slowest chain we want to support. For example, 100 slots * 1 slot / s = 100 secs
+-- FIXME: we should rather follow chain's "time" (slots) and use that as reference
+fanoutGracePeriod :: DiffTime
+fanoutGracePeriod = 100
 
 data SnapshotOutcome tx
   = ShouldSnapshot SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
