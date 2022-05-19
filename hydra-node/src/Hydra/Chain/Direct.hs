@@ -267,10 +267,10 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
 
 data TimeHandle m = TimeHandle
   { -- | Get the current 'PointInTime'
-    currentSlot :: m PointInTime
+    currentPointInTime :: m PointInTime
   , -- | Adjust a 'PointInTime' by some number of slots, positively or
     -- negatively.
-    adjustSlot :: SlotNo -> PointInTime -> m PointInTime
+    adjustPointInTime :: SlotNo -> PointInTime -> m PointInTime
   }
 
 -- | Query ad-hoc epoch, system start and protocol parameters to determine
@@ -289,8 +289,8 @@ queryTimeHandle networkId socketPath = do
           systemStart
   pure $
     TimeHandle
-      { currentSlot = (slotNo,) <$> toTime slotNo
-      , adjustSlot = \n (slot, _) -> do
+      { currentPointInTime = (slotNo,) <$> toTime slotNo
+      , adjustPointInTime = \n (slot, _) -> do
           let adjusted = slot + n
           time <- toTime adjusted
           pure (adjusted, time)
@@ -622,8 +622,8 @@ fromPostChainTx ::
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx TimeHandle{currentSlot, adjustSlot} cardanoKeys wallet someHeadState tx = do
-  pointInTime <- currentSlot
+fromPostChainTx TimeHandle{currentPointInTime, adjustPointInTime} cardanoKeys wallet someHeadState tx = do
+  pointInTime <- currentPointInTime
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
@@ -649,10 +649,10 @@ fromPostChainTx TimeHandle{currentSlot, adjustSlot} cardanoKeys wallet someHeadS
     (CollectComTx{}, TkInitialized) -> do
       pure (collect st)
     (CloseTx{confirmedSnapshot}, TkOpen) -> do
-      shifted <- adjustSlot closeGraceTime pointInTime
+      shifted <- adjustPointInTime closeGraceTime pointInTime
       pure (close confirmedSnapshot shifted st)
     (ContestTx{confirmedSnapshot}, TkClosed) -> do
-      shifted <- adjustSlot closeGraceTime pointInTime
+      shifted <- adjustPointInTime closeGraceTime pointInTime
       pure (contest confirmedSnapshot shifted st)
     (FanoutTx{utxo}, TkClosed) ->
       pure (fanout utxo pointInTime st)
