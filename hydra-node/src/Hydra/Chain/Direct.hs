@@ -15,17 +15,21 @@ module Hydra.Chain.Direct (
 import Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
+import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
 import Cardano.Ledger.Alonzo.Rules.Utxos (TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
 import Cardano.Ledger.Alonzo.Rules.Utxow (AlonzoPredFail (WrappedShelleyEraFailure))
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
-import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure), debugPlutus)
+import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure), debugPlutus, slotToPOSIXTime)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
+import Cardano.Ledger.Slot (EpochInfo)
+import Cardano.Slotting.EpochInfo (hoistEpochInfo)
+import Cardano.Slotting.Time (SystemStart)
 import Control.Exception (IOException)
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (
@@ -41,22 +45,41 @@ import Control.Monad.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Class.MonadTimer (timeout)
+import Control.Monad.Trans.Except (runExcept)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import Data.List ((\\))
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
+  CardanoMode,
   ChainPoint (..),
+  ChainTip (..),
+  ConsensusModeIsMultiEra (CardanoModeIsMultiEra),
+  ConsensusModeParams (CardanoModeParams),
+  EpochSlots (EpochSlots),
+  EraHistory (EraHistory),
+  EraInMode (AlonzoEraInCardanoMode),
+  LedgerEra,
+  LocalNodeConnectInfo (LocalNodeConnectInfo),
   NetworkId,
   PaymentKey,
+  ProtocolParameters,
+  QueryInEra (QueryInShelleyBasedEra),
+  QueryInMode (QueryEraHistory, QueryInEra, QuerySystemStart),
+  QueryInShelleyBasedEra (QueryProtocolParameters),
+  ShelleyBasedEra (ShelleyBasedEraAlonzo),
   SigningKey,
+  SlotNo,
   Tx,
   VerificationKey,
   fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
   fromLedgerUTxO,
+  getLocalChainTip,
+  queryNodeLocalState,
   toConsensusPointHF,
+  toLedgerPParams,
   toLedgerTx,
   toLedgerUTxO,
  )
@@ -101,7 +124,8 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
-import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
+import Ouroboros.Consensus.Cardano.Block (EraMismatch, GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
+import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
@@ -139,6 +163,7 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   SubmitResult (..),
   localTxSubmissionClientPeer,
  )
+import Plutus.V1.Ledger.Api (POSIXTime)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 withDirectChain ::
@@ -186,6 +211,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
               Chain
                 { postTx = \tx -> do
                     traceWith tracer $ ToPost tx
+                    timeHandle <- queryTimeHandle networkId socketPath
                     -- XXX(SN): 'finalizeTx' retries until a payment utxo is
                     -- found. See haddock for details
                     response <-
@@ -201,7 +227,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
                         -- bootstrap the init transaction.
                         -- For now, we bear with it and keep the static keys in
                         -- context.
-                        fromPostChainTx cardanoKeys wallet headState tx
+                        fromPostChainTx timeHandle cardanoKeys wallet headState tx
                           >>= finalizeTx wallet headState . toLedgerTx
                           >>= \vtx -> do
                             response <- newEmptyTMVar
@@ -238,6 +264,38 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
         , socketPath
         , networkId
         }
+
+data TimeHandle m = TimeHandle
+  { currentSlot :: m SlotNo
+  , -- | Convert some slot into an absolute point in time.
+    -- It throws an exception when requesting a `SlotNo` that is
+    -- more than the current epoch length (5 days at time of writing this comment).
+    convertSlot :: MonadThrow m => SlotNo -> m POSIXTime
+  }
+
+-- | Query ad-hoc epoch, system start and protocol parameters to determine
+-- current point in time.
+queryTimeHandle :: MonadThrow m => NetworkId -> FilePath -> IO (TimeHandle m)
+queryTimeHandle networkId socketPath = do
+  systemStart <- querySystemStart networkId socketPath
+  eraHistory <- queryEraHistory networkId socketPath
+  let epochInfo = toEpochInfo eraHistory
+  pparams <- queryProtocolParameters networkId socketPath
+  slotNo <- queryTipSlotNo networkId socketPath
+  pure $
+    TimeHandle
+      { currentSlot = pure slotNo
+      , convertSlot =
+          slotToPOSIXTime
+            (toLedgerPParams ShelleyBasedEraAlonzo pparams :: PParams LedgerEra)
+            epochInfo
+            systemStart
+      }
+ where
+  toEpochInfo :: MonadThrow m => EraHistory CardanoMode -> EpochInfo m
+  toEpochInfo (EraHistory _ interpreter) =
+    hoistEpochInfo (either throwIO pure . runExcept) $
+      Consensus.interpreterToEpochInfo interpreter
 
 data ConnectException = ConnectException
   { ioException :: IOException
@@ -546,14 +604,21 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
     Right validatedTx -> do
       pure $ sign validatedTx
 
+-- | Hardcoded grace time for close transaction to be valid.
+-- TODO: replace/remove with deadline contestation
+-- TODO: make it a node configuration parameter
+closeGraceTime :: SlotNo
+closeGraceTime = 100
+
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
+  TimeHandle (STM m) ->
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx cardanoKeys wallet someHeadState tx = do
+fromPostChainTx TimeHandle{currentSlot, convertSlot} cardanoKeys wallet someHeadState tx = do
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
@@ -578,10 +643,14 @@ fromPostChainTx cardanoKeys wallet someHeadState tx = do
     -- that both states are consistent.
     (CollectComTx{}, TkInitialized) -> do
       pure (collect st)
-    (CloseTx{confirmedSnapshot}, TkOpen) ->
-      pure (close confirmedSnapshot st)
-    (ContestTx{confirmedSnapshot}, TkClosed) ->
-      pure (contest confirmedSnapshot st)
+    (CloseTx{confirmedSnapshot}, TkOpen) -> do
+      slot <- (+ closeGraceTime) <$> currentSlot
+      posixTime <- convertSlot slot
+      pure (close confirmedSnapshot (slot, posixTime) st)
+    (ContestTx{confirmedSnapshot}, TkClosed) -> do
+      slot <- (+ closeGraceTime) <$> currentSlot
+      posixTime <- convertSlot slot
+      pure (contest confirmedSnapshot (slot, posixTime) st)
     (FanoutTx{utxo}, TkClosed) ->
       pure (fanout utxo st)
     (_, _) ->
@@ -650,3 +719,60 @@ instance ToJSON DirectChainLog where
         [ "tag" .= String "Wallet"
         , "contents" .= log
         ]
+
+-- * Querying the cardano node
+
+newtype QueryException
+  = QueryException Text
+  deriving (Eq, Show)
+
+instance Exception QueryException
+
+queryTipSlotNo :: NetworkId -> FilePath -> IO SlotNo
+queryTipSlotNo networkId socket =
+  getLocalChainTip (localNodeConnectInfo networkId socket) >>= \case
+    ChainTipAtGenesis -> pure 0
+    ChainTip slotNo _ _ -> pure slotNo
+
+querySystemStart :: NetworkId -> FilePath -> IO SystemStart
+querySystemStart networkId socket =
+  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing QuerySystemStart >>= \case
+    Left err -> throwIO $ QueryException (show err)
+    Right result -> pure result
+
+queryEraHistory :: NetworkId -> FilePath -> IO (EraHistory CardanoMode)
+queryEraHistory networkId socket =
+  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing (QueryEraHistory CardanoModeIsMultiEra) >>= \case
+    Left err -> throwIO $ QueryException (show err)
+    Right result -> pure result
+
+-- | Query current protocol parameters.
+--
+-- Throws 'CardanoClientException' if query fails.
+queryProtocolParameters :: NetworkId -> FilePath -> IO ProtocolParameters
+queryProtocolParameters networkId socket =
+  let query =
+        QueryInEra
+          AlonzoEraInCardanoMode
+          ( QueryInShelleyBasedEra
+              ShelleyBasedEraAlonzo
+              QueryProtocolParameters
+          )
+   in runQuery networkId socket query
+
+runQuery :: NetworkId -> FilePath -> QueryInMode CardanoMode (Either EraMismatch a) -> IO a
+runQuery networkId socket query =
+  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing query >>= \case
+    Left err -> throwIO $ QueryException (show err)
+    Right (Left eraMismatch) -> throwIO $ QueryException (show eraMismatch)
+    Right (Right result) -> pure result
+
+localNodeConnectInfo :: NetworkId -> FilePath -> LocalNodeConnectInfo CardanoMode
+localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams
+
+cardanoModeParams :: ConsensusModeParams CardanoMode
+cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
+ where
+  -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
+  -- is the default for cardano-cli
+  defaultByronEpochSlots = 21600 :: Word64

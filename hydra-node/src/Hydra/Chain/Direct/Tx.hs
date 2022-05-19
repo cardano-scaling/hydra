@@ -24,9 +24,10 @@ import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
-import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
+import Hydra.Data.ContestationPeriod (addContestationPeriod, contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
+import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (hashTxOuts)
+import Hydra.Ledger.Cardano (hashTxOuts, setValiditityUpperBound)
 import Hydra.Ledger.Cardano.Builder (
   addExtraRequiredSigners,
   addInputs,
@@ -39,10 +40,34 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
-import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin)
+import Plutus.V1.Ledger.Api (POSIXTime, fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V1.Ledger.Api as Plutus
 
+-- | Needed on-chain data to create Head transactions.
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
+
+-- | Representation of the Head output after an Init transaction.
+data InitialThreadOutput = InitialThreadOutput
+  { initialThreadUTxO :: UTxOWithScript
+  , initialContestationPeriod :: OnChain.ContestationPeriod
+  , initialParties :: [OnChain.Party]
+  }
+  deriving (Eq, Show)
+
+-- | Representation of the Head output after a CollectCom transaction.
+data OpenThreadOutput = OpenThreadOutput
+  { openThreadUTxO :: UTxOWithScript
+  , openContestationPeriod :: OnChain.ContestationPeriod
+  , openParties :: [OnChain.Party]
+  }
+  deriving (Eq, Show)
+
+data ClosedThreadOutput = ClosedThreadOutput
+  { closedThreadUTxO :: UTxOWithScript
+  , closedParties :: [OnChain.Party]
+  , closedContestationDeadline :: Plutus.POSIXTime
+  }
+  deriving (Eq, Show)
 
 headPolicyId :: TxIn -> PolicyId
 headPolicyId =
@@ -178,7 +203,7 @@ collectComTx ::
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party]) ->
+  InitialThreadOutput ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
@@ -186,7 +211,7 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore, parties) commits =
+collectComTx networkId vk InitialThreadOutput{initialThreadUTxO = (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore), initialParties, initialContestationPeriod} commits =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
@@ -205,7 +230,7 @@ collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
       (txOutValue initialHeadOutput <> commitValue)
       headDatumAfter
   headDatumAfter =
-    mkTxOutDatum Head.Open{Head.parties = parties, utxoHash}
+    mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash, contestationPeriod = initialContestationPeriod}
   -- NOTE: We hash tx outs in an order that is recoverable on-chain.
   -- The simplest thing to do, is to make sure commit inputs are in the same
   -- order as their corresponding committed utxo.
@@ -248,6 +273,8 @@ data ClosingSnapshot
         signatures :: MultiSignature (Snapshot Tx)
       }
 
+type PointInTime = (SlotNo, POSIXTime)
+
 -- | Create a transaction closing a head with either the initial snapshot or
 -- with a multi-signed confirmed snapshot.
 closeTx ::
@@ -255,16 +282,25 @@ closeTx ::
   VerificationKey PaymentKey ->
   -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
+  -- | Current slot and posix time to be recorded as the closing time.
+  PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party]) ->
+  OpenThreadOutput ->
   Tx
-closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore, parties) =
+closeTx vk closing (slotNo, posixTime) openThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
+      & setValiditityUpperBound slotNo
  where
+  OpenThreadOutput
+    { openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore)
+    , openContestationPeriod
+    , openParties
+    } = openThreadOutput
+
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
 
@@ -287,7 +323,8 @@ closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatum
       Head.Closed
         { snapshotNumber
         , utxoHash
-        , parties
+        , parties = openParties
+        , contestationDeadline
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -302,6 +339,8 @@ closeTx vk closing (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatum
     CloseWithInitialSnapshot{} -> mempty
     CloseWithConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
 
+  contestationDeadline = addContestationPeriod posixTime openContestationPeriod
+
 -- TODO: This function is VERY similar to the 'closeTx' function (only notable
 -- difference being the redeemer, which is in itself also the same structure as
 -- the close's one. We could potentially refactor this to avoid repetition or do
@@ -314,15 +353,18 @@ contestTx ::
   Snapshot Tx ->
   -- | Multi-signature of the whole snapshot
   MultiSignature (Snapshot Tx) ->
+  -- | Current slot and posix time to be recorded as the closing time.
+  PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party]) ->
+  ClosedThreadOutput ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore, parties) =
+contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline} =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
+      & setValiditityUpperBound slotNo
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -342,7 +384,8 @@ contestTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatu
       Head.Closed
         { snapshotNumber = toInteger number
         , utxoHash
-        , parties
+        , parties = closedParties
+        , contestationDeadline = closedContestationDeadline
         }
   utxoHash = toBuiltin $ hashTxOuts $ toList utxo
 
@@ -350,7 +393,7 @@ fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, TxOut CtxUTxO, ScriptData) ->
+  UTxOWithScript ->
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
@@ -465,7 +508,7 @@ data InitObservation = InitObservation
     -- transactions.
     -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
     -- XXX(SN): Data and [OnChain.Party] are overlapping
-    threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+    threadOutput :: InitialThreadOutput
   , initials :: [UTxOWithScript]
   , commits :: [UTxOWithScript]
   , headId :: HeadId
@@ -497,11 +540,15 @@ observeInitTx networkId cardanoKeys party tx = do
     ( OnInitTx cperiod parties
     , InitObservation
         { threadOutput =
-            ( mkTxIn tx ix
-            , toCtxUTxOTxOut headOut
-            , fromLedgerData headData
-            , ps
-            )
+            InitialThreadOutput
+              { initialThreadUTxO =
+                  ( mkTxIn tx ix
+                  , toCtxUTxOTxOut headOut
+                  , fromLedgerData headData
+                  )
+              , initialParties = ps
+              , initialContestationPeriod = cp
+              }
         , initials
         , commits = []
         , headId = mkHeadId headTokenPolicyId
@@ -607,7 +654,7 @@ convertTxOut = \case
 -- TODO(SN): obviously the observeCollectComTx/observeAbortTx can be DRYed.. deliberately hold back on it though
 
 data CollectComObservation = CollectComObservation
-  { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+  { threadOutput :: OpenThreadOutput
   , headId :: HeadId
   , utxoHash :: ByteString
   }
@@ -627,7 +674,7 @@ observeCollectComTx utxo tx = do
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Initial{parties}, Head.CollectCom) -> do
+    (Head.Initial{parties, contestationPeriod}, Head.CollectCom) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
       utxoHash <- decodeUtxoHash newHeadDatum
@@ -635,11 +682,15 @@ observeCollectComTx utxo tx = do
         ( OnCollectComTx
         , CollectComObservation
             { threadOutput =
-                ( newHeadInput
-                , newHeadOutput
-                , newHeadDatum
-                , parties
-                )
+                OpenThreadOutput
+                  { openThreadUTxO =
+                      ( newHeadInput
+                      , newHeadOutput
+                      , newHeadDatum
+                      )
+                  , openParties = parties
+                  , openContestationPeriod = contestationPeriod
+                  }
             , headId
             , utxoHash
             }
@@ -653,7 +704,7 @@ observeCollectComTx utxo tx = do
       _ -> Nothing
 
 data CloseObservation = CloseObservation
-  { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+  { threadOutput :: ClosedThreadOutput
   , headId :: HeadId
   }
   deriving (Show, Eq)
@@ -675,16 +726,23 @@ observeCloseTx utxo tx = do
     (Head.Open{parties}, Head.Close{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
+      closeContestationDeadline <- case fromData (toPlutusData newHeadDatum) of
+        Just Head.Closed{contestationDeadline} -> pure contestationDeadline
+        _ -> Nothing
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
         ( OnCloseTx{snapshotNumber}
         , CloseObservation
             { threadOutput =
-                ( newHeadInput
-                , newHeadOutput
-                , newHeadDatum
-                , parties
-                )
+                ClosedThreadOutput
+                  { closedThreadUTxO =
+                      ( newHeadInput
+                      , newHeadOutput
+                      , newHeadDatum
+                      )
+                  , closedParties = parties
+                  , closedContestationDeadline = closeContestationDeadline
+                  }
             , headId
             }
         )

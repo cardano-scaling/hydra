@@ -150,7 +150,13 @@ import Hydra.Ledger.Cardano (genKeyPair, genOutput, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (fromData, toData)
+import Plutus.V1.Ledger.Api (
+  POSIXTime (..),
+  UpperBound,
+  fromData,
+  toData,
+  upperBound,
+ )
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -293,6 +299,8 @@ data Mutation
     ChangeMintedValue Value
   | -- | Change required signers on a transaction'
     ChangeRequiredSigners [Hash PaymentKey]
+  | -- | Change the validity interval of the transaction.
+    ChangeValidityInterval (TxValidityLowerBound, TxValidityUpperBound)
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
     -- change of more than one thing in the transaction and/or UTxO set, for
@@ -398,6 +406,15 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
       ledgerBody
         { Ledger.reqSignerHashes = Set.fromList (toLedgerKeyHash <$> newSigners)
         }
+  ChangeValidityInterval (lb, up) ->
+    (Tx body' wits, utxo)
+   where
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+    body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
+    ledgerBody' =
+      ledgerBody
+        { Ledger.txvldt = toLedgerValidityInterval (lb, up)
+        }
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
 
@@ -420,6 +437,12 @@ instance Arbitrary Head.Input where
 
 instance Arbitrary Head.State where
   arbitrary = genericArbitrary
+
+instance Arbitrary POSIXTime where
+  arbitrary = POSIXTime <$> arbitrary
+
+instance Arbitrary a => Arbitrary (UpperBound a) where
+  arbitrary = upperBound <$> arbitrary
 
 -- * Helpers
 

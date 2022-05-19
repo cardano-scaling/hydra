@@ -16,16 +16,17 @@ import Hydra.Chain.Direct.Contract.Mutation (
   genHash,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, contestTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), assetNameFromVerificationKey, contestTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
+import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (BuiltinByteString, toBuiltin, toData)
+import Plutus.V1.Ledger.Api (BuiltinByteString, POSIXTime, toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Gen (choose)
@@ -44,7 +45,8 @@ healthyContestTx =
       somePartyCardanoVerificationKey
       healthyContestSnapshot
       (healthySignature healthyContestSnapshotNumber)
-      (headInput, headResolvedInput, headDatum, healthyOnChainParties)
+      (healthySlotNo, slotNoToPOSIXTime healthySlotNo)
+      closedThreadOutput
 
   headInput = generateWith arbitrary 42
 
@@ -57,6 +59,17 @@ healthyContestTx =
   headDatum = fromPlutusData $ toData healthyClosedState
 
   lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
+
+  closedThreadOutput =
+    ClosedThreadOutput
+      { closedThreadUTxO = (headInput, headResolvedInput, headDatum)
+      , closedParties =
+          healthyOnChainParties
+      , closedContestationDeadline = healthyContestationDeadline
+      }
+
+healthySlotNo :: SlotNo
+healthySlotNo = arbitrary `generateWith` 42
 
 addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
 addParticipationTokens parties (TxOut addr val datum) =
@@ -95,7 +108,18 @@ healthyClosedState =
     { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
     , utxoHash = healthyClosedUTxOHash
     , parties = healthyOnChainParties
+    , contestationDeadline = healthyContestationDeadline
     }
+
+healthyContestationDeadline :: POSIXTime
+healthyContestationDeadline =
+  fromInteger
+    ( healthyContestationPeriodSeconds
+        + toInteger (slotNoToPOSIXTime healthySlotNo)
+    )
+
+healthyContestationPeriodSeconds :: Integer
+healthyContestationPeriodSeconds = 10
 
 healthyClosedSnapshotNumber :: SnapshotNumber
 healthyClosedSnapshotNumber = 3
@@ -127,6 +151,7 @@ healthySignature number =
  where
   snapshot = healthyContestSnapshot{number}
 
+-- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation
   = -- | Ensure signatures are actually checked.
     MutateSignatureButNotSnapshotNumber
@@ -138,6 +163,9 @@ data ContestMutation
     MutateContestUTxOHash
   | -- | Change parties stored in the state, causing multisig to fail
     MutateParties
+  | -- | Change the validity interval of the transaction to a value greater
+    -- than the contestation deadline
+    MutateValidityPastDeadline
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -176,7 +204,12 @@ genContestMutation
               { parties = mutatedParties
               , utxoHash = healthyClosedUTxOHash
               , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
+              , contestationDeadline = arbitrary `generateWith` 42
               }
+      , SomeMutation MutateValidityPastDeadline . ChangeValidityInterval <$> do
+          lb <- arbitrary
+          ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
+          pure (lb, ub)
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
@@ -191,6 +224,10 @@ genContestMutation
                 { snapshotNumber = fromIntegral healthyContestSnapshotNumber
                 , utxoHash = toBuiltin mutatedUTxOHash
                 , parties = healthyOnChainParties
+                , contestationDeadline = arbitrary `generateWith` 42
                 }
           )
           headTxOut
+
+    slotOverContestationDeadline slotNo =
+      slotNoToPOSIXTime slotNo > healthyContestationDeadline

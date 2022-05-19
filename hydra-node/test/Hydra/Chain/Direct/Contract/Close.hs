@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.Contract.Close where
@@ -11,12 +12,14 @@ import Cardano.Binary (serialize')
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeHeadOutputDatum, genHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), assetNameFromVerificationKey, closeTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), assetNameFromVerificationKey, closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
+import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
+import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
@@ -37,7 +40,8 @@ healthyCloseTx =
     closeTx
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
-      (headInput, headResolvedInput, headDatum, healthyOnChainParties)
+      (healthySlotNo, slotNoToPOSIXTime healthySlotNo)
+      openThreadOutput
 
   headInput = generateWith arbitrary 42
 
@@ -50,6 +54,16 @@ healthyCloseTx =
   headDatum = fromPlutusData $ toData healthyCloseDatum
 
   lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
+
+  openThreadOutput =
+    OpenThreadOutput
+      { openThreadUTxO = (headInput, headResolvedInput, headDatum)
+      , openParties = healthyOnChainParties
+      , openContestationPeriod = healthyContestationPeriod
+      }
+
+healthySlotNo :: SlotNo
+healthySlotNo = arbitrary `generateWith` 42
 
 addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
 addParticipationTokens parties (TxOut addr val datum) =
@@ -91,7 +105,14 @@ healthyCloseDatum =
   Head.Open
     { parties = healthyOnChainParties
     , utxoHash = toBuiltin $ hashTxOuts $ toList healthyUTxO
+    , contestationPeriod = healthyContestationPeriod
     }
+
+healthyContestationPeriod :: OnChain.ContestationPeriod
+healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
+
+healthyContestationPeriodSeconds :: Integer
+healthyContestationPeriodSeconds = 10
 
 healthyUTxO :: UTxO
 healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
@@ -121,6 +142,8 @@ data CloseMutation
   | MutateParties
   | MutateRequiredSigner
   | MutateCloseUTxOHash
+  | MutateValidityInterval
+  | MutateCloseContestationDeadline
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -151,11 +174,17 @@ genCloseMutation (tx, _utxo) =
           Head.Open
             { parties = mutatedParties
             , utxoHash = ""
+            , contestationPeriod = healthyContestationPeriod
             }
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
+    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0 <$> mutateClosedContestationDeadline
+    , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
+        lb <- arbitrary
+        ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
+        pure (lb, ub)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
@@ -170,13 +199,36 @@ genCloseMutation (tx, _utxo) =
   mutateCloseUTxOHash :: Gen (TxOut CtxTx)
   mutateCloseUTxOHash = do
     mutatedUTxOHash <- genHash
-    pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
+    pure $ changeHeadOutputDatum (mutateHash mutatedUTxOHash) headTxOut
 
-  mutateState mutatedUTxOHash = \case
-    Head.Closed{snapshotNumber, parties} ->
+  mutateHash mutatedUTxOHash = \case
+    Head.Closed{snapshotNumber, parties, contestationDeadline} ->
       Head.Closed
         { snapshotNumber
         , utxoHash = toBuiltin mutatedUTxOHash
         , parties
+        , contestationDeadline
+        }
+    st -> error $ "unexpected state " <> show st
+
+  mutateClosedContestationDeadline :: Gen (TxOut CtxTx)
+  mutateClosedContestationDeadline = do
+    -- NOTE: we need to be sure the generated contestation period is large enough to have an impact on the on-chain
+    -- deadline computation, which means having a resolution of seconds instead of the default picoseconds
+    contestationPeriodSeconds <- arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds)
+    pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
+
+  mutateContestationDeadline contestationPeriod = \case
+    Head.Closed{snapshotNumber, utxoHash, parties} ->
+      Head.Closed
+        { snapshotNumber
+        , utxoHash
+        , parties
+        , contestationDeadline =
+            -- FIXME: we don't have useful functions for manipulating time on-chain seemingly
+            fromInteger
+              ( toInteger contestationPeriod
+                  + toInteger (slotNoToPOSIXTime healthySlotNo)
+              )
         }
     st -> error $ "unexpected state " <> show st

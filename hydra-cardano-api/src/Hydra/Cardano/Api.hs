@@ -56,6 +56,8 @@ import Cardano.Api as X hiding (
   TxOut (..),
   TxOutDatum (..),
   TxScriptValidity (..),
+  TxValidityLowerBound (..),
+  TxValidityUpperBound (..),
   UTxO (..),
   Witness (..),
   multiAssetSupportedInEra,
@@ -116,6 +118,7 @@ import Hydra.Cardano.Api.TxOutValue as Extras
 import Hydra.Cardano.Api.TxScriptValidity as Extras
 import Hydra.Cardano.Api.UTxO as Extras
 import Hydra.Cardano.Api.UsingRawBytesHex as Extras
+import Hydra.Cardano.Api.ValidityInterval as Extras
 import Hydra.Cardano.Api.Value as Extras
 import Hydra.Cardano.Api.Witness as Extras
 
@@ -345,7 +348,7 @@ pattern TxBodyContent ::
   TxInsCollateral ->
   [TxOut CtxTx] ->
   TxFee ->
-  (TxValidityLowerBound Era, TxValidityUpperBound Era) ->
+  (TxValidityLowerBound, TxValidityUpperBound) ->
   TxMetadataInEra ->
   TxAuxScripts ->
   TxExtraKeyWitnesses ->
@@ -562,6 +565,44 @@ pattern TxScriptValidity{txScriptValidity'} <-
   where
     TxScriptValidity =
       Cardano.Api.TxScriptValidity TxScriptValiditySupportedInAlonzoEra
+
+-- ** TxValidityLowerBound
+
+type TxValidityLowerBound = Cardano.Api.TxValidityLowerBound Era
+{-# COMPLETE TxValidityNoLowerBound, TxValidityLowerBound #-}
+
+pattern TxValidityNoLowerBound :: TxValidityLowerBound
+pattern TxValidityNoLowerBound <-
+  Cardano.Api.TxValidityNoLowerBound
+  where
+    TxValidityNoLowerBound =
+      Cardano.Api.TxValidityNoLowerBound
+
+pattern TxValidityLowerBound :: SlotNo -> TxValidityLowerBound
+pattern TxValidityLowerBound{txValidityLowerBound} <-
+  Cardano.Api.TxValidityLowerBound _ txValidityLowerBound
+  where
+    TxValidityLowerBound =
+      Cardano.Api.TxValidityLowerBound ValidityLowerBoundInAlonzoEra
+
+-- ** TxValidityUpperBound
+
+type TxValidityUpperBound = Cardano.Api.TxValidityUpperBound Era
+{-# COMPLETE TxValidityNoUpperBound, TxValidityUpperBound #-}
+
+pattern TxValidityNoUpperBound :: TxValidityUpperBound
+pattern TxValidityNoUpperBound <-
+  Cardano.Api.TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra
+  where
+    TxValidityNoUpperBound =
+      Cardano.Api.TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra
+
+pattern TxValidityUpperBound :: SlotNo -> TxValidityUpperBound
+pattern TxValidityUpperBound{txValidityUpperBound} <-
+  Cardano.Api.TxValidityUpperBound _ txValidityUpperBound
+  where
+    TxValidityUpperBound =
+      Cardano.Api.TxValidityUpperBound ValidityUpperBoundInAlonzoEra
 
 -- ** Witness
 
