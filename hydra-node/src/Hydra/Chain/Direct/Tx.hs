@@ -735,7 +735,7 @@ observeCloseTx utxo tx = do
         _ -> Nothing
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
-        ( OnCloseTx{snapshotNumber}
+        ( OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
         , CloseObservation
             { threadOutput =
                 ClosedThreadOutput

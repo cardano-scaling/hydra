@@ -386,7 +386,7 @@ data ChainSyncHandler m = ChainSyncHandler
 
 chainSyncHandler ::
   forall m.
-  (MonadSTM m) =>
+  (MonadSTM m, MonadTime m) =>
   -- | Tracer for logging
   Tracer m DirectChainLog ->
   -- | Chain callback
@@ -411,7 +411,8 @@ chainSyncHandler tracer callback headState =
   onRollForward :: Block -> m ()
   onRollForward blk = do
     let receivedTxs = toList $ getAlonzoTxs blk
-    onChainTxs <- reverse <$> atomically (foldM (withNextTx (blockPoint blk)) [] receivedTxs)
+    now <- getCurrentTime
+    onChainTxs <- reverse <$> atomically (foldM (withNextTx now (blockPoint blk)) [] receivedTxs)
     unless (null receivedTxs) $
       traceWith tracer $
         ReceivedTxs
@@ -420,8 +421,10 @@ chainSyncHandler tracer callback headState =
           }
     mapM_ (callback . Observation) onChainTxs
 
-  withNextTx :: Point Block -> [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
-  withNextTx point observed (fromLedgerTx -> tx) = do
+  -- NOTE: We pass 'now' or current time because we need it for observing passing of time in the
+  -- contestation phase.
+  withNextTx :: UTCTime -> Point Block -> [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
+  withNextTx now point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
     case observeSomeTx tx (currentOnChainHeadState st) of
       Just (onChainTx, st') -> do
@@ -430,7 +433,12 @@ chainSyncHandler tracer callback headState =
             { currentOnChainHeadState = st'
             , recordedAt = AtPoint (fromConsensusPointHF point) st
             }
-        pure $ onChainTx : observed
+        -- FIXME: The right thing to do is probably to decouple the observation from the
+        -- transformation into an `OnChainTx`
+        let event = case onChainTx of
+              OnCloseTx{} -> onChainTx{remainingContestationPeriod = 5}
+              _ -> onChainTx
+        pure $ event : observed
       Nothing ->
         pure observed
 
