@@ -17,7 +17,7 @@ import Plutus.V2.Ledger.Api (
   Address,
   CurrencySymbol,
   Datum (..),
-  Extended (..),
+  Extended (Finite),
   FromData (fromBuiltinData),
   Interval (..),
   LowerBound (LowerBound),
@@ -47,8 +47,6 @@ import qualified PlutusTx.AssocMap as Map
 import qualified PlutusTx.Builtins as Builtins
 
 -- REVIEW: Functions not re-exported "as V2", but using the same data types.
-
-import qualified Cardano.Crypto.Util as Snapshot
 import Plutus.V1.Ledger.Address (scriptHashAddress)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 

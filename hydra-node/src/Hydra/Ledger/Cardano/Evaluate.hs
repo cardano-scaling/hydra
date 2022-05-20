@@ -30,7 +30,18 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (ExecutionUnits, LedgerEra, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
+import Hydra.Cardano.Api (
+  ExecutionUnits,
+  LedgerEra,
+  SlotNo (SlotNo),
+  StandardCrypto,
+  Tx,
+  UTxO,
+  fromLedgerExUnits,
+  toLedgerExUnits,
+  toLedgerTx,
+  toLedgerUTxO,
+ )
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import Test.QuickCheck (choose)
@@ -111,7 +122,7 @@ systemStart = SystemStart $ posixSecondsToUTCTime 0
 
 genPointInTime :: Gen (SlotNo, Plutus.POSIXTime)
 genPointInTime = do
-  slot <- arbitrary
+  slot <- SlotNo <$> arbitrary
   pure (slot, slotNoToPOSIXTime slot)
 
 genPointInTimeBefore :: Plutus.POSIXTime -> Gen (SlotNo, Plutus.POSIXTime)
