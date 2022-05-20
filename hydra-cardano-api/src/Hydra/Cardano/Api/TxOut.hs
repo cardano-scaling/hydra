@@ -11,7 +11,6 @@ import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Babbage.TxInfo (OutputSource (OutputFromOutput))
 import qualified Cardano.Ledger.Babbage.TxInfo as Ledger
-import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)

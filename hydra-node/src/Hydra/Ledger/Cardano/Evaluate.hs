@@ -30,7 +30,18 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (Era, ExecutionUnits, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
+import Hydra.Cardano.Api (
+  ExecutionUnits,
+  LedgerEra,
+  SlotNo (SlotNo),
+  StandardCrypto,
+  Tx,
+  UTxO,
+  fromLedgerExUnits,
+  toLedgerExUnits,
+  toLedgerTx,
+  toLedgerUTxO,
+ )
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 
@@ -69,7 +80,7 @@ costModels =
     ]
 
 -- | Current mainchain cost parameters.
-pparams :: PParams Era
+pparams :: PParams LedgerEra
 pparams =
   def
     { _costmdls =
@@ -108,7 +119,7 @@ systemStart = SystemStart $ posixSecondsToUTCTime 0
 -- | Only for use in the context of `evaluateTx`.
 genPointInTime :: Gen (SlotNo, Plutus.POSIXTime)
 genPointInTime = do
-  slot <- arbitrary
+  slot <- SlotNo <$> arbitrary
   pure (slot, slotNoToPOSIXTime slot)
 
 -- | Using hard-coded defaults above

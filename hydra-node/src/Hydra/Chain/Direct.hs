@@ -18,7 +18,7 @@ import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
 import Cardano.Ledger.Alonzo.Rules.Utxos (FailureDescription (PlutusFailure), TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
 import Cardano.Ledger.Alonzo.Rules.Utxow (UtxowPredicateFail (WrappedShelleyEraFailure))
 import Cardano.Ledger.Alonzo.TxInfo (debugPlutus, slotToPOSIXTime)
-import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
+import Cardano.Ledger.Babbage.PParams (PParams' (..))
 import Cardano.Ledger.Babbage.Rules.Utxo (BabbageUtxoPred (FromAlonzoUtxoFail, FromAlonzoUtxowFail))
 import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
@@ -52,12 +52,11 @@ import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   CardanoMode,
   ChainPoint (..),
+  Era,
   EraHistory (EraHistory),
-  EraInMode (BabbageEraInCardanoMode),
   LedgerEra,
   NetworkId,
   PaymentKey,
-  ShelleyBasedEra (ShelleyBasedEraAlonzo),
   SigningKey,
   SlotNo,
   Tx,
@@ -66,6 +65,7 @@ import Hydra.Cardano.Api (
   fromLedgerTx,
   fromLedgerTxIn,
   fromLedgerUTxO,
+  shelleyBasedEra,
   toConsensusPointHF,
   toLedgerPParams,
   toLedgerTx,
@@ -278,7 +278,7 @@ queryTimeHandle networkId socketPath = do
   slotNo <- queryTipSlotNo networkId socketPath
   let toTime =
         slotToPOSIXTime
-          (toLedgerPParams ShelleyBasedEraAlonzo pparams :: PParams LedgerEra)
+          (toLedgerPParams (shelleyBasedEra @Era) pparams)
           epochInfo
           systemStart
   pure $
