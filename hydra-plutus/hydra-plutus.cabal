@@ -115,6 +115,25 @@ library
     -- NOTE(SN): should fix HLS choking on PlutusTx plugin
     ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
+test-suite tests
+  import:             project-config
+  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs:     test
+  main-is:            Main.hs
+  type:               exitcode-stdio-1.0
+  other-modules:
+    Hydra.Data.ContestationPeriodSpec
+    Spec
+  build-depends:
+    , base
+    , hspec
+    , hspec-core
+    , hydra-prelude
+    , hydra-plutus
+    , hydra-test-utils
+    , QuickCheck
+  build-tool-depends: hspec-discover:hspec-discover -any
+
 executable inspect-script
   import:         project-config
   hs-source-dirs: exe/inspect-script

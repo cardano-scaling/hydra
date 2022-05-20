@@ -438,12 +438,6 @@ instance Arbitrary Head.Input where
 instance Arbitrary Head.State where
   arbitrary = genericArbitrary
 
-instance Arbitrary POSIXTime where
-  arbitrary = POSIXTime <$> arbitrary
-
-instance Arbitrary a => Arbitrary (UpperBound a) where
-  arbitrary = upperBound <$> arbitrary
-
 -- * Helpers
 
 -- | Identify Head script's output.
