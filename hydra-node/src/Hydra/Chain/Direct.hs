@@ -608,8 +608,7 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
     Right validatedTx -> do
       pure $ sign validatedTx
 
--- | Hardcoded grace time for close transaction to be valid. See also
--- 'fanoutGracePeriod' in the HeadLogic.
+-- | Hardcoded grace time for close transaction to be valid.
 -- TODO: make it a node configuration parameter
 closeGraceTime :: SlotNo
 closeGraceTime = 100

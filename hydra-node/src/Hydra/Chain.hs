@@ -82,7 +82,12 @@ data OnChainTx tx
   | OnCommitTx {party :: Party, committed :: UTxOType tx}
   | OnAbortTx
   | OnCollectComTx
-  | OnCloseTx {snapshotNumber :: SnapshotNumber}
+  | OnCloseTx
+      { snapshotNumber :: SnapshotNumber
+      , -- | The remaining contestation period in wall clock time calculated
+        -- from the actual upper bound of the close transaction observed.
+        remainingContestationPeriod :: DiffTime
+      }
   | OnContestTx {snapshotNumber :: SnapshotNumber}
   | OnFanoutTx
   deriving (Generic)

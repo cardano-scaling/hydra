@@ -376,40 +376,43 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                         }
                     )
                     []
-  (previousRecoverableState@OpenState{parameters, coordinatedHeadState}, OnChainEvent (Observation OnCloseTx{snapshotNumber = closedSnapshotNumber})) ->
-    let HeadParameters{contestationPeriod} = parameters
-        CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
-     in -- TODO(2): In principle here, we want to:
-        --
-        --   a) Warn the user about a close tx outside of an open state
-        --   b) Move to close state, using information from the close tx
-        nextState
-          ( ClosedState
-              { parameters
-              , utxos = getField @"utxo" $ getSnapshot confirmedSnapshot
-              , previousRecoverableState
+  ( previousRecoverableState@OpenState{parameters, coordinatedHeadState}
+    , OnChainEvent
+        ( Observation
+            OnCloseTx
+              { snapshotNumber = closedSnapshotNumber
+              , remainingContestationPeriod
               }
           )
-          ( [ ClientEffect
-                HeadIsClosed
-                  { snapshotNumber = closedSnapshotNumber
-                  }
-            , -- FIXME(MB): This is most likely wrong in the case of contestation. We
-              -- may want to only post fanout once we have contested.
-              Delay
-                { -- TODO: In principle, we want to start the stopwatch from the
-                  -- upper validity bound of the close transaction. The
-                  -- contestation period here is really a minimum. We add the
-                  -- grace period here to cope for this.
-                  delay = contestationPeriod + fanoutGracePeriod
-                , reason = WaitOnContestationPeriod
-                , event = ShouldPostFanout
+    ) ->
+      let CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+       in -- TODO(2): In principle here, we want to:
+          --
+          --   a) Warn the user about a close tx outside of an open state
+          --   b) Move to close state, using information from the close tx
+          nextState
+            ( ClosedState
+                { parameters
+                , utxos = getField @"utxo" $ getSnapshot confirmedSnapshot
+                , previousRecoverableState
                 }
-            ]
-              ++ [ OnChainEffect ContestTx{confirmedSnapshot}
-                 | number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
-                 ]
-          )
+            )
+            ( [ ClientEffect
+                  HeadIsClosed
+                    { snapshotNumber = closedSnapshotNumber
+                    }
+              , -- FIXME(MB): This is most likely wrong in the case of contestation. We
+                -- may want to only post fanout once we have contested.
+                Delay
+                  { delay = remainingContestationPeriod
+                  , reason = WaitOnContestationPeriod
+                  , event = ShouldPostFanout
+                  }
+              ]
+                ++ [ OnChainEffect ContestTx{confirmedSnapshot}
+                   | number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
+                   ]
+            )
   --
   (_, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
     -- TODO: Is there more to handle contestation?
@@ -441,15 +444,6 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   snapshotPending = \case
     SeenSnapshot{} -> True
     _ -> False
-
--- | Some time buffer before submitting `ShouldPostFanout` event to cope with
--- time drifting and the fact that we start our stopwatch when we observe the
--- close transaction, not from it's upper bound validity.
--- NOTE: This needs to be AT LEAST the 'closeGraceTime' equivalent of the
--- slowest chain we want to support. For example, 100 slots * 1 slot / s = 100 secs
--- FIXME: we should rather follow chain's "time" (slots) and use that as reference
-fanoutGracePeriod :: DiffTime
-fanoutGracePeriod = 100
 
 data SnapshotOutcome tx
   = ShouldSnapshot SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
