@@ -50,6 +50,8 @@ import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import Data.List ((\\))
 import Data.Sequence.Strict (StrictSeq)
+import Data.Time (picosecondsToDiffTime)
+import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
   CardanoMode,
   ChainPoint (..),
@@ -100,6 +102,7 @@ import Hydra.Chain.Direct.State (
   commit,
   contest,
   fanout,
+  getContestationDeadline,
   getKnownUTxO,
   idleOnChainHeadState,
   initialize,
@@ -123,6 +126,7 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
   withTinyWallet,
  )
+import Hydra.Data.ContestationPeriod (millisInPico)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (EraMismatch, GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
@@ -164,6 +168,7 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   SubmitResult (..),
   localTxSubmissionClientPeer,
  )
+import qualified Plutus.V1.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 withDirectChain ::
@@ -427,7 +432,7 @@ chainSyncHandler tracer callback headState =
   withNextTx now point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
     case observeSomeTx tx (currentOnChainHeadState st) of
-      Just (onChainTx, st') -> do
+      Just (onChainTx, st'@(SomeOnChainHeadState nextState)) -> do
         writeTVar headState $
           SomeOnChainHeadStateAt
             { currentOnChainHeadState = st'
@@ -435,8 +440,13 @@ chainSyncHandler tracer callback headState =
             }
         -- FIXME: The right thing to do is probably to decouple the observation from the
         -- transformation into an `OnChainTx`
-        let event = case onChainTx of
-              OnCloseTx{} -> onChainTx{remainingContestationPeriod = 5}
+        let event = case (onChainTx, reifyState nextState) of
+              (OnCloseTx{snapshotNumber}, TkClosed) ->
+                let deadlineInMillis = Plutus.getPOSIXTime $ getContestationDeadline nextState
+                    posixNow = truncate (utcTimeToPOSIXSeconds now)
+                    differenceInPicos = deadlineInMillis * millisInPico - posixNow
+                    remainingDiffTime = picosecondsToDiffTime differenceInPicos
+                 in OnCloseTx{snapshotNumber, remainingContestationPeriod = remainingDiffTime}
               _ -> onChainTx
         pure $ event : observed
       Nothing ->
