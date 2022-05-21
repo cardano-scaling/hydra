@@ -80,7 +80,7 @@
     "description": "Pluralized label for \"{count} posts\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
   },
   "theme.blog.tagTitle": {
-    "message": "{nPosts} tagués avec « {tagName} »",
+    "message": "Un résultat étiquetté avec « {tagName} »|{nPosts} étiquettés avec « {tagName} »",
     "description": "The title of the page for a blog tag"
   },
   "theme.tags.tagsPageLink": {
@@ -100,7 +100,7 @@
     "description": "The copy button label on code blocks"
   },
   "theme.colorToggle.ariaLabel": {
-    "message": "Basculer entre theme clair ou sombre (theme actuel: {mode})",
+    "message": "Basculer entre thème clair ou sombre (theme actuel: {mode})",
     "description": "The ARIA label for the navbar color mode toggle"
   },
   "theme.colorToggle.ariaLabel.mode.dark": {
@@ -112,7 +112,7 @@
     "description": "The name for the light color mode"
   },
   "theme.docs.DocCard.categoryDescription": {
-    "message": "{count} éléments",
+    "message": "un élément|{count} éléments",
     "description": "The default description for a category card in the generated index about how many items this category includes"
   },
   "theme.docs.sidebar.expandButtonTitle": {
@@ -148,7 +148,7 @@
     "description": "The ARIA label to toggle the collapsible sidebar category"
   },
   "theme.docs.tagDocListPageTitle.nDocsTagged": {
-    "message": "Un document tagué|{count} documents tagués",
+    "message": "Un document étiquetté|{count} documents étiquettés",
     "description": "Pluralized label for \"{count} docs tagged\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
   },
   "theme.docs.tagDocListPageTitle": {
@@ -167,7 +167,7 @@
     "description": "The label used to tell the user that he's browsing an unreleased doc version"
   },
   "theme.docs.versions.unmaintainedVersionLabel": {
-    "message": "Ceci est la documentation de {siteTitle} {versionLabel}, qui n'est plus activement maintenue.",
+    "message": "Ceci est la documentation de {siteTitle} {versionLabel} qui n'est plus activement maintenue.",
     "description": "The label used to tell the user that he's browsing an unmaintained doc version"
   },
   "theme.docs.versions.latestVersionSuggestionLabel": {
@@ -211,7 +211,7 @@
     "description": "The label used by the button on the collapsible TOC component"
   },
   "theme.tags.tagsListLabel": {
-    "message": "Tags :",
+    "message": "Étiquettes :",
     "description": "The label alongside a tag list"
   },
   "theme.navbar.mobileLanguageDropdown.label": {
@@ -258,7 +258,7 @@
     "description": "The paragraph for fetching new search results"
   },
   "theme.tags.tagsPageTitle": {
-    "message": "Tags",
+    "message": "Étiquettes",
     "description": "The title of the tag list page"
   },
   "homepage.tagline": {
@@ -289,7 +289,7 @@
     "description": "Tagline for the 'isomorphic' property."
   },
   "homepage.gettingStarted": {
-    "message": "Démarrage rapide - 5min ⏱️",
+    "message": "Prise en main - 5min ⏱️",
     "description": "'Getting Started' button in the home header."
   }
 }

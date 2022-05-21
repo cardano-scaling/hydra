@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-# Démarrage rapide
+# Prise en main
 
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';

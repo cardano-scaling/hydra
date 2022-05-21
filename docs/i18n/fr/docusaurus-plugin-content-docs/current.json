@@ -4,7 +4,7 @@
     "description": "The label for version current"
   },
   "sidebar.defaultSidebar.category.Getting Started": {
-    "message": "Démarrage rapide",
+    "message": "Prise en main",
     "description": "The label for category Getting Started in sidebar defaultSidebar"
   },
   "sidebar.defaultSidebar.category.Demo": {
