@@ -1,0 +1,8 @@
+# Cardano node state
+db/
+
+# Secrets
+credentials/
+
+# Fetched on-demand
+protocol-parameters.json
