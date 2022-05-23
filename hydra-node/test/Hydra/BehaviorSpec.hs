@@ -337,9 +337,9 @@ spec = parallel $ do
                 SnapshotConfirmed{snapshot = Snapshot{number}} -> number == 1
                 _ -> False
 
-              -- Have n1 observe a close with not the latest snapshot
-              chainEvent n1 (Observation (OnCloseTx 0))
-              chainEvent n2 (Observation (OnCloseTx 0))
+              -- Have n1 & n2 observe a close with not the latest snapshot
+              chainEvent n1 (Observation (OnCloseTx 0 42))
+              chainEvent n2 (Observation (OnCloseTx 0 42))
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> snapshotNumber == 0
@@ -511,6 +511,7 @@ toOnChainTx =
     (CloseTx confirmedSnapshot) ->
       OnCloseTx
         { snapshotNumber = number (getSnapshot confirmedSnapshot)
+        , remainingContestationPeriod = testContestationPeriod
         }
     ContestTx{confirmedSnapshot} ->
       OnContestTx

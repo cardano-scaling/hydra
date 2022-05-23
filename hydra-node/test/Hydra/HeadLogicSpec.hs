@@ -216,7 +216,7 @@ spec = do
 
       it "any node should post FanoutTx when observing on-chain CloseTx" $ do
         let s0 = inOpenState threeParties ledger
-            closeTx = OnChainEvent $ Observation $ OnCloseTx 0
+            closeTx = OnChainEvent $ Observation $ OnCloseTx 0 42
 
         let shouldPostFanout =
               Delay

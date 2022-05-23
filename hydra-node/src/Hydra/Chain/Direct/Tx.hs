@@ -16,7 +16,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeFull', serialize')
 import qualified Data.Map as Map
-import Hydra.Chain (HeadId (..), HeadParameters (..), OnChainTx (..))
+import Hydra.Chain (HeadId (..), HeadParameters (..), OnChainTx (..), remainingContestationPeriod)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head

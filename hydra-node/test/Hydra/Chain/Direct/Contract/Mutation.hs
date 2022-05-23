@@ -151,11 +151,8 @@ import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (
-  POSIXTime (..),
-  UpperBound,
   fromData,
   toData,
-  upperBound,
  )
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
