@@ -11,4 +11,5 @@ exec cabal exec hydra-node -- \
   --ledger-genesis "config/shelley-genesis.json" \
   --ledger-protocol-parameters "protocol-parameters.json" \
   --hydra-signing-key "credentials/sebastian.hydra.sk" \
-  --cardano-signing-key "credentials/sebastian.cardano.sk"
+  --cardano-signing-key "credentials/sebastian.cardano.sk" \
+  --start-chain-from "400208.0853d12dc3ac56ebfa1edae5207aafe4849ea6e6534275c7345047a6cf72814c"
