@@ -281,6 +281,7 @@ test-suite tests
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
+    , cardano-ledger-babbage
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
@@ -313,6 +314,7 @@ test-suite tests
     , network
     , ouroboros-consensus
     , ouroboros-consensus-cardano
+    , ouroboros-consensus-protocol
     , ouroboros-consensus-shelley
     , ouroboros-network
     , ouroboros-network-framework
