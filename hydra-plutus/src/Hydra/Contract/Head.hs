@@ -480,7 +480,7 @@ verifySnapshotSignature parties snapshotNumber utxoHash sigs =
 verifyPartySignature :: SnapshotNumber -> BuiltinByteString -> Party -> Signature -> Bool
 verifyPartySignature snapshotNumber utxoHash party signed =
   traceIfFalse "party signature verification failed" $
-    verifySignature (vkey party) message signed
+    verifyEd25519Signature (vkey party) message signed
  where
   message =
     -- TODO: document CDDL format, either here or in 'Hydra.Snapshot.getSignableRepresentation'
