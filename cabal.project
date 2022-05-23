@@ -39,11 +39,12 @@ package plutus-merkle-tree
 -- Always show detailed output for tests
 test-show-details: direct
 
+-- TODO: Non-master commit for datum-in-tx
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-node.git
-  tag: a1e947e6e281f1b3739d34c74356f1b93ecc1d50
-  --sha256: 0g9np7ppliyb3bg1igbf9mbm21jcrgl2vvch6ckyczx4818qr31w
+  tag: 5ea5deade433eff704778b0aa4a40a1d33e1cd51
+  --sha256: 14d1b98rick112zcj2091ajz8w9m61j99pnc8d8cwyvblgp5lrrw
   subdir:
     cardano-api
 
@@ -77,8 +78,8 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
-  tag: 8fe904d629194b1fbaaf2d0a4e0ccd17052e9103
-  --sha256: 1h6zac4h5vc79psxzc37dc0kc9mn5wrsjb8l13dqi6ylawj6a7p4
+  tag: 631cb6cf1fa01ab346233b610a38b3b4cba6e6ab
+  --sha256: 0944wg2nqazmhlmsynwgdwxxj6ay0hb9qig9l128isb2cjia0hlp
   subdir:
     base-deriving-via
     binary
@@ -102,8 +103,8 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-ledger
-  tag: 461506591729379168a607c3298746d0784621f1
-  --sha256: 1ildfck6syrfi8xyw39c5qg3mnywyxfzsa0dhnsli6fayznr994x
+  tag: c415253fff9a5ce9d7575230fc9098bcfee97653
+  --sha256: 1m4hq8yxcm7ny5vjzqkrl9qn9zmpr8c9xs0c98ix9hm9xd79fapc
   subdir:
     eras/alonzo/impl
     eras/alonzo/test-suite
@@ -124,7 +125,7 @@ source-repository-package
     libs/cardano-ledger-test
     libs/cardano-protocol-tpraos
     libs/cardano-data
-    libs/compact-map
+    libs/vector-map
     libs/set-algebra
     libs/small-steps
     libs/small-steps-test
@@ -169,11 +170,9 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/ouroboros-network
-  tag: ed5db33e0f0d44b175c25974b6305bfd36e88278
-  --sha256: 1331xpas1vpzliwqkwjzpy42anywf0gx85p6g4x23haphq7limcr
+  tag: ea202b7b21983140d1944ccfde8750b891b59699
+  --sha256: 0bixx0b61sjzls7hzwjlgmvl0yk1ckd40cfazda8b3smqvxfrphq
   subdir:
-    io-sim
-    io-classes
     monoidal-synchronisation
     network-mux
     ouroboros-consensus
@@ -184,7 +183,23 @@ source-repository-package
     ouroboros-network
     ouroboros-network-framework
     ouroboros-network-testing
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/io-sim
+  tag: 606de33fa2f467d108fb1efb86daeb3348bf34e3
+  --sha256: 048djqfdkzrbmdz670knbkjy12wddpvsmhm4x5yldg3w9lwqi1yx
+  subdir:
+    io-classes
+    io-sim
     strict-stm
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/typed-protocols
+  tag: 91c3fba44d68439df207796171cd6f867354b76b
+  --sha256: 1h1nh10859kd7j8bb55y577jfdp42aqpppx8fn0pm6fra5748a50
+  subdir:
     typed-protocols
     typed-protocols-cborg
     typed-protocols-examples
@@ -203,13 +218,12 @@ source-repository-package
   tag: ee59880f47ab835dbd73bea0847dab7869fc20d8
   --sha256: 1lrzknw765pz2j97nvv9ip3l1mcpf2zr4n56hwlz0rk7wq7ls4cm
 
--- NOTE: further up-to-date than cardano-node as we need serialiseData support.
--- Tracking release/1.0.0 branch of plutus
+-- Tracking cardano-node
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/plutus
-  tag: 5cc518f1202930ad52b8ba838af32af084c0e754
-  --sha256: 0w9v0n7rv2bmp0m4nrvxxncic7b23v3m4f89k31x0cawqzvhysbf
+  tag: fec94223a985e34d3b270460c8f150002f41b85b
+  --sha256: 1mwknikvbpv9lj43c3ya24v7wpcbpcsrk0fnh6knpi7ds4rmj9j0
   subdir:
     plutus-core
     plutus-ledger-api
