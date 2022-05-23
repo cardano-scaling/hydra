@@ -1,35 +1,22 @@
--- | A basic cardano-node client that can talk to a local cardano-node.
+-- | A cardano-node client used in end-to-end tests and benchmarks.
 --
--- The idea of this module is to provide a Haskell interface on top of cardano-cli's API,
--- using cardano-api types.
-module CardanoClient where
+-- This modules contains some more functions besides the re-exported basic
+-- querying of hydra-node's 'Hydra.Chain.CardanoClient'.
+module CardanoClient (
+  module Hydra.Chain.CardanoClient,
+  module CardanoClient,
+) where
 
 import Hydra.Prelude
 
 import Hydra.Cardano.Api hiding (Block)
+import Hydra.Chain.CardanoClient
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Slotting.Time (SystemStart)
 import qualified Data.Map as Map
-import qualified Data.Set as Set
-import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
-type NodeSocket = FilePath
-
-data CardanoClient = CardanoClient
-  { queryUTxOByAddress :: [Address ShelleyAddr] -> IO UTxO
-  , networkId :: NetworkId
-  }
-
-mkCardanoClient :: NetworkId -> FilePath -> CardanoClient
-mkCardanoClient networkId filePath =
-  CardanoClient
-    { queryUTxOByAddress = queryUTxO networkId filePath
-    , networkId
-    }
-
--- TODO(SN): DRY with Hydra.Ledger.Cardano module
+-- TODO(SN): DRY with Hydra.Cardano.Api
 
 -- | Build an address give a key.
 --
@@ -44,61 +31,6 @@ buildScriptAddress script networkId =
   let hashed = hashScript script
    in makeShelleyAddress networkId (PaymentCredentialByScript hashed) NoStakeAddress
 
--- |Query UTxO for all given addresses.
---
--- This query is specialised for Shelley addresses in Alonzo era.
--- Throws 'CardanoClientException' if query fails.
-queryUTxO :: NetworkId -> FilePath -> [Address ShelleyAddr] -> IO UTxO
-queryUTxO networkId socket addresses =
-  let query =
-        QueryInEra
-          AlonzoEraInCardanoMode
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
-              ( QueryUTxO
-                  (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
-              )
-          )
-   in UTxO.fromApi <$> runQuery networkId socket query
-
-queryUTxOByTxIn :: NetworkId -> FilePath -> [TxIn] -> IO UTxO
-queryUTxOByTxIn networkId socket inputs =
-  let query =
-        QueryInEra
-          AlonzoEraInCardanoMode
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
-              (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
-          )
-   in UTxO.fromApi <$> runQuery networkId socket query
-
--- | Query the whole UTxO from node. Useful for debugging, but should obviously
--- not be used in production code.
-queryUTxOWhole :: NetworkId -> FilePath -> IO UTxO
-queryUTxOWhole networkId socket =
-  let query =
-        QueryInEra
-          AlonzoEraInCardanoMode
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
-              (QueryUTxO QueryUTxOWhole)
-          )
-   in UTxO.fromApi <$> runQuery networkId socket query
-
--- | Query current protocol parameters.
---
--- Throws 'CardanoClientException' if query fails.
-queryProtocolParameters :: NetworkId -> FilePath -> IO ProtocolParameters
-queryProtocolParameters networkId socket =
-  let query =
-        QueryInEra
-          AlonzoEraInCardanoMode
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
-              QueryProtocolParameters
-          )
-   in runQuery networkId socket query
-
 queryStakePools :: NetworkId -> FilePath -> IO (Set PoolId)
 queryStakePools networkId socket =
   let query =
@@ -109,45 +41,6 @@ queryStakePools networkId socket =
               QueryStakePools
           )
    in runQuery networkId socket query
-
-runQuery :: NetworkId -> FilePath -> QueryInMode CardanoMode (Either EraMismatch a) -> IO a
-runQuery networkId socket query =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing query >>= \case
-    Left err -> throwIO $ QueryException (show err)
-    Right (Left eraMismatch) -> throwIO $ QueryException (show eraMismatch)
-    Right (Right result) -> pure result
-
-localNodeConnectInfo :: NetworkId -> FilePath -> LocalNodeConnectInfo CardanoMode
-localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams
-
-cardanoModeParams :: ConsensusModeParams CardanoMode
-cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
- where
-  -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
-  -- is the default for cardano-cli
-  defaultByronEpochSlots = 21600 :: Word64
-
-queryTipSlotNo :: NetworkId -> FilePath -> IO SlotNo
-queryTipSlotNo networkId socket =
-  getLocalChainTip (localNodeConnectInfo networkId socket) >>= \case
-    ChainTipAtGenesis -> pure 0
-    ChainTip slotNo _ _ -> pure slotNo
-
-queryTip :: NetworkId -> FilePath -> IO ChainPoint
-queryTip networkId socket =
-  chainTipToChainPoint <$> getLocalChainTip (localNodeConnectInfo networkId socket)
-
-querySystemStart :: NetworkId -> FilePath -> IO SystemStart
-querySystemStart networkId socket =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing QuerySystemStart >>= \case
-    Left err -> throwIO $ QueryException (show err)
-    Right result -> pure result
-
-queryEraHistory :: NetworkId -> FilePath -> IO (EraHistory CardanoMode)
-queryEraHistory networkId socket =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing (QueryEraHistory CardanoModeIsMultiEra) >>= \case
-    Left err -> throwIO $ QueryException (show err)
-    Right result -> pure result
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
 buildRaw :: [TxIn] -> [TxOut CtxTx] -> Lovelace -> Either TxBodyError TxBody
@@ -273,11 +166,11 @@ submit :: NetworkId -> FilePath -> Tx -> IO ()
 submit networkId socket tx =
   submitTxToNodeLocal (localNodeConnectInfo networkId socket) (TxInMode tx AlonzoEraInCardanoMode) >>= \case
     SubmitSuccess -> pure ()
-    SubmitFail err -> throwIO $ SubmitException{reason = show err, tx}
+    SubmitFail err -> throwIO $ ClientSubmitException{reason = show err, tx}
 
 data CardanoClientException
-  = QueryException Text
-  | SubmitException {reason :: Text, tx :: Tx}
+  = ClientQueryException QueryException
+  | ClientSubmitException {reason :: Text, tx :: Tx}
   deriving (Show)
 
 instance Exception CardanoClientException
