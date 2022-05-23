@@ -43,6 +43,6 @@ spec = parallel $ do
         filtered = encode $ mapMaybe filterLog jsonLogs
         sizeRatio = fromIntegral (LBS.length filtered) * (100.0 :: Double) / fromIntegral (LBS.length bytes)
      in LBS.length filtered < LBS.length bytes && sizeRatio > 0
-          & cover 90 (sizeRatio < 10.0) "reduces size by 90%"
+          & cover 40 (sizeRatio < 10.0) "reduces size by 90%"
           & tabulate "Ratios" [show (floor (sizeRatio / 10) * 10 :: Int) <> " %"]
           & checkCoverage
