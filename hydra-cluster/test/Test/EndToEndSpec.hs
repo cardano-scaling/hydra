@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Test.EndToEndSpec where
@@ -34,7 +35,9 @@ import Hydra.Cardano.Api (
   lovelaceToValue,
   mkVkAddress,
   serialiseAddress,
+  unSlotNo,
  )
+import Hydra.Chain.Direct (closeGraceTime)
 import Hydra.Crypto (deriveVerificationKey, generateSigningKey)
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (txId)
@@ -273,7 +276,8 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
       seedFromFaucet_ defaultNetworkId node bobCardanoVk 100_000_000 Fuel
       seedFromFaucet_ defaultNetworkId node carolCardanoVk 100_000_000 Fuel
 
-      let contestationPeriod = 10 :: Natural
+      let contestationPeriod = 2
+
       send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
       waitFor tracer 10 [n1, n2, n3] $
         output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
@@ -342,8 +346,8 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
         guard $ snapshotNumber == toJSON expectedSnapshotNumber
 
       -- NOTE: We expect the head to be finalized after the contestation period
-      -- and some three secs later
-      waitFor tracer (contestationPeriod + 3) [n1] $
+      -- and some three secs later, plus the closeGraceTime * slotLength
+      waitFor tracer (truncate $ contestationPeriod + (fromIntegral @_ @Double (unSlotNo closeGraceTime) * 0.1) + 3) [n1] $
         output "HeadIsFinalized" ["utxo" .= newUTxO]
 
       case fromJSON $ toJSON newUTxO of

@@ -439,8 +439,8 @@ chainSyncHandler tracer callback headState =
         -- transformation into an `OnChainTx`
         let event = case (onChainTx, reifyState nextState) of
               (OnCloseTx{snapshotNumber}, TkClosed) ->
-                let remainingDiffTime = diffUTCTime (posixToUTCTime $ getContestationDeadline nextState) now
-                 in OnCloseTx{snapshotNumber, remainingContestationPeriod = remainingDiffTime}
+                let remainingTimeWithBuffer = 1 + diffUTCTime (posixToUTCTime $ getContestationDeadline nextState) now
+                 in OnCloseTx{snapshotNumber, remainingContestationPeriod = remainingTimeWithBuffer}
               _ -> onChainTx
         pure $ event : observed
       Nothing ->
