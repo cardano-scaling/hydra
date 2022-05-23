@@ -8,6 +8,7 @@ import Hydra.Prelude
 import qualified PlutusTx.Prelude as Plutus
 
 import Data.Time (diffTimeToPicoseconds, picosecondsToDiffTime)
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Plutus.V1.Ledger.Api (POSIXTime (..))
 import Plutus.V1.Ledger.Time (DiffMilliSeconds, fromMilliSeconds)
 import qualified PlutusTx
@@ -41,7 +42,8 @@ contestationPeriodToDiffTime cp =
   millisToPico = (* millisInPico)
 
 posixToUTCTime :: POSIXTime -> UTCTime
-posixToUTCTime (POSIXTime ms) = undefined
+posixToUTCTime (POSIXTime ms) =
+  posixSecondsToUTCTime (fromInteger $ 1000 * ms)
 
 millisInPico :: Integer
 millisInPico = 10 ^ (9 :: Integer)
