@@ -50,8 +50,6 @@ import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import Data.List ((\\))
 import Data.Sequence.Strict (StrictSeq)
-import Data.Time (picosecondsToDiffTime)
-import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
   CardanoMode,
   ChainPoint (..),
@@ -126,7 +124,7 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
   withTinyWallet,
  )
-import Hydra.Data.ContestationPeriod (millisInPico)
+import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (EraMismatch, GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
@@ -168,7 +166,6 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   SubmitResult (..),
   localTxSubmissionClientPeer,
  )
-import qualified Plutus.V1.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 withDirectChain ::
@@ -442,10 +439,7 @@ chainSyncHandler tracer callback headState =
         -- transformation into an `OnChainTx`
         let event = case (onChainTx, reifyState nextState) of
               (OnCloseTx{snapshotNumber}, TkClosed) ->
-                let deadlineInMillis = Plutus.getPOSIXTime $ getContestationDeadline nextState
-                    posixNow = truncate (utcTimeToPOSIXSeconds now)
-                    differenceInPicos = deadlineInMillis * millisInPico - posixNow
-                    remainingDiffTime = picosecondsToDiffTime differenceInPicos
+                let remainingDiffTime = diffUTCTime now (posixToUTCTime $ getContestationDeadline nextState)
                  in OnCloseTx{snapshotNumber, remainingContestationPeriod = remainingDiffTime}
               _ -> onChainTx
         pure $ event : observed
