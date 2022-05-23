@@ -70,9 +70,9 @@ queryProtocolParameters :: NetworkId -> FilePath -> IO ProtocolParameters
 queryProtocolParameters networkId socket =
   let query =
         QueryInEra
-          AlonzoEraInCardanoMode
+          BabbageEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
+              ShelleyBasedEraBabbage
               QueryProtocolParameters
           )
    in runQuery networkId socket query
@@ -84,9 +84,9 @@ queryUTxO :: NetworkId -> FilePath -> [Address ShelleyAddr] -> IO UTxO
 queryUTxO networkId socket addresses =
   let query =
         QueryInEra
-          AlonzoEraInCardanoMode
+          BabbageEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
+              ShelleyBasedEraBabbage
               ( QueryUTxO
                   (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
               )
@@ -100,9 +100,9 @@ queryUTxOByTxIn :: NetworkId -> FilePath -> [TxIn] -> IO UTxO
 queryUTxOByTxIn networkId socket inputs =
   let query =
         QueryInEra
-          AlonzoEraInCardanoMode
+          BabbageEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
+              ShelleyBasedEraBabbage
               (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
           )
    in UTxO.fromApi <$> runQuery networkId socket query
@@ -115,9 +115,9 @@ queryUTxOWhole :: NetworkId -> FilePath -> IO UTxO
 queryUTxOWhole networkId socket =
   let query =
         QueryInEra
-          AlonzoEraInCardanoMode
+          BabbageEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
+              ShelleyBasedEraBabbage
               (QueryUTxO QueryUTxOWhole)
           )
    in UTxO.fromApi <$> runQuery networkId socket query
