@@ -17,7 +17,7 @@ import Hydra.Prelude
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
 import Cardano.Ledger.Alonzo.Rules.Utxos (FailureDescription (PlutusFailure), TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
 import Cardano.Ledger.Alonzo.Rules.Utxow (UtxowPredicateFail (WrappedShelleyEraFailure))
-import Cardano.Ledger.Alonzo.TxInfo (debugPlutus, slotToPOSIXTime)
+import Cardano.Ledger.Alonzo.TxInfo (PlutusDebugInfo (..), debugPlutus, slotToPOSIXTime)
 import Cardano.Ledger.Babbage.PParams (PParams' (..))
 import Cardano.Ledger.Babbage.Rules.Utxo (BabbageUtxoPred (FromAlonzoUtxoFail, FromAlonzoUtxowFail))
 import Cardano.Ledger.Babbage.Tx (ValidatedTx)
@@ -442,6 +442,18 @@ txSubmissionClient tracer queue =
   unwrapPlutus :: LedgerPredicateFailure LedgerEra -> Maybe (PostTxError Tx)
   unwrapPlutus = \case
     UtxowFailure (FromAlonzoUtxowFail (WrappedShelleyEraFailure (UtxoFailure (FromAlonzoUtxoFail (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure plutusFailure debug :| _)))))))) ->
-      Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo = show (debugPlutus (decodeUtf8 debug))}
+      let plutusDebugInfo =
+            case debugPlutus (decodeUtf8 debug) of
+              DebugSuccess budget -> "DebugSuccess: " <> show budget
+              DebugCannotDecode err -> "DebugCannotDecode: " <> fromString err
+              DebugInfo logs err _debug ->
+                unlines
+                  [ "DebugInfo:"
+                  , "  Error: " <> show err
+                  , "  Logs:"
+                  ]
+                  <> unlines (fmap ("    " <>) logs)
+              DebugBadHex err -> "DebugBadHex: " <> fromString err
+       in Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo}
     _ ->
       Nothing
