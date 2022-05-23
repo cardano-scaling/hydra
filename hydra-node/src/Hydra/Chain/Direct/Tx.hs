@@ -735,7 +735,10 @@ observeCloseTx utxo tx = do
         _ -> Nothing
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
-        ( OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
+        ( -- FIXME: The 0 here is a wart. We are in a pure function so we cannot easily compute with
+          -- time. We tried passing the current time from the caller but given the current machinery
+          -- around `observeSomeTx` this is actually not straightforward and quite ugly.
+          OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
         , CloseObservation
             { threadOutput =
                 ClosedThreadOutput
