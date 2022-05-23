@@ -27,6 +27,7 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   lovelaceToValue,
   txOutValue,
+  unSlotNo,
   unsafeDeserialiseFromRawBytesBase16,
  )
 import Hydra.Chain (
@@ -40,6 +41,7 @@ import Hydra.Chain (
 import Hydra.Chain.Direct (
   DirectChainLog,
   IntersectionNotFoundException,
+  closeGraceTime,
   withDirectChain,
   withIOManager,
  )
@@ -192,8 +194,8 @@ spec = around showLogsOnFailure $ do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
             seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
-            postTx $ InitTx $ HeadParameters 100 [alice]
-            alicesCallback `observesInTime` OnInitTx 100 [alice]
+            postTx $ InitTx $ HeadParameters 1 [alice]
+            alicesCallback `observesInTime` OnInitTx 1 [alice]
 
             someUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk 1_000_000 Normal
             postTx $ CommitTx alice someUTxO
@@ -222,6 +224,9 @@ spec = around showLogsOnFailure $ do
               _ ->
                 False
 
+            -- TODO: compute from chain parameters
+            -- contestation period + closeGraceTime * slot length
+            threadDelay $ 1 + (fromIntegral (unSlotNo closeGraceTime) * 0.1)
             postTx $
               FanoutTx
                 { utxo = someUTxO

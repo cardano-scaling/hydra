@@ -40,7 +40,7 @@ contestationPeriodToDiffTime cp =
 
 posixToUTCTime :: POSIXTime -> UTCTime
 posixToUTCTime (POSIXTime ms) =
-  posixSecondsToUTCTime (fromInteger $ 1000 * ms)
+  posixSecondsToUTCTime (fromRational $ ms % 1000)
 
 millisInPico :: Integer
 millisInPico = 10 ^ (9 :: Integer)
