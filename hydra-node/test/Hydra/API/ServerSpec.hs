@@ -58,9 +58,9 @@ spec = parallel $ do
               failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
 
   prop "echoes history (past outputs) to client upon reconnection" $ \msgs -> monadicIO $ do
-    monitor $ cover 1 (null msgs) "no message when reconnecting"
-    monitor $ cover 1 (length msgs == 1) "only one message when reconnecting"
-    monitor $ cover 1 (length msgs > 1) "more than one message when reconnecting"
+    monitor $ cover 100 (null msgs) "no message when reconnecting"
+    monitor $ cover 100 (length msgs == 1) "only one message when reconnecting"
+    monitor $ cover 100 (length msgs > 1) "more than one message when reconnecting"
     run . failAfter 5 $ do
       withFreePort $ \port ->
         withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice nullTracer noop $ \Server{sendOutput} -> do
