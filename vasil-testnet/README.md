@@ -19,7 +19,12 @@ launch the `hydra-node`:
 ./hydra-node.sh
 ```
 
-Now, we need funds on the testnet and have them sent to an address owned by our `cardano-signing-key` in order to open a Hydra Head.
+Now, we need funds on the testnet and have them sent to an address owned by our `cardano-signing-key` in order to open a Hydra Head. With these available we can mark them as fuel and fork of some ADA to be committable into a hydra head. In this example we prepare some 500ADA (minus fees):
+
+``` sh
+./fuel-testnet.sh credentials/sebastian.cardano.sk 500000000
+cardano-cli transaction submit --cardano-mode --epoch-slots 21600 --testnet-magic 9 --tx-file /tmp/tmp.S9N6vVkw2j.signed
+```
 
 To start the `hydra-tui`:
 
@@ -28,3 +33,12 @@ To start the `hydra-tui`:
 ```
 
 Now we should be able to `[i]nit`, `[c]ommit` & `[c]lose` a hydra head using the interactive terminal client.
+
+
+## First run on vasil testnet
+
+```
+start point: 0853d12dc3ac56ebfa1edae5207aafe4849ea6e6534275c7345047a6cf72814c at slot 400208
+init tx: 65b8d0a9a325e8e54c5dea0f9b4a26dacb429959290f6d2914fb824f2db8e8a1
+commit tx: TODO
+```
