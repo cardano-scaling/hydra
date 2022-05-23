@@ -46,7 +46,7 @@ import Hydra.Ledger.Cardano (
   genTxIn,
   simplifyUTxO,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx, pparams)
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, pparams)
 import Plutus.Orphans ()
 import Test.QuickCheck (generate, sublistOf, vectorOf)
 
@@ -164,7 +164,8 @@ computeFanOutCost = do
     ctx <- genHydraContext 3
     let utxo = genSimpleUTxOOfSize numOutputs `generateWith` 42
     (_, stClosed) <- genStClosed ctx utxo
-    pure (fanout utxo stClosed, getKnownUTxO stClosed)
+    pointInTime <- genPointInTime
+    pure (fanout utxo pointInTime stClosed, getKnownUTxO stClosed)
 
 genSimpleUTxOOfSize :: Int -> Gen UTxO
 genSimpleUTxOOfSize numUTxO =
