@@ -71,7 +71,6 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
   ownInitial,
  )
-import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))

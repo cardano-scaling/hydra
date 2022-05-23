@@ -62,7 +62,6 @@ import Hydra.Chain.Direct.Context (
   unsafeCommit,
   unsafeObserveTx,
  )
-import Hydra.Chain.Direct.Fixture (maxTxExecutionUnits, maxTxSize)
 import Hydra.Chain.Direct.State (
   HasTransition (..),
   HeadStateKind (..),
@@ -85,9 +84,10 @@ import Hydra.Ledger.Cardano (
   renderTx,
   renderTxs,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx', maxTxExecutionUnits, maxTxSize)
 import Ouroboros.Consensus.Block (Point, blockPoint)
-import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
+import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
+import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Hspec (shouldBe)
 import Test.Hydra.Prelude (
@@ -344,7 +344,7 @@ stAtGenesis currentOnChainHeadState =
 
 propBelowSizeLimit ::
   forall st.
-  Int64 ->
+  Natural ->
   ((OnChainHeadState st -> Tx -> Property) -> Property) ->
   SpecWith ()
 propBelowSizeLimit txSizeLimit forAllTx =
@@ -352,7 +352,7 @@ propBelowSizeLimit txSizeLimit forAllTx =
     forAllTx $ \_ tx ->
       let cbor = serialize tx
           len = LBS.length cbor
-       in len < txSizeLimit
+       in len < fromIntegral txSizeLimit
             & label (showKB len)
             & counterexample (renderTx tx)
             & counterexample ("Actual size: " <> show len)
@@ -549,11 +549,11 @@ genBlockAt :: SlotNo -> [Tx] -> Gen Block
 genBlockAt sl txs = do
   header <- adjustSlot <$> arbitrary
   let body = toTxSeq $ StrictSeq.fromList (toLedgerTx <$> txs)
-  pure $ BlockAlonzo $ mkShelleyBlock $ Ledger.Block header body
+  pure $ BlockBabbage $ mkShelleyBlock $ Ledger.Block header body
  where
-  adjustSlot (Ledger.BHeader body sig) =
-    let body' = body{Ledger.bheaderSlotNo = sl}
-     in Ledger.BHeader body' sig
+  adjustSlot (Praos.Header body sig) =
+    let body' = body{Praos.hbSlotNo = sl}
+     in Praos.Header body' sig
 
 --
 -- Wrapping Transition for easy labelling

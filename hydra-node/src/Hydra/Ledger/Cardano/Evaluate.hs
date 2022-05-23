@@ -31,7 +31,7 @@ import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
-  ExecutionUnits,
+  ExecutionUnits (..),
   LedgerEra,
   SlotNo (SlotNo),
   StandardCrypto,
@@ -104,6 +104,14 @@ pparams =
 -- | Max transaction size of the current 'pparams'.
 maxTxSize :: Natural
 maxTxSize = _maxTxSize pparams
+
+-- | Max transaction execution unit budget of the current 'params'.
+maxTxExecutionUnits :: ExecutionUnits
+maxTxExecutionUnits =
+  ExecutionUnits
+    { executionMemory = truncate maxMem
+    , executionSteps = truncate maxCpu
+    }
 
 -- | Max memory and cpu units of the current 'pparams'.
 maxMem, maxCpu :: Fixed E2

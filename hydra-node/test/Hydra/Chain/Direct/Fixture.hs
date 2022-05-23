@@ -1,8 +1,6 @@
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- | Unit tests for our "hand-rolled" transactions as they are used in the
--- "direct" chain component.
 module Hydra.Chain.Direct.Fixture (
   module Hydra.Chain.Direct.Fixture,
   pparams,
@@ -11,10 +9,7 @@ module Hydra.Chain.Direct.Fixture (
 import Hydra.Prelude
 
 import Cardano.Crypto.Hash (hashToBytes)
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
-import Cardano.Ledger.Alonzo.Scripts (CostModel)
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
+import Cardano.Ledger.BaseTypes (TxIx (TxIx))
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import qualified Cardano.Ledger.Slot as Ledger
@@ -24,28 +19,20 @@ import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (SlotLength, SystemStart (SystemStart), mkSlotLength)
 import qualified Cardano.Slotting.Time as Slotting
 import Codec.CBOR.Magic (uintegerFromBytes)
-import Data.Array (Array, array)
-import Data.Default (def)
-import qualified Data.Map as Map
-import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
-  ExecutionUnits (..),
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PolicyId,
   SlotNo (..),
   TxIn,
-  toLedgerExUnits,
  )
 import Hydra.Chain.Direct.Tx (headPolicyId)
 import Hydra.Crypto (hashVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (pparams)
 import Hydra.Party (Party (..))
 import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin)
-import qualified Test.Cardano.Ledger.Alonzo.AlonzoEraGen as Ledger.Alonzo
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck.Instances ()
 
@@ -76,21 +63,6 @@ testPolicyId = headPolicyId testSeedInput
 testSeedInput :: TxIn
 testSeedInput = generateWith arbitrary 42
 
--- | Current mainchain max transaction size in bytes.
-maxTxSize :: Int64
-maxTxSize = fromIntegral $ Ledger.Alonzo._maxTxSize pparams
-
--- | Current mainchain max transaction execution unit budget.
-maxTxExecutionUnits :: ExecutionUnits
-maxTxExecutionUnits =
-  ExecutionUnits
-    { executionMemory = maxMem
-    , executionSteps = maxCpu
-    }
- where
-  Ledger.Alonzo.ExUnits maxMem maxCpu =
-    Ledger.Alonzo._maxTxExUnits pparams
-
 instance Arbitrary PubKeyHash where
   arbitrary = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)
 
@@ -107,36 +79,12 @@ epochSize = EpochSize 100
 slotLength :: SlotLength
 slotLength = mkSlotLength 1
 
--- NOTE(SN): copied from Test.Cardano.Ledger.Alonzo.Tools as not exported
-costModels :: Array Language CostModel
-costModels = array (PlutusV1, PlutusV1) [(PlutusV1, fromJust defaultCostModel)]
-
 defaultLedgerEnv :: Ledger.LedgerEnv LedgerEra
 defaultLedgerEnv =
   Ledger.LedgerEnv
     { Ledger.ledgerSlotNo = SlotNo 1
-    , Ledger.ledgerIx = 0
-    , Ledger.ledgerPp =
-        def
-          { Ledger.Alonzo._maxTxSize = 1024 * 1024
-          , Ledger.Alonzo._maxValSize = 5000
-          , Ledger.Alonzo._maxCollateralInputs = 10
-          , Ledger.Alonzo._maxTxExUnits =
-              toLedgerExUnits maxTxExecutionUnits
-          , Ledger.Alonzo._maxBlockExUnits =
-              Ledger.Alonzo.ExUnits
-                { Ledger.Alonzo.exUnitsMem = 50_000_000
-                , Ledger.Alonzo.exUnitsSteps = 40_000_000_000
-                }
-          , Ledger.Alonzo._costmdls =
-              -- XXX(SN): This is a sledgehammer approach: The genTx would hit
-              -- execution budgets with the defaultCostModel. There is a TODO in
-              -- cardano-ledger's AlonzoEraGen.hs about not using freeCostModel
-              Map.fromList $
-                [ (lang, Ledger.Alonzo.freeCostModel)
-                | lang <- [minBound .. maxBound]
-                ]
-          }
+    , Ledger.ledgerIx = TxIx 0
+    , Ledger.ledgerPp = pparams
     , Ledger.ledgerAccount = error "ledgerEnv: ledgersAccount undefined"
     }
 

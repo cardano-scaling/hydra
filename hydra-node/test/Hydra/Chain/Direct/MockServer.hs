@@ -25,11 +25,10 @@ import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, retry)
 import Control.Tracer (nullTracer)
 import Data.List ((!!))
 import qualified Data.Sequence.Strict as StrictSeq
-import Hydra.Cardano.Api (NetworkId (..))
+import Hydra.Cardano.Api (Era, NetworkId (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Util (
   Block,
-  Era,
   defaultCodecs,
   nullServerTracers,
   versions,
