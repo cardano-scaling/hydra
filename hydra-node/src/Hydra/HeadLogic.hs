@@ -54,7 +54,7 @@ data Effect tx
   = ClientEffect {serverOutput :: ServerOutput tx}
   | NetworkEffect {message :: Message tx}
   | OnChainEffect {onChainTx :: PostChainTx tx}
-  | Delay {delay :: DiffTime, reason :: WaitReason, event :: Event tx}
+  | Delay {delay :: NominalDiffTime, reason :: WaitReason, event :: Event tx}
   deriving stock (Generic)
 
 instance IsTx tx => Arbitrary (Effect tx) where

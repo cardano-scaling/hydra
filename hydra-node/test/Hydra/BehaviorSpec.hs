@@ -521,7 +521,7 @@ toOnChainTx =
       OnFanoutTx
 
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
-testContestationPeriod :: DiffTime
+testContestationPeriod :: Num a => a
 testContestationPeriod = 3600
 
 withHydraNode ::

@@ -46,7 +46,7 @@ data HydraContext = HydraContext
   { ctxVerificationKeys :: [VerificationKey PaymentKey]
   , ctxHydraSigningKeys :: [Hydra.SigningKey]
   , ctxNetworkId :: NetworkId
-  , ctxContestationPeriod :: DiffTime
+  , ctxContestationPeriod :: NominalDiffTime
   }
   deriving (Show)
 

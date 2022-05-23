@@ -203,7 +203,7 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
 -- alternative implementation
 data EventQueue m e = EventQueue
   { putEvent :: e -> m ()
-  , putEventAfter :: DiffTime -> e -> m ()
+  , putEventAfter :: NominalDiffTime -> e -> m ()
   , nextEvent :: m e
   , isEmpty :: m Bool
   }
@@ -219,7 +219,7 @@ createEventQueue = do
       , putEventAfter = \delay e -> do
           atomically $ modifyTVar' numThreads succ
           void . async $ do
-            threadDelay delay
+            threadDelay $ realToFrac delay
             atomically $ do
               modifyTVar' numThreads pred
               writeTQueue q e
