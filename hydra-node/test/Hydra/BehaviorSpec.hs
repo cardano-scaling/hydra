@@ -324,7 +324,7 @@ spec = parallel $ do
 
               waitFor [n1] $ GetUTxOResponse (utxoRefs [2, 42])
 
-      it "closed head is finalized after contestation period and all parties post fanout tx" $
+      it "can be finalized by all parties after contestation period" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
           withHydraNode aliceSk [bob] chain $ \n1 ->
@@ -332,8 +332,9 @@ spec = parallel $ do
               openHead n1 n2
               send n1 Close
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
-              threadDelay testContestationPeriod
               waitFor [n1, n2] ReadyToFanout
+              send n1 Fanout
+              send n2 Fanout
               waitFor [n1, n2] $ HeadIsFinalized (utxoRefs [1, 2])
               allTxs <- reverse <$> readTVarIO (history chain)
               length (filter matchFanout allTxs) `shouldBe` 2
