@@ -425,7 +425,10 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       -- and/or not try to fan out on the `ShouldPostFanout` later.
       sameState [ClientEffect HeadIsContested{snapshotNumber}]
   (ClosedState{confirmedSnapshot}, ShouldPostFanout) ->
-    sameState [OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)]
+    sameState
+      [ ClientEffect ReadyToFanout
+      , OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)
+      ]
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
     nextState ReadyState [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --
