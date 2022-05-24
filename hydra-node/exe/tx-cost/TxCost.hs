@@ -205,7 +205,8 @@ newtype CpuUnit = CpuUnit Natural
 checkSizeAndEvaluate :: Tx -> UTxO -> Maybe (TxSize, MemUnit, CpuUnit)
 checkSizeAndEvaluate tx knownUTxO = do
   guard $ txSize < maxTxSize
-  case evaluateTx tx knownUTxO of
+  let res = evaluateTx tx knownUTxO
+  case traceShow res res of
     (Right report) -> do
       let results = Map.elems report
       guard $ all isRight results

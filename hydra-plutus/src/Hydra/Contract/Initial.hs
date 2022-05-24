@@ -32,7 +32,7 @@ import Plutus.V2.Ledger.Api (
   adaToken,
   mkValidatorScript,
  )
-import Plutus.V2.Ledger.Contexts (findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
+import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
@@ -141,12 +141,15 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
       [(dat, _)] ->
         case dat of
           NoOutputDatum -> traceError "missing datum"
-          OutputDatumHash{} -> traceError "expected inline datum, not hash only"
-          OutputDatum da ->
-            case fromBuiltinData @Commit.DatumType $ getDatum da of
-              Nothing -> traceError "expected commit datum type, got something else"
-              Just (_party, _headScriptHash, mSerializedTxOut) ->
-                mSerializedTxOut
+          OutputDatum _ -> traceError "unexpected inline datum"
+          OutputDatumHash dh ->
+            case findDatum dh txInfo of
+              Nothing -> traceError "could not find datum"
+              Just da ->
+                case fromBuiltinData @Commit.DatumType $ getDatum da of
+                  Nothing -> traceError "expected commit datum type, got something else"
+                  Just (_party, _headScriptHash, mSerializedTxOut) ->
+                    mSerializedTxOut
       _ -> traceError "expected single commit output"
 
   debugValue v =

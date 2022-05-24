@@ -40,7 +40,7 @@ import Plutus.V2.Ledger.Api (
   adaToken,
   mkValidatorScript,
  )
-import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput, getContinuingOutputs)
+import Plutus.V2.Ledger.Contexts (findDatum, findDatumHash, findOwnInput, getContinuingOutputs)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
@@ -361,17 +361,24 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} headContext contestationDead
 checkHeadOutputDatum :: ToData a => ScriptContext -> a -> Bool
 checkHeadOutputDatum ctx d =
   case ownDatum of
+    NoOutputDatum ->
+      traceError "missing datum"
+    OutputDatumHash actualHash ->
+      traceIfFalse "output datum hash mismatch" $
+        Just actualHash == expectedHash
     OutputDatum actual ->
       traceIfFalse "output datum mismatch" $ getDatum actual == expectedData
-    _ ->
-      traceError "no inlined head output datum"
  where
   expectedData = toBuiltinData d
+
+  expectedHash = findDatumHash (Datum $ toBuiltinData d) txInfo
 
   ownDatum =
     case getContinuingOutputs ctx of
       [o] -> txOutDatum o
       _ -> traceError "expected only one head output"
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkHeadOutputDatum #-}
 
 txOutAdaValue :: TxOut -> Integer

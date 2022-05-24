@@ -31,6 +31,7 @@ import Plutus.V2.Ledger.Api (
   ValidatorHash,
   mkValidatorScript,
  )
+import Plutus.V2.Ledger.Contexts (findDatum)
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx
 import qualified PlutusTx.Builtins as Builtins
@@ -78,29 +79,32 @@ validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextT
     Just (TxOut _ _ d _) ->
       case d of
         NoOutputDatum -> traceError "missing datum"
-        OutputDatumHash{} -> traceError "expected inline datum, not hash only"
-        OutputDatum da ->
-          case fromBuiltinData @State $ getDatum da of
-            -- NOTE: we could check the committed txOut is present in the Head output hash, for
-            -- example by providing some proof in the redeemer and checking that but this is redundant
-            -- with what the Head script is already doing so it's enough to check that the Head script
-            -- is actually running in the correct "branch" (eg. handling a `CollectCom` or `Abort`
-            -- redeemer)
-            -- However we can't get the redeemer for another input so we'll need to check the datum
-            -- is `Initial`
-            Just Initial{} ->
-              case consumer of
-                Abort ->
-                  case commit of
-                    Nothing -> True
-                    Just (SerializedTxOut serialisedTxOut) ->
-                      -- There should be an output in the transaction corresponding to this serialisedTxOut
-                      traceIfFalse "cannot find commit output" $
-                        serialisedTxOut `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo)
-                -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
-                -- delegated to the 'CollectCom' script who has more information to do it.
-                CollectCom -> True
-            _ -> traceError "Head script in wrong state"
+        OutputDatum _ -> traceError "unexpected inline datum"
+        OutputDatumHash dh ->
+          case findDatum dh txInfo of
+            Nothing -> traceError "could not find datum"
+            Just da ->
+              case fromBuiltinData @State $ getDatum da of
+                -- NOTE: we could check the committed txOut is present in the Head output hash, for
+                -- example by providing some proof in the redeemer and checking that but this is redundant
+                -- with what the Head script is already doing so it's enough to check that the Head script
+                -- is actually running in the correct "branch" (eg. handling a `CollectCom` or `Abort`
+                -- redeemer)
+                -- However we can't get the redeemer for another input so we'll need to check the datum
+                -- is `Initial`
+                Just Initial{} ->
+                  case consumer of
+                    Abort ->
+                      case commit of
+                        Nothing -> True
+                        Just (SerializedTxOut serialisedTxOut) ->
+                          -- There should be an output in the transaction corresponding to this serialisedTxOut
+                          traceIfFalse "cannot find commit output" $
+                            serialisedTxOut `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo)
+                    -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
+                    -- delegated to the 'CollectCom' script who has more information to do it.
+                    CollectCom -> True
+                _ -> traceError "Head script in wrong state"
  where
   findHeadScript = find (paytoHeadScript . txInInfoResolved) $ txInfoInputs txInfo
 
