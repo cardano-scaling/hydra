@@ -93,7 +93,7 @@ pparams =
     , _maxValSize = 1000000000
     , _maxTxExUnits = ExUnits 14_000_000 10_000_000_000
     , _maxBlockExUnits = ExUnits 56_000_000 40_000_000_000
-    , _protocolVersion = ProtVer 6 0
+    , _protocolVersion = ProtVer 7 0
     , _maxTxSize = 1 `shift` 14 -- 16kB
     , _prices =
         Prices
