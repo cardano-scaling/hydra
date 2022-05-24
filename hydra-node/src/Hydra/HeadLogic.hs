@@ -416,14 +416,17 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                    ]
             )
   --
-  (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
-    if snapshotNumber < number (getSnapshot confirmedSnapshot)
-      then
-        sameState
-          [ ClientEffect HeadIsContested{snapshotNumber}
-          , OnChainEffect ContestTx{confirmedSnapshot}
-          ]
-      else sameState [ClientEffect HeadIsContested{snapshotNumber}]
+  (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber}))
+    | snapshotNumber < number (getSnapshot confirmedSnapshot) ->
+      sameState
+        [ ClientEffect HeadIsContested{snapshotNumber}
+        , OnChainEffect ContestTx{confirmedSnapshot}
+        ]
+    | otherwise ->
+      -- TODO: A more recent snapshot number was succesfully contested, we will
+      -- not be able to fanout! We might want to communicate that to the client
+      -- and/or not try to fan out on the `ShouldPostFanout` later.
+      sameState [ClientEffect HeadIsContested{snapshotNumber}]
   (ClosedState{utxos}, ShouldPostFanout) ->
     sameState [OnChainEffect (FanoutTx utxos)]
   (ClosedState{utxos}, OnChainEvent (Observation OnFanoutTx{})) ->
