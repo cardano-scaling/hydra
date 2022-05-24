@@ -47,6 +47,7 @@ channels:
           - $ref: "#/components/messages/HeadIsOpen"
           - $ref: "#/components/messages/HeadIsClosed"
           - $ref: "#/components/messages/HeadIsContested"
+          - $ref: "#/components/messages/ReadyToFanout"
           - $ref: "#/components/messages/HeadIsAborted"
           - $ref: "#/components/messages/HeadIsFinalized"
           - $ref: "#/components/messages/TxSeen"
@@ -323,6 +324,20 @@ components:
             enum: ["HeadIsContested"]
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
+
+    ReadyToFanout:
+      title: ReadyToFanout
+      description: |
+        The contestation period has passed and the head can now be finalized by
+        a fanout transaction.
+      payload:
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["ReadyToFanout"]
 
     HeadIsAborted:
       title: HeadIsAborted
