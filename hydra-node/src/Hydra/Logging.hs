@@ -44,7 +44,8 @@ import Control.Tracer (
   nullTracer,
   traceWith,
  )
-import Data.Aeson (encode, object, (.=))
+import Data.Aeson (pairs, (.=))
+import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as Text
 
@@ -61,13 +62,14 @@ data Envelope a = Envelope
   deriving (Eq, Show, Generic, FromJSON)
 
 instance ToJSON a => ToJSON (Envelope a) where
-  toJSON Envelope{timestamp, threadId, namespace, message} =
-    object
-      [ "timestamp" .= timestamp
-      , "threadId" .= threadId
-      , "namespace" .= namespace
-      , "message" .= message
-      ]
+  toEncoding Envelope{timestamp, threadId, namespace, message} =
+    pairs $
+      mconcat
+        [ "timestamp" .= timestamp
+        , "threadId" .= threadId
+        , "namespace" .= namespace
+        , "message" .= message
+        ]
 
 instance Arbitrary a => Arbitrary (Envelope a) where
   arbitrary = genericArbitrary
@@ -108,12 +110,12 @@ withTracerOutputTo hdl namespace action = do
 
   writeLogs queue =
     forever $ do
-      atomically (readTBQueue queue) >>= write . encode
+      atomically (readTBQueue queue) >>= write . Aeson.encode
       hFlush hdl
 
   flushLogs queue = liftIO $ do
     entries <- atomically $ flushTBQueue queue
-    forM_ entries (write . encode)
+    forM_ entries (write . Aeson.encode)
     hFlush hdl
 
   write bs = LBS.hPut hdl (bs <> "\n")
@@ -122,13 +124,13 @@ withTracerOutputTo hdl namespace action = do
 -- given 'action'. This tracer is wrapping 'msg' into an 'Envelope' with
 -- metadata.
 showLogsOnFailure ::
-  (MonadSTM m, MonadCatch m, MonadFork m, MonadTime m, MonadSay m, Show msg) =>
+  (MonadSTM m, MonadCatch m, MonadFork m, MonadTime m, MonadSay m, ToJSON msg) =>
   (Tracer m msg -> m a) ->
   m a
 showLogsOnFailure action = do
   tvar <- newTVarIO []
   action (traceInTVar tvar)
-    `onException` (readTVarIO tvar >>= mapM_ (say . show) . reverse)
+    `onException` (readTVarIO tvar >>= mapM_ (say . decodeUtf8 . Aeson.encode) . reverse)
  where
   traceInTVar tvar = Tracer $ \msg -> do
     envelope <- mkEnvelope "" msg

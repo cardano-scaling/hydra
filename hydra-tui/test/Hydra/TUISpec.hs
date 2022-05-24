@@ -230,7 +230,7 @@ withTUITest region action = do
 data TUILog
   = FromCardano NodeLog
   | FromHydra EndToEndLog
-  deriving (Show)
+  deriving (Show, Generic, ToJSON)
 
 aliceSk :: Hydra.SigningKey
 aliceSk = Hydra.generateSigningKey "alice"

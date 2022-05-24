@@ -4,8 +4,10 @@ module Test.Util where
 
 import Hydra.Prelude
 
+import Control.Monad.Class.MonadSay (say)
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, selectTraceEventsDynamic, traceM, traceResult)
 import Control.Tracer (Tracer (Tracer))
+import qualified Data.Aeson as Aeson
 import Data.List (isInfixOf)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node (HydraNodeLog)
@@ -31,7 +33,7 @@ shouldRunInSim action =
     -- NOTE: We need to ignore exceptions as we will see the exception which got
     -- us here thrown at us again.
     void . try @_ @SomeException
-      . mapM_ print
+      . mapM_ (say . decodeUtf8 . Aeson.encode)
       $ selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) tr
 
 -- | Lifted variant of Hspec's 'shouldBe'.

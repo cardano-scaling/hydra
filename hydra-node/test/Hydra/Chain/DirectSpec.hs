@@ -78,4 +78,4 @@ mkSeedPayment networkId vk submitTx =
 data Log
   = FromAlice DirectChainLog
   | FromBob DirectChainLog
-  deriving (Show)
+  deriving (Show, Generic, ToJSON)
