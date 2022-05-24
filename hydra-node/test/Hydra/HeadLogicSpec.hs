@@ -14,7 +14,8 @@ import qualified Data.Set as Set
 import Hydra.Chain (
   ChainEvent (..),
   HeadParameters (..),
-  OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx),
+  OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx, OnContestTx),
+  PostChainTx (ContestTx),
  )
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
@@ -238,6 +239,39 @@ spec = do
           let rollback = OnChainEvent (Rollback 2)
           let s' = update env ledger s rollback
           void $ run $ s' `hasEffect` ClientEffect RolledBack
+
+      it "contests when detecting close with old snapshot" $ do
+        let snapshot = Snapshot 2 mempty []
+            latestConfirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
+            s0 =
+              inOpenState' threeParties $
+                CoordinatedHeadState
+                  { seenUTxO = mempty
+                  , seenTxs = mempty
+                  , confirmedSnapshot = latestConfirmedSnapshot
+                  , seenSnapshot = NoSeenSnapshot
+                  }
+            closeTxEvent = OnChainEvent $ Observation $ OnCloseTx 0 42
+            contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
+        s1 <- update env ledger s0 closeTxEvent `hasEffect` contestTxEffect
+        s1 `shouldSatisfy` \case
+          ClosedState{} -> True
+          _ -> False
+
+      it "re-contests when detecting contest with old snapshot" $ do
+        let snapshot2 = Snapshot 2 mempty []
+            latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (aggregate [])
+            s0 = inClosedState threeParties
+            contestSnapshot1Event = OnChainEvent $ Observation $ OnContestTx 1
+            contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
+        s1 <- update env ledger s0 contestSnapshot1Event `hasEffect` contestTxEffect
+        s1 `shouldSatisfy` \case
+          ClosedState{} -> True
+          _ -> False
+
+      -- TODO: Maybe we want to instead ensure that the headlogic contests until
+      -- it's latest known snapshot is closed
+      it "re-contests if contest transaction fails" pending
 
 --
 -- Assertion utilities
