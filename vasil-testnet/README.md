@@ -37,8 +37,14 @@ Now we should be able to `[i]nit`, `[c]ommit` & `[c]lose` a hydra head using the
 
 ## First run on vasil testnet
 
-```
+``` sh
+git rev: 4112202d009a1042370a7761e58393c59638fbab
 start point: 0853d12dc3ac56ebfa1edae5207aafe4849ea6e6534275c7345047a6cf72814c at slot 400208
-init tx: 65b8d0a9a325e8e54c5dea0f9b4a26dacb429959290f6d2914fb824f2db8e8a1
-commit tx: TODO
 ```
+
+```
+init tx: 65b8d0a9a325e8e54c5dea0f9b4a26dacb429959290f6d2914fb824f2db8e8a1
+v_head address: addr_test1wqnt9a4jxyzxy3nfd79fzftn8kf3n3jfe6p8ethf625ezncxlpxyu
+```
+
+The `commit` or `abort` transactions fail with a `NonOutputSupplimentaryDatums` ledger error.
