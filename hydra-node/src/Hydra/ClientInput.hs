@@ -15,6 +15,7 @@ data ClientInput tx
   | GetUTxO
   | Close
   | Contest
+  | Fanout
   deriving (Generic)
 
 deriving instance IsTx tx => Eq (ClientInput tx)
@@ -36,3 +37,4 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ClientInput tx) w
     GetUTxO -> []
     Close -> []
     Contest -> []
+    Fanout -> []
