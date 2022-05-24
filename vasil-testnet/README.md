@@ -48,3 +48,20 @@ v_head address: addr_test1wqnt9a4jxyzxy3nfd79fzftn8kf3n3jfe6p8ethf625ezncxlpxyu
 ```
 
 The `commit` or `abort` transactions fail with a `NonOutputSupplimentaryDatums` ledger error.
+
+## Second run with non-inline datums
+
+``` sh
+git rev: 938c4c2da68eb908b1be7d2d12e6fd76de0d167b
+start point: 7870838f05071a30b364832490cfbf9f882382a7d5524e821debaad099c4ed99 at slot 440772
+```
+
+```
+init tx: a1b274bfd4f140f41765d553d6a1bdaa8e29da436f29c7c4caae2b9abc233858
+v_head address: addr_test1wredcw3m2qyz68anfcjshcdljwaksj492254dw8pdce6n2seyjhg5
+
+commit tx: 5e90b4233896814d93c3b9c712a54eee63a003de63aa6ada7d855a07c07d83fb
+collect tx: baa721e3e3142cca17a3bbda4f2160ef0b5210eb781ae1b9556ebe87eae66409
+```
+
+Head is open!
