@@ -16,11 +16,6 @@ import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithVa
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import qualified Cardano.Api.UTxO as UTxO
-import CardanoClient (
-  CardanoClient (..),
-  buildAddress,
-  mkCardanoClient,
- )
 import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
@@ -39,6 +34,7 @@ import Graphics.Vty (
  )
 import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
+import Hydra.Chain.CardanoClient (CardanoClient (..), mkCardanoClient)
 import Hydra.Chain.Direct.Util (isMarkedOutput)
 import Hydra.Client (Client (..), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
@@ -309,7 +305,7 @@ handleCommitEvent ::
   EventM n (Next State)
 handleCommitEvent Client{sendInput, sk} CardanoClient{queryUTxOByAddress, networkId} s = case s ^? headStateL of
   Just Initializing{} -> do
-    utxo <- liftIO $ queryUTxOByAddress [buildAddress (getVerificationKey sk) networkId]
+    utxo <- liftIO $ queryUTxOByAddress [ourAddress]
     -- XXX(SN): this is a hydra implementation detail and should be moved
     -- somewhere hydra specific
     let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (UTxO.toMap utxo)
@@ -317,6 +313,12 @@ handleCommitEvent Client{sendInput, sk} CardanoClient{queryUTxOByAddress, networ
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
+  ourAddress =
+    makeShelleyAddress
+      networkId
+      (PaymentCredentialByKey . verificationKeyHash $ getVerificationKey sk)
+      NoStakeAddress
+
   commitDialog u =
     Dialog title form submit
    where

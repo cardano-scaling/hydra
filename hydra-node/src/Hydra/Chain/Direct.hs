@@ -29,7 +29,6 @@ import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
-import Cardano.Slotting.Time (SystemStart)
 import Control.Exception (IOException)
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (
@@ -53,20 +52,10 @@ import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   CardanoMode,
   ChainPoint (..),
-  ChainTip (..),
-  ConsensusModeIsMultiEra (CardanoModeIsMultiEra),
-  ConsensusModeParams (CardanoModeParams),
-  EpochSlots (EpochSlots),
   EraHistory (EraHistory),
-  EraInMode (AlonzoEraInCardanoMode),
   LedgerEra,
-  LocalNodeConnectInfo (LocalNodeConnectInfo),
   NetworkId,
   PaymentKey,
-  ProtocolParameters,
-  QueryInEra (QueryInShelleyBasedEra),
-  QueryInMode (QueryEraHistory, QueryInEra, QuerySystemStart),
-  QueryInShelleyBasedEra (QueryProtocolParameters),
   ShelleyBasedEra (ShelleyBasedEraAlonzo),
   SigningKey,
   SlotNo,
@@ -76,8 +65,6 @@ import Hydra.Cardano.Api (
   fromLedgerTx,
   fromLedgerTxIn,
   fromLedgerUTxO,
-  getLocalChainTip,
-  queryNodeLocalState,
   toConsensusPointHF,
   toLedgerPParams,
   toLedgerTx,
@@ -91,6 +78,7 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError (..),
  )
+import Hydra.Chain.CardanoClient (queryEraHistory, queryProtocolParameters, querySystemStart, queryTipSlotNo)
 import Hydra.Chain.Direct.State (
   SomeOnChainHeadState (..),
   TokHeadState (..),
@@ -127,7 +115,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
-import Ouroboros.Consensus.Cardano.Block (EraMismatch, GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
+import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -733,60 +721,3 @@ instance ToJSON DirectChainLog where
         [ "tag" .= String "Wallet"
         , "contents" .= log
         ]
-
--- * Querying the cardano node
-
-newtype QueryException
-  = QueryException Text
-  deriving (Eq, Show)
-
-instance Exception QueryException
-
-queryTipSlotNo :: NetworkId -> FilePath -> IO SlotNo
-queryTipSlotNo networkId socket =
-  getLocalChainTip (localNodeConnectInfo networkId socket) >>= \case
-    ChainTipAtGenesis -> pure 0
-    ChainTip slotNo _ _ -> pure slotNo
-
-querySystemStart :: NetworkId -> FilePath -> IO SystemStart
-querySystemStart networkId socket =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing QuerySystemStart >>= \case
-    Left err -> throwIO $ QueryException (show err)
-    Right result -> pure result
-
-queryEraHistory :: NetworkId -> FilePath -> IO (EraHistory CardanoMode)
-queryEraHistory networkId socket =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing (QueryEraHistory CardanoModeIsMultiEra) >>= \case
-    Left err -> throwIO $ QueryException (show err)
-    Right result -> pure result
-
--- | Query current protocol parameters.
---
--- Throws 'CardanoClientException' if query fails.
-queryProtocolParameters :: NetworkId -> FilePath -> IO ProtocolParameters
-queryProtocolParameters networkId socket =
-  let query =
-        QueryInEra
-          AlonzoEraInCardanoMode
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
-              QueryProtocolParameters
-          )
-   in runQuery networkId socket query
-
-runQuery :: NetworkId -> FilePath -> QueryInMode CardanoMode (Either EraMismatch a) -> IO a
-runQuery networkId socket query =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing query >>= \case
-    Left err -> throwIO $ QueryException (show err)
-    Right (Left eraMismatch) -> throwIO $ QueryException (show eraMismatch)
-    Right (Right result) -> pure result
-
-localNodeConnectInfo :: NetworkId -> FilePath -> LocalNodeConnectInfo CardanoMode
-localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams
-
-cardanoModeParams :: ConsensusModeParams CardanoMode
-cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
- where
-  -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
-  -- is the default for cardano-cli
-  defaultByronEpochSlots = 21600 :: Word64

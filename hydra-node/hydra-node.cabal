@@ -76,6 +76,7 @@ library
   exposed-modules:
     Hydra.API.Server
     Hydra.Chain
+    Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
     Hydra.Chain.Direct.Context
     Hydra.Chain.Direct.State

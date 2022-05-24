@@ -89,7 +89,6 @@ library
     , cardano-ledger-shelley-ma
     , containers
     , hydra-cardano-api
-    , hydra-cluster
     , hydra-node
     , hydra-prelude
     , io-classes
