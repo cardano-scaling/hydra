@@ -108,37 +108,33 @@ spec = parallel $ do
             waitForNext n1 >>= assertHeadIsClosed
 
       it "does not fanout automatically" $ do
-        failAfter 5 $
-          shouldRunInSim $ do
-            chain <- simulatedChainAndNetwork
-            withHydraNode aliceSk [] chain $ \n1 -> do
-              send n1 (Init testContestationPeriod)
-              waitFor [n1] $ ReadyToCommit (fromList [alice])
-              send n1 (Commit (utxoRef 1))
-              waitFor [n1] $ Committed alice (utxoRef 1)
-              waitFor [n1] $ HeadIsOpen (utxoRef 1)
-              send n1 Close
-              waitForNext n1 >>= assertHeadIsClosed
-              threadDelay testContestationPeriod
-              waitFor [n1] ReadyToFanout
-              nothingHappensFor n1 1000000
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode aliceSk [] chain $ \n1 -> do
+            send n1 (Init testContestationPeriod)
+            waitFor [n1] $ ReadyToCommit (fromList [alice])
+            send n1 (Commit (utxoRef 1))
+            waitFor [n1] $ Committed alice (utxoRef 1)
+            waitFor [n1] $ HeadIsOpen (utxoRef 1)
+            send n1 Close
+            waitForNext n1 >>= assertHeadIsClosed
+            waitFor [n1] ReadyToFanout
+            nothingHappensFor n1 1000000
 
       it "does finalize head after contestation period upon command" $
-        failAfter 5 $
-          shouldRunInSim $ do
-            chain <- simulatedChainAndNetwork
-            withHydraNode aliceSk [] chain $ \n1 -> do
-              send n1 (Init testContestationPeriod)
-              waitFor [n1] $ ReadyToCommit (fromList [alice])
-              send n1 (Commit (utxoRef 1))
-              waitFor [n1] $ Committed alice (utxoRef 1)
-              waitFor [n1] $ HeadIsOpen (utxoRef 1)
-              send n1 Close
-              waitForNext n1 >>= assertHeadIsClosed
-              threadDelay testContestationPeriod
-              waitFor [n1] ReadyToFanout
-              send n1 Fanout
-              waitFor [n1] $ HeadIsFinalized (utxoRef 1)
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode aliceSk [] chain $ \n1 -> do
+            send n1 (Init testContestationPeriod)
+            waitFor [n1] $ ReadyToCommit (fromList [alice])
+            send n1 (Commit (utxoRef 1))
+            waitFor [n1] $ Committed alice (utxoRef 1)
+            waitFor [n1] $ HeadIsOpen (utxoRef 1)
+            send n1 Close
+            waitForNext n1 >>= assertHeadIsClosed
+            waitFor [n1] ReadyToFanout
+            send n1 Fanout
+            waitFor [n1] $ HeadIsFinalized (utxoRef 1)
 
     describe "Two participant Head" $ do
       it "only opens the head after all nodes committed" $
