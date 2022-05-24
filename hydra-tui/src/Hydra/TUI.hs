@@ -185,6 +185,8 @@ handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
               liftIO (sendInput $ Init tuiContestationPeriod) >> continue s
             | c `elem` ['a', 'A'] ->
               liftIO (sendInput Abort) >> continue s
+            | c `elem` ['f', 'F'] ->
+              liftIO (sendInput Fanout) >> continue s
             | c `elem` ['c', 'C'] ->
               case s ^? headStateL of
                 Just Initializing{} ->
@@ -511,7 +513,9 @@ draw Client{sk} CardanoClient{networkId} s =
             withCommands
               [ drawHeadState
               ]
-              ["[Q]uit"]
+              [ "[F]anout" -- TODO: should only render this when actually possible
+              , "[Q]uit"
+              ]
           Just Final{utxo} ->
             withCommands
               [ drawHeadState
