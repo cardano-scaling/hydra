@@ -44,7 +44,7 @@ import Control.Tracer (
   nullTracer,
   traceWith,
  )
-import Data.Aeson (encode)
+import Data.Aeson (encode, object, (.=))
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as Text
 
@@ -53,12 +53,21 @@ data Verbosity = Quiet | Verbose Text
 
 -- | Provides logging metadata for entries.
 data Envelope a = Envelope
-  { namespace :: Text
-  , timestamp :: UTCTime
+  { timestamp :: UTCTime
   , threadId :: Int
+  , namespace :: Text
   , message :: a
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving (Eq, Show, Generic, FromJSON)
+
+instance ToJSON a => ToJSON (Envelope a) where
+  toJSON Envelope{timestamp, threadId, namespace, message} =
+    object
+      [ "timestamp" .= timestamp
+      , "threadId" .= threadId
+      , "namespace" .= namespace
+      , "message" .= message
+      ]
 
 instance Arbitrary a => Arbitrary (Envelope a) where
   arbitrary = genericArbitrary
