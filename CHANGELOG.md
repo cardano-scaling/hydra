@@ -21,6 +21,7 @@ changes.
   + Posting a fan-out transaction is not possible before the contestation dealine has passed
 
 - Transactions can now be submitted as raw CBOR-serialized object, base16 encoded, using the `NewTx` client input. This also supports the text-envelope format from cardano-cli out of the box. See the [api Reference](https://hydra.family/head-protocol/api-reference#operation-publish-/-message).
+- New `ReadyToFanout` server output on the client API.
 
 ## [0.5.0] - 2022-05-06
 
