@@ -25,7 +25,7 @@ import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
-  { contestationPeriod :: DiffTime
+  { contestationPeriod :: NominalDiffTime
   , parties :: [Party] -- NOTE(SN): The order of this list is important for leader selection.
   }
   deriving stock (Eq, Show, Generic)
@@ -34,7 +34,7 @@ data HeadParameters = HeadParameters
 instance Arbitrary HeadParameters where
   arbitrary = genericArbitrary
 
-type ContestationPeriod = DiffTime
+type ContestationPeriod = NominalDiffTime
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
@@ -82,7 +82,12 @@ data OnChainTx tx
   | OnCommitTx {party :: Party, committed :: UTxOType tx}
   | OnAbortTx
   | OnCollectComTx
-  | OnCloseTx {snapshotNumber :: SnapshotNumber}
+  | OnCloseTx
+      { snapshotNumber :: SnapshotNumber
+      , -- | The remaining contestation period in wall clock time calculated
+        -- from the actual upper bound of the close transaction observed.
+        remainingContestationPeriod :: NominalDiffTime
+      }
   | OnContestTx {snapshotNumber :: SnapshotNumber}
   | OnFanoutTx
   deriving (Generic)

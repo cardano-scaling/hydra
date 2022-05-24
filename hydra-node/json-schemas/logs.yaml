@@ -891,11 +891,15 @@ definitions:
         required:
         - tag
         - snapshotNumber
+        - remainingContestationPeriod
         properties:
           tag:
             type: string
             enum: ["OnCloseTx"]
           snapshotNumber:
+            type: integer
+            minimum: 0
+          remainingContestationPeriod:
             type: integer
             minimum: 0
       - title: OnContestTx

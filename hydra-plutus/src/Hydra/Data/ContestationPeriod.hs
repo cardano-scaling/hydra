@@ -7,8 +7,10 @@ import Hydra.Prelude
 
 import qualified PlutusTx.Prelude as Plutus
 
-import Data.Time (diffTimeToPicoseconds, picosecondsToDiffTime)
-import Plutus.V1.Ledger.Api (POSIXTime)
+import Data.Ratio ((%))
+import Data.Time (nominalDiffTimeToSeconds, secondsToNominalDiffTime)
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import Plutus.V1.Ledger.Api (POSIXTime (..))
 import Plutus.V1.Ledger.Time (DiffMilliSeconds, fromMilliSeconds)
 import qualified PlutusTx
 
@@ -29,16 +31,16 @@ instance ToJSON ContestationPeriod where
   toJSON =
     toJSON . toInteger . milliseconds
 
-contestationPeriodFromDiffTime :: DiffTime -> ContestationPeriod
-contestationPeriodFromDiffTime = UnsafeContestationPeriod . fromInteger . picoToMillis . diffTimeToPicoseconds
- where
-  picoToMillis = (`div` millisInPico)
+contestationPeriodFromDiffTime :: NominalDiffTime -> ContestationPeriod
+contestationPeriodFromDiffTime = UnsafeContestationPeriod . truncate . (* 1000) . nominalDiffTimeToSeconds
 
-contestationPeriodToDiffTime :: ContestationPeriod -> DiffTime
+contestationPeriodToDiffTime :: ContestationPeriod -> NominalDiffTime
 contestationPeriodToDiffTime cp =
-  picosecondsToDiffTime $ millisToPico $ toInteger $ milliseconds cp
- where
-  millisToPico = (* millisInPico)
+  secondsToNominalDiffTime $ fromRational (toInteger (milliseconds cp) % 1000)
+
+posixToUTCTime :: POSIXTime -> UTCTime
+posixToUTCTime (POSIXTime ms) =
+  posixSecondsToUTCTime (fromRational $ ms % 1000)
 
 millisInPico :: Integer
 millisInPico = 10 ^ (9 :: Integer)

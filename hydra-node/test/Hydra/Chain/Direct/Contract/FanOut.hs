@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.Contract.FanOut where
@@ -19,9 +20,10 @@ import Hydra.Ledger.Cardano (
   genValue,
   hashTxOuts,
  )
+import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
 import Hydra.Party (partyToChain)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (toBuiltin, toData)
+import Plutus.V1.Ledger.Api (POSIXTime, toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Instances ()
 
@@ -29,12 +31,23 @@ healthyFanoutTx :: (Tx, UTxO)
 healthyFanoutTx =
   (tx, lookupUTxO)
  where
-  tx = fanoutTx healthyFanoutUTxO (headInput, headOutput, headDatum) headTokenScript
+  tx =
+    fanoutTx
+      healthyFanoutUTxO
+      (headInput, headOutput, headDatum)
+      (healthySlotNo, slotNoToPOSIXTime healthySlotNo)
+      headTokenScript
+
   headInput = generateWith arbitrary 42
+
   headTokenScript = mkHeadTokenScript testSeedInput
+
   headOutput' = mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatum healthyFanoutDatum)
+
   parties = generateWith (vectorOf 3 (arbitrary @(VerificationKey PaymentKey))) 42
+
   headOutput = modifyTxOutValue (<> participationTokens) headOutput'
+
   participationTokens =
     valueFromList $
       map
@@ -42,7 +55,9 @@ healthyFanoutTx =
             (AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash $ vk), 1)
         )
         parties
+
   headDatum = fromPlutusData $ toData healthyFanoutDatum
+
   lookupUTxO = UTxO.singleton (headInput, headOutput)
 
 healthyFanoutUTxO :: UTxO
@@ -50,18 +65,26 @@ healthyFanoutUTxO =
   -- FIXME: fanoutTx would result in 0 outputs and MutateChangeOutputValue below fail
   adaOnly <$> generateWith (genUTxOWithSimplifiedAddresses `suchThat` (not . null)) 42
 
+healthySlotNo :: SlotNo
+healthySlotNo = arbitrary `generateWith` 42
+
+healthyContestationDeadline :: POSIXTime
+healthyContestationDeadline =
+  slotNoToPOSIXTime $ healthySlotNo - 1
+
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
   Head.Closed
     { snapshotNumber = 1
     , utxoHash = toBuiltin $ hashTxOuts $ toList healthyFanoutUTxO
     , parties = partyToChain <$> arbitrary `generateWith` 42
-    , contestationDeadline = arbitrary `generateWith` 42
+    , contestationDeadline = healthyContestationDeadline
     }
 
 data FanoutMutation
   = MutateAddUnexpectedOutput
   | MutateChangeOutputValue
+  | MutateValidityBeforeDeadline
   deriving (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -77,4 +100,10 @@ genFanoutMutation (tx, _utxo) =
         (ix, out) <- elements (zip [0 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , SomeMutation MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
+        lb <- arbitrary `suchThat` slotBeforeContestationDeadline
+        pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
     ]
+ where
+  slotBeforeContestationDeadline slotNo =
+    slotNoToPOSIXTime slotNo < healthyContestationDeadline

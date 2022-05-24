@@ -68,9 +68,6 @@ healthyContestTx =
       , closedContestationDeadline = healthyContestationDeadline
       }
 
-healthySlotNo :: SlotNo
-healthySlotNo = arbitrary `generateWith` 42
-
 addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
 addParticipationTokens parties (TxOut addr val datum) =
   TxOut addr val' datum
@@ -110,6 +107,9 @@ healthyClosedState =
     , parties = healthyOnChainParties
     , contestationDeadline = healthyContestationDeadline
     }
+
+healthySlotNo :: SlotNo
+healthySlotNo = arbitrary `generateWith` 42
 
 healthyContestationDeadline :: POSIXTime
 healthyContestationDeadline =

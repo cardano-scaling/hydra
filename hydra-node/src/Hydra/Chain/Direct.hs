@@ -100,12 +100,14 @@ import Hydra.Chain.Direct.State (
   commit,
   contest,
   fanout,
+  getContestationDeadline,
   getKnownUTxO,
   idleOnChainHeadState,
   initialize,
   observeSomeTx,
   reifyState,
  )
+import Hydra.Chain.Direct.Tx (PointInTime)
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
@@ -122,6 +124,7 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
   withTinyWallet,
  )
+import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (EraMismatch, GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
@@ -163,7 +166,6 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   SubmitResult (..),
   localTxSubmissionClientPeer,
  )
-import Plutus.V1.Ledger.Api (POSIXTime)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 withDirectChain ::
@@ -266,11 +268,11 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
         }
 
 data TimeHandle m = TimeHandle
-  { currentSlot :: m SlotNo
-  , -- | Convert some slot into an absolute point in time.
-    -- It throws an exception when requesting a `SlotNo` that is
-    -- more than the current epoch length (5 days at time of writing this comment).
-    convertSlot :: MonadThrow m => SlotNo -> m POSIXTime
+  { -- | Get the current 'PointInTime'
+    currentPointInTime :: m PointInTime
+  , -- | Adjust a 'PointInTime' by some number of slots, positively or
+    -- negatively.
+    adjustPointInTime :: SlotNo -> PointInTime -> m PointInTime
   }
 
 -- | Query ad-hoc epoch, system start and protocol parameters to determine
@@ -282,14 +284,18 @@ queryTimeHandle networkId socketPath = do
   let epochInfo = toEpochInfo eraHistory
   pparams <- queryProtocolParameters networkId socketPath
   slotNo <- queryTipSlotNo networkId socketPath
+  let toTime =
+        slotToPOSIXTime
+          (toLedgerPParams ShelleyBasedEraAlonzo pparams :: PParams LedgerEra)
+          epochInfo
+          systemStart
   pure $
     TimeHandle
-      { currentSlot = pure slotNo
-      , convertSlot =
-          slotToPOSIXTime
-            (toLedgerPParams ShelleyBasedEraAlonzo pparams :: PParams LedgerEra)
-            epochInfo
-            systemStart
+      { currentPointInTime = (slotNo,) <$> toTime slotNo
+      , adjustPointInTime = \n (slot, _) -> do
+          let adjusted = slot + n
+          time <- toTime adjusted
+          pure (adjusted, time)
       }
  where
   toEpochInfo :: MonadThrow m => EraHistory CardanoMode -> EpochInfo m
@@ -382,7 +388,7 @@ data ChainSyncHandler m = ChainSyncHandler
 
 chainSyncHandler ::
   forall m.
-  (MonadSTM m) =>
+  (MonadSTM m, MonadTime m) =>
   -- | Tracer for logging
   Tracer m DirectChainLog ->
   -- | Chain callback
@@ -407,7 +413,8 @@ chainSyncHandler tracer callback headState =
   onRollForward :: Block -> m ()
   onRollForward blk = do
     let receivedTxs = toList $ getAlonzoTxs blk
-    onChainTxs <- reverse <$> atomically (foldM (withNextTx (blockPoint blk)) [] receivedTxs)
+    now <- getCurrentTime
+    onChainTxs <- reverse <$> atomically (foldM (withNextTx now (blockPoint blk)) [] receivedTxs)
     unless (null receivedTxs) $
       traceWith tracer $
         ReceivedTxs
@@ -416,17 +423,26 @@ chainSyncHandler tracer callback headState =
           }
     mapM_ (callback . Observation) onChainTxs
 
-  withNextTx :: Point Block -> [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
-  withNextTx point observed (fromLedgerTx -> tx) = do
+  -- NOTE: We pass 'now' or current time because we need it for observing passing of time in the
+  -- contestation phase.
+  withNextTx :: UTCTime -> Point Block -> [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
+  withNextTx now point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
     case observeSomeTx tx (currentOnChainHeadState st) of
-      Just (onChainTx, st') -> do
+      Just (onChainTx, st'@(SomeOnChainHeadState nextState)) -> do
         writeTVar headState $
           SomeOnChainHeadStateAt
             { currentOnChainHeadState = st'
             , recordedAt = AtPoint (fromConsensusPointHF point) st
             }
-        pure $ onChainTx : observed
+        -- FIXME: The right thing to do is probably to decouple the observation from the
+        -- transformation into an `OnChainTx`
+        let event = case (onChainTx, reifyState nextState) of
+              (OnCloseTx{snapshotNumber}, TkClosed) ->
+                let remainingTimeWithBuffer = 1 + diffUTCTime (posixToUTCTime $ getContestationDeadline nextState) now
+                 in OnCloseTx{snapshotNumber, remainingContestationPeriod = remainingTimeWithBuffer}
+              _ -> onChainTx
+        pure $ event : observed
       Nothing ->
         pure observed
 
@@ -605,7 +621,6 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
       pure $ sign validatedTx
 
 -- | Hardcoded grace time for close transaction to be valid.
--- TODO: replace/remove with deadline contestation
 -- TODO: make it a node configuration parameter
 closeGraceTime :: SlotNo
 closeGraceTime = 100
@@ -618,7 +633,8 @@ fromPostChainTx ::
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx TimeHandle{currentSlot, convertSlot} cardanoKeys wallet someHeadState tx = do
+fromPostChainTx TimeHandle{currentPointInTime, adjustPointInTime} cardanoKeys wallet someHeadState tx = do
+  pointInTime <- currentPointInTime
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
@@ -644,15 +660,13 @@ fromPostChainTx TimeHandle{currentSlot, convertSlot} cardanoKeys wallet someHead
     (CollectComTx{}, TkInitialized) -> do
       pure (collect st)
     (CloseTx{confirmedSnapshot}, TkOpen) -> do
-      slot <- (+ closeGraceTime) <$> currentSlot
-      posixTime <- convertSlot slot
-      pure (close confirmedSnapshot (slot, posixTime) st)
+      shifted <- adjustPointInTime closeGraceTime pointInTime
+      pure (close confirmedSnapshot shifted st)
     (ContestTx{confirmedSnapshot}, TkClosed) -> do
-      slot <- (+ closeGraceTime) <$> currentSlot
-      posixTime <- convertSlot slot
-      pure (contest confirmedSnapshot (slot, posixTime) st)
+      shifted <- adjustPointInTime closeGraceTime pointInTime
+      pure (contest confirmedSnapshot shifted st)
     (FanoutTx{utxo}, TkClosed) ->
-      pure (fanout utxo st)
+      pure (fanout utxo pointInTime st)
     (_, _) ->
       throwIO $ InvalidStateToPost tx
 

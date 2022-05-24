@@ -86,7 +86,7 @@ spec =
           sendInputEvent $ EvKey (KChar 'c') []
           threadDelay 1
           shouldRender "Closed"
-          threadDelay 10 -- contestation period
+          threadDelay 25 -- contestation period + some
           shouldRender "Final"
           shouldRender "42000000 lovelace"
           sendInputEvent $ EvKey (KChar 'q') []

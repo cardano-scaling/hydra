@@ -32,6 +32,7 @@ import Plutus.V1.Ledger.Api (
   DatumHash,
   FromData (fromBuiltinData),
   Interval (..),
+  LowerBound (LowerBound),
   POSIXTime,
   PubKeyHash (getPubKeyHash),
   Script,
@@ -85,8 +86,8 @@ headValidator commitAddress initialAddress oldState input context =
       checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
       checkContest context headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
-    (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
-      checkFanout utxoHash numberOfFanoutOutputs context
+    (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
+      checkFanout utxoHash contestationDeadline numberOfFanoutOutputs context
     _ ->
       traceError "invalid head state transition"
  where
@@ -368,7 +369,7 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} headContext contestationDead
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange scriptContextTxInfo) of
       UpperBound (Finite time) _ -> traceIfFalse "upper bound validity beyond contestation deadline" $ time < contestationDeadline
-      _ -> traceError "no upper bound validity interval defined for close"
+      _ -> traceError "no upper bound validity interval defined for contest"
 {-# INLINEABLE checkContest #-}
 
 checkHeadOutputDatum :: ToData a => ScriptContext -> a -> Bool
@@ -401,14 +402,21 @@ txInfoAdaFee tx = valueOf (txInfoFee tx) adaSymbol adaToken
 
 checkFanout ::
   BuiltinByteString ->
+  POSIXTime ->
   Integer ->
   ScriptContext ->
   Bool
-checkFanout utxoHash numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
-  traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == utxoHash
+checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
+  hasSameUTxOHash && afterContestationDeadline
  where
+  hasSameUTxOHash = traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == utxoHash
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
   TxInfo{txInfoOutputs} = txInfo
+
+  afterContestationDeadline =
+    case ivFrom (txInfoValidRange txInfo) of
+      LowerBound (Finite time) _ -> traceIfFalse "lower bound validity before contestation deadline" $ time > contestationDeadline
+      _ -> traceError "no lower bound validity interval defined for fanout"
 {-# INLINEABLE checkFanout #-}
 
 (&) :: a -> (a -> b) -> b

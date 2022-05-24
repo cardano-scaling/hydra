@@ -344,11 +344,12 @@ contest confirmedSnapshot pointInTime OnChainHeadState{ownVerificationKey, state
 
 fanout ::
   UTxO ->
+  PointInTime ->
   OnChainHeadState 'StClosed ->
   Tx
-fanout utxo OnChainHeadState{stateMachine} = do
+fanout utxo pointInTime OnChainHeadState{stateMachine} = do
   let ClosedThreadOutput{closedThreadUTxO = (i, o, dat)} = closedThreadOutput
-   in fanoutTx utxo (i, o, dat) closedHeadTokenScript
+   in fanoutTx utxo (i, o, dat) pointInTime closedHeadTokenScript
  where
   Closed{closedThreadOutput, closedHeadTokenScript} = stateMachine
 
