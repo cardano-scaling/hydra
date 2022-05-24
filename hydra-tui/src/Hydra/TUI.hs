@@ -50,6 +50,10 @@ import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 import qualified Prelude
 
+-- TODO(SN): hardcoded contestation period used by the tui
+tuiContestationPeriod :: NominalDiffTime
+tuiContestationPeriod = 10
+
 --
 -- Model
 --
@@ -178,8 +182,7 @@ handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
             | c `elem` ['q', 'Q'] ->
               halt s
             | c `elem` ['i', 'I'] ->
-              -- TODO(SN): hardcoded contestation period
-              liftIO (sendInput $ Init 10) >> continue s
+              liftIO (sendInput $ Init tuiContestationPeriod) >> continue s
             | c `elem` ['a', 'A'] ->
               liftIO (sendInput Abort) >> continue s
             | c `elem` ['c', 'C'] ->

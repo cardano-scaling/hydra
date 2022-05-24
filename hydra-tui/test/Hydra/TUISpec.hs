@@ -38,7 +38,7 @@ import qualified Hydra.Crypto as Hydra
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Options (ChainConfig (..))
-import Hydra.TUI (runWithVty)
+import Hydra.TUI (runWithVty, tuiContestationPeriod)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
@@ -68,7 +68,7 @@ spec =
           shouldRender "Ready"
           sendInputEvent $ EvKey (KChar 'q') []
 
-      it "supports the full Head life cycle" $
+      fit "supports the full Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "connected"
@@ -86,10 +86,15 @@ spec =
           sendInputEvent $ EvKey (KChar 'c') []
           threadDelay 1
           shouldRender "Closed"
-          threadDelay 25 -- contestation period + some
+          threadDelay (realToFrac $ tuiContestationPeriod + someTime)
+          sendInputEvent $ EvKey (KChar 'f') []
+          threadDelay 1
           shouldRender "Final"
           shouldRender "42000000 lovelace"
           sendInputEvent $ EvKey (KChar 'q') []
+
+someTime :: NominalDiffTime
+someTime = 3
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI action =

@@ -207,7 +207,6 @@ update ::
   Event tx ->
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
-  -- TODO(SN) at least contestation period could be easily moved into the 'Init' client input
   (ReadyState, ClientEvent (Init contestationPeriod)) ->
     nextState ReadyState [OnChainEffect (InitTx parameters)]
    where
