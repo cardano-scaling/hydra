@@ -107,7 +107,7 @@ spec = parallel $ do
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
 
-      it "does finalize head after contestation period" $
+      it "does not fanout automatically" $ do
         failAfter 5 $
           shouldRunInSim $ do
             chain <- simulatedChainAndNetwork
@@ -121,6 +121,23 @@ spec = parallel $ do
               waitForNext n1 >>= assertHeadIsClosed
               threadDelay testContestationPeriod
               waitFor [n1] ReadyToFanout
+              nothingHappensFor n1 1000000
+
+      it "does finalize head after contestation period upon command" $
+        failAfter 5 $
+          shouldRunInSim $ do
+            chain <- simulatedChainAndNetwork
+            withHydraNode aliceSk [] chain $ \n1 -> do
+              send n1 (Init testContestationPeriod)
+              waitFor [n1] $ ReadyToCommit (fromList [alice])
+              send n1 (Commit (utxoRef 1))
+              waitFor [n1] $ Committed alice (utxoRef 1)
+              waitFor [n1] $ HeadIsOpen (utxoRef 1)
+              send n1 Close
+              waitForNext n1 >>= assertHeadIsClosed
+              threadDelay testContestationPeriod
+              waitFor [n1] ReadyToFanout
+              send n1 Fanout
               waitFor [n1] $ HeadIsFinalized (utxoRef 1)
 
     describe "Two participant Head" $ do
@@ -134,7 +151,7 @@ spec = parallel $ do
 
               send n1 (Commit (utxoRef 1))
               waitFor [n1] $ Committed alice (utxoRef 1)
-              let veryLong = timeout 1000
+              let veryLong = timeout 1000000
               veryLong (waitForNext n1) >>= (`shouldNotBe` Just (HeadIsOpen (utxoRef 1)))
 
               send n2 (Commit (utxoRef 2))
@@ -525,6 +542,11 @@ toOnChainTx =
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: Num a => a
 testContestationPeriod = 3600
+
+nothingHappensFor ::
+  (MonadTimer m, MonadThrow m, IsTx tx) => TestHydraNode tx m -> DiffTime -> m ()
+nothingHappensFor node secs =
+  timeout secs (waitForNext node) >>= (`shouldBe` Nothing)
 
 withHydraNode ::
   forall s a.
