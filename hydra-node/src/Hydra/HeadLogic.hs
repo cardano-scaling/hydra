@@ -276,6 +276,11 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       [ OnChainEffect (CloseTx confirmedSnapshot)
       ]
   --
+  (ClosedState{confirmedSnapshot}, ClientEvent Fanout) ->
+    sameState
+      [ OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)
+      ]
+  --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
     sameState
       [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]

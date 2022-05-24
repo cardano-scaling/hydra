@@ -86,12 +86,16 @@ spec =
           sendInputEvent $ EvKey (KChar 'c') []
           threadDelay 1
           shouldRender "Closed"
-          threadDelay (realToFrac $ tuiContestationPeriod + someTime)
+          threadDelay (realToFrac $ tuiContestationPeriod + gracePeriod + someTime)
           sendInputEvent $ EvKey (KChar 'f') []
           threadDelay 1
           shouldRender "Final"
           shouldRender "42000000 lovelace"
           sendInputEvent $ EvKey (KChar 'q') []
+
+-- XXX: The same hack as in EndToEndSpec
+gracePeriod :: NominalDiffTime
+gracePeriod = 10 -- 100 slots with 0.1 sec slot time
 
 someTime :: NominalDiffTime
 someTime = 3
