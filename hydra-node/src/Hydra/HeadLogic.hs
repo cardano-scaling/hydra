@@ -95,10 +95,8 @@ data HeadState tx
       , coordinatedHeadState :: CoordinatedHeadState tx
       , previousRecoverableState :: HeadState tx
       }
-  | -- TODO: rename utxos -> utxo
-    ClosedState
+  | ClosedState
       { parameters :: HeadParameters
-      , utxos :: UTxOType tx
       , confirmedSnapshot :: ConfirmedSnapshot tx
       , previousRecoverableState :: HeadState tx
       }
@@ -394,7 +392,6 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
           nextState
             ( ClosedState
                 { parameters
-                , utxos = getField @"utxo" $ getSnapshot confirmedSnapshot
                 , previousRecoverableState
                 , confirmedSnapshot
                 }
@@ -427,10 +424,10 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       -- not be able to fanout! We might want to communicate that to the client
       -- and/or not try to fan out on the `ShouldPostFanout` later.
       sameState [ClientEffect HeadIsContested{snapshotNumber}]
-  (ClosedState{utxos}, ShouldPostFanout) ->
-    sameState [OnChainEffect (FanoutTx utxos)]
-  (ClosedState{utxos}, OnChainEvent (Observation OnFanoutTx{})) ->
-    nextState ReadyState [ClientEffect $ HeadIsFinalized utxos]
+  (ClosedState{confirmedSnapshot}, ShouldPostFanout) ->
+    sameState [OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)]
+  (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
+    nextState ReadyState [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --
   (currentState, OnChainEvent (Rollback n)) ->
     nextState (rollback n currentState) [ClientEffect RolledBack]

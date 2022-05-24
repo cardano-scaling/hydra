@@ -352,7 +352,7 @@ inClosedState parties = inClosedState' parties snapshot0
 
 inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> HeadState SimpleTx
 inClosedState' parties confirmedSnapshot =
-  ClosedState{parameters, utxos = mempty, previousRecoverableState, confirmedSnapshot}
+  ClosedState{parameters, previousRecoverableState, confirmedSnapshot}
  where
   parameters = HeadParameters 42 parties
   previousRecoverableState = inOpenState parties simpleLedger
