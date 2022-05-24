@@ -572,6 +572,7 @@ definitions:
         - parameters
         - utxos
         - previousRecoverableState
+        - confirmedSnapshot
       properties:
         tag:
           type: string
@@ -582,6 +583,8 @@ definitions:
           $ref: "api.yaml#/components/schemas/UTxO"
         previousRecoverableState:
           $ref: "#/definitions/HeadState"
+        confirmedSnapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
 
   CoordinatedHeadState:
     type: object
