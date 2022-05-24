@@ -245,6 +245,8 @@ handleAppEvent s = \case
       & info ("Head closed with snapshot number " <> show snapshotNumber)
   Update HeadIsContested{snapshotNumber} ->
     s & info ("Head contested with snapshot number " <> show snapshotNumber)
+  Update ReadyToFanout ->
+    s & info "Contestation period passed, ready for fanout."
   Update HeadIsAborted{} ->
     s & headStateL .~ Ready
       & info "Head aborted, back to square one."

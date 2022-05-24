@@ -345,9 +345,12 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
         snapshotNumber <- v ^? key "snapshotNumber"
         guard $ snapshotNumber == toJSON expectedSnapshotNumber
 
+      waitFor tracer (contestationPeriod + 3) [n1] $
+        output "ReadyToFanout" []
+
       -- NOTE: We expect the head to be finalized after the contestation period
-      -- and some three secs later, plus the closeGraceTime * slotLength
-      waitFor tracer (truncate $ contestationPeriod + (fromIntegral @_ @Double (unSlotNo closeGraceTime) * 0.1) + 3) [n1] $
+      -- + the closeGraceTime * slotLength later + some
+      waitFor tracer (truncate $ (fromIntegral @_ @Double (unSlotNo closeGraceTime) * 0.1) + 3) [n1] $
         output "HeadIsFinalized" ["utxo" .= newUTxO]
 
       case fromJSON $ toJSON newUTxO of

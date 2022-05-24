@@ -120,6 +120,7 @@ spec = parallel $ do
               send n1 Close
               waitForNext n1 >>= assertHeadIsClosed
               threadDelay testContestationPeriod
+              waitFor [n1] ReadyToFanout
               waitFor [n1] $ HeadIsFinalized (utxoRef 1)
 
     describe "Two participant Head" $ do
@@ -310,7 +311,7 @@ spec = parallel $ do
 
               waitFor [n1] $ GetUTxOResponse (utxoRefs [2, 42])
 
-      it "when closing head is finalized after contestation period and all parties post fanout tx" $
+      it "closed head is finalized after contestation period and all parties post fanout tx" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
           withHydraNode aliceSk [bob] chain $ \n1 ->
@@ -319,6 +320,7 @@ spec = parallel $ do
               send n1 Close
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
               threadDelay testContestationPeriod
+              waitFor [n1, n2] ReadyToFanout
               waitFor [n1, n2] $ HeadIsFinalized (utxoRefs [1, 2])
               allTxs <- reverse <$> readTVarIO (history chain)
               length (filter matchFanout allTxs) `shouldBe` 2
@@ -536,7 +538,7 @@ withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} act
   node <- createHydraNode outputs
 
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
-    action $
+    action
       TestHydraNode
         { send = handleClientInput node
         , chainEvent = \e -> do
