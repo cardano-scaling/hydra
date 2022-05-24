@@ -99,6 +99,7 @@ data HeadState tx
     ClosedState
       { parameters :: HeadParameters
       , utxos :: UTxOType tx
+      , confirmedSnapshot :: ConfirmedSnapshot tx
       , previousRecoverableState :: HeadState tx
       }
   deriving stock (Generic)
@@ -395,6 +396,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                 { parameters
                 , utxos = getField @"utxo" $ getSnapshot confirmedSnapshot
                 , previousRecoverableState
+                , confirmedSnapshot
                 }
             )
             ( [ ClientEffect
@@ -414,9 +416,14 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                    ]
             )
   --
-  (_, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
-    -- TODO: Is there more to handle contestation?
-    sameState [ClientEffect HeadIsContested{snapshotNumber}]
+  (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
+    if snapshotNumber < number (getSnapshot confirmedSnapshot)
+      then
+        sameState
+          [ ClientEffect HeadIsContested{snapshotNumber}
+          , OnChainEffect ContestTx{confirmedSnapshot}
+          ]
+      else sameState [ClientEffect HeadIsContested{snapshotNumber}]
   (ClosedState{utxos}, ShouldPostFanout) ->
     sameState [OnChainEffect (FanoutTx utxos)]
   (ClosedState{utxos}, OnChainEvent (Observation OnFanoutTx{})) ->
