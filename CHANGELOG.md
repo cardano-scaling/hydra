@@ -14,11 +14,11 @@ changes.
 
 - Head contract check UTxO hash upon closing the head [#338](https://github.com/input-output-hk/hydra-poc/pull/338). This prevents closing the head with arbitrary UTxO.
 
+#### Added
+
 - Implement on-chain contestation logic [#192](https://github.com/input-output-hk/hydra-poc/issues/192):
   + Node will automatically post a `Contest` transaction when it observes a `Close` or `Contest` with an obsolete snapshot
   + Posting a fan-out transaction is not possible before the contestation dealine has passed
-
-#### Added
 
 - Transactions can now be submitted as raw CBOR-serialized object, base16 encoded, using the `NewTx` client input. This also supports the text-envelope format from cardano-cli out of the box. See the [api Reference](https://hydra.family/head-protocol/api-reference#operation-publish-/-message).
 
