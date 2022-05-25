@@ -68,7 +68,7 @@ spec =
           shouldRender "Ready"
           sendInputEvent $ EvKey (KChar 'q') []
 
-      fit "supports the full Head life cycle" $
+      it "supports the full Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "connected"
