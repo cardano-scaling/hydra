@@ -404,9 +404,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                   HeadIsClosed
                     { snapshotNumber = closedSnapshotNumber
                     }
-              , -- FIXME(MB): This is most likely wrong in the case of contestation. We
-                -- may want to only post fanout once we have contested.
-                Delay
+              , Delay
                   { delay = remainingContestationPeriod
                   , reason = WaitOnContestationPeriod
                   , event = ShouldPostFanout
