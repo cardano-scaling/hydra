@@ -25,6 +25,7 @@ import TxCost (
   computeCloseCost,
   computeCollectComCost,
   computeCommitCost,
+  computeContestCost,
   computeFanOutCost,
   computeInitCost,
   maxCpu,
@@ -75,6 +76,7 @@ writeTransactionCostMarkdown hdl = do
   commitC <- costOfCommit
   collectComC <- costOfCollectCom
   closeC <- costOfClose
+  contestC <- costOfContest
   abortC <- costOfAbort
   fanoutC <- costOfFanOut
   hPut hdl $
@@ -87,6 +89,7 @@ writeTransactionCostMarkdown hdl = do
             , commitC
             , collectComC
             , closeC
+            , contestC
             , abortC
             , fanoutC
             ]
@@ -193,6 +196,29 @@ costOfClose = markdownClose <$> computeCloseCost
   markdownClose stats =
     unlines $
       [ "## Cost of Close Transaction"
+      , ""
+      , "| Parties | Tx size | % max Mem | % max CPU |"
+      , "| :------ | ------: | --------: | --------: |"
+      ]
+        <> fmap
+          ( \(numParties, txSize, mem, cpu) ->
+              "| " <> show numParties
+                <> "| "
+                <> show txSize
+                <> " | "
+                <> show (100 * fromIntegral mem / maxMem)
+                <> " | "
+                <> show (100 * fromIntegral cpu / maxCpu)
+                <> " |"
+          )
+          stats
+
+costOfContest :: IO Text
+costOfContest = markdownContest <$> computeContestCost
+ where
+  markdownContest stats =
+    unlines $
+      [ "## Cost of Contest Transaction"
       , ""
       , "| Parties | Tx size | % max Mem | % max CPU |"
       , "| :------ | ------: | --------: | --------: |"
