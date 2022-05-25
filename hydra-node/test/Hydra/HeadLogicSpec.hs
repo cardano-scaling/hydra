@@ -269,10 +269,6 @@ spec = do
           ClosedState{} -> True
           _ -> False
 
-      -- TODO: Maybe we want to instead ensure that the headlogic contests until
-      -- it's latest known snapshot is closed
-      it "re-contests if contest transaction fails" pending
-
 --
 -- Assertion utilities
 --
