@@ -570,18 +570,18 @@ definitions:
       required:
         - tag
         - parameters
-        - utxos
         - previousRecoverableState
+        - confirmedSnapshot
       properties:
         tag:
           type: string
           enum: [ "ClosedState" ]
         parameters:
           $ref: "api.yaml#/components/schemas/HeadParameters"
-        utxos:
-          $ref: "api.yaml#/components/schemas/UTxO"
         previousRecoverableState:
           $ref: "#/definitions/HeadState"
+        confirmedSnapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
 
   CoordinatedHeadState:
     type: object

@@ -24,6 +24,7 @@ import Hydra.Chain.Direct.Context (
   genCloseTx,
   genCollectComTx,
   genCommits,
+  genContestTx,
   genHydraContext,
   genHydraContextFor,
   genInitTx,
@@ -117,6 +118,21 @@ computeCloseCost = do
  where
   compute numParties = do
     (st, tx) <- generate $ genCloseTx numParties
+    let utxo = getKnownUTxO st
+    case checkSizeAndEvaluate tx utxo of
+      Just (txSize, memUnit, cpuUnit) ->
+        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
+      Nothing ->
+        pure Nothing
+
+computeContestCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
+computeContestCost = do
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 31]
+  pure $ interesting <> limit
+ where
+  compute numParties = do
+    (st, tx) <- generate $ genContestTx numParties
     let utxo = getKnownUTxO st
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit) ->

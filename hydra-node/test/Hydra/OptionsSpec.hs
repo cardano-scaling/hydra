@@ -65,6 +65,8 @@ spec = parallel $
         `shouldParse` defaultOptions{monitoringPort = Nothing}
       ["--monitoring-port", "12345"]
         `shouldParse` defaultOptions{monitoringPort = Just 12345}
+      ["--monitoring-port", "65535"]
+        `shouldParse` defaultOptions{monitoringPort = Just 65535}
 
     it "parses --version flag as a parse error" $
       shouldNotParse ["--version"]

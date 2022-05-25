@@ -66,16 +66,6 @@ data State
       , feedback :: Maybe UserFeedback
       }
 
-data DialogState where
-  NoDialog :: DialogState
-  Dialog ::
-    forall s e n.
-    (n ~ Name, e ~ HydraEvent Tx) =>
-    Text ->
-    Form s e n ->
-    (State -> s -> EventM n (Next State)) ->
-    DialogState
-
 data UserFeedback = UserFeedback
   { severity :: Severity
   , message :: Text
@@ -88,23 +78,15 @@ data Severity
   | Error
   deriving (Eq, Show, Generic)
 
-severityToAttr :: Severity -> AttrName
-severityToAttr = \case
-  Success -> positive
-  Info -> info
-  Error -> negative
-
-info :: AttrName
-info = "info"
-
-positive :: AttrName
-positive = "positive"
-
-negative :: AttrName
-negative = "negative"
-
-own :: AttrName
-own = "own"
+data DialogState where
+  NoDialog :: DialogState
+  Dialog ::
+    forall s e n.
+    (n ~ Name, e ~ HydraEvent Tx) =>
+    Text ->
+    Form s e n ->
+    (State -> s -> EventM n (Next State)) ->
+    DialogState
 
 data HeadState
   = Ready
@@ -133,6 +115,39 @@ makeLensesFor
   , ("utxo", "utxoL")
   ]
   ''HeadState
+
+--
+
+-- * User feedback handling
+
+--
+
+severityToAttr :: Severity -> AttrName
+severityToAttr = \case
+  Success -> positive
+  Info -> infoA
+  Error -> negative
+
+infoA :: AttrName
+infoA = "info"
+
+positive :: AttrName
+positive = "positive"
+
+negative :: AttrName
+negative = "negative"
+
+own :: AttrName
+own = "own"
+
+info :: Text -> State -> State
+info = report Info
+
+warn :: Text -> State -> State
+warn = report Error
+
+report :: Severity -> Text -> State -> State
+report typ msg = feedbackL ?~ UserFeedback typ msg
 
 --
 -- Update
@@ -188,7 +203,7 @@ handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
       EvKey (KChar 'q') [] -> halt s
       _ -> continue s
   e ->
-    continue $ s & feedbackL ?~ UserFeedback Error ("unhandled event: " <> show e)
+    continue $ s & warn ("unhandled event: " <> show e)
 
 handleAppEvent ::
   State ->
@@ -213,45 +228,45 @@ handleAppEvent s = \case
   Update (PeerDisconnected p) ->
     s & peersL %~ \cp -> cp \\ [p]
   Update CommandFailed -> do
-    s & feedbackL ?~ UserFeedback Error "Invalid command."
+    s & report Error "Invalid command."
   Update ReadyToCommit{parties} ->
     let utxo = mempty
         ps = toList parties
      in s & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo}
-          & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
+          & info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
     s & headStateL %~ partyCommitted [party] utxo
-      & feedbackL ?~ UserFeedback Info (show party <> " committed " <> renderValue (balance @Tx utxo))
+      & info (show party <> " committed " <> renderValue (balance @Tx utxo))
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
-      & feedbackL ?~ UserFeedback Info "Head is now open!"
-  Update HeadIsClosed{} ->
+      & info "Head is now open!"
+  Update HeadIsClosed{snapshotNumber} ->
     s & headStateL .~ Closed{}
-      & feedbackL ?~ UserFeedback Info "Head closed."
-  Update HeadIsContested{} ->
-    s & feedbackL ?~ UserFeedback Info "Head contested."
+      & info ("Head closed with snapshot number " <> show snapshotNumber)
+  Update HeadIsContested{snapshotNumber} ->
+    s & info ("Head contested with snapshot number " <> show snapshotNumber)
   Update HeadIsAborted{} ->
     s & headStateL .~ Ready
-      & feedbackL ?~ UserFeedback Info "Head aborted, back to square one."
+      & info "Head aborted, back to square one."
   Update HeadIsFinalized{utxo} ->
     s & headStateL .~ Final{utxo}
-      & feedbackL ?~ UserFeedback Info "Head finalized."
+      & info "Head finalized."
   Update TxSeen{} ->
     s -- TUI is not needing this response, ignore it
   Update TxValid{} ->
-    s & feedbackL ?~ UserFeedback Success "Transaction submitted successfully!"
+    s & report Success "Transaction submitted successfully!"
   Update TxInvalid{validationError} ->
-    s & feedbackL ?~ UserFeedback Error (show validationError)
+    s & warn (show validationError)
   Update SnapshotConfirmed{snapshot} ->
     snapshotConfirmed snapshot
   Update GetUTxOResponse{} ->
     s -- TUI is currently not requesting UTxO itself, ignore it
   Update InvalidInput{reason} ->
-    s & feedbackL ?~ UserFeedback Error ("Invalid input error: " <> toText reason)
+    s & warn ("Invalid input error: " <> toText reason)
   Update PostTxOnChainFailed{postTxError} ->
-    s & feedbackL ?~ UserFeedback Error ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
+    s & warn ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
   Update RolledBack ->
-    s & feedbackL ?~ UserFeedback Info "Chain rolled back! You might need to re-submit Head transactions manually now."
+    s & info "Chain rolled back! You might need to re-submit Head transactions manually now."
  where
   partyCommitted party commit = \case
     Initializing{parties, remainingParties, utxo} ->
@@ -270,9 +285,9 @@ handleAppEvent s = \case
     case s ^? headStateL of
       Just Open{} ->
         s & headStateL . utxoL .~ utxo
-          & feedbackL ?~ UserFeedback Info ("Snapshot #" <> show number <> " confirmed.")
+          & info ("Snapshot #" <> show number <> " confirmed.")
       _ ->
-        s & feedbackL ?~ UserFeedback Error "Snapshot confirmed but head is not open?"
+        s & warn "Snapshot confirmed but head is not open?"
 
 handleDialogEvent ::
   forall s e n.
@@ -293,7 +308,7 @@ handleDialogEvent (title, form, submit) s = \case
   EvKey KEnter [] -> do
     case invalidFields form of
       [] -> submit s (formState form)
-      fs -> continue $ s & feedbackL ?~ UserFeedback Error ("Invalid fields: " <> Text.intercalate ", " fs)
+      fs -> continue $ s & warn ("Invalid fields: " <> Text.intercalate ", " fs)
   e -> do
     form' <- handleFormEvent (VtyEvent e) form
     continue $ s & dialogStateL .~ Dialog title form' submit
@@ -311,7 +326,7 @@ handleCommitEvent Client{sendInput, sk} CardanoClient{queryUTxOByAddress, networ
     let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (UTxO.toMap utxo)
     continue $ s & dialogStateL .~ commitDialog utxoWithoutFuel
   _ ->
-    continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
+    continue $ s & warn "Invalid command."
  where
   ourAddress =
     makeShelleyAddress
@@ -330,7 +345,7 @@ handleCommitEvent Client{sendInput, sk} CardanoClient{queryUTxOByAddress, networ
         then
           continue $
             s'
-              & feedbackL ?~ UserFeedback Error "Cannot commit more than 1 entry."
+              & warn "Cannot commit more than 1 entry."
               & dialogStateL .~ NoDialog
         else do
           liftIO (sendInput $ Commit commitUTxO)
@@ -345,7 +360,7 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
   Just Open{utxo} ->
     continue $ s & dialogStateL .~ transactionBuilderDialog utxo
   _ ->
-    continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
+    continue $ s & warn "Invalid command."
  where
   vk = getVerificationKey sk
 
@@ -389,7 +404,7 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
 
     submit s' amount = do
       case mkSimpleTx input (recipient, lovelaceToValue $ Lovelace amount) sk of
-        Left e -> continue $ s' & feedbackL ?~ UserFeedback Error ("Failed to construct tx, contact @_ktorz_ on twitter: " <> show e)
+        Left e -> continue $ s' & warn ("Failed to construct tx, contact @_ktorz_ on twitter: " <> show e)
         Right tx -> do
           liftIO (sendInput (NewTx tx))
           continue $ s' & dialogStateL .~ NoDialog
@@ -513,7 +528,7 @@ draw Client{sk} CardanoClient{networkId} s =
     Disconnected{} -> emptyWidget
     Connected{headState} ->
       vBox
-        [ padLeftRight 1 $ txt "Head status: " <+> withAttr info (txt $ Prelude.head (words $ show headState))
+        [ padLeftRight 1 $ txt "Head status: " <+> withAttr infoA (txt $ Prelude.head (words $ show headState))
         , hBorder
         ]
 
@@ -641,7 +656,7 @@ style :: State -> AttrMap
 style _ =
   attrMap
     defAttr
-    [ (info, fg brightBlue)
+    [ (infoA, fg brightBlue)
     , (negative, fg red)
     , (positive, fg green)
     , (own, fg yellow)

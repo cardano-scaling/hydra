@@ -121,9 +121,15 @@ readPort :: MonadFail m => String -> m PortNumber
 readPort s =
   case readMaybe s of
     Nothing -> fail "cannot read port"
-    Just n ->
-      if n >= 0 && n < maxPort
-        then pure $ fromInteger n
-        else fail $ "readPort: " <> show n <> " not within " <> show maxPort
+    Just n
+      | n >= minPort && n <= maxPort -> pure $ fromInteger n
+      | otherwise ->
+        fail $
+          "readPort: " <> show n <> " not within valid port range: ("
+            <> show minPort
+            <> ", "
+            <> show maxPort
+            <> ")"
  where
   maxPort = fromIntegral (maxBound :: Word16)
+  minPort = fromIntegral (minBound :: Word16)

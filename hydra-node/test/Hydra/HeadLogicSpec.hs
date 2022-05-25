@@ -14,7 +14,8 @@ import qualified Data.Set as Set
 import Hydra.Chain (
   ChainEvent (..),
   HeadParameters (..),
-  OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx),
+  OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx, OnContestTx),
+  PostChainTx (ContestTx),
  )
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
@@ -239,6 +240,35 @@ spec = do
           let s' = update env ledger s rollback
           void $ run $ s' `hasEffect` ClientEffect RolledBack
 
+      it "contests when detecting close with old snapshot" $ do
+        let snapshot = Snapshot 2 mempty []
+            latestConfirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
+            s0 =
+              inOpenState' threeParties $
+                CoordinatedHeadState
+                  { seenUTxO = mempty
+                  , seenTxs = mempty
+                  , confirmedSnapshot = latestConfirmedSnapshot
+                  , seenSnapshot = NoSeenSnapshot
+                  }
+            closeTxEvent = OnChainEvent $ Observation $ OnCloseTx 0 42
+            contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
+        s1 <- update env ledger s0 closeTxEvent `hasEffect` contestTxEffect
+        s1 `shouldSatisfy` \case
+          ClosedState{} -> True
+          _ -> False
+
+      it "re-contests when detecting contest with old snapshot" $ do
+        let snapshot2 = Snapshot 2 mempty []
+            latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (aggregate [])
+            s0 = inClosedState' threeParties latestConfirmedSnapshot
+            contestSnapshot1Event = OnChainEvent $ Observation $ OnContestTx 1
+            contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
+        s1 <- update env ledger s0 contestSnapshot1Event `hasEffect` contestTxEffect
+        s1 `shouldSatisfy` \case
+          ClosedState{} -> True
+          _ -> False
+
 --
 -- Assertion utilities
 --
@@ -311,8 +341,14 @@ inOpenState' parties coordinatedHeadState =
       }
 
 inClosedState :: [Party] -> HeadState SimpleTx
-inClosedState parties =
-  ClosedState{parameters, utxos = mempty, previousRecoverableState}
+inClosedState parties = inClosedState' parties snapshot0
+ where
+  u0 = initUTxO simpleLedger
+  snapshot0 = InitialSnapshot $ Snapshot 0 u0 mempty
+
+inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> HeadState SimpleTx
+inClosedState' parties confirmedSnapshot =
+  ClosedState{parameters, previousRecoverableState, confirmedSnapshot}
  where
   parameters = HeadParameters 42 parties
   previousRecoverableState = inOpenState parties simpleLedger
