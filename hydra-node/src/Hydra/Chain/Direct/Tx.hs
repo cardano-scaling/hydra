@@ -16,7 +16,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeFull', serialize')
 import qualified Data.Map as Map
-import Hydra.Chain (HeadId (..), HeadParameters (..), OnChainTx (..), remainingContestationPeriod)
+import Hydra.Chain (ContestationPeriod, HeadId (..), HeadParameters (..))
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -516,6 +516,8 @@ data InitObservation = InitObservation
   , commits :: [UTxOWithScript]
   , headId :: HeadId
   , headTokenScript :: PlutusScript
+  , contestationPeriod :: ContestationPeriod
+  , parties :: [Party]
   }
   deriving (Show, Eq)
 
@@ -526,13 +528,13 @@ observeInitTx ::
   [VerificationKey PaymentKey] ->
   Party ->
   Tx ->
-  Maybe (OnChainTx Tx, InitObservation)
+  Maybe InitObservation
 observeInitTx networkId cardanoKeys party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   parties <- mapM partyFromChain ps
-  let cperiod = contestationPeriodToDiffTime cp
+  let contestationPeriod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
   (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
@@ -540,24 +542,24 @@ observeInitTx networkId cardanoKeys party tx = do
   guard $ sort expectedNames == sort actualNames
   headTokenScript <- findScriptMinting tx headTokenPolicyId
   pure
-    ( OnInitTx cperiod parties
-    , InitObservation
-        { threadOutput =
-            InitialThreadOutput
-              { initialThreadUTxO =
-                  ( mkTxIn tx ix
-                  , toCtxUTxOTxOut headOut
-                  , fromLedgerData headData
-                  )
-              , initialParties = ps
-              , initialContestationPeriod = cp
-              }
-        , initials
-        , commits = []
-        , headId = mkHeadId headTokenPolicyId
-        , headTokenScript
-        }
-    )
+    InitObservation
+      { threadOutput =
+          InitialThreadOutput
+            { initialThreadUTxO =
+                ( mkTxIn tx ix
+                , toCtxUTxOTxOut headOut
+                , fromLedgerData headData
+                )
+            , initialParties = ps
+            , initialContestationPeriod = cp
+            }
+      , initials
+      , commits = []
+      , headId = mkHeadId headTokenPolicyId
+      , headTokenScript
+      , contestationPeriod
+      , parties
+      }
  where
   headOutput = \case
     (ix, out@(TxOut _ _ (TxOutDatum d))) ->
@@ -588,7 +590,11 @@ observeInitTx networkId cardanoKeys party tx = do
     , assetName /= headAssetName
     ]
 
-type CommitObservation = UTxOWithScript
+data CommitObservation = CommitObservation
+  { commitOutput :: UTxOWithScript
+  , party :: Party
+  , committed :: UTxO
+  }
 
 -- | Identify a commit tx by:
 --
@@ -603,7 +609,7 @@ observeCommitTx ::
   -- | Known (remaining) initial tx inputs.
   [TxIn] ->
   Tx ->
-  Maybe (OnChainTx Tx, CommitObservation)
+  Maybe CommitObservation
 observeCommitTx networkId initials tx = do
   initialTxIn <- findInitialTxIn
   mCommittedTxIn <- decodeInitialRedeemer initialTxIn
@@ -614,18 +620,19 @@ observeCommitTx networkId initials tx = do
   party <- partyFromChain onChainParty
   let mCommittedTxOut = convertTxOut serializedTxOut
 
-  comittedUTxO <-
+  committed <-
     case (mCommittedTxIn, mCommittedTxOut) of
       (Nothing, Nothing) -> Just mempty
       (Just i, Just o) -> Just $ UTxO.singleton (i, o)
       (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
       (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
 
-  let onChainTx = OnCommitTx party comittedUTxO
   pure
-    ( onChainTx
-    , (commitIn, toUTxOContext commitOut, dat)
-    )
+    CommitObservation
+      { commitOutput = (commitIn, toUTxOContext commitOut, dat)
+      , party
+      , committed
+      }
  where
   findInitialTxIn =
     case filter (`elem` initials) (txIns' tx) of
@@ -666,7 +673,7 @@ observeCollectComTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
-  Maybe (OnChainTx Tx, CollectComObservation)
+  Maybe CollectComObservation
 observeCollectComTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
@@ -679,22 +686,20 @@ observeCollectComTx utxo tx = do
       newHeadDatum <- lookupScriptData tx newHeadOutput
       utxoHash <- decodeUtxoHash newHeadDatum
       pure
-        ( OnCollectComTx
-        , CollectComObservation
-            { threadOutput =
-                OpenThreadOutput
-                  { openThreadUTxO =
-                      ( newHeadInput
-                      , newHeadOutput
-                      , newHeadDatum
-                      )
-                  , openParties = parties
-                  , openContestationPeriod = contestationPeriod
-                  }
-            , headId
-            , utxoHash
-            }
-        )
+        CollectComObservation
+          { threadOutput =
+              OpenThreadOutput
+                { openThreadUTxO =
+                    ( newHeadInput
+                    , newHeadOutput
+                    , newHeadDatum
+                    )
+                , openParties = parties
+                , openContestationPeriod = contestationPeriod
+                }
+          , headId
+          , utxoHash
+          }
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
@@ -706,6 +711,7 @@ observeCollectComTx utxo tx = do
 data CloseObservation = CloseObservation
   { threadOutput :: ClosedThreadOutput
   , headId :: HeadId
+  , snapshotNumber :: SnapshotNumber
   }
   deriving (Show, Eq)
 
@@ -715,7 +721,7 @@ observeCloseTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
-  Maybe (OnChainTx Tx, CloseObservation)
+  Maybe CloseObservation
 observeCloseTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
@@ -731,24 +737,20 @@ observeCloseTx utxo tx = do
         _ -> Nothing
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
-        ( -- FIXME: The 0 here is a wart. We are in a pure function so we cannot easily compute with
-          -- time. We tried passing the current time from the caller but given the current machinery
-          -- around `observeSomeTx` this is actually not straightforward and quite ugly.
-          OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
-        , CloseObservation
-            { threadOutput =
-                ClosedThreadOutput
-                  { closedThreadUTxO =
-                      ( newHeadInput
-                      , newHeadOutput
-                      , newHeadDatum
-                      )
-                  , closedParties = parties
-                  , closedContestationDeadline = closeContestationDeadline
-                  }
-            , headId
-            }
-        )
+        CloseObservation
+          { threadOutput =
+              ClosedThreadOutput
+                { closedThreadUTxO =
+                    ( newHeadInput
+                    , newHeadOutput
+                    , newHeadDatum
+                    )
+                , closedParties = parties
+                , closedContestationDeadline = closeContestationDeadline
+                }
+          , headId
+          , snapshotNumber
+          }
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
@@ -756,6 +758,7 @@ observeCloseTx utxo tx = do
 data ContestObservation = ContestObservation
   { contestedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData)
   , headId :: HeadId
+  , snapshotNumber :: SnapshotNumber
   }
   deriving (Show, Eq)
 
@@ -765,7 +768,7 @@ observeContestTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
-  Maybe (OnChainTx Tx, ContestObservation)
+  Maybe ContestObservation
 observeContestTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
@@ -778,21 +781,20 @@ observeContestTx utxo tx = do
       newHeadDatum <- lookupScriptData tx newHeadOutput
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
-        ( OnContestTx{snapshotNumber}
-        , ContestObservation
-            { contestedThreadOutput =
-                ( newHeadInput
-                , newHeadOutput
-                , newHeadDatum
-                )
-            , headId
-            }
-        )
+        ContestObservation
+          { contestedThreadOutput =
+              ( newHeadInput
+              , newHeadOutput
+              , newHeadDatum
+              )
+          , headId
+          , snapshotNumber
+          }
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
 
-type FanoutObservation = ()
+data FanoutObservation = FanoutObservation
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -800,30 +802,31 @@ observeFanoutTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
-  Maybe (OnChainTx Tx, FanoutObservation)
+  Maybe FanoutObservation
 observeFanoutTx utxo tx = do
   headInput <- fst <$> findScriptOutput @PlutusScriptV1 utxo headScript
   findRedeemerSpending tx headInput
     >>= \case
-      Head.Fanout{} -> pure (OnFanoutTx, ())
+      Head.Fanout{} -> pure FanoutObservation
       _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
 
-type AbortObservation = ()
+data AbortObservation = AbortObservation
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
--- FIXME(SN): make sure this is aborting "the right head / your head"
+-- FIXME: Add headId to AbortObservation to allow "upper layers" to
+-- determine we are seeing an abort of "our head"
 observeAbortTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
-  Maybe (OnChainTx Tx, AbortObservation)
+  Maybe AbortObservation
 observeAbortTx utxo tx = do
   headInput <- fst <$> findScriptOutput @PlutusScriptV1 utxo headScript
   findRedeemerSpending tx headInput >>= \case
-    Head.Abort -> pure (OnAbortTx, ())
+    Head.Abort -> pure AbortObservation
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
