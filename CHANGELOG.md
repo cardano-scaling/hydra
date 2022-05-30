@@ -25,6 +25,7 @@ changes.
 
 #### Changed
 
+- **BREAKING**: The starting state of a Head is renamed `Idle`
 - **BREAKING** The `hydra-node` does not finalize Heads automatically anymore.
   + Instead clients do get a new `ReadyToFanout` server output after the contestation period and
   + Clients can use the `Fanout` client input command to deliberately finalize a Head when it is closed and the contestation period passed.

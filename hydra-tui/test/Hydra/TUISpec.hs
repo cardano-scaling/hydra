@@ -59,20 +59,20 @@ spec =
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "connected"
-          shouldRender "Ready"
+          shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
           shouldRender "Initializing"
           sendInputEvent $ EvKey (KChar 'a') []
           threadDelay 1
-          shouldRender "Ready"
+          shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'q') []
 
       it "supports the full Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "connected"
-          shouldRender "Ready"
+          shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
           shouldRender "Initializing"

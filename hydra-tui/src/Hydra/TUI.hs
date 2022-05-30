@@ -93,7 +93,7 @@ data DialogState where
     DialogState
 
 data HeadState
-  = Ready
+  = Idle
   | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: UTxO}
   | Open {parties :: [Party], utxo :: UTxO}
   | Closed
@@ -220,7 +220,7 @@ handleAppEvent s = \case
       { nodeHost = s ^. nodeHostL
       , me = Nothing
       , peers = []
-      , headState = Ready
+      , headState = Idle
       , dialogState = NoDialog
       , feedback = Nothing
       }
@@ -253,7 +253,7 @@ handleAppEvent s = \case
   Update ReadyToFanout ->
     s & info "Contestation period passed, ready for fanout."
   Update HeadIsAborted{} ->
-    s & headStateL .~ Ready
+    s & headStateL .~ Idle
       & info "Head aborted, back to square one."
   Update HeadIsFinalized{utxo} ->
     s & headStateL .~ Final{utxo}
@@ -479,7 +479,7 @@ draw Client{sk} CardanoClient{networkId} s =
           ]
       _ ->
         case s ^? headStateL of
-          Just Ready ->
+          Just Idle ->
             withCommands
               [drawHeadState]
               [ "[I]nit"
