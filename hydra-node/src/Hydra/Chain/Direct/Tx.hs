@@ -141,11 +141,6 @@ mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
     mkTxOutDatum $ Initial.datum ()
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
---
--- TODO: Remove all the qualified 'Api' once the refactoring is over and there's
--- no more import clash with 'cardano-ledger'.
---
--- TODO: Get rid of Ledger types in the signature and fully rely on Cardano.Api
 commitTx ::
   NetworkId ->
   Party ->
@@ -208,9 +203,6 @@ collectComTx ::
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Tx
--- TODO(SN): utxo unused means other participants would not "see" the opened
--- utxo when observing. Right now, they would be trusting the OCV checks this
--- and construct their "world view" from observed commit txs in the HeadLogic
 collectComTx networkId vk initialThreadOutput commits =
   unsafeBuildTransaction $
     emptyTxBody
@@ -348,7 +340,7 @@ closeTx vk closing (slotNo, posixTime) openThreadOutput =
 
   contestationDeadline = addContestationPeriod posixTime openContestationPeriod
 
--- TODO: This function is VERY similar to the 'closeTx' function (only notable
+-- XXX: This function is VERY similar to the 'closeTx' function (only notable
 -- difference being the redeemer, which is in itself also the same structure as
 -- the close's one. We could potentially refactor this to avoid repetition or do
 -- something more principled at the protocol level itself and "merge" close and
@@ -618,7 +610,6 @@ observeCommitTx networkId initials tx = do
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
-  -- TODO: This 'party' would be available from the spent 'initial' utxo (PT eventually)
   (onChainParty, _, serializedTxOut) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
   let mCommittedTxOut = convertTxOut serializedTxOut
@@ -661,8 +652,6 @@ convertTxOut = \case
     case fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes) of
       Right result -> Just result
       Left{} -> error "couldn't deserialize serialized output in commit's datum."
-
--- TODO(SN): obviously the observeCollectComTx/observeAbortTx can be DRYed.. deliberately hold back on it though
 
 data CollectComObservation = CollectComObservation
   { threadOutput :: OpenThreadOutput
@@ -807,10 +796,6 @@ type FanoutObservation = ()
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
---
--- TODO: Ideally, the fanout does not produce any state-machine output. That
--- means, to observe it, we need to look for a transaction with an input spent
--- from a known script (the head state machine script) with a "fanout" redeemer.
 observeFanoutTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
