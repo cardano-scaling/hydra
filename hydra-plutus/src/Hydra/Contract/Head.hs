@@ -154,6 +154,9 @@ mkHeadContext context initialAddress commitAddress =
 -- It must verify that:
 --  * All PTs have been burnt
 --  * It has collected inputs for all parties, either from `Initial` or `Commit` script.
+--
+-- FIXME: This seems not to validate whether the right head is aborted, i.e. the
+-- collected inputs are from a Head with the same policyId.
 checkAbort ::
   ScriptContext ->
   HeadContext ->
