@@ -122,5 +122,5 @@ inOpenState' parties coordinatedHeadState =
       { parameters
       , pendingCommits = mempty
       , committed = mempty
-      , previousRecoverableState = ReadyState
+      , previousRecoverableState = IdleState
       }

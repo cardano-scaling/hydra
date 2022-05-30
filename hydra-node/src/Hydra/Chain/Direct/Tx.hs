@@ -211,13 +211,20 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx networkId vk InitialThreadOutput{initialThreadUTxO = (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore), initialParties, initialContestationPeriod} commits =
+collectComTx networkId vk initialThreadOutput commits =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
       & addOutputs [headOutput]
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
+  InitialThreadOutput
+    { initialThreadUTxO =
+      (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
+    , initialParties
+    , initialContestationPeriod
+    } =
+      initialThreadOutput
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =

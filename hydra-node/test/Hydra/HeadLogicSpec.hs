@@ -309,7 +309,7 @@ inInitialState parties =
     { parameters
     , pendingCommits = Set.fromList parties
     , committed = mempty
-    , previousRecoverableState = ReadyState
+    , previousRecoverableState = IdleState
     }
  where
   parameters = HeadParameters 42 parties
@@ -337,7 +337,7 @@ inOpenState' parties coordinatedHeadState =
       { parameters
       , pendingCommits = mempty
       , committed = mempty
-      , previousRecoverableState = ReadyState
+      , previousRecoverableState = IdleState
       }
 
 inClosedState :: [Party] -> HeadState SimpleTx

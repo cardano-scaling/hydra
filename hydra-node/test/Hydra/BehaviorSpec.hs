@@ -29,7 +29,7 @@ import Hydra.HeadLogic (
   Effect (ClientEffect),
   Environment (..),
   Event (ClientEvent),
-  HeadState (ReadyState),
+  HeadState (IdleState),
  )
 import Hydra.Ledger (IsTx, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -564,7 +564,7 @@ withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} act
 
   createHydraNode outputs = do
     eq <- createEventQueue
-    hh <- createHydraHead ReadyState simpleLedger
+    hh <- createHydraHead IdleState simpleLedger
     chainComponent connectToChain $
       HydraNode
         { eq

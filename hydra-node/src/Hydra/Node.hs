@@ -115,7 +115,7 @@ createHydraNode ::
   Environment ->
   m (HydraNode tx m)
 createHydraNode eq hn ledger oc server env = do
-  hh <- createHydraHead ReadyState ledger
+  hh <- createHydraHead IdleState ledger
   pure HydraNode{eq, hn, hh, oc, server, env}
 
 handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
