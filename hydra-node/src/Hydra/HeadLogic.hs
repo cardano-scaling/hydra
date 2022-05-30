@@ -207,7 +207,6 @@ update ::
   Event tx ->
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
-  -- TODO(SN) at least contestation period could be easily moved into the 'Init' client input
   (ReadyState, ClientEvent (Init contestationPeriod)) ->
     nextState ReadyState [OnChainEffect (InitTx parameters)]
    where
@@ -275,6 +274,11 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     sameState
       [ OnChainEffect (CloseTx confirmedSnapshot)
+      ]
+  --
+  (ClosedState{confirmedSnapshot}, ClientEvent Fanout) ->
+    sameState
+      [ OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)
       ]
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
@@ -400,9 +404,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                   HeadIsClosed
                     { snapshotNumber = closedSnapshotNumber
                     }
-              , -- FIXME(MB): This is most likely wrong in the case of contestation. We
-                -- may want to only post fanout once we have contested.
-                Delay
+              , Delay
                   { delay = remainingContestationPeriod
                   , reason = WaitOnContestationPeriod
                   , event = ShouldPostFanout
@@ -424,8 +426,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       -- not be able to fanout! We might want to communicate that to the client
       -- and/or not try to fan out on the `ShouldPostFanout` later.
       sameState [ClientEffect HeadIsContested{snapshotNumber}]
-  (ClosedState{confirmedSnapshot}, ShouldPostFanout) ->
-    sameState [OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)]
+  (ClosedState{}, ShouldPostFanout) ->
+    sameState [ClientEffect ReadyToFanout]
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
     nextState ReadyState [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --

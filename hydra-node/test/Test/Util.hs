@@ -4,32 +4,37 @@ module Test.Util where
 
 import Hydra.Prelude
 
+import Control.Monad.Class.MonadSay (say)
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, selectTraceEventsDynamic, traceM, traceResult)
 import Control.Tracer (Tracer (Tracer))
+import qualified Data.Aeson as Aeson
 import Data.List (isInfixOf)
-import Data.Typeable (cast)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node (HydraNodeLog)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot), HUnitFailure (HUnitFailure))
 import Test.Hydra.Prelude (failure, location)
 
--- | Run given 'action' in 'IOSim' and fail on exceptions. This runner has
--- special support for detecting and re-throwing 'HUnitFailure' exceptions.
-shouldRunInSim :: HasCallStack => (forall s. IOSim s a) -> IO a
+-- | Run given 'action' in 'IOSim' and rethrow any exceptions.
+shouldRunInSim :: (forall s. IOSim s a) -> IO a
 shouldRunInSim action =
   case traceResult False tr of
     Right x -> pure x
-    Left (FailureException (SomeException ex)) ->
-      case cast ex of
-        Just f@HUnitFailure{} -> printTrace >> throwIO f
-        _ -> failure $ "Exception in io-sim: " <> show ex
-    Left f -> do
+    Left (FailureException (SomeException ex)) -> do
       printTrace
-      throwIO f
+      throwIO ex
+    Left ex -> do
+      printTrace
+      throwIO ex
  where
   tr = runSimTrace action
-  -- TODO(SN): take a proxy
-  printTrace = mapM_ print $ selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) tr
+
+  -- TODO(SN): take a proxy instead of hard-coding HydraNodeLog
+  printTrace =
+    -- NOTE: We need to ignore exceptions as we will see the exception which got
+    -- us here thrown at us again.
+    void . try @_ @SomeException
+      . mapM_ (say . decodeUtf8 . Aeson.encode)
+      $ selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) tr
 
 -- | Lifted variant of Hspec's 'shouldBe'.
 shouldBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()

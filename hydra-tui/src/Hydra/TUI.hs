@@ -50,6 +50,10 @@ import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 import qualified Prelude
 
+-- TODO(SN): hardcoded contestation period used by the tui
+tuiContestationPeriod :: NominalDiffTime
+tuiContestationPeriod = 10
+
 --
 -- Model
 --
@@ -178,10 +182,11 @@ handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
             | c `elem` ['q', 'Q'] ->
               halt s
             | c `elem` ['i', 'I'] ->
-              -- TODO(SN): hardcoded contestation period
-              liftIO (sendInput $ Init 10) >> continue s
+              liftIO (sendInput $ Init tuiContestationPeriod) >> continue s
             | c `elem` ['a', 'A'] ->
               liftIO (sendInput Abort) >> continue s
+            | c `elem` ['f', 'F'] ->
+              liftIO (sendInput Fanout) >> continue s
             | c `elem` ['c', 'C'] ->
               case s ^? headStateL of
                 Just Initializing{} ->
@@ -245,6 +250,8 @@ handleAppEvent s = \case
       & info ("Head closed with snapshot number " <> show snapshotNumber)
   Update HeadIsContested{snapshotNumber} ->
     s & info ("Head contested with snapshot number " <> show snapshotNumber)
+  Update ReadyToFanout ->
+    s & info "Contestation period passed, ready for fanout."
   Update HeadIsAborted{} ->
     s & headStateL .~ Ready
       & info "Head aborted, back to square one."
@@ -506,7 +513,9 @@ draw Client{sk} CardanoClient{networkId} s =
             withCommands
               [ drawHeadState
               ]
-              ["[Q]uit"]
+              [ "[F]anout" -- TODO: should only render this when actually possible
+              , "[Q]uit"
+              ]
           Just Final{utxo} ->
             withCommands
               [ drawHeadState

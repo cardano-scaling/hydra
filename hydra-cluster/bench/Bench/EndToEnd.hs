@@ -106,7 +106,13 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
 
                 putTextLn "Closing the Head"
                 send leader $ input "Close" []
+                -- REVIEW: Why 60 * clusterSize?
                 waitMatch (fromIntegral $ 60 * clusterSize) leader $ \v ->
+                  guard (v ^? key "tag" == Just "ReadyToFanout")
+
+                putTextLn "Finalizing the Head"
+                send leader $ input "Fanout" []
+                waitMatch 10 leader $ \v ->
                   guard (v ^? key "tag" == Just "HeadIsFinalized")
 
                 let res = mapMaybe analyze . Map.toList $ processedTransactions

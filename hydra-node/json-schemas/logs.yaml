@@ -632,6 +632,7 @@ definitions:
             - $ref: "api.yaml#/components/messages/GetUTxO/payload"
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
+            - $ref: "api.yaml#/components/messages/Fanout/payload"
 
     - title: NetworkEvent
       type: object
@@ -954,6 +955,7 @@ definitions:
             - $ref: "api.yaml#/components/messages/HeadIsOpen/payload"
             - $ref: "api.yaml#/components/messages/HeadIsClosed/payload"
             - $ref: "api.yaml#/components/messages/HeadIsContested/payload"
+            - $ref: "api.yaml#/components/messages/ReadyToFanout/payload"
             - $ref: "api.yaml#/components/messages/HeadIsAborted/payload"
             - $ref: "api.yaml#/components/messages/HeadIsFinalized/payload"
             - $ref: "api.yaml#/components/messages/TxSeen/payload"

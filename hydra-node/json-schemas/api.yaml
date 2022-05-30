@@ -47,6 +47,7 @@ channels:
           - $ref: "#/components/messages/HeadIsOpen"
           - $ref: "#/components/messages/HeadIsClosed"
           - $ref: "#/components/messages/HeadIsContested"
+          - $ref: "#/components/messages/ReadyToFanout"
           - $ref: "#/components/messages/HeadIsAborted"
           - $ref: "#/components/messages/HeadIsFinalized"
           - $ref: "#/components/messages/TxSeen"
@@ -71,6 +72,7 @@ channels:
           - $ref: "#/components/messages/GetUTxO"
           - $ref: "#/components/messages/Close"
           - $ref: "#/components/messages/Contest"
+          - $ref: "#/components/messages/Fanout"
 
 components:
   messages:
@@ -169,6 +171,19 @@ components:
           tag:
             type: string
             enum: ["Contest"]
+
+    Fanout:
+      title: Fanout
+      description: |
+        Finalize a head after the contestation period passed. This will distribute the final (as closed and maybe contested) head state back on the layer 1.
+      payload:
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["Fanout"]
 
     GetUTxO:
       title: GetUTxO
@@ -323,6 +338,20 @@ components:
             enum: ["HeadIsContested"]
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
+
+    ReadyToFanout:
+      title: ReadyToFanout
+      description: |
+        The contestation period has passed and the head can now be finalized by
+        a fanout transaction.
+      payload:
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["ReadyToFanout"]
 
     HeadIsAborted:
       title: HeadIsAborted

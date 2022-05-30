@@ -18,6 +18,7 @@ data ServerOutput tx
   | HeadIsOpen {utxo :: UTxOType tx}
   | HeadIsClosed {snapshotNumber :: SnapshotNumber}
   | HeadIsContested {snapshotNumber :: SnapshotNumber}
+  | ReadyToFanout
   | HeadIsAborted {utxo :: UTxOType tx}
   | HeadIsFinalized {utxo :: UTxOType tx}
   | CommandFailed
@@ -55,6 +56,7 @@ instance IsTx tx => Arbitrary (ServerOutput tx) where
     HeadIsOpen u -> HeadIsOpen <$> shrink u
     HeadIsClosed s -> HeadIsClosed <$> shrink s
     HeadIsContested sn -> HeadIsContested <$> shrink sn
+    ReadyToFanout -> []
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u
     HeadIsAborted u -> HeadIsAborted <$> shrink u
     CommandFailed -> []

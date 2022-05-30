@@ -348,6 +348,10 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
       -- NOTE: We expect the head to be finalized after the contestation period
       -- and some three secs later, plus the closeGraceTime * slotLength
       waitFor tracer (truncate $ contestationPeriod + (fromIntegral @_ @Double (unSlotNo closeGraceTime) * 0.1) + 3) [n1] $
+        output "ReadyToFanout" []
+
+      send n1 $ input "Fanout" []
+      waitFor tracer 3 [n1] $
         output "HeadIsFinalized" ["utxo" .= newUTxO]
 
       case fromJSON $ toJSON newUTxO of

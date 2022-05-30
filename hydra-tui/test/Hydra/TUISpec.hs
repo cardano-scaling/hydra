@@ -38,7 +38,7 @@ import qualified Hydra.Crypto as Hydra
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Options (ChainConfig (..))
-import Hydra.TUI (runWithVty)
+import Hydra.TUI (runWithVty, tuiContestationPeriod)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
@@ -86,10 +86,19 @@ spec =
           sendInputEvent $ EvKey (KChar 'c') []
           threadDelay 1
           shouldRender "Closed"
-          threadDelay 25 -- contestation period + some
+          threadDelay (realToFrac $ tuiContestationPeriod + gracePeriod + someTime)
+          sendInputEvent $ EvKey (KChar 'f') []
+          threadDelay 1
           shouldRender "Final"
           shouldRender "42000000 lovelace"
           sendInputEvent $ EvKey (KChar 'q') []
+
+-- XXX: The same hack as in EndToEndSpec
+gracePeriod :: NominalDiffTime
+gracePeriod = 10 -- 100 slots with 0.1 sec slot time
+
+someTime :: NominalDiffTime
+someTime = 3
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI action =
@@ -221,7 +230,7 @@ withTUITest region action = do
 data TUILog
   = FromCardano NodeLog
   | FromHydra EndToEndLog
-  deriving (Show)
+  deriving (Show, Generic, ToJSON)
 
 aliceSk :: Hydra.SigningKey
 aliceSk = Hydra.generateSigningKey "alice"

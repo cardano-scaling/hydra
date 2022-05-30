@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -279,7 +280,7 @@ aliceSigningKey = generateSigningKey "alice"
 data TestClusterLog
   = FromNode NodeLog
   | FromDirectChain Text DirectChainLog
-  deriving (Show)
+  deriving (Show, Generic, ToJSON)
 
 observesInTime :: IsTx tx => MVar (ChainEvent tx) -> OnChainTx tx -> Expectation
 observesInTime mvar expected =
