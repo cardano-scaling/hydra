@@ -65,3 +65,61 @@ collect tx: baa721e3e3142cca17a3bbda4f2160ef0b5210eb781ae1b9556ebe87eae66409
 ```
 
 Head is open!
+
+## Third run with rebased babbage-preview
+
+``` sh
+git rev: 283c5301e58a0e61dd0daa4691336e69c143c063
+start point: 27eb7e85379a0021f3bd80081b3af75beacc256deb016c777d6b1b4f2ef92d62 at slot 1076650
+```
+
+```
+init tx: 7c0c2427c0c31d426aa867fe0218139a8a5ebff74600fd439a574eb04ccea651
+v_head address: addr_test1wqnggtxk9v8pn5uj658ekk95cqcxlu0a3tdmzelxvzzf0aqvr599t
+
+commit tx: 37c88fa7c50403fa02aa8978d7c512fab96170024345ba8a37818ab6a833b33a
+collect tx: 1eaa95e91ce450c22a184d6746c29a82f1d581e00f3e4d0d67595d24ba147dd1
+```
+
+Head is open!
+
+Made two transactions paying myself resulting in off-chain utxo:
+
+```json
+{
+  "542e01c8374232bc6543490a70067d10ff5be2114fb3289c8f532c2967a68630#0": {
+    "address": "addr_test1vp2l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqt3ruuw",
+    "datum": null,
+    "datumhash": null,
+    "inlineDatum": null,
+    "referenceScript": null,
+    "value": {
+      "lovelace": 20000000
+    }
+  },
+  "542e01c8374232bc6543490a70067d10ff5be2114fb3289c8f532c2967a68630#1": {
+    "address": "addr_test1vp2l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqt3ruuw",
+    "datum": null,
+    "datumhash": null,
+    "inlineDatum": null,
+    "referenceScript": null,
+    "value": {
+      "lovelace": 69832211
+    }
+  },
+  "d7cd0cd6fee49548df03c4a98dce7fae4ff45f95718f22f691ea0366c70eec19#0": {
+    "address": "addr_test1vp2l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqt3ruuw",
+    "datum": null,
+    "datumhash": null,
+    "inlineDatum": null,
+    "referenceScript": null,
+    "value": {
+      "lovelace": 10000000
+    }
+  }
+}
+```
+
+Closed the head with tx `6410896bf60b0b17045cc1a0c8aaada243009bd28f5c181caf54e5a584848b05`, but it directly rolled back! The tx was still included and observed -> Head is closed.
+
+After contestation fanout using tx `458414a0ef14b95126594ea5a3d04a900d2afa91103d531c985abb03002551cc` -> Head finalized and all funds distributed.

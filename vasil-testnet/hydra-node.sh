@@ -8,4 +8,4 @@ exec cabal exec hydra-node -- \
   --ledger-protocol-parameters "config/protocol-parameters.json" \
   --hydra-signing-key "credentials/sebastian.hydra.sk" \
   --cardano-signing-key "credentials/sebastian.cardano.sk" \
-  --start-chain-from "440772.7870838f05071a30b364832490cfbf9f882382a7d5524e821debaad099c4ed99"
+  --start-chain-from "1076650.27eb7e85379a0021f3bd80081b3af75beacc256deb016c777d6b1b4f2ef92d62"
