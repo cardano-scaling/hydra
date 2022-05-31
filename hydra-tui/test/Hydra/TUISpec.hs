@@ -86,6 +86,7 @@ spec =
           sendInputEvent $ EvKey (KChar 'c') []
           threadDelay 1
           shouldRender "Closed"
+          shouldRender "Remaining time to contest"
           threadDelay (realToFrac $ tuiContestationPeriod + gracePeriod + someTime)
           sendInputEvent $ EvKey (KChar 'f') []
           threadDelay 1

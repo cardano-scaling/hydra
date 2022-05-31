@@ -403,6 +403,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
             ( [ ClientEffect
                   HeadIsClosed
                     { snapshotNumber = closedSnapshotNumber
+                    , remainingContestationPeriod
                     }
               , Delay
                   { delay = remainingContestationPeriod

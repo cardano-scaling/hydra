@@ -19,6 +19,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
+import Data.Time (defaultTimeLocale, formatTime)
 import Data.Version (showVersion)
 import Graphics.Vty (
   Event (EvKey),
@@ -96,7 +97,7 @@ data HeadState
   = Idle
   | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: UTxO}
   | Open {parties :: [Party], utxo :: UTxO}
-  | Closed
+  | Closed {remainingContestationPeriod :: NominalDiffTime}
   | Final {utxo :: UTxO}
   deriving (Eq, Show, Generic)
 
@@ -245,8 +246,8 @@ handleAppEvent s = \case
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & info "Head is now open!"
-  Update HeadIsClosed{snapshotNumber} ->
-    s & headStateL .~ Closed{}
+  Update HeadIsClosed{snapshotNumber, remainingContestationPeriod} ->
+    s & headStateL .~ Closed{remainingContestationPeriod}
       & info ("Head closed with snapshot number " <> show snapshotNumber)
   Update HeadIsContested{snapshotNumber} ->
     s & info ("Head contested with snapshot number " <> show snapshotNumber)
@@ -274,6 +275,8 @@ handleAppEvent s = \case
     s & warn ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
   Update RolledBack ->
     s & info "Chain rolled back! You might need to re-submit Head transactions manually now."
+  Tick ->
+    s & headStateL %~ handleTick
  where
   partyCommitted party commit = \case
     Initializing{parties, remainingParties, utxo} ->
@@ -295,6 +298,14 @@ handleAppEvent s = \case
           & info ("Snapshot #" <> show number <> " confirmed.")
       _ ->
         s & warn "Snapshot confirmed but head is not open?"
+
+  handleTick = \case
+    Closed{remainingContestationPeriod = remaining}
+      | remaining - 1 > 0 ->
+        Closed{remainingContestationPeriod = remaining - 1}
+      | otherwise ->
+        Closed{remainingContestationPeriod = 0}
+    hs -> hs
 
 handleDialogEvent ::
   forall s e n.
@@ -509,9 +520,11 @@ draw Client{sk} CardanoClient{networkId} s =
               , "[C]lose"
               , "[Q]uit"
               ]
-          Just Closed{} ->
+          Just Closed{remainingContestationPeriod} ->
             withCommands
               [ drawHeadState
+              , padLeftRight 1 $
+                  txt "Remaining time to contest: " <+> drawPeriod remainingContestationPeriod
               ]
               [ "[F]anout" -- TODO: should only render this when actually possible
               , "[Q]uit"
@@ -532,6 +545,9 @@ draw Client{sk} CardanoClient{networkId} s =
               [ drawHeadState
               ]
               ["[Q]uit"]
+
+  drawPeriod =
+    str . formatTime defaultTimeLocale "%dd %hh %mm %ss"
 
   drawHeadState = case s of
     Disconnected{} -> emptyWidget
@@ -682,10 +698,11 @@ style _ =
 runWithVty :: IO Vty -> Options -> IO State
 runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNodeSocket} = do
   eventChan <- newBChan 10
-  -- REVIEW(SN): what happens if callback blocks?
-  withClient @Tx options (writeBChan eventChan) $ \client -> do
-    initialVty <- buildVty
-    customMain initialVty buildVty (Just eventChan) (app client) initialState
+  withAsync (timer eventChan) $ \_ ->
+    -- REVIEW(SN): what happens if callback blocks?
+    withClient @Tx options (writeBChan eventChan) $ \client -> do
+      initialVty <- buildVty
+      customMain initialVty buildVty (Just eventChan) (app client) initialState
  where
   app client =
     App
@@ -699,6 +716,10 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
   initialState = Disconnected{nodeHost = hydraNodeHost}
 
   cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
+
+  timer chan = do
+    writeBChan chan Tick
+    threadDelay 1
 
 run :: Options -> IO State
 run = runWithVty (mkVty defaultConfig)
