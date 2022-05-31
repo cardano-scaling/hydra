@@ -23,7 +23,8 @@ import Hydra.Chain (
   PostChainTx (AbortTx, InitTx),
   PostTxError (NoSeedInput),
  )
-import Hydra.Chain.Direct (DirectChainLog, withDirectChain)
+import Hydra.Chain.Direct (withDirectChain)
+import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (Era, retry)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)

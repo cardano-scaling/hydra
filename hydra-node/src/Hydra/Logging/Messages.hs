@@ -11,7 +11,7 @@ module Hydra.Logging.Messages where
 import Hydra.Prelude
 
 import Hydra.API.Server (APIServerLog)
-import Hydra.Chain.Direct (DirectChainLog)
+import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Ledger (IsTx)
 import Hydra.Node (HydraNodeLog)
 
