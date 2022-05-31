@@ -252,7 +252,8 @@ handleAppEvent s = \case
   Update HeadIsContested{snapshotNumber} ->
     s & info ("Head contested with snapshot number " <> show snapshotNumber)
   Update ReadyToFanout ->
-    s & info "Contestation period passed, ready for fanout."
+    s & headStateL .~ Closed{remainingContestationPeriod = 0}
+      & info "Contestation period passed, ready for fanout."
   Update HeadIsAborted{} ->
     s & headStateL .~ Idle
       & info "Head aborted, back to square one."
@@ -523,8 +524,7 @@ draw Client{sk} CardanoClient{networkId} s =
           Just Closed{remainingContestationPeriod} ->
             withCommands
               [ drawHeadState
-              , padLeftRight 1 $
-                  txt "Remaining time to contest: " <+> drawPeriod remainingContestationPeriod
+              , drawRemainingContestationPeriod remainingContestationPeriod
               ]
               [ "[F]anout" -- TODO: should only render this when actually possible
               , "[Q]uit"
@@ -546,8 +546,13 @@ draw Client{sk} CardanoClient{networkId} s =
               ]
               ["[Q]uit"]
 
-  drawPeriod =
-    str . formatTime defaultTimeLocale "%dd %hh %mm %ss"
+  drawRemainingContestationPeriod remaining
+    | remaining > 0 =
+      padLeftRight 1 $
+        txt "Remaining time to contest: "
+          <+> str (formatTime defaultTimeLocale "%dd %hh %mm %ss" remaining)
+    | otherwise =
+      txt "Contestation period passed, ready to fan out."
 
   drawHeadState = case s of
     Disconnected{} -> emptyWidget
