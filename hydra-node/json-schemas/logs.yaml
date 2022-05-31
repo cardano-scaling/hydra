@@ -517,14 +517,14 @@ definitions:
 
   HeadState:
     oneOf:
-    - title: "ReadyState"
+    - title: "IdleState"
       additionalProperties: false
       required:
         - tag
       properties:
         tag:
           type: string
-          enum: [ "ReadyState" ]
+          enum: [ "IdleState" ]
     - title: "InitialState"
       additionalProperties: false
       required:

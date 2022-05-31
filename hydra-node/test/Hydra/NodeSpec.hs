@@ -145,7 +145,7 @@ createHydraNode ::
 createHydraNode signingKey otherParties events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
-  hh <- createHydraHead ReadyState simpleLedger
+  hh <- createHydraHead IdleState simpleLedger
   pure $
     HydraNode
       { eq

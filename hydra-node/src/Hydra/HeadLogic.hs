@@ -83,7 +83,7 @@ deriving instance IsTx tx => FromJSON (Effect tx)
 -- practice, clients should not send transactions right way but wait for a
 -- certain grace period to minimize the risk.
 data HeadState tx
-  = ReadyState
+  = IdleState
   | InitialState
       { parameters :: HeadParameters
       , pendingCommits :: PendingCommits
@@ -207,21 +207,21 @@ update ::
   Event tx ->
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
-  (ReadyState, ClientEvent (Init contestationPeriod)) ->
-    nextState ReadyState [OnChainEffect (InitTx parameters)]
+  (IdleState, ClientEvent (Init contestationPeriod)) ->
+    nextState IdleState [OnChainEffect (InitTx parameters)]
    where
     parameters =
       HeadParameters
         { contestationPeriod
         , parties = party : otherParties
         }
-  (ReadyState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
+  (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
     NewState
       ( InitialState
           { parameters = HeadParameters{contestationPeriod, parties}
           , pendingCommits = Set.fromList parties
           , committed = mempty
-          , previousRecoverableState = ReadyState
+          , previousRecoverableState = IdleState
           }
       )
       [ClientEffect $ ReadyToCommit $ fromList parties]
@@ -269,7 +269,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
           )
           [ClientEffect $ HeadIsOpen u0]
   (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
-    nextState ReadyState [ClientEffect $ HeadIsAborted $ fold committed]
+    nextState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     sameState
@@ -429,7 +429,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (ClosedState{}, ShouldPostFanout) ->
     sameState [ClientEffect ReadyToFanout]
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
-    nextState ReadyState [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+    nextState IdleState [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --
   (currentState, OnChainEvent (Rollback n)) ->
     nextState (rollback n currentState) [ClientEffect RolledBack]
@@ -512,8 +512,8 @@ rollback depth
     identity
   | otherwise =
     rollback (pred depth) . \case
-      ReadyState ->
-        -- NOTE: This is debatable. We could also just return 'ReadyState' and
+      IdleState ->
+        -- NOTE: This is debatable. We could also just return 'IdleState' and
         -- silently swallow this. But we choose to make it a clear invariant /
         -- post-condition to show that there's a inconsistency between both
         -- layers. In principle, once we are in ready state, we can only
