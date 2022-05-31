@@ -717,7 +717,7 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
 
   cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
 
-  timer chan = do
+  timer chan = forever $ do
     writeBChan chan Tick
     threadDelay 1
 
