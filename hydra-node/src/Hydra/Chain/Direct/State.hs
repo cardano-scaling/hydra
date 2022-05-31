@@ -42,11 +42,14 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Tx (
+  AbortObservation (..),
   CloseObservation (..),
   ClosedThreadOutput (..),
   ClosingSnapshot (..),
   CollectComObservation (..),
+  CommitObservation (..),
   ContestObservation (..),
+  FanoutObservation (..),
   InitObservation (..),
   InitialThreadOutput (..),
   OpenThreadOutput (..),
@@ -388,8 +391,17 @@ instance HasTransition 'StIdle where
 instance ObserveTx 'StIdle 'StInitialized where
   observeTx tx OnChainHeadState{networkId, peerVerificationKeys, ownParty, ownVerificationKey} = do
     let allVerificationKeys = ownVerificationKey : peerVerificationKeys
-    (event, observation) <- observeInitTx networkId allVerificationKeys ownParty tx
-    let InitObservation{threadOutput, initials, commits, headId, headTokenScript} = observation
+    observation <- observeInitTx networkId allVerificationKeys ownParty tx
+    let InitObservation
+          { threadOutput
+          , initials
+          , commits
+          , headId
+          , headTokenScript
+          , contestationPeriod
+          , parties
+          } = observation
+    let event = OnInitTx{contestationPeriod, parties}
     let st' =
           OnChainHeadState
             { networkId
@@ -421,7 +433,9 @@ instance HasTransition 'StInitialized where
 instance ObserveTx 'StInitialized 'StInitialized where
   observeTx tx st@OnChainHeadState{networkId, stateMachine} = do
     let initials = fst3 <$> initialInitials
-    (event, newCommit) <- observeCommitTx networkId initials tx
+    observation <- observeCommitTx networkId initials tx
+    let CommitObservation{commitOutput, party, committed} = observation
+    let event = OnCommitTx{party, committed}
     let st' =
           st
             { stateMachine =
@@ -431,7 +445,7 @@ instance ObserveTx 'StInitialized 'StInitialized where
                       -- remove all it's inputs from our tracked initials
                       filter ((`notElem` txIns' tx) . fst3) initialInitials
                   , initialCommits =
-                      newCommit : initialCommits
+                      commitOutput : initialCommits
                   }
             }
     pure (event, st')
@@ -444,9 +458,10 @@ instance ObserveTx 'StInitialized 'StInitialized where
 instance ObserveTx 'StInitialized 'StOpen where
   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
     let utxo = getKnownUTxO st
-    (event, observation) <- observeCollectComTx utxo tx
+    observation <- observeCollectComTx utxo tx
     let CollectComObservation{threadOutput, headId, utxoHash} = observation
     guard (headId == initialHeadId)
+    let event = OnCollectComTx
     let st' =
           OnChainHeadState
             { networkId
@@ -471,7 +486,8 @@ instance ObserveTx 'StInitialized 'StOpen where
 instance ObserveTx 'StInitialized 'StIdle where
   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty} = do
     let utxo = getKnownUTxO st
-    (event, ()) <- observeAbortTx utxo tx
+    AbortObservation <- observeAbortTx utxo tx
+    let event = OnAbortTx
     let st' =
           OnChainHeadState
             { networkId
@@ -494,9 +510,13 @@ instance HasTransition 'StOpen where
 instance ObserveTx 'StOpen 'StClosed where
   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
     let utxo = getKnownUTxO st
-    (event, observation) <- observeCloseTx utxo tx
-    let CloseObservation{threadOutput, headId} = observation
+    observation <- observeCloseTx utxo tx
+    let CloseObservation{threadOutput, headId, snapshotNumber} = observation
     guard (headId == openHeadId)
+    -- FIXME: The 0 here is a wart. We are in a pure function so we cannot easily compute with
+    -- time. We tried passing the current time from the caller but given the current machinery
+    -- around `observeSomeTx` this is actually not straightforward and quite ugly.
+    let event = OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
     let st' =
           OnChainHeadState
             { networkId
@@ -530,7 +550,8 @@ instance HasTransition 'StClosed where
 instance ObserveTx 'StClosed 'StIdle where
   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty} = do
     let utxo = getKnownUTxO st
-    (event, ()) <- observeFanoutTx utxo tx
+    FanoutObservation <- observeFanoutTx utxo tx
+    let event = OnFanoutTx
     let st' =
           OnChainHeadState
             { networkId
@@ -544,9 +565,10 @@ instance ObserveTx 'StClosed 'StIdle where
 instance ObserveTx 'StClosed 'StClosed where
   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
     let utxo = getKnownUTxO st
-    (event, observation) <- observeContestTx utxo tx
-    let ContestObservation{contestedThreadOutput, headId} = observation
+    observation <- observeContestTx utxo tx
+    let ContestObservation{contestedThreadOutput, headId, snapshotNumber} = observation
     guard (headId == closedHeadId)
+    let event = OnContestTx{snapshotNumber}
     let st' =
           OnChainHeadState
             { networkId
