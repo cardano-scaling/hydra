@@ -20,7 +20,13 @@ import Hydra.Chain.Direct.Contract.Mutation (
   headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId, testSeedInput)
-import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial, mkHeadTokenScript)
+import Hydra.Chain.Direct.Tx (
+  UTxOWithScript,
+  abortTx,
+  headPolicyId,
+  mkHeadOutputInitial,
+  mkHeadTokenScript,
+ )
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
@@ -39,7 +45,7 @@ healthyAbortTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (headInput, toUTxOContext headOutput)
+    UTxO.singleton (healthyHeadInput, toUTxOContext headOutput)
       <> UTxO (Map.fromList (drop3rd <$> healthyInitials))
       <> UTxO (Map.fromList (drop3rd <$> healthyCommits))
 
@@ -47,7 +53,7 @@ healthyAbortTx =
     either (error . show) id $
       abortTx
         somePartyCardanoVerificationKey
-        (headInput, toUTxOContext headOutput, headDatum)
+        (healthyHeadInput, toUTxOContext headOutput, headDatum)
         headTokenScript
         (Map.fromList (tripleToPair <$> healthyInitials))
         (Map.fromList (tripleToPair <$> healthyCommits))
@@ -55,17 +61,9 @@ healthyAbortTx =
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties
 
-  headInput = generateWith arbitrary 42
-
   headTokenScript = mkHeadTokenScript testSeedInput
 
-  headOutput = mkHeadOutputInitial testNetworkId testPolicyId headParameters
-
-  headParameters =
-    HeadParameters
-      { contestationPeriod = 10
-      , parties = healthyParties
-      }
+  headOutput = mkHeadOutputInitial testNetworkId testPolicyId healthyHeadParameters
 
   headDatum = unsafeGetDatum headOutput
 
@@ -74,6 +72,16 @@ healthyAbortTx =
   unsafeGetDatum = fromJust . getScriptData
 
   tripleToPair (a, b, c) = (a, (b, c))
+
+healthyHeadInput :: TxIn
+healthyHeadInput = generateWith arbitrary 42
+
+healthyHeadParameters :: HeadParameters
+healthyHeadParameters =
+  HeadParameters
+    { contestationPeriod = 10
+    , parties = healthyParties
+    }
 
 healthyInitials :: [UTxOWithScript]
 healthyCommits :: [UTxOWithScript]
@@ -116,9 +124,11 @@ data AbortMutation
   | DropOneCommitOutput
   | MutateHeadScriptInput
   | BurnOneTokenMore
-  | MutateThreadTokenQuantity
+  | -- | Meant to test that the minting policy is burning all PTs present in tx
+    MutateThreadTokenQuantity
   | DropCollectedInput
   | MutateRequiredSigner
+  | MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -138,4 +148,11 @@ genAbortMutation (tx, utxo) =
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation MutateHeadId <$> do
+        illedHeadResolvedInput <-
+          mkHeadOutputInitial
+            <$> pure testNetworkId
+            <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
+            <*> pure healthyHeadParameters
+        return $ ChangeInput healthyHeadInput (toUTxOContext illedHeadResolvedInput) (Just $ toScriptData Head.Abort)
     ]
