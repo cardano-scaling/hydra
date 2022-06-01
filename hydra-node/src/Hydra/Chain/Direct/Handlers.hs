@@ -18,11 +18,8 @@ import Cardano.Ledger.Shelley.API (TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (
-  newEmptyTMVar,
   readTVarIO,
   retry,
-  takeTMVar,
-  writeTQueue,
   writeTVar,
  )
 import Control.Monad.Class.MonadTimer (timeout)
@@ -83,6 +80,18 @@ import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..), blockPoint)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
+--
+
+-- * Posting Transactions
+
+--
+
+-- | A simple interface used by `Chain` to actually post the transaction to the chain.
+-- This function can be synchronous or asynchronous. It `atomically` executes
+-- the given `STM` action and takes care of posting the resulting transaction to
+-- the chain.
+type TxPoster m = STM m (ValidatedTx Era) -> m ()
+
 -- | Create a `Chain` component for posting "real" cardano transactions.
 --
 -- This component does not actually interact with a cardano-node, but creates cardano
@@ -92,47 +101,41 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 -- NOTE: Given the constraints on `m` this function should work within `IOSim` and does not
 -- require any actual `IO`  to happen which makes it highly suitable for simulations and testing.
 mkChain ::
-  (MonadSTM m, MonadTimer m, MonadThrow (STM m), Exception e) =>
+  (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
   m (TimeHandle (STM m)) ->
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
-  TQueue m (ValidatedTx Era, TMVar m (Maybe e)) ->
+  TxPoster m ->
   Chain Tx m
-mkChain tracer queryTimeHandle cardanoKeys wallet headState queue =
+mkChain tracer queryTimeHandle cardanoKeys wallet headState txPoster =
   Chain
     { postTx = \tx -> do
         traceWith tracer $ ToPost tx
         timeHandle <- queryTimeHandle
         -- XXX(SN): 'finalizeTx' retries until a payment utxo is
         -- found. See haddock for details
-        response <-
-          timeoutThrowAfter (NoPaymentInput @Tx) 10 $
-            -- FIXME (MB): 'cardanoKeys' should really not be here. They
-            -- are only required for the init transaction and ought to
-            -- come from the _client_ and be part of the init request
-            -- altogether. This goes in the direction of 'dynamic
-            -- heads' where participants aren't known upfront but
-            -- provided via the API. Ultimately, an init request from
-            -- a client would contain all the details needed to
-            -- establish connection to the other peers and to
-            -- bootstrap the init transaction.
-            -- For now, we bear with it and keep the static keys in
-            -- context.
-            fromPostChainTx timeHandle cardanoKeys wallet headState tx
-              >>= finalizeTx wallet headState . toLedgerTx
-              >>= \vtx -> do
-                response <- newEmptyTMVar
-                writeTQueue queue (vtx, response)
-                return response
-        atomically (takeTMVar response) >>= \case
-          Nothing -> pure ()
-          Just err -> throwIO err
+        timeoutThrowAfter (NoPaymentInput @Tx) 10 $
+          txPoster
+            ( -- FIXME (MB): 'cardanoKeys' should really not be here. They
+              -- are only required for the init transaction and ought to
+              -- come from the _client_ and be part of the init request
+              -- altogether. This goes in the direction of 'dynamic
+              -- heads' where participants aren't known upfront but
+              -- provided via the API. Ultimately, an init request from
+              -- a client would contain all the details needed to
+              -- establish connection to the other peers and to
+              -- bootstrap the init transaction.
+              -- For now, we bear with it and keep the static keys in
+              -- context.
+              fromPostChainTx timeHandle cardanoKeys wallet headState tx
+                >>= finalizeTx wallet headState . toLedgerTx
+            )
     }
  where
-  timeoutThrowAfter ex s stm = do
-    timeout s (atomically stm) >>= \case
+  timeoutThrowAfter ex s io = do
+    timeout s io >>= \case
       Nothing -> throwIO ex
       Just a -> pure a
 
@@ -143,6 +146,54 @@ data TimeHandle m = TimeHandle
     -- negatively.
     adjustPointInTime :: SlotNo -> PointInTime -> m PointInTime
   }
+
+-- | Balance and sign the given partial transaction.
+--
+-- XXX(SN): This function does 'retry' when no payment UTXO was found and thus
+-- might block. This is necessary in some situations when the wallet has not yet
+-- "seen" the change output although the direct chain client observed a
+-- transaction already. This is a smell and we should try to avoid having this
+-- race condition in the first place.
+finalizeTx ::
+  (MonadSTM m, MonadThrow (STM m)) =>
+  TinyWallet m ->
+  TVar m SomeOnChainHeadStateAt ->
+  ValidatedTx Era ->
+  STM m (ValidatedTx Era)
+finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
+  someSt <- currentOnChainHeadState <$> readTVar headState
+  let headUTxO = (\(SomeOnChainHeadState st) -> getKnownUTxO st) someSt
+  walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
+  coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
+    Left ErrNoPaymentUTxOFound ->
+      retry
+    Left ErrUnknownInput{input} -> do
+      throwIO
+        ( CannotSpendInput
+            { input = show input
+            , walletUTxO
+            , headUTxO
+            } ::
+            PostTxError Tx
+        )
+    Left e ->
+      throwIO
+        ( CannotCoverFees
+            { walletUTxO
+            , headUTxO
+            , reason = show e
+            , tx = fromLedgerTx partialTx
+            } ::
+            PostTxError Tx
+        )
+    Right validatedTx -> do
+      pure $ sign validatedTx
+
+--
+
+-- * Following the Chain
+
+--
 
 -- | The on-chain head state is maintained in a mutually-recursive data-structure,
 -- pointing to the previous chain state; This allows to easily rewind the state
@@ -161,6 +212,8 @@ data RecordedAt
   | AtPoint ChainPoint SomeOnChainHeadStateAt
   deriving (Eq, Show)
 
+-- | A /handler/ that takes care of following the chain.
+-- TODO: replace use of `Block` with `Tx`
 data ChainSyncHandler m = ChainSyncHandler
   { onRollForward :: Block -> m ()
   , onRollBackward :: Point Block -> m ()
@@ -249,48 +302,6 @@ rollback chainPoint = backward 0
         if at <= chainPoint
           then (st, n)
           else backward (succ n) previous
-
--- | Balance and sign the given partial transaction.
---
--- XXX(SN): This function does 'retry' when no payment UTXO was found and thus
--- might block. This is necessary in some situations when the wallet has not yet
--- "seen" the change output although the direct chain client observed a
--- transaction already. This is a smell and we should try to avoid having this
--- race condition in the first place.
-finalizeTx ::
-  (MonadSTM m, MonadThrow (STM m)) =>
-  TinyWallet m ->
-  TVar m SomeOnChainHeadStateAt ->
-  ValidatedTx Era ->
-  STM m (ValidatedTx Era)
-finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
-  someSt <- currentOnChainHeadState <$> readTVar headState
-  let headUTxO = (\(SomeOnChainHeadState st) -> getKnownUTxO st) someSt
-  walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
-  coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
-    Left ErrNoPaymentUTxOFound ->
-      retry
-    Left ErrUnknownInput{input} -> do
-      throwIO
-        ( CannotSpendInput
-            { input = show input
-            , walletUTxO
-            , headUTxO
-            } ::
-            PostTxError Tx
-        )
-    Left e ->
-      throwIO
-        ( CannotCoverFees
-            { walletUTxO
-            , headUTxO
-            , reason = show e
-            , tx = fromLedgerTx partialTx
-            } ::
-            PostTxError Tx
-        )
-    Right validatedTx -> do
-      pure $ sign validatedTx
 
 -- | Hardcoded grace time for close transaction to be valid.
 -- TODO: make it a node configuration parameter

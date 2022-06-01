@@ -26,10 +26,13 @@ import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (
+  newEmptyTMVar,
   newTQueueIO,
   newTVarIO,
   putTMVar,
   readTQueue,
+  takeTMVar,
+  writeTQueue,
  )
 import Control.Monad.Trans.Except (runExcept)
 import Control.Tracer (nullTracer)
@@ -52,7 +55,12 @@ import Hydra.Chain (
   ChainComponent,
   PostTxError (..),
  )
-import Hydra.Chain.CardanoClient (queryEraHistory, queryProtocolParameters, querySystemStart, queryTipSlotNo)
+import Hydra.Chain.CardanoClient (
+  queryEraHistory,
+  queryProtocolParameters,
+  querySystemStart,
+  queryTipSlotNo,
+ )
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler,
   DirectChainLog (..),
@@ -163,7 +171,14 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
             -- connection with the server's tip. So any transaction submitted
             -- before that tip will be missed.
             threadDelay 2
-            action $ mkChain tracer (queryTimeHandle networkId socketPath) cardanoKeys wallet headState queue
+            action $
+              mkChain
+                tracer
+                (queryTimeHandle networkId socketPath)
+                cardanoKeys
+                wallet
+                headState
+                (newTxPoster queue)
         )
         ( handle onIOException $ do
             let intersection = toConsensusPointHF <$> point
@@ -178,6 +193,15 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
       Left a -> pure a
       Right () -> error "'connectTo' cannot terminate but did?"
  where
+  newTxPoster queue stm = do
+    response <- atomically $ do
+      response <- newEmptyTMVar
+      vtx <- stm
+      writeTQueue queue (vtx, response)
+      return response
+    atomically (takeTMVar response)
+      >>= maybe (pure ()) throwIO
+
   onIOException :: IOException -> IO ()
   onIOException ioException =
     throwIO $
