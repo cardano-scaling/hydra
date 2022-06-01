@@ -128,7 +128,11 @@ data AbortMutation
     MutateThreadTokenQuantity
   | DropCollectedInput
   | MutateRequiredSigner
-  | MutateHeadId
+  | -- | Simply change the currency symbol of the ST.
+    MutateHeadId
+  -- Spend a commit output from a different Head in exchange to e.g. one
+  -- Head participants committed output.
+  -- TODO: MutateUseACommitFromOtherHead
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -150,9 +154,8 @@ genAbortMutation (tx, utxo) =
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation MutateHeadId <$> do
         illedHeadResolvedInput <-
-          mkHeadOutputInitial
-            <$> pure testNetworkId
-            <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
+          mkHeadOutputInitial testNetworkId
+            <$> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure healthyHeadParameters
         return $ ChangeInput healthyHeadInput (toUTxOContext illedHeadResolvedInput) (Just $ toScriptData Head.Abort)
     ]
