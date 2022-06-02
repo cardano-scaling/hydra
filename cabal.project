@@ -195,6 +195,13 @@ source-repository-package
 
 source-repository-package
   type: git
+  location: https://github.com/input-output-hk/plutus-apps
+  tag: 83594e4cd210870985004c261ecc9e680015e065
+  subdir:
+    quickcheck-dynamic
+
+source-repository-package
+  type: git
   location: https://github.com/input-output-hk/ekg-forward
   tag: 297cd9db5074339a2fb2e5ae7d0780debb670c63
   --sha256: 1zcwry3y5rmd9lgxy89wsb3k4kpffqji35dc7ghzbz603y1gy24g

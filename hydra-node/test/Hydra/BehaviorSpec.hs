@@ -31,7 +31,7 @@ import Hydra.HeadLogic (
   Event (ClientEvent),
   HeadState (IdleState),
  )
-import Hydra.Ledger (IsTx, ValidationError (ValidationError))
+import Hydra.Ledger (IsTx, Ledger, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Node (
@@ -541,7 +541,7 @@ withHydraNode ::
   IOSim s a
 withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} action = do
   outputs <- atomically newTQueue
-  node <- createHydraNode outputs
+  node <- createHydraNode simpleLedger signingKey otherParties outputs connectToChain
 
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action
@@ -559,26 +559,32 @@ withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} act
             mapM_ (postTx (oc node)) (reverse toReplay)
         , waitForNext = atomically $ readTQueue outputs
         }
- where
-  party = deriveParty signingKey
 
-  createHydraNode outputs = do
-    eq <- createEventQueue
-    hh <- createHydraHead IdleState simpleLedger
-    chainComponent connectToChain $
-      HydraNode
-        { eq
-        , hn = Network{broadcast = const $ pure ()}
-        , hh
-        , oc = Chain (const $ pure ())
-        , server = Server{sendOutput = atomically . writeTQueue outputs}
-        , env =
-            Environment
-              { party
-              , signingKey
-              , otherParties
-              }
-        }
+createHydraNode ::
+  (MonadDelay m, MonadAsync m) =>
+  Ledger tx ->
+  Hydra.SigningKey ->
+  [Party] ->
+  TQueue m (ServerOutput tx) ->
+  ConnectToChain tx m ->
+  m (HydraNode tx m)
+createHydraNode ledger signingKey otherParties outputs connectToChain = do
+  eq <- createEventQueue
+  hh <- createHydraHead IdleState ledger
+  chainComponent connectToChain $
+    HydraNode
+      { eq
+      , hn = Network{broadcast = const $ pure ()}
+      , hh
+      , oc = Chain (const $ pure ())
+      , server = Server{sendOutput = atomically . writeTQueue outputs}
+      , env =
+          Environment
+            { party = deriveParty signingKey
+            , signingKey
+            , otherParties
+            }
+      }
 
 openHead ::
   TestHydraNode SimpleTx (IOSim s) ->
