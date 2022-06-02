@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | A /Model/ of the Hydra head Protocol
 --
@@ -8,12 +8,13 @@
 -- /operators/ that want to create a channel between them.
 module Hydra.Model where
 
-import Control.Monad.Class.MonadSTM (newTQueue)
-import Control.Monad.IOSim (runSimTrace, traceResult)
+import Hydra.Prelude hiding (Any)
+
+import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import GHC.Show (show)
 import Hydra.BehaviorSpec (createHydraNode, simulatedChainAndNetwork)
-import Hydra.Cardano.Api (UTxO)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
 import Hydra.ClientInput (ClientInput)
@@ -21,13 +22,13 @@ import qualified Hydra.ClientInput as Input
 import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (Committed, PendingCommits)
 import Hydra.Ledger.Cardano (Tx, cardanoLedger)
-import Hydra.Node (HydraNode, handleClientInput)
+import Hydra.Logging (traceInTVar)
+import Hydra.Node (HydraNode, handleClientInput, runHydraNode)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Prelude hiding (State)
 import Hydra.Snapshot (ConfirmedSnapshot)
-import Test.QuickCheck (Property, elements, forAll, property, (===))
-import Test.QuickCheck.Property (counterexample)
-import Test.QuickCheck.StateModel (StateModel (..), Var)
+import Test.QuickCheck (elements)
+import Test.QuickCheck.Gen (oneof)
+import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var (Var))
 
 -- | Local state as seen by each Head participant.
 data LocalState
@@ -66,36 +67,57 @@ data OffChainState = OffChainState
   deriving stock (Eq, Show)
 
 -- | Global state maintained by the model.
-newtype GlobalState = GlobalState {globalState :: Map.Map Party LocalState}
-  deriving stock (Eq, Show)
+newtype WorldState (m :: Type -> Type) = WorldState {worldState :: Map.Map Party LocalState}
+  deriving (Eq, Show)
 
-instance StateModel GlobalState where
-  data Action GlobalState a where
-    Seed :: {seedParties :: [Party]} -> Action GlobalState ()
+type Nodes m = Map.Map Party (HydraNode Tx m)
+
+instance Show (HydraNode Tx m) where
+  show _ = "node"
+
+instance
+  ( MonadSTM m
+  , MonadDelay m
+  , MonadAsync m
+  , MonadCatch m
+  , MonadTime m
+  , MonadFork m
+  , Typeable m
+  ) =>
+  StateModel (WorldState m)
+  where
+  data Action (WorldState m) a where
+    Seed :: {seedKeys :: [Hydra.SigningKey]} -> Action (WorldState m) (Nodes m)
     Action ::
       { party :: Party
       , command :: ClientInput Tx
       } ->
-      Action GlobalState ()
+      Action (WorldState m) ()
 
-  initialState = GlobalState mempty
+  type ActionMonad (WorldState m) = m
 
-  arbitraryAction :: GlobalState -> Gen (Any (Action GlobalState))
+  initialState = WorldState mempty
+
+  arbitraryAction :: WorldState m -> Gen (Any (Action (WorldState m)))
   arbitraryAction = \case
-    GlobalState{globalState}
-      | isEmpty globalState -> Seed . reasonableSized <$> arbitrary
-      | all isIdleState (Map.elems globalState) -> do
-        initContestationPeriod <- arbitrary
-        party <- elements $ Map.keys globalState
-        let command = Input.Init{Input.contestationPeriod = initContestationPeriod}
-        pure $ Action{party, command}
-      | otherwise -> error "not implemented"
+    WorldState{worldState} ->
+      oneof
+        [ Some . Seed <$> reasonablySized arbitrary
+        , do
+            initContestationPeriod <- arbitrary
+            party <- elements $ Map.keys worldState
+            let command = Input.Init{Input.contestationPeriod = initContestationPeriod}
+            pure $ Some Action{party, command}
+        ]
 
-  nextState :: GlobalState -> Action GlobalState a -> Var a -> GlobalState
-  nextState GlobalState{globalState} Seed{seedParties} _ =
-    GlobalState{globalState = Map.fromList $ map (,seedParties) seedParties}
-  nextState GlobalState{globalState} Action{command = Input.Init{Input.contestationPeriod}} _ =
-    GlobalState{globalState = Map.map mkInitialState globalState}
+  nextState :: WorldState m -> Action (WorldState m) a -> Var a -> WorldState m
+  nextState _ Seed{seedKeys} _ =
+    WorldState{worldState = Map.fromList $ map mkIdle idleParties}
+   where
+    idleParties = map deriveParty seedKeys
+    mkIdle p = (p, Idle{idleParties})
+  nextState WorldState{worldState} Action{command = Input.Init{Input.contestationPeriod}} _ =
+    WorldState{worldState = Map.map mkInitialState worldState}
    where
     mkInitialState = \case
       Idle{idleParties} ->
@@ -111,92 +133,34 @@ instance StateModel GlobalState where
       _ -> error "unexpected state"
   nextState _ _ _ = error "not implemented"
 
-  precondition GlobalState{globalState} Seed{seedParties} = isEmpty globalState
-  precondition GlobalState{globalState} Action{command = Input.Init{}} =
-sequenceOfActions :: [Party] -> Gen [Action]
-sequenceOfActions idleParties = go (startState idleParties) []
- where
-  go st@GlobalState{globalState} acc
-    | shouldStop globalState = pure $ reverse acc
-    | otherwise = generateAction st >>= \a -> go (interpret a st) (a : acc)
+  precondition WorldState{worldState} Seed{} = null worldState
+  precondition WorldState{worldState} Action{command = Input.Init{}} = all isIdleState (Map.elems worldState)
+  precondition _ _ = True
 
-  shouldStop = (== 1) . Map.size
-
--- all isFinalState . Map.elems
-
-startState :: [Party] -> GlobalState
-startState idleParties = GlobalState{globalState = Map.fromList $ map (,Idle{idleParties}) idleParties}
---
-
--- * Properties
-
---
-
-prop_checkModel :: Property
-prop_checkModel =
-  forAll (reasonablySized arbitrary) $ \hydraKeys ->
-    let parties = map deriveParty hydraKeys
-     in forAll (sequenceOfActions parties) $ \actions ->
-          let result =
-                traceResult False $
-                  runSimTrace $
-                    evalStateT
-                      ( runWorld $ do
-                          initWorld parties hydraKeys
-                          traverse_ runAction actions
-                          getState
-                      )
-                      WorldState{worldState = mempty}
-              expected = foldr interpret (startState parties) actions
-           in case result of
-                Right actual -> actual === expected
-                Left err -> property False & counterexample (show err)
-
-class World m where
-  initWorld :: [Party] -> [Hydra.SigningKey] -> m ()
-  runAction :: Action GlobalState () -> m ()
-  getState :: m GlobalState
-
-newtype WorldMonad m a = WorldMonad {runWorld :: StateT (WorldState m) m a}
-  deriving newtype (Functor, Applicative, Monad, MonadState (WorldState m))
-
-instance MonadTrans WorldMonad where
-  lift m = WorldMonad $ StateT $ \s -> (,s) <$> m
-
-newtype WorldState m = WorldState {worldState :: Map.Map Party (Actor m)}
-
-data Actor m = Actor {actorState :: LocalState, actorNode :: HydraNode Tx m}
-
-instance (MonadSTM m, MonadAsync m, MonadDelay m) => World (WorldMonad m) where
-  initWorld parties hydraKeys = do
-    nodes <- lift $ do
+  perform :: WorldState m -> Action (WorldState m) a -> LookUp -> m a
+  perform _worldState Seed{seedKeys} _ = do
+    let parties = map deriveParty seedKeys
+    tvar <- newTVarIO []
+    nodes <- do
       let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
       connectToChain <- simulatedChainAndNetwork
-      forM hydraKeys $ \sk -> do
+      forM seedKeys $ \sk -> do
         outputs <- atomically newTQueue
         node <- createHydraNode ledger sk parties outputs connectToChain
-        runHydraNode tracer node
-        pure node
+        runHydraNode (traceInTVar tvar) node
+        pure (deriveParty sk, node)
 
-    put $
-      WorldState
-        { worldState =
-            Map.fromList $
-              zip parties $
-                map (\n -> Actor{actorState = Idle{idleParties = parties}, actorNode = n}) nodes
-        }
+    pure $ Map.fromList nodes
+  perform _ Action{party, command} lookupVar = do
+    let nodes = lookupVar (Var 0 :: Var (Nodes m))
+    case Map.lookup party nodes of
+      Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
+      Just actorNode -> actorNode `handleClientInput` command
 
-  runAction Action{party, command} = do
-    WorldState{worldState} <- get
-    case Map.lookup party worldState of
-      Nothing -> error $ "unexpected party " <> show party
-      Just Actor{actorNode} -> lift $ actorNode `handleClientInput` command
+instance Show (Action (WorldState m) a) where
+  show (Seed sks) = "Seed { seedKeys = " <> Hydra.Prelude.show sks <> "}"
+  show (Action pa ci) = "Action { party = " <> Hydra.Prelude.show pa <> ", command = " <> Hydra.Prelude.show ci <> "}"
 
-  getState = gets worldState <&> (GlobalState . Map.map actorState)
-
-selectActor :: Monad m => Party -> WorldMonad m (HydraNode Tx m)
-selectActor party = do
-  actors <- gets worldState
-  case Map.lookup party actors of
-    Nothing -> error $ "unknown party " <> show party
-    Just (actorNode -> node) -> pure node
+instance Eq (Action (WorldState m) a) where
+  (Seed sks) == (Seed sks') = sks == sks'
+  (Action pa ci) == (Action pa' ci') = pa == pa' && ci == ci'
