@@ -157,11 +157,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
       SomeOnChainHeadStateAt
         { currentOnChainHeadState =
             SomeOnChainHeadState $
-              idleOnChainHeadState
-                networkId
-                (cardanoKeys \\ [verificationKey wallet])
-                (verificationKey wallet)
-                party
+              idleOnChainHeadState networkId (cardanoKeys \\ [vk]) vk party
         , recordedAt = AtStart
         }
   res <-

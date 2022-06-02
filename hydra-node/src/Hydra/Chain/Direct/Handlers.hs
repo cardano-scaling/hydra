@@ -17,12 +17,7 @@ import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Shelley.API (TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad (foldM)
-import Control.Monad.Class.MonadSTM (
-  readTVarIO,
-  retry,
-  writeTVar,
- )
-import Control.Monad.Class.MonadTimer (timeout)
+import Control.Monad.Class.MonadSTM (readTVarIO, writeTVar)
 import Data.Aeson (Value (String), object, (.=))
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
@@ -114,30 +109,22 @@ mkChain tracer queryTimeHandle cardanoKeys wallet headState txPoster =
     { postTx = \tx -> do
         traceWith tracer $ ToPost tx
         timeHandle <- queryTimeHandle
-        -- XXX(SN): 'finalizeTx' retries until a payment utxo is
-        -- found. See haddock for details
-        timeoutThrowAfter (NoPaymentInput @Tx) 10 $
-          txPoster
-            ( -- FIXME (MB): 'cardanoKeys' should really not be here. They
-              -- are only required for the init transaction and ought to
-              -- come from the _client_ and be part of the init request
-              -- altogether. This goes in the direction of 'dynamic
-              -- heads' where participants aren't known upfront but
-              -- provided via the API. Ultimately, an init request from
-              -- a client would contain all the details needed to
-              -- establish connection to the other peers and to
-              -- bootstrap the init transaction.
-              -- For now, we bear with it and keep the static keys in
-              -- context.
-              fromPostChainTx timeHandle cardanoKeys wallet headState tx
-                >>= finalizeTx wallet headState . toLedgerTx
-            )
+        txPoster
+          ( -- FIXME (MB): 'cardanoKeys' should really not be here. They
+            -- are only required for the init transaction and ought to
+            -- come from the _client_ and be part of the init request
+            -- altogether. This goes in the direction of 'dynamic
+            -- heads' where participants aren't known upfront but
+            -- provided via the API. Ultimately, an init request from
+            -- a client would contain all the details needed to
+            -- establish connection to the other peers and to
+            -- bootstrap the init transaction.
+            -- For now, we bear with it and keep the static keys in
+            -- context.
+            fromPostChainTx timeHandle cardanoKeys wallet headState tx
+              >>= finalizeTx wallet headState . toLedgerTx
+          )
     }
- where
-  timeoutThrowAfter ex s io = do
-    timeout s io >>= \case
-      Nothing -> throwIO ex
-      Just a -> pure a
 
 data TimeHandle m = TimeHandle
   { -- | Get the current 'PointInTime'
@@ -148,12 +135,6 @@ data TimeHandle m = TimeHandle
   }
 
 -- | Balance and sign the given partial transaction.
---
--- XXX(SN): This function does 'retry' when no payment UTXO was found and thus
--- might block. This is necessary in some situations when the wallet has not yet
--- "seen" the change output although the direct chain client observed a
--- transaction already. This is a smell and we should try to avoid having this
--- race condition in the first place.
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
@@ -165,8 +146,6 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
   let headUTxO = (\(SomeOnChainHeadState st) -> getKnownUTxO st) someSt
   walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
-    Left ErrNoPaymentUTxOFound ->
-      retry
     Left ErrUnknownInput{input} -> do
       throwIO
         ( CannotSpendInput
