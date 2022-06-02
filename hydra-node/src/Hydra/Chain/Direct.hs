@@ -150,7 +150,7 @@ withDirectChain ::
   ChainComponent Tx IO a
 withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point callback action = do
   queue <- newTQueueIO
-  withTinyWallet (contramap Wallet tracer) networkId keyPair iocp socketPath $ \wallet -> do
+  withTinyWallet (contramap Wallet tracer) networkId keyPair socketPath $ \wallet -> do
     headState <-
       newTVarIO $
         SomeOnChainHeadStateAt

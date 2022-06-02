@@ -215,33 +215,20 @@ withTinyWallet ::
   NetworkId ->
   -- | Credentials of the wallet.
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
-  -- | A cross-platform abstraction for managing I/O operations on local sockets
-  IOManager ->
   -- | Path to a domain socket used to connect to the server.
   FilePath ->
   (TinyWallet IO -> IO a) ->
   IO a
-withTinyWallet tracer networkId (vk, sk) iocp socketPath action = do
-  utxoVar <- newEmptyTMVarIO
-  tipVar <- newTVarIO genesisPoint
-
-  let wallet@TinyWallet{reset} = newTinyWallet utxoVar
-  reset Nothing
-
-  action wallet
+withTinyWallet tracer networkId (vk, sk) socketPath action = do
+  utxoVar <- newTVarIO =<< queryUTxOEtc
+  action $ newTinyWallet utxoVar
  where
-  -- res <-
-  --   race
-  --     (action $ newTinyWallet utxoVar)
-  --     ( connectTo
-  --         (localSnocket iocp)
-  --         nullConnectTracers
-  --         (versions networkId $ client tracer tipVar utxoVar address)
-  --         addr
-  --     )
-  -- case res of
-  --   Left a -> pure a
-  --   Right () -> error "'connectTo' cannot gracefully terminate but did?"
+  queryUTxOEtc = do
+    utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath [address]
+    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath
+    systemStart <- querySystemStart networkId socketPath
+    epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath
+    pure (utxo, pparams, systemStart, epochInfo)
 
   address =
     makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
@@ -251,32 +238,29 @@ withTinyWallet tracer networkId (vk, sk) iocp socketPath action = do
   newTinyWallet utxoVar =
     TinyWallet
       { getUTxO =
-          (\(u, _, _, _) -> u) <$> readTMVar utxoVar
+          (\(u, _, _, _) -> u) <$> readTVar utxoVar
       , getAddress = ledgerAddress
       , sign = Util.signWith (vk, sk)
       , coverFee = \lookupUTxO partialTx -> do
-          (walletUTxO, pparams, systemStart, epochInfo) <- readTMVar utxoVar
+          (walletUTxO, pparams, systemStart, epochInfo) <- readTVar utxoVar
           case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx of
             Left e ->
               pure (Left e)
             Right (walletUTxO', balancedTx) -> do
-              _ <- swapTMVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
+              writeTVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
               pure (Right balancedTx)
       , verificationKey = vk
-      , reset = \mPoint -> do
+      , reset = \_mPoint -> do
           -- TODO: query from point?
-          utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath [address]
-          pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath
-          systemStart <- querySystemStart networkId socketPath
-          epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath
-          atomically $ void $ swapTMVar utxoVar (utxo, pparams, systemStart, epochInfo)
+          traceWith tracer ResetWallet
+          queryUTxOEtc >>= atomically . writeTVar utxoVar
       , update = \block -> do
           msg <- atomically $ do
-            (utxo, pparams, systemStart, epochInfo) <- readTMVar utxoVar
+            (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar
             let utxo' = applyBlock block (== ledgerAddress) utxo
             if utxo' /= utxo
               then do
-                void $ swapTMVar utxoVar (utxo', pparams, systemStart, epochInfo)
+                writeTVar utxoVar (utxo', pparams, systemStart, epochInfo)
                 pure $ Just $ ApplyBlock utxo utxo'
               else do
                 pure Nothing
@@ -780,6 +764,7 @@ stateQueryClient tracer tipVar utxoVar address =
 
 data TinyWalletLog
   = InitializingWallet SomePoint (Map TxIn TxOut)
+  | ResetWallet
   | ApplyBlock (Map TxIn TxOut) (Map TxIn TxOut)
   | EraMismatchError {expected :: Text, actual :: Text}
   deriving (Eq, Generic, Show)
@@ -793,6 +778,7 @@ instance ToJSON TinyWalletLog where
           , "point" .= show @Text point
           , "initialUTxO" .= initialUTxO
           ]
+      ResetWallet -> object ["tag" .= String "ResetWallet"]
       (ApplyBlock utxo utxo') ->
         object
           [ "tag" .= String "ApplyBlock"
