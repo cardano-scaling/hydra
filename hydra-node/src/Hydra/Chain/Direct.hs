@@ -182,9 +182,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
         )
         ( handle onIOException $ do
             let intersection = toConsensusPointHF <$> point
-            let client =
-                  ouroborosApplication tracer intersection queue $
-                    chainSyncHandler tracer callback headState wallet
+            let client = ouroborosApplication tracer intersection queue (chainSyncHandler tracer callback headState) wallet
             connectTo
               (localSnocket iocp)
               nullConnectTracers
@@ -268,16 +266,17 @@ ouroborosApplication ::
   Maybe (Point Block) ->
   TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
   ChainSyncHandler m ->
+  TinyWallet m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-ouroborosApplication tracer point queue handler nodeToClientV =
+ouroborosApplication tracer point queue handler wallet nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClient handler point
+                  let peer = chainSyncClient handler wallet point
                    in MuxPeer nullTracer cChainSyncCodec (chainSyncClientPeer peer)
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
@@ -306,9 +305,10 @@ chainSyncClient ::
   forall m.
   (MonadSTM m, MonadThrow m) =>
   ChainSyncHandler m ->
+  TinyWallet m ->
   Maybe (Point Block) ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient handler = \case
+chainSyncClient handler wallet = \case
   Nothing ->
     ChainSyncClient (pure initStIdle)
   Just startingPoint ->
@@ -367,9 +367,17 @@ chainSyncClient handler = \case
   clientStNext =
     ClientStNext
       { recvMsgRollForward = \block _tip -> ChainSyncClient $ do
-          clientStIdle <$ onRollForward handler block
+          -- Update the tiny wallet
+          update wallet block
+          -- Observe Hydra transactions
+          onRollForward handler block
+          pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
-          clientStIdle <$ onRollBackward handler point
+          -- Re-initialize the tiny wallet
+          reset wallet $ Just point
+          -- Rollback main chain sync handler
+          onRollBackward handler point
+          pure clientStIdle
       }
 
 txSubmissionClient ::
