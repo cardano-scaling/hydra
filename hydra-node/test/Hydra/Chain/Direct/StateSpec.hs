@@ -112,6 +112,8 @@ import Test.QuickCheck (
   forAllShow,
   label,
   sublistOf,
+  suchThat,
+  (===),
   (==>),
  )
 import Test.QuickCheck.Monadic (
@@ -176,6 +178,17 @@ spec = parallel $ do
 
   describe "abort" $ do
     propBelowSizeLimit (2 * maxTxSize) forAllAbort
+
+    prop "ignore aborts of other heads" $ do
+      let twoDistinctHeads = do
+            ctx <- genHydraContext 1
+            st1 <- genStInitialized ctx
+            st2 <-
+              genStInitialized ctx `suchThat` \_st2 ->
+                True -- TODO: ensure they are distinct
+            pure (st1, st2)
+      forAll twoDistinctHeads $ \(stHead1, stHead2) ->
+        observeTx @_ @StIdle (abort stHead1) stHead2 === Nothing
 
   describe "collectCom" $ do
     propBelowSizeLimit maxTxSize forAllCollectCom
