@@ -23,6 +23,7 @@ data HydraEvent tx
   = ClientConnected
   | ClientDisconnected
   | Update (ServerOutput tx)
+  | Tick -- a second has passed
   deriving (Eq, Show, Generic)
 
 -- | Handle to interact with Hydra node

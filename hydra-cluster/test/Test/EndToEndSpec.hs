@@ -171,8 +171,16 @@ spec = around showLogsOnFailure $ do
               withBobNode $ \n2 -> do
                 waitMatch 10 n2 $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsOpen"
+
                 send n2 $ input "Close" []
-                waitFor tracer 10 [n1, n2] $ output "HeadIsClosed" ["snapshotNumber" .= (0 :: Word)]
+
+                let isHeadClosedWith0 v = do
+                      guard $ v ^? key "tag" == Just "HeadIsClosed"
+                      snapshotNumber <- v ^? key "snapshotNumber"
+                      guard $ snapshotNumber == toJSON (0 :: Word)
+                waitMatch 10 n1 isHeadClosedWith0
+                waitMatch 10 n2 isHeadClosedWith0
+
                 waitFor tracer 10 [n1, n2] $ output "HeadIsContested" ["snapshotNumber" .= (1 :: Word)]
 
     describe "two hydra heads scenario" $ do

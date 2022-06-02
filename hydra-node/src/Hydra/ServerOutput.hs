@@ -16,7 +16,7 @@ data ServerOutput tx
   | ReadyToCommit {parties :: Set Party}
   | Committed {party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {utxo :: UTxOType tx}
-  | HeadIsClosed {snapshotNumber :: SnapshotNumber}
+  | HeadIsClosed {snapshotNumber :: SnapshotNumber, remainingContestationPeriod :: NominalDiffTime}
   | HeadIsContested {snapshotNumber :: SnapshotNumber}
   | ReadyToFanout
   | HeadIsAborted {utxo :: UTxOType tx}
@@ -54,7 +54,7 @@ instance IsTx tx => Arbitrary (ServerOutput tx) where
     ReadyToCommit xs -> ReadyToCommit <$> shrink xs
     Committed p u -> Committed <$> shrink p <*> shrink u
     HeadIsOpen u -> HeadIsOpen <$> shrink u
-    HeadIsClosed s -> HeadIsClosed <$> shrink s
+    HeadIsClosed s t -> HeadIsClosed <$> shrink s <*> shrink t
     HeadIsContested sn -> HeadIsContested <$> shrink sn
     ReadyToFanout -> []
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u

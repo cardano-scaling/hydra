@@ -314,12 +314,15 @@ components:
         required:
           - tag
           - snapshotNumber
+          - remainingContestationPeriod
         properties:
           tag:
             type: string
             enum: ["HeadIsClosed"]
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
+          remainingContestationPeriod:
+            $ref: "#/components/schemas/ContestationPeriod"
 
     HeadIsContested:
       title: HeadIsContested

@@ -97,6 +97,7 @@ library
     , optparse-applicative
     , QuickCheck
     , text
+    , time
     , vty
     , websockets
 
