@@ -187,7 +187,7 @@ genAbortMutation (tx, utxo) =
 
         pure $
           Changes
-            [ ChangeInput input output' (Just $ toScriptData Head.Abort)
+            [ ChangeInput input output' (Just $ toScriptData Initial.Abort)
             , ChangeMintedValue mintedValue'
             ]
     ]
