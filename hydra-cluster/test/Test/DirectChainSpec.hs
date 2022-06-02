@@ -40,12 +40,11 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct (
-  DirectChainLog,
   IntersectionNotFoundException,
-  closeGraceTime,
   withDirectChain,
   withIOManager,
  )
+import Hydra.Chain.Direct.Handlers (DirectChainLog, closeGraceTime)
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (IsTx (..))

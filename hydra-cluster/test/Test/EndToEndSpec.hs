@@ -37,7 +37,7 @@ import Hydra.Cardano.Api (
   serialiseAddress,
   unSlotNo,
  )
-import Hydra.Chain.Direct (closeGraceTime)
+import Hydra.Chain.Direct.Handlers (closeGraceTime)
 import Hydra.Crypto (deriveVerificationKey, generateSigningKey)
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (txId)

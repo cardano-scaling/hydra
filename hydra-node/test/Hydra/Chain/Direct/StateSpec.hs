@@ -38,12 +38,6 @@ import Hydra.Cardano.Api (
   pattern TxOutDatumNone,
  )
 import Hydra.Chain (ChainEvent (..), OnChainTx (OnCloseTx, remainingContestationPeriod), PostTxError (..), snapshotNumber)
-import Hydra.Chain.Direct (
-  ChainSyncHandler (..),
-  RecordedAt (..),
-  SomeOnChainHeadStateAt (..),
-  chainSyncHandler,
- )
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
   ctxHeadParameters,
@@ -63,6 +57,12 @@ import Hydra.Chain.Direct.Context (
   unsafeObserveTx,
  )
 import Hydra.Chain.Direct.Fixture (maxTxExecutionUnits, maxTxSize)
+import Hydra.Chain.Direct.Handlers (
+  ChainSyncHandler (..),
+  RecordedAt (..),
+  SomeOnChainHeadStateAt (..),
+  chainSyncHandler,
+ )
 import Hydra.Chain.Direct.State (
   HasTransition (..),
   HeadStateKind (..),

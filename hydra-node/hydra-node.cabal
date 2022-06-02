@@ -79,6 +79,7 @@ library
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
     Hydra.Chain.Direct.Context
+    Hydra.Chain.Direct.Handlers
     Hydra.Chain.Direct.State
     Hydra.Chain.Direct.Tx
     Hydra.Chain.Direct.Util
