@@ -24,6 +24,7 @@ import Hydra.Chain.Direct.Tx (
   UTxOWithScript,
   abortTx,
   headPolicyId,
+  headValue,
   mkHeadOutputInitial,
   mkHeadTokenScript,
  )
@@ -130,9 +131,9 @@ data AbortMutation
   | MutateRequiredSigner
   | -- | Simply change the currency symbol of the ST.
     MutateHeadId
-  -- Spend a commit output from a different Head in exchange to e.g. one
-  -- Head participants committed output.
-  -- TODO: MutateUseACommitFromOtherHead
+  | -- Spend some abortable output from a different Head
+    -- e.g. replace a commit by another commit from a different Head.
+    UseInputFromOtherHead
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -158,4 +159,23 @@ genAbortMutation (tx, utxo) =
             <$> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure healthyHeadParameters
         return $ ChangeInput healthyHeadInput (toUTxOContext illedHeadResolvedInput) (Just $ toScriptData Head.Abort)
+    , SomeMutation UseInputFromOtherHead <$> do
+        (input, output, _) <- elements healthyInitials
+        otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
+
+        let output' =
+              modifyTxOutValue
+                ( \v ->
+                    let assetNames = [assetName | (AssetId policyId assetName, _) <- valueToList v, policyId == testPolicyId]
+                     in case assetNames of
+                          [assetName] ->
+                            headValue <> valueFromList [(AssetId otherHeadId assetName, 1)]
+                          _ ->
+                            error "Initial abortable input did not have any PT!?"
+                )
+                output
+
+        let scriptData = undefined
+
+        pure $ ChangeInput input output' (Just scriptData)
     ]
