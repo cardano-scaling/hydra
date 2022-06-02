@@ -175,7 +175,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
               cardanoKeys
               wallet
               headState
-              (newTxPoster queue)
+              (submitTx queue)
       )
       ( handle onIOException $ do
           let intersection = toConsensusPointHF <$> point
@@ -190,10 +190,9 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
     Left a -> pure a
     Right () -> error "'connectTo' cannot terminate but did?"
  where
-  newTxPoster queue stm = do
+  submitTx queue vtx = do
     response <- atomically $ do
       response <- newEmptyTMVar
-      vtx <- stm
       writeTQueue queue (vtx, response)
       return response
     atomically (takeTMVar response)
