@@ -675,14 +675,14 @@ observeCollectComTx ::
   Tx ->
   Maybe CollectComObservation
 observeCollectComTx utxo tx = do
-  (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Initial{parties, contestationPeriod}, Head.CollectCom) -> do
-      (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
+      (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV1 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
       utxoHash <- decodeUtxoHash newHeadDatum
       pure
@@ -723,14 +723,14 @@ observeCloseTx ::
   Tx ->
   Maybe CloseObservation
 observeCloseTx utxo tx = do
-  (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open{parties}, Head.Close{snapshotNumber = onChainSnapshotNumber}) -> do
-      (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
+      (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV1 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
       closeContestationDeadline <- case fromData (toPlutusData newHeadDatum) of
         Just Head.Closed{contestationDeadline} -> pure contestationDeadline
@@ -770,14 +770,14 @@ observeContestTx ::
   Tx ->
   Maybe ContestObservation
 observeContestTx utxo tx = do
-  (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Closed{}, Head.Contest{snapshotNumber = onChainSnapshotNumber}) -> do
-      (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
+      (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV1 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
@@ -804,7 +804,7 @@ observeFanoutTx ::
   Tx ->
   Maybe FanoutObservation
 observeFanoutTx utxo tx = do
-  headInput <- fst <$> findScriptOutput @PlutusScriptV1 utxo headScript
+  headInput <- fst <$> findTxOutByScript @PlutusScriptV1 utxo headScript
   findRedeemerSpending tx headInput
     >>= \case
       Head.Fanout{} -> pure FanoutObservation
@@ -824,7 +824,7 @@ observeAbortTx ::
   Tx ->
   Maybe AbortObservation
 observeAbortTx utxo tx = do
-  headInput <- fst <$> findScriptOutput @PlutusScriptV1 utxo headScript
+  headInput <- fst <$> findTxOutByScript @PlutusScriptV1 utxo headScript
   findRedeemerSpending tx headInput >>= \case
     Head.Abort -> pure AbortObservation
     _ -> Nothing
