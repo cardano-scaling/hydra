@@ -174,9 +174,14 @@ genAbortMutation (tx, utxo) =
 
             newValue = headValue <> valueFromList [(AssetId otherHeadId assetName, 1)]
 
+            ptForAssetName = \case
+              (AssetId pid asset, _) ->
+                pid == originalPolicyId && asset == assetName
+              _ -> False
+
             mintedValue' = case txMintValue $ txBodyContent $ txBody tx of
               TxMintValueNone -> error "expected minted value"
-              TxMintValue v _ -> v <> valueFromList [(AssetId originalPolicyId assetName, -1)]
+              TxMintValue v _ -> valueFromList $ filter (not . ptForAssetName) $ valueToList v
 
             output' = TxOut addr newValue datum
 
