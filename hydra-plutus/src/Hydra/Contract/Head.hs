@@ -45,7 +45,7 @@ import Plutus.V1.Ledger.Api (
   UpperBound (..),
   Validator (getValidator),
   ValidatorHash,
-  Value (Value),
+  Value (Value, getValue),
   adaSymbol,
   adaToken,
   mkValidatorScript,
@@ -150,34 +150,35 @@ mkHeadContext context initialAddress commitAddress =
           _ -> symbol : loop rest
 {-# INLINEABLE mkHeadContext #-}
 
--- | On-Chain Validation for 'Abort' transition.
--- It must verify that:
---  * All PTs have been burnt
---  * It has collected inputs for all parties, either from `Initial` or `Commit` script.
+-- | On-Chain verification for 'Abort' transition. It verifies that:
 --
--- FIXME: This seems not to validate whether the right head is aborted, i.e. the
--- collected inputs are from a Head with the same policyId.
+--  * All PTs have been burnt: The right number of Head tokens, both PT for parties
+--    and thread token, with the correct head id, are burnt,
+--
+--  * All committed funds have been redistributed. This is done via v_commit and
+--    it only needs to ensure that we have spent all comitted outputs, which
+--    follows from burning all the PTs.
 checkAbort ::
   ScriptContext ->
   HeadContext ->
   [Party] ->
   Bool
 checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parties =
-  consumeInputsForAllParties
+  mustBurnAllHeadTokens
     && mustBeSignedByParticipant context headContext
  where
-  HeadContext{initialAddress, commitAddress} = headContext
+  HeadContext{headCurrencySymbol} = headContext
 
-  consumeInputsForAllParties =
+  mustBurnAllHeadTokens =
     traceIfFalse "number of inputs do not match number of parties" $
-      length parties == length initialAndCommitInputs
-  initialAndCommitInputs =
-    filter
-      ( \TxInInfo{txInInfoResolved} ->
-          let addr = txOutAddress txInInfoResolved
-           in addr == commitAddress || addr == initialAddress
-      )
-      (txInfoInputs txInfo)
+      burntTokens == length parties + 1
+
+  minted = getValue $ txInfoMint txInfo
+
+  burntTokens =
+    case Map.lookup headCurrencySymbol minted of
+      Nothing -> 0
+      Just tokenMap -> negate $ sum tokenMap
 
 -- | On-Chain Validation for the 'CollectCom' transition.
 --
@@ -185,7 +186,7 @@ checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parti
 --
 -- - All participants have committed (even empty commits)
 -- - All commits are properly collected and locked into the contract as a hash
---   of serialized tx outputss in the same sequence as commit inputs!
+--   of serialized tx outputs in the same sequence as commit inputs!
 -- - The transaction is performed (i.e. signed) by one of the head participants
 --
 -- It must also Initialize the on-chain state η* with a snapshot number and a

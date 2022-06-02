@@ -47,6 +47,11 @@ PlutusTx.unstableMakeIsData ''SerializedTxOut
 type DatumType = (Party, ValidatorHash, Maybe SerializedTxOut)
 type RedeemerType = CommitRedeemer
 
+-- | The v_commit validator verifies that:
+--
+--   * spent in a transaction also consuming a v_head output
+--
+--   * on abort, redistribute comitted utxo
 validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
 validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextTxInfo = txInfo} =
   case txInInfoResolved <$> findHeadScript of

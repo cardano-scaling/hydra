@@ -89,6 +89,10 @@ validateTokensMinting initialValidator headValidator seedInput context =
 
   seedInputIsConsumed = seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
+-- TODO: does this even make sense to check? Shouldn't we check that we are
+-- doing an abort of fanout (terminal transitions) of the v_head? Or is this
+-- even 'const True' as one need to be able to spend tokens to burn them. If we
+-- only distribute them to v_initial on minting, that should be fine?
 validateTokensBurning :: ScriptContext -> Bool
 validateTokensBurning context =
   traceIfFalse "burnt wrong" checkAllPTsAreBurnt

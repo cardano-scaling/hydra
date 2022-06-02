@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Cardano.Api.TxOut where
 
 import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset (..))
@@ -69,16 +71,6 @@ findTxOutByScript utxo script =
        in scriptHash == scriptHash'
     _ ->
       False
-
-findScriptOutput ::
-  forall lang.
-  (HasPlutusScriptVersion lang) =>
-  UTxO ->
-  PlutusScript lang ->
-  Maybe (TxIn, TxOut CtxUTxO Era)
-findScriptOutput =
-  findTxOutByScript
-
 -- * Type Conversions
 
 -- | Convert a cardano-api's 'TxOut' into a cardano-ledger 'TxOut'
