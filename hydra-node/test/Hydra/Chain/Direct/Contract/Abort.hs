@@ -163,19 +163,26 @@ genAbortMutation (tx, utxo) =
         (input, output, _) <- elements healthyInitials
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
 
-        let output' =
-              modifyTxOutValue
-                ( \v ->
-                    let assetNames = [assetName | (AssetId policyId assetName, _) <- valueToList v, policyId == testPolicyId]
-                     in case assetNames of
-                          [assetName] ->
-                            headValue <> valueFromList [(AssetId otherHeadId assetName, 1)]
-                          _ ->
-                            error "Initial abortable input did not have any PT!?"
-                )
-                output
+        let TxOut addr value datum = output
+            assetNames =
+              [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList value, policyId == testPolicyId
+              ]
+            (originalPolicyId, assetName) =
+              case assetNames of
+                [assetId] -> assetId
+                _ -> error "expected one assetId"
 
-        let scriptData = undefined
+            newValue = headValue <> valueFromList [(AssetId otherHeadId assetName, 1)]
 
-        pure $ ChangeInput input output' (Just scriptData)
+            mintedValue' = case txMintValue $ txBodyContent $ txBody tx of
+              TxMintValueNone -> error "expected minted value"
+              TxMintValue v _ -> v <> valueFromList [(AssetId originalPolicyId assetName, -1)]
+
+            output' = TxOut addr newValue datum
+
+        pure $
+          Changes
+            [ ChangeInput input output' (Just $ toScriptData Head.Abort)
+            , ChangeMintedValue mintedValue'
+            ]
     ]
