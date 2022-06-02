@@ -89,14 +89,14 @@ spec = parallel $ do
   describe "withTinyWallet" $ do
     (vk, sk) <- runIO (generate genKeyPair)
     it "connects to server and returns UTXO in a timely manner" $ do
-      withMockServer $ \networkId iocp socket _ -> do
-        withTinyWallet nullTracer networkId (vk, sk) iocp socket $ \wallet -> do
+      withMockServer $ \networkId _iocp socket _ -> do
+        withTinyWallet nullTracer networkId (vk, sk) socket $ \wallet -> do
           result <- timeout 10 $ watchUTxOUntil (const True) wallet
           result `shouldSatisfy` isJust
 
     it "tracks UTXO correctly when payments are received" $ do
-      withMockServer $ \networkId iocp socket submitTx -> do
-        withTinyWallet nullTracer networkId (vk, sk) iocp socket $ \wallet -> do
+      withMockServer $ \networkId _iocp socket submitTx -> do
+        withTinyWallet nullTracer networkId (vk, sk) socket $ \wallet -> do
           generate (genPaymentTo networkId vk) >>= submitTx
           result <- timeout 10 $ watchUTxOUntil (not . null) wallet
           result `shouldSatisfy` isJust
