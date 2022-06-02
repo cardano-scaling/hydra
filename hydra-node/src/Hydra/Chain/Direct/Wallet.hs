@@ -117,10 +117,8 @@ type AlonzoPoint = Point (ShelleyBlock Era)
 data TinyWallet m = TinyWallet
   { -- | Return all known UTxO addressed to this wallet.
     getUTxO :: STM m (Map TxIn TxOut)
-  , getAddress :: Address
   , sign :: ValidatedTx Era -> ValidatedTx Era
   , coverFee :: Map TxIn TxOut -> ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
-  , verificationKey :: VerificationKey PaymentKey
   , -- | Reset the wallet state to some point.
     reset :: Maybe (Point Block) -> m ()
   , -- | Update the wallet state given some 'Block'.
@@ -137,7 +135,9 @@ watchUTxOUntil predicate TinyWallet{getUTxO} = atomically $ do
   u <- getUTxO
   u <$ check (predicate u)
 
-withTinyWallet ::
+-- | Create a new tiny wallet handle. This directly queries the wallet state
+-- from a cardano node listening at 'socketPath'.
+newTinyWallet ::
   -- | A tracer for logging
   Tracer IO TinyWalletLog ->
   -- | Network identifier to which we expect to connect.
@@ -146,29 +146,13 @@ withTinyWallet ::
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   -- | Path to a domain socket used to connect to the server.
   FilePath ->
-  (TinyWallet IO -> IO a) ->
-  IO a
-withTinyWallet tracer networkId (vk, sk) socketPath action = do
+  IO (TinyWallet IO)
+newTinyWallet tracer networkId (vk, sk) socketPath = do
   utxoVar <- newTVarIO =<< queryUTxOEtc
-  action $ newTinyWallet utxoVar
- where
-  queryUTxOEtc = do
-    utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath [address]
-    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath
-    systemStart <- querySystemStart networkId socketPath
-    epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath
-    pure (utxo, pparams, systemStart, epochInfo)
-
-  address =
-    makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
-
-  ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era address
-
-  newTinyWallet utxoVar =
+  pure
     TinyWallet
       { getUTxO =
           (\(u, _, _, _) -> u) <$> readTVar utxoVar
-      , getAddress = ledgerAddress
       , sign = Util.signWith (vk, sk)
       , coverFee = \lookupUTxO partialTx -> do
           (walletUTxO, pparams, systemStart, epochInfo) <- readTVar utxoVar
@@ -178,7 +162,6 @@ withTinyWallet tracer networkId (vk, sk) socketPath action = do
             Right (walletUTxO', balancedTx) -> do
               writeTVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
               pure (Right balancedTx)
-      , verificationKey = vk
       , reset = \_mPoint -> do
           -- TODO: query from point?
           traceWith tracer ResetWallet
@@ -195,6 +178,18 @@ withTinyWallet tracer networkId (vk, sk) socketPath action = do
                 pure Nothing
           mapM_ (traceWith tracer) msg
       }
+ where
+  queryUTxOEtc = do
+    utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath [address]
+    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath
+    systemStart <- querySystemStart networkId socketPath
+    epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath
+    pure (utxo, pparams, systemStart, epochInfo)
+
+  address =
+    makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
+
+  ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era address
 
   toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Except PastHorizonException)
   toEpochInfo (EraHistory _ interpreter) =

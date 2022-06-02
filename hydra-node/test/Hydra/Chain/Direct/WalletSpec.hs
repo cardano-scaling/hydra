@@ -47,8 +47,8 @@ import Hydra.Chain.Direct.Wallet (
   TxOut,
   applyBlock,
   coverFee_,
+  newTinyWallet,
   watchUTxOUntil,
-  withTinyWallet,
  )
 import Hydra.Ledger.Cardano (genKeyPair, genTxIn, renderTx)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, systemStart)
@@ -86,20 +86,20 @@ spec = parallel $ do
     prop "balances transaction with fees" prop_balanceTransaction
     prop "transaction's inputs are removed from wallet" prop_removeUsedInputs
 
-  describe "withTinyWallet" $ do
+  describe "newTinyWallet" $ do
     (vk, sk) <- runIO (generate genKeyPair)
     it "connects to server and returns UTXO in a timely manner" $ do
       withMockServer $ \networkId _iocp socket _ -> do
-        withTinyWallet nullTracer networkId (vk, sk) socket $ \wallet -> do
-          result <- timeout 10 $ watchUTxOUntil (const True) wallet
-          result `shouldSatisfy` isJust
+        wallet <- newTinyWallet nullTracer networkId (vk, sk) socket
+        result <- timeout 10 $ watchUTxOUntil (const True) wallet
+        result `shouldSatisfy` isJust
 
     it "tracks UTXO correctly when payments are received" $ do
       withMockServer $ \networkId _iocp socket submitTx -> do
-        withTinyWallet nullTracer networkId (vk, sk) socket $ \wallet -> do
-          generate (genPaymentTo networkId vk) >>= submitTx
-          result <- timeout 10 $ watchUTxOUntil (not . null) wallet
-          result `shouldSatisfy` isJust
+        wallet <- newTinyWallet nullTracer networkId (vk, sk) socket
+        generate (genPaymentTo networkId vk) >>= submitTx
+        result <- timeout 10 $ watchUTxOUntil (not . null) wallet
+        result `shouldSatisfy` isJust
 
 --
 -- Generators

@@ -86,7 +86,7 @@ import Hydra.Chain.Direct.Util (
 import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   getTxId,
-  withTinyWallet,
+  newTinyWallet,
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
@@ -150,48 +150,49 @@ withDirectChain ::
   ChainComponent Tx IO a
 withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point callback action = do
   queue <- newTQueueIO
-  withTinyWallet (contramap Wallet tracer) networkId keyPair socketPath $ \wallet -> do
-    headState <-
-      newTVarIO $
-        SomeOnChainHeadStateAt
-          { currentOnChainHeadState =
-              SomeOnChainHeadState $
-                idleOnChainHeadState
-                  networkId
-                  (cardanoKeys \\ [verificationKey wallet])
-                  (verificationKey wallet)
-                  party
-          , recordedAt = AtStart
-          }
-    res <-
-      race
-        ( do
-            -- FIXME: There's currently a race-condition with the actual client
-            -- which will only see transactions after it has established
-            -- connection with the server's tip. So any transaction submitted
-            -- before that tip will be missed.
-            threadDelay 2
-            action $
-              mkChain
-                tracer
-                (queryTimeHandle networkId socketPath)
-                cardanoKeys
-                wallet
-                headState
-                (newTxPoster queue)
-        )
-        ( handle onIOException $ do
-            let intersection = toConsensusPointHF <$> point
-            let client = ouroborosApplication tracer intersection queue (chainSyncHandler tracer callback headState) wallet
-            connectTo
-              (localSnocket iocp)
-              nullConnectTracers
-              (versions networkId client)
-              socketPath
-        )
-    case res of
-      Left a -> pure a
-      Right () -> error "'connectTo' cannot terminate but did?"
+  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair socketPath
+  let (vk, _) = keyPair
+  headState <-
+    newTVarIO $
+      SomeOnChainHeadStateAt
+        { currentOnChainHeadState =
+            SomeOnChainHeadState $
+              idleOnChainHeadState
+                networkId
+                (cardanoKeys \\ [verificationKey wallet])
+                (verificationKey wallet)
+                party
+        , recordedAt = AtStart
+        }
+  res <-
+    race
+      ( do
+          -- FIXME: There's currently a race-condition with the actual client
+          -- which will only see transactions after it has established
+          -- connection with the server's tip. So any transaction submitted
+          -- before that tip will be missed.
+          threadDelay 2
+          action $
+            mkChain
+              tracer
+              (queryTimeHandle networkId socketPath)
+              cardanoKeys
+              wallet
+              headState
+              (newTxPoster queue)
+      )
+      ( handle onIOException $ do
+          let intersection = toConsensusPointHF <$> point
+          let client = ouroborosApplication tracer intersection queue (chainSyncHandler tracer callback headState) wallet
+          connectTo
+            (localSnocket iocp)
+            nullConnectTracers
+            (versions networkId client)
+            socketPath
+      )
+  case res of
+    Left a -> pure a
+    Right () -> error "'connectTo' cannot terminate but did?"
  where
   newTxPoster queue stm = do
     response <- atomically $ do
