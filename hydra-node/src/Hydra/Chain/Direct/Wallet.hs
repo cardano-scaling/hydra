@@ -8,6 +8,7 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
@@ -50,7 +51,7 @@ import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
 import Cardano.Ledger.Val (Val (..), invert)
-import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
+import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo, hoistEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (..))
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Control.Arrow (left)
@@ -66,6 +67,7 @@ import Control.Monad.Class.MonadSTM (
   tryTakeTMVar,
   writeTVar,
  )
+import Control.Monad.Trans.Except (runExcept)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import Data.Array (Array, array)
@@ -79,18 +81,32 @@ import GHC.Ix (Ix)
 import Hydra.Cardano.Api (
   AddressInEra,
   AddressTypeInEra,
+  CardanoMode,
+  ChainPoint,
+  EraHistory (EraHistory),
   NetworkId,
+  PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
+  ShelleyBasedEra (ShelleyBasedEraAlonzo),
   SigningKey,
+  StakeAddressReference (NoStakeAddress),
+  UTxO,
   VerificationKey,
   fromLedgerTxId,
+  makeShelleyAddress,
   mkVkAddress,
+  shelleyAddressInEra,
   shelleyBasedEra,
   signWith,
   toLedgerAddr,
   toLedgerKeyWitness,
+  toLedgerPParams,
+  toLedgerUTxO,
+  verificationKeyHash,
  )
+import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Cardano.Api as Cardano.Api
+import Hydra.Chain.CardanoClient (CardanoClient (queryUTxOByAddress), queryEraHistory, queryProtocolParameters, querySystemStart, queryUTxO)
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
@@ -109,6 +125,7 @@ import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch, OneEraHa
 import qualified Ouroboros.Consensus.HardFork.Combinator.AcrossEras as Ouroboros
 import Ouroboros.Consensus.HardFork.Combinator.Ledger.Query (QueryHardFork (..))
 import Ouroboros.Consensus.HardFork.History (Interpreter, PastHorizonException, interpreterToEpochInfo)
+import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Consensus.Ledger.Query (Query (..))
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..), ShelleyHash (..))
@@ -175,6 +192,10 @@ data TinyWallet m = TinyWallet
   , sign :: ValidatedTx Era -> ValidatedTx Era
   , coverFee :: Map TxIn TxOut -> ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
   , verificationKey :: VerificationKey PaymentKey
+  , -- | Reset the wallet state to some point.
+    reset :: Maybe (Point Block) -> m ()
+  , -- | Update the wallet state given some 'Block'.
+    update :: Block -> m ()
   }
 
 -- | Get a single, marked as "fuel" UTxO.
@@ -200,32 +221,38 @@ withTinyWallet ::
   FilePath ->
   (TinyWallet IO -> IO a) ->
   IO a
-withTinyWallet tracer networkId (vk, sk) iocp addr action = do
+withTinyWallet tracer networkId (vk, sk) iocp socketPath action = do
   utxoVar <- newEmptyTMVarIO
   tipVar <- newTVarIO genesisPoint
-  res <-
-    race
-      (action $ newTinyWallet utxoVar)
-      ( connectTo
-          (localSnocket iocp)
-          nullConnectTracers
-          (versions networkId $ client tracer tipVar utxoVar address)
-          addr
-      )
-  case res of
-    Left a -> pure a
-    Right () -> error "'connectTo' cannot gracefully terminate but did?"
+
+  let wallet@TinyWallet{reset} = newTinyWallet utxoVar
+  reset Nothing
+
+  action wallet
  where
+  -- res <-
+  --   race
+  --     (action $ newTinyWallet utxoVar)
+  --     ( connectTo
+  --         (localSnocket iocp)
+  --         nullConnectTracers
+  --         (versions networkId $ client tracer tipVar utxoVar address)
+  --         addr
+  --     )
+  -- case res of
+  --   Left a -> pure a
+  --   Right () -> error "'connectTo' cannot gracefully terminate but did?"
+
   address =
-    toLedgerAddr $
-      mkVkAddress @Cardano.Api.Era networkId vk
+    makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
+
+  ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era address
 
   newTinyWallet utxoVar =
     TinyWallet
       { getUTxO =
           (\(u, _, _, _) -> u) <$> readTMVar utxoVar
-      , getAddress =
-          address
+      , getAddress = ledgerAddress
       , sign = Util.signWith (vk, sk)
       , coverFee = \lookupUTxO partialTx -> do
           (walletUTxO, pparams, systemStart, epochInfo) <- readTMVar utxoVar
@@ -236,7 +263,30 @@ withTinyWallet tracer networkId (vk, sk) iocp addr action = do
               _ <- swapTMVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
               pure (Right balancedTx)
       , verificationKey = vk
+      , reset = \mPoint -> do
+          -- TODO: query from point?
+          utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath [address]
+          pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath
+          systemStart <- querySystemStart networkId socketPath
+          epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath
+          atomically $ void $ swapTMVar utxoVar (utxo, pparams, systemStart, epochInfo)
+      , update = \block -> do
+          msg <- atomically $ do
+            (utxo, pparams, systemStart, epochInfo) <- readTMVar utxoVar
+            let utxo' = applyBlock block (== ledgerAddress) utxo
+            if utxo' /= utxo
+              then do
+                void $ swapTMVar utxoVar (utxo', pparams, systemStart, epochInfo)
+                pure $ Just $ ApplyBlock utxo utxo'
+              else do
+                pure Nothing
+          mapM_ (traceWith tracer) msg
       }
+
+  toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Except PastHorizonException)
+  toEpochInfo (EraHistory _ interpreter) =
+    -- hoistEpochInfo (either throwIO pure . runExcept) $
+    Consensus.interpreterToEpochInfo interpreter
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
 -- modify the UTXO set, or else, remove consumed utxos and add produced ones.

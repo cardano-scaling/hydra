@@ -182,7 +182,9 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
         )
         ( handle onIOException $ do
             let intersection = toConsensusPointHF <$> point
-            let client = ouroborosApplication tracer intersection queue (chainSyncHandler tracer callback headState)
+            let client =
+                  ouroborosApplication tracer intersection queue $
+                    chainSyncHandler tracer callback headState wallet
             connectTo
               (localSnocket iocp)
               nullConnectTracers
