@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wwarn #-}
 
 -- | A /Model/ of the Hydra head Protocol
 --
@@ -87,7 +88,7 @@ instance
   StateModel (WorldState m)
   where
   data Action (WorldState m) a where
-    Seed :: {seedKeys :: [Hydra.SigningKey]} -> Action (WorldState m) (Nodes m)
+    Seed :: {seedKeys :: [Hydra.SigningKey]} -> Action (WorldState m) () --(Nodes m)
     Action ::
       { party :: Party
       , command :: ClientInput Tx
@@ -141,7 +142,7 @@ instance
   perform _worldState Seed{seedKeys} _ = do
     let parties = map deriveParty seedKeys
     tvar <- newTVarIO []
-    nodes <- do
+    _nodes <- do
       let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
       connectToChain <- simulatedChainAndNetwork
       forM seedKeys $ \sk -> do
@@ -150,9 +151,11 @@ instance
         runHydraNode (traceInTVar tvar) node
         pure (deriveParty sk, node)
 
-    pure $ Map.fromList nodes
+    --pure $ Map.fromList nodes
+    return ()
   perform _ Action{party, command} lookupVar = do
-    let nodes = lookupVar (Var 0 :: Var (Nodes m))
+    --let nodes = lookupVar (Var 0 :: Var (Nodes m))
+    nodes <- error "Use a state monad to do this - symbolic variables are for state that needs to be reflected in the model part :)"
     case Map.lookup party nodes of
       Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
       Just actorNode -> actorNode `handleClientInput` command
@@ -164,3 +167,4 @@ instance Show (Action (WorldState m) a) where
 instance Eq (Action (WorldState m) a) where
   (Seed sks) == (Seed sks') = sks == sks'
   (Action pa ci) == (Action pa' ci') = pa == pa' && ci == ci'
+  _ == _ = False
