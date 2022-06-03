@@ -4,6 +4,8 @@
 
 module Hydra.ModelSpec where
 
+import qualified Prelude as Prelude
+
 import Control.Monad.IOSim (IOSim, runSim, Failure)
 import Hydra.Model (WorldState)
 import Hydra.Prelude
@@ -26,7 +28,7 @@ instance Monad WrapIOSim where
   WrapIOSim m >>= k = WrapIOSim (m >>= unwrapIOSim . k)
 
 spec :: Spec
-spec = spec --prop "implementation respects model" $ prop_checkModel
+spec = prop "implementation respects model" $ prop_checkModel
 
 runIOSimProp :: (forall s. Typeable s => Gen (IOSim s Property)) -> Gen Property
 runIOSimProp p = do
@@ -38,28 +40,28 @@ runIOSimProp p = do
 runSim' :: (forall s. Typeable s => IOSim s a) -> Either Failure a
 runSim' = runSim'
 
-prop_checkModel :: Property
-prop_checkModel =
-  property $ runIOSimProp $ monadic' m
-  where m :: forall s. Typeable s => PropertyM (IOSim s) ()
-        m = do actions <- pickSane (arbitrary @(Actions (WorldState (IOSim s)))) shrink
-               (_worldState, _symEnv) <- runActions actions
-               let someAssertionAboutWorldState = True
-               when (not someAssertionAboutWorldState) $ do
-                 monitor $ counterexample "What went wrong if it went wrong"
-               assert someAssertionAboutWorldState
+newtype AnyActions = AnyActions { unAnyActions :: forall s. Typeable s => Actions (WorldState (IOSim s)) }
 
-pickSane :: (Monad m, Show a) => Gen a -> (a -> [a]) -> PropertyM m a
-pickSane gen shrinker = MkPropertyM $ \k ->
-  do a <- gen
-     mp <- k a
-     return (do p <- mp
-                return (forAllShrink (return a) shrinker (const p)))
+instance Show AnyActions where
+  show (AnyActions acts) = Prelude.show (acts @())
 
--- monadicST :: Testable a => (forall s. PropertyM (ST s) a) -> Property
--- monadicST m = property (runSTGen (monadic' m))
---
--- runSTGen :: (forall s. Gen (ST s a)) -> Gen a
--- runSTGen f = do
---   Capture eval <- capture
---   return (runST (eval f))
+instance Arbitrary AnyActions where
+  arbitrary = do
+    Capture eval <- capture
+    return (AnyActions (eval arbitrary))
+
+  shrink (AnyActions actions) = [ AnyActions (a i) | i <- [0 .. n - 1] ]
+    -- TODO: this is horrendously inefficient
+    where n = length (shrink (actions @()))
+          a :: Int -> forall s. Typeable s => Actions (WorldState (IOSim s))
+          a i = shrink actions Prelude.!! i
+
+
+prop_checkModel :: AnyActions -> Property
+prop_checkModel (AnyActions actions) =
+  property $ runIOSimProp $ monadic' $ do
+    (_worldState, _symEnv) <- runActions actions
+    let someAssertionAboutWorldState = True
+    when (not someAssertionAboutWorldState) $ do
+      monitor $ counterexample "What went wrong if it went wrong"
+    assert someAssertionAboutWorldState
