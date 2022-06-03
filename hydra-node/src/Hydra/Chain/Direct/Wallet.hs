@@ -168,16 +168,12 @@ newTinyWallet tracer networkId (vk, sk) queryUTxOEtc = do
           traceWith tracer ResetWallet
           queryUTxOEtc address >>= atomically . writeTVar utxoVar
       , update = \block -> do
-          msg <- atomically $ do
+          utxo' <- atomically $ do
             (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar
             let utxo' = applyBlock block (== ledgerAddress) utxo
-            if utxo' /= utxo
-              then do
-                writeTVar utxoVar (utxo', pparams, systemStart, epochInfo)
-                pure $ Just $ ApplyBlock utxo utxo'
-              else do
-                pure Nothing
-          mapM_ (traceWith tracer) msg
+            writeTVar utxoVar (utxo', pparams, systemStart, epochInfo)
+            pure utxo'
+          traceWith tracer $ ApplyBlock utxo'
       }
  where
   address =
@@ -423,7 +419,7 @@ mapToArray m =
 data TinyWalletLog
   = InitializingWallet SomePoint (Map TxIn TxOut)
   | ResetWallet
-  | ApplyBlock (Map TxIn TxOut) (Map TxIn TxOut)
+  | ApplyBlock (Map TxIn TxOut)
   | EraMismatchError {expected :: Text, actual :: Text}
   deriving (Eq, Generic, Show)
 
@@ -437,11 +433,10 @@ instance ToJSON TinyWalletLog where
           , "initialUTxO" .= initialUTxO
           ]
       ResetWallet -> object ["tag" .= String "ResetWallet"]
-      (ApplyBlock utxo utxo') ->
+      (ApplyBlock utxo') ->
         object
           [ "tag" .= String "ApplyBlock"
-          , "before" .= utxo
-          , "after" .= utxo'
+          , "newUTxO" .= utxo'
           ]
       EraMismatchError{expected, actual} ->
         object

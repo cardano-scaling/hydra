@@ -319,9 +319,7 @@ definitions:
         tag:
           type: string
           enum: ["ApplyBlock"]
-        before:
-          $ref: "api.yaml#/components/schemas/UTxO"
-        after:
+        newUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
     - title: EraMismatchError
       description: >-
