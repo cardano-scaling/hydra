@@ -31,8 +31,8 @@ buildScriptAddress script networkId =
   let hashed = hashScript script
    in makeShelleyAddress networkId (PaymentCredentialByScript hashed) NoStakeAddress
 
-queryStakePools :: NetworkId -> FilePath -> IO (Set PoolId)
-queryStakePools networkId socket =
+queryStakePools :: NetworkId -> FilePath -> QueryPoint -> IO (Set PoolId)
+queryStakePools networkId socket queryPoint =
   let query =
         QueryInEra
           AlonzoEraInCardanoMode
@@ -40,7 +40,7 @@ queryStakePools networkId socket =
               ShelleyBasedEraAlonzo
               QueryStakePools
           )
-   in runQuery networkId socket query
+   in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
 buildRaw :: [TxIn] -> [TxOut CtxTx] -> Lovelace -> Either TxBodyError TxBody
@@ -74,11 +74,11 @@ build ::
   [TxOut CtxTx] ->
   IO (Either TxBodyErrorAutoBalance TxBody)
 build networkId socket changeAddress ins collateral outs = do
-  pparams <- queryProtocolParameters networkId socket
-  systemStart <- querySystemStart networkId socket
-  eraHistory <- queryEraHistory networkId socket
-  stakePools <- queryStakePools networkId socket
-  utxo <- queryUTxOByTxIn networkId socket (map fst ins)
+  pparams <- queryProtocolParameters networkId socket QueryTip
+  systemStart <- querySystemStart networkId socket QueryTip
+  eraHistory <- queryEraHistory networkId socket QueryTip
+  stakePools <- queryStakePools networkId socket QueryTip
+  utxo <- queryUTxOByTxIn networkId socket QueryTip (map fst ins)
   pure $
     second balancedTxBody $
       makeTransactionBodyAutoBalance
@@ -186,7 +186,7 @@ waitForPayment networkId socket amount addr =
   go
  where
   go = do
-    utxo <- queryUTxO networkId socket [addr]
+    utxo <- queryUTxO networkId socket QueryTip [addr]
     let expectedPayment = selectPayment utxo
     if expectedPayment /= mempty
       then pure $ UTxO expectedPayment
@@ -225,7 +225,7 @@ waitForTransaction networkId socket tx =
  where
   ins = Map.keys (UTxO.toMap $ utxoFromTx tx)
   go = do
-    utxo <- queryUTxOByTxIn networkId socket ins
+    utxo <- queryUTxOByTxIn networkId socket QueryTip ins
     if null utxo
       then go
       else pure utxo

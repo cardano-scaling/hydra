@@ -8,6 +8,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoClient (
+  QueryPoint (QueryTip),
   buildAddress,
   queryTip,
   queryUTxO,
@@ -112,7 +113,7 @@ spec = around showLogsOnFailure $ do
               let aliceAddress = buildAddress aliceCardanoVk defaultNetworkId
 
               -- Expect that alice got her committed value back
-              utxo <- queryUTxO defaultNetworkId nodeSocket [aliceAddress]
+              utxo <- queryUTxO defaultNetworkId nodeSocket QueryTip [aliceAddress]
               let aliceValues = txOutValue <$> toList utxo
               aliceValues `shouldContain` [lovelaceToValue aliceCommitment]
 
