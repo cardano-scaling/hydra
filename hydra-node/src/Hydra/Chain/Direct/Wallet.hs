@@ -121,6 +121,18 @@ data TinyWallet m = TinyWallet
   }
 
 data QueryPoint = Tip | At ChainPoint
+  deriving (Eq, Show)
+
+type ChainQuery m =
+  ( QueryPoint ->
+    Api.Address ShelleyAddr ->
+    m
+      ( Map TxIn TxOut
+      , PParams Era
+      , SystemStart
+      , EpochInfo (Except PastHorizonException)
+      )
+  )
 
 -- | Get a single, marked as "fuel" UTxO.
 getFuelUTxO :: MonadSTM m => TinyWallet m -> STM m (Maybe (TxIn, TxOut))
@@ -142,17 +154,10 @@ newTinyWallet ::
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   -- | A function to query UTxO, pparams, system start and epoch info from the
   -- node. Initially and on demand later.
-  ( Api.Address ShelleyAddr ->
-    IO
-      ( Map TxIn TxOut
-      , PParams Era
-      , SystemStart
-      , EpochInfo (Except PastHorizonException)
-      )
-  ) ->
+  ChainQuery IO ->
   IO (TinyWallet IO)
 newTinyWallet tracer networkId (vk, sk) queryUTxOEtc = do
-  utxoVar <- newTVarIO =<< queryUTxOEtc address
+  utxoVar <- newTVarIO =<< queryUTxOEtc Tip address
   pure
     TinyWallet
       { getUTxO =
@@ -166,10 +171,9 @@ newTinyWallet tracer networkId (vk, sk) queryUTxOEtc = do
             Right (walletUTxO', balancedTx) -> do
               writeTVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
               pure (Right balancedTx)
-      , reset = \_mPoint -> do
-          -- TODO: query from point?
+      , reset = \point -> do
           traceWith tracer ResetWallet
-          queryUTxOEtc address >>= atomically . writeTVar utxoVar
+          queryUTxOEtc point address >>= atomically . writeTVar utxoVar
       , update = \block -> do
           utxo' <- atomically $ do
             (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar

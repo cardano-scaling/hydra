@@ -50,6 +50,7 @@ import Hydra.Cardano.Api (
   SigningKey,
   Tx,
   VerificationKey,
+  fromConsensusPointHF,
   shelleyBasedEra,
   toConsensusPointHF,
   toLedgerPParams,
@@ -90,6 +91,7 @@ import Hydra.Chain.Direct.Util (
   versions,
  )
 import Hydra.Chain.Direct.Wallet (
+  QueryPoint (At),
   TinyWallet (..),
   getTxId,
   newTinyWallet,
@@ -197,7 +199,8 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
     Left a -> pure a
     Right () -> error "'connectTo' cannot terminate but did?"
  where
-  queryUTxOEtc address = do
+  -- TODO: query at given point
+  queryUTxOEtc _queryPoint address = do
     utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath [address]
     pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath
     systemStart <- querySystemStart networkId socketPath
@@ -388,7 +391,7 @@ chainSyncClient handler wallet = \case
           pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
-          reset wallet $ Just point
+          reset wallet $ At (fromConsensusPointHF point)
           -- Rollback main chain sync handler
           onRollBackward handler point
           pure clientStIdle

@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module Hydra.Chain.Direct.WalletSpec where
 
@@ -21,13 +22,12 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.Time (SystemStart)
-import Control.Monad.Class.MonadTimer (timeout)
+import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Control.Tracer (nullTracer)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
-  ChainPoint,
   NetworkId (..),
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
@@ -55,7 +55,6 @@ import Hydra.Chain.Direct.Wallet (
   applyBlock,
   coverFee_,
   newTinyWallet,
-  watchUTxOUntil,
  )
 import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genTxIn, renderTx)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
@@ -95,25 +94,30 @@ spec = parallel $ do
 
   before (generate genKeyPair) $
     describe "newTinyWallet" $ do
+      let setupQuery vk = do
+            queried <- newEmptyMVar
+            let queryFn point _addr = do
+                  putMVar queried point
+                  utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
+                  pure (utxo, pparams, systemStart, epochInfo)
+
+                assertQueryPoint point =
+                  takeMVar queried `shouldReturn` point
+
+            pure (queryFn, assertQueryPoint)
+
       it "initialises wallet by querying UTxO" $ \(vk, sk) -> do
         wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) (queryOneUtxo vk)
         utxo <- atomically (getUTxO wallet)
         utxo `shouldSatisfy` \m -> Map.size m > 0
 
-      -- it "tracks UTXO correctly when blocks are received" $ \(vk, sk) -> do
-      --   wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) (error "not implemented")
-      --   generate (genPaymentTo testNetworkId vk) >>= update wallet . makeBlock
-      --   result <- timeout 10 $ watchUTxOUntil (not . null) wallet
-      --   result `shouldSatisfy` isJust
-
       it "re-queries UTxO from the reset point" $ \(vk, sk) -> do
-        let setup = undefined
-        (query, shouldHaveBeenQueriedFrom) <- setup
-        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) query
-        shouldHaveBeenQueriedFrom Tip
+        (queryFn, assertQueryPoint) <- setupQuery vk
+        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) queryFn
+        assertQueryPoint Tip
         let somePoint = fromConsensusPointHF @Block genesisPoint
         reset wallet (At somePoint)
-        shouldHaveBeenQueriedFrom $ At somePoint
+        assertQueryPoint $ At somePoint
 
 makeBlock :: ValidatedTx Era -> Block
 makeBlock = error "not implemented"
@@ -138,6 +142,7 @@ expectQueryOneUtxoAtPoint vk expectedPoint actualPoint addr = do
 
 queryOneUtxo ::
   VerificationKey PaymentKey ->
+  QueryPoint ->
   Api.Address ShelleyAddr ->
   IO
     ( Map TxIn TxOut
@@ -145,7 +150,7 @@ queryOneUtxo ::
     , SystemStart
     , EpochInfo (Except PastHorizonException)
     )
-queryOneUtxo vk addr = do
+queryOneUtxo vk _point addr = do
   let Api.ShelleyAddress _ cred _ = addr
   fromShelleyPaymentCredential cred `shouldBe` PaymentCredentialByKey (verificationKeyHash vk)
   utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
