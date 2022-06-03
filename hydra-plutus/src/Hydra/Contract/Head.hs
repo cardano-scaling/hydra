@@ -29,7 +29,6 @@ import Plutus.V1.Ledger.Api (
   Address,
   CurrencySymbol,
   Datum (..),
-  DatumHash,
   FromData (fromBuiltinData),
   Interval (..),
   LowerBound (LowerBound),
@@ -217,7 +216,6 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
   HeadContext
     { headAddress
     , headCurrencySymbol
-    , commitAddress
     } = headContext
 
   (expectedChangeValue, collectedCommits, nTotalCommits) =
@@ -233,49 +231,45 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
             & sha2_256
      in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod}
 
+  -- Collect fuel and commits from resolved inputs. Any output containing a PT
+  -- is treated as a commit, "our" output is the head output and all remaining
+  -- will be accumulated as 'fuel'.
   traverseInputs (fuel, commits, nCommits) = \case
     [] ->
       (fuel, commits, nCommits)
     TxInInfo{txInInfoResolved} : rest
-      | txOutAddress txInInfoResolved == headAddress ->
+      | isHeadOutput txInInfoResolved ->
         traverseInputs
           (fuel, commits, nCommits)
           rest
-      | txOutAddress txInInfoResolved == commitAddress ->
-        case commitFrom txInInfoResolved of
-          (commitValue, Just (SerializedTxOut commit)) ->
-            case matchParticipationToken headCurrencySymbol commitValue of
-              [_] ->
-                traverseInputs
-                  (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
-                  rest
-              _ ->
-                traceError "Invalid commit: does not contain valid PT."
-          (commitValue, Nothing) ->
-            case matchParticipationToken headCurrencySymbol commitValue of
-              [_] ->
-                traverseInputs
-                  (fuel, commits, succ nCommits)
-                  rest
-              _ ->
-                traceError "Invalid commit: does not contain valid PT."
+      | hasPT txInInfoResolved ->
+        case commitDatum txInInfoResolved of
+          Just (SerializedTxOut commit) ->
+            traverseInputs
+              (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
+              rest
+          Nothing ->
+            traverseInputs
+              (fuel, commits, succ nCommits)
+              rest
       | otherwise ->
         traverseInputs
           (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
           rest
 
-  commitFrom :: TxOut -> (Value, Maybe SerializedTxOut)
-  commitFrom o =
-    case txOutDatumHash o >>= lookupCommit of
-      Nothing -> (txOutValue o, Nothing)
-      Just commit -> (txOutValue o, Just commit)
+  isHeadOutput txOut = txOutAddress txOut == headAddress
 
-  lookupCommit :: DatumHash -> Maybe SerializedTxOut
-  lookupCommit h = do
-    d <- getDatum <$> findDatum h txInfo
+  hasPT txOut =
+    let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
+     in length pts == 1
+
+  commitDatum :: TxOut -> Maybe SerializedTxOut
+  commitDatum o = do
+    dh <- txOutDatumHash o
+    d <- getDatum <$> findDatum dh txInfo
     case fromBuiltinData @Commit.DatumType d of
-      Just (_p, _, Just o) ->
-        Just o
+      Just (_p, _, Just serializedTxOut) ->
+        Just serializedTxOut
       Just (_p, _, Nothing) ->
         Nothing
       Nothing ->
@@ -445,17 +439,17 @@ mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} HeadContex
   loop = \case
     [] -> []
     (TxInInfo{txInInfoResolved} : rest) ->
-      matchParticipationToken headCurrencySymbol (txOutValue txInInfoResolved) ++ loop rest
+      findParticipationTokens headCurrencySymbol (txOutValue txInInfoResolved) ++ loop rest
 {-# INLINEABLE mustBeSignedByParticipant #-}
 
-matchParticipationToken :: CurrencySymbol -> Value -> [TokenName]
-matchParticipationToken headCurrency (Value val) =
+findParticipationTokens :: CurrencySymbol -> Value -> [TokenName]
+findParticipationTokens headCurrency (Value val) =
   case Map.toList <$> Map.lookup headCurrency val of
     Just tokens ->
       mapMaybe (\(tokenName, n) -> if n == 1 then Just tokenName else Nothing) tokens
     _ ->
       []
-{-# INLINEABLE matchParticipationToken #-}
+{-# INLINEABLE findParticipationTokens #-}
 
 mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
 mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =
