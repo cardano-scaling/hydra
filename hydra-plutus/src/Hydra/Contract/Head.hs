@@ -152,12 +152,12 @@ mkHeadContext context initialAddress commitAddress =
 
 -- | On-Chain verification for 'Abort' transition. It verifies that:
 --
---  * All PTs have been burnt: The right number of Head tokens, both PT for parties
---    and thread token, with the correct head id, are burnt,
+--   * All PTs have been burnt: The right number of Head tokens, both PT for
+--     parties and thread token, with the correct head id, are burnt,
 --
---  * All committed funds have been redistributed. This is done via v_commit and
---    it only needs to ensure that we have spent all comitted outputs, which
---    follows from burning all the PTs.
+--   * All committed funds have been redistributed. This is done via v_commit
+--     and it only needs to ensure that we have spent all comitted outputs,
+--     which follows from burning all the PTs.
 checkAbort ::
   ScriptContext ->
   HeadContext ->
@@ -180,17 +180,17 @@ checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parti
       Nothing -> 0
       Just tokenMap -> negate $ sum tokenMap
 
--- | On-Chain Validation for the 'CollectCom' transition.
+-- | On-Chain verification for 'CollectCom' transition. It verifies that:
 --
--- The 'CollectCom' transition must verify that:
+--   * All participants have committed (even empty commits)
 --
--- - All participants have committed (even empty commits)
--- - All commits are properly collected and locked into the contract as a hash
---   of serialized tx outputs in the same sequence as commit inputs!
--- - The transaction is performed (i.e. signed) by one of the head participants
+--   * All commits are properly collected and locked into the contract as a hash
+--     of serialized tx outputs in the same sequence as commit inputs!
 --
--- It must also Initialize the on-chain state η* with a snapshot number and a
--- Merkle-Tree root hash of committed outputs.
+--   * The transaction is performed (i.e. signed) by one of the head participants
+--
+-- It must also initialize the on-chain state η* with a snapshot number and a
+-- hash of committed outputs.
 --
 -- (*) In principle, η contains not a hash but a full UTXO set as well as a set
 -- of dangling transactions. However, in the coordinated version of the
