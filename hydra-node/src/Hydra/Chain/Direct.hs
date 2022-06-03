@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
@@ -20,6 +21,7 @@ import Cardano.Ledger.Alonzo.Rules.Utxow (AlonzoPredFail (WrappedShelleyEraFailu
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure), debugPlutus, slotToPOSIXTime)
 import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError))
+import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Cardano.Ledger.Slot (EpochInfo)
@@ -48,9 +50,12 @@ import Hydra.Cardano.Api (
   SigningKey,
   Tx,
   VerificationKey,
+  shelleyBasedEra,
   toConsensusPointHF,
   toLedgerPParams,
+  toLedgerUTxO,
  )
+import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain (
   ChainComponent,
   PostTxError (..),
@@ -60,6 +65,7 @@ import Hydra.Chain.CardanoClient (
   queryProtocolParameters,
   querySystemStart,
   queryTipSlotNo,
+  queryUTxO,
  )
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler,
@@ -91,6 +97,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo))
+import Ouroboros.Consensus.HardFork.Combinator (PastHorizonException)
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -150,7 +157,7 @@ withDirectChain ::
   ChainComponent Tx IO a
 withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point callback action = do
   queue <- newTQueueIO
-  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair socketPath
+  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair queryUTxOEtc
   let (vk, _) = keyPair
   headState <-
     newTVarIO $
@@ -190,6 +197,17 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
     Left a -> pure a
     Right () -> error "'connectTo' cannot terminate but did?"
  where
+  queryUTxOEtc address = do
+    utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath [address]
+    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath
+    systemStart <- querySystemStart networkId socketPath
+    epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath
+    pure (utxo, pparams, systemStart, epochInfo)
+
+  toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Except PastHorizonException)
+  toEpochInfo (EraHistory _ interpreter) =
+    Consensus.interpreterToEpochInfo interpreter
+
   submitTx queue vtx = do
     response <- atomically $ do
       response <- newEmptyTMVar

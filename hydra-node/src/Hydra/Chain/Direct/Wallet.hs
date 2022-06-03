@@ -63,24 +63,19 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import GHC.Ix (Ix)
 import Hydra.Cardano.Api (
-  CardanoMode,
-  EraHistory (EraHistory),
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
+  ShelleyAddr,
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
   makeShelleyAddress,
   shelleyAddressInEra,
-  shelleyBasedEra,
   toLedgerAddr,
-  toLedgerPParams,
-  toLedgerUTxO,
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
-import Hydra.Chain.CardanoClient (queryEraHistory, queryProtocolParameters, querySystemStart, queryUTxO)
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
@@ -92,7 +87,6 @@ import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras, pattern BlockAlonzo)
 import Ouroboros.Consensus.HardFork.Combinator (MismatchEraInfo)
 import Ouroboros.Consensus.HardFork.History (PastHorizonException)
-import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -135,20 +129,27 @@ watchUTxOUntil predicate TinyWallet{getUTxO} = atomically $ do
   u <- getUTxO
   u <$ check (predicate u)
 
--- | Create a new tiny wallet handle. This directly queries the wallet state
--- from a cardano node listening at 'socketPath'.
+-- | Create a new tiny wallet handle.
 newTinyWallet ::
   -- | A tracer for logging
   Tracer IO TinyWalletLog ->
-  -- | Network identifier to which we expect to connect.
+  -- | Network identifier to generate our address.
   NetworkId ->
   -- | Credentials of the wallet.
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
-  -- | Path to a domain socket used to connect to the server.
-  FilePath ->
+  -- | A function to query UTxO, pparams, system start and epoch info from the
+  -- node. Initially and on demand later.
+  ( Api.Address ShelleyAddr ->
+    IO
+      ( Map TxIn TxOut
+      , PParams Era
+      , SystemStart
+      , EpochInfo (Except PastHorizonException)
+      )
+  ) ->
   IO (TinyWallet IO)
-newTinyWallet tracer networkId (vk, sk) socketPath = do
-  utxoVar <- newTVarIO =<< queryUTxOEtc
+newTinyWallet tracer networkId (vk, sk) queryUTxOEtc = do
+  utxoVar <- newTVarIO =<< queryUTxOEtc address
   pure
     TinyWallet
       { getUTxO =
@@ -165,7 +166,7 @@ newTinyWallet tracer networkId (vk, sk) socketPath = do
       , reset = \_mPoint -> do
           -- TODO: query from point?
           traceWith tracer ResetWallet
-          queryUTxOEtc >>= atomically . writeTVar utxoVar
+          queryUTxOEtc address >>= atomically . writeTVar utxoVar
       , update = \block -> do
           msg <- atomically $ do
             (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar
@@ -179,22 +180,10 @@ newTinyWallet tracer networkId (vk, sk) socketPath = do
           mapM_ (traceWith tracer) msg
       }
  where
-  queryUTxOEtc = do
-    utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath [address]
-    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath
-    systemStart <- querySystemStart networkId socketPath
-    epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath
-    pure (utxo, pparams, systemStart, epochInfo)
-
   address =
     makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
 
   ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era address
-
-  toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Except PastHorizonException)
-  toEpochInfo (EraHistory _ interpreter) =
-    -- hoistEpochInfo (either throwIO pure . runExcept) $
-    Consensus.interpreterToEpochInfo interpreter
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
 -- modify the UTXO set, or else, remove consumed utxos and add produced ones.
