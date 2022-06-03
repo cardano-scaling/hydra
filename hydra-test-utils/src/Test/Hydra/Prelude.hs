@@ -170,14 +170,17 @@ genericCoverTable xs =
   coverTable tableName requirements . tabulate tableName (show <$> xs)
  where
   tableName = show $ typeRep (Proxy :: Proxy a)
-  requirements =
-    [ (show lbl, weight)
-    | let weight = fromRational (100 % (3 * lengthI allLabels))
-    , lbl <- allLabels
-    ]
+  requirements = [(show lbl, percent) | lbl <- allLabels]
+  -- NOTE: We lower the requirement of minimum coverage depending on the number
+  -- of labels, e.g. 3 labels would have an ideal, uniform distribution of 33%
+  -- each, but we only require 33% / 3 = 11%. With 10 labels evenly distributed
+  -- means 10%, but getting 10% / 3 = 3% would be much harder to achieve with
+  -- this bigger set to draw from. Hence we only expect 10% / 10 = 1% coverage
+  -- in that case and consequently should reasonable numbers of tests required.
+  percent = fromRational (100 % (numberOfLabels * numberOfLabels))
   allLabels = enumerate :: [a]
   enumerate = [minBound .. maxBound]
-  lengthI = toInteger . length
+  numberOfLabels = toInteger $ length allLabels
 
 -- | Shorthand for using 2 generated values in a property.
 forAll2 ::
