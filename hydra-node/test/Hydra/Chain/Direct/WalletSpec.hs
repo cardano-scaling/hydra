@@ -24,20 +24,16 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
-  NetworkId (..),
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
   VerificationKey,
   fromConsensusPointHF,
   fromLedgerTx,
-  mkVkAddress,
-  toLedgerAddr,
   toLedgerTxIn,
   toLedgerUTxO,
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
-import qualified Hydra.Cardano.Api as Cardano.Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain.Direct.Fixture (epochInfo, pparams, systemStart, testNetworkId)
 import Hydra.Chain.Direct.Util (Block, Era, markerDatum)
@@ -310,32 +306,6 @@ genValidatedTx = do
   tx <- arbitrary
   body <- (\x -> x{txfee = Coin 0}) <$> arbitrary
   pure $ tx{body, wits = mempty}
-
-genPaymentTo :: NetworkId -> VerificationKey PaymentKey -> Gen (ValidatedTx Era)
-genPaymentTo networkId vk = do
-  toValidatedTx =<< arbitrary @TxOut `suchThat` atLeast 2_000_000_000
- where
-  atLeast v = \case
-    TxOut _ value _ ->
-      coin value > Coin v
-
-  toValidatedTx = \case
-    TxOut _ value _ -> do
-      ValidatedTx{body, wits, isValid, auxiliaryData} <- arbitrary
-      let myAddr =
-            toLedgerAddr $
-              mkVkAddress @Cardano.Api.Era networkId vk
-      pure $
-        ValidatedTx
-          { body =
-              body
-                { outputs =
-                    StrictSeq.fromList [TxOut myAddr value (SJust $ hashData $ Data @Era markerDatum)]
-                }
-          , wits
-          , isValid
-          , auxiliaryData
-          }
 
 --
 -- Helpers
