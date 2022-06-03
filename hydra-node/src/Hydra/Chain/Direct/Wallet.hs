@@ -63,7 +63,7 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import GHC.Ix (Ix)
 import Hydra.Cardano.Api (
-  ChainPoint,
+  ChainPoint (ChainPointAtGenesis),
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
@@ -80,7 +80,6 @@ import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
-  SomePoint (..),
   markerDatum,
  )
 import qualified Hydra.Chain.Direct.Util as Util
@@ -91,6 +90,7 @@ import Ouroboros.Consensus.HardFork.History (PastHorizonException)
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
+import Test.QuickCheck (oneof)
 
 type Address = Ledger.Addr StandardCrypto
 type TxBody = Ledger.TxBody Era
@@ -121,7 +121,16 @@ data TinyWallet m = TinyWallet
   }
 
 data QueryPoint = Tip | At ChainPoint
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+
+instance Arbitrary QueryPoint where
+  -- XXX: This is not complete as we lack an 'Arbitrary ChainPoint' and we have
+  -- not bothered about it yet.
+  arbitrary =
+    oneof
+      [ pure Tip
+      , pure $ At ChainPointAtGenesis
+      ]
 
 type ChainQuery m =
   ( QueryPoint ->
@@ -172,8 +181,9 @@ newTinyWallet tracer networkId (vk, sk) queryUTxOEtc = do
               writeTVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
               pure (Right balancedTx)
       , reset = \point -> do
-          traceWith tracer ResetWallet
-          queryUTxOEtc point address >>= atomically . writeTVar utxoVar
+          res@(u, _, _, _) <- queryUTxOEtc point address
+          atomically $ writeTVar utxoVar res
+          traceWith tracer $ InitializingWallet point u
       , update = \block -> do
           utxo' <- atomically $ do
             (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar
@@ -424,8 +434,7 @@ mapToArray m =
 --
 
 data TinyWalletLog
-  = InitializingWallet SomePoint (Map TxIn TxOut)
-  | ResetWallet
+  = InitializingWallet QueryPoint (Map TxIn TxOut)
   | ApplyBlock (Map TxIn TxOut)
   | EraMismatchError {expected :: Text, actual :: Text}
   deriving (Eq, Generic, Show)
@@ -439,7 +448,6 @@ instance ToJSON TinyWalletLog where
           , "point" .= show @Text point
           , "initialUTxO" .= initialUTxO
           ]
-      ResetWallet -> object ["tag" .= String "ResetWallet"]
       (ApplyBlock utxo') ->
         object
           [ "tag" .= String "ApplyBlock"
