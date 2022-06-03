@@ -5,6 +5,7 @@
 module Hydra.ModelSpec where
 
 import qualified Prelude as Prelude
+import Unsafe.Coerce -- This is completely safe
 
 import Control.Monad.IOSim (IOSim, runSim, Failure)
 import Hydra.Model (WorldState)
@@ -50,12 +51,10 @@ instance Arbitrary AnyActions where
     Capture eval <- capture
     return (AnyActions (eval arbitrary))
 
-  shrink (AnyActions actions) = [ AnyActions (a i) | i <- [0 .. n - 1] ]
-    -- TODO: this is horrendously inefficient
-    where n = length (shrink (actions @()))
-          a :: Int -> forall s. Typeable s => Actions (WorldState (IOSim s))
-          a i = shrink actions Prelude.!! i
+  shrink (AnyActions actions) = [ AnyActions (unsafeCoerceActions act) | act <- shrink (actions @()) ]
 
+unsafeCoerceActions :: Actions (WorldState (IOSim s)) -> Actions (WorldState (IOSim s'))
+unsafeCoerceActions = unsafeCoerce
 
 prop_checkModel :: AnyActions -> Property
 prop_checkModel (AnyActions actions) =
