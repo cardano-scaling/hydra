@@ -11,7 +11,6 @@ import Hydra.Contract.Commit (SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
-import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Codec.CBOR.Encoding (
@@ -24,12 +23,10 @@ import Plutus.Codec.CBOR.Encoding (
  )
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Ada (lovelaceValueOf)
-import Plutus.V1.Ledger.Address (scriptHashAddress)
 import Plutus.V1.Ledger.Api (
   Address,
   CurrencySymbol,
   Datum (..),
-  DatumHash,
   FromData (fromBuiltinData),
   Interval (..),
   LowerBound (LowerBound),
@@ -66,17 +63,11 @@ hydraHeadV1 = "HydraHeadV1"
 
 {-# INLINEABLE headValidator #-}
 headValidator ::
-  -- | Commit script address. NOTE: Used to identify inputs from commits and
-  -- likely could be replaced by looking for PTs.
-  Address ->
-  -- | Inital script address. NOTE: Used to identify inputs from initials and
-  -- likely could be replaced by looking for PTs.
-  Address ->
   State ->
   Input ->
   ScriptContext ->
   Bool
-headValidator commitAddress initialAddress oldState input context =
+headValidator oldState input context =
   case (oldState, input) of
     (Initial{contestationPeriod, parties}, CollectCom) ->
       checkCollectCom context headContext (contestationPeriod, parties)
@@ -91,7 +82,7 @@ headValidator commitAddress initialAddress oldState input context =
     _ ->
       traceError "invalid head state transition"
  where
-  headContext = mkHeadContext context initialAddress commitAddress
+  headContext = mkHeadContext context
 
 data CheckCollectComError
   = NoContinuingOutput
@@ -103,18 +94,14 @@ data HeadContext = HeadContext
   { headAddress :: Address
   , headInputValue :: Value
   , headCurrencySymbol :: CurrencySymbol
-  , commitAddress :: Address
-  , initialAddress :: Address
   }
 
-mkHeadContext :: ScriptContext -> Address -> Address -> HeadContext
-mkHeadContext context initialAddress commitAddress =
+mkHeadContext :: ScriptContext -> HeadContext
+mkHeadContext context =
   HeadContext
     { headAddress
     , headInputValue
     , headCurrencySymbol
-    , initialAddress
-    , commitAddress
     }
  where
   headInput :: TxInInfo
@@ -152,12 +139,12 @@ mkHeadContext context initialAddress commitAddress =
 
 -- | On-Chain verification for 'Abort' transition. It verifies that:
 --
---  * All PTs have been burnt: The right number of Head tokens, both PT for parties
---    and thread token, with the correct head id, are burnt,
+--   * All PTs have been burnt: The right number of Head tokens, both PT for
+--     parties and thread token, with the correct head id, are burnt,
 --
---  * All committed funds have been redistributed. This is done via v_commit and
---    it only needs to ensure that we have spent all comitted outputs, which
---    follows from burning all the PTs.
+--   * All committed funds have been redistributed. This is done via v_commit
+--     and it only needs to ensure that we have spent all comitted outputs,
+--     which follows from burning all the PTs.
 checkAbort ::
   ScriptContext ->
   HeadContext ->
@@ -180,17 +167,17 @@ checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parti
       Nothing -> 0
       Just tokenMap -> negate $ sum tokenMap
 
--- | On-Chain Validation for the 'CollectCom' transition.
+-- | On-Chain verification for 'CollectCom' transition. It verifies that:
 --
--- The 'CollectCom' transition must verify that:
+--   * All participants have committed (even empty commits)
 --
--- - All participants have committed (even empty commits)
--- - All commits are properly collected and locked into the contract as a hash
---   of serialized tx outputs in the same sequence as commit inputs!
--- - The transaction is performed (i.e. signed) by one of the head participants
+--   * All commits are properly collected and locked into the contract as a hash
+--     of serialized tx outputs in the same sequence as commit inputs!
 --
--- It must also Initialize the on-chain state η* with a snapshot number and a
--- Merkle-Tree root hash of committed outputs.
+--   * The transaction is performed (i.e. signed) by one of the head participants
+--
+-- It must also initialize the on-chain state η* with a snapshot number and a
+-- hash of committed outputs.
 --
 -- (*) In principle, η contains not a hash but a full UTXO set as well as a set
 -- of dangling transactions. However, in the coordinated version of the
@@ -217,7 +204,6 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
   HeadContext
     { headAddress
     , headCurrencySymbol
-    , commitAddress
     } = headContext
 
   (expectedChangeValue, collectedCommits, nTotalCommits) =
@@ -233,49 +219,45 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
             & sha2_256
      in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod}
 
+  -- Collect fuel and commits from resolved inputs. Any output containing a PT
+  -- is treated as a commit, "our" output is the head output and all remaining
+  -- will be accumulated as 'fuel'.
   traverseInputs (fuel, commits, nCommits) = \case
     [] ->
       (fuel, commits, nCommits)
     TxInInfo{txInInfoResolved} : rest
-      | txOutAddress txInInfoResolved == headAddress ->
+      | isHeadOutput txInInfoResolved ->
         traverseInputs
           (fuel, commits, nCommits)
           rest
-      | txOutAddress txInInfoResolved == commitAddress ->
-        case commitFrom txInInfoResolved of
-          (commitValue, Just (SerializedTxOut commit)) ->
-            case matchParticipationToken headCurrencySymbol commitValue of
-              [_] ->
-                traverseInputs
-                  (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
-                  rest
-              _ ->
-                traceError "Invalid commit: does not contain valid PT."
-          (commitValue, Nothing) ->
-            case matchParticipationToken headCurrencySymbol commitValue of
-              [_] ->
-                traverseInputs
-                  (fuel, commits, succ nCommits)
-                  rest
-              _ ->
-                traceError "Invalid commit: does not contain valid PT."
+      | hasPT txInInfoResolved ->
+        case commitDatum txInInfoResolved of
+          Just (SerializedTxOut commit) ->
+            traverseInputs
+              (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
+              rest
+          Nothing ->
+            traverseInputs
+              (fuel, commits, succ nCommits)
+              rest
       | otherwise ->
         traverseInputs
           (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
           rest
 
-  commitFrom :: TxOut -> (Value, Maybe SerializedTxOut)
-  commitFrom o =
-    case txOutDatumHash o >>= lookupCommit of
-      Nothing -> (txOutValue o, Nothing)
-      Just commit -> (txOutValue o, Just commit)
+  isHeadOutput txOut = txOutAddress txOut == headAddress
 
-  lookupCommit :: DatumHash -> Maybe SerializedTxOut
-  lookupCommit h = do
-    d <- getDatum <$> findDatum h txInfo
+  hasPT txOut =
+    let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
+     in length pts == 1
+
+  commitDatum :: TxOut -> Maybe SerializedTxOut
+  commitDatum o = do
+    dh <- txOutDatumHash o
+    d <- getDatum <$> findDatum dh txInfo
     case fromBuiltinData @Commit.DatumType d of
-      Just (_p, _, Just o) ->
-        Just o
+      Just (_p, _, Just serializedTxOut) ->
+        Just serializedTxOut
       Just (_p, _, Nothing) ->
         Nothing
       Nothing ->
@@ -445,17 +427,17 @@ mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} HeadContex
   loop = \case
     [] -> []
     (TxInInfo{txInInfoResolved} : rest) ->
-      matchParticipationToken headCurrencySymbol (txOutValue txInInfoResolved) ++ loop rest
+      findParticipationTokens headCurrencySymbol (txOutValue txInInfoResolved) ++ loop rest
 {-# INLINEABLE mustBeSignedByParticipant #-}
 
-matchParticipationToken :: CurrencySymbol -> Value -> [TokenName]
-matchParticipationToken headCurrency (Value val) =
+findParticipationTokens :: CurrencySymbol -> Value -> [TokenName]
+findParticipationTokens headCurrency (Value val) =
   case Map.toList <$> Map.lookup headCurrency val of
     Just tokens ->
       mapMaybe (\(tokenName, n) -> if n == 1 then Just tokenName else Nothing) tokens
     _ ->
       []
-{-# INLINEABLE matchParticipationToken #-}
+{-# INLINEABLE findParticipationTokens #-}
 
 mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
 mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =
@@ -520,12 +502,9 @@ verifyPartySignature snapshotNumber utxoHash party signed =
 
 -- TODO: Add a NetworkId so that we can properly serialise address hashes
 -- see 'encodeAddress' for details
--- TODO: Use validatorHash directly in headValidator arguments
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
-  $$(PlutusTx.compile [||\ca ia -> wrap (headValidator ca ia)||])
-    `PlutusTx.applyCode` PlutusTx.liftCode (scriptHashAddress Commit.validatorHash)
-    `PlutusTx.applyCode` PlutusTx.liftCode (scriptHashAddress Initial.validatorHash)
+  $$(PlutusTx.compile [||wrap headValidator||])
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
