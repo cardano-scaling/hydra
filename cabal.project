@@ -195,11 +195,9 @@ source-repository-package
 
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/plutus-apps
-  tag: 83594e4cd210870985004c261ecc9e680015e065
-  --sha256: 076aqg0bpalp9s3xr6skibavd0zaajhrd8vph83958d8lk9f8xwn
-  subdir:
-    quickcheck-dynamic
+  location: https://github.com/abailly-iohk/quickcheck-dynamic
+  tag: a542f4df82e90d55154c189b54d33aee1d7de650
+  --sha256: 1cjnmrd3gahniidjf9vhbshaaj3llsmqvsvms1ccf1lcw6l96xwc
 
 source-repository-package
   type: git
