@@ -20,7 +20,9 @@ import Cardano.Ledger.Core (Value)
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (BHeader)
 import qualified Cardano.Ledger.Shelley.API as Ledger
+import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Ledger.Val (Val (..), invert)
+import Cardano.Slotting.Time (SystemStart)
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Default (def)
@@ -31,18 +33,25 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   NetworkId (..),
+  PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
+  ShelleyAddr,
   VerificationKey,
   fromLedgerTx,
   mkVkAddress,
   toLedgerAddr,
   toLedgerTxIn,
+  toLedgerUTxO,
+  verificationKeyHash,
  )
+import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Cardano.Api as Cardano.Api
-import Hydra.Chain.Direct.MockServer (withMockServer)
-import Hydra.Chain.Direct.Util (Era, markerDatum)
+import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
+import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.Direct.Util (Block, Era, markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
+  TinyWallet (..),
   TxIn,
   TxOut,
   applyBlock,
@@ -50,9 +59,10 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
   watchUTxOUntil,
  )
-import Hydra.Ledger.Cardano (genKeyPair, genTxIn, renderTx)
+import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genTxIn, renderTx)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, systemStart)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
+import Ouroboros.Consensus.HardFork.Combinator (PastHorizonException)
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -86,20 +96,36 @@ spec = parallel $ do
     prop "balances transaction with fees" prop_balanceTransaction
     prop "transaction's inputs are removed from wallet" prop_removeUsedInputs
 
-  describe "newTinyWallet" $ do
-    (vk, sk) <- runIO (generate genKeyPair)
-    it "connects to server and returns UTXO in a timely manner" $ do
-      withMockServer $ \networkId _iocp socket _ -> do
-        wallet <- newTinyWallet nullTracer networkId (vk, sk) socket
+  before (generate genKeyPair) $
+    describe "newTinyWallet" $ do
+      it "initialises wallet by querying UTxO" $ \(vk, sk) -> do
+        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) (queryOneUtxo vk)
         result <- timeout 10 $ watchUTxOUntil (const True) wallet
         result `shouldSatisfy` isJust
 
-    it "tracks UTXO correctly when payments are received" $ do
-      withMockServer $ \networkId _iocp socket submitTx -> do
-        wallet <- newTinyWallet nullTracer networkId (vk, sk) socket
-        generate (genPaymentTo networkId vk) >>= submitTx
+      it "tracks UTXO correctly when payments are received" $ \(vk, sk) -> do
+        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) (error "not implemented")
+        generate (genPaymentTo testNetworkId vk) >>= update wallet . makeBlock
         result <- timeout 10 $ watchUTxOUntil (not . null) wallet
         result `shouldSatisfy` isJust
+
+makeBlock :: ValidatedTx Era -> Block
+makeBlock = error "not implemented"
+
+queryOneUtxo ::
+  VerificationKey PaymentKey ->
+  Api.Address ShelleyAddr ->
+  IO
+    ( Map TxIn TxOut
+    , PParams Era
+    , SystemStart
+    , EpochInfo (Except PastHorizonException)
+    )
+queryOneUtxo vk addr = do
+  let Api.ShelleyAddress _ cred _ = addr
+  fromShelleyPaymentCredential cred `shouldBe` PaymentCredentialByKey (verificationKeyHash vk)
+  utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
+  pure (utxo, pparams, systemStart, epochInfo)
 
 --
 -- Generators
