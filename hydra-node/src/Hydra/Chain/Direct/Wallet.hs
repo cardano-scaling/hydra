@@ -63,6 +63,7 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import GHC.Ix (Ix)
 import Hydra.Cardano.Api (
+  ChainPoint,
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
@@ -114,10 +115,12 @@ data TinyWallet m = TinyWallet
   , sign :: ValidatedTx Era -> ValidatedTx Era
   , coverFee :: Map TxIn TxOut -> ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
   , -- | Reset the wallet state to some point.
-    reset :: Maybe (Point Block) -> m ()
+    reset :: QueryPoint -> m ()
   , -- | Update the wallet state given some 'Block'.
     update :: Block -> m ()
   }
+
+data QueryPoint = Tip | At ChainPoint
 
 -- | Get a single, marked as "fuel" UTxO.
 getFuelUTxO :: MonadSTM m => TinyWallet m -> STM m (Maybe (TxIn, TxOut))

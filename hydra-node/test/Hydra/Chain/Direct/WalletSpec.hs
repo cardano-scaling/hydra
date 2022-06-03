@@ -7,13 +7,11 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Prices (..))
+import Cardano.Ledger.Alonzo.PParams (PParams)
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), pattern TxOut)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
-import Cardano.Ledger.BaseTypes (StrictMaybe (SJust), boundRational)
+import Cardano.Ledger.BaseTypes (StrictMaybe (SJust))
 import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Value)
@@ -25,18 +23,17 @@ import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.Time (SystemStart)
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
-import Data.Default (def)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromJust)
-import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
+  ChainPoint,
   NetworkId (..),
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
   ShelleyAddr,
   VerificationKey,
+  fromConsensusPointHF,
   fromLedgerTx,
   mkVkAddress,
   toLedgerAddr,
@@ -47,10 +44,11 @@ import Hydra.Cardano.Api (
 import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Cardano.Api as Cardano.Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
-import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.Direct.Fixture (epochInfo, pparams, systemStart, testNetworkId)
 import Hydra.Chain.Direct.Util (Block, Era, markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
+  QueryPoint (..),
   TinyWallet (..),
   TxIn,
   TxOut,
@@ -60,11 +58,10 @@ import Hydra.Chain.Direct.Wallet (
   watchUTxOUntil,
  )
 import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genTxIn, renderTx)
-import Hydra.Ledger.Cardano.Evaluate (epochInfo, systemStart)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import Ouroboros.Consensus.HardFork.Combinator (PastHorizonException)
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
+import Ouroboros.Network.Block (Point, genesisPoint)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
@@ -100,17 +97,44 @@ spec = parallel $ do
     describe "newTinyWallet" $ do
       it "initialises wallet by querying UTxO" $ \(vk, sk) -> do
         wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) (queryOneUtxo vk)
-        result <- timeout 10 $ watchUTxOUntil (const True) wallet
-        result `shouldSatisfy` isJust
+        utxo <- atomically (getUTxO wallet)
+        utxo `shouldSatisfy` \m -> Map.size m > 0
 
-      it "tracks UTXO correctly when payments are received" $ \(vk, sk) -> do
-        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) (error "not implemented")
-        generate (genPaymentTo testNetworkId vk) >>= update wallet . makeBlock
-        result <- timeout 10 $ watchUTxOUntil (not . null) wallet
-        result `shouldSatisfy` isJust
+      -- it "tracks UTXO correctly when blocks are received" $ \(vk, sk) -> do
+      --   wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) (error "not implemented")
+      --   generate (genPaymentTo testNetworkId vk) >>= update wallet . makeBlock
+      --   result <- timeout 10 $ watchUTxOUntil (not . null) wallet
+      --   result `shouldSatisfy` isJust
+
+      it "re-queries UTxO from the reset point" $ \(vk, sk) -> do
+        let setup = undefined
+        (query, shouldHaveBeenQueriedFrom) <- setup
+        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) query
+        shouldHaveBeenQueriedFrom Tip
+        let somePoint = fromConsensusPointHF @Block genesisPoint
+        reset wallet (At somePoint)
+        shouldHaveBeenQueriedFrom $ At somePoint
 
 makeBlock :: ValidatedTx Era -> Block
 makeBlock = error "not implemented"
+
+expectQueryOneUtxoAtPoint ::
+  VerificationKey PaymentKey ->
+  Maybe (Point Block) ->
+  Maybe (Point Block) ->
+  Api.Address ShelleyAddr ->
+  IO
+    ( Map TxIn TxOut
+    , PParams Era
+    , SystemStart
+    , EpochInfo (Except PastHorizonException)
+    )
+expectQueryOneUtxoAtPoint vk expectedPoint actualPoint addr = do
+  actualPoint `shouldBe` expectedPoint
+  let Api.ShelleyAddress _ cred _ = addr
+  fromShelleyPaymentCredential cred `shouldBe` PaymentCredentialByKey (verificationKeyHash vk)
+  utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
+  pure (utxo, pparams, systemStart, epochInfo)
 
 queryOneUtxo ::
   VerificationKey PaymentKey ->
@@ -387,15 +411,3 @@ knownInputBalance utxo = foldMap resolve . toList . inputs . body
 outputBalance :: ValidatedTx Era -> Value Era
 outputBalance =
   foldMap getValue . outputs . body
-
-pparams :: PParams Era
-pparams =
-  def
-    { _costmdls = Map.singleton PlutusV1 $ fromJust defaultCostModel
-    , _maxTxExUnits = ExUnits 10 10
-    , _prices =
-        Prices
-          { prMem = fromJust $ boundRational (1 % 1)
-          , prSteps = fromJust $ boundRational (1 % 1)
-          }
-    }
