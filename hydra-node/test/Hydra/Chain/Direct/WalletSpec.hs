@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
@@ -8,7 +9,6 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
-import Cardano.Ledger.Alonzo.PParams (PParams)
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), pattern TxOut)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
@@ -19,9 +19,7 @@ import Cardano.Ledger.Core (Value)
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (BHeader)
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Ledger.Val (Val (..), invert)
-import Cardano.Slotting.Time (SystemStart)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Control.Tracer (nullTracer)
 import qualified Data.Map.Strict as Map
@@ -31,7 +29,6 @@ import Hydra.Cardano.Api (
   NetworkId (..),
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
-  ShelleyAddr,
   VerificationKey,
   fromConsensusPointHF,
   fromLedgerTx,
@@ -48,6 +45,7 @@ import Hydra.Chain.Direct.Fixture (epochInfo, pparams, systemStart, testNetworkI
 import Hydra.Chain.Direct.Util (Block, Era, markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
+  ChainQuery,
   QueryPoint (..),
   TinyWallet (..),
   TxIn,
@@ -58,9 +56,8 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genTxIn, renderTx)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
-import Ouroboros.Consensus.HardFork.Combinator (PastHorizonException)
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
-import Ouroboros.Network.Block (Point, genesisPoint)
+import Ouroboros.Network.Block (genesisPoint)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
@@ -94,20 +91,8 @@ spec = parallel $ do
 
   before (generate genKeyPair) $
     describe "newTinyWallet" $ do
-      let setupQuery vk = do
-            queried <- newEmptyMVar
-            let queryFn point _addr = do
-                  putMVar queried point
-                  utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
-                  pure (utxo, pparams, systemStart, epochInfo)
-
-                assertQueryPoint point =
-                  takeMVar queried `shouldReturn` point
-
-            pure (queryFn, assertQueryPoint)
-
       it "initialises wallet by querying UTxO" $ \(vk, sk) -> do
-        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) (queryOneUtxo vk)
+        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) (mockQueryOneUtxo vk)
         utxo <- atomically (getUTxO wallet)
         utxo `shouldSatisfy` \m -> Map.size m > 0
 
@@ -119,38 +104,23 @@ spec = parallel $ do
         reset wallet (At somePoint)
         assertQueryPoint $ At somePoint
 
-makeBlock :: ValidatedTx Era -> Block
-makeBlock = error "not implemented"
-
-expectQueryOneUtxoAtPoint ::
+setupQuery ::
   VerificationKey PaymentKey ->
-  Maybe (Point Block) ->
-  Maybe (Point Block) ->
-  Api.Address ShelleyAddr ->
-  IO
-    ( Map TxIn TxOut
-    , PParams Era
-    , SystemStart
-    , EpochInfo (Except PastHorizonException)
-    )
-expectQueryOneUtxoAtPoint vk expectedPoint actualPoint addr = do
-  actualPoint `shouldBe` expectedPoint
-  let Api.ShelleyAddress _ cred _ = addr
-  fromShelleyPaymentCredential cred `shouldBe` PaymentCredentialByKey (verificationKeyHash vk)
-  utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
-  pure (utxo, pparams, systemStart, epochInfo)
+  IO (ChainQuery IO, QueryPoint -> Expectation)
+setupQuery vk = do
+  mv <- newEmptyMVar
+  pure (queryFn mv, assertQueryPoint mv)
+ where
+  queryFn mv point _addr = do
+    putMVar mv point
+    utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
+    pure (utxo, pparams, systemStart, epochInfo)
 
-queryOneUtxo ::
-  VerificationKey PaymentKey ->
-  QueryPoint ->
-  Api.Address ShelleyAddr ->
-  IO
-    ( Map TxIn TxOut
-    , PParams Era
-    , SystemStart
-    , EpochInfo (Except PastHorizonException)
-    )
-queryOneUtxo vk _point addr = do
+  assertQueryPoint mv point =
+    takeMVar mv `shouldReturn` point
+
+mockQueryOneUtxo :: VerificationKey PaymentKey -> ChainQuery IO
+mockQueryOneUtxo vk _point addr = do
   let Api.ShelleyAddress _ cred _ = addr
   fromShelleyPaymentCredential cred `shouldBe` PaymentCredentialByKey (verificationKeyHash vk)
   utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
