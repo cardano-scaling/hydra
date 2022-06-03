@@ -11,7 +11,6 @@ import Hydra.Contract.Commit (SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
-import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Codec.CBOR.Encoding (
@@ -24,7 +23,6 @@ import Plutus.Codec.CBOR.Encoding (
  )
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Ada (lovelaceValueOf)
-import Plutus.V1.Ledger.Address (scriptHashAddress)
 import Plutus.V1.Ledger.Api (
   Address,
   CurrencySymbol,
@@ -65,17 +63,11 @@ hydraHeadV1 = "HydraHeadV1"
 
 {-# INLINEABLE headValidator #-}
 headValidator ::
-  -- | Commit script address. NOTE: Used to identify inputs from commits and
-  -- likely could be replaced by looking for PTs.
-  Address ->
-  -- | Inital script address. NOTE: Used to identify inputs from initials and
-  -- likely could be replaced by looking for PTs.
-  Address ->
   State ->
   Input ->
   ScriptContext ->
   Bool
-headValidator commitAddress initialAddress oldState input context =
+headValidator oldState input context =
   case (oldState, input) of
     (Initial{contestationPeriod, parties}, CollectCom) ->
       checkCollectCom context headContext (contestationPeriod, parties)
@@ -90,7 +82,7 @@ headValidator commitAddress initialAddress oldState input context =
     _ ->
       traceError "invalid head state transition"
  where
-  headContext = mkHeadContext context initialAddress commitAddress
+  headContext = mkHeadContext context
 
 data CheckCollectComError
   = NoContinuingOutput
@@ -102,18 +94,14 @@ data HeadContext = HeadContext
   { headAddress :: Address
   , headInputValue :: Value
   , headCurrencySymbol :: CurrencySymbol
-  , commitAddress :: Address
-  , initialAddress :: Address
   }
 
-mkHeadContext :: ScriptContext -> Address -> Address -> HeadContext
-mkHeadContext context initialAddress commitAddress =
+mkHeadContext :: ScriptContext -> HeadContext
+mkHeadContext context =
   HeadContext
     { headAddress
     , headInputValue
     , headCurrencySymbol
-    , initialAddress
-    , commitAddress
     }
  where
   headInput :: TxInInfo
@@ -514,12 +502,9 @@ verifyPartySignature snapshotNumber utxoHash party signed =
 
 -- TODO: Add a NetworkId so that we can properly serialise address hashes
 -- see 'encodeAddress' for details
--- TODO: Use validatorHash directly in headValidator arguments
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
-  $$(PlutusTx.compile [||\ca ia -> wrap (headValidator ca ia)||])
-    `PlutusTx.applyCode` PlutusTx.liftCode (scriptHashAddress Commit.validatorHash)
-    `PlutusTx.applyCode` PlutusTx.liftCode (scriptHashAddress Initial.validatorHash)
+  $$(PlutusTx.compile [||wrap headValidator||])
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
