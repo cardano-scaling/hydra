@@ -35,12 +35,12 @@ import Hydra.Cardano.Api (
  )
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
+import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Fixture (epochInfo, pparams, systemStart, testNetworkId)
 import Hydra.Chain.Direct.Util (Block, Era, markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
-  QueryPoint (..),
   TinyWallet (..),
   TxIn,
   TxOut,
@@ -93,10 +93,10 @@ spec = parallel $ do
       it "re-queries UTxO from the reset point" $ \(vk, sk) -> do
         (queryFn, assertQueryPoint) <- setupQuery vk
         wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) queryFn
-        assertQueryPoint Tip
+        assertQueryPoint QueryTip
         let somePoint = fromConsensusPointHF @Block genesisPoint
-        reset wallet (At somePoint)
-        assertQueryPoint $ At somePoint
+        reset wallet (QueryAt somePoint)
+        assertQueryPoint $ QueryAt somePoint
 
 setupQuery ::
   VerificationKey PaymentKey ->

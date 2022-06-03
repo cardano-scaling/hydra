@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
 -- protocols to submit "hand-rolled" transactions.
@@ -62,10 +63,11 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.CardanoClient (
+  QueryPoint (QueryAt),
   queryEraHistory,
   queryProtocolParameters,
   querySystemStart,
-  queryTipSlotNo,
+  queryTip,
   queryUTxO,
  )
 import Hydra.Chain.Direct.Handlers (
@@ -91,7 +93,6 @@ import Hydra.Chain.Direct.Util (
   versions,
  )
 import Hydra.Chain.Direct.Wallet (
-  QueryPoint (At),
   TinyWallet (..),
   getTxId,
   newTinyWallet,
@@ -104,7 +105,7 @@ import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (mkShelleyTx)
-import Ouroboros.Network.Block (Point (..), Tip (..), getTipPoint)
+import Ouroboros.Network.Block (Point (..), Tip, getTipPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
   MuxMode (..),
@@ -199,12 +200,11 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
     Left a -> pure a
     Right () -> error "'connectTo' cannot terminate but did?"
  where
-  -- TODO: query at given point
-  queryUTxOEtc _queryPoint address = do
-    utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath [address]
-    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath
-    systemStart <- querySystemStart networkId socketPath
-    epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath
+  queryUTxOEtc queryPoint address = do
+    utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath queryPoint [address]
+    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath queryPoint
+    systemStart <- querySystemStart networkId socketPath queryPoint
+    epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath queryPoint
     pure (utxo, pparams, systemStart, epochInfo)
 
   toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Except PastHorizonException)
@@ -232,11 +232,11 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
 -- current point in time.
 queryTimeHandle :: MonadThrow m => NetworkId -> FilePath -> IO (TimeHandle m)
 queryTimeHandle networkId socketPath = do
-  systemStart <- querySystemStart networkId socketPath
-  eraHistory <- queryEraHistory networkId socketPath
+  tip@(ChainPoint slotNo _) <- queryTip networkId socketPath
+  systemStart <- querySystemStart networkId socketPath (QueryAt tip)
+  eraHistory <- queryEraHistory networkId socketPath (QueryAt tip)
   let epochInfo = toEpochInfo eraHistory
-  pparams <- queryProtocolParameters networkId socketPath
-  slotNo <- queryTipSlotNo networkId socketPath
+  pparams <- queryProtocolParameters networkId socketPath (QueryAt tip)
   let toTime =
         slotToPOSIXTime
           (toLedgerPParams ShelleyBasedEraAlonzo pparams :: PParams LedgerEra)
@@ -391,7 +391,7 @@ chainSyncClient handler wallet = \case
           pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
-          reset wallet $ At (fromConsensusPointHF point)
+          reset wallet $ QueryAt (fromConsensusPointHF point)
           -- Rollback main chain sync handler
           onRollBackward handler point
           pure clientStIdle

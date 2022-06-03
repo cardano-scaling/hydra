@@ -63,7 +63,6 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import GHC.Ix (Ix)
 import Hydra.Cardano.Api (
-  ChainPoint (ChainPointAtGenesis),
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
@@ -77,6 +76,7 @@ import Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
+import Hydra.Chain.CardanoClient (QueryPoint (QueryTip))
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
@@ -90,7 +90,6 @@ import Ouroboros.Consensus.HardFork.History (PastHorizonException)
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (oneof)
 
 type Address = Ledger.Addr StandardCrypto
 type TxBody = Ledger.TxBody Era
@@ -119,18 +118,6 @@ data TinyWallet m = TinyWallet
   , -- | Update the wallet state given some 'Block'.
     update :: Block -> m ()
   }
-
-data QueryPoint = Tip | At ChainPoint
-  deriving (Eq, Show, Generic)
-
-instance Arbitrary QueryPoint where
-  -- XXX: This is not complete as we lack an 'Arbitrary ChainPoint' and we have
-  -- not bothered about it yet.
-  arbitrary =
-    oneof
-      [ pure Tip
-      , pure $ At ChainPointAtGenesis
-      ]
 
 type ChainQuery m =
   ( QueryPoint ->
@@ -166,7 +153,7 @@ newTinyWallet ::
   ChainQuery IO ->
   IO (TinyWallet IO)
 newTinyWallet tracer networkId (vk, sk) queryUTxOEtc = do
-  utxoVar <- newTVarIO =<< queryUTxOEtc Tip address
+  utxoVar <- newTVarIO =<< queryUTxOEtc QueryTip address
   pure
     TinyWallet
       { getUTxO =
