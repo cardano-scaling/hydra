@@ -33,14 +33,16 @@ instance Monad WrapIOSim where
   WrapIOSim m >>= k = WrapIOSim (m >>= unwrapIOSim . k)
 
 spec :: Spec
-spec = prop "implementation respects model" prop_checkModel
+spec =
+  modifyMaxSuccess (const 1000) $
+    prop "implementation respects model" prop_checkModel
 
 runIOSimProp :: (forall s. Gen (StateT (Nodes (IOSim s)) (IOSim s) Property)) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
   case runSim $ evalStateT (eval p) mempty of
     Left f -> pure $ counterexample (show f) $ property False
-    Right p' -> trace "runSim succeeded" $ pure p'
+    Right p' -> pure p'
 
 newtype AnyActions = AnyActions {unAnyActions :: forall s. Actions (WorldState (IOSim s))}
 

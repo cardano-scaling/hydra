@@ -17,7 +17,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import GHC.Show (show)
 import Hydra.BehaviorSpec (createHydraNode, simulatedChainAndNetwork)
-import Hydra.Cardano.Api (PaymentKey, SigningKey (PaymentSigningKey), VerificationKey, getVerificationKey)
+import Hydra.Cardano.Api (PaymentKey, SigningKey (PaymentSigningKey), UTxO, VerificationKey, getVerificationKey)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
 import Hydra.ClientInput (ClientInput)
@@ -48,6 +48,7 @@ data LocalState
       { headParameters :: HeadParameters
       , offChainState :: OffChainState
       }
+  | Final {finalUTxO :: UTxO}
   deriving stock (Eq, Show)
 
 --  Closed
@@ -57,8 +58,12 @@ data LocalState
 --     }
 --  Final {finalUTxO :: UTxO}
 
+isInitialState :: LocalState -> Bool
+isInitialState Initial{} = True
+isInitialState _ = False
+
 isFinalState :: LocalState -> Bool
-isFinalState Initial{} = True
+isFinalState Final{} = True
 isFinalState _ = False
 
 isIdleState :: LocalState -> Bool
@@ -67,7 +72,7 @@ isIdleState _ = False
 
 isPendingCommitFrom :: Party -> LocalState -> Bool
 isPendingCommitFrom party Initial{pendingCommits} =
-  party `Set.notMember` pendingCommits
+  party `Set.member` pendingCommits
 isPendingCommitFrom _ _ = False
 
 data OffChainState = OffChainState
@@ -105,7 +110,17 @@ instance
   where
   data Action (WorldState m) a where
     Seed :: {seedKeys :: [(Hydra.SigningKey, CardanoSigningKey)]} -> Action (WorldState m) ()
-    Action ::
+    Init ::
+      { party :: Party
+      , command :: ClientInput Tx
+      } ->
+      Action (WorldState m) ()
+    Commit ::
+      { party :: Party
+      , command :: ClientInput Tx
+      } ->
+      Action (WorldState m) ()
+    Abort ::
       { party :: Party
       , command :: ClientInput Tx
       } ->
@@ -117,20 +132,33 @@ instance
 
   arbitraryAction :: WorldState m -> Gen (Any (Action (WorldState m)))
   arbitraryAction = \case
-    WorldState{worldState} ->
-      oneof
-        [ Some . Seed <$> resize 5 (listOf1 partyKeys)
-        , do
-            initContestationPeriod <- arbitrary
-            party <- elements $ Map.keys worldState
-            let command = Input.Init{Input.contestationPeriod = initContestationPeriod}
-            pure $ Some Action{party, command}
-        , do
-            (party, PartyState{cardanoKey}) <- elements $ Map.toList worldState
-            utxo <- genOneUTxOFor (getVerificationKey cardanoKey)
-            let command = Input.Commit{Input.utxo = utxo}
-            pure $ Some Action{party, command}
-        ]
+    WorldState{worldState}
+      | null worldState ->
+        genSeed
+      | otherwise ->
+        oneof
+          [ genInit
+          , genCommit
+          , genAbort
+          ]
+     where
+      genSeed = Some . Seed <$> resize 5 (listOf1 partyKeys)
+
+      genInit = do
+        initContestationPeriod <- arbitrary
+        party <- elements $ Map.keys worldState
+        let command = Input.Init{Input.contestationPeriod = initContestationPeriod}
+        pure $ Some Init{party, command}
+
+      genCommit = do
+        (party, PartyState{cardanoKey}) <- elements $ Map.toList worldState
+        utxo <- genOneUTxOFor (getVerificationKey cardanoKey)
+        let command = Input.Commit{Input.utxo = utxo}
+        pure $ Some Commit{party, command}
+
+      genAbort = do
+        (party, _) <- elements $ Map.toList worldState
+        pure $ Some Abort{party, command = Input.Abort}
 
   nextState :: WorldState m -> Action (WorldState m) a -> Var a -> WorldState m
   nextState _ Seed{seedKeys} _ =
@@ -139,7 +167,7 @@ instance
     idleParties = map (deriveParty . fst) seedKeys
     cardanoKeys = map (getVerificationKey . snd) seedKeys
     mkIdle p = (deriveParty $ fst p, PartyState{cardanoKey = snd p, partyState = Idle{idleParties, cardanoKeys}})
-  nextState WorldState{worldState} Action{command = Input.Init{Input.contestationPeriod}} _ =
+  nextState WorldState{worldState} Init{command = Input.Init{Input.contestationPeriod}} _ =
     WorldState{worldState = Map.map mkInitialState worldState}
    where
     mkInitialState = \case
@@ -157,7 +185,7 @@ instance
                 }
           }
       _ -> error "unexpected state"
-  nextState WorldState{worldState} Action{party, command = Input.Commit{Input.utxo}} _ =
+  nextState WorldState{worldState} Commit{party, command = Input.Commit{Input.utxo}} _ =
     WorldState{worldState = Map.map updateWithCommit worldState}
    where
     updateWithCommit = \case
@@ -171,13 +199,29 @@ instance
                 }
           }
       _ -> error "unexpected state"
+  nextState WorldState{worldState} Abort{command = Input.Abort} _ =
+    WorldState{worldState = Map.map updateWithAbort worldState}
+   where
+    updateWithAbort = \case
+      st@PartyState{partyState = Initial{commits}} ->
+        st
+          { partyState = Final committedUTxO
+          }
+       where
+        committedUTxO = mconcat $ Map.elems commits
+      st@PartyState{} ->
+        st
+          { partyState = Final mempty
+          }
   nextState _ _ _ = error "not implemented"
 
   precondition WorldState{worldState} Seed{} = null worldState
-  precondition WorldState{worldState} Action{command = Input.Init{}} =
+  precondition WorldState{worldState} Init{command = Input.Init{}} =
     not (null worldState) && all (isIdleState . partyState) (Map.elems worldState)
-  precondition WorldState{worldState} Action{party, command = Input.Commit{}} =
+  precondition WorldState{worldState} Commit{party, command = Input.Commit{}} =
     not (null worldState) && all (isPendingCommitFrom party . partyState) (Map.elems worldState)
+  precondition WorldState{worldState} Abort{command = Input.Abort{}} =
+    not (null worldState) && all (isInitialState . partyState) (Map.elems worldState)
   precondition _ _ = True
 
   perform :: WorldState m -> Action (WorldState m) a -> LookUp -> StateT (Nodes m) m a
@@ -186,19 +230,24 @@ instance
     tvar <- lift $ newTVarIO []
     nodes <- lift $ do
       let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
-      connectToChain <- trace "simulate chain" simulatedChainAndNetwork
-      forM seedKeys $ \(sk, _csk) -> trace ("starting node " <> Hydra.Prelude.show sk) $ do
+      connectToChain <- simulatedChainAndNetwork
+      forM seedKeys $ \(sk, _csk) -> do
         outputs <- atomically newTQueue
-        node <- trace ("creating node " <> Hydra.Prelude.show sk) $ createHydraNode ledger sk parties outputs connectToChain
+        node <- createHydraNode ledger sk parties outputs connectToChain
         void $ async $ runHydraNode (traceInTVar tvar) node
         pure (deriveParty sk, node)
 
-    trace ("initialised nodes " <> Hydra.Prelude.show (map fst nodes) <> ", from seed:  " <> Hydra.Prelude.show seedKeys) $ put $ Map.fromList nodes
-  perform _ Action{party, command} _lookupVar = do
-    nodes <- get
-    case Map.lookup party nodes of
-      Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
-      Just actorNode -> lift $ actorNode `handleClientInput` command
+    put $ Map.fromList nodes
+  perform _ Init{party, command} _ = party `performs` command
+  perform _ Commit{party, command} _ = party `performs` command
+  perform _ Abort{party, command} _ = party `performs` command
+
+performs :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
+performs party command = do
+  nodes <- get
+  case Map.lookup party nodes of
+    Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
+    Just actorNode -> lift $ actorNode `handleClientInput` command
 
 partyKeys :: Gen (Hydra.SigningKey, CardanoSigningKey)
 partyKeys = do
@@ -208,9 +257,13 @@ partyKeys = do
 
 instance Show (Action (WorldState m) a) where
   show (Seed sks) = "Seed { seedKeys = " <> Hydra.Prelude.show sks <> "}"
-  show (Action pa ci) = "Action { party = " <> Hydra.Prelude.show pa <> ", command = " <> Hydra.Prelude.show ci <> "}"
+  show (Init pa ci) = "Init { party = " <> Hydra.Prelude.show pa <> ", command = " <> Hydra.Prelude.show ci <> "}"
+  show (Commit pa ci) = "Init { party = " <> Hydra.Prelude.show pa <> ", command = " <> Hydra.Prelude.show ci <> "}"
+  show (Abort pa ci) = "Init { party = " <> Hydra.Prelude.show pa <> ", command = " <> Hydra.Prelude.show ci <> "}"
 
 instance Eq (Action (WorldState m) a) where
   (Seed sks) == (Seed sks') = map fst sks == map fst sks'
-  (Action pa ci) == (Action pa' ci') = pa == pa' && ci == ci'
+  (Init pa ci) == (Init pa' ci') = pa == pa' && ci == ci'
+  (Commit pa ci) == (Commit pa' ci') = pa == pa' && ci == ci'
+  (Abort pa ci) == (Abort pa' ci') = pa == pa' && ci == ci'
   _ == _ = False
