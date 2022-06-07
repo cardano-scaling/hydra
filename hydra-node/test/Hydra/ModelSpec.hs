@@ -12,11 +12,11 @@ import Unsafe.Coerce (unsafeCoerce)
 import qualified Prelude
 
 import Control.Monad.IOSim (IOSim, runSim)
-import Hydra.Model (WorldState (WorldState))
+import Hydra.Model (Nodes, WorldState (WorldState))
 import Test.QuickCheck (Property, counterexample, property)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
-import Test.QuickCheck.Monadic (assert, monadic', monitor)
-import Test.QuickCheck.StateModel (Actions, runActions)
+import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor)
+import Test.QuickCheck.StateModel (Actions, Env, initialState, runActionsInState)
 
 newtype WrapIOSim a = WrapIOSim {unwrapIOSim :: forall s. IOSim s a}
 
@@ -33,14 +33,14 @@ instance Monad WrapIOSim where
 spec :: Spec
 spec = prop "implementation respects model" prop_checkModel
 
-runIOSimProp :: (forall s. Gen (IOSim s Property)) -> Gen Property
+runIOSimProp :: (forall s. Gen (StateT (Nodes (IOSim s)) (IOSim s) Property)) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  case runSim (eval p) of
+  case runSim $ evalStateT (eval p) mempty of
     Left f -> pure $ counterexample (show f) $ property False
     Right p' -> pure p'
 
-newtype AnyActions = AnyActions {unAnyActions :: forall s. Typeable s => Actions (WorldState (IOSim s))}
+newtype AnyActions = AnyActions {unAnyActions :: forall s. Actions (WorldState (IOSim s))}
 
 instance Show AnyActions where
   show (AnyActions acts) = Prelude.show (acts @())
@@ -60,8 +60,11 @@ prop_checkModel (AnyActions actions) =
   property $
     runIOSimProp $
       monadic' $ do
-        (WorldState{}, _symEnv) <- runActions actions
+        (WorldState{}, _symEnv) <- runActions' actions
         let someAssertionAboutWorldState = True
         when (not someAssertionAboutWorldState) $ do
           monitor $ counterexample "What went wrong if it went wrong"
         assert someAssertionAboutWorldState
+
+runActions' :: Actions (WorldState (IOSim s)) -> PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) (WorldState (IOSim s), Env)
+runActions' = runActionsInState initialState

@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wwarn #-}
 
 -- | A /Model/ of the Hydra head Protocol
 --
@@ -29,7 +28,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot)
 import Test.QuickCheck (elements)
 import Test.QuickCheck.Gen (oneof)
-import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var (Var))
+import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
 
 -- | Local state as seen by each Head participant.
 data LocalState
@@ -83,7 +82,6 @@ instance
   , MonadCatch m
   , MonadTime m
   , MonadFork m
-  , Typeable m
   ) =>
   StateModel (WorldState m)
   where
@@ -95,7 +93,7 @@ instance
       } ->
       Action (WorldState m) ()
 
-  type ActionMonad (WorldState m) = m
+  type ActionMonad (WorldState m) = StateT (Nodes m) m
 
   initialState = WorldState mempty
 
@@ -138,11 +136,11 @@ instance
   precondition WorldState{worldState} Action{command = Input.Init{}} = all isIdleState (Map.elems worldState)
   precondition _ _ = True
 
-  perform :: WorldState m -> Action (WorldState m) a -> LookUp -> m a
+  perform :: WorldState m -> Action (WorldState m) a -> LookUp -> StateT (Nodes m) m a
   perform _worldState Seed{seedKeys} _ = do
     let parties = map deriveParty seedKeys
-    tvar <- newTVarIO []
-    _nodes <- do
+    tvar <- lift $ newTVarIO []
+    nodes <- lift $ do
       let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
       connectToChain <- simulatedChainAndNetwork
       forM seedKeys $ \sk -> do
@@ -151,14 +149,12 @@ instance
         runHydraNode (traceInTVar tvar) node
         pure (deriveParty sk, node)
 
-    --pure $ Map.fromList nodes
-    return ()
-  perform _ Action{party, command} lookupVar = do
-    --let nodes = lookupVar (Var 0 :: Var (Nodes m))
-    nodes <- error "Use a state monad to do this - symbolic variables are for state that needs to be reflected in the model part :)"
+    put $ Map.fromList nodes
+  perform _ Action{party, command} _lookupVar = do
+    nodes <- get
     case Map.lookup party nodes of
       Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
-      Just actorNode -> actorNode `handleClientInput` command
+      Just actorNode -> lift $ actorNode `handleClientInput` command
 
 instance Show (Action (WorldState m) a) where
   show (Seed sks) = "Seed { seedKeys = " <> Hydra.Prelude.show sks <> "}"
