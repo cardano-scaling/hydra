@@ -1,5 +1,7 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.ModelSpec where
 
@@ -16,7 +18,7 @@ import Hydra.Model (Nodes, WorldState (WorldState))
 import Test.QuickCheck (Property, counterexample, property)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor)
-import Test.QuickCheck.StateModel (Actions, Env, initialState, runActionsInState)
+import Test.QuickCheck.StateModel (Actions, Env, initialState, runActionsInState, pattern Actions)
 
 newtype WrapIOSim a = WrapIOSim {unwrapIOSim :: forall s. IOSim s a}
 
@@ -38,7 +40,7 @@ runIOSimProp p = do
   Capture eval <- capture
   case runSim $ evalStateT (eval p) mempty of
     Left f -> pure $ counterexample (show f) $ property False
-    Right p' -> pure p'
+    Right p' -> trace "runSim succeeded" $ pure p'
 
 newtype AnyActions = AnyActions {unAnyActions :: forall s. Actions (WorldState (IOSim s))}
 
@@ -50,7 +52,9 @@ instance Arbitrary AnyActions where
     Capture eval <- capture
     return (AnyActions (eval arbitrary))
 
-  shrink (AnyActions actions) = [AnyActions (unsafeCoerceActions act) | act <- shrink (actions @())]
+  shrink (AnyActions actions) = case actions of
+    Actions [] -> []
+    acts -> [AnyActions (unsafeCoerceActions act) | act <- shrink acts]
 
 unsafeCoerceActions :: Actions (WorldState (IOSim s)) -> Actions (WorldState (IOSim s'))
 unsafeCoerceActions = unsafeCoerce
