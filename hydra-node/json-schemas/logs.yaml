@@ -304,7 +304,9 @@ definitions:
           type: string
           enum: ["InitializingWallet"]
         point:
-          $ref: "api.yaml#/components/schemas/Point"
+          description: >-
+            Whether we queried the tip or some point on the chain.
+          type: string
         initialUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
     - title: ApplyBlock
@@ -313,15 +315,12 @@ definitions:
       additionalProperties: false
       required:
       - tag
-      - before
-      - after
+      - newUTxO
       properties:
         tag:
           type: string
           enum: ["ApplyBlock"]
-        before:
-          $ref: "api.yaml#/components/schemas/UTxO"
-        after:
+        newUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
     - title: EraMismatchError
       description: >-

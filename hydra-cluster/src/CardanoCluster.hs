@@ -10,6 +10,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (
   CardanoClientException,
+  QueryPoint (QueryTip),
   build,
   buildAddress,
   queryUTxO,
@@ -168,7 +169,7 @@ seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lov
         submit networkId nodeSocket (sign faucetSk body)
 
   findUTxO faucetVk = do
-    faucetUTxO <- queryUTxO networkId nodeSocket [buildAddress faucetVk networkId]
+    faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
     let foundUTxO = find (\(_i, o) -> txOutLovelace o >= lovelace) $ UTxO.pairs faucetUTxO
     case foundUTxO of
       Just o -> pure o

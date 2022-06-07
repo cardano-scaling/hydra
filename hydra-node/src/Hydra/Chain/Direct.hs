@@ -1,6 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
 -- protocols to submit "hand-rolled" transactions.
@@ -20,6 +22,7 @@ import Cardano.Ledger.Alonzo.Rules.Utxow (AlonzoPredFail (WrappedShelleyEraFailu
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure), debugPlutus, slotToPOSIXTime)
 import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError))
+import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Cardano.Ledger.Slot (EpochInfo)
@@ -48,18 +51,24 @@ import Hydra.Cardano.Api (
   SigningKey,
   Tx,
   VerificationKey,
+  fromConsensusPointHF,
+  shelleyBasedEra,
   toConsensusPointHF,
   toLedgerPParams,
+  toLedgerUTxO,
  )
+import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain (
   ChainComponent,
   PostTxError (..),
  )
 import Hydra.Chain.CardanoClient (
+  QueryPoint (QueryAt),
   queryEraHistory,
   queryProtocolParameters,
   querySystemStart,
-  queryTipSlotNo,
+  queryTip,
+  queryUTxO,
  )
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler,
@@ -86,16 +95,17 @@ import Hydra.Chain.Direct.Util (
 import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   getTxId,
-  withTinyWallet,
+  newTinyWallet,
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo))
+import Ouroboros.Consensus.HardFork.Combinator (PastHorizonException)
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (mkShelleyTx)
-import Ouroboros.Network.Block (Point (..), Tip (..), getTipPoint)
+import Ouroboros.Network.Block (Point (..), Tip, getTipPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
   MuxMode (..),
@@ -150,53 +160,60 @@ withDirectChain ::
   ChainComponent Tx IO a
 withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point callback action = do
   queue <- newTQueueIO
-  withTinyWallet (contramap Wallet tracer) networkId keyPair iocp socketPath $ \wallet -> do
-    headState <-
-      newTVarIO $
-        SomeOnChainHeadStateAt
-          { currentOnChainHeadState =
-              SomeOnChainHeadState $
-                idleOnChainHeadState
-                  networkId
-                  (cardanoKeys \\ [verificationKey wallet])
-                  (verificationKey wallet)
-                  party
-          , recordedAt = AtStart
-          }
-    res <-
-      race
-        ( do
-            -- FIXME: There's currently a race-condition with the actual client
-            -- which will only see transactions after it has established
-            -- connection with the server's tip. So any transaction submitted
-            -- before that tip will be missed.
-            threadDelay 2
-            action $
-              mkChain
-                tracer
-                (queryTimeHandle networkId socketPath)
-                cardanoKeys
-                wallet
-                headState
-                (newTxPoster queue)
-        )
-        ( handle onIOException $ do
-            let intersection = toConsensusPointHF <$> point
-            let client = ouroborosApplication tracer intersection queue (chainSyncHandler tracer callback headState)
-            connectTo
-              (localSnocket iocp)
-              nullConnectTracers
-              (versions networkId client)
-              socketPath
-        )
-    case res of
-      Left a -> pure a
-      Right () -> error "'connectTo' cannot terminate but did?"
+  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair queryUTxOEtc
+  let (vk, _) = keyPair
+  headState <-
+    newTVarIO $
+      SomeOnChainHeadStateAt
+        { currentOnChainHeadState =
+            SomeOnChainHeadState $
+              idleOnChainHeadState networkId (cardanoKeys \\ [vk]) vk party
+        , recordedAt = AtStart
+        }
+  res <-
+    race
+      ( do
+          -- FIXME: There's currently a race-condition with the actual client
+          -- which will only see transactions after it has established
+          -- connection with the server's tip. So any transaction submitted
+          -- before that tip will be missed.
+          threadDelay 2
+          action $
+            mkChain
+              tracer
+              (queryTimeHandle networkId socketPath)
+              cardanoKeys
+              wallet
+              headState
+              (submitTx queue)
+      )
+      ( handle onIOException $ do
+          let intersection = toConsensusPointHF <$> point
+          let client = ouroborosApplication tracer intersection queue (chainSyncHandler tracer callback headState) wallet
+          connectTo
+            (localSnocket iocp)
+            nullConnectTracers
+            (versions networkId client)
+            socketPath
+      )
+  case res of
+    Left a -> pure a
+    Right () -> error "'connectTo' cannot terminate but did?"
  where
-  newTxPoster queue stm = do
+  queryUTxOEtc queryPoint address = do
+    utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath queryPoint [address]
+    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath queryPoint
+    systemStart <- querySystemStart networkId socketPath queryPoint
+    epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath queryPoint
+    pure (utxo, pparams, systemStart, epochInfo)
+
+  toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Except PastHorizonException)
+  toEpochInfo (EraHistory _ interpreter) =
+    Consensus.interpreterToEpochInfo interpreter
+
+  submitTx queue vtx = do
     response <- atomically $ do
       response <- newEmptyTMVar
-      vtx <- stm
       writeTQueue queue (vtx, response)
       return response
     atomically (takeTMVar response)
@@ -215,11 +232,11 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
 -- current point in time.
 queryTimeHandle :: MonadThrow m => NetworkId -> FilePath -> IO (TimeHandle m)
 queryTimeHandle networkId socketPath = do
-  systemStart <- querySystemStart networkId socketPath
-  eraHistory <- queryEraHistory networkId socketPath
+  tip@(ChainPoint slotNo _) <- queryTip networkId socketPath
+  systemStart <- querySystemStart networkId socketPath (QueryAt tip)
+  eraHistory <- queryEraHistory networkId socketPath (QueryAt tip)
   let epochInfo = toEpochInfo eraHistory
-  pparams <- queryProtocolParameters networkId socketPath
-  slotNo <- queryTipSlotNo networkId socketPath
+  pparams <- queryProtocolParameters networkId socketPath (QueryAt tip)
   let toTime =
         slotToPOSIXTime
           (toLedgerPParams ShelleyBasedEraAlonzo pparams :: PParams LedgerEra)
@@ -266,16 +283,17 @@ ouroborosApplication ::
   Maybe (Point Block) ->
   TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
   ChainSyncHandler m ->
+  TinyWallet m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-ouroborosApplication tracer point queue handler nodeToClientV =
+ouroborosApplication tracer point queue handler wallet nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClient handler point
+                  let peer = chainSyncClient handler wallet point
                    in MuxPeer nullTracer cChainSyncCodec (chainSyncClientPeer peer)
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
@@ -304,9 +322,10 @@ chainSyncClient ::
   forall m.
   (MonadSTM m, MonadThrow m) =>
   ChainSyncHandler m ->
+  TinyWallet m ->
   Maybe (Point Block) ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient handler = \case
+chainSyncClient handler wallet = \case
   Nothing ->
     ChainSyncClient (pure initStIdle)
   Just startingPoint ->
@@ -365,9 +384,17 @@ chainSyncClient handler = \case
   clientStNext =
     ClientStNext
       { recvMsgRollForward = \block _tip -> ChainSyncClient $ do
-          clientStIdle <$ onRollForward handler block
+          -- Update the tiny wallet
+          update wallet block
+          -- Observe Hydra transactions
+          onRollForward handler block
+          pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
-          clientStIdle <$ onRollBackward handler point
+          -- Re-initialize the tiny wallet
+          reset wallet $ QueryAt (fromConsensusPointHF point)
+          -- Rollback main chain sync handler
+          onRollBackward handler point
+          pure clientStIdle
       }
 
 txSubmissionClient ::

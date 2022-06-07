@@ -12,6 +12,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Time (SystemStart)
 import qualified Data.Set as Set
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
+import Test.QuickCheck (oneof)
 
 type NodeSocket = FilePath
 
@@ -33,41 +34,56 @@ data CardanoClient = CardanoClient
 mkCardanoClient :: NetworkId -> NodeSocket -> CardanoClient
 mkCardanoClient networkId nodeSocket =
   CardanoClient
-    { queryUTxOByAddress = queryUTxO networkId nodeSocket
+    { queryUTxOByAddress = queryUTxO networkId nodeSocket QueryTip
     , networkId
     }
 
--- * Individual functions
+-- * Local state query
 
+-- | Describes whether to query at the tip or at a specific point.
+data QueryPoint = QueryTip | QueryAt ChainPoint
+  deriving (Eq, Show, Generic)
+
+instance Arbitrary QueryPoint where
+  -- XXX: This is not complete as we lack an 'Arbitrary ChainPoint' and we have
+  -- not bothered about it yet.
+  arbitrary =
+    oneof
+      [ pure QueryTip
+      , pure $ QueryAt ChainPointAtGenesis
+      ]
+
+-- | Query the latest chain point aka "the tip".
 queryTip :: NetworkId -> FilePath -> IO ChainPoint
 queryTip networkId socket =
   chainTipToChainPoint <$> getLocalChainTip (localNodeConnectInfo networkId socket)
 
+-- | Query the latest chain point just for the slot number.
 queryTipSlotNo :: NetworkId -> FilePath -> IO SlotNo
 queryTipSlotNo networkId socket =
   getLocalChainTip (localNodeConnectInfo networkId socket) >>= \case
     ChainTipAtGenesis -> pure 0
     ChainTip slotNo _ _ -> pure slotNo
 
--- | Throws at least 'QueryException' if query fails.
-querySystemStart :: NetworkId -> FilePath -> IO SystemStart
-querySystemStart networkId socket =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing QuerySystemStart >>= \case
-    Left err -> throwIO $ QueryException (show err)
-    Right result -> pure result
-
--- | Throws at least 'QueryException' if query fails.
-queryEraHistory :: NetworkId -> FilePath -> IO (EraHistory CardanoMode)
-queryEraHistory networkId socket =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing (QueryEraHistory CardanoModeIsMultiEra) >>= \case
-    Left err -> throwIO $ QueryException (show err)
-    Right result -> pure result
-
--- | Query current protocol parameters.
+-- | Query the system start parameter at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryProtocolParameters :: NetworkId -> FilePath -> IO ProtocolParameters
-queryProtocolParameters networkId socket =
+querySystemStart :: NetworkId -> FilePath -> QueryPoint -> IO SystemStart
+querySystemStart networkId socket queryPoint =
+  runQuery networkId socket queryPoint QuerySystemStart
+
+-- | Query the era history at given point.
+--
+-- Throws at least 'QueryException' if query fails.
+queryEraHistory :: NetworkId -> FilePath -> QueryPoint -> IO (EraHistory CardanoMode)
+queryEraHistory networkId socket queryPoint =
+  runQuery networkId socket queryPoint $ QueryEraHistory CardanoModeIsMultiEra
+
+-- | Query the protocol parameters at given point.
+--
+-- Throws at least 'QueryException' if query fails.
+queryProtocolParameters :: NetworkId -> FilePath -> QueryPoint -> IO ProtocolParameters
+queryProtocolParameters networkId socket queryPoint =
   let query =
         QueryInEra
           AlonzoEraInCardanoMode
@@ -75,13 +91,13 @@ queryProtocolParameters networkId socket =
               ShelleyBasedEraAlonzo
               QueryProtocolParameters
           )
-   in runQuery networkId socket query
+   in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
 
--- | Query UTxO for all given addresses.
+-- | Query UTxO for all given addresses at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxO :: NetworkId -> FilePath -> [Address ShelleyAddr] -> IO UTxO
-queryUTxO networkId socket addresses =
+queryUTxO :: NetworkId -> FilePath -> QueryPoint -> [Address ShelleyAddr] -> IO UTxO
+queryUTxO networkId socket queryPoint addresses =
   let query =
         QueryInEra
           AlonzoEraInCardanoMode
@@ -91,13 +107,13 @@ queryUTxO networkId socket addresses =
                   (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
               )
           )
-   in UTxO.fromApi <$> runQuery networkId socket query
+   in UTxO.fromApi <$> (runQuery networkId socket queryPoint query >>= throwOnEraMismatch)
 
--- | Query UTxO for given tx inputs.
+-- | Query UTxO for given tx inputs at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxOByTxIn :: NetworkId -> FilePath -> [TxIn] -> IO UTxO
-queryUTxOByTxIn networkId socket inputs =
+queryUTxOByTxIn :: NetworkId -> FilePath -> QueryPoint -> [TxIn] -> IO UTxO
+queryUTxOByTxIn networkId socket queryPoint inputs =
   let query =
         QueryInEra
           AlonzoEraInCardanoMode
@@ -105,30 +121,41 @@ queryUTxOByTxIn networkId socket inputs =
               ShelleyBasedEraAlonzo
               (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
           )
-   in UTxO.fromApi <$> runQuery networkId socket query
+   in UTxO.fromApi <$> (runQuery networkId socket queryPoint query >>= throwOnEraMismatch)
 
--- | Query the whole UTxO from node. Useful for debugging, but should obviously
--- not be used in production code.
+-- | Query the whole UTxO from node at given point. Useful for debugging, but
+-- should obviously not be used in production code.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxOWhole :: NetworkId -> FilePath -> IO UTxO
-queryUTxOWhole networkId socket =
-  let query =
-        QueryInEra
-          AlonzoEraInCardanoMode
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
-              (QueryUTxO QueryUTxOWhole)
-          )
-   in UTxO.fromApi <$> runQuery networkId socket query
+queryUTxOWhole :: NetworkId -> FilePath -> QueryPoint -> IO UTxO
+queryUTxOWhole networkId socket queryPoint = do
+  UTxO.fromApi <$> (runQuery networkId socket queryPoint query >>= throwOnEraMismatch)
+ where
+  query =
+    QueryInEra
+      AlonzoEraInCardanoMode
+      ( QueryInShelleyBasedEra ShelleyBasedEraAlonzo (QueryUTxO QueryUTxOWhole)
+      )
 
 -- | Throws at least 'QueryException' if query fails.
-runQuery :: NetworkId -> FilePath -> QueryInMode CardanoMode (Either EraMismatch a) -> IO a
-runQuery networkId socket query =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing query >>= \case
+runQuery :: NetworkId -> FilePath -> QueryPoint -> QueryInMode CardanoMode a -> IO a
+runQuery networkId socket point query =
+  queryNodeLocalState (localNodeConnectInfo networkId socket) maybePoint query >>= \case
     Left err -> throwIO $ QueryException (show err)
-    Right (Left eraMismatch) -> throwIO $ QueryException (show eraMismatch)
-    Right (Right result) -> pure result
+    Right result -> pure result
+ where
+  maybePoint =
+    case point of
+      QueryTip -> Nothing
+      QueryAt cp -> Just cp
+
+-- * Helpers
+
+throwOnEraMismatch :: (MonadThrow m) => Either EraMismatch a -> m a
+throwOnEraMismatch res =
+  case res of
+    Left eraMismatch -> throwIO $ QueryException (show eraMismatch)
+    Right result -> pure result
 
 localNodeConnectInfo :: NetworkId -> FilePath -> LocalNodeConnectInfo CardanoMode
 localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams

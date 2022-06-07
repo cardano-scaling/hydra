@@ -1,6 +1,5 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 -- | Companion tiny-wallet for the direct chain component. This module provide
 -- some useful utilities to tracking the wallet's UTXO, and accessing it
@@ -8,12 +7,9 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
-import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
-import Cardano.Ledger.Alonzo (AlonzoEra)
 import Cardano.Ledger.Alonzo.Data (Data (Data))
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams' (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Tag (Spend), txscriptfee)
@@ -24,7 +20,6 @@ import Cardano.Ledger.Alonzo.Tools (
  )
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..), hashData, hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxBody (
-  TxBody,
   collateral,
   inputs,
   outputs,
@@ -37,36 +32,27 @@ import Cardano.Ledger.Alonzo.TxWitness (
   RdmrPtr (RdmrPtr),
   Redeemers (..),
   TxWitness (..),
-  unRedeemers,
  )
 import Cardano.Ledger.BaseTypes (StrictMaybe (SJust))
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams)
 import qualified Cardano.Ledger.Core as Ledger
-import Cardano.Ledger.Crypto (DSIGN, HASH, StandardCrypto)
+import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Era (ValidateScript (..))
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
 import Cardano.Ledger.Val (Val (..), invert)
-import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
-import Cardano.Slotting.Slot (EpochSize (..))
-import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
+import Cardano.Slotting.EpochInfo (EpochInfo)
+import Cardano.Slotting.Time (SystemStart (..))
 import Control.Arrow (left)
 import Control.Exception (throw)
 import Control.Monad.Class.MonadSTM (
   check,
-  newEmptyTMVarIO,
   newTVarIO,
-  putTMVar,
-  readTMVar,
-  retry,
-  swapTMVar,
-  tryTakeTMVar,
   writeTVar,
  )
-import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import Data.Array (Array, array)
 import qualified Data.List as List
@@ -77,82 +63,33 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import GHC.Ix (Ix)
 import Hydra.Cardano.Api (
-  AddressInEra,
-  AddressTypeInEra,
   NetworkId,
+  PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
+  ShelleyAddr,
   SigningKey,
+  StakeAddressReference (NoStakeAddress),
   VerificationKey,
-  fromLedgerTxId,
-  mkVkAddress,
-  shelleyBasedEra,
-  signWith,
+  makeShelleyAddress,
+  shelleyAddressInEra,
   toLedgerAddr,
-  toLedgerKeyWitness,
+  verificationKeyHash,
  )
-import qualified Hydra.Cardano.Api as Cardano.Api
+import qualified Hydra.Cardano.Api as Api
+import Hydra.Chain.CardanoClient (QueryPoint (QueryTip))
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
-  SomePoint (..),
-  defaultCodecs,
   markerDatum,
-  nullConnectTracers,
-  versions,
  )
 import qualified Hydra.Chain.Direct.Util as Util
-import Hydra.Ledger.Cardano (genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
-import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras, pattern BlockAlonzo)
+import Ouroboros.Consensus.Cardano.Block (CardanoEras, pattern BlockAlonzo)
 import Ouroboros.Consensus.HardFork.Combinator (MismatchEraInfo)
-import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch, OneEraHash (..), mkEraMismatch)
-import qualified Ouroboros.Consensus.HardFork.Combinator.AcrossEras as Ouroboros
-import Ouroboros.Consensus.HardFork.Combinator.Ledger.Query (QueryHardFork (..))
-import Ouroboros.Consensus.HardFork.History (Interpreter, PastHorizonException, interpreterToEpochInfo)
-import Ouroboros.Consensus.Ledger.Query (Query (..))
-import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
-import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..), ShelleyHash (..))
-import Ouroboros.Consensus.Shelley.Ledger.Query (BlockQuery (..))
-import Ouroboros.Network.Block (
-  Point (..),
-  Tip (..),
-  blockPoint,
-  castPoint,
-  genesisPoint,
-  pattern BlockPoint,
-  pattern GenesisPoint,
- )
-import Ouroboros.Network.Magic (NetworkMagic (..))
-import Ouroboros.Network.Mux (
-  MuxMode (..),
-  MuxPeer (..),
-  OuroborosApplication (..),
-  RunMiniProtocol (..),
- )
-import Ouroboros.Network.NodeToClient (
-  IOManager,
-  LocalAddress (..),
-  NodeToClientProtocols (..),
-  NodeToClientVersion,
-  connectTo,
-  localSnocket,
-  localTxMonitorPeerNull,
-  localTxSubmissionPeerNull,
-  nodeToClientProtocols,
- )
-import Ouroboros.Network.Protocol.ChainSync.Client (
-  ChainSyncClient (..),
-  chainSyncClientPeer,
- )
-import qualified Ouroboros.Network.Protocol.ChainSync.Client as ChainSync
-import Ouroboros.Network.Protocol.LocalStateQuery.Client (
-  LocalStateQueryClient (..),
-  localStateQueryClientPeer,
- )
-import qualified Ouroboros.Network.Protocol.LocalStateQuery.Client as LSQ
+import Ouroboros.Consensus.HardFork.History (PastHorizonException)
+import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..))
+import Ouroboros.Network.Block (Point (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (generate)
-import qualified Prelude
 
 type Address = Ledger.Addr StandardCrypto
 type TxBody = Ledger.TxBody Era
@@ -164,18 +101,34 @@ type UTxOSet = Ledger.UTxO Era
 type AlonzoPoint = Point (ShelleyBlock Era)
 
 -- | A 'TinyWallet' is a small abstraction of a wallet with basic UTXO
--- management. The wallet is assumed to have only one address, and only one
--- UTXO at that address.
+-- management. The wallet is assumed to have only one address, and only one UTXO
+-- at that address. It can sign transactions and keeps track of its UTXO behind
+-- the scene.
 --
--- It can sign transactions and keeps track of its UTXO behind the scene.
+-- This wallet is not connecting to the node initially and when asked to
+-- 'reset'. Otherwise it can be fed blocks via 'update' as the chain rolls
+-- forward.
 data TinyWallet m = TinyWallet
   { -- | Return all known UTxO addressed to this wallet.
     getUTxO :: STM m (Map TxIn TxOut)
-  , getAddress :: Address
   , sign :: ValidatedTx Era -> ValidatedTx Era
   , coverFee :: Map TxIn TxOut -> ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
-  , verificationKey :: VerificationKey PaymentKey
+  , -- | Reset the wallet state to some point.
+    reset :: QueryPoint -> m ()
+  , -- | Update the wallet state given some 'Block'.
+    update :: Block -> m ()
   }
+
+type ChainQuery m =
+  ( QueryPoint ->
+    Api.Address ShelleyAddr ->
+    m
+      ( Map TxIn TxOut
+      , PParams Era
+      , SystemStart
+      , EpochInfo (Except PastHorizonException)
+      )
+  )
 
 -- | Get a single, marked as "fuel" UTxO.
 getFuelUTxO :: MonadSTM m => TinyWallet m -> STM m (Maybe (TxIn, TxOut))
@@ -187,56 +140,50 @@ watchUTxOUntil predicate TinyWallet{getUTxO} = atomically $ do
   u <- getUTxO
   u <$ check (predicate u)
 
-withTinyWallet ::
+-- | Create a new tiny wallet handle.
+newTinyWallet ::
   -- | A tracer for logging
   Tracer IO TinyWalletLog ->
-  -- | Network identifier to which we expect to connect.
+  -- | Network identifier to generate our address.
   NetworkId ->
   -- | Credentials of the wallet.
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
-  -- | A cross-platform abstraction for managing I/O operations on local sockets
-  IOManager ->
-  -- | Path to a domain socket used to connect to the server.
-  FilePath ->
-  (TinyWallet IO -> IO a) ->
-  IO a
-withTinyWallet tracer networkId (vk, sk) iocp addr action = do
-  utxoVar <- newEmptyTMVarIO
-  tipVar <- newTVarIO genesisPoint
-  res <-
-    race
-      (action $ newTinyWallet utxoVar)
-      ( connectTo
-          (localSnocket iocp)
-          nullConnectTracers
-          (versions networkId $ client tracer tipVar utxoVar address)
-          addr
-      )
-  case res of
-    Left a -> pure a
-    Right () -> error "'connectTo' cannot gracefully terminate but did?"
- where
-  address =
-    toLedgerAddr $
-      mkVkAddress @Cardano.Api.Era networkId vk
-
-  newTinyWallet utxoVar =
+  -- | A function to query UTxO, pparams, system start and epoch info from the
+  -- node. Initially and on demand later.
+  ChainQuery IO ->
+  IO (TinyWallet IO)
+newTinyWallet tracer networkId (vk, sk) queryUTxOEtc = do
+  utxoVar <- newTVarIO =<< queryUTxOEtc QueryTip address
+  pure
     TinyWallet
       { getUTxO =
-          (\(u, _, _, _) -> u) <$> readTMVar utxoVar
-      , getAddress =
-          address
+          (\(u, _, _, _) -> u) <$> readTVar utxoVar
       , sign = Util.signWith (vk, sk)
       , coverFee = \lookupUTxO partialTx -> do
-          (walletUTxO, pparams, systemStart, epochInfo) <- readTMVar utxoVar
+          (walletUTxO, pparams, systemStart, epochInfo) <- readTVar utxoVar
           case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx of
             Left e ->
               pure (Left e)
             Right (walletUTxO', balancedTx) -> do
-              _ <- swapTMVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
+              writeTVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
               pure (Right balancedTx)
-      , verificationKey = vk
+      , reset = \point -> do
+          res@(u, _, _, _) <- queryUTxOEtc point address
+          atomically $ writeTVar utxoVar res
+          traceWith tracer $ InitializingWallet point u
+      , update = \block -> do
+          utxo' <- atomically $ do
+            (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar
+            let utxo' = applyBlock block (== ledgerAddress) utxo
+            writeTVar utxoVar (utxo', pparams, systemStart, epochInfo)
+            pure utxo'
+          traceWith tracer $ ApplyBlock utxo'
       }
+ where
+  address =
+    makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
+
+  ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era address
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
 -- modify the UTXO set, or else, remove consumed utxos and add produced ones.
@@ -469,268 +416,13 @@ mapToArray m =
     (fst (Map.findMin m), fst (Map.findMax m))
     (Map.toList m)
 
--- | The idea for this wallet client is rather simple:
---
--- 1. We bootstrap the client using the Local State Query (abbrev. LSQ) protocol,
--- and in particular the 'GetUTxO' query to get the most recent UTxO at the tip.
---
--- This request is however quite costly (O(n) in the size of the ledger's UTXO).
--- So we don't want to poll it too often and burn needless CPU resources. Plus,
--- whatever poll value we choose, we'll always end up report outdated
--- information. Thus,
---
--- 2. Once the most recent tip and UTXO acquired, we give the baton from the LSQ
--- to the chain-sync protocol, which can continue watching the chain from that
--- point on such that, if the UTXO is ever spent, it'll replace it with its new
--- UTXO (reminder: the wallet has only one address).
---
--- Then, there's a bit of error-handling because, it's possible that between the
--- moment we acquire the tip with the LSQ and pass the relay to the chain-sync,
--- the chain has rolled back and the tip is no longer available. This can be
--- gracefully done via waiting on MVars. See below.
---
--- The MVar also provides a convenient interface for the `TinyWallet m`
--- abstraction which is used by consumers downstreams.
-client ::
-  (MonadST m, MonadTimer m) =>
-  Tracer m TinyWalletLog ->
-  TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut, PParams Era, SystemStart, EpochInfo (Except PastHorizonException)) ->
-  Address ->
-  NodeToClientVersion ->
-  OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client tracer tipVar utxoVar address nodeToClientV =
-  nodeToClientProtocols
-    ( const $
-        pure $
-          NodeToClientProtocols
-            { localChainSyncProtocol =
-                InitiatorProtocolOnly $
-                  let peer = chainSyncClientPeer $ chainSyncClient tracer tipVar utxoVar address
-                   in MuxPeer nullTracer cChainSyncCodec peer
-            , localTxSubmissionProtocol =
-                InitiatorProtocolOnly $
-                  let peer = localTxSubmissionPeerNull
-                   in MuxPeer nullTracer cTxSubmissionCodec peer
-            , localStateQueryProtocol =
-                InitiatorProtocolOnly $
-                  let peer = localStateQueryClientPeer $ stateQueryClient tracer tipVar utxoVar address
-                   in MuxPeer nullTracer cStateQueryCodec peer
-            , localTxMonitorProtocol =
-                InitiatorProtocolOnly $
-                  let peer = localTxMonitorPeerNull
-                   in MuxPeer nullTracer cTxMonitorCodec peer
-            }
-    )
-    nodeToClientV
- where
-  Codecs
-    { cChainSyncCodec
-    , cTxSubmissionCodec
-    , cStateQueryCodec
-    , cTxMonitorCodec
-    } =
-      defaultCodecs nodeToClientV
-
-type OnRollback m = ChainSyncClient Block (Point Block) (Tip Block) m ()
-
--- NOTE: We are fetching PParams only once, when the client first starts. Which
--- means that, if the params change later, we may start producing invalid
--- transactions. In principle, we also expect the Hydra node to monitor the
--- chain for parameter updates and to close heads when this happens. Thus, from
--- the perspective of the client it's okay-ish to fetch it only once.
---
-chainSyncClient ::
-  forall m.
-  (MonadSTM m) =>
-  Tracer m TinyWalletLog ->
-  TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut, PParams Era, SystemStart, EpochInfo (Except PastHorizonException)) ->
-  Address ->
-  ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient tracer tipVar utxoVar address =
-  reset
- where
-  reset :: ChainSyncClient Block (Point Block) (Tip Block) m ()
-  reset = ChainSyncClient $ do
-    atomically $ do
-      writeTVar tipVar genesisPoint
-      void $ tryTakeTMVar utxoVar
-    tip <- atomically $ do
-      tip <- readTVar tipVar
-      tip <$ check (tip /= genesisPoint)
-    pure $ ChainSync.SendMsgFindIntersect [tip] clientStIntersect
-
-  onFirstRollback :: ChainSyncClient Block (Point Block) (Tip Block) m ()
-  onFirstRollback = ChainSyncClient (pure $ clientStIdle reset)
-
-  clientStIntersect :: ChainSync.ClientStIntersect Block (Point Block) (Tip Block) m ()
-  clientStIntersect =
-    ChainSync.ClientStIntersect
-      { ChainSync.recvMsgIntersectNotFound = \_tip -> do
-          reset
-      , ChainSync.recvMsgIntersectFound = \_point _tip ->
-          ChainSyncClient (pure $ clientStIdle onFirstRollback)
-      }
-
-  clientStIdle ::
-    OnRollback m ->
-    ChainSync.ClientStIdle Block (Point Block) (Tip Block) m ()
-  clientStIdle onRollback =
-    ChainSync.SendMsgRequestNext
-      (clientStNext onRollback)
-      (pure $ clientStNext onRollback)
-
-  clientStNext ::
-    OnRollback m ->
-    ChainSync.ClientStNext Block (Point Block) (Tip Block) m ()
-  clientStNext onRollback =
-    ChainSync.ClientStNext
-      { ChainSync.recvMsgRollBackward = \_point _tip ->
-          onRollback
-      , ChainSync.recvMsgRollForward = \block _tip ->
-          ChainSyncClient $ do
-            msg <- atomically $ do
-              (utxo, pparams, systemStart, epochInfo) <- readTMVar utxoVar
-              let utxo' = applyBlock block (== address) utxo
-              if utxo' /= utxo
-                then do
-                  void $ swapTMVar utxoVar (utxo', pparams, systemStart, epochInfo)
-                  pure $ Just $ ApplyBlock utxo utxo'
-                else do
-                  pure Nothing
-            mapM_ (traceWith tracer) msg
-            pure (clientStIdle reset)
-      }
-
-stateQueryClient ::
-  forall m.
-  (MonadSTM m, MonadTimer m) =>
-  Tracer m TinyWalletLog ->
-  TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut, PParams Era, SystemStart, EpochInfo (Except PastHorizonException)) ->
-  Address ->
-  LocalStateQueryClient Block (Point Block) (Query Block) m ()
-stateQueryClient tracer tipVar utxoVar address =
-  LocalStateQueryClient (pure clientStIdle)
- where
-  clientStIdle :: LSQ.ClientStIdle Block (Point Block) (Query Block) m ()
-  clientStIdle = LSQ.SendMsgAcquire Nothing clientStAcquiring
-
-  clientStAcquiring :: LSQ.ClientStAcquiring Block (Point Block) (Query Block) m ()
-  clientStAcquiring =
-    LSQ.ClientStAcquiring
-      { LSQ.recvMsgAcquired = pure clientStAcquired
-      , -- NOTE: This really can't fail, because we acquire 'Nothing'.
-        LSQ.recvMsgFailure = const (pure clientStIdle)
-      }
-
-  clientStAcquired :: LSQ.ClientStAcquired Block (Point Block) (Query Block) m ()
-  clientStAcquired =
-    let query = QueryIfCurrentAlonzo GetLedgerTip
-     in LSQ.SendMsgQuery (BlockQuery query) clientStQueryingTip
-
-  clientStQueryingTip :: LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult AlonzoPoint)
-  clientStQueryingTip =
-    LSQ.ClientStQuerying
-      { LSQ.recvMsgResult = \case
-          -- Era mismatch, this can happen if the node is still syncing. In which
-          -- case, we can't do much but logging and retrying later.
-          Left err ->
-            handleEraMismatch err
-          Right tip -> do
-            let query = QueryIfCurrentAlonzo GetCurrentPParams
-            let continuation = clientStQueryingPParams $ fromPoint tip
-            pure $ LSQ.SendMsgQuery (BlockQuery query) continuation
-      }
-
-  fromPoint = \case
-    GenesisPoint -> GenesisPoint
-    (BlockPoint slot h) -> BlockPoint slot (fromShelleyHash h)
-   where
-    fromShelleyHash (Ledger.unHashHeader . unShelleyHash -> UnsafeHash h) = coerce h
-
-  clientStQueryingPParams ::
-    Point Block ->
-    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult (PParams Era))
-  clientStQueryingPParams tip =
-    LSQ.ClientStQuerying
-      { LSQ.recvMsgResult = \case
-          Left err ->
-            handleEraMismatch err
-          Right pparams -> do
-            let continuation = clientStQueryingSystemStart tip pparams
-            pure $ LSQ.SendMsgQuery GetSystemStart continuation
-      }
-
-  clientStQueryingSystemStart ::
-    Point Block ->
-    PParams Era ->
-    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () SystemStart
-  clientStQueryingSystemStart tip pparams =
-    LSQ.ClientStQuerying
-      { LSQ.recvMsgResult = \systemStart -> do
-          let continuation = clientStQueryingInterpreter tip pparams systemStart
-          pure $ LSQ.SendMsgQuery (BlockQuery $ QueryHardFork GetInterpreter) continuation
-      }
-
-  clientStQueryingInterpreter ::
-    Point Block ->
-    PParams Era ->
-    SystemStart ->
-    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (Interpreter (CardanoEras StandardCrypto))
-  clientStQueryingInterpreter tip pparams systemStart =
-    LSQ.ClientStQuerying
-      { LSQ.recvMsgResult = \(interpreterToEpochInfo -> epochInfo) -> do
-          let query = QueryIfCurrentAlonzo $ GetUTxOByAddress (Set.singleton address)
-          let continuation = clientStQueryingUTxO tip pparams systemStart epochInfo
-          pure $ LSQ.SendMsgQuery (BlockQuery query) continuation
-      }
-
-  clientStQueryingUTxO ::
-    Point Block ->
-    PParams Era ->
-    SystemStart ->
-    EpochInfo (Except PastHorizonException) ->
-    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult UTxOSet)
-  clientStQueryingUTxO tip pparams systemStart epochInfo =
-    LSQ.ClientStQuerying
-      { LSQ.recvMsgResult = \case
-          Left err ->
-            handleEraMismatch err
-          Right (Ledger.unUTxO -> utxo) -> do
-            traceWith tracer $ InitializingWallet (SomePoint tip) utxo
-            atomically $ do
-              writeTVar tipVar tip
-              putTMVar utxoVar (utxo, pparams, systemStart, epochInfo)
-            reset -- NOTE: This will block until the chain-sync client clear
-            -- resets the tip TVar to the genesisPoint, which may happen if it
-            -- fails to find an intersection with the provided tip due to a race
-            -- condition between the node and the state-query protocol. In which
-            -- case, we retry the whole process again. Otherwise, it'll block
-            -- indefinitely.
-      }
-
-  reset :: m (LSQ.ClientStAcquired Block (Point Block) (Query Block) m ())
-  reset = do
-    atomically $ do
-      tip <- readTVar tipVar
-      check (tip == genesisPoint)
-    pure $ LSQ.SendMsgReAcquire Nothing clientStAcquiring
-
-  handleEraMismatch :: MismatchEraInfo (CardanoEras StandardCrypto) -> m (LSQ.ClientStAcquired Block (Point Block) (Query Block) m ())
-  handleEraMismatch (mkEraMismatch -> Ouroboros.EraMismatch{Ouroboros.ledgerEraName, Ouroboros.otherEraName}) = do
-    traceWith tracer $ EraMismatchError{expected = ledgerEraName, actual = otherEraName}
-    threadDelay 30
-    reset
-
 --
 -- Logs
 --
 
 data TinyWalletLog
-  = InitializingWallet SomePoint (Map TxIn TxOut)
-  | ApplyBlock (Map TxIn TxOut) (Map TxIn TxOut)
+  = InitializingWallet QueryPoint (Map TxIn TxOut)
+  | ApplyBlock (Map TxIn TxOut)
   | EraMismatchError {expected :: Text, actual :: Text}
   deriving (Eq, Generic, Show)
 
@@ -743,11 +435,10 @@ instance ToJSON TinyWalletLog where
           , "point" .= show @Text point
           , "initialUTxO" .= initialUTxO
           ]
-      (ApplyBlock utxo utxo') ->
+      (ApplyBlock utxo') ->
         object
           [ "tag" .= String "ApplyBlock"
-          , "before" .= utxo
-          , "after" .= utxo'
+          , "newUTxO" .= utxo'
           ]
       EraMismatchError{expected, actual} ->
         object

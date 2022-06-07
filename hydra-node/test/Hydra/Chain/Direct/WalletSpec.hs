@@ -7,13 +7,10 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Prices (..))
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), pattern TxOut)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
-import Cardano.Ledger.BaseTypes (StrictMaybe (SJust), boundRational)
+import Cardano.Ledger.BaseTypes (StrictMaybe (SJust))
 import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Value)
@@ -21,40 +18,40 @@ import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (BHeader)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
-import Control.Monad.Class.MonadTimer (timeout)
+import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Control.Tracer (nullTracer)
-import Data.Default (def)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromJust)
-import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
-  NetworkId (..),
+  PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
   VerificationKey,
+  fromConsensusPointHF,
   fromLedgerTx,
-  mkVkAddress,
-  toLedgerAddr,
   toLedgerTxIn,
+  toLedgerUTxO,
+  verificationKeyHash,
  )
-import qualified Hydra.Cardano.Api as Cardano.Api
-import Hydra.Chain.Direct.MockServer (withMockServer)
-import Hydra.Chain.Direct.Util (Era, markerDatum)
+import qualified Hydra.Cardano.Api as Api
+import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
+import Hydra.Chain.CardanoClient (QueryPoint (..))
+import Hydra.Chain.Direct.Fixture (epochInfo, pparams, systemStart, testNetworkId)
+import Hydra.Chain.Direct.Util (Block, Era, markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
+  ChainQuery,
+  TinyWallet (..),
   TxIn,
   TxOut,
   applyBlock,
   coverFee_,
-  watchUTxOUntil,
-  withTinyWallet,
+  newTinyWallet,
  )
-import Hydra.Ledger.Cardano (genKeyPair, genTxIn, renderTx)
-import Hydra.Ledger.Cardano.Evaluate (epochInfo, systemStart)
+import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genTxIn, renderTx)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
+import Ouroboros.Network.Block (genesisPoint)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
@@ -86,20 +83,42 @@ spec = parallel $ do
     prop "balances transaction with fees" prop_balanceTransaction
     prop "transaction's inputs are removed from wallet" prop_removeUsedInputs
 
-  describe "withTinyWallet" $ do
-    (vk, sk) <- runIO (generate genKeyPair)
-    it "connects to server and returns UTXO in a timely manner" $ do
-      withMockServer $ \networkId iocp socket _ -> do
-        withTinyWallet nullTracer networkId (vk, sk) iocp socket $ \wallet -> do
-          result <- timeout 10 $ watchUTxOUntil (const True) wallet
-          result `shouldSatisfy` isJust
+  before (generate genKeyPair) $
+    describe "newTinyWallet" $ do
+      it "initialises wallet by querying UTxO" $ \(vk, sk) -> do
+        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) (mockQueryOneUtxo vk)
+        utxo <- atomically (getUTxO wallet)
+        utxo `shouldSatisfy` \m -> Map.size m > 0
 
-    it "tracks UTXO correctly when payments are received" $ do
-      withMockServer $ \networkId iocp socket submitTx -> do
-        withTinyWallet nullTracer networkId (vk, sk) iocp socket $ \wallet -> do
-          generate (genPaymentTo networkId vk) >>= submitTx
-          result <- timeout 10 $ watchUTxOUntil (not . null) wallet
-          result `shouldSatisfy` isJust
+      it "re-queries UTxO from the reset point" $ \(vk, sk) -> do
+        (queryFn, assertQueryPoint) <- setupQuery vk
+        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) queryFn
+        assertQueryPoint QueryTip
+        let somePoint = fromConsensusPointHF @Block genesisPoint
+        reset wallet (QueryAt somePoint)
+        assertQueryPoint $ QueryAt somePoint
+
+setupQuery ::
+  VerificationKey PaymentKey ->
+  IO (ChainQuery IO, QueryPoint -> Expectation)
+setupQuery vk = do
+  mv <- newEmptyMVar
+  pure (queryFn mv, assertQueryPoint mv)
+ where
+  queryFn mv point _addr = do
+    putMVar mv point
+    utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
+    pure (utxo, pparams, systemStart, epochInfo)
+
+  assertQueryPoint mv point =
+    takeMVar mv `shouldReturn` point
+
+mockQueryOneUtxo :: VerificationKey PaymentKey -> ChainQuery IO
+mockQueryOneUtxo vk _point addr = do
+  let Api.ShelleyAddress _ cred _ = addr
+  fromShelleyPaymentCredential cred `shouldBe` PaymentCredentialByKey (verificationKeyHash vk)
+  utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
+  pure (utxo, pparams, systemStart, epochInfo)
 
 --
 -- Generators
@@ -288,32 +307,6 @@ genValidatedTx = do
   body <- (\x -> x{txfee = Coin 0}) <$> arbitrary
   pure $ tx{body, wits = mempty}
 
-genPaymentTo :: NetworkId -> VerificationKey PaymentKey -> Gen (ValidatedTx Era)
-genPaymentTo networkId vk = do
-  toValidatedTx =<< arbitrary @TxOut `suchThat` atLeast 2_000_000_000
- where
-  atLeast v = \case
-    TxOut _ value _ ->
-      coin value > Coin v
-
-  toValidatedTx = \case
-    TxOut _ value _ -> do
-      ValidatedTx{body, wits, isValid, auxiliaryData} <- arbitrary
-      let myAddr =
-            toLedgerAddr $
-              mkVkAddress @Cardano.Api.Era networkId vk
-      pure $
-        ValidatedTx
-          { body =
-              body
-                { outputs =
-                    StrictSeq.fromList [TxOut myAddr value (SJust $ hashData $ Data @Era markerDatum)]
-                }
-          , wits
-          , isValid
-          , auxiliaryData
-          }
-
 --
 -- Helpers
 --
@@ -361,15 +354,3 @@ knownInputBalance utxo = foldMap resolve . toList . inputs . body
 outputBalance :: ValidatedTx Era -> Value Era
 outputBalance =
   foldMap getValue . outputs . body
-
-pparams :: PParams Era
-pparams =
-  def
-    { _costmdls = Map.singleton PlutusV1 $ fromJust defaultCostModel
-    , _maxTxExUnits = ExUnits 10 10
-    , _prices =
-        Prices
-          { prMem = fromJust $ boundRational (1 % 1)
-          , prSteps = fromJust $ boundRational (1 % 1)
-          }
-    }
