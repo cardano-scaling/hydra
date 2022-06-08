@@ -146,7 +146,7 @@ instance
           , genAbort
           ]
      where
-      genSeed = Some . Seed <$> resize 5 (listOf1 partyKeys)
+      genSeed = Some . Seed <$> resize 10 (listOf1 partyKeys)
 
       genInit = do
         initContestationPeriod <- arbitrary
@@ -163,6 +163,15 @@ instance
       genAbort = do
         (party, _) <- elements $ Map.toList worldState
         pure $ Some Abort{party, command = Input.Abort}
+
+  precondition WorldState{worldState} Seed{} = null worldState
+  precondition WorldState{worldState} Init{command = Input.Init{}} =
+    not (null worldState) && all (isIdleState . partyState) (Map.elems worldState)
+  precondition WorldState{worldState} Commit{party, command = Input.Commit{}} =
+    not (null worldState) && all (isPendingCommitFrom party . partyState) (Map.elems worldState)
+  precondition WorldState{worldState} Abort{command = Input.Abort{}} =
+    not (null worldState) && all (isInitialState . partyState) (Map.elems worldState)
+  precondition _ _ = True
 
   nextState :: WorldState m -> Action (WorldState m) a -> Var a -> WorldState m
   nextState _ Seed{seedKeys} _ =
@@ -201,7 +210,7 @@ instance
         commits' = Map.insert party utxo commits
         pendingCommits' = party `Set.delete` pendingCommits
         updatedState =
-          if null pendingCommits
+          if null pendingCommits'
             then
               Open
                 { headParameters
@@ -234,15 +243,6 @@ instance
           }
   nextState _ _ _ = error "not implemented"
 
-  precondition WorldState{worldState} Seed{} = null worldState
-  precondition WorldState{worldState} Init{command = Input.Init{}} =
-    not (null worldState) && all (isIdleState . partyState) (Map.elems worldState)
-  precondition WorldState{worldState} Commit{party, command = Input.Commit{}} =
-    not (null worldState) && all (isPendingCommitFrom party . partyState) (Map.elems worldState)
-  precondition WorldState{worldState} Abort{command = Input.Abort{}} =
-    not (null worldState) && all (isInitialState . partyState) (Map.elems worldState)
-  precondition _ _ = True
-
   perform :: WorldState m -> Action (WorldState m) a -> LookUp -> StateT (Nodes m) m a
   perform _worldState Seed{seedKeys} _ = do
     let parties = map (deriveParty . fst) seedKeys
@@ -271,6 +271,8 @@ instance
 
   monitoring (s, s') _action _lookup _return =
     case (localState s, localState s') of
+      (Just Idle{}, Just Initial{}) -> label "Idle -> Initial"
+      (Just Initial{}, Just Initial{}) -> label "Initial -> Initial"
       (Just Initial{}, Just Open{}) -> label "Initial -> Open"
       _ -> identity
    where

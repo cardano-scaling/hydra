@@ -40,7 +40,7 @@ instance Monad WrapIOSim where
 
 spec :: Spec
 spec =
-  modifyMaxSuccess (const 1000) $
+  modifyMaxSuccess (const 10000) $
     prop "implementation respects model" prop_checkModel
 
 runIOSimProp :: (forall s. Gen (StateT (Nodes (IOSim s)) (IOSim s) Property)) -> Gen Property
