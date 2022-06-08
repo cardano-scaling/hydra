@@ -16,10 +16,11 @@ import qualified Prelude
 import Control.Monad.IOSim (IOSim, runSim)
 import Data.Map ((!))
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Model (LocalState (..), Nodes, OffChainState (..), PartyState (..), WorldState (..))
-import Hydra.Party (Party)
+import Hydra.Model (LocalState (..), Nodes, OffChainState (..), WorldState (..))
+import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
 import Test.QuickCheck (Property, counterexample, property)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
@@ -36,24 +37,23 @@ prop_checkModel (AnyActions actions) =
   property $
     runIOSimProp $
       monadic' $ do
-        (WorldState world, _symEnv) <- runActions actions
+        (WorldState{hydraParties, hydraState}, _symEnv) <- runActions actions
         run $ lift waitUntilTheEndOfTime
-        let parties = Map.keysSet world
+        let parties = Set.fromList $ deriveParty . fst <$> hydraParties
         nodes <- run get
         assert (parties == Map.keysSet nodes)
         forM_ parties $ \p -> do
-          assertNodeSeesAndReportsAllExpectedCommits world nodes p
-          assertOpenHeadWithAllExpectedCommits world nodes p
+          assertNodeSeesAndReportsAllExpectedCommits hydraState nodes p
+          assertOpenHeadWithAllExpectedCommits hydraState nodes p
 
 assertNodeSeesAndReportsAllExpectedCommits ::
-  Map Party PartyState ->
+  LocalState ->
   Map Party (TestHydraNode Tx (IOSim s)) ->
   Party ->
   PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) ()
 assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
-  let st = world ! p
   let node = nodes ! p
-  case partyState st of
+  case world of
     Initial{commits} -> do
       outputs <- run $ lift $ serverOutputs @Tx node
       let actualCommitted =
@@ -73,14 +73,13 @@ assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
       pure ()
 
 assertOpenHeadWithAllExpectedCommits ::
-  Map Party PartyState ->
+  LocalState ->
   Map Party (TestHydraNode Tx (IOSim s)) ->
   Party ->
   PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) ()
 assertOpenHeadWithAllExpectedCommits world nodes p = do
-  let st = world ! p
   let node = nodes ! p
-  case partyState st of
+  case world of
     Open{offChainState = OffChainState{confirmedSnapshots}} -> do
       let expectedInitialUtxo = Prelude.last confirmedSnapshots
       outputs <- run $ lift $ serverOutputs @Tx node

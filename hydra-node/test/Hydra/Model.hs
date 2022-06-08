@@ -13,7 +13,6 @@ import Hydra.Prelude hiding (Any, label)
 
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
-import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode, createHydraNode, createTestHydraNode, send, simulatedChainAndNetwork, waitUntil)
@@ -35,7 +34,8 @@ import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
 
 -- | Local state as seen by each Head participant.
 data LocalState
-  = Idle
+  = Start
+  | Idle
       { idleParties :: [Party]
       , cardanoKeys :: [VerificationKey PaymentKey]
       }
@@ -81,14 +81,11 @@ data OffChainState = OffChainState
   }
   deriving stock (Eq, Show)
 
-data PartyState = PartyState {cardanoKey :: CardanoSigningKey, partyState :: LocalState}
-  deriving (Show)
-
-instance Eq PartyState where
-  (PartyState (PaymentSigningKey skd) ls) == (PartyState (PaymentSigningKey skd') ls') = skd == skd' && ls == ls'
-
 -- | Global state maintained by the model.
-newtype WorldState (m :: Type -> Type) = WorldState {worldState :: Map.Map Party PartyState}
+data WorldState (m :: Type -> Type) = WorldState
+  { hydraParties :: [(Hydra.SigningKey, CardanoSigningKey)]
+  , hydraState :: LocalState
+  }
   deriving (Eq, Show)
 
 type Nodes m = Map.Map Party (TestHydraNode Tx m)
@@ -132,80 +129,74 @@ instance
 
   type ActionMonad (WorldState m) = StateT (Nodes m) m
 
-  initialState = WorldState mempty
+  initialState =
+    WorldState
+      { hydraParties = mempty
+      , hydraState = Start
+      }
 
   arbitraryAction :: WorldState m -> Gen (Any (Action (WorldState m)))
-  arbitraryAction = \case
-    WorldState{worldState}
-      | null worldState ->
-        genSeed
-      | otherwise ->
+  arbitraryAction WorldState{hydraParties, hydraState} =
+    case hydraState of
+      Start -> genSeed
+      Idle{} -> genInit
+      Initial{} ->
         oneof
-          [ genInit
-          , genCommit
+          [ genCommit
           , genAbort
           ]
-     where
-      genSeed = Some . Seed <$> resize 10 (listOf1 partyKeys)
+      _ -> genSeed
+   where
+    genSeed = Some . Seed <$> resize 10 (listOf1 partyKeys)
 
-      genInit = do
-        initContestationPeriod <- arbitrary
-        party <- elements $ Map.keys worldState
-        let command = Input.Init{Input.contestationPeriod = initContestationPeriod}
-        pure $ Some Init{party, command}
+    genInit = do
+      initContestationPeriod <- arbitrary
+      key <- fst <$> elements hydraParties
+      let command = Input.Init{Input.contestationPeriod = initContestationPeriod}
+      pure $ Some Init{party = deriveParty key, command}
 
-      genCommit = do
-        (party, PartyState{cardanoKey}) <- elements $ Map.toList worldState
-        utxo <- genOneUTxOFor (getVerificationKey cardanoKey)
-        let command = Input.Commit{Input.utxo = utxo}
-        pure $ Some Commit{party, command}
+    genCommit = do
+      (key, cardanoKey) <- elements hydraParties
+      utxo <- genOneUTxOFor (getVerificationKey cardanoKey)
+      let command = Input.Commit{Input.utxo = utxo}
+      pure $ Some Commit{party = deriveParty key, command}
 
-      genAbort = do
-        (party, _) <- elements $ Map.toList worldState
-        pure $ Some Abort{party, command = Input.Abort}
+    genAbort = do
+      (key, _) <- elements hydraParties
+      pure $ Some Abort{party = deriveParty key, command = Input.Abort}
 
-  precondition WorldState{worldState} Seed{} = null worldState
-  precondition WorldState{worldState} Init{command = Input.Init{}} =
-    not (null worldState) && all (isIdleState . partyState) (Map.elems worldState)
-  precondition WorldState{worldState} Commit{party, command = Input.Commit{}} =
-    not (null worldState) && all (isPendingCommitFrom party . partyState) (Map.elems worldState)
-  precondition WorldState{worldState} Abort{command = Input.Abort{}} =
-    not (null worldState) && all (isInitialState . partyState) (Map.elems worldState)
+  precondition WorldState{hydraState = Start} Seed{} = True
+  precondition WorldState{hydraState = Idle{}} Init{command = Input.Init{}} = True
+  precondition WorldState{hydraState = hydraState@Initial{}} Commit{party, command = Input.Commit{}} = isPendingCommitFrom party hydraState
+  precondition WorldState{hydraState = Initial{}} Abort{command = Input.Abort{}} = True
   precondition _ _ = True
 
   nextState :: WorldState m -> Action (WorldState m) a -> Var a -> WorldState m
   nextState _ Seed{seedKeys} _ =
-    WorldState{worldState = Map.fromList $ map mkIdle seedKeys}
+    WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys}}
    where
     idleParties = map (deriveParty . fst) seedKeys
     cardanoKeys = map (getVerificationKey . snd) seedKeys
-    mkIdle p = (deriveParty $ fst p, PartyState{cardanoKey = snd p, partyState = Idle{idleParties, cardanoKeys}})
-  nextState WorldState{worldState} Init{command = Input.Init{Input.contestationPeriod}} _ =
-    WorldState{worldState = Map.map mkInitialState worldState}
+  nextState WorldState{hydraParties, hydraState} Init{command = Input.Init{Input.contestationPeriod}} _ =
+    WorldState{hydraParties, hydraState = mkInitialState hydraState}
    where
     mkInitialState = \case
-      st@PartyState{partyState = Idle{idleParties}} ->
-        st
-          { partyState =
-              Initial
-                { headParameters =
-                    HeadParameters
-                      { parties = idleParties
-                      , contestationPeriod
-                      }
-                , commits = mempty
-                , pendingCommits = Set.fromList idleParties
+      Idle{idleParties} ->
+        Initial
+          { headParameters =
+              HeadParameters
+                { parties = idleParties
+                , contestationPeriod
                 }
+          , commits = mempty
+          , pendingCommits = Set.fromList idleParties
           }
       _ -> error "unexpected state"
-  nextState WorldState{worldState} Commit{party, command = Input.Commit{Input.utxo}} _ =
-    WorldState{worldState = Map.map updateWithCommit worldState}
+  nextState WorldState{hydraParties, hydraState} Commit{party, command = Input.Commit{Input.utxo}} _ =
+    WorldState{hydraParties, hydraState = updateWithCommit hydraState}
    where
     updateWithCommit = \case
-      st@PartyState{partyState = Initial{headParameters, commits, pendingCommits}} ->
-        st
-          { partyState = updatedState
-          }
+      Initial{headParameters, commits, pendingCommits} -> updatedState
        where
         commits' = Map.insert party utxo commits
         pendingCommits' = party `Set.delete` pendingCommits
@@ -227,24 +218,18 @@ instance
                 , pendingCommits = pendingCommits'
                 }
       _ -> error "unexpected state"
-  nextState WorldState{worldState} Abort{command = Input.Abort} _ =
-    WorldState{worldState = Map.map updateWithAbort worldState}
+  nextState WorldState{hydraParties, hydraState} Abort{command = Input.Abort} _ =
+    WorldState{hydraParties, hydraState = updateWithAbort hydraState}
    where
     updateWithAbort = \case
-      st@PartyState{partyState = Initial{commits}} ->
-        st
-          { partyState = Final committedUTxO
-          }
+      Initial{commits} -> Final committedUTxO
        where
         committedUTxO = mconcat $ Map.elems commits
-      st@PartyState{} ->
-        st
-          { partyState = Final mempty
-          }
+      _ -> Final mempty
   nextState _ _ _ = error "not implemented"
 
   perform :: WorldState m -> Action (WorldState m) a -> LookUp -> StateT (Nodes m) m a
-  perform _worldState Seed{seedKeys} _ = do
+  perform _ Seed{seedKeys} _ = do
     let parties = map (deriveParty . fst) seedKeys
     tvar <- lift $ newTVarIO []
     nodes <- lift $ do
@@ -270,17 +255,12 @@ instance
   perform _ Abort{party, command} _ = party `performs` command
 
   monitoring (s, s') _action _lookup _return =
-    case (localState s, localState s') of
-      (Just Idle{}, Just Initial{}) -> label "Idle -> Initial"
-      (Just Initial{}, Just Initial{}) -> label "Initial -> Initial"
-      (Just Initial{}, Just Open{}) -> label "Initial -> Open"
+    case (hydraState s, hydraState s') of
+      (Start{}, Idle{}) -> label "Start -> Idle"
+      (Idle{}, Initial{}) -> label "Idle -> Initial"
+      (Initial{}, Initial{}) -> label "Initial -> Initial"
+      (Initial{}, Open{}) -> label "Initial -> Open"
       _ -> identity
-   where
-    -- TODO: we should rework WorldState to only contain one state which
-    -- represent the agreed upon state according to the consensus inside the
-    -- head. Here we take the state of the 'first party' because it doesn't
-    -- matter, they're all (supposed to be) equal.
-    localState = fmap (partyState . head) . NE.nonEmpty . Map.elems . worldState
 
 performs :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 performs party command = do
