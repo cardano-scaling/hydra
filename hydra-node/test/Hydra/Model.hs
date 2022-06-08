@@ -9,10 +9,11 @@
 -- /operators/ that want to create a channel between them.
 module Hydra.Model where
 
-import Hydra.Prelude hiding (Any)
+import Hydra.Prelude hiding (Any, label)
 
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode, createHydraNode, createTestHydraNode, send, simulatedChainAndNetwork, waitUntil)
@@ -28,7 +29,7 @@ import Hydra.Logging (traceInTVar)
 import Hydra.Node (runHydraNode)
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (ReadyToCommit))
-import Test.QuickCheck (elements, listOf1, resize)
+import Test.QuickCheck (elements, label, listOf1, resize)
 import Test.QuickCheck.Gen (oneof)
 import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
 
@@ -267,6 +268,17 @@ instance
         lift $ waitUntil [actorNode] $ ReadyToCommit (Set.fromList $ Map.keys nodes)
         party `performs` command
   perform _ Abort{party, command} _ = party `performs` command
+
+  monitoring (s, s') _action _lookup _return =
+    case (localState s, localState s') of
+      (Just Initial{}, Just Open{}) -> label "Initial -> Open"
+      _ -> identity
+   where
+    -- TODO: we should rework WorldState to only contain one state which
+    -- represent the agreed upon state according to the consensus inside the
+    -- head. Here we take the state of the 'first party' because it doesn't
+    -- matter, they're all (supposed to be) equal.
+    localState = fmap (partyState . head) . NE.nonEmpty . Map.elems . worldState
 
 performs :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 performs party command = do
