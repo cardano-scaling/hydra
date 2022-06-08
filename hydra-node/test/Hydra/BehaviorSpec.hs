@@ -545,30 +545,35 @@ withHydraNode signingKey otherParties connectToChain action = do
   node <- createHydraNode simpleLedger signingKey otherParties outputs connectToChain
 
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
-    action $ createTestHydraNode outputs node connectToChain
+    createTestHydraNode outputs node connectToChain >>= action
 
 createTestHydraNode ::
   (MonadSTM m, MonadThrow m) =>
   TQueue m (ServerOutput tx) ->
   HydraNode tx m ->
   ConnectToChain tx m ->
-  TestHydraNode tx m
-createTestHydraNode outputs node ConnectToChain{history} =
-  TestHydraNode
-    { send = handleClientInput node
-    , chainEvent = \e -> do
-        toReplay <- case e of
-          Rollback (fromIntegral -> n) -> do
-            atomically $ do
-              (toReplay, kept) <- splitAt n <$> readTVar history
-              toReplay <$ writeTVar history kept
-          _ ->
-            pure []
-        handleChainTx node e
-        mapM_ (postTx (oc node)) (reverse toReplay)
-    , waitForNext = atomically $ readTQueue outputs
-    , serverOutputs = error "serverOutputs: not implemented"
-    }
+  m (TestHydraNode tx m)
+createTestHydraNode outputs node ConnectToChain{history} = do
+  outputHistory <- newTVarIO mempty
+  pure
+    TestHydraNode
+      { send = handleClientInput node
+      , chainEvent = \e -> do
+          toReplay <- case e of
+            Rollback (fromIntegral -> n) -> do
+              atomically $ do
+                (toReplay, kept) <- splitAt n <$> readTVar history
+                toReplay <$ writeTVar history kept
+            _ ->
+              pure []
+          handleChainTx node e
+          mapM_ (postTx (oc node)) (reverse toReplay)
+      , waitForNext = atomically $ do
+          out <- readTQueue outputs
+          modifyTVar' outputHistory (out :)
+          pure out
+      , serverOutputs = reverse <$> readTVarIO outputHistory
+      }
 
 createHydraNode ::
   (MonadDelay m, MonadAsync m) =>

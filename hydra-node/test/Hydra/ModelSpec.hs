@@ -74,17 +74,15 @@ prop_checkModel (AnyActions actions) =
       monadic' $ do
         (WorldState world, _symEnv) <- runActions' actions
         let parties = Map.keysSet world
-
-        nodes <- error "think about it."
-
+        nodes <- run get
         assert (parties == Map.keysSet nodes)
 
-        forM_ parties $ \party -> do
-          let st = world ! party
-          let node = nodes ! party
+        forM_ parties $ \p -> do
+          let st = world ! p
+          let node = nodes ! p
           case partyState st of
             Initial{commits} -> do
-              outputs <- serverOutputs @Tx node
+              outputs <- run $ lift $ serverOutputs @Tx node
               let actualCommitted =
                     Map.fromList
                       [ (party, utxo)

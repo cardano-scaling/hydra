@@ -238,7 +238,7 @@ instance
       forM seedKeys $ \(sk, _csk) -> do
         outputs <- atomically newTQueue
         node <- createHydraNode ledger sk parties outputs connectToChain
-        let testNode = createTestHydraNode outputs node connectToChain
+        testNode <- createTestHydraNode outputs node connectToChain
         void $ async $ runHydraNode (traceInTVar tvar) node
         pure (deriveParty sk, testNode)
 
