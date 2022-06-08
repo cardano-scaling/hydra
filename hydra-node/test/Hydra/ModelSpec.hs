@@ -92,8 +92,8 @@ prop_checkModel (AnyActions actions) =
                 counterexample $
                   toString $
                     unlines
-                      [ "Actual committed:   " <> show actualCommitted
-                      , "Expected committed: " <> show commits
+                      [ "Actual committed: (" <> show p <> ") " <> show actualCommitted
+                      , "Expected committed: (" <> show p <> ") " <> show commits
                       ]
               assert (actualCommitted == commits)
             _ -> do
