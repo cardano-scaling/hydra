@@ -110,7 +110,10 @@ instance
   StateModel (WorldState m)
   where
   data Action (WorldState m) a where
-    Seed :: {seedKeys :: [(Hydra.SigningKey, CardanoSigningKey)]} -> Action (WorldState m) ()
+    Seed ::
+      { seedKeys :: [(Hydra.SigningKey, CardanoSigningKey)]
+      } ->
+      Action (WorldState m) ()
     Init ::
       { party :: Party
       , command :: ClientInput Tx

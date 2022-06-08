@@ -14,11 +14,17 @@ import Unsafe.Coerce (unsafeCoerce)
 import qualified Prelude
 
 import Control.Monad.IOSim (IOSim, runSim)
-import Hydra.Model (Nodes, WorldState (WorldState))
+import Data.Map ((!))
+import Hydra.BehaviorSpec (TestHydraNode (..))
+import Hydra.Ledger.Cardano (Tx)
+import Hydra.Model (LocalState (..), Nodes, PartyState (..), WorldState (..))
+import Hydra.ServerOutput (ServerOutput (..))
 import Test.QuickCheck (Property, counterexample, property)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
-import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor)
+import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, Env, initialState, runActionsInState, pattern Actions)
+
+import qualified Data.Map as Map
 
 newtype WrapIOSim a = WrapIOSim {unwrapIOSim :: forall s. IOSim s a}
 
@@ -66,11 +72,36 @@ prop_checkModel (AnyActions actions) =
   property $
     runIOSimProp $
       monadic' $ do
-        (WorldState{}, _symEnv) <- runActions' actions
-        let someAssertionAboutWorldState = True
-        when (not someAssertionAboutWorldState) $ do
-          monitor $ counterexample "What went wrong if it went wrong"
-        assert someAssertionAboutWorldState
+        (WorldState world, _symEnv) <- runActions' actions
+        let parties = Map.keysSet world
 
-runActions' :: Actions (WorldState (IOSim s)) -> PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) (WorldState (IOSim s), Env)
+        nodes <- error "think about it."
+
+        assert (parties == Map.keysSet nodes)
+
+        forM_ parties $ \party -> do
+          let st = world ! party
+          let node = nodes ! party
+          case partyState st of
+            Initial{commits} -> do
+              outputs <- serverOutputs @Tx node
+              let actualCommitted =
+                    Map.fromList
+                      [ (party, utxo)
+                      | Committed{party, utxo} <- outputs
+                      ]
+              monitor $
+                counterexample $
+                  toString $
+                    unlines
+                      [ "Actual committed:   " <> show actualCommitted
+                      , "Expected committed: " <> show commits
+                      ]
+              assert (actualCommitted == commits)
+            _ -> do
+              pure ()
+
+runActions' ::
+  Actions (WorldState (IOSim s)) ->
+  PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) (WorldState (IOSim s), Env)
 runActions' = runActionsInState initialState

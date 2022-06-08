@@ -454,6 +454,7 @@ data TestHydraNode tx m = TestHydraNode
   { send :: ClientInput tx -> m ()
   , chainEvent :: ChainEvent tx -> m ()
   , waitForNext :: m (ServerOutput tx)
+  , serverOutputs :: m [ServerOutput tx]
   }
 
 data ConnectToChain tx m = ConnectToChain
@@ -566,6 +567,7 @@ createTestHydraNode outputs node ConnectToChain{history} =
         handleChainTx node e
         mapM_ (postTx (oc node)) (reverse toReplay)
     , waitForNext = atomically $ readTQueue outputs
+    , serverOutputs = error "serverOutputs: not implemented"
     }
 
 createHydraNode ::
