@@ -237,8 +237,9 @@ instance
       connectToChain <- simulatedChainAndNetwork
       forM seedKeys $ \(sk, _csk) -> do
         outputs <- atomically newTQueue
-        node <- createHydraNode ledger sk parties outputs connectToChain
-        testNode <- createTestHydraNode outputs node connectToChain
+        outputHistory <- newTVarIO []
+        node <- createHydraNode ledger sk parties outputs outputHistory connectToChain
+        let testNode = createTestHydraNode outputs outputHistory node connectToChain
         void $ async $ runHydraNode (traceInTVar tvar) node
         pure (deriveParty sk, testNode)
 

@@ -542,38 +542,34 @@ withHydraNode ::
   IOSim s a
 withHydraNode signingKey otherParties connectToChain action = do
   outputs <- atomically newTQueue
-  node <- createHydraNode simpleLedger signingKey otherParties outputs connectToChain
-
+  outputHistory <- newTVarIO mempty
+  node <- createHydraNode simpleLedger signingKey otherParties outputs outputHistory connectToChain
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
-    createTestHydraNode outputs node connectToChain >>= action
+    action $ createTestHydraNode outputs outputHistory node connectToChain
 
 createTestHydraNode ::
   (MonadSTM m, MonadThrow m) =>
   TQueue m (ServerOutput tx) ->
+  TVar m [ServerOutput tx] ->
   HydraNode tx m ->
   ConnectToChain tx m ->
-  m (TestHydraNode tx m)
-createTestHydraNode outputs node ConnectToChain{history} = do
-  outputHistory <- newTVarIO mempty
-  pure
-    TestHydraNode
-      { send = handleClientInput node
-      , chainEvent = \e -> do
-          toReplay <- case e of
-            Rollback (fromIntegral -> n) -> do
-              atomically $ do
-                (toReplay, kept) <- splitAt n <$> readTVar history
-                toReplay <$ writeTVar history kept
-            _ ->
-              pure []
-          handleChainTx node e
-          mapM_ (postTx (oc node)) (reverse toReplay)
-      , waitForNext = atomically $ do
-          out <- readTQueue outputs
-          modifyTVar' outputHistory (out :)
-          pure out
-      , serverOutputs = reverse <$> readTVarIO outputHistory
-      }
+  TestHydraNode tx m
+createTestHydraNode outputs outputHistory node ConnectToChain{history} =
+  TestHydraNode
+    { send = handleClientInput node
+    , chainEvent = \e -> do
+        toReplay <- case e of
+          Rollback (fromIntegral -> n) -> do
+            atomically $ do
+              (toReplay, kept) <- splitAt n <$> readTVar history
+              toReplay <$ writeTVar history kept
+          _ ->
+            pure []
+        handleChainTx node e
+        mapM_ (postTx (oc node)) (reverse toReplay)
+    , waitForNext = atomically (readTQueue outputs)
+    , serverOutputs = reverse <$> readTVarIO outputHistory
+    }
 
 createHydraNode ::
   (MonadDelay m, MonadAsync m) =>
@@ -581,9 +577,10 @@ createHydraNode ::
   Hydra.SigningKey ->
   [Party] ->
   TQueue m (ServerOutput tx) ->
+  TVar m [ServerOutput tx] ->
   ConnectToChain tx m ->
   m (HydraNode tx m)
-createHydraNode ledger signingKey otherParties outputs connectToChain = do
+createHydraNode ledger signingKey otherParties outputs outputHistory connectToChain = do
   eq <- createEventQueue
   hh <- createHydraHead IdleState ledger
   chainComponent connectToChain $
@@ -592,7 +589,12 @@ createHydraNode ledger signingKey otherParties outputs connectToChain = do
       , hn = Network{broadcast = const $ pure ()}
       , hh
       , oc = Chain (const $ pure ())
-      , server = Server{sendOutput = atomically . writeTQueue outputs}
+      , server =
+          Server
+            { sendOutput = \out -> atomically $ do
+                writeTQueue outputs out
+                modifyTVar' outputHistory (out :)
+            }
       , env =
           Environment
             { party = deriveParty signingKey

@@ -67,16 +67,22 @@ instance Arbitrary AnyActions where
 unsafeCoerceActions :: Actions (WorldState (IOSim s)) -> Actions (WorldState (IOSim s'))
 unsafeCoerceActions = unsafeCoerce
 
+-- NOTE: This is only sound to run in IOSim, because delays are instant. It
+-- allows to make sure we wait long-enough for remaining asynchronous actions /
+-- events to complete before we make any test assertion.
+waitUntilTheEndOfTime :: MonadDelay m => m ()
+waitUntilTheEndOfTime = threadDelay 1000000000000
+
 prop_checkModel :: AnyActions -> Property
 prop_checkModel (AnyActions actions) =
   property $
     runIOSimProp $
       monadic' $ do
         (WorldState world, _symEnv) <- runActions' actions
+        run $ lift waitUntilTheEndOfTime
         let parties = Map.keysSet world
         nodes <- run get
         assert (parties == Map.keysSet nodes)
-
         forM_ parties $ \p -> do
           let st = world ! p
           let node = nodes ! p
