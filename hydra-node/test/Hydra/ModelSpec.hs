@@ -18,7 +18,7 @@ import Data.Map ((!))
 import qualified Data.Map as Map
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Model (LocalState (..), Nodes, PartyState (..), WorldState (..))
+import Hydra.Model (LocalState (..), Nodes, OffChainState (..), PartyState (..), WorldState (..))
 import Hydra.Party (Party)
 import Hydra.ServerOutput (ServerOutput (..))
 import Test.QuickCheck (Property, counterexample, property)
@@ -85,6 +85,7 @@ prop_checkModel (AnyActions actions) =
         assert (parties == Map.keysSet nodes)
         forM_ parties $ \p -> do
           assertNodeSeesAndReportsAllExpectedCommits world nodes p
+          assertOpenHeadWithAllExpectedCommits world nodes p
 
 assertNodeSeesAndReportsAllExpectedCommits ::
   Map Party PartyState ->
@@ -110,6 +111,34 @@ assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
               , "Expected committed: (" <> show p <> ") " <> show commits
               ]
       assert (actualCommitted == commits)
+    _ -> do
+      pure ()
+
+assertOpenHeadWithAllExpectedCommits ::
+  Map Party PartyState ->
+  Map Party (TestHydraNode Tx (IOSim s)) ->
+  Party ->
+  PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) ()
+assertOpenHeadWithAllExpectedCommits world nodes p = do
+  let st = world ! p
+  let node = nodes ! p
+  case partyState st of
+    Open{offChainState = OffChainState{confirmedSnapshots}} -> do
+      let expectedInitialUtxo = Prelude.last confirmedSnapshots
+      outputs <- run $ lift $ serverOutputs @Tx node
+      let actualInitialUtxo =
+            listToMaybe
+              [ utxo
+              | HeadIsOpen{utxo} <- outputs
+              ]
+      monitor $
+        counterexample $
+          toString $
+            unlines
+              [ "Actual initial utxo: (" <> show p <> ") " <> show actualInitialUtxo
+              , "Expected initial utxo: (" <> show p <> ") " <> show expectedInitialUtxo
+              ]
+      assert (Just expectedInitialUtxo == actualInitialUtxo)
     _ -> do
       pure ()
 

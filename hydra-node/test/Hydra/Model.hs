@@ -28,7 +28,6 @@ import Hydra.Logging (traceInTVar)
 import Hydra.Node (runHydraNode)
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (ReadyToCommit))
-import Hydra.Snapshot (ConfirmedSnapshot)
 import Test.QuickCheck (elements, listOf1, resize)
 import Test.QuickCheck.Gen (oneof)
 import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
@@ -76,7 +75,7 @@ isPendingCommitFrom party Initial{pendingCommits} =
 isPendingCommitFrom _ _ = False
 
 data OffChainState = OffChainState
-  { confirmedSnapshots :: [ConfirmedSnapshot Tx]
+  { confirmedSnapshots :: [UTxO]
   , seenTransactions :: [Tx]
   }
   deriving stock (Eq, Show)
@@ -195,13 +194,28 @@ instance
     updateWithCommit = \case
       st@PartyState{partyState = Initial{headParameters, commits, pendingCommits}} ->
         st
-          { partyState =
+          { partyState = updatedState
+          }
+       where
+        commits' = Map.insert party utxo commits
+        pendingCommits' = party `Set.delete` pendingCommits
+        updatedState =
+          if null pendingCommits
+            then
+              Open
+                { headParameters
+                , offChainState =
+                    OffChainState
+                      { confirmedSnapshots = [mconcat (Map.elems commits')]
+                      , seenTransactions = []
+                      }
+                }
+            else
               Initial
                 { headParameters
-                , commits = Map.insert party utxo commits
-                , pendingCommits = party `Set.delete` pendingCommits
+                , commits = commits'
+                , pendingCommits = pendingCommits'
                 }
-          }
       _ -> error "unexpected state"
   nextState WorldState{worldState} Abort{command = Input.Abort} _ =
     WorldState{worldState = Map.map updateWithAbort worldState}
