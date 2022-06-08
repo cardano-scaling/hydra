@@ -14,6 +14,7 @@ import Hydra.Prelude hiding (Any, label)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
 import qualified Data.Map as Map
+import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode, createHydraNode, createTestHydraNode, send, simulatedChainAndNetwork, waitUntil)
 import Hydra.Cardano.Api (PaymentKey, SigningKey (PaymentSigningKey), UTxO, VerificationKey, getVerificationKey)
@@ -28,8 +29,7 @@ import Hydra.Logging (traceInTVar)
 import Hydra.Node (runHydraNode)
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (ReadyToCommit))
-import Test.QuickCheck (elements, label, listOf1, resize)
-import Test.QuickCheck.Gen (oneof)
+import Test.QuickCheck (elements, frequency, listOf1, resize, tabulate)
 import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
 
 -- | Local state as seen by each Head participant.
@@ -140,14 +140,14 @@ instance
     case hydraState of
       Start -> genSeed
       Idle{} -> genInit
-      Initial{} ->
-        oneof
-          [ genCommit
-          , genAbort
+      Initial{pendingCommits} ->
+        frequency
+          [ (5, genCommit pendingCommits)
+          , (1, genAbort)
           ]
       _ -> genSeed
    where
-    genSeed = Some . Seed <$> resize 10 (listOf1 partyKeys)
+    genSeed = Some . Seed <$> resize 7 (listOf1 partyKeys)
 
     genInit = do
       initContestationPeriod <- arbitrary
@@ -155,11 +155,12 @@ instance
       let command = Input.Init{Input.contestationPeriod = initContestationPeriod}
       pure $ Some Init{party = deriveParty key, command}
 
-    genCommit = do
-      (key, cardanoKey) <- elements hydraParties
+    genCommit pending = do
+      party <- elements $ toList pending
+      let (_, cardanoKey) = fromJust $ find ((== party) . deriveParty . fst) hydraParties
       utxo <- genOneUTxOFor (getVerificationKey cardanoKey)
       let command = Input.Commit{Input.utxo = utxo}
-      pure $ Some Commit{party = deriveParty key, command}
+      pure $ Some Commit{party = party, command}
 
     genAbort = do
       (key, _) <- elements hydraParties
@@ -256,10 +257,11 @@ instance
 
   monitoring (s, s') _action _lookup _return =
     case (hydraState s, hydraState s') of
-      (Start{}, Idle{}) -> label "Start -> Idle"
-      (Idle{}, Initial{}) -> label "Idle -> Initial"
-      (Initial{}, Initial{}) -> label "Initial -> Initial"
-      (Initial{}, Open{}) -> label "Initial -> Open"
+      (Start{}, Idle{}) -> tabulate "Transitions" ["Start -> Idle"]
+      (Idle{}, Initial{}) -> tabulate "Transitions" ["Idle -> Initial"]
+      (Initial{}, Initial{}) -> tabulate "Transitions" ["Initial -> Initial"]
+      (Initial{}, Open{}) -> tabulate "Transitions" ["Initial -> Open"]
+      (Initial{}, Final{}) -> tabulate "Transitions" ["Initial -> Final"]
       _ -> identity
 
 performs :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()

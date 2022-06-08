@@ -29,7 +29,7 @@ import Test.QuickCheck.StateModel (Actions, runActions, pattern Actions)
 
 spec :: Spec
 spec =
-  modifyMaxSuccess (const 10000) $
+  modifyMaxSuccess (const 1000) $
     prop "implementation respects model" prop_checkModel
 
 prop_checkModel :: AnyActions -> Property
