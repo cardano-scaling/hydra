@@ -539,26 +539,34 @@ withHydraNode ::
   ConnectToChain SimpleTx (IOSim s) ->
   (TestHydraNode SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
-withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} action = do
+withHydraNode signingKey otherParties connectToChain action = do
   outputs <- atomically newTQueue
   node <- createHydraNode simpleLedger signingKey otherParties outputs connectToChain
 
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
-    action
-      TestHydraNode
-        { send = handleClientInput node
-        , chainEvent = \e -> do
-            toReplay <- case e of
-              Rollback (fromIntegral -> n) -> do
-                atomically $ do
-                  (toReplay, kept) <- splitAt n <$> readTVar history
-                  toReplay <$ writeTVar history kept
-              _ ->
-                pure []
-            handleChainTx node e
-            mapM_ (postTx (oc node)) (reverse toReplay)
-        , waitForNext = atomically $ readTQueue outputs
-        }
+    action $ createTestHydraNode outputs node connectToChain
+
+createTestHydraNode ::
+  (MonadSTM m, MonadThrow m) =>
+  TQueue m (ServerOutput tx) ->
+  HydraNode tx m ->
+  ConnectToChain tx m ->
+  TestHydraNode tx m
+createTestHydraNode outputs node ConnectToChain{history} =
+  TestHydraNode
+    { send = handleClientInput node
+    , chainEvent = \e -> do
+        toReplay <- case e of
+          Rollback (fromIntegral -> n) -> do
+            atomically $ do
+              (toReplay, kept) <- splitAt n <$> readTVar history
+              toReplay <$ writeTVar history kept
+          _ ->
+            pure []
+        handleChainTx node e
+        mapM_ (postTx (oc node)) (reverse toReplay)
+    , waitForNext = atomically $ readTQueue outputs
+    }
 
 createHydraNode ::
   (MonadDelay m, MonadAsync m) =>

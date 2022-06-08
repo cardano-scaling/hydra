@@ -15,8 +15,7 @@ import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import GHC.Show (show)
-import Hydra.BehaviorSpec (createHydraNode, simulatedChainAndNetwork)
+import Hydra.BehaviorSpec (TestHydraNode, createHydraNode, createTestHydraNode, send, simulatedChainAndNetwork, waitUntil)
 import Hydra.Cardano.Api (PaymentKey, SigningKey (PaymentSigningKey), UTxO, VerificationKey, getVerificationKey)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
@@ -26,8 +25,9 @@ import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (Committed, PendingCommits)
 import Hydra.Ledger.Cardano (Tx, cardanoLedger, genOneUTxOFor, genSigningKey)
 import Hydra.Logging (traceInTVar)
-import Hydra.Node (HydraNode, handleClientInput, runHydraNode)
+import Hydra.Node (runHydraNode)
 import Hydra.Party (Party, deriveParty)
+import Hydra.ServerOutput (ServerOutput (ReadyToCommit))
 import Hydra.Snapshot (ConfirmedSnapshot)
 import Test.QuickCheck (elements, listOf1, resize)
 import Test.QuickCheck.Gen (oneof)
@@ -91,12 +91,12 @@ instance Eq PartyState where
 newtype WorldState (m :: Type -> Type) = WorldState {worldState :: Map.Map Party PartyState}
   deriving (Eq, Show)
 
-type Nodes m = Map.Map Party (HydraNode Tx m)
-
-instance Show (HydraNode Tx m) where
-  show _ = "node"
+type Nodes m = Map.Map Party (TestHydraNode Tx m)
 
 type CardanoSigningKey = SigningKey PaymentKey
+
+instance Eq CardanoSigningKey where
+  (PaymentSigningKey skd) == (PaymentSigningKey skd') = skd == skd'
 
 instance
   ( MonadSTM m
@@ -104,6 +104,7 @@ instance
   , MonadAsync m
   , MonadCatch m
   , MonadTime m
+  , MonadTimer m
   , MonadFork m
   ) =>
   StateModel (WorldState m)
@@ -234,12 +235,19 @@ instance
       forM seedKeys $ \(sk, _csk) -> do
         outputs <- atomically newTQueue
         node <- createHydraNode ledger sk parties outputs connectToChain
+        let testNode = createTestHydraNode outputs node connectToChain
         void $ async $ runHydraNode (traceInTVar tvar) node
-        pure (deriveParty sk, node)
+        pure (deriveParty sk, testNode)
 
     put $ Map.fromList nodes
   perform _ Init{party, command} _ = party `performs` command
-  perform _ Commit{party, command} _ = party `performs` command
+  perform _ Commit{party, command} _ = do
+    nodes <- get
+    case Map.lookup party nodes of
+      Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
+      Just actorNode -> do
+        lift $ waitUntil [actorNode] $ ReadyToCommit (Set.fromList $ Map.keys nodes)
+        party `performs` command
   perform _ Abort{party, command} _ = party `performs` command
 
 performs :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
@@ -247,7 +255,7 @@ performs party command = do
   nodes <- get
   case Map.lookup party nodes of
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
-    Just actorNode -> lift $ actorNode `handleClientInput` command
+    Just actorNode -> lift $ actorNode `send` command
 
 partyKeys :: Gen (Hydra.SigningKey, CardanoSigningKey)
 partyKeys = do
@@ -255,15 +263,5 @@ partyKeys = do
   csk <- genSigningKey
   pure (sk, csk)
 
-instance Show (Action (WorldState m) a) where
-  show (Seed sks) = "Seed { seedKeys = " <> Hydra.Prelude.show sks <> "}"
-  show (Init pa ci) = "Init { party = " <> Hydra.Prelude.show pa <> ", command = " <> Hydra.Prelude.show ci <> "}"
-  show (Commit pa ci) = "Init { party = " <> Hydra.Prelude.show pa <> ", command = " <> Hydra.Prelude.show ci <> "}"
-  show (Abort pa ci) = "Init { party = " <> Hydra.Prelude.show pa <> ", command = " <> Hydra.Prelude.show ci <> "}"
-
-instance Eq (Action (WorldState m) a) where
-  (Seed sks) == (Seed sks') = map fst sks == map fst sks'
-  (Init pa ci) == (Init pa' ci') = pa == pa' && ci == ci'
-  (Commit pa ci) == (Commit pa' ci') = pa == pa' && ci == ci'
-  (Abort pa ci) == (Abort pa' ci') = pa == pa' && ci == ci'
-  _ == _ = False
+deriving instance Show (Action (WorldState m) a)
+deriving instance Eq (Action (WorldState m) a)
