@@ -7,12 +7,13 @@ import Hydra.Prelude hiding (show)
 
 import Data.Aeson (ToJSONKey)
 import Data.Aeson.Types (FromJSONKey)
-import Hydra.Crypto (hashVerificationKey)
+import Hydra.Cardano.Api (SigningKey, VerificationKey)
+import Hydra.Crypto (HydraKey, hashVerificationKey)
 import qualified Hydra.Crypto as Hydra
 import qualified Hydra.Data.Party as OnChain
 
 -- | Identifies a party in a Hydra head by it's 'VerificationKey'.
-newtype Party = Party {vkey :: Hydra.VerificationKey}
+newtype Party = Party {vkey :: VerificationKey HydraKey}
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, FromJSONKey, ToJSONKey)
 
@@ -32,7 +33,7 @@ instance ToCBOR Party where
   toCBOR Party{vkey} = toCBOR vkey
 
 -- | Get the 'Party' given some Hydra 'SigningKey'.
-deriveParty :: Hydra.SigningKey -> Party
+deriveParty :: SigningKey HydraKey -> Party
 deriveParty = Party . Hydra.deriveVerificationKey
 
 -- | Convert "high-level" 'Party' to the "low-level" representation as used
