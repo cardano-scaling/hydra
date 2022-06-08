@@ -15,16 +15,16 @@ import qualified Prelude
 
 import Control.Monad.IOSim (IOSim, runSim)
 import Data.Map ((!))
+import qualified Data.Map as Map
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Model (LocalState (..), Nodes, PartyState (..), WorldState (..))
+import Hydra.Party (Party)
 import Hydra.ServerOutput (ServerOutput (..))
 import Test.QuickCheck (Property, counterexample, property)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, Env, initialState, runActionsInState, pattern Actions)
-
-import qualified Data.Map as Map
 
 newtype WrapIOSim a = WrapIOSim {unwrapIOSim :: forall s. IOSim s a}
 
@@ -84,26 +84,34 @@ prop_checkModel (AnyActions actions) =
         nodes <- run get
         assert (parties == Map.keysSet nodes)
         forM_ parties $ \p -> do
-          let st = world ! p
-          let node = nodes ! p
-          case partyState st of
-            Initial{commits} -> do
-              outputs <- run $ lift $ serverOutputs @Tx node
-              let actualCommitted =
-                    Map.fromList
-                      [ (party, utxo)
-                      | Committed{party, utxo} <- outputs
-                      ]
-              monitor $
-                counterexample $
-                  toString $
-                    unlines
-                      [ "Actual committed: (" <> show p <> ") " <> show actualCommitted
-                      , "Expected committed: (" <> show p <> ") " <> show commits
-                      ]
-              assert (actualCommitted == commits)
-            _ -> do
-              pure ()
+          assertNodeSeesAndReportsAllExpectedCommits world nodes p
+
+assertNodeSeesAndReportsAllExpectedCommits ::
+  Map Party PartyState ->
+  Map Party (TestHydraNode Tx (IOSim s)) ->
+  Party ->
+  PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) ()
+assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
+  let st = world ! p
+  let node = nodes ! p
+  case partyState st of
+    Initial{commits} -> do
+      outputs <- run $ lift $ serverOutputs @Tx node
+      let actualCommitted =
+            Map.fromList
+              [ (party, utxo)
+              | Committed{party, utxo} <- outputs
+              ]
+      monitor $
+        counterexample $
+          toString $
+            unlines
+              [ "Actual committed: (" <> show p <> ") " <> show actualCommitted
+              , "Expected committed: (" <> show p <> ") " <> show commits
+              ]
+      assert (actualCommitted == commits)
+    _ -> do
+      pure ()
 
 runActions' ::
   Actions (WorldState (IOSim s)) ->
