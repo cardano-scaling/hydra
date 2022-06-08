@@ -4,7 +4,7 @@ module Hydra.Network.Message where
 
 import Hydra.Prelude
 
-import qualified Hydra.Crypto as Hydra
+import Hydra.Crypto (Signature)
 import Hydra.Ledger (IsTx, UTxOType)
 import Hydra.Network (Host)
 import Hydra.Party (Party)
@@ -15,7 +15,7 @@ import Hydra.Snapshot (Snapshot, SnapshotNumber)
 data Message tx
   = ReqTx {party :: Party, transaction :: tx}
   | ReqSn {party :: Party, snapshotNumber :: SnapshotNumber, transactions :: [tx]}
-  | AckSn {party :: Party, signed :: Hydra.Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
+  | AckSn {party :: Party, signed :: Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
   | Connected {peer :: Host}
   | Disconnected {peer :: Host}
   deriving stock (Generic, Eq, Show)

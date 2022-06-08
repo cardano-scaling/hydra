@@ -7,9 +7,8 @@ import Hydra.Prelude hiding (show)
 
 import Data.Aeson (ToJSONKey)
 import Data.Aeson.Types (FromJSONKey)
-import Hydra.Cardano.Api (SigningKey, VerificationKey)
-import Hydra.Crypto (HydraKey, hashVerificationKey)
-import qualified Hydra.Crypto as Hydra
+import Hydra.Cardano.Api (AsType (AsVerificationKey), SerialiseAsRawBytes (deserialiseFromRawBytes, serialiseToRawBytes), SigningKey, VerificationKey, getVerificationKey, verificationKeyHash)
+import Hydra.Crypto (AsType (AsHydraKey), HydraKey)
 import qualified Hydra.Data.Party as OnChain
 
 -- | Identifies a party in a Hydra head by it's 'VerificationKey'.
@@ -21,7 +20,7 @@ newtype Party = Party {vkey :: VerificationKey HydraKey}
 -- based on Hashable?
 instance Ord Party where
   Party{vkey = a} <= Party{vkey = b} =
-    hashVerificationKey a <= hashVerificationKey b
+    verificationKeyHash a <= verificationKeyHash b
 
 instance Arbitrary Party where
   arbitrary = Party <$> arbitrary
@@ -34,14 +33,14 @@ instance ToCBOR Party where
 
 -- | Get the 'Party' given some Hydra 'SigningKey'.
 deriveParty :: SigningKey HydraKey -> Party
-deriveParty = Party . Hydra.deriveVerificationKey
+deriveParty = Party . getVerificationKey
 
 -- | Convert "high-level" 'Party' to the "low-level" representation as used
 -- on-chain. See 'Hydra.Data.Party.Party' for an explanation why this is a
 -- distinct type.
 partyToChain :: Party -> OnChain.Party
 partyToChain Party{vkey} =
-  OnChain.partyFromVerificationKeyBytes $ Hydra.serialiseVerificationKeyToRawBytes vkey
+  OnChain.partyFromVerificationKeyBytes $ serialiseToRawBytes vkey
 
 -- | Retrieve the "high-level" 'Party from the "low-level" on-chain
 -- representation. This can fail because of the lower type-safety used on-chain
@@ -49,4 +48,6 @@ partyToChain Party{vkey} =
 -- for an explanation why this is a distinct type.
 partyFromChain :: MonadFail m => OnChain.Party -> m Party
 partyFromChain =
-  fmap Party . Hydra.deserialiseVerificationKeyFromRawBytes . OnChain.partyToVerficationKeyBytes
+  maybe (fail "partyFromChain got Nothing") (pure . Party)
+    . deserialiseFromRawBytes (AsVerificationKey AsHydraKey)
+    . OnChain.partyToVerficationKeyBytes

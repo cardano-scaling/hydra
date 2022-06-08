@@ -25,9 +25,10 @@ import Hydra.Cardano.Api (
   PolicyId,
   SlotNo (..),
   TxIn,
+  verificationKeyHash,
  )
 import Hydra.Chain.Direct.Tx (headPolicyId)
-import Hydra.Crypto (hashVerificationKey)
+import Hydra.Crypto (Hash (HydraKeyHash))
 import Hydra.Ledger.Cardano.Evaluate (pparams)
 import Hydra.Party (Party (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -46,8 +47,10 @@ genForParty gen Party{vkey} =
   seed =
     fromIntegral
       . uintegerFromBytes
-      . hashToBytes
-      $ hashVerificationKey vkey
+      . hydraKeyHashToBytes
+      $ verificationKeyHash vkey
+
+  hydraKeyHashToBytes (HydraKeyHash h) = hashToBytes h
 
 -- * Cardano tx utilities
 

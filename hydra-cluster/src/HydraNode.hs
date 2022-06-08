@@ -38,8 +38,7 @@ import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
 import Hydra.Cluster.Util (readConfigFile)
-import Hydra.Crypto (deriveVerificationKey, serialiseSigningKeyToRawBytes, serialiseVerificationKeyToRawBytes)
-import qualified Hydra.Crypto as Hydra
+import Hydra.Crypto (HydraKey)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Host (Host))
@@ -203,7 +202,7 @@ withHydraCluster ::
   Int ->
   -- | NOTE: This decides on the size of the cluster!
   [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
-  [Hydra.SigningKey] ->
+  [SigningKey HydraKey] ->
   (NonEmpty HydraClient -> IO ()) ->
   IO ()
 withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action = do
@@ -225,7 +224,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action 
     [] -> action (fromList $ reverse clients)
     (nodeId : rest) -> do
       let hydraSKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
-          hydraVKeys = map deriveVerificationKey $ filter (/= hydraSKey) hydraKeys
+          hydraVKeys = map getVerificationKey $ filter (/= hydraSKey) hydraKeys
           cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           cardanoSigningKey = workDir </> show nodeId <.> "sk"
           chainConfig =
@@ -252,8 +251,8 @@ withHydraNode ::
   ChainConfig ->
   FilePath ->
   Int ->
-  Hydra.SigningKey ->
-  [Hydra.VerificationKey] ->
+  SigningKey HydraKey ->
+  [VerificationKey HydraKey] ->
   [Int] ->
   (HydraClient -> IO a) ->
   IO a
@@ -265,10 +264,10 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
       let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
       readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
       let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
-      BS.writeFile hydraSigningKey (serialiseSigningKeyToRawBytes hydraSKey)
+      BS.writeFile hydraSigningKey (serialiseToRawBytes hydraSKey)
       hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
         let filepath = dir </> (show i <> ".vk")
-        filepath <$ BS.writeFile filepath (serialiseVerificationKeyToRawBytes vKey)
+        filepath <$ BS.writeFile filepath (serialiseToRawBytes vKey)
       let ledgerConfig =
             CardanoLedgerConfig
               { cardanoLedgerGenesisFile

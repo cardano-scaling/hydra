@@ -5,7 +5,7 @@
 -- representation. For example: Cardano credentials are 'VerificationKey
 -- PaymentKey', Hydra credentials are 'VerificationKey HydraKey'.
 --
--- Currently this interface is only supporting naiive, concatenated
+-- Currently 'MultiSignature' interface is only supporting naiive, concatenated
 -- multi-signatures and will change when we adopt aggregated multi-signatures
 -- including aggregate keys.
 module Hydra.Crypto where
@@ -42,7 +42,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
-  AsType (AsHash, AsVerificationKey),
+  AsType (AsHash, AsSigningKey, AsVerificationKey),
   HasTextEnvelope (..),
   HasTypeProxy (..),
   Hash,
@@ -100,57 +100,41 @@ instance Key HydraKey where
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
 
-  getVerificationKey = deriveVerificationKey
+  -- Get the 'VerificationKey' for a given 'SigningKey'.
+  getVerificationKey (HydraSigningKey sk) =
+    HydraVerificationKey $ deriveVerKeyDSIGN sk
 
+  -- Create a new 'SigningKey' from a 'Seed'. See 'generateSigningKey'
   deterministicSigningKey AsHydraKey =
     generateSigningKey . getSeedBytes
 
+  -- Get the number of bytes required to seed a signing key with
+  -- 'deterministicSigningKey'.
   deterministicSigningKeySeedSize AsHydraKey =
     seedSizeDSIGN (Proxy :: Proxy SignAlg)
 
-  verificationKeyHash = hashVerificationKey
+  -- Get the verification key hash of a 'VerificationKey'. See 'HashAlg' for
+  -- info on the used hashing algorithm.
+  verificationKeyHash (HydraVerificationKey vk) =
+    HydraKeyHash . castHash $ hashVerKeyDSIGN vk
 
 instance Arbitrary (SigningKey HydraKey) where
   arbitrary = generateSigningKey <$> arbitrary
 
-instance HasTextEnvelope (VerificationKey HydraKey) where
-  textEnvelopeType _ =
-    "HydraVerificationKey_"
-      <> fromString (algorithmNameDSIGN (Proxy :: Proxy SignAlg))
+instance SerialiseAsRawBytes (SigningKey HydraKey) where
+  serialiseToRawBytes (HydraSigningKey sk) =
+    rawSerialiseSignKeyDSIGN sk
+
+  deserialiseFromRawBytes (AsSigningKey AsHydraKey) bs =
+    HydraSigningKey <$> rawDeserialiseSignKeyDSIGN bs
 
 instance HasTextEnvelope (SigningKey HydraKey) where
   textEnvelopeType _ =
     "HydraSigningKey_"
       <> fromString (algorithmNameDSIGN (Proxy :: Proxy SignAlg))
 
--- | Serialise the signing key material as raw bytes.
-serialiseSigningKeyToRawBytes :: SigningKey HydraKey -> ByteString
-serialiseSigningKeyToRawBytes (HydraSigningKey sk) = rawSerialiseSignKeyDSIGN sk
-{-# DEPRECATED serialiseSigningKeyToRawBytes "use Key interface instead" #-}
-
--- | Deserialise a signing key from raw bytes.
-deserialiseSigningKeyFromRawBytes :: MonadFail m => ByteString -> m (SigningKey HydraKey)
-deserialiseSigningKeyFromRawBytes bytes =
-  case rawDeserialiseSignKeyDSIGN bytes of
-    Nothing -> fail "failed to deserialise signing key"
-    Just key -> pure $ HydraSigningKey key
-{-# DEPRECATED deserialiseSigningKeyFromRawBytes "use Key interface instead" #-}
-
--- | Get the 'VerificationKey' for a given 'SigningKey'.
-deriveVerificationKey :: SigningKey HydraKey -> VerificationKey HydraKey
-deriveVerificationKey (HydraSigningKey sk) = HydraVerificationKey (deriveVerKeyDSIGN sk)
-{-# DEPRECATED deriveVerificationKey "use Key interface instead" #-}
-
--- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
--- not random and insecure, so don't use this in production code!
-generateSigningKey :: ByteString -> SigningKey HydraKey
-generateSigningKey seed =
-  HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes padded
- where
-  needed = fromIntegral $ seedSizeDSIGN (Proxy :: Proxy SignAlg)
-  provided = BS.length seed
-  padded = seed <> BS.pack (replicate (needed - provided) 0)
-{-# DEPRECATED generateSigningKey "use Key interface instead" #-}
+instance Arbitrary (VerificationKey HydraKey) where
+  arbitrary = getVerificationKey . generateSigningKey <$> arbitrary
 
 instance SerialiseAsRawBytes (VerificationKey HydraKey) where
   serialiseToRawBytes (HydraVerificationKey vk) =
@@ -179,28 +163,20 @@ instance FromJSON (VerificationKey HydraKey) where
         (pure . HydraVerificationKey)
         . rawDeserialiseVerKeyDSIGN
 
-instance Arbitrary (VerificationKey HydraKey) where
-  arbitrary = deriveVerificationKey . generateSigningKey <$> arbitrary
+instance HasTextEnvelope (VerificationKey HydraKey) where
+  textEnvelopeType _ =
+    "HydraVerificationKey_"
+      <> fromString (algorithmNameDSIGN (Proxy :: Proxy SignAlg))
 
--- | Serialise the verification key material as raw bytes.
-serialiseVerificationKeyToRawBytes :: VerificationKey HydraKey -> ByteString
-serialiseVerificationKeyToRawBytes (HydraVerificationKey vk) = rawSerialiseVerKeyDSIGN vk
-{-# DEPRECATED serialiseVerificationKeyToRawBytes "use Key interface instead" #-}
-
--- | Deserialise a verirfication key from raw bytes.
-deserialiseVerificationKeyFromRawBytes :: MonadFail m => ByteString -> m (VerificationKey HydraKey)
-deserialiseVerificationKeyFromRawBytes bytes =
-  case rawDeserialiseVerKeyDSIGN bytes of
-    Nothing -> fail "failed to deserialise verification key"
-    Just key -> pure $ HydraVerificationKey key
-{-# DEPRECATED deserialiseVerificationKeyFromRawBytes "use Key interface instead" #-}
-
--- | Get the verification key hash of a 'VerificationKey'. See 'HashAlg' for
--- info on the used hashing algorithm.
-hashVerificationKey :: VerificationKey HydraKey -> Hash HydraKey
-hashVerificationKey (HydraVerificationKey vk) =
-  HydraKeyHash . castHash $ hashVerKeyDSIGN vk
-{-# DEPRECATED hashVerificationKey "use Key interface instead" #-}
+-- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
+-- not random and insecure, so don't use this in production code!
+generateSigningKey :: ByteString -> SigningKey HydraKey
+generateSigningKey seed =
+  HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes padded
+ where
+  needed = fromIntegral $ seedSizeDSIGN (Proxy :: Proxy SignAlg)
+  provided = BS.length seed
+  padded = seed <> BS.pack (replicate (needed - provided) 0)
 
 -- * Signatures
 

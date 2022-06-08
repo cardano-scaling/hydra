@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.API.Server (Server (..))
+import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (Observation),
@@ -15,8 +16,7 @@ import Hydra.Chain (
   PostTxError (NoSeedInput),
  )
 import Hydra.ClientInput (ClientInput (..))
-import Hydra.Crypto (sign)
-import qualified Hydra.Crypto as Hydra
+import Hydra.Crypto (HydraKey, sign)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -138,7 +138,7 @@ runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = go
 
 createHydraNode ::
   (MonadSTM m, MonadDelay m, MonadAsync m) =>
-  Hydra.SigningKey ->
+  SigningKey HydraKey ->
   [Party] ->
   [Event SimpleTx] ->
   m (HydraNode SimpleTx m)

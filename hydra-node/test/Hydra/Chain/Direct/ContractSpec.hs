@@ -38,8 +38,7 @@ import Hydra.Contract.Head (
   verifySnapshotSignature,
  )
 import qualified Hydra.Contract.Head as OnChain
-import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
-import qualified Hydra.Crypto as Hydra
+import Hydra.Crypto (aggregate, generateSigningKey, sign, toPlutusSignatures)
 import Hydra.Ledger (hashUTxO)
 import qualified Hydra.Ledger as OffChain
 import Hydra.Ledger.Cardano (
@@ -182,8 +181,8 @@ prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
   forAll arbitrary $ \(snapshot@Snapshot{number, utxo} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \seed ->
-      let sk = Hydra.generateSigningKey seed
-          offChainSig = Hydra.sign sk snapshot
+      let sk = generateSigningKey seed
+          offChainSig = sign sk snapshot
           onChainSig = List.head . toPlutusSignatures $ aggregate [offChainSig]
           onChainParty = partyToChain $ deriveParty sk
           snapshotNumber = toInteger number

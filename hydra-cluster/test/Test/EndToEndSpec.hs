@@ -22,9 +22,11 @@ import Hydra.Cardano.Api (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
+  SigningKey,
   TxId,
   TxIn (..),
   VerificationKey,
+  getVerificationKey,
   lovelaceToValue,
   mkVkAddress,
   serialiseAddress,
@@ -51,7 +53,7 @@ import Hydra.Cluster.Fixture (
  )
 import Hydra.Cluster.Scenarios (singlePartyHeadFullLifeCycle)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
-import Hydra.Crypto (generateSigningKey)
+import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
