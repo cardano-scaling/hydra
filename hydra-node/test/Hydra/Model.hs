@@ -26,7 +26,8 @@ import Hydra.ClientInput (ClientInput)
 import qualified Hydra.ClientInput as Input
 import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (Committed, PendingCommits)
-import Hydra.Ledger.Cardano (cardanoLedger, genOneUTxOFor, genSigningKey, mkSimpleTx)
+import Hydra.Ledger (IsTx (..))
+import Hydra.Ledger.Cardano (cardanoLedger, genOneUTxOFor, genSigningKey, genValue, mkSimpleTx)
 import Hydra.Logging (traceInTVar)
 import Hydra.Node (runHydraNode)
 import Hydra.Party (Party, deriveParty)
@@ -91,6 +92,22 @@ type CardanoSigningKey = SigningKey PaymentKey
 instance Eq CardanoSigningKey where
   (PaymentSigningKey skd) == (PaymentSigningKey skd') = skd == skd'
 
+data Payment = Payment
+  { paymentId :: Int
+  , from :: SigningKey PaymentKey
+  , to :: SigningKey PaymentKey
+  , value :: Value
+  }
+  deriving (Eq, Show)
+
+instance IsTx Payment where
+  type TxIdType Payment = Int
+  type UTxOType Payment = [(Value, SigningKey PaymentKey)]
+  type ValueType Payment = Value
+  txId = paymentId
+  balance = foldMap fst
+  hashUTxO = decodeUtf8 . show
+
 instance
   ( MonadSTM m
   , MonadDelay m
@@ -109,7 +126,7 @@ instance
       Action (WorldState m) ()
     Command ::
       { party :: Party
-      , command :: ClientInput Tx
+      , command :: ClientInput Payment
       } ->
       Action (WorldState m) ()
 
@@ -151,25 +168,19 @@ instance
 
     genCommit pending = do
       party <- elements $ toList pending
-      let (_, cardanoKey) = fromJust $ find ((== party) . deriveParty . fst) hydraParties
-      utxo <- genOneUTxOFor (getVerificationKey cardanoKey)
-      let command = Input.Commit{Input.utxo = utxo}
-      pure $ Some Command{party = party, command}
+      let (_, sk) = fromJust $ find ((== party) . deriveParty . fst) hydraParties
+      value <- genValue
+      let command = Input.Commit{Input.utxo = [(value, sk)]}
+      pure $ Some Command{party, command}
 
     genAbort = do
       (key, _) <- elements hydraParties
       pure $ Some Command{party = deriveParty key, command = Input.Abort}
 
     genNewTx OffChainState{confirmedSnapshots} = do
-      (hk, sk) <- elements hydraParties
-      addr <- mkVkAddress testNetworkId . getVerificationKey . snd <$> elements hydraParties
-      -- TODO: Make 'confirmedSnapshots' a 'NonEmpty' to avoid unsafe 'head'
-      let mostRecentSnapshot = Prelude.head confirmedSnapshots
-      (i, o) <- elements (UTxO.pairs mostRecentSnapshot) `suchThat` isOwned sk
-      let command = case mkSimpleTx (i, o) (addr, txOutValue o) sk of
-            Left e -> error (show e)
-            Right tx -> Input.NewTx tx
-      pure $ Some Command{party = deriveParty hk, command}
+      (deriveParty -> party, from) <- elements hydraParties
+      (_, to) <- elements hydraParties
+      pure $ Some Command{party, command = Input.NewTx Payment{from, to}}
 
   precondition WorldState{hydraState = Start} Seed{} = True
   precondition WorldState{hydraState = Idle{}} Command{command = Input.Init{}} = True
@@ -265,6 +276,17 @@ instance
         lift $ waitUntil [actorNode] $ ReadyToCommit (Set.fromList $ Map.keys nodes)
         party `performs` commit
   perform _ Command{party, command} _ = party `performs` command
+
+  -- TODO Maybe? For interpreting NewTx's command
+  --
+  --    addr <- mkVkAddress testNetworkId .
+  --    -- TODO: Make 'confirmedSnapshots' a 'NonEmpty' to avoid unsafe 'head'
+  --    let mostRecentSnapshot = Prelude.head confirmedSnapshots
+  --    (i, o) <- elements (UTxO.pairs mostRecentSnapshot) `suchThat` isOwned sk
+  --    let command = case mkSimpleTx (i, o) (addr, txOutValue o) sk of
+  --          Left e -> error (show e)
+  --          Right tx -> Input.NewTx tx
+  --    pure $ Some Command{party = deriveParty hk, command}
 
   monitoring (s, s') _action _lookup _return =
     case (hydraState s, hydraState s') of
