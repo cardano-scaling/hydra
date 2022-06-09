@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -13,6 +14,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
 import qualified Data.List as List
@@ -53,7 +55,7 @@ data LocalState
       { headParameters :: HeadParameters
       , offChainState :: OffChainState
       }
-  | Final {finalUTxO :: UTxO}
+  | Final {finalUTxO :: UTxOType Payment}
   deriving stock (Eq, Show)
 
 isInitialState :: LocalState -> Bool
@@ -106,7 +108,7 @@ instance IsTx Payment where
   type ValueType Payment = Value
   txId = error "undefined"
   balance = foldMap fst
-  hashUTxO = decodeUtf8 . show
+  hashUTxO = encodeUtf8 . show @Text
 
 instance
   ( MonadSTM m
@@ -269,20 +271,36 @@ instance
         pure (deriveParty sk, testNode)
 
     put $ Map.fromList nodes
-  perform _ Command{party, command = Input.Commit{Input.utxo = utxo}} _ = do
-    nodes <- get
-    case Map.lookup party nodes of
-      Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
-      Just actorNode -> do
-        lift $ waitUntil [actorNode] $ ReadyToCommit (Set.fromList $ Map.keys nodes)
-        let realUtxo =
-              UTxO.fromPairs $
-                [ (generateWith arbitrary 42, txOut)
-                | (val, sk) <- utxo
-                , let txOut = TxOut (mkVkAddress testNetworkId $ getVerificationKey sk) val TxOutDatumNone
-                ]
-        party `performs` Input.Commit{Input.utxo = realUtxo}
-  perform _ Command{party, command} _ = party `performs` command
+  perform _ Command{party, command} _ = do
+    case command of
+      Input.Commit{Input.utxo = utxo} -> do
+        nodes <- get
+        case Map.lookup party nodes of
+          Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
+          Just actorNode -> do
+            lift $ waitUntil [actorNode] $ ReadyToCommit (Set.fromList $ Map.keys nodes)
+            let realUtxo =
+                  UTxO.fromPairs $
+                    [ (mkMockTxIn vk ix, txOut)
+                    | (ix, (val, sk)) <- zip [0 ..] utxo
+                    , let vk = getVerificationKey sk
+                    , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone
+                    ]
+            party `performs` Input.Commit{Input.utxo = realUtxo}
+      Input.NewTx{Input.transaction = tx} -> do
+        undefined
+      Input.Init{Input.contestationPeriod = p} -> do
+        party `performs` Input.Init{Input.contestationPeriod = p}
+      Input.Abort -> do
+        party `performs` Input.Abort
+      Input.GetUTxO -> do
+        party `performs` Input.GetUTxO
+      Input.Close -> do
+        party `performs` Input.Close
+      Input.Contest -> do
+        party `performs` Input.Contest
+      Input.Fanout -> do
+        party `performs` Input.Fanout
 
   -- TODO Maybe? For interpreting NewTx's command
   --
@@ -321,6 +339,12 @@ isOwned sk (_, TxOut (ShelleyAddressInEra (ShelleyAddress _ cre _)) _ _) =
     (PaymentCredentialByKey ha) -> verificationKeyHash (getVerificationKey sk) == ha
     _ -> False
 isOwned _ _ = False
+
+mkMockTxIn :: VerificationKey PaymentKey -> Word -> TxIn
+mkMockTxIn vk ix = TxIn (TxId id) (TxIx ix)
+ where
+  -- NOTE: Ugly, works because both binary representations are 32-byte long.
+  id = unsafeDeserialize' (serialize' vk)
 
 deriving instance Show (Action (WorldState m) a)
 deriving instance Eq (Action (WorldState m) a)
