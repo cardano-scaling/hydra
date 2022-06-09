@@ -9,27 +9,28 @@
 -- /operators/ that want to create a channel between them.
 module Hydra.Model where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
+import qualified Cardano.Api.UTxO as UTxO
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode, createHydraNode, createTestHydraNode, send, simulatedChainAndNetwork, waitUntil)
-import Hydra.Cardano.Api (PaymentKey, SigningKey (PaymentSigningKey), UTxO, VerificationKey, getVerificationKey)
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
+import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.ClientInput (ClientInput)
 import qualified Hydra.ClientInput as Input
 import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (Committed, PendingCommits)
-import Hydra.Ledger.Cardano (Tx, cardanoLedger, genOneUTxOFor, genSigningKey)
+import Hydra.Ledger.Cardano (cardanoLedger, genOneUTxOFor, genSigningKey, mkSimpleTx)
 import Hydra.Logging (traceInTVar)
 import Hydra.Node (runHydraNode)
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (ReadyToCommit))
-import Test.QuickCheck (elements, frequency, listOf1, resize, tabulate)
+import Test.QuickCheck (elements, frequency, listOf1, resize, suchThat, tabulate)
 import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
 import qualified Prelude
 
@@ -51,13 +52,6 @@ data LocalState
       }
   | Final {finalUTxO :: UTxO}
   deriving stock (Eq, Show)
-
---  Closed
---     { headParameters :: HeadParameters
---     , confirmedSnapshot :: ConfirmedSnapshot Tx
---     , offChainState :: OffChainState
---     }
---  Final {finalUTxO :: UTxO}
 
 isInitialState :: LocalState -> Bool
 isInitialState Initial{} = True
@@ -140,6 +134,10 @@ instance
           [ (5, genCommit pendingCommits)
           , (1, genAbort)
           ]
+      Open{offChainState} ->
+        frequency
+          [ (10, genNewTx offChainState)
+          ]
       _ -> genSeed
    where
     genSeed = Some . Seed <$> resize 7 (listOf1 partyKeys)
@@ -160,6 +158,17 @@ instance
     genAbort = do
       (key, _) <- elements hydraParties
       pure $ Some Command{party = deriveParty key, command = Input.Abort}
+
+    genNewTx OffChainState{confirmedSnapshots} = do
+      (hk, sk) <- elements hydraParties
+      addr <- mkVkAddress testNetworkId . getVerificationKey . snd <$> elements hydraParties
+      -- TODO: Make 'confirmedSnapshots' a 'NonEmpty' to avoid unsafe 'head'
+      let mostRecentSnapshot = Prelude.head confirmedSnapshots
+      (i, o) <- elements (UTxO.pairs mostRecentSnapshot) `suchThat` isOwned sk
+      let command = case mkSimpleTx (i, o) (addr, txOutValue o) sk of
+            Left e -> error (show e)
+            Right tx -> Input.NewTx tx
+      pure $ Some Command{party = deriveParty hk, command}
 
   precondition WorldState{hydraState = Start} Seed{} = True
   precondition WorldState{hydraState = Idle{}} Command{command = Input.Init{}} = True
@@ -268,6 +277,9 @@ partyKeys = do
   sk <- arbitrary
   csk <- genSigningKey
   pure (sk, csk)
+
+isOwned :: SigningKey PaymentKey -> (TxIn, TxOut ctx) -> Bool
+isOwned = error "isOwned"
 
 deriving instance Show (Action (WorldState m) a)
 deriving instance Eq (Action (WorldState m) a)
