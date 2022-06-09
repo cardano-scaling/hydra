@@ -47,6 +47,8 @@ data-files:
   config/credentials/delegation-cert.000.json
   config/credentials/delegation-cert.001.json
   config/credentials/delegation-cert.002.json
+  config/credentials/faucet.sk
+  config/credentials/faucet.vk
   config/credentials/opcert1.cert
   config/credentials/opcert2.cert
   config/credentials/opcert3.cert
