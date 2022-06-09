@@ -501,6 +501,9 @@ genAddressInEra networkId =
 genValue :: Gen Value
 genValue = txOutValue <$> (genKeyPair >>= (genOutput . fst))
 
+genAdaValue :: Gen Value
+genAdaValue = lovelaceToValue . selectLovelace <$> genValue
+
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where
 genAdaOnlyUTxO :: Gen UTxO

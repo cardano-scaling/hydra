@@ -17,6 +17,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
+import Data.List ((\\))
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -30,7 +31,7 @@ import qualified Hydra.ClientInput as Input
 import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (Committed, PendingCommits)
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (cardanoLedger, genOneUTxOFor, genSigningKey, genValue, mkSimpleTx)
+import Hydra.Ledger.Cardano (adaOnly, cardanoLedger, genAdaValue, genKeyPair, genOneUTxOFor, genSigningKey, genValue, mkSimpleTx)
 import Hydra.Logging (traceInTVar)
 import Hydra.Node (runHydraNode)
 import Hydra.Party (Party, deriveParty)
@@ -100,14 +101,46 @@ data Payment = Payment
   , to :: SigningKey PaymentKey
   , value :: Value
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
+applyTx utxo Payment{from, to, value} =
+  case List.lookup from utxo of
+    Just v -> (to, value) : updated
+     where
+      updated =
+        if selectLovelace value < selectLovelace v
+          then (from, value <> negateValue v) : (utxo \\ [(from, v)])
+          else utxo \\ [(from, v)]
+    Nothing -> error "should never happen (famous last words)"
+
+instance ToJSON (SigningKey PaymentKey) where
+  toJSON = error "don't use"
+
+instance FromJSON (SigningKey PaymentKey) where
+  parseJSON = error "don't use"
+
+instance Arbitrary Payment where
+  arbitrary = error "don't use"
+
+instance Arbitrary Value where
+  arbitrary = genAdaValue
+
+instance Arbitrary (SigningKey PaymentKey) where
+  arbitrary = snd <$> genKeyPair
+
+instance ToCBOR Payment where
+  toCBOR = error "don't use"
+
+instance FromCBOR Payment where
+  fromCBOR = error "don't use"
 
 instance IsTx Payment where
   type TxIdType Payment = Int
-  type UTxOType Payment = [(Value, SigningKey PaymentKey)]
+  type UTxOType Payment = [(SigningKey PaymentKey, Value)]
   type ValueType Payment = Value
   txId = error "undefined"
-  balance = foldMap fst
+  balance = foldMap snd
   hashUTxO = encodeUtf8 . show @Text
 
 instance
@@ -171,8 +204,8 @@ instance
     genCommit pending = do
       party <- elements $ toList pending
       let (_, sk) = fromJust $ find ((== party) . deriveParty . fst) hydraParties
-      value <- genValue
-      let command = Input.Commit{Input.utxo = [(value, sk)]}
+      value <- genAdaValue
+      let command = Input.Commit{Input.utxo = [(sk, value)]}
       pure $ Some Command{party, command}
 
     genAbort = do
@@ -180,7 +213,7 @@ instance
       pure $ Some Command{party = deriveParty key, command = Input.Abort}
 
     genNewTx OffChainState{confirmedUTxO} = do
-      (value, from) <- elements confirmedUTxO
+      (from, value) <- elements confirmedUTxO
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
       (_, to) <- elements hydraParties
       pure $ Some Command{party, command = Input.NewTx Payment{from, to, value}}
@@ -251,7 +284,15 @@ instance
     WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
    where
     updateWithNewTx = \case
-      Open{offChainState} -> error "not implemented"
+      Open{headParameters, offChainState = OffChainState{confirmedUTxO, seenTransactions}} ->
+        Open
+          { headParameters
+          , offChainState =
+              OffChainState
+                { confirmedUTxO = confirmedUTxO `applyTx` tx
+                , seenTransactions = tx : seenTransactions
+                }
+          }
       _ -> error "unexpected state"
   nextState _ _ _ = error "not implemented"
 
@@ -282,12 +323,12 @@ instance
             let realUtxo =
                   UTxO.fromPairs $
                     [ (mkMockTxIn vk ix, txOut)
-                    | (ix, (val, sk)) <- zip [0 ..] utxo
+                    | (ix, (sk, val)) <- zip [0 ..] utxo
                     , let vk = getVerificationKey sk
                     , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone
                     ]
             party `performs` Input.Commit{Input.utxo = realUtxo}
-      Input.NewTx{Input.transaction = tx} -> do
+      Input.NewTx{Input.transaction = _tx} -> do
         undefined
       Input.Init{Input.contestationPeriod = p} -> do
         party `performs` Input.Init{Input.contestationPeriod = p}
@@ -341,10 +382,10 @@ isOwned sk (_, TxOut (ShelleyAddressInEra (ShelleyAddress _ cre _)) _ _) =
 isOwned _ _ = False
 
 mkMockTxIn :: VerificationKey PaymentKey -> Word -> TxIn
-mkMockTxIn vk ix = TxIn (TxId id) (TxIx ix)
+mkMockTxIn vk ix = TxIn (TxId tid) (TxIx ix)
  where
   -- NOTE: Ugly, works because both binary representations are 32-byte long.
-  id = unsafeDeserialize' (serialize' vk)
+  tid = unsafeDeserialize' (serialize' vk)
 
 deriving instance Show (Action (WorldState m) a)
 deriving instance Eq (Action (WorldState m) a)
