@@ -7,11 +7,10 @@ module Hydra.ModelSpec where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
-
-import Unsafe.Coerce (unsafeCoerce)
+import qualified Prelude
 
 -- This is completely safe
-import qualified Prelude
+import Unsafe.Coerce (unsafeCoerce)
 
 import Control.Monad.IOSim (IOSim, runSim)
 import Data.Map ((!))

@@ -165,7 +165,7 @@ instance
   precondition WorldState{hydraState = Idle{}} Command{command = Input.Init{}} = True
   precondition WorldState{hydraState = hydraState@Initial{}} Command{party, command = Input.Commit{}} = isPendingCommitFrom party hydraState
   precondition WorldState{hydraState = Initial{}} Command{command = Input.Abort{}} = True
-  precondition _ _ = True
+  precondition _ _ = False
 
   nextState :: WorldState m -> Action (WorldState m) a -> Var a -> WorldState m
   nextState _ Seed{seedKeys} _ =
