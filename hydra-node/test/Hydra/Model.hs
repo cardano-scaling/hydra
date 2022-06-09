@@ -31,6 +31,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (ReadyToCommit))
 import Test.QuickCheck (elements, frequency, listOf1, resize, tabulate)
 import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
+import qualified Prelude
 
 -- | Local state as seen by each Head participant.
 data LocalState
@@ -111,23 +112,17 @@ instance
       { seedKeys :: [(Hydra.SigningKey, CardanoSigningKey)]
       } ->
       Action (WorldState m) ()
-    Init ::
-      { party :: Party
-      , command :: ClientInput Tx
-      } ->
-      Action (WorldState m) ()
-    Commit ::
-      { party :: Party
-      , command :: ClientInput Tx
-      } ->
-      Action (WorldState m) ()
-    Abort ::
+    Command ::
       { party :: Party
       , command :: ClientInput Tx
       } ->
       Action (WorldState m) ()
 
   type ActionMonad (WorldState m) = StateT (Nodes m) m
+
+  actionName :: Action (WorldState m) a -> String
+  actionName Command{command} = unsafeConstructorName command
+  actionName Seed{} = "Seed"
 
   initialState =
     WorldState
@@ -153,23 +148,23 @@ instance
       initContestationPeriod <- arbitrary
       key <- fst <$> elements hydraParties
       let command = Input.Init{Input.contestationPeriod = initContestationPeriod}
-      pure $ Some Init{party = deriveParty key, command}
+      pure $ Some Command{party = deriveParty key, command}
 
     genCommit pending = do
       party <- elements $ toList pending
       let (_, cardanoKey) = fromJust $ find ((== party) . deriveParty . fst) hydraParties
       utxo <- genOneUTxOFor (getVerificationKey cardanoKey)
       let command = Input.Commit{Input.utxo = utxo}
-      pure $ Some Commit{party = party, command}
+      pure $ Some Command{party = party, command}
 
     genAbort = do
       (key, _) <- elements hydraParties
-      pure $ Some Abort{party = deriveParty key, command = Input.Abort}
+      pure $ Some Command{party = deriveParty key, command = Input.Abort}
 
   precondition WorldState{hydraState = Start} Seed{} = True
-  precondition WorldState{hydraState = Idle{}} Init{command = Input.Init{}} = True
-  precondition WorldState{hydraState = hydraState@Initial{}} Commit{party, command = Input.Commit{}} = isPendingCommitFrom party hydraState
-  precondition WorldState{hydraState = Initial{}} Abort{command = Input.Abort{}} = True
+  precondition WorldState{hydraState = Idle{}} Command{command = Input.Init{}} = True
+  precondition WorldState{hydraState = hydraState@Initial{}} Command{party, command = Input.Commit{}} = isPendingCommitFrom party hydraState
+  precondition WorldState{hydraState = Initial{}} Command{command = Input.Abort{}} = True
   precondition _ _ = True
 
   nextState :: WorldState m -> Action (WorldState m) a -> Var a -> WorldState m
@@ -178,7 +173,7 @@ instance
    where
     idleParties = map (deriveParty . fst) seedKeys
     cardanoKeys = map (getVerificationKey . snd) seedKeys
-  nextState WorldState{hydraParties, hydraState} Init{command = Input.Init{Input.contestationPeriod}} _ =
+  nextState WorldState{hydraParties, hydraState} Command{command = Input.Init{Input.contestationPeriod}} _ =
     WorldState{hydraParties, hydraState = mkInitialState hydraState}
    where
     mkInitialState = \case
@@ -193,7 +188,7 @@ instance
           , pendingCommits = Set.fromList idleParties
           }
       _ -> error "unexpected state"
-  nextState WorldState{hydraParties, hydraState} Commit{party, command = Input.Commit{Input.utxo}} _ =
+  nextState WorldState{hydraParties, hydraState} Command{party, command = Input.Commit{Input.utxo}} _ =
     WorldState{hydraParties, hydraState = updateWithCommit hydraState}
    where
     updateWithCommit = \case
@@ -219,7 +214,7 @@ instance
                 , pendingCommits = pendingCommits'
                 }
       _ -> error "unexpected state"
-  nextState WorldState{hydraParties, hydraState} Abort{command = Input.Abort} _ =
+  nextState WorldState{hydraParties, hydraState} Command{command = Input.Abort} _ =
     WorldState{hydraParties, hydraState = updateWithAbort hydraState}
    where
     updateWithAbort = \case
@@ -245,24 +240,21 @@ instance
         pure (deriveParty sk, testNode)
 
     put $ Map.fromList nodes
-  perform _ Init{party, command} _ = party `performs` command
-  perform _ Commit{party, command} _ = do
+  perform _ Command{party, command = commit@Input.Commit{}} _ = do
     nodes <- get
     case Map.lookup party nodes of
       Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
       Just actorNode -> do
         lift $ waitUntil [actorNode] $ ReadyToCommit (Set.fromList $ Map.keys nodes)
-        party `performs` command
-  perform _ Abort{party, command} _ = party `performs` command
+        party `performs` commit
+  perform _ Command{party, command} _ = party `performs` command
 
   monitoring (s, s') _action _lookup _return =
     case (hydraState s, hydraState s') of
-      (Start{}, Idle{}) -> tabulate "Transitions" ["Start -> Idle"]
-      (Idle{}, Initial{}) -> tabulate "Transitions" ["Idle -> Initial"]
-      (Initial{}, Initial{}) -> tabulate "Transitions" ["Initial -> Initial"]
-      (Initial{}, Open{}) -> tabulate "Transitions" ["Initial -> Open"]
-      (Initial{}, Final{}) -> tabulate "Transitions" ["Initial -> Final"]
-      _ -> identity
+      (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
+
+unsafeConstructorName :: (Show a) => a -> String
+unsafeConstructorName = Prelude.head . Prelude.words . show
 
 performs :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 performs party command = do
