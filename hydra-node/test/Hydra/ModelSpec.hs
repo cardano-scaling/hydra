@@ -5,19 +5,20 @@
 
 module Hydra.ModelSpec where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
-import qualified Prelude
 
 -- This is completely safe
 import Unsafe.Coerce (unsafeCoerce)
 
+import qualified Cardano.Api.UTxO as UTxO
 import Control.Monad.IOSim (IOSim, runSim)
 import Data.Map ((!))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode (..))
-import Hydra.Ledger.Cardano (Tx)
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Model (LocalState (..), Nodes, OffChainState (..), WorldState (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
@@ -25,6 +26,7 @@ import Test.QuickCheck (Property, counterexample, property)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, runActions, pattern Actions)
+import qualified Prelude
 
 spec :: Spec
 spec =
@@ -55,9 +57,12 @@ assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
   case world of
     Initial{commits} -> do
       outputs <- run $ lift $ serverOutputs @Tx node
+      let expectedCommitted =
+            fmap (\(sk, value) -> TxOut (mkVkAddress testNetworkId (getVerificationKey sk)) value TxOutDatumNone)
+              <$> commits
       let actualCommitted =
             Map.fromList
-              [ (party, utxo)
+              [ (party, Map.elems (UTxO.toMap utxo))
               | Committed{party, utxo} <- outputs
               ]
       monitor $
@@ -65,9 +70,9 @@ assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
           toString $
             unlines
               [ "Actual committed: (" <> show p <> ") " <> show actualCommitted
-              , "Expected committed: (" <> show p <> ") " <> show commits
+              , "Expected committed: (" <> show p <> ") " <> show expectedCommitted
               ]
-      assert (actualCommitted == commits)
+      assert (actualCommitted == expectedCommitted)
     _ -> do
       pure ()
 
@@ -79,24 +84,34 @@ assertOpenHeadWithAllExpectedCommits ::
 assertOpenHeadWithAllExpectedCommits world nodes p = do
   let node = nodes ! p
   case world of
-    Open{offChainState = OffChainState{confirmedSnapshots}} -> do
-      let expectedInitialUtxo = Prelude.last confirmedSnapshots
+    Open{offChainState = OffChainState{confirmedUTxO}} -> do
       outputs <- run $ lift $ serverOutputs @Tx node
-      let actualInitialUtxo =
-            listToMaybe
-              [ utxo
-              | HeadIsOpen{utxo} <- outputs
+      let expectedInitialOuts =
+            sortByAddress
+              [ TxOut addr value TxOutDatumNone
+              | (sk, value) <- confirmedUTxO
+              , let addr = mkVkAddress testNetworkId (getVerificationKey sk)
               ]
+      let actualInitialOuts =
+            sortByAddress $
+              mconcat
+                [ Map.elems (UTxO.toMap utxo)
+                | HeadIsOpen{utxo} <- outputs
+                ]
       monitor $
         counterexample $
           toString $
             unlines
-              [ "Actual initial utxo: (" <> show p <> ") " <> show actualInitialUtxo
-              , "Expected initial utxo: (" <> show p <> ") " <> show expectedInitialUtxo
+              [ "Actual initial utxo: (" <> show p <> ") " <> show actualInitialOuts
+              , "Expected initial utxo: (" <> show p <> ") " <> show expectedInitialOuts
               ]
-      assert (Just expectedInitialUtxo == actualInitialUtxo)
+      assert (expectedInitialOuts == actualInitialOuts)
     _ -> do
       pure ()
+ where
+  sortByAddress = sortOn $ \(TxOut addressInEra _ _) -> case addressInEra of
+    ShelleyAddressInEra addr -> addr
+    ByronAddressInEra{} -> error "Byron."
 
 -- NOTE: This is only sound to run in IOSim, because delays are instant. It
 -- allows to make sure we wait long-enough for remaining asynchronous actions /

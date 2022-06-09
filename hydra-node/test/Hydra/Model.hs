@@ -19,10 +19,19 @@ import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
 import Data.List ((\\))
 import qualified Data.List as List
+import Data.Map ((!))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
-import Hydra.BehaviorSpec (TestHydraNode, createHydraNode, createTestHydraNode, send, simulatedChainAndNetwork, waitUntil)
+import Hydra.BehaviorSpec (
+  TestHydraNode,
+  createHydraNode,
+  createTestHydraNode,
+  send,
+  simulatedChainAndNetwork,
+  waitForNext,
+  waitUntil,
+ )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
@@ -31,12 +40,12 @@ import qualified Hydra.ClientInput as Input
 import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (Committed, PendingCommits)
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (adaOnly, cardanoLedger, genAdaValue, genKeyPair, genOneUTxOFor, genSigningKey, genValue, mkSimpleTx)
+import Hydra.Ledger.Cardano (cardanoLedger, genAdaValue, genKeyPair, genSigningKey, mkSimpleTx)
 import Hydra.Logging (traceInTVar)
 import Hydra.Node (runHydraNode)
 import Hydra.Party (Party, deriveParty)
-import Hydra.ServerOutput (ServerOutput (ReadyToCommit))
-import Test.QuickCheck (elements, frequency, listOf1, resize, suchThat, tabulate)
+import Hydra.ServerOutput (ServerOutput (GetUTxOResponse, ReadyToCommit))
+import Test.QuickCheck (elements, frequency, listOf1, resize, tabulate)
 import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
 import qualified Prelude
 
@@ -328,8 +337,31 @@ instance
                     , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone
                     ]
             party `performs` Input.Commit{Input.utxo = realUtxo}
-      Input.NewTx{Input.transaction = _tx} -> do
-        undefined
+      Input.NewTx{Input.transaction = tx} -> do
+        let recipient = mkVkAddress testNetworkId (getVerificationKey (to tx))
+        nodes <- get
+
+        party `performs` Input.GetUTxO
+        let waitForUTxO = do
+              waitForNext (nodes ! party) >>= \case
+                GetUTxOResponse u -> pure u
+                _ -> waitForUTxO
+        utxo <- lift waitForUTxO
+
+        -- TODO: This only works because we generate transaction spending full
+        -- utxo every time. Therefore, there's at most one utxo per signing key
+        -- and, they hold the total value owned by that party.
+        let (i, o) = case filter (isOwned (from tx)) (UTxO.pairs utxo) of
+              [x] -> x
+              [] -> error "no UTxO available for payment."
+              _ -> error "more than one UTxO available?"
+        let action =
+              either
+                (error . show)
+                Input.NewTx
+                (mkSimpleTx (i, o) (recipient, value tx) (from tx))
+
+        party `performs` action
       Input.Init{Input.contestationPeriod = p} -> do
         party `performs` Input.Init{Input.contestationPeriod = p}
       Input.Abort -> do
@@ -342,17 +374,6 @@ instance
         party `performs` Input.Contest
       Input.Fanout -> do
         party `performs` Input.Fanout
-
-  -- TODO Maybe? For interpreting NewTx's command
-  --
-  --    addr <- mkVkAddress testNetworkId .
-  --    -- TODO: Make 'confirmedSnapshots' a 'NonEmpty' to avoid unsafe 'head'
-  --    let mostRecentSnapshot = Prelude.head confirmedSnapshots
-  --    (i, o) <- elements (UTxO.pairs mostRecentSnapshot) `suchThat` isOwned sk
-  --    let command = case mkSimpleTx (i, o) (addr, txOutValue o) sk of
-  --          Left e -> error (show e)
-  --          Right tx -> Input.NewTx tx
-  --    pure $ Some Command{party = deriveParty hk, command}
 
   monitoring (s, s') _action _lookup _return =
     case (hydraState s, hydraState s') of
