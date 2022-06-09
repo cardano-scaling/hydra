@@ -19,6 +19,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode, createHydraNode, createTestHydraNode, send, simulatedChainAndNetwork, waitUntil)
+import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.ClientInput (ClientInput)
@@ -174,6 +175,7 @@ instance
   precondition WorldState{hydraState = Idle{}} Command{command = Input.Init{}} = True
   precondition WorldState{hydraState = hydraState@Initial{}} Command{party, command = Input.Commit{}} = isPendingCommitFrom party hydraState
   precondition WorldState{hydraState = Initial{}} Command{command = Input.Abort{}} = True
+  precondition WorldState{hydraState = Open{}} Command{command = Input.NewTx{}} = True
   precondition _ _ = False
 
   nextState :: WorldState m -> Action (WorldState m) a -> Var a -> WorldState m
@@ -231,6 +233,12 @@ instance
        where
         committedUTxO = mconcat $ Map.elems commits
       _ -> Final mempty
+  nextState WorldState{hydraParties, hydraState} Command{command = Input.NewTx{Input.transaction = tx}} _ =
+    WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
+   where
+    updateWithNewTx = \case
+      Open{confirmedSnapshots, seenTransactions} -> Open{confirmedSnapshots, seenTransactions = tx : seenTransactions}
+      _ -> error "unexpected state"
   nextState _ _ _ = error "not implemented"
 
   perform :: WorldState m -> Action (WorldState m) a -> LookUp -> StateT (Nodes m) m a
@@ -279,7 +287,11 @@ partyKeys = do
   pure (sk, csk)
 
 isOwned :: SigningKey PaymentKey -> (TxIn, TxOut ctx) -> Bool
-isOwned = error "isOwned"
+isOwned sk (_, TxOut (ShelleyAddressInEra (ShelleyAddress _ cre _)) _ _) =
+  case fromShelleyPaymentCredential cre of
+    (PaymentCredentialByKey ha) -> verificationKeyHash (getVerificationKey sk) == ha
+    _ -> False
+isOwned _ _ = False
 
 deriving instance Show (Action (WorldState m) a)
 deriving instance Eq (Action (WorldState m) a)
