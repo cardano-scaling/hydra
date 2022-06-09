@@ -15,6 +15,7 @@ import Hydra.Prelude hiding (Any, label)
 import qualified Cardano.Api.UTxO as UTxO
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
+import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
@@ -45,7 +46,7 @@ data LocalState
       }
   | Initial
       { headParameters :: HeadParameters
-      , commits :: Committed Tx
+      , commits :: Committed Payment
       , pendingCommits :: PendingCommits
       }
   | Open
@@ -73,8 +74,8 @@ isPendingCommitFrom party Initial{pendingCommits} =
 isPendingCommitFrom _ _ = False
 
 data OffChainState = OffChainState
-  { confirmedSnapshots :: [UTxO]
-  , seenTransactions :: [Tx]
+  { confirmedUTxO :: UTxOType Payment
+  , seenTransactions :: [Payment]
   }
   deriving stock (Eq, Show)
 
@@ -93,8 +94,7 @@ instance Eq CardanoSigningKey where
   (PaymentSigningKey skd) == (PaymentSigningKey skd') = skd == skd'
 
 data Payment = Payment
-  { paymentId :: Int
-  , from :: SigningKey PaymentKey
+  { from :: SigningKey PaymentKey
   , to :: SigningKey PaymentKey
   , value :: Value
   }
@@ -104,7 +104,7 @@ instance IsTx Payment where
   type TxIdType Payment = Int
   type UTxOType Payment = [(Value, SigningKey PaymentKey)]
   type ValueType Payment = Value
-  txId = paymentId
+  txId = error "undefined"
   balance = foldMap fst
   hashUTxO = decodeUtf8 . show
 
@@ -177,10 +177,11 @@ instance
       (key, _) <- elements hydraParties
       pure $ Some Command{party = deriveParty key, command = Input.Abort}
 
-    genNewTx OffChainState{confirmedSnapshots} = do
-      (deriveParty -> party, from) <- elements hydraParties
+    genNewTx OffChainState{confirmedUTxO} = do
+      (value, from) <- elements confirmedUTxO
+      let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
       (_, to) <- elements hydraParties
-      pure $ Some Command{party, command = Input.NewTx Payment{from, to}}
+      pure $ Some Command{party, command = Input.NewTx Payment{from, to, value}}
 
   precondition WorldState{hydraState = Start} Seed{} = True
   precondition WorldState{hydraState = Idle{}} Command{command = Input.Init{}} = True
@@ -225,7 +226,7 @@ instance
                 { headParameters
                 , offChainState =
                     OffChainState
-                      { confirmedSnapshots = [mconcat (Map.elems commits')]
+                      { confirmedUTxO = mconcat (Map.elems commits')
                       , seenTransactions = []
                       }
                 }
@@ -248,7 +249,7 @@ instance
     WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
    where
     updateWithNewTx = \case
-      Open{confirmedSnapshots, seenTransactions} -> Open{confirmedSnapshots, seenTransactions = tx : seenTransactions}
+      Open{offChainState} -> error "not implemented"
       _ -> error "unexpected state"
   nextState _ _ _ = error "not implemented"
 
@@ -268,13 +269,19 @@ instance
         pure (deriveParty sk, testNode)
 
     put $ Map.fromList nodes
-  perform _ Command{party, command = commit@Input.Commit{}} _ = do
+  perform _ Command{party, command = Input.Commit{Input.utxo = utxo}} _ = do
     nodes <- get
     case Map.lookup party nodes of
       Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
       Just actorNode -> do
         lift $ waitUntil [actorNode] $ ReadyToCommit (Set.fromList $ Map.keys nodes)
-        party `performs` commit
+        let realUtxo =
+              UTxO.fromPairs $
+                [ (generateWith arbitrary 42, txOut)
+                | (val, sk) <- utxo
+                , let txOut = TxOut (mkVkAddress testNetworkId $ getVerificationKey sk) val TxOutDatumNone
+                ]
+        party `performs` Input.Commit{Input.utxo = realUtxo}
   perform _ Command{party, command} _ = party `performs` command
 
   -- TODO Maybe? For interpreting NewTx's command
