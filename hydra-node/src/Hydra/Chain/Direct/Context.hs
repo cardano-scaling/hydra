@@ -139,13 +139,13 @@ genCollectComTx numParties = do
   let stInitialized = executeCommits initTx commits stIdle
   pure (stInitialized, collect stInitialized)
 
-genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx)
+genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (utxo, stOpen) <- genStOpen ctx
   snapshot <- genConfirmedSnapshot 0 utxo (ctxHydraSigningKeys ctx)
   pointInTime <- genPointInTime
-  pure (stOpen, close snapshot pointInTime stOpen)
+  pure (stOpen, close snapshot pointInTime stOpen, snapshot)
 
 genContestTx :: Int -> Gen (OnChainHeadState 'StClosed, Tx)
 genContestTx numParties = do
@@ -185,16 +185,9 @@ genStClosed ::
   Gen (SnapshotNumber, OnChainHeadState 'StClosed)
 genStClosed ctx utxo = do
   (_, stOpen) <- genStOpen ctx
-  -- FIXME: We need a ConfirmedSnapshot here because the utxo's in an
-  -- 'InitialSnapshot' are ignored and we would not be able to fan them out
-  confirmed <-
-    arbitrary `suchThat` \case
-      InitialSnapshot{} -> False
-      ConfirmedSnapshot{} -> True
+  confirmed <- arbitrary
   let snapshot = confirmed{snapshot = (getSnapshot confirmed){utxo = utxo}}
-      -- FIXME: this is redundant with the above filter, this whole code becomes
-      -- annoyingly complicated
-      sn = case confirmed of
+      sn = case snapshot of
         InitialSnapshot{} -> 0
         ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
   pointInTime <- genPointInTime
