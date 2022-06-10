@@ -103,6 +103,7 @@ data HydraStateMachine (st :: HeadStateKind) where
     { initialThreadOutput :: InitialThreadOutput
     , initialInitials :: [UTxOWithScript]
     , initialCommits :: [UTxOWithScript]
+    , initialCommitted :: UTxO
     , initialHeadId :: HeadId
     , initialHeadTokenScript :: PlutusScript
     } ->
@@ -302,11 +303,12 @@ collect ::
   Tx
 collect OnChainHeadState{networkId, ownVerificationKey, stateMachine} = do
   let commits = Map.fromList $ fmap tripleToPair initialCommits
-   in collectComTx networkId ownVerificationKey initialThreadOutput commits
+   in collectComTx networkId ownVerificationKey initialThreadOutput commits initialCommitted
  where
   Initialized
     { initialThreadOutput
     , initialCommits
+    , initialCommitted
     } = stateMachine
 
 close ::
@@ -413,6 +415,7 @@ instance ObserveTx 'StIdle 'StInitialized where
                   { initialThreadOutput = threadOutput
                   , initialInitials = initials
                   , initialCommits = commits
+                  , initialCommitted = mempty
                   , initialHeadId = headId
                   , initialHeadTokenScript = headTokenScript
                   }
@@ -446,6 +449,7 @@ instance ObserveTx 'StInitialized 'StInitialized where
                       filter ((`notElem` txIns' tx) . fst3) initialInitials
                   , initialCommits =
                       commitOutput : initialCommits
+                  , initialCommitted = committed <> initialCommitted
                   }
             }
     pure (event, st')
@@ -453,6 +457,7 @@ instance ObserveTx 'StInitialized 'StInitialized where
     Initialized
       { initialCommits
       , initialInitials
+      , initialCommitted
       } = stateMachine
 
 instance ObserveTx 'StInitialized 'StOpen where

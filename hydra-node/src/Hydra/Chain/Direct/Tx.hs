@@ -203,8 +203,12 @@ collectComTx ::
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
+  -- | The actual /committed/ UTxO to be put in the Head.
+  -- This is the $U_0$ from the Hydra paper and it's needed to compute a correct Hash for the
+  -- initial snapshot.
+  UTxO ->
   Tx
-collectComTx networkId vk initialThreadOutput commits =
+collectComTx networkId vk initialThreadOutput commits committed =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
@@ -231,17 +235,8 @@ collectComTx networkId vk initialThreadOutput commits =
       headDatumAfter
   headDatumAfter =
     mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash, contestationPeriod = initialContestationPeriod}
-  -- NOTE: We hash tx outs in an order that is recoverable on-chain.
-  -- The simplest thing to do, is to make sure commit inputs are in the same
-  -- order as their corresponding committed utxo.
-  extractSerialisedTxOut d =
-    case fromData $ toPlutusData d of
-      Nothing -> error "SNAFU"
-      Just ((_, _, Just o) :: Commit.DatumType) -> Just o
-      _ -> Nothing
 
-  utxoHash =
-    Head.hashPreSerializedCommits $ mapMaybe (extractSerialisedTxOut . snd . snd) orderedCommits
+  utxoHash = toBuiltin $ hashTxOuts $ toList committed
 
   orderedCommits =
     Map.toList commits
