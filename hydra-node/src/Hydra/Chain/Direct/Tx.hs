@@ -189,8 +189,8 @@ mkCommitDatum party headValidatorHash utxo =
   serializedUTxO = case utxo of
     Nothing ->
       Nothing
-    Just (_i, o) ->
-      Just $ Commit.SerializedTxOut (toBuiltin $ serialize' $ toLedgerTxOut o)
+    Just (i, o) ->
+      Just $ Commit.SerializedTxOut (toPlutusTxOutRef i, toBuiltin $ serialize' $ toLedgerTxOut o)
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -610,17 +610,22 @@ observeCommitTx ::
   Tx ->
   Maybe CommitObservation
 observeCommitTx networkId initials tx = do
-  (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
-  guard hasInitialTxIn
+  initialTxIn <- findInitialTxIn
+  mCommittedTxIn <- decodeInitialRedeemer initialTxIn
 
+  (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
   (onChainParty, _, serializedTxOut) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
   let mCommittedTxOut = convertTxOut serializedTxOut
+
   committed <-
-    case mCommittedTxOut of
-      Nothing -> Just mempty
-      Just o -> Just $ UTxO.singleton (commitIn, o)
+    case (mCommittedTxIn, mCommittedTxOut) of
+      (Nothing, Nothing) -> Just mempty
+      (Just i, Just o) -> Just $ UTxO.singleton (i, o)
+      (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
+      (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
+
   pure
     CommitObservation
       { commitOutput = (commitIn, toUTxOContext commitOut, dat)
@@ -628,18 +633,26 @@ observeCommitTx networkId initials tx = do
       , committed
       }
  where
-  hasInitialTxIn =
+  findInitialTxIn =
     case filter (`elem` initials) (txIns' tx) of
-      [_] -> True
-      _ -> False
+      [input] -> Just input
+      _ -> Nothing
+
+  decodeInitialRedeemer =
+    findRedeemerSpending tx >=> \case
+      Initial.Abort ->
+        Nothing
+      Initial.Commit{committedRef} ->
+        Just (fromPlutusTxOutRef <$> committedRef)
 
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
+
   commitScript = fromPlutusScript Commit.validatorScript
 
 convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO)
 convertTxOut = \case
   Nothing -> Nothing
-  Just (Commit.SerializedTxOut outBytes) ->
+  Just (Commit.SerializedTxOut (_, outBytes)) ->
     -- XXX(SN): these errors might be more severe and we could throw an
     -- exception here?
     case fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes) of

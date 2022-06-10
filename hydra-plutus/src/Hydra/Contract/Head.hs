@@ -39,6 +39,7 @@ import Plutus.V1.Ledger.Api (
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
+  TxOutRef (..),
   UpperBound (..),
   Validator (getValidator),
   ValidatorHash,
@@ -208,13 +209,15 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
 
   (expectedChangeValue, collectedCommits, nTotalCommits) =
     traverseInputs
-      (negate (txInfoAdaFee txInfo), encodeBeginList, 0)
+      (negate (txInfoAdaFee txInfo), [], 0)
       (txInfoInputs txInfo)
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
-    let utxoHash =
-          (collectedCommits <> encodeBreak)
+    let encodedCommits =
+          encodeBeginList <> foldMap unsafeEncodeRaw (map snd $ sortBy (\a b -> compareRef (fst a) (fst b)) collectedCommits) <> encodeBreak
+        utxoHash =
+          encodedCommits
             & encodingToBuiltinByteString
             & sha2_256
      in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod}
@@ -232,9 +235,9 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
           rest
       | hasPT txInInfoResolved ->
         case commitDatum txInInfoResolved of
-          Just (SerializedTxOut commit) ->
+          Just (SerializedTxOut (ref, commit)) ->
             traverseInputs
-              (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
+              (fuel, (ref, commit) : commits, succ nCommits)
               rest
           Nothing ->
             traverseInputs
@@ -474,7 +477,7 @@ hashPreSerializedCommits :: [SerializedTxOut] -> BuiltinByteString
 hashPreSerializedCommits o =
   sha2_256 . encodingToBuiltinByteString $
     encodeBeginList
-      <> foldMap (\(SerializedTxOut bytes) -> unsafeEncodeRaw bytes) o
+      <> foldMap (\(SerializedTxOut (_, bytes)) -> unsafeEncodeRaw bytes) o
       <> encodeBreak
 {-# INLINEABLE hashPreSerializedCommits #-}
 
@@ -499,6 +502,13 @@ verifyPartySignature snapshotNumber utxoHash party signed =
     encodingToBuiltinByteString $
       encodeInteger snapshotNumber <> encodeByteString utxoHash
 {-# INLINEABLE verifyPartySignature #-}
+
+compareRef :: TxOutRef -> TxOutRef -> Ordering
+TxOutRef{txOutRefId, txOutRefIdx} `compareRef` TxOutRef{txOutRefId = id', txOutRefIdx = idx'} =
+  case compare txOutRefId id' of
+    EQ -> compare txOutRefIdx idx'
+    ord -> ord
+{-# INLINEABLE compareRef #-}
 
 -- TODO: Add a NetworkId so that we can properly serialise address hashes
 -- see 'encodeAddress' for details

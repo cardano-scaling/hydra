@@ -23,6 +23,7 @@ import Plutus.V1.Ledger.Api (
   TxInInfo (txInInfoResolved),
   TxInfo (txInfoInputs, txInfoOutputs),
   TxOut (TxOut, txOutAddress),
+  TxOutRef,
   Validator (getValidator),
   ValidatorHash,
   mkValidatorScript,
@@ -36,7 +37,7 @@ data CommitRedeemer = CollectCom | Abort
 
 PlutusTx.unstableMakeIsData ''CommitRedeemer
 
-newtype SerializedTxOut = SerializedTxOut BuiltinByteString
+newtype SerializedTxOut = SerializedTxOut (TxOutRef, BuiltinByteString)
   deriving newtype (Eq, Prelude.Eq, Prelude.Show, Prelude.Ord)
 
 PlutusTx.unstableMakeIsData ''SerializedTxOut
@@ -73,7 +74,7 @@ validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextT
                 Abort ->
                   case commit of
                     Nothing -> True
-                    Just (SerializedTxOut serialisedTxOut) ->
+                    Just (SerializedTxOut (_, serialisedTxOut)) ->
                       -- There should be an output in the transaction corresponding to this serialisedTxOut
                       traceIfFalse "cannot find commit output" $
                         serialisedTxOut `elem` (encodingToBuiltinByteString . encodeTxOut <$> txInfoOutputs txInfo)
