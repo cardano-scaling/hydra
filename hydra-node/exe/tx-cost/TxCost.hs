@@ -117,7 +117,7 @@ computeCloseCost = do
   pure $ interesting <> limit
  where
   compute numParties = do
-    (st, tx) <- generate $ genCloseTx numParties
+    (st, tx, _sn) <- generate $ genCloseTx numParties
     let utxo = getKnownUTxO st
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit) ->
@@ -159,7 +159,7 @@ computeAbortCost =
       genInitTx ctx >>= \initTx ->
         (sublistOf . snd =<< genCommits ctx initTx) >>= \commits ->
           genStIdle ctx >>= \stIdle ->
-            let stInitialized = executeCommits initTx commits stIdle
+            let (_, stInitialized) = executeCommits initTx commits stIdle
              in pure (abort stInitialized, getKnownUTxO stInitialized)
 
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
@@ -179,9 +179,9 @@ computeFanOutCost = do
   genFanoutTx numOutputs = do
     ctx <- genHydraContext 3
     let utxo = genSimpleUTxOOfSize numOutputs `generateWith` 42
-    (_, stClosed) <- genStClosed ctx utxo
+    (_, toFanout, stClosed) <- genStClosed ctx utxo
     pointInTime <- genPointInTime
-    pure (fanout utxo pointInTime stClosed, getKnownUTxO stClosed)
+    pure (fanout toFanout pointInTime stClosed, getKnownUTxO stClosed)
 
 genSimpleUTxOOfSize :: Int -> Gen UTxO
 genSimpleUTxOOfSize numUTxO =
