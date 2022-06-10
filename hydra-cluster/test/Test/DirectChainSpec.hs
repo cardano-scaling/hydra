@@ -7,6 +7,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO (pairs)
 import CardanoClient (
   QueryPoint (QueryTip),
   buildAddress,
@@ -27,6 +28,7 @@ import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
   ChainPoint (..),
+  UTxO,
   lovelaceToValue,
   txOutValue,
   unSlotNo,
@@ -72,13 +74,13 @@ spec = around showLogsOnFailure $ do
               seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
               postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
-              alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
-              bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
+              alicesCallback `observesInTimeMatching` (== OnInitTx 100 [alice, bob, carol])
+              bobsCallback `observesInTimeMatching` (== OnInitTx 100 [alice, bob, carol])
 
               postTx $ AbortTx mempty
 
-              alicesCallback `observesInTime` OnAbortTx
-              bobsCallback `observesInTime` OnAbortTx
+              alicesCallback `observesInTimeMatching` (== OnAbortTx)
+              bobsCallback `observesInTimeMatching` (== OnAbortTx)
 
   it "can init and abort a 2-parties head after one party has committed" $ \tracer -> do
     alicesCallback <- newEmptyMVar
@@ -95,20 +97,20 @@ spec = around showLogsOnFailure $ do
               seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
               postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
-              alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
-              bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
+              alicesCallback `observesInTimeMatching` (== OnInitTx 100 [alice, bob, carol])
+              bobsCallback `observesInTimeMatching` (== OnInitTx 100 [alice, bob, carol])
 
               let aliceCommitment = 66_000_000
               aliceUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk aliceCommitment Normal
               postTx $ CommitTx alice aliceUTxO
 
-              alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
-              bobsCallback `observesInTime` OnCommitTx alice aliceUTxO
+              alicesCallback `observesInTimeMatching` committedTxOut alice aliceUTxO
+              bobsCallback `observesInTimeMatching` committedTxOut alice aliceUTxO
 
               postTx $ AbortTx mempty
 
-              alicesCallback `observesInTime` OnAbortTx
-              bobsCallback `observesInTime` OnAbortTx
+              alicesCallback `observesInTimeMatching` (== OnAbortTx)
+              bobsCallback `observesInTimeMatching` (== OnAbortTx)
 
               let aliceAddress = buildAddress aliceCardanoVk defaultNetworkId
 
@@ -133,7 +135,7 @@ spec = around showLogsOnFailure $ do
               seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
               alicePostTx $ InitTx $ HeadParameters 100 [alice, carol]
-              alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
+              alicesCallback `observesInTimeMatching` (== OnInitTx 100 [alice, carol])
 
               bobPostTx (AbortTx mempty)
                 `shouldThrow` (== InvalidStateToPost @Tx (AbortTx mempty))
@@ -150,7 +152,7 @@ spec = around showLogsOnFailure $ do
             seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters 100 [alice]
-            alicesCallback `observesInTime` OnInitTx 100 [alice]
+            alicesCallback `observesInTimeMatching` (== OnInitTx 100 [alice])
 
             someUTxOA <- generate $ genOneUTxOFor aliceCardanoVk
             someUTxOB <- generate $ genOneUTxOFor aliceCardanoVk
@@ -165,7 +167,7 @@ spec = around showLogsOnFailure $ do
 
             aliceUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk 1_000_000 Normal
             postTx $ CommitTx alice aliceUTxO
-            alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
+            alicesCallback `observesInTimeMatching` (alice `committedTxOut` aliceUTxO)
 
   it "can commit empty UTxO" $ \tracer -> do
     alicesCallback <- newEmptyMVar
@@ -179,10 +181,10 @@ spec = around showLogsOnFailure $ do
             seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters 100 [alice]
-            alicesCallback `observesInTime` OnInitTx 100 [alice]
+            alicesCallback `observesInTimeMatching` (== OnInitTx 100 [alice])
 
             postTx $ CommitTx alice mempty
-            alicesCallback `observesInTime` OnCommitTx alice mempty
+            alicesCallback `observesInTimeMatching` (alice `committedTxOut` mempty)
 
   it "can open, close & fanout a Head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
@@ -196,14 +198,14 @@ spec = around showLogsOnFailure $ do
             seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters 1 [alice]
-            alicesCallback `observesInTime` OnInitTx 1 [alice]
+            alicesCallback `observesInTimeMatching` (== OnInitTx 1 [alice])
 
             someUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk 1_000_000 Normal
             postTx $ CommitTx alice someUTxO
-            alicesCallback `observesInTime` OnCommitTx alice someUTxO
+            alicesCallback `observesInTimeMatching` (alice `committedTxOut` someUTxO)
 
             postTx $ CollectComTx someUTxO
-            alicesCallback `observesInTime` OnCollectComTx
+            alicesCallback `observesInTimeMatching` (== OnCollectComTx)
 
             let snapshot =
                   Snapshot
@@ -232,7 +234,7 @@ spec = around showLogsOnFailure $ do
               FanoutTx
                 { utxo = someUTxO
                 }
-            alicesCallback `observesInTime` OnFanoutTx
+            alicesCallback `observesInTimeMatching` (== OnFanoutTx)
             failAfter 5 $
               waitForUTxO defaultNetworkId nodeSocket someUTxO
 
@@ -248,11 +250,11 @@ spec = around showLogsOnFailure $ do
             seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
             tip <- queryTip defaultNetworkId nodeSocket
             alicePostTx $ InitTx $ HeadParameters 100 [alice]
-            alicesCallback `observesInTime` OnInitTx 100 [alice]
+            alicesCallback `observesInTimeMatching` (== OnInitTx 100 [alice])
             return tip
 
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just tip) (putMVar alicesCallback) $ \_ -> do
-            alicesCallback `observesInTime` OnInitTx 100 [alice]
+            alicesCallback `observesInTimeMatching` (== OnInitTx 100 [alice])
 
   it "cannot restart head to an unknown point" $ \tracer -> do
     alicesCallback <- newEmptyMVar
@@ -269,6 +271,20 @@ spec = around showLogsOnFailure $ do
             withDirectChain aliceTrace defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just fakeTip) (putMVar alicesCallback) $ \_ -> do
               threadDelay 5 >> fail "should not execute main action but did?"
 
+committedTxOut :: Party -> UTxO -> OnChainTx Tx -> Bool
+committedTxOut party utxo = \case
+  OnCommitTx p u ->
+    p == party
+      && actualTxOuts `include` expectedTxOuts
+      && expectedTxOuts `include` actualTxOuts
+   where
+    expectedTxOuts = map snd . pairs $ utxo
+    actualTxOuts = map snd . pairs $ u
+  _ -> False
+
+include :: Eq a => [a] -> [a] -> Bool
+xs `include` ys = all (`elem` xs) ys
+
 alice, bob, carol :: Party
 alice = deriveParty aliceSigningKey
 bob = deriveParty $ generateSigningKey "bob"
@@ -282,14 +298,14 @@ data TestClusterLog
   | FromDirectChain Text DirectChainLog
   deriving (Show, Generic, ToJSON)
 
-observesInTime :: IsTx tx => MVar (ChainEvent tx) -> OnChainTx tx -> Expectation
-observesInTime mvar expected =
+observesInTimeMatching :: IsTx tx => MVar (ChainEvent tx) -> (OnChainTx tx -> Bool) -> Expectation
+observesInTimeMatching mvar expected =
   failAfter 10 go
  where
   go = do
     e <- takeMVar mvar
     case e of
-      Observation obs -> obs `shouldBe` expected
+      Observation obs -> obs `shouldSatisfy` expected
       _ -> go
 
 shouldSatisfyInTime :: Show a => MVar a -> (a -> Bool) -> Expectation
