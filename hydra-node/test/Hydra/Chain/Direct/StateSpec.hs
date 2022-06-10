@@ -500,7 +500,7 @@ forAllAbort action = do
     forAllShow (genInitTx ctx) renderTx $ \initTx -> do
       forAllShow (sublistOf . snd =<< genCommits ctx initTx) renderTxs $ \commits ->
         forAll (genStIdle ctx) $ \stIdle ->
-          let stInitialized = executeCommits initTx commits stIdle
+          let (_, stInitialized) = executeCommits initTx commits stIdle
            in action stInitialized (abort stInitialized)
                 & classify
                   (null commits)

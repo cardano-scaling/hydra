@@ -205,12 +205,11 @@ collectComTx ::
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Tx
 collectComTx networkId vk initialThreadOutput commits =
-  trace ("collected commits:  " <> show (fst <$> toList commits)) $
-    unsafeBuildTransaction $
-      emptyTxBody
-        & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
-        & addOutputs [headOutput]
-        & addExtraRequiredSigners [verificationKeyHash vk]
+  unsafeBuildTransaction $
+    emptyTxBody
+      & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
+      & addOutputs [headOutput]
+      & addExtraRequiredSigners [verificationKeyHash vk]
  where
   InitialThreadOutput
     { initialThreadUTxO =
@@ -402,13 +401,12 @@ fanoutTx ::
   PlutusScript ->
   Tx
 fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) (slotNo, _) headTokenScript =
-  trace ("utxo to fanout:  " <> show (toList utxo)) $
-    unsafeBuildTransaction $
-      emptyTxBody
-        & addInputs [(headInput, headWitness)]
-        & addOutputs fanoutOutputs
-        & burnTokens headTokenScript Burn headTokens
-        & setValidityLowerBound slotNo
+  unsafeBuildTransaction $
+    emptyTxBody
+      & addInputs [(headInput, headWitness)]
+      & addOutputs fanoutOutputs
+      & burnTokens headTokenScript Burn headTokens
+      & setValidityLowerBound slotNo
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
