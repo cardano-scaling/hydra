@@ -598,35 +598,23 @@ data CommitObservation = CommitObservation
 
 -- | Identify a commit tx by:
 --
--- - Find which 'initial' tx input is being consumed.
--- - Find the redeemer corresponding to that 'initial', which contains the tx
---   input of the committed utxo.
 -- - Find the outputs which pays to the commit validator.
--- - Using the datum of that output, deserialize the comitted output.
+-- - Using the datum of that output, deserialize the committed output.
 -- - Reconstruct the committed UTxO from both values (tx input and output).
 observeCommitTx ::
   NetworkId ->
-  -- | Known (remaining) initial tx inputs.
-  [TxIn] ->
   Tx ->
   Maybe CommitObservation
-observeCommitTx networkId initials tx = do
-  initialTxIn <- findInitialTxIn
-  mCommittedTxIn <- decodeInitialRedeemer initialTxIn
-
+observeCommitTx networkId tx = do
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
   (onChainParty, _, serializedTxOut) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
   let mCommittedTxOut = convertTxOut serializedTxOut
-
   committed <-
-    case (mCommittedTxIn, mCommittedTxOut) of
-      (Nothing, Nothing) -> Just mempty
-      (Just i, Just o) -> Just $ UTxO.singleton (i, o)
-      (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
-      (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
-
+    case mCommittedTxOut of
+      Nothing -> Just mempty
+      Just o -> Just $ UTxO.singleton (commitIn, o)
   pure
     CommitObservation
       { commitOutput = (commitIn, toUTxOContext commitOut, dat)
@@ -634,20 +622,7 @@ observeCommitTx networkId initials tx = do
       , committed
       }
  where
-  findInitialTxIn =
-    case filter (`elem` initials) (txIns' tx) of
-      [input] -> Just input
-      _ -> Nothing
-
-  decodeInitialRedeemer =
-    findRedeemerSpending tx >=> \case
-      Initial.Abort ->
-        Nothing
-      Initial.Commit{committedRef} ->
-        Just (fromPlutusTxOutRef <$> committedRef)
-
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
-
   commitScript = fromPlutusScript Commit.validatorScript
 
 convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO)
