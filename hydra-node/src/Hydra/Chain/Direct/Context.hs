@@ -32,7 +32,7 @@ import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxO, genVerificationKey, renderTx, simplifyUTxO)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTime, slotNoToPOSIXTime)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot, getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
 import Test.QuickCheck (choose, elements, frequency, resize, suchThat, vector)
 
 -- | Define some 'global' context from which generators can pick
@@ -152,7 +152,7 @@ genContestTx numParties = do
   ctx <- genHydraContextFor numParties
   utxo <- arbitrary
   (closedSnapshotNumber, stClosed) <- genStClosed ctx utxo
-  snapshot <- genConfirmedSnapshot closedSnapshotNumber utxo (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
   pointInTime <-
     genPointInTime `suchThat` \(slot, _) ->
       slotNoToPOSIXTime slot < getContestationDeadline stClosed
@@ -184,12 +184,17 @@ genStClosed ::
   UTxO ->
   Gen (SnapshotNumber, OnChainHeadState 'StClosed)
 genStClosed ctx utxo = do
-  (_, stOpen) <- genStOpen ctx
+  (u0, stOpen) <- genStOpen ctx
   confirmed <- arbitrary
-  let snapshot = confirmed{snapshot = (getSnapshot confirmed){utxo = utxo}}
-      sn = case snapshot of
-        InitialSnapshot{} -> 0
-        ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+  let (sn, snapshot) = case confirmed of
+        cf@InitialSnapshot{snapshot = s} ->
+          ( 0
+          , cf{snapshot = s{utxo = u0}}
+          )
+        cf@ConfirmedSnapshot{snapshot = s} ->
+          ( number s
+          , cf{snapshot = s{utxo = utxo}}
+          )
   pointInTime <- genPointInTime
   let closeTx = close snapshot pointInTime stOpen
   pure (sn, snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen)
