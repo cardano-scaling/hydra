@@ -478,6 +478,7 @@ forAllCommit action = do
               & classify
                 (not (null utxo))
                 "Non-empty commit"
+              & counterexample ("tx: " <> renderTx tx)
 
 forAllNonEmptyByronCommit ::
   (PostTxError Tx -> Property) ->

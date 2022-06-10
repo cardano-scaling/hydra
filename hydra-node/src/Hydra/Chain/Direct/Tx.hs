@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Smart constructors for creating Hydra protocol transactions to be used in
 -- the 'Hydra.Chain.Direct' way of talking to the main-chain.
@@ -204,11 +205,12 @@ collectComTx ::
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Tx
 collectComTx networkId vk initialThreadOutput commits =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
-      & addOutputs [headOutput]
-      & addExtraRequiredSigners [verificationKeyHash vk]
+  trace ("collected commits:  " <> show (fst <$> toList commits)) $
+    unsafeBuildTransaction $
+      emptyTxBody
+        & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
+        & addOutputs [headOutput]
+        & addExtraRequiredSigners [verificationKeyHash vk]
  where
   InitialThreadOutput
     { initialThreadUTxO =
@@ -400,12 +402,13 @@ fanoutTx ::
   PlutusScript ->
   Tx
 fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) (slotNo, _) headTokenScript =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs [(headInput, headWitness)]
-      & addOutputs fanoutOutputs
-      & burnTokens headTokenScript Burn headTokens
-      & setValidityLowerBound slotNo
+  trace ("utxo to fanout:  " <> show (toList utxo)) $
+    unsafeBuildTransaction $
+      emptyTxBody
+        & addInputs [(headInput, headWitness)]
+        & addOutputs fanoutOutputs
+        & burnTokens headTokenScript Burn headTokens
+        & setValidityLowerBound slotNo
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -598,15 +601,20 @@ data CommitObservation = CommitObservation
 
 -- | Identify a commit tx by:
 --
+-- - Find which 'initial' tx input is being consumed.
 -- - Find the outputs which pays to the commit validator.
 -- - Using the datum of that output, deserialize the committed output.
 -- - Reconstruct the committed UTxO from both values (tx input and output).
 observeCommitTx ::
   NetworkId ->
+  -- | Known (remaining) initial tx inputs.
+  [TxIn] ->
   Tx ->
   Maybe CommitObservation
-observeCommitTx networkId tx = do
+observeCommitTx networkId initials tx = do
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
+  guard hasInitialTxIn
+
   dat <- getScriptData commitOut
   (onChainParty, _, serializedTxOut) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
@@ -622,6 +630,11 @@ observeCommitTx networkId tx = do
       , committed
       }
  where
+  hasInitialTxIn =
+    case filter (`elem` initials) (txIns' tx) of
+      [_] -> True
+      _ -> False
+
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
   commitScript = fromPlutusScript Commit.validatorScript
 
