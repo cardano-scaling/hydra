@@ -63,7 +63,6 @@ healthyCollectComTx =
       somePartyCardanoVerificationKey
       initialThreadOutput
       commits
-      (UTxO.fromPairs committedUTxO)
 
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties

@@ -214,12 +214,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
-    let encodedCommits =
-          encodeBeginList <> foldMap unsafeEncodeRaw (map snd $ sortBy (\a b -> compareRef (fst a) (fst b)) collectedCommits) <> encodeBreak
-        utxoHash =
-          encodedCommits
-            & encodingToBuiltinByteString
-            & sha2_256
+    let utxoHash = hashPreSerializedCommits collectedCommits
      in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod}
 
   -- Collect fuel and commits from resolved inputs. Any output containing a PT
@@ -235,9 +230,9 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
           rest
       | hasPT txInInfoResolved ->
         case commitDatum txInInfoResolved of
-          Just (SerializedTxOut (ref, commit)) ->
+          Just commit@SerializedTxOut{} ->
             traverseInputs
-              (fuel, (ref, commit) : commits, succ nCommits)
+              (fuel, commit : commits, succ nCommits)
               rest
           Nothing ->
             traverseInputs
@@ -474,10 +469,10 @@ txOutDatum txInfo o =
 {-# INLINEABLE txOutDatum #-}
 
 hashPreSerializedCommits :: [SerializedTxOut] -> BuiltinByteString
-hashPreSerializedCommits o =
+hashPreSerializedCommits commits =
   sha2_256 . encodingToBuiltinByteString $
     encodeBeginList
-      <> foldMap (\(SerializedTxOut (_, bytes)) -> unsafeEncodeRaw bytes) o
+      <> foldMap unsafeEncodeRaw (map output $ sortBy (\a b -> compareRef (input a) (input b)) commits)
       <> encodeBreak
 {-# INLINEABLE hashPreSerializedCommits #-}
 

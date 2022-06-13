@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Smart constructors for creating Hydra protocol transactions to be used in
 -- the 'Hydra.Chain.Direct' way of talking to the main-chain.
@@ -190,7 +189,11 @@ mkCommitDatum party headValidatorHash utxo =
     Nothing ->
       Nothing
     Just (i, o) ->
-      Just $ Commit.SerializedTxOut (toPlutusTxOutRef i, toBuiltin $ serialize' $ toLedgerTxOut o)
+      Just $
+        Commit.SerializedTxOut
+          { input = toPlutusTxOutRef i
+          , output = toBuiltin $ serialize' $ toLedgerTxOut o
+          }
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -203,12 +206,8 @@ collectComTx ::
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
-  -- | The actual /committed/ UTxO to be put in the Head.
-  -- This is the $U_0$ from the Hydra paper and it's needed to compute a correct Hash for the
-  -- initial snapshot.
-  UTxO ->
   Tx
-collectComTx networkId vk initialThreadOutput commits committed =
+collectComTx networkId vk initialThreadOutput commits =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
@@ -236,7 +235,14 @@ collectComTx networkId vk initialThreadOutput commits committed =
   headDatumAfter =
     mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash, contestationPeriod = initialContestationPeriod}
 
-  utxoHash = toBuiltin $ hashTxOuts $ toList committed
+  extractSerialisedTxOut d =
+    case fromData $ toPlutusData d of
+      Nothing -> error "SNAFU"
+      Just ((_, _, Just o) :: Commit.DatumType) -> Just o
+      _ -> Nothing
+
+  utxoHash =
+    Head.hashPreSerializedCommits $ mapMaybe (extractSerialisedTxOut . snd . snd) orderedCommits
 
   orderedCommits =
     Map.toList commits
@@ -594,9 +600,11 @@ data CommitObservation = CommitObservation
 
 -- | Identify a commit tx by:
 --
--- - Find which 'initial' tx input is being consumed.
--- - Find the outputs which pays to the commit validator.
--- - Using the datum of that output, deserialize the committed output.
+-- - Find which 'initial' tx input is being consumed,
+-- - Find the redeemer corresponding to that 'initial', which contains the tx
+--   input of the committed utxo,
+-- - Find the outputs which pays to the commit validator,
+-- - Using the datum of that output, deserialize the committed output,
 -- - Reconstruct the committed UTxO from both values (tx input and output).
 observeCommitTx ::
   NetworkId ->
@@ -647,10 +655,10 @@ observeCommitTx networkId initials tx = do
 convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO)
 convertTxOut = \case
   Nothing -> Nothing
-  Just (Commit.SerializedTxOut (_, outBytes)) ->
+  Just Commit.SerializedTxOut{output} ->
     -- XXX(SN): these errors might be more severe and we could throw an
     -- exception here?
-    case fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes) of
+    case fromLedgerTxOut <$> decodeFull' (fromBuiltin output) of
       Right result -> Just result
       Left{} -> error "couldn't deserialize serialized output in commit's datum."
 

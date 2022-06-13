@@ -121,10 +121,10 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
         traceError "nothing committed, but TxOut in output datum"
       (Just{}, Nothing) ->
         traceError "committed TxOut, but nothing in output datum"
-      (Just (ref, txOut), Just (SerializedTxOut (ref', serializedTxOut))) ->
+      (Just (ref, txOut), Just SerializedTxOut{input, output}) ->
         traceIfFalse "mismatch committed TxOut in datum" $
-          encodingToBuiltinByteString (encodeTxOut txOut) == serializedTxOut
-            && ref == ref'
+          encodingToBuiltinByteString (encodeTxOut txOut) == output
+            && ref == input
 
   initialValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context

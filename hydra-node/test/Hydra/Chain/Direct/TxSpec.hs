@@ -74,7 +74,6 @@ spec =
             forAll (genForParty genVerificationKey <$> elements parties) $ \signer ->
               forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
                 let onChainUTxO = UTxO $ Map.singleton headInput headOutput <> fmap fst3 commitsUTxO
-                    committedUTxO = foldMap third commitsUTxO
                     consumedOutputs = fmap drop3rd commitsUTxO
                     headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
                     onChainParties = partyToChain <$> parties
@@ -96,7 +95,6 @@ spec =
                         signer
                         initialThreadOutput
                         consumedOutputs
-                        committedUTxO
                  in case validateTxScriptsUnlimited onChainUTxO tx of
                       Left basicFailure ->
                         property False & counterexample ("Basic failure: " <> show basicFailure)

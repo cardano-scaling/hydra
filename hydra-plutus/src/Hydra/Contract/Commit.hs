@@ -37,8 +37,12 @@ data CommitRedeemer = CollectCom | Abort
 
 PlutusTx.unstableMakeIsData ''CommitRedeemer
 
-newtype SerializedTxOut = SerializedTxOut (TxOutRef, BuiltinByteString)
-  deriving newtype (Eq, Prelude.Eq, Prelude.Show, Prelude.Ord)
+data SerializedTxOut = SerializedTxOut {input :: TxOutRef, output :: BuiltinByteString}
+  deriving (Prelude.Eq, Prelude.Show, Prelude.Ord)
+
+instance Eq SerializedTxOut where
+  (SerializedTxOut tor bbs) == (SerializedTxOut tor' bbs') =
+    tor == tor' && bbs == bbs'
 
 PlutusTx.unstableMakeIsData ''SerializedTxOut
 
@@ -74,10 +78,10 @@ validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextT
                 Abort ->
                   case commit of
                     Nothing -> True
-                    Just (SerializedTxOut (_, serialisedTxOut)) ->
+                    Just SerializedTxOut{output} ->
                       -- There should be an output in the transaction corresponding to this serialisedTxOut
                       traceIfFalse "cannot find commit output" $
-                        serialisedTxOut `elem` (encodingToBuiltinByteString . encodeTxOut <$> txInfoOutputs txInfo)
+                        output `elem` (encodingToBuiltinByteString . encodeTxOut <$> txInfoOutputs txInfo)
                 -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
                 -- delegated to the 'CollectCom' script who has more information to do it.
                 CollectCom -> True
