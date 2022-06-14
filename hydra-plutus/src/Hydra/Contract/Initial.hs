@@ -8,7 +8,7 @@ module Hydra.Contract.Initial where
 
 import PlutusTx.Prelude
 
-import Hydra.Contract.Commit (SerializedTxOut (..))
+import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (encodeTxOut)
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
@@ -38,8 +38,8 @@ import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
 
 data InitialRedeemer
-  = Abort
-  | Commit
+  = ViaAbort
+  | ViaCommit
       { -- | Points to the committed Utxo.
         committedRef :: Maybe TxOutRef
       }
@@ -69,8 +69,8 @@ validator ::
   Bool
 validator commitValidator () red context =
   case red of
-    Abort -> True
-    Commit{committedRef} ->
+    ViaAbort -> True
+    ViaCommit{committedRef} ->
       checkCommit commitValidator committedRef context
         && checkAuthor context
 
@@ -104,26 +104,26 @@ checkCommit ::
   ScriptContext ->
   Bool
 checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxInfo = txInfo} =
-  checkCommittedValue && checkSerializedTxOut
+  checkCommittedValue && checkLockedCommit
  where
   checkCommittedValue =
-    traceIfFalse "commitLockedValue does not match" $
-      traceIfFalse ("commitLockedValue: " `appendString` debugValue commitLockedValue) $
+    traceIfFalse "lockedValue does not match" $
+      traceIfFalse ("lockedValue: " `appendString` debugValue lockedValue) $
         traceIfFalse ("initialValue: " `appendString` debugValue initialValue) $
           traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
-            commitLockedValue == initialValue + committedValue
+            lockedValue == initialValue + committedValue
 
-  checkSerializedTxOut =
-    case (committedTxOut, commitLockedSerializedTxOut) of
+  checkLockedCommit =
+    case (committedTxOut, lockedCommit) of
       (Nothing, Nothing) ->
         True
       (Nothing, Just{}) ->
         traceError "nothing committed, but TxOut in output datum"
       (Just{}, Nothing) ->
         traceError "committed TxOut, but nothing in output datum"
-      (Just (ref, txOut), Just SerializedTxOut{input, output}) ->
+      (Just (ref, txOut), Just Commit{input, preSerializedOutput}) ->
         traceIfFalse "mismatch committed TxOut in datum" $
-          encodingToBuiltinByteString (encodeTxOut txOut) == output
+          encodingToBuiltinByteString (encodeTxOut txOut) == preSerializedOutput
             && ref == input
 
   initialValue =
@@ -136,9 +136,9 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
     ref <- committedRef
     (ref,) . txInInfoResolved <$> findTxInByTxOutRef ref txInfo
 
-  commitLockedValue = valueLockedBy txInfo commitValidator
+  lockedValue = valueLockedBy txInfo commitValidator
 
-  commitLockedSerializedTxOut =
+  lockedCommit =
     case scriptOutputsAt commitValidator txInfo of
       [(dh, _)] ->
         case getDatum <$> findDatum dh txInfo of
@@ -146,8 +146,8 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
           (Just da) ->
             case fromBuiltinData @Commit.DatumType da of
               Nothing -> traceError "expected commit datum type, got something else"
-              Just (_party, _headScriptHash, mSerializedTxOut) ->
-                mSerializedTxOut
+              Just (_party, _headScriptHash, mCommit) ->
+                mCommit
       _ -> traceError "expected single commit output"
 
   debugValue = debugInteger . getLovelace . fromValue

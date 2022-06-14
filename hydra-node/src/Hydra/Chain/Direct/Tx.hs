@@ -167,7 +167,7 @@ commitTx networkId party utxo (initialInput, out, vkh) =
     mkScriptDatum $ Initial.datum ()
   initialRedeemer =
     toScriptData . Initial.redeemer $
-      Initial.Commit (toPlutusTxOutRef <$> mCommittedInput)
+      Initial.ViaCommit (toPlutusTxOutRef <$> mCommittedInput)
   mCommittedInput =
     fst <$> utxo
   commitOutput =
@@ -190,9 +190,9 @@ mkCommitDatum party headValidatorHash utxo =
       Nothing
     Just (i, o) ->
       Just $
-        Commit.SerializedTxOut
+        Commit.Commit
           { input = toPlutusTxOutRef i
-          , output = toBuiltin $ serialize' $ toLedgerTxOut o
+          , preSerializedOutput = toBuiltin $ serialize' $ toLedgerTxOut o
           }
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
@@ -258,7 +258,7 @@ collectComTx networkId vk initialThreadOutput commits =
   commitScript =
     fromPlutusScript @PlutusScriptV1 Commit.validatorScript
   commitRedeemer =
-    toScriptData $ Commit.redeemer Commit.CollectCom
+    toScriptData $ Commit.redeemer Commit.ViaCollectCom
 
 -- | Low-level data type of a snapshot to close the head with. This is different
 -- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
@@ -485,7 +485,7 @@ abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
   initialScript =
     fromPlutusScript @PlutusScriptV1 Initial.validatorScript
   initialRedeemer =
-    toScriptData $ Initial.redeemer Initial.Abort
+    toScriptData $ Initial.redeemer Initial.ViaAbort
 
   mkAbortCommit (commitInput, (_, ScriptDatumForTxIn -> commitDatum)) =
     (commitInput, mkCommitWitness commitDatum)
@@ -494,7 +494,7 @@ abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
   commitScript =
     fromPlutusScript @PlutusScriptV1 Commit.validatorScript
   commitRedeemer =
-    toScriptData (Commit.redeemer Commit.Abort)
+    toScriptData (Commit.redeemer Commit.ViaAbort)
 
   commitOutputs = mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
 
@@ -643,22 +643,22 @@ observeCommitTx networkId initials tx = do
 
   decodeInitialRedeemer =
     findRedeemerSpending tx >=> \case
-      Initial.Abort ->
+      Initial.ViaAbort ->
         Nothing
-      Initial.Commit{committedRef} ->
+      Initial.ViaCommit{committedRef} ->
         Just (fromPlutusTxOutRef <$> committedRef)
 
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
 
   commitScript = fromPlutusScript Commit.validatorScript
 
-convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO)
+convertTxOut :: Maybe Commit.Commit -> Maybe (TxOut CtxUTxO)
 convertTxOut = \case
   Nothing -> Nothing
-  Just Commit.SerializedTxOut{output} ->
+  Just Commit.Commit{preSerializedOutput} ->
     -- XXX(SN): these errors might be more severe and we could throw an
     -- exception here?
-    case fromLedgerTxOut <$> decodeFull' (fromBuiltin output) of
+    case fromLedgerTxOut <$> decodeFull' (fromBuiltin preSerializedOutput) of
       Right result -> Just result
       Left{} -> error "couldn't deserialize serialized output in commit's datum."
 

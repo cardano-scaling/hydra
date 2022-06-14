@@ -7,7 +7,7 @@ module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
 
-import Hydra.Contract.Commit (SerializedTxOut (..))
+import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
@@ -230,7 +230,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
           rest
       | hasPT txInInfoResolved ->
         case commitDatum txInInfoResolved of
-          Just commit@SerializedTxOut{} ->
+          Just commit@Commit{} ->
             traverseInputs
               (fuel, commit : commits, succ nCommits)
               rest
@@ -249,7 +249,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
     let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
      in length pts == 1
 
-  commitDatum :: TxOut -> Maybe SerializedTxOut
+  commitDatum :: TxOut -> Maybe Commit
   commitDatum o = do
     dh <- txOutDatumHash o
     d <- getDatum <$> findDatum dh txInfo
@@ -468,11 +468,13 @@ txOutDatum txInfo o =
     Just dt -> dt
 {-# INLINEABLE txOutDatum #-}
 
-hashPreSerializedCommits :: [SerializedTxOut] -> BuiltinByteString
+hashPreSerializedCommits :: [Commit] -> BuiltinByteString
 hashPreSerializedCommits commits =
   sha2_256 . encodingToBuiltinByteString $
     encodeBeginList
-      <> foldMap unsafeEncodeRaw (map output $ sortBy (\a b -> compareRef (input a) (input b)) commits)
+      <> foldMap
+        (unsafeEncodeRaw . preSerializedOutput)
+        (sortBy (\a b -> compareRef (input a) (input b)) commits)
       <> encodeBreak
 {-# INLINEABLE hashPreSerializedCommits #-}
 

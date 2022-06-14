@@ -146,7 +146,11 @@ prop_serialiseTxOutCommutesWithHash :: Property
 prop_serialiseTxOutCommutesWithHash =
   forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
     let ledgerTxOuts = toList utxo
-        serialisePair i o = Commit.SerializedTxOut{input = toPlutusTxOutRef i, output = toBuiltin . serialize' . toLedgerTxOut $ o}
+        serialisePair i o =
+          Commit.Commit
+            { input = toPlutusTxOutRef i
+            , preSerializedOutput = toBuiltin . serialize' . toLedgerTxOut $ o
+            }
         serialisedTxOuts = uncurry serialisePair <$> UTxO.pairs utxo
         serialisedUTxO = OnChain.hashPreSerializedCommits serialisedTxOuts
      in fromBuiltin serialisedUTxO === hashTxOuts ledgerTxOuts
