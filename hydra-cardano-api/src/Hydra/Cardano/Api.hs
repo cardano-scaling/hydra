@@ -37,6 +37,7 @@ import Cardano.Api as X hiding (
   AddressInEra (..),
   AddressTypeInEra (..),
   BalancedTxBody (..),
+  Key (..),
   KeyWitness,
   PlutusScript,
   Script (..),

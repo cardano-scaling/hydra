@@ -40,11 +40,12 @@ package plutus-merkle-tree
 -- Always show detailed output for tests
 test-show-details: direct
 
+-- FIXME: Missing https://github.com/input-output-hk/cardano-node/pull/4138
 source-repository-package
   type: git
-  location: https://github.com/abailly-iohk/cardano-node
-  tag: b96c6b075718b2c9e9d17761d16b7ca601937c10
-  --sha256: 1i3bxc12lsdr9l88l1w75844gwf43y8k6ysz5kx15pybkz1r1i5m
+  location: https://github.com/input-output-hk/cardano-node.git
+  tag: 20e6e21acfa98ee412071795ba6105685d469dce
+  --sha256: 07c49lyx5wbff2l6j11irmwfbb3hfjm3macpxs9321g3f1g32nnw
   subdir:
     cardano-api
 
