@@ -7,7 +7,7 @@ module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
 
-import Hydra.Contract.Commit (SerializedTxOut (..))
+import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
@@ -39,6 +39,7 @@ import Plutus.V1.Ledger.Api (
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
+  TxOutRef (..),
   UpperBound (..),
   Validator (getValidator),
   ValidatorHash,
@@ -208,15 +209,12 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
 
   (expectedChangeValue, collectedCommits, nTotalCommits) =
     traverseInputs
-      (negate (txInfoAdaFee txInfo), encodeBeginList, 0)
+      (negate (txInfoAdaFee txInfo), [], 0)
       (txInfoInputs txInfo)
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
-    let utxoHash =
-          (collectedCommits <> encodeBreak)
-            & encodingToBuiltinByteString
-            & sha2_256
+    let utxoHash = hashPreSerializedCommits collectedCommits
      in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod}
 
   -- Collect fuel and commits from resolved inputs. Any output containing a PT
@@ -232,9 +230,9 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
           rest
       | hasPT txInInfoResolved ->
         case commitDatum txInInfoResolved of
-          Just (SerializedTxOut commit) ->
+          Just commit@Commit{} ->
             traverseInputs
-              (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
+              (fuel, commit : commits, succ nCommits)
               rest
           Nothing ->
             traverseInputs
@@ -251,7 +249,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
     let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
      in length pts == 1
 
-  commitDatum :: TxOut -> Maybe SerializedTxOut
+  commitDatum :: TxOut -> Maybe Commit
   commitDatum o = do
     dh <- txOutDatumHash o
     d <- getDatum <$> findDatum dh txInfo
@@ -470,11 +468,13 @@ txOutDatum txInfo o =
     Just dt -> dt
 {-# INLINEABLE txOutDatum #-}
 
-hashPreSerializedCommits :: [SerializedTxOut] -> BuiltinByteString
-hashPreSerializedCommits o =
+hashPreSerializedCommits :: [Commit] -> BuiltinByteString
+hashPreSerializedCommits commits =
   sha2_256 . encodingToBuiltinByteString $
     encodeBeginList
-      <> foldMap (\(SerializedTxOut bytes) -> unsafeEncodeRaw bytes) o
+      <> foldMap
+        (unsafeEncodeRaw . preSerializedOutput)
+        (sortBy (\a b -> compareRef (input a) (input b)) commits)
       <> encodeBreak
 {-# INLINEABLE hashPreSerializedCommits #-}
 
@@ -499,6 +499,13 @@ verifyPartySignature snapshotNumber utxoHash party signed =
     encodingToBuiltinByteString $
       encodeInteger snapshotNumber <> encodeByteString utxoHash
 {-# INLINEABLE verifyPartySignature #-}
+
+compareRef :: TxOutRef -> TxOutRef -> Ordering
+TxOutRef{txOutRefId, txOutRefIdx} `compareRef` TxOutRef{txOutRefId = id', txOutRefIdx = idx'} =
+  case compare txOutRefId id' of
+    EQ -> compare txOutRefIdx idx'
+    ord -> ord
+{-# INLINEABLE compareRef #-}
 
 -- TODO: Add a NetworkId so that we can properly serialise address hashes
 -- see 'encodeAddress' for details

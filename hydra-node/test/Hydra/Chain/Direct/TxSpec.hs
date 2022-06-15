@@ -73,7 +73,8 @@ spec =
           forAll (vectorOf 3 arbitrary) $ \parties ->
             forAll (genForParty genVerificationKey <$> elements parties) $ \signer ->
               forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
-                let onChainUTxO = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUTxO
+                let onChainUTxO = UTxO $ Map.singleton headInput headOutput <> fmap fst3 commitsUTxO
+                    consumedOutputs = fmap drop3rd commitsUTxO
                     headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
                     onChainParties = partyToChain <$> parties
                     headDatum = Head.Initial cperiod onChainParties
@@ -93,7 +94,7 @@ spec =
                         testNetworkId
                         signer
                         initialThreadOutput
-                        commitsUTxO
+                        consumedOutputs
                  in case validateTxScriptsUnlimited onChainUTxO tx of
                       Left basicFailure ->
                         property False & counterexample ("Basic failure: " <> show basicFailure)
@@ -209,7 +210,7 @@ withinTxExecutionBudget redeemers =
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
-generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData))
+generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData, UTxO))
 generateCommitUTxOs parties = do
   txins <- vectorOf (length parties) (arbitrary @TxIn)
   let vks = (\p -> (genVerificationKey `genForParty` p, p)) <$> parties
@@ -226,7 +227,7 @@ generateCommitUTxOs parties = do
           uncurry mkCommitUTxO <$> zip vks committedUTxO
   pure $ Map.fromList commitUTxO
  where
-  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> Maybe (TxIn, TxOut CtxUTxO) -> (TxOut CtxUTxO, ScriptData)
+  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> Maybe (TxIn, TxOut CtxUTxO) -> (TxOut CtxUTxO, ScriptData, UTxO)
   mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
@@ -234,6 +235,7 @@ generateCommitUTxOs parties = do
           commitValue
           (mkTxOutDatum commitDatum)
     , fromPlutusData (toData commitDatum)
+    , maybe mempty (UTxO.fromPairs . pure) utxo
     )
    where
     commitValue =
@@ -313,7 +315,7 @@ genAbortableOutputs parties =
   go = do
     (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
     initials <- mapM genInitial initParties
-    commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
+    commits <- fmap (\(a, (b, c, _)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
     pure (initials, commits)
 
   notConflict (is, cs) =
@@ -347,6 +349,12 @@ genAbortableOutputs parties =
   initialScript = fromPlutusScript Initial.validatorScript
 
   initialDatum = Initial.datum ()
+
+fst3 :: (a, b, c) -> a
+fst3 (a, _, _) = a
+
+third :: (a, b, c) -> c
+third (_, _, c) = c
 
 drop2nd :: (a, b, c) -> (a, c)
 drop2nd (a, _, c) = (a, c)

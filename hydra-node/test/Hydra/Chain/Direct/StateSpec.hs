@@ -478,6 +478,7 @@ forAllCommit action = do
               & classify
                 (not (null utxo))
                 "Non-empty commit"
+              & counterexample ("tx: " <> renderTx tx)
 
 forAllNonEmptyByronCommit ::
   (PostTxError Tx -> Property) ->
@@ -499,7 +500,7 @@ forAllAbort action = do
     forAllShow (genInitTx ctx) renderTx $ \initTx -> do
       forAllShow (sublistOf . snd =<< genCommits ctx initTx) renderTxs $ \commits ->
         forAll (genStIdle ctx) $ \stIdle ->
-          let stInitialized = executeCommits initTx commits stIdle
+          let (_, stInitialized) = executeCommits initTx commits stIdle
            in action stInitialized (abort stInitialized)
                 & classify
                   (null commits)
@@ -523,9 +524,10 @@ forAllClose ::
   (OnChainHeadState 'StOpen -> Tx -> property) ->
   Property
 forAllClose action = do
-  -- TODO: label / classify tx and snapshots to understand test failures
   -- FIXME: we should not hardcode number of parties but generate it within bounds
-  forAll (genCloseTx 3) $ uncurry action
+  forAll (genCloseTx 3) $ \(st, tx, sn) ->
+    action st tx
+      & label (Prelude.head . Prelude.words . show $ sn)
 
 forAllContest ::
   (Testable property) =>

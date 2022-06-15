@@ -167,7 +167,7 @@ commitTx networkId party utxo (initialInput, out, vkh) =
     mkScriptDatum $ Initial.datum ()
   initialRedeemer =
     toScriptData . Initial.redeemer $
-      Initial.Commit (toPlutusTxOutRef <$> mCommittedInput)
+      Initial.ViaCommit (toPlutusTxOutRef <$> mCommittedInput)
   mCommittedInput =
     fst <$> utxo
   commitOutput =
@@ -188,8 +188,12 @@ mkCommitDatum party headValidatorHash utxo =
   serializedUTxO = case utxo of
     Nothing ->
       Nothing
-    Just (_i, o) ->
-      Just $ Commit.SerializedTxOut (toBuiltin $ serialize' $ toLedgerTxOut o)
+    Just (i, o) ->
+      Just $
+        Commit.Commit
+          { input = toPlutusTxOutRef i
+          , preSerializedOutput = toBuiltin $ serialize' $ toLedgerTxOut o
+          }
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -230,9 +234,7 @@ collectComTx networkId vk initialThreadOutput commits =
       headDatumAfter
   headDatumAfter =
     mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash, contestationPeriod = initialContestationPeriod}
-  -- NOTE: We hash tx outs in an order that is recoverable on-chain.
-  -- The simplest thing to do, is to make sure commit inputs are in the same
-  -- order as their corresponding committed utxo.
+
   extractSerialisedTxOut d =
     case fromData $ toPlutusData d of
       Nothing -> error "SNAFU"
@@ -256,7 +258,7 @@ collectComTx networkId vk initialThreadOutput commits =
   commitScript =
     fromPlutusScript @PlutusScriptV1 Commit.validatorScript
   commitRedeemer =
-    toScriptData $ Commit.redeemer Commit.CollectCom
+    toScriptData $ Commit.redeemer Commit.ViaCollectCom
 
 -- | Low-level data type of a snapshot to close the head with. This is different
 -- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
@@ -483,7 +485,7 @@ abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
   initialScript =
     fromPlutusScript @PlutusScriptV1 Initial.validatorScript
   initialRedeemer =
-    toScriptData $ Initial.redeemer Initial.Abort
+    toScriptData $ Initial.redeemer Initial.ViaAbort
 
   mkAbortCommit (commitInput, (_, ScriptDatumForTxIn -> commitDatum)) =
     (commitInput, mkCommitWitness commitDatum)
@@ -492,7 +494,7 @@ abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
   commitScript =
     fromPlutusScript @PlutusScriptV1 Commit.validatorScript
   commitRedeemer =
-    toScriptData (Commit.redeemer Commit.Abort)
+    toScriptData (Commit.redeemer Commit.ViaAbort)
 
   commitOutputs = mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
 
@@ -598,11 +600,11 @@ data CommitObservation = CommitObservation
 
 -- | Identify a commit tx by:
 --
--- - Find which 'initial' tx input is being consumed.
+-- - Find which 'initial' tx input is being consumed,
 -- - Find the redeemer corresponding to that 'initial', which contains the tx
---   input of the committed utxo.
--- - Find the outputs which pays to the commit validator.
--- - Using the datum of that output, deserialize the comitted output.
+--   input of the committed utxo,
+-- - Find the outputs which pays to the commit validator,
+-- - Using the datum of that output, deserialize the committed output,
 -- - Reconstruct the committed UTxO from both values (tx input and output).
 observeCommitTx ::
   NetworkId ->
@@ -641,22 +643,22 @@ observeCommitTx networkId initials tx = do
 
   decodeInitialRedeemer =
     findRedeemerSpending tx >=> \case
-      Initial.Abort ->
+      Initial.ViaAbort ->
         Nothing
-      Initial.Commit{committedRef} ->
+      Initial.ViaCommit{committedRef} ->
         Just (fromPlutusTxOutRef <$> committedRef)
 
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
 
   commitScript = fromPlutusScript Commit.validatorScript
 
-convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO)
+convertTxOut :: Maybe Commit.Commit -> Maybe (TxOut CtxUTxO)
 convertTxOut = \case
   Nothing -> Nothing
-  Just (Commit.SerializedTxOut outBytes) ->
+  Just Commit.Commit{preSerializedOutput} ->
     -- XXX(SN): these errors might be more severe and we could throw an
     -- exception here?
-    case fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes) of
+    case fromLedgerTxOut <$> decodeFull' (fromBuiltin preSerializedOutput) of
       Right result -> Just result
       Left{} -> error "couldn't deserialize serialized output in commit's datum."
 

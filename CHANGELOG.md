@@ -13,6 +13,7 @@ changes.
 #### Fixed
 
 - Head contract check UTxO hash upon closing the head [#338](https://github.com/input-output-hk/hydra-poc/pull/338). This prevents closing the head with arbitrary UTxO.
+- Clients can fanout a Head closed without any off-chain transactions (eg. with initial snapshot)  [#395](https://github.com/input-output-hk/hydra-poc/issues/395)
 
 #### Added
 

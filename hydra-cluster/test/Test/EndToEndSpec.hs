@@ -20,6 +20,7 @@ import CardanoCluster (
 import CardanoNode (RunningNode (RunningNode), newNodeConfig, withBFTNode)
 import Control.Lens ((^?))
 import Data.Aeson (Result (..), Value (Object, String), fromJSON, object, (.=))
+import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
 import qualified Data.Map as Map
@@ -87,13 +88,69 @@ spec = around showLogsOnFailure $ do
       carol = deriveParty carolSk
 
   describe "End-to-end test using a single cardano-node" $ do
-    describe "three hydra nodes scenario" $
+    describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
             withBFTNode (contramap FromCardanoNode tracer) config $ \node -> do
               initAndClose tracer 1 node
+
+      it "inits a Head and closes it immediately " $ \tracer ->
+        failAfter 60 $
+          withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
+            config <- newNodeConfig tmpDir
+            let clusterIx = 0
+            withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+              aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
+              bobKeys@(bobCardanoVk, _) <- generate genKeyPair
+              carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+
+              let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+                  hydraKeys = [aliceSk, bobSk, carolSk]
+
+              let firstNodeId = clusterIx * 3
+
+              withHydraCluster tracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys $ \nodes -> do
+                let [n1, n2, n3] = toList nodes
+                waitForNodesConnected tracer [n1, n2, n3]
+
+                -- Funds to be used as fuel by Hydra protocol transactions
+                seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+                seedFromFaucet_ defaultNetworkId node bobCardanoVk 100_000_000 Fuel
+                seedFromFaucet_ defaultNetworkId node carolCardanoVk 100_000_000 Fuel
+
+                let contestationPeriod = 2
+
+                send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                waitFor tracer 10 [n1, n2, n3] $
+                  output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
+
+                -- Get some UTXOs to commit to a head
+                committedUTxOByAlice <- seedFromFaucet defaultNetworkId node aliceCardanoVk aliceCommittedToHead Normal
+                committedUTxOByBob <- seedFromFaucet defaultNetworkId node bobCardanoVk bobCommittedToHead Normal
+                send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
+                send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
+                send n3 $ input "Commit" ["utxo" .= Object mempty]
+
+                let u0 = committedUTxOByAlice <> committedUTxOByBob
+
+                waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0]
+
+                send n1 $ input "Close" []
+                waitMatch 3 n1 $ \v -> do
+                  guard $ v ^? key "tag" == Just "HeadIsClosed"
+                  snapshotNumber <- v ^? key "snapshotNumber"
+                  guard $ snapshotNumber == Aeson.Number 0
+
+                -- NOTE: We expect the head to be finalized after the contestation period
+                -- and some three secs later, plus the closeGraceTime * slotLength
+                waitFor tracer (truncate $ contestationPeriod + (fromIntegral @_ @Double (unSlotNo closeGraceTime) * 0.1) + 3) [n1] $
+                  output "ReadyToFanout" []
+
+                send n1 $ input "Fanout" []
+                waitFor tracer 3 [n1] $
+                  output "HeadIsFinalized" ["utxo" .= u0]
 
     describe "start chain observer from the past" $
       it "can restart head to point in the past and replay on-chain events" $ \tracer -> do

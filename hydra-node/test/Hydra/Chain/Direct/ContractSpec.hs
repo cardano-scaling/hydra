@@ -7,6 +7,7 @@ module Hydra.Chain.Direct.ContractSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
@@ -15,6 +16,7 @@ import qualified Data.List as List
 import Hydra.Cardano.Api (
   UTxO,
   toLedgerTxOut,
+  toPlutusTxOutRef,
  )
 import Hydra.Chain.Direct.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
 import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
@@ -144,7 +146,13 @@ prop_serialiseTxOutCommutesWithHash :: Property
 prop_serialiseTxOutCommutesWithHash =
   forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
     let ledgerTxOuts = toList utxo
-        serialisedUTxO = OnChain.hashPreSerializedCommits $ Commit.SerializedTxOut . toBuiltin . serialize' . toLedgerTxOut <$> ledgerTxOuts
+        serialisePair i o =
+          Commit.Commit
+            { input = toPlutusTxOutRef i
+            , preSerializedOutput = toBuiltin . serialize' . toLedgerTxOut $ o
+            }
+        serialisedTxOuts = uncurry serialisePair <$> UTxO.pairs utxo
+        serialisedUTxO = OnChain.hashPreSerializedCommits serialisedTxOuts
      in fromBuiltin serialisedUTxO === hashTxOuts ledgerTxOuts
           & counterexample ("Hashed CBOR: " <> decodeUtf8 (Base16.encode $ fromBuiltin serialisedUTxO))
 

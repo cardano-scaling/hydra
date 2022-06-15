@@ -23,6 +23,7 @@ import Plutus.V1.Ledger.Api (
   TxInInfo (txInInfoResolved),
   TxInfo (txInfoInputs, txInfoOutputs),
   TxOut (TxOut, txOutAddress),
+  TxOutRef,
   Validator (getValidator),
   ValidatorHash,
   mkValidatorScript,
@@ -32,19 +33,28 @@ import PlutusTx (CompiledCode, toBuiltinData)
 import qualified PlutusTx
 import qualified Prelude
 
-data CommitRedeemer = CollectCom | Abort
+data CommitRedeemer
+  = ViaCollectCom
+  | ViaAbort
 
 PlutusTx.unstableMakeIsData ''CommitRedeemer
 
-newtype SerializedTxOut = SerializedTxOut BuiltinByteString
-  deriving newtype (Eq, Prelude.Eq, Prelude.Show, Prelude.Ord)
+data Commit = Commit
+  { input :: TxOutRef
+  , preSerializedOutput :: BuiltinByteString
+  }
+  deriving (Prelude.Eq, Prelude.Show, Prelude.Ord)
 
-PlutusTx.unstableMakeIsData ''SerializedTxOut
+instance Eq Commit where
+  (Commit i o) == (Commit i' o') =
+    i == i' && o == o'
+
+PlutusTx.unstableMakeIsData ''Commit
 
 -- TODO: Party is not used on-chain but is needed off-chain while it's still
 -- based on mock crypto. When we move to real crypto we could simply use
 -- the PT's token name to identify the committing party
-type DatumType = (Party, ValidatorHash, Maybe SerializedTxOut)
+type DatumType = (Party, ValidatorHash, Maybe Commit)
 type RedeemerType = CommitRedeemer
 
 -- | The v_commit validator verifies that:
@@ -70,16 +80,16 @@ validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextT
             -- is `Initial`
             Just Initial{} ->
               case consumer of
-                Abort ->
+                ViaAbort ->
                   case commit of
                     Nothing -> True
-                    Just (SerializedTxOut serialisedTxOut) ->
+                    Just Commit{preSerializedOutput} ->
                       -- There should be an output in the transaction corresponding to this serialisedTxOut
                       traceIfFalse "cannot find commit output" $
-                        serialisedTxOut `elem` (encodingToBuiltinByteString . encodeTxOut <$> txInfoOutputs txInfo)
+                        preSerializedOutput `elem` (encodingToBuiltinByteString . encodeTxOut <$> txInfoOutputs txInfo)
                 -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
                 -- delegated to the 'CollectCom' script who has more information to do it.
-                CollectCom -> True
+                ViaCollectCom -> True
             _ -> traceError "Head script in wrong state"
     Just (TxOut _ _ Nothing) -> traceError "Head script has no datum hash"
  where

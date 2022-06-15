@@ -13,7 +13,7 @@ import Hydra.Cardano.Api (
   UTxO,
   VerificationKey,
  )
-import Hydra.Chain (HeadParameters (..), OnChainTx)
+import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.State (
   HeadStateKind (..),
   ObserveTx,
@@ -32,7 +32,7 @@ import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxO, genVerificationKey, renderTx, simplifyUTxO)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTime, slotNoToPOSIXTime)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot, getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
 import Test.QuickCheck (choose, elements, frequency, resize, suchThat, vector)
 
 -- | Define some 'global' context from which generators can pick
@@ -136,23 +136,23 @@ genCollectComTx numParties = do
   initTx <- genInitTx ctx
   (_, commits) <- genCommits ctx initTx
   stIdle <- genStIdle ctx
-  let stInitialized = executeCommits initTx commits stIdle
+  let (_, stInitialized) = executeCommits initTx commits stIdle
   pure (stInitialized, collect stInitialized)
 
-genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx)
+genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
-  (utxo, stOpen) <- genStOpen ctx
-  snapshot <- genConfirmedSnapshot 0 utxo (ctxHydraSigningKeys ctx)
+  (u0, stOpen) <- genStOpen ctx
+  snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
   pointInTime <- genPointInTime
-  pure (stOpen, close snapshot pointInTime stOpen)
+  pure (stOpen, close snapshot pointInTime stOpen, snapshot)
 
 genContestTx :: Int -> Gen (OnChainHeadState 'StClosed, Tx)
 genContestTx numParties = do
   ctx <- genHydraContextFor numParties
   utxo <- arbitrary
-  (closedSnapshotNumber, stClosed) <- genStClosed ctx utxo
-  snapshot <- genConfirmedSnapshot closedSnapshotNumber utxo (ctxHydraSigningKeys ctx)
+  (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
+  snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
   pointInTime <-
     genPointInTime `suchThat` \(slot, _) ->
       slotNoToPOSIXTime slot < getContestationDeadline stClosed
@@ -163,43 +163,43 @@ genFanoutTx numParties = do
   ctx <- genHydraContext numParties
   let maxAssetsSupported = 1
   utxo <- resize maxAssetsSupported $ simplifyUTxO <$> genUTxO
-  (_, stClosed) <- genStClosed ctx utxo
+  (_, toFanout, stClosed) <- genStClosed ctx utxo
   pointInTime <-
     genPointInTime `suchThat` \(slot, _) ->
       slotNoToPOSIXTime slot > getContestationDeadline stClosed
-  pure (stClosed, fanout utxo pointInTime stClosed)
+  pure (stClosed, fanout toFanout pointInTime stClosed)
 
 genStOpen ::
   HydraContext ->
   Gen (UTxO, OnChainHeadState 'StOpen)
 genStOpen ctx = do
   initTx <- genInitTx ctx
-  (utxo, commits) <- genCommits ctx initTx
-  stInitialized <- executeCommits initTx commits <$> genStIdle ctx
+  (_, commits) <- genCommits ctx initTx
+  (committed, stInitialized) <- executeCommits initTx commits <$> genStIdle ctx
   let collectComTx = collect stInitialized
-  pure (utxo, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)
+  pure (committed, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)
 
 genStClosed ::
   HydraContext ->
   UTxO ->
-  Gen (SnapshotNumber, OnChainHeadState 'StClosed)
+  Gen (SnapshotNumber, UTxO, OnChainHeadState 'StClosed)
 genStClosed ctx utxo = do
-  (_, stOpen) <- genStOpen ctx
-  -- FIXME: We need a ConfirmedSnapshot here because the utxo's in an
-  -- 'InitialSnapshot' are ignored and we would not be able to fan them out
-  confirmed <-
-    arbitrary `suchThat` \case
-      InitialSnapshot{} -> False
-      ConfirmedSnapshot{} -> True
-  let snapshot = confirmed{snapshot = (getSnapshot confirmed){utxo = utxo}}
-      -- FIXME: this is redundant with the above filter, this whole code becomes
-      -- annoyingly complicated
-      sn = case confirmed of
-        InitialSnapshot{} -> 0
-        ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+  (u0, stOpen) <- genStOpen ctx
+  confirmed <- arbitrary
+  let (sn, snapshot, toFanout) = case confirmed of
+        cf@InitialSnapshot{snapshot = s} ->
+          ( 0
+          , cf{snapshot = s{utxo = u0}}
+          , u0
+          )
+        cf@ConfirmedSnapshot{snapshot = s} ->
+          ( number s
+          , cf{snapshot = s{utxo = utxo}}
+          , utxo
+          )
   pointInTime <- genPointInTime
   let closeTx = close snapshot pointInTime stOpen
-  pure (sn, snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen)
+  pure (sn, toFanout, snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen)
 
 --
 -- Here be dragons
@@ -233,12 +233,16 @@ executeCommits ::
   Tx ->
   [Tx] ->
   OnChainHeadState 'StIdle ->
-  OnChainHeadState 'StInitialized
+  (UTxO, OnChainHeadState 'StInitialized)
 executeCommits initTx commits stIdle =
-  flip execState stInitialized $ do
-    forM_ commits $ \commitTx -> do
-      st <- get
-      let (_, st') = unsafeObserveTx @_ @ 'StInitialized commitTx st
-      put st'
+  (mconcat utxo, stInitialized')
  where
   (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
+  (utxo, stInitialized') = flip runState stInitialized $ do
+    forM commits $ \commitTx -> do
+      st <- get
+      let (event, st') = unsafeObserveTx @_ @ 'StInitialized commitTx st
+      put st'
+      pure $ case event of
+        OnCommitTx{committed} -> committed
+        _ -> mempty
