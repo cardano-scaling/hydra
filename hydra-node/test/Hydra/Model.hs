@@ -24,13 +24,10 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Hydra.BehaviorSpec (
-  TestHydraNode,
+  TestHydraNode (..),
   createHydraNode,
   createTestHydraNode,
-  send,
-  serverOutputs,
   simulatedChainAndNetwork,
-  waitForNext,
   waitUntil,
   waitUntilMatch,
  )
@@ -321,7 +318,6 @@ instance
   perform :: WorldState m -> Action (WorldState m) a -> LookUp -> StateT (Nodes m) m a
   perform _ Seed{seedKeys} _ = do
     let parties = map (deriveParty . fst) seedKeys
-    tvar <- lift $ newTVarIO []
     nodes <- lift $ do
       let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
       connectToChain <- simulatedChainAndNetwork
@@ -329,8 +325,8 @@ instance
         outputs <- atomically newTQueue
         outputHistory <- newTVarIO []
         node <- createHydraNode ledger sk parties outputs outputHistory connectToChain
-        let testNode = createTestHydraNode outputs outputHistory node connectToChain
-        void $ async $ runHydraNode (traceInTVar tvar) node
+        testNode <- createTestHydraNode outputs outputHistory node connectToChain
+        void $ async $ runHydraNode (traceInTVar (logs testNode)) node
         pure (deriveParty sk, testNode)
 
     put $ Map.fromList nodes

@@ -13,6 +13,7 @@ import Test.Hydra.Prelude
 import Unsafe.Coerce (unsafeCoerce)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Control.Monad.Class.MonadSTM (readTVarIO)
 import Control.Monad.IOSim (IOSim, runSim)
 import Data.Map ((!))
 import qualified Data.Map as Map
@@ -108,6 +109,11 @@ assertOpenHeadWithAllExpectedCommits world nodes p = do
               , "Expected balance: (" <> show p <> ") " <> show expectedBalance
               , "Difference: (" <> show p <> ") " <> show (Map.difference actualBalance expectedBalance)
               ]
+      logMsgs <- run $ lift $ readTVarIO (logs node)
+      monitor $
+        counterexample $
+          toString $
+            unlines (show <$> reverse logMsgs)
       assert (expectedBalance == actualBalance)
     _ -> do
       pure ()
