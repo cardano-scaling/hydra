@@ -19,9 +19,11 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.ClientInput (ClientInput (..))
 import Hydra.Model (LocalState (..), Nodes, OffChainState (..), WorldState (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
+import qualified Hydra.ServerOutput as ServerOutput
 import Test.QuickCheck (Property, counterexample, property)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
@@ -63,7 +65,7 @@ assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
       let actualCommitted =
             Map.fromList
               [ (party, Map.elems (UTxO.toMap utxo))
-              | Committed{party, utxo} <- outputs
+              | Committed{party, ServerOutput.utxo = utxo} <- outputs
               ]
       monitor $
         counterexample $
@@ -85,32 +87,39 @@ assertOpenHeadWithAllExpectedCommits world nodes p = do
   let node = nodes ! p
   case world of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
-      outputs <- run $ lift $ serverOutputs @Tx node
-      let expectedInitialOuts =
+      utxo <- run $ getUTxO node
+      let expectedBalance =
             Map.fromListWith
               (<>)
               [ (unwrapAddress addr, value)
               | (sk, value) <- confirmedUTxO
               , let addr = mkVkAddress testNetworkId (getVerificationKey sk)
               ]
-      let actualInitialOuts =
+      let actualBalance =
             Map.fromListWith (<>) $
-              mconcat
-                [ (\(TxOut addr value _) -> (unwrapAddress addr, value)) <$> Map.elems (UTxO.toMap utxo)
-                | HeadIsOpen{utxo} <- outputs
-                ]
+              [ (unwrapAddress addr, value)
+              | (TxOut addr value _) <- Map.elems (UTxO.toMap utxo)
+              ]
       monitor $
         counterexample $
           toString $
             unlines
-              [ "Actual initial utxo: (" <> show p <> ") " <> show actualInitialOuts
-              , "Expected initial utxo: (" <> show p <> ") " <> show expectedInitialOuts
-              , "Difference: (" <> show p <> ") " <> show (Map.difference actualInitialOuts expectedInitialOuts)
+              [ "Actual balance: (" <> show p <> ") " <> show actualBalance
+              , "Expected balance: (" <> show p <> ") " <> show expectedBalance
+              , "Difference: (" <> show p <> ") " <> show (Map.difference actualBalance expectedBalance)
               ]
-      assert (expectedInitialOuts == actualInitialOuts)
+      assert (expectedBalance == actualBalance)
     _ -> do
       pure ()
  where
+  getUTxO node = lift $ do
+    node `send` GetUTxO
+    let loop =
+          waitForNext node >>= \case
+            GetUTxOResponse u -> pure u
+            _ -> loop
+    loop
+
   unwrapAddress = \case
     ShelleyAddressInEra addr -> serialiseToBech32 addr
     ByronAddressInEra{} -> error "Byron."

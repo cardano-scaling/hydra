@@ -380,9 +380,8 @@ instance
         -- utxo every time. Therefore, there's at most one utxo per signing key
         -- and, they hold the total value owned by that party.
         let (i, o) = case filter (isOwned (from tx)) (UTxO.pairs utxo) of
-              [x] -> x
+              (x : _) -> x
               [] -> error "no UTxO available for payment."
-              _ -> error "more than one UTxO available?"
 
         let realTx =
               either
