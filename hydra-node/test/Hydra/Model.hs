@@ -241,7 +241,9 @@ instance
   precondition WorldState{hydraState = Initial{}} Command{command = Input.Abort{}} =
     True
   precondition WorldState{hydraState = Open{offChainState}} Command{command = Input.NewTx{Input.transaction = tx}} =
-    isJust (List.lookup (from tx) (confirmedUTxO offChainState))
+    case List.lookup (from tx) (confirmedUTxO offChainState) of
+      Just v -> v == value tx
+      Nothing -> False
   precondition _ _ =
     False
 
