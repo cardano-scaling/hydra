@@ -225,7 +225,8 @@ instance
       (from, value) <- elements confirmedUTxO
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
       (_, to) <- elements hydraParties
-      pure $ Some Command{party, command = Input.NewTx Payment{from, to, value}}
+      let payment = Payment{from, to, value}
+      pure $ Some Command{party, command = Input.NewTx (traceShow payment payment)}
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
@@ -236,7 +237,7 @@ instance
   precondition WorldState{hydraState = Initial{}} Command{command = Input.Abort{}} =
     True
   precondition WorldState{hydraState = Open{offChainState}} Command{command = Input.NewTx{Input.transaction = tx}} =
-    isJust (List.lookup (from tx) (confirmedUTxO offChainState))
+    isJust (List.lookup (from tx) (traceShow (confirmedUTxO offChainState) (confirmedUTxO offChainState)))
   precondition _ _ =
     False
 
