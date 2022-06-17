@@ -87,15 +87,16 @@ assertOpenHeadWithAllExpectedCommits world nodes p = do
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
       outputs <- run $ lift $ serverOutputs @Tx node
       let expectedInitialOuts =
-            sortByAddress
-              [ TxOut addr value TxOutDatumNone
+            Map.fromListWith
+              (<>)
+              [ (unwrapAddress addr, value)
               | (sk, value) <- confirmedUTxO
               , let addr = mkVkAddress testNetworkId (getVerificationKey sk)
               ]
       let actualInitialOuts =
-            sortByAddress $
+            Map.fromListWith (<>) $
               mconcat
-                [ Map.elems (UTxO.toMap utxo)
+                [ (\(TxOut addr value _) -> (unwrapAddress addr, value)) <$> Map.elems (UTxO.toMap utxo)
                 | HeadIsOpen{utxo} <- outputs
                 ]
       monitor $
@@ -104,13 +105,14 @@ assertOpenHeadWithAllExpectedCommits world nodes p = do
             unlines
               [ "Actual initial utxo: (" <> show p <> ") " <> show actualInitialOuts
               , "Expected initial utxo: (" <> show p <> ") " <> show expectedInitialOuts
+              , "Difference: (" <> show p <> ") " <> show (Map.difference actualInitialOuts expectedInitialOuts)
               ]
       assert (expectedInitialOuts == actualInitialOuts)
     _ -> do
       pure ()
  where
-  sortByAddress = sortOn $ \(TxOut addressInEra _ _) -> case addressInEra of
-    ShelleyAddressInEra addr -> addr
+  unwrapAddress = \case
+    ShelleyAddressInEra addr -> serialiseToBech32 addr
     ByronAddressInEra{} -> error "Byron."
 
 -- NOTE: This is only sound to run in IOSim, because delays are instant. It
