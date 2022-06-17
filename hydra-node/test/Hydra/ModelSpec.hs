@@ -13,15 +13,14 @@ import Test.Hydra.Prelude
 import Unsafe.Coerce (unsafeCoerce)
 
 import qualified Cardano.Api.UTxO as UTxO
-import Control.Monad.Class.MonadSTM (readTVarIO)
-import Control.Monad.IOSim (IOSim, runSim)
+import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
 import Data.Map ((!))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.ClientInput (ClientInput (..))
-import Hydra.Model (LocalState (..), Nodes, OffChainState (..), WorldState (..))
+import Hydra.Model (LocalState (..), Nodes (Nodes, nodes), OffChainState (..), WorldState (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
 import qualified Hydra.ServerOutput as ServerOutput
@@ -29,6 +28,7 @@ import Test.QuickCheck (Property, counterexample, property)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, runActions, pattern Actions)
+import Test.Util (printTrace, traceInIOSim)
 import qualified Prelude
 
 spec :: Spec
@@ -44,7 +44,7 @@ prop_checkModel (AnyActions actions) =
         (WorldState{hydraParties, hydraState}, _symEnv) <- runActions actions
         run $ lift waitUntilTheEndOfTime
         let parties = Set.fromList $ deriveParty . fst <$> hydraParties
-        nodes <- run get
+        nodes <- run $ gets nodes
         assert (parties == Map.keysSet nodes)
         forM_ parties $ \p -> do
           assertNodeSeesAndReportsAllExpectedCommits hydraState nodes p
@@ -109,11 +109,6 @@ assertOpenHeadWithAllExpectedCommits world nodes p = do
               , "Expected balance: (" <> show p <> ") " <> show expectedBalance
               , "Difference: (" <> show p <> ") " <> show (Map.difference actualBalance expectedBalance)
               ]
-      logMsgs <- run $ lift $ readTVarIO (logs node)
-      monitor $
-        counterexample $
-          toString $
-            unlines (show <$> reverse logMsgs)
       assert (expectedBalance == actualBalance)
     _ -> do
       pure ()
@@ -146,9 +141,15 @@ waitUntilTheEndOfTime = threadDelay 1000000000000
 runIOSimProp :: (forall s. Gen (StateT (Nodes (IOSim s)) (IOSim s) Property)) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  case runSim $ evalStateT (eval p) mempty of
-    Left f -> pure $ counterexample (show f) $ property False
-    Right p' -> pure p'
+  let tr = runSimTrace $ evalStateT (eval p) (Nodes mempty traceInIOSim)
+      traceDump = printTrace (Proxy :: Proxy Tx) tr
+  case traceResult False tr of
+    Right x ->
+      pure x
+    Left (FailureException (SomeException ex)) -> do
+      pure $ counterexample (show ex <> "\ntrace:\n" <> toString traceDump) $ property False
+    Left ex ->
+      pure $ counterexample (show ex <> "\ntrace:\n" <> toString traceDump) $ property False
 
 newtype AnyActions = AnyActions {unAnyActions :: forall s. Actions (WorldState (IOSim s))}
 

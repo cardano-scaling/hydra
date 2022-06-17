@@ -33,7 +33,6 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (IsTx, Ledger, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
-import Hydra.Logging (Envelope)
 import Hydra.Network (Network (..))
 import Hydra.Node (
   HydraNode (..),
@@ -456,7 +455,6 @@ data TestHydraNode tx m = TestHydraNode
   , chainEvent :: ChainEvent tx -> m ()
   , waitForNext :: m (ServerOutput tx)
   , serverOutputs :: m [ServerOutput tx]
-  , logs :: TVar m [Envelope (HydraNodeLog tx)]
   }
 
 data ConnectToChain tx m = ConnectToChain
@@ -547,7 +545,7 @@ withHydraNode signingKey otherParties connectToChain action = do
   outputHistory <- newTVarIO mempty
   node <- createHydraNode simpleLedger signingKey otherParties outputs outputHistory connectToChain
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
-    action =<< createTestHydraNode outputs outputHistory node connectToChain
+    action (createTestHydraNode outputs outputHistory node connectToChain)
 
 createTestHydraNode ::
   (MonadSTM m, MonadThrow m) =>
@@ -555,26 +553,23 @@ createTestHydraNode ::
   TVar m [ServerOutput tx] ->
   HydraNode tx m ->
   ConnectToChain tx m ->
-  m (TestHydraNode tx m)
-createTestHydraNode outputs outputHistory node ConnectToChain{history} = do
-  logs <- newTVarIO []
-  return
-    TestHydraNode
-      { send = handleClientInput node
-      , chainEvent = \e -> do
-          toReplay <- case e of
-            Rollback (fromIntegral -> n) -> do
-              atomically $ do
-                (toReplay, kept) <- splitAt n <$> readTVar history
-                toReplay <$ writeTVar history kept
-            _ ->
-              pure []
-          handleChainTx node e
-          mapM_ (postTx (oc node)) (reverse toReplay)
-      , waitForNext = atomically (readTQueue outputs)
-      , serverOutputs = reverse <$> readTVarIO outputHistory
-      , logs
-      }
+  TestHydraNode tx m
+createTestHydraNode outputs outputHistory node ConnectToChain{history} =
+  TestHydraNode
+    { send = handleClientInput node
+    , chainEvent = \e -> do
+        toReplay <- case e of
+          Rollback (fromIntegral -> n) -> do
+            atomically $ do
+              (toReplay, kept) <- splitAt n <$> readTVar history
+              toReplay <$ writeTVar history kept
+          _ ->
+            pure []
+        handleChainTx node e
+        mapM_ (postTx (oc node)) (reverse toReplay)
+    , waitForNext = atomically (readTQueue outputs)
+    , serverOutputs = reverse <$> readTVarIO outputHistory
+    }
 
 createHydraNode ::
   (MonadDelay m, MonadAsync m) =>

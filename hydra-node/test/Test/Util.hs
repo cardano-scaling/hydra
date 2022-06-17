@@ -5,36 +5,47 @@ module Test.Util where
 import Hydra.Prelude
 
 import Control.Monad.Class.MonadSay (say)
-import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, selectTraceEventsDynamic, traceM, traceResult)
+import Control.Monad.IOSim (
+  Failure (FailureException),
+  IOSim,
+  SimTrace,
+  runSimTrace,
+  selectTraceEventsDynamic',
+  traceM,
+  traceResult,
+ )
 import Control.Tracer (Tracer (Tracer))
 import qualified Data.Aeson as Aeson
 import Data.List (isInfixOf)
+import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node (HydraNodeLog)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot), HUnitFailure (HUnitFailure))
 import Test.Hydra.Prelude (failure, location)
 
 -- | Run given 'action' in 'IOSim' and rethrow any exceptions.
-shouldRunInSim :: (forall s. IOSim s a) -> IO a
+shouldRunInSim ::
+  (forall s. IOSim s a) ->
+  IO a
 shouldRunInSim action =
   case traceResult False tr of
     Right x -> pure x
     Left (FailureException (SomeException ex)) -> do
-      printTrace
+      dumpTrace
       throwIO ex
     Left ex -> do
-      printTrace
+      dumpTrace
       throwIO ex
  where
   tr = runSimTrace action
+  dumpTrace = say (toString $ printTrace (Proxy :: Proxy SimpleTx) tr)
 
-  -- TODO(SN): take a proxy instead of hard-coding HydraNodeLog
-  printTrace =
-    -- NOTE: We need to ignore exceptions as we will see the exception which got
-    -- us here thrown at us again.
-    void . try @_ @SomeException
-      . mapM_ (say . decodeUtf8 . Aeson.encode)
-      $ selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) tr
+-- | Utility function to dump logs given a `SimTrace`.
+-- TODO(SN): take a proxy instead of hard-coding HydraNodeLog
+printTrace :: forall tx a. IsTx tx => Proxy tx -> SimTrace a -> Text
+printTrace _ tr =
+  unlines . map (decodeUtf8 . Aeson.encode) $
+    selectTraceEventsDynamic' @_ @(HydraNodeLog tx) tr
 
 -- | Lifted variant of Hspec's 'shouldBe'.
 shouldBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()

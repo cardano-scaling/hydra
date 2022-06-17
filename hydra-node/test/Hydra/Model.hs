@@ -40,8 +40,8 @@ import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (Committed, PendingCommits)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genAdaValue, genKeyPair, genSigningKey, mkSimpleTx)
-import Hydra.Logging (traceInTVar)
-import Hydra.Node (runHydraNode)
+import Hydra.Logging (Tracer)
+import Hydra.Node (HydraNodeLog, runHydraNode)
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
 import qualified Hydra.ServerOutput as Output
@@ -99,7 +99,10 @@ data WorldState (m :: Type -> Type) = WorldState
   }
   deriving (Eq, Show)
 
-type Nodes m = Map.Map Party (TestHydraNode Tx m)
+data Nodes m = Nodes
+  { nodes :: Map.Map Party (TestHydraNode Tx m)
+  , logger :: Tracer m (HydraNodeLog Tx)
+  }
 
 type CardanoSigningKey = SigningKey PaymentKey
 
@@ -318,6 +321,7 @@ instance
   perform :: WorldState m -> Action (WorldState m) a -> LookUp -> StateT (Nodes m) m a
   perform _ Seed{seedKeys} _ = do
     let parties = map (deriveParty . fst) seedKeys
+    tr <- gets logger
     nodes <- lift $ do
       let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
       connectToChain <- simulatedChainAndNetwork
@@ -325,15 +329,15 @@ instance
         outputs <- atomically newTQueue
         outputHistory <- newTVarIO []
         node <- createHydraNode ledger sk parties outputs outputHistory connectToChain
-        testNode <- createTestHydraNode outputs outputHistory node connectToChain
-        void $ async $ runHydraNode (traceInTVar (logs testNode)) node
+        let testNode = createTestHydraNode outputs outputHistory node connectToChain
+        void $ async $ runHydraNode tr node
         pure (deriveParty sk, testNode)
 
-    put $ Map.fromList nodes
+    modify $ \n -> n{nodes = Map.fromList nodes}
   perform _ Command{party, command} _ = do
     case command of
       Input.Commit{Input.utxo = utxo} -> do
-        nodes <- get
+        nodes <- gets nodes
         case Map.lookup party nodes of
           Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
           Just actorNode -> do
@@ -348,7 +352,7 @@ instance
             party `performs` Input.Commit{Input.utxo = realUtxo}
       Input.NewTx{Input.transaction = tx} -> do
         let recipient = mkVkAddress testNetworkId (getVerificationKey (to tx))
-        nodes <- get
+        nodes <- gets nodes
 
         let waitForOpen = do
               outs <- lift $ serverOutputs (nodes ! party)
@@ -414,7 +418,7 @@ unsafeConstructorName = Prelude.head . Prelude.words . show
 
 performs :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 performs party command = do
-  nodes <- get
+  nodes <- gets nodes
   case Map.lookup party nodes of
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
     Just actorNode -> lift $ actorNode `send` command
