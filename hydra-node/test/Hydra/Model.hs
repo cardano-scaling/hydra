@@ -227,12 +227,18 @@ instance
       (_, to) <- elements hydraParties
       pure $ Some Command{party, command = Input.NewTx Payment{from, to, value}}
 
-  precondition WorldState{hydraState = Start} Seed{} = True
-  precondition WorldState{hydraState = Idle{}} Command{command = Input.Init{}} = True
-  precondition WorldState{hydraState = hydraState@Initial{}} Command{party, command = Input.Commit{}} = isPendingCommitFrom party hydraState
-  precondition WorldState{hydraState = Initial{}} Command{command = Input.Abort{}} = True
-  precondition WorldState{hydraState = Open{}} Command{command = Input.NewTx{}} = True
-  precondition _ _ = False
+  precondition WorldState{hydraState = Start} Seed{} =
+    True
+  precondition WorldState{hydraState = Idle{}} Command{command = Input.Init{}} =
+    True
+  precondition WorldState{hydraState = hydraState@Initial{}} Command{party, command = Input.Commit{}} =
+    isPendingCommitFrom party hydraState
+  precondition WorldState{hydraState = Initial{}} Command{command = Input.Abort{}} =
+    True
+  precondition WorldState{hydraState = Open{offChainState}} Command{command = Input.NewTx{Input.transaction = tx}} =
+    isJust (List.lookup (from tx) (confirmedUTxO offChainState))
+  precondition _ _ =
+    False
 
   nextState :: WorldState m -> Action (WorldState m) a -> Var a -> WorldState m
   nextState _ Seed{seedKeys} _ =
