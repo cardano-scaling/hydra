@@ -28,6 +28,7 @@ import Hydra.BehaviorSpec (
   createHydraNode,
   createTestHydraNode,
   send,
+  serverOutputs,
   simulatedChainAndNetwork,
   waitForNext,
   waitUntil,
@@ -350,6 +351,16 @@ instance
       Input.NewTx{Input.transaction = tx} -> do
         let recipient = mkVkAddress testNetworkId (getVerificationKey (to tx))
         nodes <- get
+
+        let waitForOpen = do
+              outs <- lift $ serverOutputs (nodes ! party)
+              let matchHeadIsOpen = \case
+                    Output.HeadIsOpen{} -> True
+                    _ -> False
+              case find matchHeadIsOpen outs of
+                Nothing -> lift (threadDelay 0.1) >> waitForOpen
+                Just{} -> pure ()
+        waitForOpen
 
         party `performs` Input.GetUTxO
         let waitForUTxO = do
