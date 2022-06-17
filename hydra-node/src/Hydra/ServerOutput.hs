@@ -3,6 +3,7 @@
 module Hydra.ServerOutput where
 
 import Hydra.Chain (PostChainTx, PostTxError)
+import Hydra.ClientInput (ClientInput (..))
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (Host)
@@ -21,7 +22,7 @@ data ServerOutput tx
   | ReadyToFanout
   | HeadIsAborted {utxo :: UTxOType tx}
   | HeadIsFinalized {utxo :: UTxOType tx}
-  | CommandFailed
+  | CommandFailed {clientInput :: ClientInput tx}
   | TxSeen {transaction :: tx}
   | TxValid {transaction :: tx}
   | TxInvalid {utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
@@ -59,7 +60,7 @@ instance IsTx tx => Arbitrary (ServerOutput tx) where
     ReadyToFanout -> []
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u
     HeadIsAborted u -> HeadIsAborted <$> shrink u
-    CommandFailed -> []
+    CommandFailed _ -> []
     TxSeen tx -> TxSeen <$> shrink tx
     TxValid tx -> TxValid <$> shrink tx
     TxInvalid u tx err -> TxInvalid <$> shrink u <*> shrink tx <*> shrink err

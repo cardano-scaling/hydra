@@ -93,7 +93,7 @@ spec = parallel $ do
             waitUntil [n1] $ Committed alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen (utxoRef 1)
             send n1 (Commit (utxoRef 2))
-            waitUntil [n1] CommandFailed
+            waitUntil [n1] (CommandFailed (Commit (utxoRef 2)))
 
       it "can close an open head" $
         shouldRunInSim $ do
@@ -181,7 +181,7 @@ spec = parallel $ do
               waitUntil [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
 
               send n1 Abort
-              waitUntil [n1] CommandFailed
+              waitUntil [n1] (CommandFailed Abort)
 
       it "cannot commit twice" $
         shouldRunInSim $ do
@@ -194,14 +194,14 @@ spec = parallel $ do
               send n1 (Commit (utxoRef 1))
               waitUntil [n1] $ Committed alice (utxoRef 1)
               send n1 (Commit (utxoRef 11))
-              waitUntil [n1] CommandFailed
+              waitUntil [n1] (CommandFailed (Commit (utxoRef 11)))
 
               send n2 (Commit (utxoRef 2))
               waitUntil [n1] $ Committed bob (utxoRef 2)
               waitUntil [n1] $ HeadIsOpen (utxoRefs [1, 2])
 
               send n1 (Commit (utxoRef 11))
-              waitUntil [n1] CommandFailed
+              waitUntil [n1] (CommandFailed (Commit (utxoRef 11)))
 
       it "outputs committed utxo when client requests it" $
         shouldRunInSim $
