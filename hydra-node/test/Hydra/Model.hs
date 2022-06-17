@@ -31,6 +31,7 @@ import Hydra.BehaviorSpec (
   simulatedChainAndNetwork,
   waitForNext,
   waitUntil,
+  waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
@@ -44,7 +45,9 @@ import Hydra.Ledger.Cardano (cardanoLedger, genAdaValue, genKeyPair, genSigningK
 import Hydra.Logging (traceInTVar)
 import Hydra.Node (runHydraNode)
 import Hydra.Party (Party, deriveParty)
-import Hydra.ServerOutput (ServerOutput (GetUTxOResponse, ReadyToCommit))
+import Hydra.ServerOutput (ServerOutput (GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
+import qualified Hydra.ServerOutput as Output
+import qualified Hydra.Snapshot as Snapshot
 import Test.QuickCheck (elements, frequency, listOf1, resize, tabulate)
 import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
 import qualified Prelude
@@ -226,7 +229,7 @@ instance
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
       (_, to) <- elements hydraParties
       let payment = Payment{from, to, value}
-      pure $ Some Command{party, command = Input.NewTx (traceShow payment payment)}
+      pure $ Some Command{party, command = Input.NewTx payment}
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
@@ -237,7 +240,7 @@ instance
   precondition WorldState{hydraState = Initial{}} Command{command = Input.Abort{}} =
     True
   precondition WorldState{hydraState = Open{offChainState}} Command{command = Input.NewTx{Input.transaction = tx}} =
-    isJust (List.lookup (from tx) (traceShow (confirmedUTxO offChainState) (confirmedUTxO offChainState)))
+    isJust (List.lookup (from tx) (confirmedUTxO offChainState))
   precondition _ _ =
     False
 
@@ -367,13 +370,20 @@ instance
               [x] -> x
               [] -> error "no UTxO available for payment."
               _ -> error "more than one UTxO available?"
-        let action =
+
+        let realTx =
               either
                 (error . show)
-                Input.NewTx
+                id
                 (mkSimpleTx (i, o) (recipient, value tx) (from tx))
 
-        party `performs` action
+        party `performs` Input.NewTx realTx
+        lift $
+          waitUntilMatch [nodes ! party] $ \case
+            SnapshotConfirmed{Output.snapshot = snapshot} ->
+              realTx `elem` Snapshot.confirmed snapshot
+            _ ->
+              False
       Input.Init{Input.contestationPeriod = p} -> do
         party `performs` Input.Init{Input.contestationPeriod = p}
       Input.Abort -> do
