@@ -343,10 +343,15 @@ instance
 
         party `performs` Input.GetUTxO
         let waitForUTxO = do
-              waitForNext (nodes ! party) >>= \case
-                GetUTxOResponse u -> pure u
-                _ -> waitForUTxO
-        utxo <- lift waitForUTxO
+              lift (waitForNext (nodes ! party)) >>= \case
+                GetUTxOResponse u | u == mempty -> do
+                  party `performs` Input.GetUTxO
+                  waitForUTxO
+                GetUTxOResponse u -> do
+                  return u
+                _ ->
+                  waitForUTxO
+        utxo <- waitForUTxO
 
         -- TODO: This only works because we generate transaction spending full
         -- utxo every time. Therefore, there's at most one utxo per signing key
