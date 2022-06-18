@@ -33,8 +33,7 @@ import qualified Prelude
 
 spec :: Spec
 spec =
-  modifyMaxSuccess (const 1000) $
-    prop "implementation respects model" prop_checkModel
+  prop "implementation respects model" prop_checkModel
 
 prop_checkModel :: AnyActions -> Property
 prop_checkModel (AnyActions actions) =

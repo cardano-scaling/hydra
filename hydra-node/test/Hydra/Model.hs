@@ -330,7 +330,7 @@ instance
         pure (party, testNode)
 
     modify $ \n -> n{nodes = Map.fromList nodes}
-  perform _ Command{party, command} _ = do
+  perform st Command{party, command} _ = do
     case command of
       Input.Commit{Input.utxo = utxo} -> do
         nodes <- gets nodes
@@ -374,7 +374,15 @@ instance
 
         let (i, o) = case find matchPayment (UTxO.pairs utxo) of
               Just x -> x
-              Nothing -> error "no UTxO available for payment."
+              Nothing ->
+                error
+                  ( "no UTxO available for payment: "
+                      <> show tx
+                      <> ", utxo: "
+                      <> show utxo
+                      <> ",  model: "
+                      <> show (hydraState st)
+                  )
 
             matchPayment p@(_, txOut) =
               isOwned (from tx) p && value tx == txOutValue txOut
