@@ -95,11 +95,13 @@ assertOpenHeadWithAllExpectedCommits world nodes p = do
               [ (unwrapAddress addr, value)
               | (sk, value) <- confirmedUTxO
               , let addr = mkVkAddress testNetworkId (getVerificationKey sk)
+              , valueToLovelace value /= Just 0
               ]
       let actualBalance =
             Map.fromListWith (<>) $
               [ (unwrapAddress addr, value)
               | (TxOut addr value _) <- Map.elems (UTxO.toMap utxo)
+              , valueToLovelace value /= Just 0
               ]
       monitor $
         counterexample $

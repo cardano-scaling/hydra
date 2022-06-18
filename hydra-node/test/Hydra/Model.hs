@@ -226,7 +226,7 @@ instance
       pure $ Some Command{party = deriveParty key, command = Input.Abort}
 
     genNewTx OffChainState{confirmedUTxO} = do
-      (from, value) <- elements confirmedUTxO
+      (from, value) <- elements (Map.toList confirmedUTxO) `suchThat` (not . null . valueToList . snd)
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
       (_, to) <- elements hydraParties
       let payment = Payment{from, to, value}
@@ -328,10 +328,12 @@ instance
       forM seedKeys $ \(sk, _csk) -> do
         outputs <- atomically newTQueue
         outputHistory <- newTVarIO []
-        node <- createHydraNode ledger sk parties outputs outputHistory connectToChain
+        let party = deriveParty sk
+            otherParties = filter (/= party) parties
+        node <- createHydraNode ledger sk otherParties outputs outputHistory connectToChain
         let testNode = createTestHydraNode outputs outputHistory node connectToChain
         void $ async $ runHydraNode tr node
-        pure (deriveParty sk, testNode)
+        pure (party, testNode)
 
     modify $ \n -> n{nodes = Map.fromList nodes}
   perform _ Command{party, command} _ = do
