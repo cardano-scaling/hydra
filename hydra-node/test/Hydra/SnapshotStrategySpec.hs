@@ -23,8 +23,9 @@ import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol)
+import Test.QuickCheck (Property, counterexample)
 
 spec :: Spec
 spec = do
@@ -52,6 +53,8 @@ spec = do
                 , seenSnapshot = NoSeenSnapshot
                 }
         newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
+
+      prop "always ReqSn given head has 1 member and there's a seen tx" $ prop_singleMemberHeadAlwaysSnapshot
 
       it "do not send ReqSn when we aren't leader" $ do
         let tx = aValidTx 1
@@ -104,6 +107,29 @@ spec = do
 
           emitSnapshot (envFor aliceSk) [] st
             `shouldBe` (st', [NetworkEffect $ ReqSn alice 1 [tx]])
+
+prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
+prop_singleMemberHeadAlwaysSnapshot sn =
+  let tx = aValidTx 1
+      aliceEnv =
+        let party = alice
+         in Environment
+              { party
+              , signingKey = aliceSk
+              , otherParties = []
+              }
+      st =
+        CoordinatedHeadState
+          { seenUTxO = mempty
+          , seenTxs = [tx]
+          , confirmedSnapshot = sn
+          , seenSnapshot = NoSeenSnapshot
+          }
+      params = HeadParameters 42 [alice]
+      decision = newSn aliceEnv params st
+      Snapshot{number} = getSnapshot sn
+   in decision == ShouldSnapshot (succ number) [tx]
+        & counterexample ("decision: " <> show decision)
 
 --
 -- Assertion utilities

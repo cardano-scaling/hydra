@@ -458,13 +458,13 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
 data SnapshotOutcome tx
   = ShouldSnapshot SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
   | ShouldNotSnapshot NoSnapshotReason
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 data NoSnapshotReason
   = NotLeader SnapshotNumber
   | SnapshotInFlight SnapshotNumber
   | NoTransactionsToSnapshot
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =
