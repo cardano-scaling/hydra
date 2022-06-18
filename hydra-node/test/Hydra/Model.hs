@@ -17,7 +17,6 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
-import Data.List ((\\))
 import qualified Data.List as List
 import Data.Map ((!))
 import qualified Data.Map as Map
@@ -46,7 +45,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
 import qualified Hydra.ServerOutput as Output
 import qualified Hydra.Snapshot as Snapshot
-import Test.QuickCheck (elements, frequency, listOf1, resize, tabulate)
+import Test.QuickCheck (elements, frequency, listOf1, resize, suchThat, tabulate)
 import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
 import qualified Prelude
 
@@ -118,14 +117,7 @@ data Payment = Payment
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
-  case List.lookup from utxo of
-    Just v -> (to, value) : updated
-     where
-      updated =
-        if selectLovelace value < selectLovelace v
-          then (from, value <> negateValue v) : (utxo \\ [(from, v)])
-          else utxo \\ [(from, v)]
-    Nothing -> error "should never happen (famous last words)"
+  (to, value) : List.delete (from, value) utxo
 
 instance ToJSON (SigningKey PaymentKey) where
   toJSON = error "don't use"
@@ -226,7 +218,9 @@ instance
       pure $ Some Command{party = deriveParty key, command = Input.Abort}
 
     genNewTx OffChainState{confirmedUTxO} = do
-      (from, value) <- elements (Map.toList confirmedUTxO) `suchThat` (not . null . valueToList . snd)
+      (from, value) <-
+        elements confirmedUTxO
+          `suchThat` (not . null . valueToList . snd)
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
       (_, to) <- elements hydraParties
       let payment = Payment{from, to, value}
@@ -378,14 +372,14 @@ instance
                   waitForUTxO
         utxo <- waitForUTxO
 
-        -- TODO: This only works because we generate transaction spending full
-        -- utxo every time. Therefore, there's at most one utxo per signing key
-        -- and, they hold the total value owned by that party.
-        let (i, o) = case filter (isOwned (from tx)) (UTxO.pairs utxo) of
-              (x : _) -> x
-              [] -> error "no UTxO available for payment."
+        let (i, o) = case find matchPayment (UTxO.pairs utxo) of
+              Just x -> x
+              Nothing -> error "no UTxO available for payment."
 
-        let realTx =
+            matchPayment p@(_, txOut) =
+              isOwned (from tx) p && value tx == txOutValue txOut
+
+            realTx =
               either
                 (error . show)
                 id
