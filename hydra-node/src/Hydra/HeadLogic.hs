@@ -43,6 +43,7 @@ data Event tx
   | NetworkEvent {message :: Message tx}
   | OnChainEvent {chainEvent :: ChainEvent tx}
   | ShouldPostFanout
+  | NewSn {newSnapshotNumber :: SnapshotNumber, toSnapshot :: [tx]}
   | PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -309,6 +310,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                   }
               )
               [ClientEffect $ TxSeen tx]
+  (OpenState{}, NewSn sn txs) ->
+    sameState [NetworkEffect $ ReqSn party sn txs]
   (OpenState{parameters, coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousRecoverableState}, e@(NetworkEvent (ReqSn otherParty sn txs)))
     | (number . getSnapshot) confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
       -- TODO: Also we might be robust against multiple ReqSn for otherwise
@@ -487,8 +490,8 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
           | otherwise ->
             ShouldSnapshot nextSnapshotNumber seenTxs
 
-emitSnapshot :: IsTx tx => Environment -> [Effect tx] -> HeadState tx -> (HeadState tx, [Effect tx])
-emitSnapshot env@Environment{party} effects = \case
+emitSnapshot :: IsTx tx => Environment -> HeadState tx -> (HeadState tx, Maybe (Event tx))
+emitSnapshot env = \case
   st@OpenState{parameters, coordinatedHeadState, previousRecoverableState} ->
     case newSn env parameters coordinatedHeadState of
       ShouldSnapshot sn txs ->
@@ -497,10 +500,10 @@ emitSnapshot env@Environment{party} effects = \case
             , coordinatedHeadState = coordinatedHeadState{seenSnapshot = RequestedSnapshot}
             , previousRecoverableState
             }
-        , NetworkEffect (ReqSn party sn txs) : effects
+        , Just (NewSn sn txs)
         )
-      _ -> (st, effects)
-  st -> (st, effects)
+      _ -> (st, Nothing)
+  st -> (st, Nothing)
 
 -- | Unwind the 'HeadState' to some /depth/.
 --

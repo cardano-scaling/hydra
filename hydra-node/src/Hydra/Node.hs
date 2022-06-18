@@ -99,7 +99,6 @@ data HydraNodeLog tx
   | ProcessedEvent {by :: Party, event :: Event tx}
   | ProcessingEffect {by :: Party, effect :: Effect tx}
   | ProcessedEffect {by :: Party, effect :: Effect tx}
-  | Trace {by :: Party, tr :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -151,37 +150,33 @@ stepHydraNode ::
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
-stepHydraNode tracer node@HydraNode{hh, eq, env = env@Environment{party}} = do
+stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
   e <- nextEvent eq
   traceWith tracer $ ProcessingEvent party e
-  atomically (processNextEvent node e) >>= \case
+  processNextEvent node e >>= \case
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
     Left err -> traceWith tracer (ErrorHandlingEvent party e err)
     Right effs -> do
-      trcM <-
-        atomically $
-          queryHeadState hh
-            >>= pure . \case
-              OpenState{parameters, coordinatedHeadState} -> Just $ show $ Logic.newSn env parameters coordinatedHeadState
-              _ -> Nothing
-      maybe (pure ()) (traceWith tracer . Trace party) trcM
       forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent party e)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
-  IsTx tx =>
+  (IsTx tx, MonadSTM m) =>
   HydraNode tx m ->
   Event tx ->
-  STM m (Either (LogicError tx) [Effect tx])
-processNextEvent HydraNode{hh, env} e =
-  modifyHeadState hh $ \s ->
-    case Logic.update env (ledger hh) s e of
-      NewState s' effects ->
-        let (s'', effects') = emitSnapshot env effects s'
-         in (Right effects', s'')
-      Error err -> (Left err, s)
-      Wait reason -> (Right [Delay 0.1 reason e], s)
+  m (Either (LogicError tx) [Effect tx])
+processNextEvent HydraNode{hh, eq, env} e = do
+  (result, doSn) <- atomically $
+    modifyHeadState hh $ \s ->
+      case Logic.update env (ledger hh) s e of
+        NewState s' effects ->
+          let (s'', doSn) = emitSnapshot env s'
+           in ((Right effects, doSn), s'')
+        Error err -> ((Left err, Nothing), s)
+        Wait reason -> ((Right [Delay 0.1 reason e], Nothing), s)
+  maybe (pure ()) (putEvent eq) doSn
+  pure result
 
 processEffect ::
   ( MonadAsync m
