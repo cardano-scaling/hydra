@@ -3,11 +3,11 @@
 
 module Hydra.SnapshotStrategySpec where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Data.List as List
-import Hydra.Chain (HeadParameters (HeadParameters))
+import Hydra.Chain (HeadParameters (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Environment (..),
@@ -17,6 +17,7 @@ import Hydra.HeadLogic (
   SeenSnapshot (..),
   SnapshotOutcome (..),
   emitSnapshot,
+  isLeader,
   newSn,
  )
 import Hydra.Ledger (Ledger (..))
@@ -24,7 +25,8 @@ import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol)
-import Test.QuickCheck (Property, counterexample)
+import Test.QuickCheck (Property, counterexample, forAll, label, (==>))
+import qualified Prelude
 
 spec :: Spec
 spec = do
@@ -54,6 +56,8 @@ spec = do
         newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
 
       prop "always ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshot
+
+      prop "there's always a leader for every snapsnot number" prop_thereIsAlwaysALeader
 
       it "do not send ReqSn when we aren't leader" $ do
         let tx = aValidTx 1
@@ -129,6 +133,14 @@ prop_singleMemberHeadAlwaysSnapshot sn =
       Snapshot{number} = getSnapshot sn
    in decision == ShouldSnapshot (succ number) [tx]
         & counterexample ("decision: " <> show decision)
+        & label (Prelude.head . Prelude.words . show $ sn)
+
+prop_thereIsAlwaysALeader :: Property
+prop_thereIsAlwaysALeader =
+  forAll arbitrary $ \sn ->
+    forAll arbitrary $ \params@HeadParameters{parties} ->
+      length parties > 0
+        ==> any (\p -> isLeader params p sn) parties
 
 --
 -- Assertion utilities
