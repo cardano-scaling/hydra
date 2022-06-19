@@ -108,6 +108,11 @@ type CardanoSigningKey = SigningKey PaymentKey
 instance Eq CardanoSigningKey where
   (PaymentSigningKey skd) == (PaymentSigningKey skd') = skd == skd'
 
+unwrapAddress :: AddressInEra -> Text
+unwrapAddress = \case
+  ShelleyAddressInEra addr -> serialiseToBech32 addr
+  ByronAddressInEra{} -> error "Byron."
+
 data Payment = Payment
   { from :: SigningKey PaymentKey
   , to :: SigningKey PaymentKey
@@ -330,7 +335,7 @@ instance
         pure (party, testNode)
 
     modify $ \n -> n{nodes = Map.fromList nodes}
-  perform st Command{party, command} _ = do
+  perform _ Command{party, command} _ = do
     case command of
       Input.Commit{Input.utxo = utxo} -> do
         nodes <- gets nodes
@@ -372,34 +377,25 @@ instance
                   waitForUTxO
         utxo <- waitForUTxO
 
-        let (i, o) = case find matchPayment (UTxO.pairs utxo) of
-              Just x -> x
-              Nothing ->
-                error
-                  ( "no UTxO available for payment: "
-                      <> show tx
-                      <> ", utxo: "
-                      <> show utxo
-                      <> ",  model: "
-                      <> show (hydraState st)
-                  )
-
-            matchPayment p@(_, txOut) =
+        let matchPayment p@(_, txOut) =
               isOwned (from tx) p && value tx == txOutValue txOut
 
-            realTx =
-              either
-                (error . show)
-                id
-                (mkSimpleTx (i, o) (recipient, value tx) (from tx))
+        case find matchPayment (UTxO.pairs utxo) of
+          Nothing -> pure ()
+          Just (i, o) -> do
+            let realTx =
+                  either
+                    (error . show)
+                    id
+                    (mkSimpleTx (i, o) (recipient, value tx) (from tx))
 
-        party `performs` Input.NewTx realTx
-        lift $
-          waitUntilMatch [nodes ! party] $ \case
-            SnapshotConfirmed{Output.snapshot = snapshot} ->
-              realTx `elem` Snapshot.confirmed snapshot
-            _ ->
-              False
+            party `performs` Input.NewTx realTx
+            lift $
+              waitUntilMatch [nodes ! party] $ \case
+                SnapshotConfirmed{Output.snapshot = snapshot} ->
+                  realTx `elem` Snapshot.confirmed snapshot
+                _ ->
+                  False
       Input.Init{Input.contestationPeriod = p} -> do
         party `performs` Input.Init{Input.contestationPeriod = p}
       Input.Abort -> do

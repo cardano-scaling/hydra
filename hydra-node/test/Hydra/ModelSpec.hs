@@ -20,8 +20,14 @@ import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.ClientInput (ClientInput (..))
-import Hydra.Model (LocalState (..), Nodes (Nodes, nodes), OffChainState (..), WorldState (..))
-import Hydra.Party (Party, deriveParty)
+import Hydra.Model (
+  LocalState (..),
+  Nodes (Nodes, nodes),
+  OffChainState (..),
+  WorldState (..),
+  unwrapAddress,
+ )
+import Hydra.Party (Party (..), deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
 import qualified Hydra.ServerOutput as ServerOutput
 import Test.QuickCheck (Property, counterexample, property)
@@ -106,8 +112,8 @@ assertOpenHeadWithAllExpectedCommits world nodes p = do
         counterexample $
           toString $
             unlines
-              [ "Actual balance: (" <> show p <> ") " <> show actualBalance
-              , "Expected balance: (" <> show p <> ") " <> show expectedBalance
+              [ "actualBalance = " <> show actualBalance
+              , "expectedBalance = " <> show expectedBalance
               , "Difference: (" <> show p <> ") " <> show (Map.difference actualBalance expectedBalance)
               ]
       assert (expectedBalance == actualBalance)
@@ -121,10 +127,6 @@ assertOpenHeadWithAllExpectedCommits world nodes p = do
             GetUTxOResponse u -> pure u
             _ -> loop
     loop
-
-  unwrapAddress = \case
-    ShelleyAddressInEra addr -> serialiseToBech32 addr
-    ByronAddressInEra{} -> error "Byron."
 
 -- NOTE: This is only sound to run in IOSim, because delays are instant. It
 -- allows to make sure we wait long-enough for remaining asynchronous actions /
