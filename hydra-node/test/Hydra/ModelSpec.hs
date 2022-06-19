@@ -146,13 +146,14 @@ runIOSimProp p = do
   Capture eval <- capture
   let tr = runSimTrace $ evalStateT (eval p) (Nodes mempty traceInIOSim)
       traceDump = printTrace (Proxy :: Proxy Tx) tr
+      logsOnError = counterexample ("trace:\n" <> toString traceDump)
   case traceResult False tr of
     Right x ->
-      pure x
+      pure $ logsOnError x
     Left (FailureException (SomeException ex)) -> do
-      pure $ counterexample (show ex <> "\ntrace:\n" <> toString traceDump) $ property False
+      pure $ counterexample (show ex) $ logsOnError $ property False
     Left ex ->
-      pure $ counterexample (show ex <> "\ntrace:\n" <> toString traceDump) $ property False
+      pure $ counterexample (show ex) $ logsOnError $ property False
 
 newtype AnyActions = AnyActions {unAnyActions :: forall s. Actions (WorldState (IOSim s))}
 
