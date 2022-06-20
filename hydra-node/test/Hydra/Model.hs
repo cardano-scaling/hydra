@@ -118,7 +118,20 @@ data Payment = Payment
   , to :: SigningKey PaymentKey
   , value :: Value
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving (Eq, Generic, ToJSON, FromJSON)
+
+instance Show Payment where
+  -- NOTE: We display derived addresses instead of raw signing keys in order to help troubleshooting
+  -- tests failures or errors: The UTxO display addresses in bech32 format.
+  show Payment{from, to, value} =
+    "Payment { from = " <> signingKeyAsAddress from
+      <> ", to = "
+      <> signingKeyAsAddress to
+      <> ", value = "
+      <> show value
+      <> " }"
+   where
+    signingKeyAsAddress = show . unwrapAddress . mkVkAddress @Era testNetworkId . getVerificationKey
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
