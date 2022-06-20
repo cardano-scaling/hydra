@@ -1,7 +1,9 @@
 name: Docker
 
-# NOTE: This workflow builds & tags docker images always as 'latest', so ensure
-# it only runs on events we want to have as 'latest' image on the registry.
+# NOTE: This workflow builds & tags docker images also on master to get
+# pre-release feedback about working docker builds, but it ONLY pushes them when
+# we pushed a git tag. Hence, the 'latest' docker tag on the registry is equal
+# to the latest released version (not the latest built from master).
 on:
   push:
     branches: [ "master" ]
@@ -38,11 +40,11 @@ jobs:
           latest
           type=semver,pattern={{version}}
 
-    - name: 🔨 Build and push
+    - name: 🔨 Build and maybe push
       uses: docker/build-push-action@v2
       with:
         context: .
-        push: true
+        push: ${{ github.ref_type == "tag" }}
         target: ${{ matrix.target }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
