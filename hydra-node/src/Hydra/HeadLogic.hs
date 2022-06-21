@@ -43,7 +43,6 @@ data Event tx
   | NetworkEvent {message :: Message tx}
   | OnChainEvent {chainEvent :: ChainEvent tx}
   | ShouldPostFanout
-  | NewSn {newSnapshotNumber :: SnapshotNumber, toSnapshot :: [tx]}
   | PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -310,8 +309,6 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                   }
               )
               [ClientEffect $ TxSeen tx]
-  (OpenState{}, NewSn sn txs) ->
-    sameState [NetworkEffect $ ReqSn party sn txs]
   (OpenState{parameters, coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousRecoverableState}, e@(NetworkEvent (ReqSn otherParty sn txs)))
     | (number . getSnapshot) confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
       -- TODO: Also we might be robust against multiple ReqSn for otherwise
@@ -461,13 +458,13 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
 data SnapshotOutcome tx
   = ShouldSnapshot SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
   | ShouldNotSnapshot NoSnapshotReason
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving (Eq, Show, Generic)
 
 data NoSnapshotReason
   = NotLeader SnapshotNumber
   | SnapshotInFlight SnapshotNumber
   | NoTransactionsToSnapshot
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving (Eq, Show, Generic)
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =
@@ -490,8 +487,8 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
           | otherwise ->
             ShouldSnapshot nextSnapshotNumber seenTxs
 
-emitSnapshot :: IsTx tx => Environment -> HeadState tx -> (HeadState tx, Maybe (Event tx))
-emitSnapshot env = \case
+emitSnapshot :: IsTx tx => Environment -> [Effect tx] -> HeadState tx -> (HeadState tx, [Effect tx])
+emitSnapshot env@Environment{party} effects = \case
   st@OpenState{parameters, coordinatedHeadState, previousRecoverableState} ->
     case newSn env parameters coordinatedHeadState of
       ShouldSnapshot sn txs ->
@@ -500,10 +497,10 @@ emitSnapshot env = \case
             , coordinatedHeadState = coordinatedHeadState{seenSnapshot = RequestedSnapshot}
             , previousRecoverableState
             }
-        , Just (NewSn sn txs)
+        , NetworkEffect (ReqSn party sn txs) : effects
         )
-      _ -> (st, Nothing)
-  st -> (st, Nothing)
+      _ -> (st, effects)
+  st -> (st, effects)
 
 -- | Unwind the 'HeadState' to some /depth/.
 --

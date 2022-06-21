@@ -10,8 +10,8 @@ import qualified Data.List as List
 import Hydra.Chain (HeadParameters (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
+  Effect (..),
   Environment (..),
-  Event (NewSn),
   HeadState (..),
   NoSnapshotReason (..),
   SeenSnapshot (..),
@@ -22,8 +22,9 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
+import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol)
 import Test.QuickCheck (Property, counterexample, forAll, label, (==>))
 import qualified Prelude
@@ -55,7 +56,7 @@ spec = do
                 }
         newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
 
-      prop "always ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshot
+      prop "always ReqSn given head has 1 member and there's a seen tx" $ prop_singleMemberHeadAlwaysSnapshot
 
       prop "there's always a leader for every snapsnot number" prop_thereIsAlwaysALeader
 
@@ -108,8 +109,8 @@ spec = do
                 inOpenState' @SimpleTx threeParties $
                   coordinatedState{seenSnapshot = RequestedSnapshot}
 
-          emitSnapshot (envFor aliceSk) st
-            `shouldBe` (st', Just (NewSn 1 [tx]))
+          emitSnapshot (envFor aliceSk) [] st
+            `shouldBe` (st', [NetworkEffect $ ReqSn alice 1 [tx]])
 
 prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshot sn =
