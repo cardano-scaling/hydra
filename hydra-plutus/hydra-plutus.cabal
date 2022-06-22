@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          hydra-plutus
-version:       0.5.0
+version:       0.6.0
 synopsis:      Hydra Plutus Contracts
 author:        IOG
 copyright:     2022 IOG
@@ -124,14 +124,16 @@ test-suite tests
   other-modules:
     Hydra.Data.ContestationPeriodSpec
     Spec
+
   build-depends:
     , base
     , hspec
     , hspec-core
-    , hydra-prelude
     , hydra-plutus
+    , hydra-prelude
     , hydra-test-utils
     , QuickCheck
+
   build-tool-depends: hspec-discover:hspec-discover -any
 
 executable inspect-script

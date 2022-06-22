@@ -44,7 +44,6 @@ More information (including a demo) available on [user manual 📖](https://hydr
 Proof of concept:
 - [x] Coordinated Hydra Head protocol
 - [x] Single Head per hydra-node
-- [x] Stubbed chain using external process
 - [x] Network statically configured, direct TCP connections
 - [x] WebSocket, message-based API Server
 - [x] Terminal user interface client

@@ -1,7 +1,7 @@
 asyncapi: '2.3.0'
 info:
   title: Hydra Node API
-  version: '0.5.0'
+  version: '0.6.0'
   description: |
     WebSocket API for administrating Hydra heads: multi-party isomorphic state-channels for Cardano.
 

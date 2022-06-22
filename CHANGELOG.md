@@ -8,12 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.6.0] - Unreleased
-
-#### Fixed
-
-- Head contract check UTxO hash upon closing the head [#338](https://github.com/input-output-hk/hydra-poc/pull/338). This prevents closing the head with arbitrary UTxO.
-- Clients can fanout a Head closed without any off-chain transactions (eg. with initial snapshot)  [#395](https://github.com/input-output-hk/hydra-poc/issues/395)
+## [0.6.0] - 2022-06-22
 
 #### Added
 
@@ -23,16 +18,20 @@ changes.
 
 - Transactions can now be submitted as raw CBOR-serialized object, base16 encoded, using the `NewTx` client input. This also supports the text-envelope format from cardano-cli out of the box. See the [api Reference](https://hydra.family/head-protocol/api-reference#operation-publish-/-message).
 
-- New `ReadyToFanout` server output on the client API.
+- **BREAKING** The `hydra-node` does not finalize Heads automatically anymore.
+  + Instead clients do get a new `ReadyToFanout` server output after the contestation period and
+  + Clients can use the `Fanout` client input command to deliberately finalize a Head when it is closed and the contestation period passed.
 
 - Remaining contestation period is included in `HeadIsClosed` and displayed in `hydra-tui`.
 
 #### Changed
 
 - **BREAKING**: The starting state of a Head is renamed to `IdleState`, which is visible in the log API.
-- **BREAKING** The `hydra-node` does not finalize Heads automatically anymore.
-  + Instead clients do get a new `ReadyToFanout` server output after the contestation period and
-  + Clients can use the `Fanout` client input command to deliberately finalize a Head when it is closed and the contestation period passed.
+
+#### Fixed
+
+- Head script to check UTxO hash upon closing the head correctly [#338](https://github.com/input-output-hk/hydra-poc/pull/338). Previously it was possible to close the head with arbitrary UTxO.
+- Clients can fanout a Head closed without any off-chain transactions (eg. with initial snapshot)  [#395](https://github.com/input-output-hk/hydra-poc/issues/395)
 
 ## [0.5.0] - 2022-05-06
 
