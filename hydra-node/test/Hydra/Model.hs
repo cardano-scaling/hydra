@@ -201,7 +201,7 @@ instance
       }
 
   arbitraryAction :: WorldState m -> Gen (Any (Action (WorldState m)))
-  arbitraryAction WorldState{hydraParties, hydraState} =
+  arbitraryAction st@WorldState{hydraParties, hydraState} =
     case hydraState of
       Start -> genSeed
       Idle{} -> genInit
@@ -210,9 +210,9 @@ instance
           [ (5, genCommit pendingCommits)
           , (1, genAbort)
           ]
-      Open{offChainState} ->
+      Open{} ->
         frequency
-          [ (10, genNewTx offChainState)
+          [ (10, Some <$> genNewTx st)
           ]
       _ -> genSeed
    where
@@ -234,15 +234,6 @@ instance
     genAbort = do
       (key, _) <- elements hydraParties
       pure $ Some Command{party = deriveParty key, command = Input.Abort}
-
-    genNewTx OffChainState{confirmedUTxO} = do
-      (from, value) <-
-        elements confirmedUTxO
-          `suchThat` (not . null . valueToList . snd)
-      let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
-      (_, to) <- elements hydraParties
-      let payment = Payment{from, to, value}
-      pure $ Some Command{party, command = Input.NewTx payment}
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
@@ -425,6 +416,17 @@ instance
   monitoring (s, s') _action _lookup _return =
     case (hydraState s, hydraState s') of
       (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
+
+genNewTx :: WorldState m -> Gen (Action (WorldState m) ())
+genNewTx WorldState{hydraParties, hydraState} =
+  case hydraState of
+    Open{offChainState = OffChainState{confirmedUTxO}} -> do
+      (from, value) <-
+        elements confirmedUTxO `suchThat` (not . null . valueToList . snd)
+      let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
+      (_, to) <- elements hydraParties `suchThat` ((/= from) . snd)
+      pure $ Command{party, command = Input.NewTx{Input.transaction = Payment{from, to, value}}}
+    _ -> error $ "genNewTx impossible in state: " <> show hydraState
 
 unsafeConstructorName :: (Show a) => a -> String
 unsafeConstructorName = Prelude.head . Prelude.words . show

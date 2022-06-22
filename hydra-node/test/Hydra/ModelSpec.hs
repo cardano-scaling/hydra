@@ -31,6 +31,13 @@ import Hydra.Party (Party (..), deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
 import qualified Hydra.ServerOutput as ServerOutput
 import Test.QuickCheck (Property, counterexample, property)
+import Test.QuickCheck.DynamicLogic (
+  DynFormula,
+  after,
+  afterAny,
+  forAllQ,
+  withGenQ,
+ )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, runActions, pattern Actions)
@@ -54,6 +61,20 @@ prop_checkModel (AnyActions actions) =
         forM_ parties $ \p -> do
           assertNodeSeesAndReportsAllExpectedCommits hydraState nodes p
           assertOpenHeadWithAllExpectedCommits hydraState nodes p
+-- | Conflict-Free Liveness (Head): A conflict-free execution satisfies the following condition:
+--
+-- For any transaction tx input via @(new, tx)@
+-- \[
+-- \mathttt{tx} \in \bigcap_{i \in [n]} \bar{C}_i
+-- \]
+-- eventually holds.
+conflictFreeLiveness :: Typeable m => DynFormula (WorldState m)
+conflictFreeLiveness =
+  afterAny
+    ( \st ->
+        forAllQ (withGenQ (genNewTx st) (const [])) $ \newTx ->
+          after newTx (error "undefined")
+    )
 
 assertNodeSeesAndReportsAllExpectedCommits ::
   LocalState ->
