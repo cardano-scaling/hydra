@@ -131,7 +131,7 @@ instance Show Payment where
       <> show value
       <> " }"
    where
-    signingKeyAsAddress = show . unwrapAddress . mkVkAddress @Era testNetworkId . getVerificationKey
+    signingKeyAsAddress = show . mkVkAddress @Era testNetworkId . getVerificationKey
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
@@ -216,7 +216,7 @@ instance
           ]
       _ -> genSeed
    where
-    genSeed = Some . Seed <$> resize 7 (listOf1 partyKeys)
+    genSeed = Some . Seed <$> resize 7 partyKeys
 
     genInit = do
       initContestationPeriod <- arbitrary
@@ -438,11 +438,14 @@ performs party command = do
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
     Just actorNode -> lift $ actorNode `send` command
 
-partyKeys :: Gen (Hydra.SigningKey, CardanoSigningKey)
-partyKeys = do
-  sk <- arbitrary
-  csk <- genSigningKey
-  pure (sk, csk)
+-- |Generate a list of pairs of Hydra/Cardano signing keys.
+-- All the keys in this list are guaranteed to be unique.
+partyKeys :: Gen [(Hydra.SigningKey, CardanoSigningKey)]
+partyKeys =
+  sized $ \len -> do
+    hks <- nub <$> vectorOf len arbitrary
+    cks <- nub <$> vectorOf len genSigningKey
+    pure $ zip hks cks
 
 isOwned :: SigningKey PaymentKey -> (TxIn, TxOut ctx) -> Bool
 isOwned sk (_, TxOut (ShelleyAddressInEra (ShelleyAddress _ cre _)) _ _) =
