@@ -125,8 +125,8 @@ unwrapAddress = \case
   ByronAddressInEra{} -> error "Byron."
 
 data Payment = Payment
-  { from :: SigningKey PaymentKey
-  , to :: SigningKey PaymentKey
+  { from :: CardanoSigningKey
+  , to :: CardanoSigningKey
   , value :: Value
   }
   deriving (Eq, Generic, ToJSON, FromJSON)
@@ -148,10 +148,10 @@ applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
   (to, value) : List.delete (from, value) utxo
 
-instance ToJSON (SigningKey PaymentKey) where
+instance ToJSON (CardanoSigningKey) where
   toJSON = error "don't use"
 
-instance FromJSON (SigningKey PaymentKey) where
+instance FromJSON (CardanoSigningKey) where
   parseJSON = error "don't use"
 
 instance Arbitrary Payment where
@@ -160,7 +160,7 @@ instance Arbitrary Payment where
 instance Arbitrary Value where
   arbitrary = genAdaValue
 
-instance Arbitrary (SigningKey PaymentKey) where
+instance Arbitrary (CardanoSigningKey) where
   arbitrary = snd <$> genKeyPair
 
 instance ToCBOR Payment where
@@ -171,7 +171,7 @@ instance FromCBOR Payment where
 
 instance IsTx Payment where
   type TxIdType Payment = Int
-  type UTxOType Payment = [(SigningKey PaymentKey, Value)]
+  type UTxOType Payment = [(CardanoSigningKey, Value)]
   type ValueType Payment = Value
   txId = error "undefined"
   balance = foldMap snd
@@ -399,7 +399,11 @@ instance
         case find matchPayment (UTxO.pairs utxo) of
           Nothing ->
             trace
-              ( "no payment matched, payment = " <> show tx <> "\nutxo = " <> show utxo
+              ( "no payment matched, party = " <> show party
+                  <> "\npayment = "
+                  <> show tx
+                  <> "\nutxo = "
+                  <> show utxo
                   <> "\nconfirmed = "
                   <> show (fmap (first (mkVkAddress @Era testNetworkId . getVerificationKey)) $ confirmedUTxO $ offChainState $ hydraState st)
               )
@@ -465,7 +469,7 @@ partyKeys =
     cks <- nub <$> vectorOf len genSigningKey
     pure $ zip hks cks
 
-isOwned :: SigningKey PaymentKey -> (TxIn, TxOut ctx) -> Bool
+isOwned :: CardanoSigningKey -> (TxIn, TxOut ctx) -> Bool
 isOwned sk (_, TxOut (ShelleyAddressInEra (ShelleyAddress _ cre _)) _ _) =
   case fromShelleyPaymentCredential cre of
     (PaymentCredentialByKey ha) -> verificationKeyHash (getVerificationKey sk) == ha
