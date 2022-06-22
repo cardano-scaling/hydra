@@ -1,18 +1,20 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.ModelSpec where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude hiding (after)
 
 -- This is completely safe
 import Unsafe.Coerce (unsafeCoerce)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Crypto.DSIGN (SignKeyDSIGN (SignKeyEd25519DSIGN), VerKeyDSIGN (VerKeyEd25519DSIGN))
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
 import Data.Map ((!))
 import qualified Data.Map as Map
@@ -20,17 +22,24 @@ import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.ClientInput (ClientInput (..))
+import qualified Hydra.ClientInput as Input
+import Hydra.Crypto (SigningKey (HydraSigningKey), VerificationKey (HydraVerificationKey))
 import Hydra.Model (
+  Action (..),
   LocalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
+  Payment (..),
   WorldState (..),
+  genNewTx,
   unwrapAddress,
  )
+import qualified Hydra.Model as Model
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
+import qualified Hydra.ServerOutput as Output
 import qualified Hydra.ServerOutput as ServerOutput
-import Test.QuickCheck (Property, counterexample, property)
+import Test.QuickCheck (Property, counterexample, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DynFormula,
   after,
@@ -40,27 +49,86 @@ import Test.QuickCheck.DynamicLogic (
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
-import Test.QuickCheck.StateModel (Actions, runActions, pattern Actions)
+import Test.QuickCheck.StateModel (Actions, Step ((:=)), Var (Var), lookUpVar, perform, runActions, stateAfter, pattern Actions)
 import Test.Util (printTrace, traceInIOSim)
 import qualified Prelude
 
 spec :: Spec
-spec =
+spec = do
+  it "runs actions against actual nodes" $ do
+    let Actions act =
+          Actions
+            [ Var 1
+                := Seed
+                  { seedKeys =
+                      [ (HydraSigningKey (SignKeyEd25519DSIGN "00000000000000000000000000000000000000000000000000000000000000003b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29"), "0100000008030606080507030707000607020508050000020207070508040800")
+                      , (HydraSigningKey (SignKeyEd25519DSIGN "2e00000000000000000000000000000000000000000000000000000000000000264a0707979e0d6691f74b055429b5f318d39c2883bb509310b67424252e9ef2"), "0106010101070600040403010600080805020003040508030307080706060608")
+                      , (HydraSigningKey (SignKeyEd25519DSIGN "ed785af0fb0000000000000000000000000000000000000000000000000000001c02babf6d3d51b725db8b72043823d66634b39db74836b1494bdb647073d566"), "0000070304040705060101030802010105080806050605070104030603010503")
+                      ]
+                  }
+            , Var 2 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29")}, command = Init{contestationPeriod = -6.413670805613}}
+            , Var 3 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "264a0707979e0d6691f74b055429b5f318d39c2883bb509310b67424252e9ef2")}, command = Commit{Input.utxo = [("0106010101070600040403010600080805020003040508030307080706060608", valueFromList [(AdaAssetId, 18470954)])]}}
+            , Var 4 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "1c02babf6d3d51b725db8b72043823d66634b39db74836b1494bdb647073d566")}, command = Commit{Input.utxo = [("0000070304040705060101030802010105080806050605070104030603010503", valueFromList [(AdaAssetId, 19691416)])]}}
+            , Var 5 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29")}, command = Commit{Input.utxo = [("0100000008030606080507030707000607020508050000020207070508040800", valueFromList [(AdaAssetId, 7003529)])]}}
+            , Var 6
+                := Command
+                  { Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29")}
+                  , command =
+                      NewTx
+                        { Input.transaction =
+                            Payment
+                              { from = "0100000008030606080507030707000607020508050000020207070508040800"
+                              , to = "0106010101070600040403010600080805020003040508030307080706060608"
+                              , value = valueFromList [(AdaAssetId, 7003529)]
+                              }
+                        }
+                  }
+            ]
+        -- env and model state are unused in perform
+        env = []
+
+        dummyState :: WorldState (IOSim s)
+        dummyState = WorldState{hydraParties = mempty, hydraState = Start}
+
+        loop [] = pure ()
+        loop ((Var{} := a) : as) = do
+          void $ perform dummyState a (lookUpVar env)
+          loop as
+        tr =
+          runSimTrace $
+            evalStateT
+              (loop act)
+              (Nodes mempty traceInIOSim)
+        traceDump = printTrace (Proxy :: Proxy Tx) tr
+    print traceDump
+    True `shouldBe` True
+  prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
   prop "implementation respects model" prop_checkModel
+
+prop_generateTraces :: AnyActions -> Property
+prop_generateTraces (AnyActions actions) =
+  let st = stateAfter actions
+   in case actions of
+        Actions [] -> property True
+        Actions _ ->
+          hydraState st /= Start
+            & counterexample ("state: " <> show st)
 
 prop_checkModel :: AnyActions -> Property
 prop_checkModel (AnyActions actions) =
-  property $
-    runIOSimProp $
-      monadic' $ do
-        (WorldState{hydraParties, hydraState}, _symEnv) <- runActions actions
-        run $ lift waitUntilTheEndOfTime
-        let parties = Set.fromList $ deriveParty . fst <$> hydraParties
-        nodes <- run $ gets nodes
-        assert (parties == Map.keysSet nodes)
-        forM_ parties $ \p -> do
-          assertNodeSeesAndReportsAllExpectedCommits hydraState nodes p
-          assertOpenHeadWithAllExpectedCommits hydraState nodes p
+  within 1000000 $
+    property $
+      runIOSimProp $
+        monadic' $ do
+          (WorldState{hydraParties, hydraState}, _symEnv) <- runActions actions
+          run $ lift waitUntilTheEndOfTime
+          let parties = Set.fromList $ deriveParty . fst <$> hydraParties
+          nodes <- run $ gets nodes
+          assert (parties == Map.keysSet nodes)
+          forM_ parties $ \p -> do
+            assertNodeSeesAndReportsAllExpectedCommits hydraState nodes p
+            assertOpenHeadWithAllExpectedCommits hydraState nodes p
+
 -- | Conflict-Free Liveness (Head): A conflict-free execution satisfies the following condition:
 --
 -- For any transaction tx input via @(new, tx)@
@@ -92,7 +160,7 @@ assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
       let actualCommitted =
             Map.fromList
               [ (party, Map.elems (UTxO.toMap utxo))
-              | Committed{party, ServerOutput.utxo = utxo} <- outputs
+              | Committed{Output.party = party, ServerOutput.utxo = utxo} <- outputs
               ]
       monitor $
         counterexample $

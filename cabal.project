@@ -11,8 +11,13 @@ packages:
   plutus-cbor
   plutus-merkle-tree
   hydraw
+  quickcheck-dynamic
 
 tests: False
+package quickcheck-dynamic
+  tests: True
+  benchmarks: True
+
 package hydra-cluster
   tests: True
   benchmarks: True
@@ -192,12 +197,6 @@ source-repository-package
     prettyprinter-configurable
     stubs/plutus-ghc-stub
     word-array
-
-source-repository-package
-  type: git
-  location: https://github.com/abailly-iohk/quickcheck-dynamic
-  tag: a542f4df82e90d55154c189b54d33aee1d7de650
-  --sha256: 1cjnmrd3gahniidjf9vhbshaaj3llsmqvsvms1ccf1lcw6l96xwc
 
 source-repository-package
   type: git

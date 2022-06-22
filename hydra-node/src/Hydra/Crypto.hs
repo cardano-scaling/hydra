@@ -56,6 +56,10 @@ type SignAlg = Ed25519DSIGN
 newtype SigningKey = HydraSigningKey (SignKeyDSIGN SignAlg)
   deriving (Eq, Show)
 
+instance Ord SigningKey where
+  k `compare` k' =
+    serialiseSigningKeyToRawBytes k `compare` serialiseSigningKeyToRawBytes k'
+
 instance Arbitrary SigningKey where
   arbitrary = generateSigningKey <$> arbitrary
 

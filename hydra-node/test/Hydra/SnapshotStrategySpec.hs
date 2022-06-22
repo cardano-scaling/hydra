@@ -24,7 +24,7 @@ import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol)
 import Test.QuickCheck (Property, counterexample, forAll, label, (==>))
 import qualified Prelude
@@ -56,7 +56,7 @@ spec = do
                 }
         newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
 
-      prop "always ReqSn given head has 1 member and there's a seen tx" $ prop_singleMemberHeadAlwaysSnapshot
+      prop "always ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshot
 
       prop "there's always a leader for every snapsnot number" prop_thereIsAlwaysALeader
 

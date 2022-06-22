@@ -1,6 +1,11 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+
+{-# HLINT ignore "Use lambda-case" #-}
 
 -- | A /Model/ of the Hydra head Protocol
 --
@@ -15,8 +20,14 @@ import Hydra.Prelude hiding (Any, label)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
+import Cardano.Crypto.Hash (hash)
+import Cardano.Crypto.Hash.SHA256 (SHA256)
+import Cardano.Ledger.Keys (hashKey)
+import Control.Monad (liftM2)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
+import Control.Monad.Class.MonadTimer (timeout)
+import Data.List (nub)
 import qualified Data.List as List
 import Data.Map ((!))
 import qualified Data.Map as Map
@@ -45,7 +56,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
 import qualified Hydra.ServerOutput as Output
 import qualified Hydra.Snapshot as Snapshot
-import Test.QuickCheck (elements, frequency, listOf1, resize, suchThat, tabulate)
+import Test.QuickCheck (elements, frequency, listOf1, resize, sized, suchThat, tabulate, vector, vectorOf)
 import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
 import qualified Prelude
 
@@ -339,7 +350,7 @@ instance
         pure (party, testNode)
 
     modify $ \n -> n{nodes = Map.fromList nodes}
-  perform _ Command{party, command} _ = do
+  perform st Command{party, command} _ = do
     case command of
       Input.Commit{Input.utxo = utxo} -> do
         nodes <- gets nodes
@@ -370,13 +381,14 @@ instance
         waitForOpen
 
         party `performs` Input.GetUTxO
+
         let waitForUTxO = do
               lift (waitForNext (nodes ! party)) >>= \case
-                GetUTxOResponse u | u == mempty -> do
-                  party `performs` Input.GetUTxO
-                  waitForUTxO
-                GetUTxOResponse u -> do
-                  return u
+                GetUTxOResponse u
+                  | u == mempty -> do
+                    party `performs` Input.GetUTxO
+                    waitForUTxO
+                  | otherwise -> pure u
                 _ ->
                   waitForUTxO
         utxo <- waitForUTxO
@@ -385,7 +397,13 @@ instance
               isOwned (from tx) p && value tx == txOutValue txOut
 
         case find matchPayment (UTxO.pairs utxo) of
-          Nothing -> pure ()
+          Nothing ->
+            trace
+              ( "no payment matched, payment = " <> show tx <> "\nutxo = " <> show utxo
+                  <> "\nconfirmed = "
+                  <> show (fmap (first (mkVkAddress @Era testNetworkId . getVerificationKey)) $ confirmedUTxO $ offChainState $ hydraState st)
+              )
+              $ pure ()
           Just (i, o) -> do
             let realTx =
                   either
@@ -398,8 +416,8 @@ instance
               waitUntilMatch [nodes ! party] $ \case
                 SnapshotConfirmed{Output.snapshot = snapshot} ->
                   realTx `elem` Snapshot.confirmed snapshot
-                _ ->
-                  False
+                err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
+                _ -> False
       Input.Init{Input.contestationPeriod = p} -> do
         party `performs` Input.Init{Input.contestationPeriod = p}
       Input.Abort -> do
