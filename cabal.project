@@ -11,12 +11,8 @@ packages:
   plutus-cbor
   plutus-merkle-tree
   hydraw
-  quickcheck-dynamic
 
 tests: False
-package quickcheck-dynamic
-  tests: True
-  benchmarks: True
 
 package hydra-cluster
   tests: True
@@ -209,6 +205,12 @@ source-repository-package
   location: https://github.com/input-output-hk/flat
   tag: ee59880f47ab835dbd73bea0847dab7869fc20d8
   --sha256: 1lrzknw765pz2j97nvv9ip3l1mcpf2zr4n56hwlz0rk7wq7ls4cm
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/quickcheck-dynamic
+  tag: 6241984d1234c50ee48f3cd0d8a6d4abab7c922d
+  --sha256: 091rdwwkaqkscjkp7bzw94pfasr6ia46ljd7w057qp97kr827qm0
 
 -- Most constraints are from cardano-node + some from plutus-apps
 constraints:
