@@ -148,10 +148,10 @@ applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
   (to, value) : List.delete (from, value) utxo
 
-instance ToJSON (CardanoSigningKey) where
+instance ToJSON CardanoSigningKey where
   toJSON = error "don't use"
 
-instance FromJSON (CardanoSigningKey) where
+instance FromJSON CardanoSigningKey where
   parseJSON = error "don't use"
 
 instance Arbitrary Payment where
@@ -160,7 +160,7 @@ instance Arbitrary Payment where
 instance Arbitrary Value where
   arbitrary = genAdaValue
 
-instance Arbitrary (CardanoSigningKey) where
+instance Arbitrary CardanoSigningKey where
   arbitrary = snd <$> genKeyPair
 
 instance ToCBOR Payment where
