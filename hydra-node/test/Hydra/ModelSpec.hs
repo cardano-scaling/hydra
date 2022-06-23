@@ -92,6 +92,7 @@ import Test.QuickCheck.DynamicLogic (
   DynFormula,
   after,
   afterAny,
+  done,
   forAllQ,
   withGenQ,
  )
@@ -128,7 +129,7 @@ prop_checkModel (AnyActions actions) =
           assert (parties == Map.keysSet nodes)
           forM_ parties $ \p -> do
             assertNodeSeesAndReportsAllExpectedCommits hydraState nodes p
-            assertOpenHeadWithAllExpectedCommits hydraState nodes p
+            assertBalancesInOpenHeadAreConsistent hydraState nodes p
 
 -- | Conflict-Free Liveness (Head): A conflict-free execution satisfies the following condition:
 --
@@ -174,12 +175,12 @@ assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
     _ -> do
       pure ()
 
-assertOpenHeadWithAllExpectedCommits ::
+assertBalancesInOpenHeadAreConsistent ::
   LocalState ->
   Map Party (TestHydraNode Tx (IOSim s)) ->
   Party ->
   PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) ()
-assertOpenHeadWithAllExpectedCommits world nodes p = do
+assertBalancesInOpenHeadAreConsistent world nodes p = do
   let node = nodes ! p
   case world of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
