@@ -571,7 +571,7 @@ genByronCommit = do
 
 genBlockAt :: SlotNo -> [Tx] -> Gen Block
 genBlockAt sl txs = do
-  header <- adjustSlot <$> arbitrary
+  header <- adjustSlot <$> (error "missing Arbitrary Praos.Header instance") -- FIXME
   let body = toTxSeq $ StrictSeq.fromList (toLedgerTx <$> txs)
   pure $ BlockBabbage $ mkShelleyBlock $ Ledger.Block header body
  where
