@@ -75,27 +75,16 @@ import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Model (
-  Action (..),
   GlobalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
   WorldState (..),
-  genPayment,
  )
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
 import Test.QuickCheck (Property, counterexample, forAll, property, withMaxSuccess, within)
-import Test.QuickCheck.DynamicLogic (
-  DynFormula,
-  after,
-  afterAny,
-  done,
-  forAllQ,
-  forAllScripts,
-  withGenQ,
- )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
-import Test.QuickCheck.Monadic (PropertyM, assert, monadic, monadic', monitor, run)
+import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, runActions, stateAfter, pattern Actions)
 import Test.Util (printTrace, traceInIOSim)
 import qualified Prelude
@@ -104,8 +93,6 @@ spec :: Spec
 spec = do
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
   prop "implementation respects model" $ forAll arbitrary prop_checkModel
-  -- TODO: Implement this
-  prop "satisfies conflict-free liveness" $ property True
 
 prop_generateTraces :: AnyActions -> Property
 prop_generateTraces (AnyActions actions) =
@@ -130,36 +117,6 @@ prop_checkModel (AnyActions actions) =
           forM_ parties $ \p -> do
             assertNodeSeesAndReportsAllExpectedCommits hydraState nodes p
             assertBalancesInOpenHeadAreConsistent hydraState nodes p
-
-prop_conflictFreeLiveness :: Property
-prop_conflictFreeLiveness =
-  forAllScripts (conflictFreeLiveness :: DynFormula (WorldState (IOSim s))) $ \actions -> do
-    monadic runPropertyM $ do
-      (_state, _env) <- runActions actions
-      pure True
- where
-  runPropertyM :: StateT (Nodes m) m Property -> Property
-  runPropertyM = error "undefined"
-
--- | Conflict-Free Liveness (Head): A conflict-free execution satisfies the following condition:
---
--- If all parties remain uncorrupted, the adversary delivers all messages, and transactions
--- are not conflicting, then every transaction becomes confirmed at some point.
---
--- Formally, for any transaction tx input via @(new, tx)@ it holds that:
--- \[
--- \forall \mathtt{tx}, (\texttt{new}, \mathtth{tx)) \in \mathbb{inputs} \implies \mathttt{tx} \in \bigcap_{i \in [n]} \bar{C}_i.
--- \]
-conflictFreeLiveness :: DynFormula (WorldState m)
-conflictFreeLiveness =
-  afterAny
-    ( \st ->
-        forAllQ (withGenQ (genPayment st) (const [])) $ \(party, payment) ->
-          let newTx = Command{party, command = NewTx payment}
-           in after newTx txConfirmed
-    )
- where
-  txConfirmed = done
 
 assertNodeSeesAndReportsAllExpectedCommits ::
   GlobalState ->
