@@ -21,7 +21,8 @@ import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
+import Hydra.Ledger (hashUTxO)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
@@ -97,7 +98,7 @@ healthyContestUTxO =
 
 healthyContestUTxOHash :: BuiltinByteString
 healthyContestUTxOHash =
-  toBuiltin $ hashTxOuts $ toList healthyContestUTxO
+  toBuiltin $ hashUTxO healthyContestUTxO
 
 healthyClosedState :: Head.State
 healthyClosedState =
@@ -126,7 +127,7 @@ healthyClosedSnapshotNumber = 3
 
 healthyClosedUTxOHash :: BuiltinByteString
 healthyClosedUTxOHash =
-  toBuiltin $ hashTxOuts $ toList healthyClosedUTxO
+  toBuiltin $ hashUTxO healthyClosedUTxO
 
 healthyClosedUTxO :: UTxO
 healthyClosedUTxO =
