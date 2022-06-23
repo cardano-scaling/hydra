@@ -150,10 +150,7 @@ import Hydra.Ledger.Cardano (genKeyPair, genOutput, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (
-  fromData,
-  toData,
- )
+import Plutus.V2.Ledger.Api (fromData, toData)
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -441,7 +438,7 @@ instance Arbitrary Head.State where
 isHeadOutput :: TxOut CtxUTxO -> Bool
 isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
-  headAddress = mkScriptAddress @PlutusScriptV1 Fixture.testNetworkId headScript
+  headAddress = mkScriptAddress @PlutusScriptV2 Fixture.testNetworkId headScript
   headScript = fromPlutusScript Head.validatorScript
 
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.

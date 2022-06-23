@@ -44,7 +44,7 @@ import Hydra.Ledger.Cardano (
   renderTx,
  )
 import Hydra.Party (Party, partyToChain)
-import Plutus.V1.Ledger.Api (toData)
+import Plutus.V2.Ledger.Api (toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
@@ -231,7 +231,7 @@ generateCommitUTxOs parties = do
   mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
-          (mkScriptAddress @PlutusScriptV1 testNetworkId commitScript)
+          (mkScriptAddress @PlutusScriptV2 testNetworkId commitScript)
           commitValue
           (mkTxOutDatum commitDatum)
     , fromPlutusData (toData commitDatum)
@@ -338,7 +338,7 @@ genAbortableOutputs parties =
   initialTxOut vk =
     toUTxOContext $
       TxOut
-        (mkScriptAddress @PlutusScriptV1 testNetworkId initialScript)
+        (mkScriptAddress @PlutusScriptV2 testNetworkId initialScript)
         ( headValue
             <> valueFromList
               [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)

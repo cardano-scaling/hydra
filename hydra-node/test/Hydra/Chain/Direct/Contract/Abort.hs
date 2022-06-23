@@ -106,7 +106,7 @@ propHasInitial (_, utxo) =
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Initial Script: " <> show addr)
  where
-  addr = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Initial.validatorScript)
+  addr = mkScriptAddress @PlutusScriptV2 testNetworkId (fromPlutusScript Initial.validatorScript)
   paysToInitialScript txOut =
     txOutAddress txOut == addr
 
@@ -116,7 +116,7 @@ propHasCommit (_, utxo) =
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Commit Script: " <> show addr)
  where
-  addr = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Commit.validatorScript)
+  addr = mkScriptAddress @PlutusScriptV2 testNetworkId (fromPlutusScript Commit.validatorScript)
   paysToCommitScript txOut =
     txOutAddress txOut == addr
 

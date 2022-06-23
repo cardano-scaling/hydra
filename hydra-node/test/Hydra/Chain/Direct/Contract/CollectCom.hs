@@ -141,7 +141,7 @@ healthyCommitOutput party committed =
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitAddress =
-    mkScriptAddress @PlutusScriptV1 testNetworkId commitScript
+    mkScriptAddress @PlutusScriptV2 testNetworkId commitScript
   commitValue =
     headValue
       <> (txOutValue . snd) committed
