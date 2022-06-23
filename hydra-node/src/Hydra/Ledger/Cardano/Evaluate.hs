@@ -12,35 +12,43 @@ module Hydra.Ledger.Cardano.Evaluate where
 
 import Hydra.Prelude hiding (label)
 
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
-import Cardano.Ledger.Alonzo.Scripts (CostModel, CostModels (CostModels), ExUnits (..), Prices (..))
-import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure (MissingScript), evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.TxInfo (TranslationError, slotToPOSIXTime)
+import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (..), Prices (..))
+import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure (MissingScript))
+import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
-import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
+import Cardano.Ledger.Babbage.PParams (PParams' (..))
 import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize), SlotNo (SlotNo))
 import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength (getSlotLength), SystemStart (SystemStart), mkSlotLength, toRelativeTime)
-import Data.Array (Array, array)
 import Data.Bits (shift)
 import Data.Default (def)
-import Data.Fixed (E2, Fixed)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
+  CardanoMode,
+  ConsensusMode (CardanoMode),
+  Era,
+  EraHistory (EraHistory),
+  EraInMode (BabbageEraInCardanoMode),
   ExecutionUnits (..),
-  LedgerEra,
+  IsShelleyBasedEra (shelleyBasedEra),
+  ProtocolParameters (protocolParamMaxTxExUnits, protocolParamMaxTxSize),
+  ScriptExecutionError,
+  ScriptWitnessIndex,
   StandardCrypto,
+  TransactionValidityError,
   Tx,
   UTxO,
-  fromLedgerExUnits,
-  toLedgerExUnits,
-  toLedgerTx,
-  toLedgerUTxO,
+  evaluateTransactionExecutionUnits,
+  fromLedgerPParams,
+  getTxBody,
  )
+import Ouroboros.Consensus.HardFork.History (mkInterpreter, neverForksSummary)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import Test.QuickCheck (choose)
@@ -59,74 +67,85 @@ renderTransactionScriptFailure = \case
   MissingScript missingRdmrPtr _ -> "Missing script of redeemer pointer " <> show missingRdmrPtr
   f -> show f
 
+-- | Thin wrapper around 'evaluateTransactionExecutionUnits', which uses
+-- fixtures for system start, era history and protocol parameters. See
+-- 'pparams'.
 evaluateTx ::
   Tx ->
   UTxO ->
-  Either (TranslationError StandardCrypto) RedeemerReport
-evaluateTx = evaluateTx' (fromLedgerExUnits $ _maxTxExUnits pparams)
+  Either
+    TransactionValidityError
+    (Map ScriptWitnessIndex (Either ScriptExecutionError ExecutionUnits))
+evaluateTx = evaluateTx' maxTxExecutionUnits
 
+-- | Thin wrapper around 'evaluateTransactionExecutionUnits', which uses
+-- fixtures for system start, era history, protocol parameters, but allows to
+-- configure max 'ExecutionUnits'. See 'pparams'.
 evaluateTx' ::
   -- | Max tx execution units.
   ExecutionUnits ->
   Tx ->
   UTxO ->
-  Either (TranslationError StandardCrypto) RedeemerReport
-evaluateTx' maxTxExUnits tx utxo =
+  Either
+    TransactionValidityError
+    (Map ScriptWitnessIndex (Either ScriptExecutionError ExecutionUnits))
+evaluateTx' maxUnits tx utxo =
   evaluateTransactionExecutionUnits
-    pparams{_maxTxExUnits = toLedgerExUnits maxTxExUnits}
-    (toLedgerTx tx)
-    (toLedgerUTxO utxo)
-    epochInfo
+    BabbageEraInCardanoMode
     systemStart
-    costModels
+    eraHistory
+    pparams'
+    (UTxO.toApi utxo)
+    txBody
+ where
+  txBody = getTxBody tx
 
--- | Cost models used in 'evaluateTx'.
-costModels :: Array Language CostModel
-costModels =
-  array
-    (PlutusV1, PlutusV2)
-    [ (PlutusV1, testingCostModelV1)
-    , (PlutusV2, testingCostModelV2)
-    ]
+  pparams' = pparams{protocolParamMaxTxExUnits = Just maxUnits}
+
+-- * Fixtures
 
 -- | Current mainchain cost parameters.
-pparams :: PParams LedgerEra
+pparams :: ProtocolParameters
 pparams =
-  def
-    { _costmdls =
-        CostModels $
-          Map.fromList
-            [ (PlutusV1, testingCostModelV1)
-            , (PlutusV2, testingCostModelV2)
-            ]
-    , _maxValSize = 1000000000
-    , _maxTxExUnits = ExUnits 14_000_000 10_000_000_000
-    , _maxBlockExUnits = ExUnits 56_000_000 40_000_000_000
-    , _protocolVersion = ProtVer 7 0
-    , _maxTxSize = 1 `shift` 14 -- 16kB
-    , _prices =
-        Prices
-          { prMem = fromJust $ boundRational $ 721 % 10000000
-          , prSteps = fromJust $ boundRational $ 577 % 10000
-          }
-    }
+  fromLedgerPParams (shelleyBasedEra @Era) $
+    def
+      { _costmdls =
+          CostModels $
+            Map.fromList
+              [ (PlutusV1, testingCostModelV1)
+              , (PlutusV2, testingCostModelV2)
+              ]
+      , _maxValSize = 1000000000
+      , _maxTxExUnits = ExUnits 14_000_000 10_000_000_000
+      , _maxBlockExUnits = ExUnits 56_000_000 40_000_000_000
+      , _protocolVersion = ProtVer 7 0
+      , _maxTxSize = 1 `shift` 14 -- 16kB
+      , _prices =
+          Prices
+            { prMem = fromJust $ boundRational $ 721 % 10000000
+            , prSteps = fromJust $ boundRational $ 577 % 10000
+            }
+      }
 
 -- | Max transaction size of the current 'pparams'.
 maxTxSize :: Natural
-maxTxSize = _maxTxSize pparams
+maxTxSize = protocolParamMaxTxSize pparams
 
 -- | Max transaction execution unit budget of the current 'params'.
 maxTxExecutionUnits :: ExecutionUnits
 maxTxExecutionUnits =
-  ExecutionUnits
-    { executionMemory = truncate maxMem
-    , executionSteps = truncate maxCpu
-    }
+  fromJust $ protocolParamMaxTxExUnits pparams
 
 -- | Max memory and cpu units of the current 'pparams'.
-maxMem, maxCpu :: Fixed E2
-ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
-  _maxTxExUnits pparams
+maxMem, maxCpu :: Natural
+maxCpu = executionSteps maxTxExecutionUnits
+maxMem = executionMemory maxTxExecutionUnits
+
+eraHistory :: EraHistory CardanoMode
+eraHistory =
+  EraHistory CardanoMode (mkInterpreter summary)
+ where
+  summary = neverForksSummary (EpochSize 100) (mkSlotLength 1)
 
 epochInfo :: Monad m => EpochInfo m
 epochInfo = fixedEpochInfo (EpochSize 100) slotLength
