@@ -24,7 +24,6 @@ import Hydra.Chain.Direct.Fixture (
   costModels,
   epochInfo,
   genForParty,
-  maxTxExecutionUnits,
   pparams,
   systemStart,
   testNetworkId,
@@ -43,6 +42,7 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
   renderTx,
  )
+import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Party (Party, partyToChain)
 import Plutus.V2.Ledger.Api (toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()

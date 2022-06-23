@@ -57,7 +57,6 @@ import Hydra.Chain.Direct.Context (
   unsafeCommit,
   unsafeObserveTx,
  )
-import Hydra.Chain.Direct.Fixture (maxTxExecutionUnits, maxTxSize)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   RecordedAt (..),
