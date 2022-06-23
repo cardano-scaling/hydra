@@ -76,12 +76,11 @@ import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Model (
   Action (..),
-  LocalState (..),
+  GlobalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
   WorldState (..),
   genPayment,
-  unwrapAddress,
  )
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
@@ -163,7 +162,7 @@ conflictFreeLiveness =
   txConfirmed = done
 
 assertNodeSeesAndReportsAllExpectedCommits ::
-  LocalState ->
+  GlobalState ->
   Map Party (TestHydraNode Tx (IOSim s)) ->
   Party ->
   PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) ()
@@ -192,7 +191,7 @@ assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
       pure ()
 
 assertBalancesInOpenHeadAreConsistent ::
-  LocalState ->
+  GlobalState ->
   Map Party (TestHydraNode Tx (IOSim s)) ->
   Party ->
   PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) ()
@@ -275,3 +274,8 @@ instance Arbitrary AnyActions where
   shrink (AnyActions actions) = case actions of
     Actions [] -> []
     acts -> [AnyActions (unsafeCoerce act) | act <- shrink acts]
+
+unwrapAddress :: AddressInEra -> Text
+unwrapAddress = \case
+  ShelleyAddressInEra addr -> serialiseToBech32 addr
+  ByronAddressInEra{} -> error "Byron."
