@@ -534,15 +534,18 @@ components:
     CommandFailed:
       title: CommandFailed
       description: |
-        Emitted by the server when a well-formed client input was not processable. For example, if trying to close a non opened head or, when trying to commit after having already comitted.
+        Emitted by the server when a well-formed client input was not processable. For example, if trying to close a non opened head or, when trying to commit after having already committed.
       payload:
         type: object
         required:
         - tag
+        - clientInput
         properties:
           tag:
             type: string
             enum: ["CommandFailed"]
+          clientInput:
+            $ref: "#/components/schemas/ClientInput"
 
   ########
   #

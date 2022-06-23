@@ -60,7 +60,7 @@ instance IsTx tx => Arbitrary (ServerOutput tx) where
     ReadyToFanout -> []
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u
     HeadIsAborted u -> HeadIsAborted <$> shrink u
-    CommandFailed _ -> []
+    CommandFailed i -> CommandFailed <$> shrink i
     TxSeen tx -> TxSeen <$> shrink tx
     TxValid tx -> TxValid <$> shrink tx
     TxInvalid u tx err -> TxInvalid <$> shrink u <*> shrink tx <*> shrink err
