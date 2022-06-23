@@ -57,6 +57,7 @@ import Hydra.ServerOutput (ServerOutput (GetUTxOResponse, ReadyToCommit, Snapsho
 import qualified Hydra.ServerOutput as Output
 import qualified Hydra.Snapshot as Snapshot
 import Test.QuickCheck (elements, frequency, listOf1, resize, sized, suchThat, tabulate, vector, vectorOf)
+import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
 import qualified Prelude
 
@@ -176,6 +177,17 @@ instance IsTx Payment where
   txId = error "undefined"
   balance = foldMap snd
   hashUTxO = encodeUtf8 . show @Text
+
+instance
+  ( MonadSTM m
+  , MonadDelay m
+  , MonadAsync m
+  , MonadCatch m
+  , MonadTime m
+  , MonadTimer m
+  , MonadFork m
+  ) =>
+  DynLogicModel (WorldState m)
 
 instance
   ( MonadSTM m

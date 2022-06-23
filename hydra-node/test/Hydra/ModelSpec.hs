@@ -91,10 +91,11 @@ import Test.QuickCheck.DynamicLogic (
   afterAny,
   done,
   forAllQ,
+  forAllScripts,
   withGenQ,
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
-import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
+import Test.QuickCheck.Monadic (PropertyM, assert, monadic, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, runActions, stateAfter, pattern Actions)
 import Test.Util (printTrace, traceInIOSim)
 import qualified Prelude
@@ -103,6 +104,7 @@ spec :: Spec
 spec = do
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
   prop "implementation respects model" prop_checkModel
+  prop "satisfies conflict-free liveness" prop_conflictFreeLiveness
 
 prop_generateTraces :: AnyActions -> Property
 prop_generateTraces (AnyActions actions) =
@@ -127,6 +129,16 @@ prop_checkModel (AnyActions actions) =
           forM_ parties $ \p -> do
             assertNodeSeesAndReportsAllExpectedCommits hydraState nodes p
             assertBalancesInOpenHeadAreConsistent hydraState nodes p
+
+prop_conflictFreeLiveness :: Property
+prop_conflictFreeLiveness =
+  forAllScripts (conflictFreeLiveness :: DynFormula (WorldState Identity)) $ \actions -> do
+    monadic runPropertyM $ do
+      (_state, _env) <- runActions actions
+      pure True
+ where
+  runPropertyM :: StateT (Nodes m) m Property -> Property
+  runPropertyM = undefined
 
 -- | Conflict-Free Liveness (Head): A conflict-free execution satisfies the following condition:
 --
