@@ -133,18 +133,22 @@ prop_checkModel (AnyActions actions) =
 
 -- | Conflict-Free Liveness (Head): A conflict-free execution satisfies the following condition:
 --
--- For any transaction tx input via @(new, tx)@
+-- If all parties remain uncorrupted, the adversary delivers all messages, and transactions
+-- are not conflicting, then every transaction becomes confirmed at some point.
+--
+-- Formally, for any transaction tx input via @(new, tx)@ it holds that:
 -- \[
--- \mathttt{tx} \in \bigcap_{i \in [n]} \bar{C}_i
+-- \forall \mathtt{tx}, (\texttt{new}, \mathtth{tx)) \in \mathbb{inputs} \implies \mathttt{tx} \in \bigcap_{i \in [n]} \bar{C}_i.
 -- \]
--- eventually holds.
 conflictFreeLiveness :: Typeable m => DynFormula (WorldState m)
 conflictFreeLiveness =
   afterAny
     ( \st ->
         forAllQ (withGenQ (genNewTx st) (const [])) $ \newTx ->
-          after newTx (error "undefined")
+          after newTx txConfirmed
     )
+ where
+  txConfirmed = done
 
 assertNodeSeesAndReportsAllExpectedCommits ::
   LocalState ->
