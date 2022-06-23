@@ -115,7 +115,7 @@ evaluateScriptExecutionUnits ::
   a ->
   Either Text ExUnits
 evaluateScriptExecutionUnits validator redeemer =
-  case runIdentity (evaluateTransactionExecutionUnits pparams tx utxo epoch start costModels) of
+  case evaluateTransactionExecutionUnits pparams tx utxo epoch start costModels of
     Right (toList -> [units]) ->
       first (("unexpected script failure: " <>) . show) units
     Right{} ->

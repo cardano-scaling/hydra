@@ -14,8 +14,8 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
 import Cardano.Ledger.Alonzo.Scripts (CostModel, CostModels (CostModels), ExUnits (..), Prices (..))
-import Cardano.Ledger.Alonzo.Tools (BasicFailure, ScriptFailure, evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
+import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
+import Cardano.Ledger.Alonzo.TxInfo (TranslationError, slotToPOSIXTime)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
 import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
@@ -47,12 +47,12 @@ import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCost
 import Test.QuickCheck (choose)
 
 type RedeemerReport =
-  (Map RdmrPtr (Either (ScriptFailure StandardCrypto) ExUnits))
+  (Map RdmrPtr (Either (TransactionScriptFailure StandardCrypto) ExUnits))
 
 evaluateTx ::
   Tx ->
   UTxO ->
-  Either (BasicFailure StandardCrypto) RedeemerReport
+  Either (TranslationError StandardCrypto) RedeemerReport
 evaluateTx = evaluateTx' (fromLedgerExUnits $ _maxTxExUnits pparams)
 
 evaluateTx' ::
@@ -60,16 +60,15 @@ evaluateTx' ::
   ExecutionUnits ->
   Tx ->
   UTxO ->
-  Either (BasicFailure StandardCrypto) RedeemerReport
+  Either (TranslationError StandardCrypto) RedeemerReport
 evaluateTx' maxTxExUnits tx utxo =
-  runIdentity $
-    evaluateTransactionExecutionUnits
-      pparams{_maxTxExUnits = toLedgerExUnits maxTxExUnits}
-      (toLedgerTx tx)
-      (toLedgerUTxO utxo)
-      epochInfo
-      systemStart
-      costModels
+  evaluateTransactionExecutionUnits
+    pparams{_maxTxExUnits = toLedgerExUnits maxTxExUnits}
+    (toLedgerTx tx)
+    (toLedgerUTxO utxo)
+    epochInfo
+    systemStart
+    costModels
 
 -- | Cost models used in 'evaluateTx'.
 costModels :: Array Language CostModel
@@ -131,7 +130,8 @@ systemStart = SystemStart $ posixSecondsToUTCTime 0
 genPointInTime :: Gen (SlotNo, Plutus.POSIXTime)
 genPointInTime = do
   slot <- SlotNo <$> arbitrary
-  pure (slot, slotNoToPOSIXTime slot)
+  time <- either error pure $ slotNoToPOSIXTime slot
+  pure (slot, time)
 
 genPointInTimeBefore :: Plutus.POSIXTime -> Gen (SlotNo, Plutus.POSIXTime)
 genPointInTimeBefore deadline = do
@@ -162,8 +162,8 @@ slotNoFromPOSIXTime posixTime =
 -- | Using hard-coded epochInfo and systemStart, do not use in production!
 slotNoToPOSIXTime :: SlotNo -> Plutus.POSIXTime
 slotNoToPOSIXTime =
-  runIdentity
-    . slotToPOSIXTime
+  either (error . toString) pure $
+    slotToPOSIXTime
       pparams
       epochInfo
       systemStart
