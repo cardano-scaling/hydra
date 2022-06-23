@@ -134,8 +134,8 @@ import Hydra.Cardano.Api
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.List as List
@@ -449,7 +449,7 @@ addDatum datum scriptData =
   case datum of
     TxOutDatumNone -> error "unexpected datum none"
     TxOutDatumHash _ha -> error "hash only, expected full datum"
-    TxOutDatumInline sd -> error "not useful for inline datums"
+    TxOutDatumInline _sd -> error "not useful for inline datums"
     TxOutDatumInTx sd ->
       case scriptData of
         TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"

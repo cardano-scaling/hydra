@@ -32,7 +32,6 @@ import Hydra.Chain.Direct.Tx (headPolicyId)
 import Hydra.Crypto (hashVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (pparams)
 import Hydra.Party (Party (..))
-import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck.Instances ()
 
@@ -62,9 +61,6 @@ testPolicyId = headPolicyId testSeedInput
 
 testSeedInput :: TxIn
 testSeedInput = generateWith arbitrary 42
-
-instance Arbitrary PubKeyHash where
-  arbitrary = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)
 
 -- REVIEW(SN): taken from 'testGlobals'
 epochInfo :: Monad m => EpochInfo m
