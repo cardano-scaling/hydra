@@ -382,46 +382,49 @@ instance
 
         party `performs` Input.GetUTxO
 
-        let waitForUTxO = do
-              lift (waitForNext (nodes ! party)) >>= \case
-                GetUTxOResponse u
-                  | u == mempty -> do
-                    party `performs` Input.GetUTxO
-                    waitForUTxO
-                  | otherwise -> pure u
-                _ ->
-                  waitForUTxO
-        utxo <- waitForUTxO
-
         let matchPayment p@(_, txOut) =
               isOwned (from tx) p && value tx == txOutValue txOut
 
-        case find matchPayment (UTxO.pairs utxo) of
-          Nothing ->
-            trace
-              ( "no payment matched, party = " <> show party
-                  <> "\npayment = "
-                  <> show tx
-                  <> "\nutxo = "
-                  <> show utxo
-                  <> "\nconfirmed = "
-                  <> show (fmap (first (mkVkAddress @Era testNetworkId . getVerificationKey)) $ confirmedUTxO $ offChainState $ hydraState st)
-              )
-              $ pure ()
-          Just (i, o) -> do
-            let realTx =
-                  either
-                    (error . show)
-                    id
-                    (mkSimpleTx (i, o) (recipient, value tx) (from tx))
+            waitForUTxO utxo = \case
+              0 ->
+                lift $
+                  throwIO $
+                    Prelude.userError
+                      ( "no utxo matched,\npayment = " <> show tx
+                          <> "\nutxo =  "
+                          <> show utxo
+                          <> "\nconfirmed = "
+                          <> show (fmap (first (mkVkAddress @Era testNetworkId . getVerificationKey)) $ confirmedUTxO $ offChainState $ hydraState st)
+                      )
+              n ->
+                lift (threadDelay 1 >> waitForNext (nodes ! party)) >>= \case
+                  GetUTxOResponse u
+                    | u == mempty -> do
+                      party `performs` Input.GetUTxO
+                      waitForUTxO u (n -1)
+                    | otherwise -> case find matchPayment (UTxO.pairs u) of
+                      Nothing -> do
+                        party `performs` Input.GetUTxO
+                        waitForUTxO u (n -1)
+                      Just p -> pure p
+                  _ ->
+                    waitForUTxO utxo (n -1)
 
-            party `performs` Input.NewTx realTx
-            lift $
-              waitUntilMatch [nodes ! party] $ \case
-                SnapshotConfirmed{Output.snapshot = snapshot} ->
-                  realTx `elem` Snapshot.confirmed snapshot
-                err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
-                _ -> False
+        (i, o) <- waitForUTxO mempty (5000 :: Int)
+
+        let realTx =
+              either
+                (error . show)
+                id
+                (mkSimpleTx (i, o) (recipient, value tx) (from tx))
+
+        party `performs` Input.NewTx realTx
+        lift $
+          waitUntilMatch [nodes ! party] $ \case
+            SnapshotConfirmed{Output.snapshot = snapshot} ->
+              realTx `elem` Snapshot.confirmed snapshot
+            err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
+            _ -> False
       Input.Init{Input.contestationPeriod = p} -> do
         party `performs` Input.Init{Input.contestationPeriod = p}
       Input.Abort -> do
