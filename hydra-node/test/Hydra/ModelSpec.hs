@@ -75,6 +75,7 @@ import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Model (
+  Action (..),
   LocalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
@@ -132,7 +133,7 @@ prop_checkModel (AnyActions actions) =
 
 prop_conflictFreeLiveness :: Property
 prop_conflictFreeLiveness =
-  forAllScripts (conflictFreeLiveness :: DynFormula (WorldState Identity)) $ \actions -> do
+  forAllScripts (conflictFreeLiveness :: DynFormula (WorldState (IOSim s))) $ \actions -> do
     monadic runPropertyM $ do
       (_state, _env) <- runActions actions
       pure True
