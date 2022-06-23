@@ -44,7 +44,7 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.ClientInput (ClientInput)
+import Hydra.ClientInput (ClientInput (NewTx))
 import qualified Hydra.ClientInput as Input
 import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (Committed, PendingCommits)
@@ -223,7 +223,7 @@ instance
           ]
       Open{} ->
         frequency
-          [ (10, Some <$> genNewTx st)
+          [ (10, genPayment st >>= \(party, payment) -> pure $ Some $ Command{party, command = NewTx payment})
           ]
       _ -> genSeed
    where
@@ -442,16 +442,16 @@ instance
     case (hydraState s, hydraState s') of
       (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
 
-genNewTx :: WorldState m -> Gen (Action (WorldState m) ())
-genNewTx WorldState{hydraParties, hydraState} =
+genPayment :: WorldState m -> Gen (Party, Payment)
+genPayment WorldState{hydraParties, hydraState} =
   case hydraState of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
       (from, value) <-
         elements confirmedUTxO `suchThat` (not . null . valueToList . snd)
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
       (_, to) <- elements hydraParties `suchThat` ((/= from) . snd)
-      pure $ Command{party, command = Input.NewTx{Input.transaction = Payment{from, to, value}}}
-    _ -> error $ "genNewTx impossible in state: " <> show hydraState
+      pure (party, Payment{from, to, value})
+    _ -> error $ "genPayment impossible in state: " <> show hydraState
 
 unsafeConstructorName :: (Show a) => a -> String
 unsafeConstructorName = Prelude.head . Prelude.words . show

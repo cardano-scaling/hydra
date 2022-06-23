@@ -1,8 +1,7 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -80,13 +79,11 @@ import Hydra.Model (
   Nodes (Nodes, nodes),
   OffChainState (..),
   WorldState (..),
-  genNewTx,
+  genPayment,
   unwrapAddress,
  )
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
-import qualified Hydra.ServerOutput as Output
-import qualified Hydra.ServerOutput as ServerOutput
 import Test.QuickCheck (Property, counterexample, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DynFormula,
@@ -140,12 +137,13 @@ prop_checkModel (AnyActions actions) =
 -- \[
 -- \forall \mathtt{tx}, (\texttt{new}, \mathtth{tx)) \in \mathbb{inputs} \implies \mathttt{tx} \in \bigcap_{i \in [n]} \bar{C}_i.
 -- \]
-conflictFreeLiveness :: Typeable m => DynFormula (WorldState m)
+conflictFreeLiveness :: DynFormula (WorldState m)
 conflictFreeLiveness =
   afterAny
     ( \st ->
-        forAllQ (withGenQ (genNewTx st) (const [])) $ \newTx ->
-          after newTx txConfirmed
+        forAllQ (withGenQ (genPayment st) (const [])) $ \(party, payment) ->
+          let newTx = Command{party, command = NewTx payment}
+           in after newTx txConfirmed
     )
  where
   txConfirmed = done
@@ -166,7 +164,7 @@ assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
       let actualCommitted =
             Map.fromList
               [ (party, Map.elems (UTxO.toMap utxo))
-              | Committed{Output.party = party, ServerOutput.utxo = utxo} <- outputs
+              | Committed{party = party, utxo = utxo} <- outputs
               ]
       monitor $
         counterexample $
