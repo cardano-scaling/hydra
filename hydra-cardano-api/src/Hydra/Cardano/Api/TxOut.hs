@@ -9,8 +9,9 @@ import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Ledger.Babbage.TxInfo (OutputSource (OutputFromOutput))
+import Cardano.Ledger.Alonzo.TxInfo (TxOutSource (TxOutFromOutput))
 import qualified Cardano.Ledger.Babbage.TxInfo as Ledger
+import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
@@ -124,4 +125,8 @@ fromPlutusTxOut network out =
 -- if a byron address is used in the given 'TxOut'.
 toPlutusTxOut :: TxOut CtxUTxO Era -> Maybe Plutus.TxOut
 toPlutusTxOut =
-  eitherToMaybe . Ledger.txInfoOutV2 OutputFromOutput . toLedgerTxOut
+  -- NOTE: Since recently, the txInfoOutV2 conversion does take this
+  -- 'TxOutSource' to report corresponding 'TranslationError'. However, this
+  -- value is NOT used for constructing the Plutus.TxOut and hence we hard-code
+  -- it to 0 to not need to bookkeep it and we throw away errors anyway.
+  eitherToMaybe . Ledger.txInfoOutV2 (TxOutFromOutput $ Ledger.TxIx 0) . toLedgerTxOut

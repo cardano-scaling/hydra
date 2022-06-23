@@ -70,6 +70,7 @@ import Cardano.Api.Byron as X (
  )
 import Cardano.Api.Shelley as X (
   Address (..),
+  PlutusScriptOrReferenceInput (PScript),
   PoolId,
   ProtocolParameters (..),
   ShelleyGenesis (..),
@@ -261,7 +262,7 @@ pattern PlutusScriptWitness
   Cardano.Api.PlutusScriptWitness
     PlutusScriptV2InBabbage
     PlutusScriptV2
-    plutusScriptWitnessScript
+    (PScript plutusScriptWitnessScript)
     plutusScriptWitnessDatum
     plutusScriptWitnessRedeemer
     plutusScriptWitnessExecutionUnits
@@ -270,6 +271,7 @@ pattern PlutusScriptWitness
       Cardano.Api.PlutusScriptWitness
         PlutusScriptV2InBabbage
         PlutusScriptV2
+        . PScript
 
 -- ** Tx
 
@@ -346,7 +348,7 @@ type TxBodyContent build = Cardano.Api.TxBodyContent build Era
 pattern TxBodyContent ::
   TxIns build ->
   TxInsCollateral ->
-  TxInsReference Era ->
+  TxInsReference build Era ->
   [TxOut CtxTx] ->
   TxTotalCollateral Era ->
   TxReturnCollateral CtxTx Era ->
