@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Companion tiny-wallet for the direct chain component. This module provide
@@ -12,7 +11,7 @@ import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.Data (Data (Data))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
-import Cardano.Ledger.Alonzo.Tools (BasicFailure (BadTranslation, UnknownTxIns), ScriptFailure, evaluateTransactionExecutionUnits)
+import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
 import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
@@ -197,7 +196,7 @@ data ErrCoverFee
   | ErrNotEnoughFunds ChangeError
   | ErrUnknownInput {input :: TxIn}
   | ErrNoPaymentUTxOFound
-  | ErrScriptExecutionFailed (RdmrPtr, ScriptFailure StandardCrypto)
+  | ErrScriptExecutionFailed (RdmrPtr, TransactionScriptFailure StandardCrypto)
   deriving (Show)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
@@ -358,48 +357,37 @@ estimateScriptsCost ::
   -- | Start of the blockchain, for converting slots to UTC times
   SystemStart ->
   -- | Information about epoch sizes, for converting slots to UTC times
-  EpochInfo (Except PastHorizonException) ->
+  EpochInfo (Either Text) ->
   -- | A UTXO needed to resolve inputs
   Map TxIn TxOut ->
   -- | The pre-constructed transaction
   ValidatedTx LedgerEra ->
-  Either (RdmrPtr, ScriptFailure StandardCrypto) (Map RdmrPtr ExUnits)
+  Either (RdmrPtr, TransactionScriptFailure StandardCrypto) (Map RdmrPtr ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   -- FIXME: throwing exceptions in pure code is discouraged! Convert them to
   -- throwM or throwIO or represent thes situations in the return type!
   case result of
-    Left pastHorizonException ->
-      throw pastHorizonException
-    Right (Left (UnknownTxIns ins)) ->
-      throw (UnknownTxInsException ins)
-    Right (Left (BadTranslation translationError)) ->
-      throw (BadTranslationException translationError)
-    Right (Right units) ->
+    Left translationError ->
+      throw $ BadTranslationException translationError
+    Right units ->
       Map.traverseWithKey (\ptr -> left (ptr,)) units
  where
   result =
-    runIdentity $
-      runExceptT $
-        evaluateTransactionExecutionUnits
-          pparams
-          tx
-          (Ledger.UTxO utxo)
-          epochInfo
-          systemStart
-          (costModelsToArray (_costmdls pparams))
+    evaluateTransactionExecutionUnits
+      pparams
+      tx
+      (Ledger.UTxO utxo)
+      epochInfo
+      systemStart
+      (costModelsToArray (_costmdls pparams))
 
   costModelsToArray (CostModels m) =
     array
       (fst (Map.findMin m), fst (Map.findMax m))
       (Map.toList m)
 
-newtype UnknownTxInsException = UnknownTxInsException (Set TxIn)
-  deriving (Show)
-
-instance Exception UnknownTxInsException
-
 newtype BadTranslationException
-  = BadTranslationException TranslationError
+  = BadTranslationException (TranslationError StandardCrypto)
   deriving (Show)
 
 instance Exception BadTranslationException
