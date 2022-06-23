@@ -21,9 +21,7 @@ import Cardano.Ledger.Alonzo.TxInfo (PlutusDebugInfo (..), debugPlutus, slotToPO
 import Cardano.Ledger.Babbage.PParams (PParams' (..))
 import Cardano.Ledger.Babbage.Rules.Utxo (BabbageUtxoPred (FromAlonzoUtxoFail, FromAlonzoUtxowFail))
 import Cardano.Ledger.Babbage.Tx (ValidatedTx)
-import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
-import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId)
+import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError))
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
@@ -89,7 +87,6 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.Util (
   Block,
-  SomePoint (..),
   defaultCodecs,
   nullConnectTracers,
   versions,
@@ -104,7 +101,6 @@ import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (
   GenTx (..),
   HardForkApplyTxErr (ApplyTxErrBabbage),
-  HardForkBlock (BlockBabbage),
  )
 import Ouroboros.Consensus.HardFork.Combinator (PastHorizonException)
 import qualified Ouroboros.Consensus.HardFork.History as Consensus

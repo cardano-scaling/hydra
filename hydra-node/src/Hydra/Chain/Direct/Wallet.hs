@@ -16,11 +16,9 @@ import Cardano.Ledger.Alonzo.Tools (BasicFailure (BadTranslation, UnknownTxIns),
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
 import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
-import qualified Cardano.Ledger.Babbage.Translation as Translation
 import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), hashData, hashScriptIntegrity)
 import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, scriptIntegrityHash, txfee)
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger.Babbage
-import Cardano.Ledger.BaseTypes (StrictMaybe (SJust))
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
@@ -50,8 +48,6 @@ import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
-  AddressInEra,
-  AddressTypeInEra,
   LedgerEra,
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
@@ -67,18 +63,13 @@ import Hydra.Cardano.Api (
  )
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain.CardanoClient (QueryPoint (QueryTip))
-import Hydra.Chain.Direct.Util (
-  Block,
-  SomePoint (..),
-  defaultCodecs,
-  markerDatum,
- )
+import Hydra.Chain.Direct.Util (Block, markerDatum)
 import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Logging (Tracer, traceWith)
-import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
+import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.HardFork.History (PastHorizonException)
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..))
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
+import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 
 type Address = Ledger.Addr StandardCrypto
 type TxIn = Ledger.TxIn StandardCrypto
