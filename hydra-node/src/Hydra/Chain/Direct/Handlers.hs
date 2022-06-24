@@ -17,7 +17,7 @@ import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
 import Cardano.Ledger.Shelley.API (TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad (foldM)
-import Control.Monad.Class.MonadSTM (readTVarIO, writeTVar)
+import Control.Monad.Class.MonadSTM (readTVarIO, throwSTM, writeTVar)
 import Data.Aeson (Value (String), object, (.=))
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
@@ -70,6 +70,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..), blockPoint)
+import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 -- * Posting Transactions
@@ -90,7 +91,7 @@ type SubmitTx m = ValidatedTx LedgerEra -> m ()
 mkChain ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
-  m (TimeHandle (STM m)) ->
+  m TimeHandle ->
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
@@ -120,12 +121,12 @@ mkChain tracer queryTimeHandle cardanoKeys wallet headState submitTx =
         submitTx vtx
     }
 
-data TimeHandle m = TimeHandle
+data TimeHandle = TimeHandle
   { -- | Get the current 'PointInTime'
-    currentPointInTime :: m PointInTime
+    currentPointInTime :: Either Text PointInTime
   , -- | Adjust a 'PointInTime' by some number of slots, positively or
     -- negatively.
-    adjustPointInTime :: SlotNo -> PointInTime -> m PointInTime
+    adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
   }
 
 -- | Balance and sign the given partial transaction.
@@ -279,14 +280,14 @@ closeGraceTime = 100
 
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
-  TimeHandle (STM m) ->
+  TimeHandle ->
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
 fromPostChainTx TimeHandle{currentPointInTime, adjustPointInTime} cardanoKeys wallet someHeadState tx = do
-  pointInTime <- currentPointInTime
+  pointInTime <- throwLeft currentPointInTime
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
@@ -312,15 +313,18 @@ fromPostChainTx TimeHandle{currentPointInTime, adjustPointInTime} cardanoKeys wa
     (CollectComTx{}, TkInitialized) -> do
       pure (collect st)
     (CloseTx{confirmedSnapshot}, TkOpen) -> do
-      shifted <- adjustPointInTime closeGraceTime pointInTime
+      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (close confirmedSnapshot shifted st)
     (ContestTx{confirmedSnapshot}, TkClosed) -> do
-      shifted <- adjustPointInTime closeGraceTime pointInTime
+      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (contest confirmedSnapshot shifted st)
     (FanoutTx{utxo}, TkClosed) ->
       pure (fanout utxo pointInTime st)
     (_, _) ->
       throwIO $ InvalidStateToPost tx
+ where
+  -- XXX: Might want a dedicated exception type here
+  throwLeft = either (throwSTM . userError . toString) pure
 
 --
 -- Helpers

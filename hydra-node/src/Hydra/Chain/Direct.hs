@@ -19,7 +19,8 @@ import Cardano.Ledger.Alonzo.Rules.Utxos (FailureDescription (PlutusFailure), Ta
 import Cardano.Ledger.Alonzo.Rules.Utxow (UtxowPredicateFail (WrappedShelleyEraFailure))
 import Cardano.Ledger.Alonzo.TxInfo (PlutusDebugInfo (..), debugPlutus, slotToPOSIXTime)
 import Cardano.Ledger.Babbage.PParams (PParams' (..))
-import Cardano.Ledger.Babbage.Rules.Utxo (BabbageUtxoPred (FromAlonzoUtxoFail, FromAlonzoUtxowFail))
+import Cardano.Ledger.Babbage.Rules.Utxo (BabbageUtxoPred (FromAlonzoUtxoFail))
+import Cardano.Ledger.Babbage.Rules.Utxow (BabbageUtxowPred (FromAlonzoUtxowFail))
 import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError))
 import qualified Cardano.Ledger.Shelley.API as Ledger
@@ -102,7 +103,6 @@ import Ouroboros.Consensus.Cardano.Block (
   GenTx (..),
   HardForkApplyTxErr (ApplyTxErrBabbage),
  )
-import Ouroboros.Consensus.HardFork.Combinator (PastHorizonException)
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -209,9 +209,10 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
     epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath queryPoint
     pure (utxo, pparams, systemStart, epochInfo)
 
-  toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Except PastHorizonException)
+  toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Either Text)
   toEpochInfo (EraHistory _ interpreter) =
-    Consensus.interpreterToEpochInfo interpreter
+    hoistEpochInfo (first show . runExcept) $
+      Consensus.interpreterToEpochInfo interpreter
 
   submitTx queue vtx = do
     response <- atomically $ do
@@ -232,7 +233,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
 
 -- | Query ad-hoc epoch, system start and protocol parameters to determine
 -- current point in time.
-queryTimeHandle :: MonadThrow m => NetworkId -> FilePath -> IO (TimeHandle m)
+queryTimeHandle :: NetworkId -> FilePath -> IO TimeHandle
 queryTimeHandle networkId socketPath = do
   tip@(ChainPoint slotNo _) <- queryTip networkId socketPath
   systemStart <- querySystemStart networkId socketPath (QueryAt tip)
@@ -253,9 +254,9 @@ queryTimeHandle networkId socketPath = do
           pure (adjusted, time)
       }
  where
-  toEpochInfo :: MonadThrow m => EraHistory CardanoMode -> EpochInfo m
+  toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Either Text)
   toEpochInfo (EraHistory _ interpreter) =
-    hoistEpochInfo (either throwIO pure . runExcept) $
+    hoistEpochInfo (first show . runExcept) $
       Consensus.interpreterToEpochInfo interpreter
 
 data ConnectException = ConnectException
