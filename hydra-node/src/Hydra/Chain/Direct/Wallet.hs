@@ -15,7 +15,7 @@ import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactio
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
 import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
-import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), hashData, hashScriptIntegrity)
+import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), getLanguageView, hashData, hashScriptIntegrity)
 import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, scriptIntegrityHash, txfee)
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger.Babbage
 import qualified Cardano.Ledger.BaseTypes as Ledger
@@ -26,6 +26,7 @@ import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Era (ValidateScript (..), fromTxSeq)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import qualified Cardano.Ledger.SafeHash as SafeHash
+import Cardano.Ledger.Serialization (mkSized, sizedValue)
 import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
 import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
@@ -66,7 +67,6 @@ import Hydra.Chain.Direct.Util (Block, markerDatum)
 import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
-import Ouroboros.Consensus.HardFork.History (PastHorizonException)
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..))
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 
@@ -100,7 +100,7 @@ type ChainQuery m =
       ( Map TxIn TxOut
       , PParams LedgerEra
       , SystemStart
-      , EpochInfo (Except PastHorizonException)
+      , EpochInfo (Either Text)
       )
   )
 
@@ -172,9 +172,9 @@ applyBlock blk isOurs utxo = case blk of
         let txId = getTxId tx
         modify (`Map.withoutKeys` inputs (body tx))
         let indexedOutputs =
-              let outs = outputs (body tx)
+              let outs = map sizedValue . toList $ outputs (body tx)
                   maxIx = fromIntegral $ length outs
-               in StrictSeq.zip (StrictSeq.fromList [Ledger.TxIx ix | ix <- [0 .. maxIx]]) outs
+               in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
         forM_ indexedOutputs $ \(ix, out@(Ledger.Babbage.TxOut addr _ _ _)) ->
           when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
   _ ->
@@ -210,7 +210,7 @@ data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
 coverFee_ ::
   PParams LedgerEra ->
   SystemStart ->
-  EpochInfo (Except PastHorizonException) ->
+  EpochInfo (Either Text) ->
   Map TxIn TxOut ->
   Map TxIn TxOut ->
   ValidatedTx LedgerEra ->
@@ -237,12 +237,12 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
       mkChange
         output
         resolvedInputs
-        (toList $ outputs body)
+        (map sizedValue . toList $ outputs body)
         needlesslyHighFee
 
-  let outputs' = outputs body <> StrictSeq.singleton change
+  let outputs' = outputs body <> StrictSeq.singleton (mkSized change)
       langs =
-        [ l
+        [ getLanguageView pparams l
         | (_hash, script) <- Map.toList (txscripts wits)
         , (not . isNativeScript @LedgerEra) script
         , Just l <- [language script]
@@ -255,7 +255,6 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
           , txfee = needlesslyHighFee
           , scriptIntegrityHash =
               hashScriptIntegrity
-                pparams
                 (Set.fromList langs)
                 adjustedRedeemers
                 (txdats wits)
