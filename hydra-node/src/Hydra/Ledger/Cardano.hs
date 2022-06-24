@@ -354,7 +354,7 @@ instance FromCBOR UTxO where
 
 instance Arbitrary UTxO where
   shrink = shrinkUTxO
-  arbitrary = genUTxO
+  arbitrary = genUTxOAlonzo
 
 -- * Generators
 
@@ -430,6 +430,13 @@ genOutput vk = do
   value <- genValue
   pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone
 
+-- | Generate an ada-only 'TxOut' payed to an arbitrary public key.
+genTxOutAdaOnly :: Gen (TxOut ctx)
+genTxOutAdaOnly = do
+  vk <- arbitrary
+  value <- lovelaceToValue . Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
+  pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone
+
 -- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
 genTxIn :: Gen TxIn
 genTxIn =
@@ -442,6 +449,7 @@ genTxIn =
 -- the upper bound of "assets" in this UTxO. That is, instead of sizing on the
 -- number of outputs, we also consider the number of native tokens in the output
 -- values.
+-- TODO: this is unused now!
 genUTxO :: Gen UTxO
 genUTxO =
   -- TODO: this implementation is a bit stupid and will yield quite low-number
@@ -455,17 +463,23 @@ genUTxO =
     nAssets <- choose (0, n)
     UTxO.fromPairs . takeAssetsUTxO nAssets . UTxO.pairs <$> genUTxOAlonzo
  where
-  takeAssetsUTxO remaining utxos =
-    case (remaining, utxos) of
-      (0, _) -> []
-      (_, []) -> []
-      (_, (i, o) : us) ->
-        let o' = modifyTxOutValue (takeAssetsTxOut remaining) o
-            rem' = remaining - valueSize (txOutValue o')
-         in ((i, o') : takeAssetsUTxO rem' us)
+  takeAssetsUTxO remaining ((i, o) : utxo)
+    | remaining > 0 =
+      let o' = modifyTxOutValue (takeAssetsTxOut remaining) o
+          rem' = remaining - valueSize (txOutValue o')
+       in ((i, o') : takeAssetsUTxO rem' utxo)
+    | otherwise = []
+  takeAssetsUTxO _ [] = []
 
   takeAssetsTxOut remaining =
     valueFromList . take remaining . valueToList
+
+-- | Generate a fixed size UTxO with ada-only outputs.
+genUTxOAdaOnlyOfSize :: Int -> Gen UTxO
+genUTxOAdaOnlyOfSize numUTxO =
+  fold <$> vectorOf numUTxO (UTxO.singleton <$> gen)
+ where
+  gen = (,) <$> arbitrary <*> genTxOutAdaOnly
 
 -- | Generate 'Alonzo' era 'UTxO', which may contain arbitrary assets in
 -- 'TxOut's addressed to public keys *and* scripts. NOTE: This is not reducing

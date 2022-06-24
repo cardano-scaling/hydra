@@ -25,31 +25,26 @@ import Hydra.Chain.Direct.Context (
   genCollectComTx,
   genCommits,
   genContestTx,
-  genHydraContext,
+  genFanoutTx,
   genHydraContextFor,
   genInitTx,
-  genStClosed,
   genStIdle,
   genStInitialized,
  )
 import Hydra.Chain.Direct.State (
   abort,
   commit,
-  fanout,
   getKnownUTxO,
   initialize,
  )
 import Hydra.Ledger.Cardano (
-  adaOnly,
-  genKeyPair,
-  genOneUTxOFor,
   genOutput,
   genTxIn,
-  simplifyUTxO,
+  genUTxOAdaOnlyOfSize,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, pparams)
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx, pparams)
 import Plutus.Orphans ()
-import Test.QuickCheck (generate, sublistOf, vectorOf)
+import Test.QuickCheck (generate, sublistOf)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeInitCost = do
@@ -80,7 +75,7 @@ computeCommitCost = do
   pure $ interesting <> limit
  where
   compute numUTxO = do
-    utxo <- generate $ genSimpleUTxOOfSize numUTxO
+    utxo <- generate $ genUTxOAdaOnlyOfSize numUTxO
     (commitTx, knownUtxo) <- generate $ genCommitTx utxo
     case commitTx of
       Left _ -> pure Nothing
@@ -169,27 +164,13 @@ computeFanOutCost = do
   pure $ interesting <> limit
  where
   compute numElems = do
-    (tx, knownUtxo) <- generate $ genFanoutTx numElems
-    case checkSizeAndEvaluate tx knownUtxo of
+    (st, tx) <- generate $ genFanoutTx 3 numElems
+    let utxo = getKnownUTxO st
+    case traceShow (NumUTxO numElems) $ checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit) ->
         pure $ Just (NumUTxO numElems, txSize, memUnit, cpuUnit)
       Nothing ->
         pure Nothing
-
-  genFanoutTx numOutputs = do
-    ctx <- genHydraContext 3
-    let utxo = genSimpleUTxOOfSize numOutputs `generateWith` 42
-    (_, toFanout, stClosed) <- genStClosed ctx utxo
-    pointInTime <- genPointInTime
-    pure (fanout toFanout pointInTime stClosed, getKnownUTxO stClosed)
-
-genSimpleUTxOOfSize :: Int -> Gen UTxO
-genSimpleUTxOOfSize numUTxO =
-  foldMap simplifyUTxO
-    <$> vectorOf
-      numUTxO
-      ( genKeyPair >>= fmap (fmap adaOnly) . genOneUTxOFor . fst
-      )
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
@@ -208,8 +189,10 @@ newtype CpuUnit = CpuUnit Natural
 
 checkSizeAndEvaluate :: Tx -> UTxO -> Maybe (TxSize, MemUnit, CpuUnit)
 checkSizeAndEvaluate tx knownUTxO = do
-  guard $ txSize < maxTxSize
-  case evaluateTx tx knownUTxO of
+  traceShow (TxSize txSize) $
+    guard $ txSize < maxTxSize
+  let res = evaluateTx tx knownUTxO
+  case traceShow res res of
     (Right report) -> do
       let results = Map.elems report
       guard $ all isRight results
