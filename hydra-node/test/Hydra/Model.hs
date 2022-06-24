@@ -393,17 +393,17 @@ instance
       Input.NewTx{Input.transaction = tx} ->
         performNewTx st party tx
       Input.Init{Input.contestationPeriod = p} ->
-        party `performs` Input.Init{Input.contestationPeriod = p}
+        party `sendsInput` Input.Init{Input.contestationPeriod = p}
       Input.Abort -> do
-        party `performs` Input.Abort
+        party `sendsInput` Input.Abort
       Input.GetUTxO -> do
-        party `performs` Input.GetUTxO
+        party `sendsInput` Input.GetUTxO
       Input.Close -> do
-        party `performs` Input.Close
+        party `sendsInput` Input.Close
       Input.Contest -> do
-        party `performs` Input.Contest
+        party `sendsInput` Input.Contest
       Input.Fanout -> do
-        party `performs` Input.Fanout
+        party `sendsInput` Input.Fanout
 
   monitoring (s, s') _action _lookup _return =
     case (hydraState s, hydraState s') of
@@ -418,8 +418,8 @@ deriving instance Eq (Action (WorldState m) a)
 
 --
 
-performs :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
-performs party command = do
+sendsInput :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
+sendsInput party command = do
   nodes <- gets nodes
   case Map.lookup party nodes of
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
@@ -468,7 +468,7 @@ performCommit party utxo = do
               , let vk = getVerificationKey sk
               , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone
               ]
-      party `performs` Input.Commit{Input.utxo = realUtxo}
+      party `sendsInput` Input.Commit{Input.utxo = realUtxo}
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
@@ -490,7 +490,7 @@ performNewTx st party tx = do
           Just{} -> pure ()
   waitForOpen
 
-  party `performs` Input.GetUTxO
+  party `sendsInput` Input.GetUTxO
 
   let matchPayment p@(_, txOut) =
         isOwned (from tx) p && value tx == txOutValue txOut
@@ -510,11 +510,11 @@ performNewTx st party tx = do
           lift (threadDelay 1 >> waitForNext (nodes ! party)) >>= \case
             GetUTxOResponse u
               | u == mempty -> do
-                party `performs` Input.GetUTxO
+                party `sendsInput` Input.GetUTxO
                 waitForUTxO u (n -1)
               | otherwise -> case find matchPayment (UTxO.pairs u) of
                 Nothing -> do
-                  party `performs` Input.GetUTxO
+                  party `sendsInput` Input.GetUTxO
                   waitForUTxO u (n -1)
                 Just p -> pure p
             _ ->
@@ -528,7 +528,7 @@ performNewTx st party tx = do
           id
           (mkSimpleTx (i, o) (recipient, value tx) (from tx))
 
-  party `performs` Input.NewTx realTx
+  party `sendsInput` Input.NewTx realTx
   lift $
     waitUntilMatch [nodes ! party] $ \case
       SnapshotConfirmed{Output.snapshot = snapshot} ->
