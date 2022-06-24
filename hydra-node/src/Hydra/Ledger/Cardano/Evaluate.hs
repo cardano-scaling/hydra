@@ -130,7 +130,7 @@ systemStart = SystemStart $ posixSecondsToUTCTime 0
 genPointInTime :: Gen (SlotNo, Plutus.POSIXTime)
 genPointInTime = do
   slot <- SlotNo <$> arbitrary
-  time <- either error pure $ slotNoToPOSIXTime slot
+  let time = slotNoToPOSIXTime slot
   pure (slot, time)
 
 genPointInTimeBefore :: Plutus.POSIXTime -> Gen (SlotNo, Plutus.POSIXTime)
@@ -159,11 +159,11 @@ slotNoFromPOSIXTime posixTime =
         (`div` 1000) $
           Plutus.getPOSIXTime posixTime
 
--- | Using hard-coded epochInfo and systemStart, do not use in production!
-slotNoToPOSIXTime :: SlotNo -> Plutus.POSIXTime
+-- | Using hard-coded defaults above. Fails for slots past epoch boundaries.
+slotNoToPOSIXTime :: HasCallStack => SlotNo -> Plutus.POSIXTime
 slotNoToPOSIXTime =
-  either (error . toString) pure $
-    slotToPOSIXTime
+  either error id
+    . slotToPOSIXTime
       pparams
       epochInfo
       systemStart
