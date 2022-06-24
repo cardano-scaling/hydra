@@ -25,15 +25,21 @@ import Hydra.Chain.Direct.Context (
   genCollectComTx,
   genCommits,
   genContestTx,
-  genFanoutTx,
+  genHydraContext,
   genHydraContextFor,
   genInitTx,
   genStIdle,
   genStInitialized,
+  genStOpen,
+  unsafeObserveTx,
  )
 import Hydra.Chain.Direct.State (
+  HeadStateKind (StClosed),
   abort,
+  close,
   commit,
+  fanout,
+  getContestationDeadline,
   getKnownUTxO,
   initialize,
  )
@@ -42,9 +48,10 @@ import Hydra.Ledger.Cardano (
   genTxIn,
   genUTxOAdaOnlyOfSize,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx, pparams)
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, pparams, slotNoToPOSIXTime)
+import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
-import Test.QuickCheck (generate, sublistOf)
+import Test.QuickCheck (generate, sublistOf, suchThat)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeInitCost = do
@@ -149,28 +156,41 @@ computeAbortCost =
       Nothing ->
         pure Nothing
 
-  genAbortTx numParties =
-    genHydraContextFor numParties >>= \ctx ->
-      genInitTx ctx >>= \initTx ->
-        (sublistOf . snd =<< genCommits ctx initTx) >>= \commits ->
-          genStIdle ctx >>= \stIdle ->
-            let (_, stInitialized) = executeCommits initTx commits stIdle
-             in pure (abort stInitialized, getKnownUTxO stInitialized)
+  genAbortTx numParties = do
+    ctx <- genHydraContextFor numParties
+    initTx <- genInitTx ctx
+    commits <- sublistOf . snd =<< genCommits ctx initTx
+    stIdle <- genStIdle ctx
+    let (_, stInitialized) = executeCommits initTx commits stIdle
+    pure (abort stInitialized, getKnownUTxO stInitialized)
 
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
 computeFanOutCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [500, 499 .. 51]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 51]
   pure $ interesting <> limit
  where
   compute numElems = do
-    (st, tx) <- generate $ genFanoutTx 3 numElems
-    let utxo = getKnownUTxO st
-    case traceShow (NumUTxO numElems) $ checkSizeAndEvaluate tx utxo of
+    (utxo, tx) <- generate $ genFanoutTx 3 numElems
+    case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit) ->
         pure $ Just (NumUTxO numElems, txSize, memUnit, cpuUnit)
       Nothing ->
         pure Nothing
+
+  -- Generate a fanout with a defined number of outputs.
+  genFanoutTx numParties numOutputs = do
+    utxo <- genUTxOAdaOnlyOfSize numOutputs
+    ctx <- genHydraContext numParties
+    (_committed, stOpen) <- genStOpen ctx
+    snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
+    closePoint <- genPointInTime
+    let closeTx = close snapshot closePoint stOpen
+    let stClosed = snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
+    fanoutPoint <-
+      genPointInTime `suchThat` \(slot, _) ->
+        slotNoToPOSIXTime slot > getContestationDeadline stClosed
+    pure (getKnownUTxO stClosed, fanout utxo fanoutPoint stClosed)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
@@ -189,10 +209,8 @@ newtype CpuUnit = CpuUnit Natural
 
 checkSizeAndEvaluate :: Tx -> UTxO -> Maybe (TxSize, MemUnit, CpuUnit)
 checkSizeAndEvaluate tx knownUTxO = do
-  traceShow (TxSize txSize) $
-    guard $ txSize < maxTxSize
-  let res = evaluateTx tx knownUTxO
-  case traceShow res res of
+  guard $ txSize < maxTxSize
+  case evaluateTx tx knownUTxO of
     (Right report) -> do
       let results = Map.elems report
       guard $ all isRight results
