@@ -61,6 +61,7 @@ import Cardano.Api as X hiding (
   UTxO (..),
   Witness (..),
   multiAssetSupportedInEra,
+  policyId,
   scriptDataSupportedInEra,
   scriptLanguageSupportedInEra,
   toLedgerUTxO,

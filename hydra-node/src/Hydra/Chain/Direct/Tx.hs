@@ -10,7 +10,7 @@
 -- thus we have not yet "reached" 'isomorphism'.
 module Hydra.Chain.Direct.Tx where
 
-import Hydra.Cardano.Api hiding (policyId)
+import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO

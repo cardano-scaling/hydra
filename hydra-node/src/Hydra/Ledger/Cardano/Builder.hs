@@ -118,15 +118,15 @@ mintTokens script redeemer assets tx =
         (t, m)
 
   mintedTokens' =
-    mintedTokens <> valueFromList (fmap (first (AssetId pid)) assets)
+    mintedTokens <> valueFromList (fmap (first (AssetId policyId)) assets)
 
   mintedWitnesses' =
-    BuildTxWith $ mintedWitnesses <> Map.singleton pid mintingWitness
+    BuildTxWith $ mintedWitnesses <> Map.singleton policyId mintingWitness
 
   mintingWitness =
     mkScriptWitness script NoScriptDatumForMint (toScriptData redeemer)
 
-  pid =
+  policyId =
     PolicyId $ hashScript $ PlutusScript script
 
 -- | Burn tokens with given plutus minting script and redeemer.
