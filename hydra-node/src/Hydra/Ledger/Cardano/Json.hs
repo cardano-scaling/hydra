@@ -36,7 +36,7 @@ import qualified Cardano.Ledger.Hashes as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
 import qualified Cardano.Ledger.SafeHash as Ledger
-import Cardano.Ledger.Serialization (sizedValue)
+import Cardano.Ledger.Serialization (Sized, mkSized, sizedValue)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Cardano.Ledger.ShelleyMA.Timelocks as Ledger.Mary
 import qualified Cardano.Ledger.TxIn as Ledger
@@ -292,6 +292,10 @@ instance ToJSON (Ledger.Babbage.TxBody LedgerEra) where
         , onlyIf isSJust "auxiliaryDataHash" (Ledger.Babbage.adHash b)
         , onlyIf isSJust "networkId" (Ledger.Babbage.txnetworkid b)
         ]
+
+instance (ToCBOR a, FromJSON a) => FromJSON (Sized a) where
+  parseJSON =
+    fmap mkSized . parseJSON
 
 instance
   ( Ledger.Babbage.BabbageBody era
