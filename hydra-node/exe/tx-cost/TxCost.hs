@@ -47,7 +47,8 @@ import Hydra.Ledger.Cardano (
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, genPointInTimeAfter, maxCpu, maxMem, maxTxSize, pparams)
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
-import Test.QuickCheck (generate, sublistOf)
+import System.Timeout (timeout)
+import Test.QuickCheck (generate, sublistOf, vectorOf)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeInitCost = do
@@ -132,11 +133,22 @@ computeContestCost = do
   compute numParties = do
     (st, tx) <- trace ("generating.." <> show numParties) $ generate $ genContestTx numParties
     let utxo = getKnownUTxO st
-    case trace ("evaluating.." <> show numParties) checkSizeAndEvaluate tx utxo of
-      Just (txSize, memUnit, cpuUnit) ->
+    evaluation <- timeout 2000000 (evaluate $ checkSizeAndEvaluate tx utxo)
+    case trace ("evaluating.." <> show numParties) evaluation of
+      Just (Just (txSize, memUnit, cpuUnit)) ->
         trace ("got Just for " <> show numParties) pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
-      Nothing ->
+      Just Nothing ->
         trace ("got Nothing for " <> show numParties) pure Nothing
+      Nothing -> do
+        ltx <-  $ toLedgerTx tx
+        die $
+          "Transaction cost evaluation took too long: "
+            <> show ltx
+
+--show validity
+-- , show scriptsData
+-- , show scripts
+-- show body
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeAbortCost =
