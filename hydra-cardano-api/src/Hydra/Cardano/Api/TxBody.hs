@@ -41,12 +41,12 @@ findRedeemerMinting ::
   Tx Era ->
   PolicyId ->
   Maybe a
-findRedeemerMinting (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) policyId = do
+findRedeemerMinting (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) pid = do
   idx <- strictMaybeToMaybe $ Ledger.indexOf needle haystack
   let ptr = Ledger.RdmrPtr Ledger.Mint idx
   lookupRedeemer ptr scriptData
  where
-  needle = toLedgerScriptHash policyId
+  needle = toLedgerScriptHash pid
   haystack = getField @"minted" body :: Set (Ledger.ScriptHash StandardCrypto)
 
 findScriptMinting ::
@@ -55,11 +55,11 @@ findScriptMinting ::
   Tx Era ->
   PolicyId ->
   Maybe (PlutusScript lang)
-findScriptMinting (getTxBody -> ShelleyTxBody _ body scripts _ _ _) policyId = do
+findScriptMinting (getTxBody -> ShelleyTxBody _ body scripts _ _ _) pid = do
   _idx <- strictMaybeToMaybe $ Ledger.indexOf needle haystack
   fromLedgerScript @_ @lang <$> find ((== needle) . Ledger.hashScript @(ShelleyLedgerEra Era)) scripts
  where
-  needle = toLedgerScriptHash policyId
+  needle = toLedgerScriptHash pid
   haystack = getField @"minted" body :: Set (Ledger.ScriptHash StandardCrypto)
 
 --
