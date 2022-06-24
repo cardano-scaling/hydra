@@ -130,13 +130,13 @@ computeContestCost = do
   pure $ interesting <> limit
  where
   compute numParties = do
-    (st, tx) <- generate $ genContestTx numParties
+    (st, tx) <- trace ("generating.." <> show numParties) $ generate $ genContestTx numParties
     let utxo = getKnownUTxO st
-    case checkSizeAndEvaluate tx utxo of
+    case trace ("evaluating.." <> show numParties) checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit) ->
-        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
+        trace ("got Just for " <> show numParties) pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
       Nothing ->
-        pure Nothing
+        trace ("got Nothing for " <> show numParties) pure Nothing
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeAbortCost =

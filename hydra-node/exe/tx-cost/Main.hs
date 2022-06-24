@@ -70,26 +70,26 @@ main =
 
 writeTransactionCostMarkdown :: Handle -> IO ()
 writeTransactionCostMarkdown hdl = do
-  initC <- costOfInit
-  commitC <- costOfCommit
-  collectComC <- costOfCollectCom
-  closeC <- costOfClose
+  -- initC <- costOfInit
+  -- commitC <- costOfCommit
+  -- collectComC <- costOfCollectCom
+  -- closeC <- costOfClose
   contestC <- costOfContest
-  abortC <- costOfAbort
-  fanoutC <- costOfFanOut
+  -- abortC <- costOfAbort
+  -- fanoutC <- costOfFanOut
   hPut hdl $
     encodeUtf8 $
       unlines $
         pageHeader
           <> intersperse
             ""
-            [ initC
-            , commitC
-            , collectComC
-            , closeC
-            , contestC
-            , abortC
-            , fanoutC
+            -- [ initC
+            -- , commitC
+            -- , collectComC
+            -- , closeC
+            [ contestC
+            -- , abortC
+            -- , fanoutC
             ]
 
 -- NOTE: Github Actions CI depends on the number of header lines, see
