@@ -21,7 +21,7 @@ import Hydra.Chain.Direct.Context (
   genCollectComTx,
   genCommits,
   genContestTx,
-  genHydraContext,
+  genFanoutTx,
   genHydraContextFor,
   genInitTx,
   genStIdle,
@@ -47,8 +47,7 @@ import Hydra.Ledger.Cardano (
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, genPointInTimeAfter, maxCpu, maxMem, maxTxSize, pparams)
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
-import System.Timeout (timeout)
-import Test.QuickCheck (generate, sublistOf, vectorOf)
+import Test.QuickCheck (generate, sublistOf)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeInitCost = do
