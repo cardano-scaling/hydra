@@ -131,24 +131,13 @@ computeContestCost = do
   pure $ interesting <> limit
  where
   compute numParties = do
-    (st, tx) <- trace ("generating.." <> show numParties) $ generate $ genContestTx numParties
+    (st, tx) <- generate $ genContestTx numParties
     let utxo = getKnownUTxO st
-    evaluation <- timeout 2000000 (evaluate $ checkSizeAndEvaluate tx utxo)
-    case trace ("evaluating.." <> show numParties) evaluation of
-      Just (Just (txSize, memUnit, cpuUnit)) ->
-        trace ("got Just for " <> show numParties) pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
-      Just Nothing ->
-        trace ("got Nothing for " <> show numParties) pure Nothing
-      Nothing -> do
-        ltx <-  $ toLedgerTx tx
-        die $
-          "Transaction cost evaluation took too long: "
-            <> show ltx
-
---show validity
--- , show scriptsData
--- , show scripts
--- show body
+    case checkSizeAndEvaluate tx utxo of
+      Just (txSize, memUnit, cpuUnit) ->
+        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
+      Nothing ->
+        pure Nothing
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeAbortCost =
