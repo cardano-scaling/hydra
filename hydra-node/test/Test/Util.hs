@@ -17,7 +17,6 @@ import Control.Monad.IOSim (
 import Control.Tracer (Tracer (Tracer))
 import qualified Data.Aeson as Aeson
 import Data.List (isInfixOf)
-import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node (HydraNodeLog)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot), HUnitFailure (HUnitFailure))
@@ -38,14 +37,13 @@ shouldRunInSim action =
       throwIO ex
  where
   tr = runSimTrace action
-  dumpTrace = say (toString $ printTrace (Proxy :: Proxy SimpleTx) tr)
+  dumpTrace = say (toString $ printTrace (Proxy :: Proxy (HydraNodeLog SimpleTx)) tr)
 
 -- | Utility function to dump logs given a `SimTrace`.
--- TODO(SN): take a proxy instead of hard-coding HydraNodeLog
-printTrace :: forall tx a. IsTx tx => Proxy tx -> SimTrace a -> Text
+printTrace :: forall log a. (Typeable log, ToJSON log) => Proxy log -> SimTrace a -> Text
 printTrace _ tr =
   unlines . map (decodeUtf8 . Aeson.encode) $
-    selectTraceEventsDynamic' @_ @(HydraNodeLog tx) tr
+    selectTraceEventsDynamic' @_ @log tr
 
 -- | Lifted variant of Hspec's 'shouldBe'.
 shouldBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()
