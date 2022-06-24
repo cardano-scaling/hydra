@@ -21,7 +21,7 @@ import Hydra.Chain.Direct.Context (
   genCollectComTx,
   genCommits,
   genContestTx,
-  genFanoutTx,
+  genHydraContext,
   genHydraContextFor,
   genInitTx,
   genStIdle,
@@ -47,7 +47,7 @@ import Hydra.Ledger.Cardano (
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, genPointInTimeAfter, maxCpu, maxMem, maxTxSize, pparams)
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
-import Test.QuickCheck (generate, sublistOf)
+import Test.QuickCheck (generate, sublistOf, suchThat)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeInitCost = do
@@ -204,8 +204,7 @@ newtype CpuUnit = CpuUnit Natural
 checkSizeAndEvaluate :: Tx -> UTxO -> Maybe (TxSize, MemUnit, CpuUnit)
 checkSizeAndEvaluate tx knownUTxO = do
   guard $ txSize < maxTxSize
-  let res = evaluateTx tx knownUTxO
-  case traceShow res res of
+  case evaluateTx tx knownUTxO of
     (Right report) -> do
       let results = Map.elems report
       guard $ all isRight results
