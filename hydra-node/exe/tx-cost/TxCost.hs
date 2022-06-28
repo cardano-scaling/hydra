@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module TxCost where
 
 import Hydra.Prelude hiding (catch)
@@ -44,7 +46,14 @@ import Hydra.Ledger.Cardano (
   genTxIn,
   genUTxOAdaOnlyOfSize,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, genPointInTimeAfter, maxCpu, maxMem, maxTxSize, pparams)
+import Hydra.Ledger.Cardano.Evaluate (
+  evaluateTx,
+  genPointInTime,
+  genPointInTimeAfter,
+  maxCpu,
+  maxMem,
+  maxTxSize,
+ )
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
 import Test.QuickCheck (generate, sublistOf, suchThat)

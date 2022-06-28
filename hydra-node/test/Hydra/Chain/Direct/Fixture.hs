@@ -12,9 +12,7 @@ import Cardano.Crypto.Hash (hashToBytes)
 import Cardano.Ledger.BaseTypes (TxIx (TxIx))
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
-import qualified Cardano.Ledger.Slot as Ledger
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
-import qualified Cardano.Slotting.EpochInfo as Slotting
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (SlotLength, SystemStart (SystemStart), mkSlotLength)
 import qualified Cardano.Slotting.Time as Slotting
@@ -87,7 +85,7 @@ defaultLedgerEnv =
 defaultGlobals :: Ledger.Globals
 defaultGlobals =
   Ledger.Globals
-    { Ledger.epochInfoWithErr = Slotting.fixedEpochInfo (Ledger.EpochSize 100) (Slotting.mkSlotLength 1)
+    { Ledger.epochInfo = epochInfo
     , Ledger.slotsPerKESPeriod = 20
     , Ledger.stabilityWindow = 33
     , Ledger.randomnessStabilisationWindow = 33
