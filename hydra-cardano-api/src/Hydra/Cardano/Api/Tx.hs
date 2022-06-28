@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Cardano.Api.Tx where
 
 import Hydra.Cardano.Api.Prelude
@@ -10,11 +12,10 @@ import Hydra.Cardano.Api.KeyWitness (
 import Hydra.Cardano.Api.Lovelace (fromLedgerCoin)
 import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
 
-import qualified Cardano.Ledger.Alonzo as Ledger
-import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.Tx as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Babbage.PParams as Ledger
+import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import qualified Cardano.Ledger.Era as Ledger
 import qualified Data.Map as Map
 import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
