@@ -545,7 +545,16 @@ components:
             type: string
             enum: ["CommandFailed"]
           clientInput:
-            $ref: "#/components/schemas/ClientInput"
+            oneOf:
+              - $ref: "#/components/messages/Init/payload"
+              - $ref: "#/components/messages/Abort/payload"
+              - $ref: "#/components/messages/Commit/payload"
+              - $ref: "#/components/messages/NewTx/payload"
+              - $ref: "#/components/messages/GetUTxO/payload"
+              - $ref: "#/components/messages/Close/payload"
+              - $ref: "#/components/messages/Contest/payload"
+              - $ref: "#/components/messages/Fanout/payload"
+
 
   ########
   #
