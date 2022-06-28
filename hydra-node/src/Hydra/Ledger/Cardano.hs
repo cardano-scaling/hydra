@@ -427,7 +427,7 @@ genOutput ::
   VerificationKey PaymentKey ->
   Gen (TxOut ctx)
 genOutput vk = do
-  value <- fromLedgerValue <$> scale (* 8) arbitrary
+  value <- genValue
   pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone
 
 -- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
@@ -499,7 +499,10 @@ genAddressInEra networkId =
   mkVkAddress networkId <$> genVerificationKey
 
 genValue :: Gen Value
-genValue = txOutValue <$> (genKeyPair >>= (genOutput . fst))
+genValue = fromLedgerValue <$> arbitrary
+
+genAdaValue :: Gen Value
+genAdaValue = lovelaceToValue . selectLovelace <$> genValue
 
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where

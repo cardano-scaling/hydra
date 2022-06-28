@@ -254,6 +254,8 @@ test-suite tests
     Hydra.Ledger.SimpleSpec
     Hydra.Logging.MonitoringSpec
     Hydra.LoggingSpec
+    Hydra.Model
+    Hydra.ModelSpec
     Hydra.Network.HeartbeatSpec
     Hydra.NetworkSpec
     Hydra.NodeSpec
@@ -316,6 +318,7 @@ test-suite tests
     , plutus-ledger-api
     , process
     , QuickCheck
+    , quickcheck-dynamic
     , quickcheck-instances
     , req
     , silently

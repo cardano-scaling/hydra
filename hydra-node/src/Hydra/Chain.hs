@@ -12,6 +12,7 @@ module Hydra.Chain where
 
 import Hydra.Prelude
 
+import Data.List (nub)
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
@@ -32,7 +33,10 @@ data HeadParameters = HeadParameters
   deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary HeadParameters where
-  arbitrary = genericArbitrary
+  arbitrary = dedupParties <$> genericArbitrary
+   where
+    dedupParties HeadParameters{contestationPeriod, parties} =
+      HeadParameters{contestationPeriod, parties = nub parties}
 
 type ContestationPeriod = NominalDiffTime
 

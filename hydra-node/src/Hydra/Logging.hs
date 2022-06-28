@@ -21,6 +21,7 @@ module Hydra.Logging (
   withTracer,
   withTracerOutputTo,
   showLogsOnFailure,
+  traceInTVar,
   contramap,
 ) where
 
@@ -131,11 +132,14 @@ showLogsOnFailure action = do
   tvar <- newTVarIO []
   action (traceInTVar tvar)
     `onException` (readTVarIO tvar >>= mapM_ (say . decodeUtf8 . Aeson.encode) . reverse)
- where
-  traceInTVar tvar = Tracer $ \msg -> do
-    envelope <- mkEnvelope "" msg
-    atomically $ modifyTVar tvar (envelope :)
 
+traceInTVar ::
+  (MonadFork m, MonadTime m, MonadSTM m) =>
+  TVar m [Envelope msg] ->
+  Tracer m msg
+traceInTVar tvar = Tracer $ \msg -> do
+  envelope <- mkEnvelope "" msg
+  atomically $ modifyTVar tvar (envelope :)
 -- * Internal functions
 
 mkEnvelope :: (MonadFork m, MonadTime m) => Text -> msg -> m (Envelope msg)

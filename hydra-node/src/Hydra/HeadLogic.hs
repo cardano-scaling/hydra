@@ -435,8 +435,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (currentState, OnChainEvent (Rollback n)) ->
     nextState (rollback n currentState) [ClientEffect RolledBack]
   --
-  (_, ClientEvent{}) ->
-    sameState [ClientEffect CommandFailed]
+  (_, ClientEvent{clientInput}) ->
+    sameState [ClientEffect $ CommandFailed clientInput]
   (_, NetworkEvent (Connected host)) ->
     sameState [ClientEffect $ PeerConnected host]
   (_, NetworkEvent (Disconnected host)) ->

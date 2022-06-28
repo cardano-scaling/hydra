@@ -233,8 +233,8 @@ handleAppEvent s = \case
     s & peersL %~ \cp -> nub $ cp <> [p]
   Update (PeerDisconnected p) ->
     s & peersL %~ \cp -> cp \\ [p]
-  Update CommandFailed -> do
-    s & report Error "Invalid command."
+  Update CommandFailed{clientInput} -> do
+    s & report Error ("Invalid command: " <> show clientInput)
   Update ReadyToCommit{parties} ->
     let utxo = mempty
         ps = toList parties

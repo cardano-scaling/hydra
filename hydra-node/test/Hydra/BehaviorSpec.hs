@@ -31,7 +31,7 @@ import Hydra.HeadLogic (
   Event (ClientEvent),
   HeadState (IdleState),
  )
-import Hydra.Ledger (IsTx, ValidationError (ValidationError))
+import Hydra.Ledger (IsTx, Ledger, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Node (
@@ -93,7 +93,7 @@ spec = parallel $ do
             waitUntil [n1] $ Committed alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen (utxoRef 1)
             send n1 (Commit (utxoRef 2))
-            waitUntil [n1] CommandFailed
+            waitUntil [n1] (CommandFailed (Commit (utxoRef 2)))
 
       it "can close an open head" $
         shouldRunInSim $ do
@@ -181,7 +181,7 @@ spec = parallel $ do
               waitUntil [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
 
               send n1 Abort
-              waitUntil [n1] CommandFailed
+              waitUntil [n1] (CommandFailed Abort)
 
       it "cannot commit twice" $
         shouldRunInSim $ do
@@ -194,14 +194,14 @@ spec = parallel $ do
               send n1 (Commit (utxoRef 1))
               waitUntil [n1] $ Committed alice (utxoRef 1)
               send n1 (Commit (utxoRef 11))
-              waitUntil [n1] CommandFailed
+              waitUntil [n1] (CommandFailed (Commit (utxoRef 11)))
 
               send n2 (Commit (utxoRef 2))
               waitUntil [n1] $ Committed bob (utxoRef 2)
               waitUntil [n1] $ HeadIsOpen (utxoRefs [1, 2])
 
               send n1 (Commit (utxoRef 11))
-              waitUntil [n1] CommandFailed
+              waitUntil [n1] (CommandFailed (Commit (utxoRef 11)))
 
       it "outputs committed utxo when client requests it" $
         shouldRunInSim $
@@ -454,6 +454,7 @@ data TestHydraNode tx m = TestHydraNode
   { send :: ClientInput tx -> m ()
   , chainEvent :: ChainEvent tx -> m ()
   , waitForNext :: m (ServerOutput tx)
+  , serverOutputs :: m [ServerOutput tx]
   }
 
 data ConnectToChain tx m = ConnectToChain
@@ -539,46 +540,68 @@ withHydraNode ::
   ConnectToChain SimpleTx (IOSim s) ->
   (TestHydraNode SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
-withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} action = do
+withHydraNode signingKey otherParties connectToChain action = do
   outputs <- atomically newTQueue
-  node <- createHydraNode outputs
-
+  outputHistory <- newTVarIO mempty
+  node <- createHydraNode simpleLedger signingKey otherParties outputs outputHistory connectToChain
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
-    action
-      TestHydraNode
-        { send = handleClientInput node
-        , chainEvent = \e -> do
-            toReplay <- case e of
-              Rollback (fromIntegral -> n) -> do
-                atomically $ do
-                  (toReplay, kept) <- splitAt n <$> readTVar history
-                  toReplay <$ writeTVar history kept
-              _ ->
-                pure []
-            handleChainTx node e
-            mapM_ (postTx (oc node)) (reverse toReplay)
-        , waitForNext = atomically $ readTQueue outputs
-        }
- where
-  party = deriveParty signingKey
+    action (createTestHydraNode outputs outputHistory node connectToChain)
 
-  createHydraNode outputs = do
-    eq <- createEventQueue
-    hh <- createHydraHead IdleState simpleLedger
-    chainComponent connectToChain $
-      HydraNode
-        { eq
-        , hn = Network{broadcast = const $ pure ()}
-        , hh
-        , oc = Chain (const $ pure ())
-        , server = Server{sendOutput = atomically . writeTQueue outputs}
-        , env =
-            Environment
-              { party
-              , signingKey
-              , otherParties
-              }
-        }
+createTestHydraNode ::
+  (MonadSTM m, MonadThrow m) =>
+  TQueue m (ServerOutput tx) ->
+  TVar m [ServerOutput tx] ->
+  HydraNode tx m ->
+  ConnectToChain tx m ->
+  TestHydraNode tx m
+createTestHydraNode outputs outputHistory node ConnectToChain{history} =
+  TestHydraNode
+    { send = handleClientInput node
+    , chainEvent = \e -> do
+        toReplay <- case e of
+          Rollback (fromIntegral -> n) -> do
+            atomically $ do
+              (toReplay, kept) <- splitAt n <$> readTVar history
+              toReplay <$ writeTVar history kept
+          _ ->
+            pure []
+        handleChainTx node e
+        mapM_ (postTx (oc node)) (reverse toReplay)
+    , waitForNext = atomically (readTQueue outputs)
+    , serverOutputs = reverse <$> readTVarIO outputHistory
+    }
+
+createHydraNode ::
+  (MonadDelay m, MonadAsync m) =>
+  Ledger tx ->
+  Hydra.SigningKey ->
+  [Party] ->
+  TQueue m (ServerOutput tx) ->
+  TVar m [ServerOutput tx] ->
+  ConnectToChain tx m ->
+  m (HydraNode tx m)
+createHydraNode ledger signingKey otherParties outputs outputHistory connectToChain = do
+  eq <- createEventQueue
+  hh <- createHydraHead IdleState ledger
+  chainComponent connectToChain $
+    HydraNode
+      { eq
+      , hn = Network{broadcast = const $ pure ()}
+      , hh
+      , oc = Chain (const $ pure ())
+      , server =
+          Server
+            { sendOutput = \out -> atomically $ do
+                writeTQueue outputs out
+                modifyTVar' outputHistory (out :)
+            }
+      , env =
+          Environment
+            { party = deriveParty signingKey
+            , signingKey
+            , otherParties
+            }
+      }
 
 openHead ::
   TestHydraNode SimpleTx (IOSim s) ->
