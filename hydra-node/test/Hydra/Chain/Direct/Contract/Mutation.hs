@@ -136,6 +136,7 @@ import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
+import Cardano.Ledger.Serialization (mkSized, sizedValue)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.List as List
@@ -543,9 +544,9 @@ alterTxOuts fn tx =
   body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
   ledgerBody' = ledgerBody{Ledger.outputs = ledgerOutputs'}
 
-  ledgerOutputs' = StrictSeq.fromList . map (toLedgerTxOut . toCtxUTxOTxOut) $ outputs'
+  ledgerOutputs' = StrictSeq.fromList . map (mkSized . toLedgerTxOut . toCtxUTxOTxOut) $ outputs'
 
-  outputs' = fn . fmap fromLedgerTxOut . toList $ Ledger.outputs ledgerBody
+  outputs' = fn . fmap (fromLedgerTxOut . sizedValue) . toList $ Ledger.outputs ledgerBody
 
   scriptData' = ensureDatums outputs' scriptData
 
