@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.Contract.Contest where
@@ -98,7 +99,7 @@ healthyContestUTxO =
 
 healthyContestUTxOHash :: BuiltinByteString
 healthyContestUTxOHash =
-  toBuiltin $ hashUTxO healthyContestUTxO
+  toBuiltin $ hashUTxO @Tx healthyContestUTxO
 
 healthyClosedState :: Head.State
 healthyClosedState =
@@ -127,7 +128,7 @@ healthyClosedSnapshotNumber = 3
 
 healthyClosedUTxOHash :: BuiltinByteString
 healthyClosedUTxOHash =
-  toBuiltin $ hashUTxO healthyClosedUTxO
+  toBuiltin $ hashUTxO @Tx healthyClosedUTxO
 
 healthyClosedUTxO :: UTxO
 healthyClosedUTxO =

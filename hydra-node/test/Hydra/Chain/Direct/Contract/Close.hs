@@ -81,7 +81,7 @@ healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =
   CloseWithConfirmedSnapshot
     { snapshotNumber = healthySnapshotNumber
-    , closeUtxoHash = hashUTxO healthyCloseUTxO
+    , closeUtxoHash = hashUTxO @Tx healthyCloseUTxO
     , signatures = healthySignature healthySnapshotNumber
     }
 
@@ -105,7 +105,7 @@ healthyCloseDatum :: Head.State
 healthyCloseDatum =
   Head.Open
     { parties = healthyOnChainParties
-    , utxoHash = toBuiltin $ hashUTxO healthyUTxO
+    , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
     , contestationPeriod = healthyContestationPeriod
     }
 

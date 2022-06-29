@@ -8,15 +8,15 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
-import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
+import Cardano.Ledger.Alonzo.TxInfo (TxOutSource (TxOutFromOutput))
+import Cardano.Ledger.Babbage.TxInfo (txInfoOutV2)
+import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.List as List
 import Hydra.Cardano.Api (
   UTxO,
   toLedgerTxOut,
-  toPlutusTxOutRef,
  )
 import Hydra.Chain.Direct.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
 import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
@@ -32,7 +32,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import Hydra.Chain.Direct.State (SomeOnChainHeadState (..))
 import qualified Hydra.Contract.Commit as Commit
-import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.Head (
   verifyPartySignature,
   verifySnapshotSignature,
@@ -41,12 +40,12 @@ import qualified Hydra.Contract.Head as OnChain
 import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (hashUTxO)
+import qualified Hydra.Ledger as OffChain
 import Hydra.Ledger.Cardano (
+  Tx,
   genUTxOWithSimplifiedAddresses,
-  hashTxOuts,
   shrinkUTxO,
  )
-import qualified Hydra.Ledger.Cardano as OffChain
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..))
@@ -77,7 +76,7 @@ spec = parallel $ do
       prop_verifySnapshotSignatures
   describe "TxOut hashing" $ do
     modifyMaxSuccess (const 20) $ do
-      prop "OffChain.hashTxOuts == OnChain.hashTxOuts" prop_consistentOnAndOffChainHashOfTxOuts
+      prop "OffChain.hashUTxO == OnChain.hashTxOuts" prop_consistentOnAndOffChainHashOfTxOuts
       prop "serialize' commutes with hashing" prop_serialiseTxOutCommutesWithHash
 
   describe "Init" $ do
@@ -132,28 +131,23 @@ prop_consistentOnAndOffChainHashOfTxOuts =
   -- NOTE: We only generate shelley addressed txouts because they are left out
   -- of the plutus script context in 'txInfoOut'.
   forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
-    let plutusTxOuts = mapMaybe (txInfoOut . toLedgerTxOut) ledgerTxOuts
-        ledgerTxOuts = toList utxo
-        plutusBytes = serialiseTxOuts plutusTxOuts
-        ledgerBytes = serialize' (toLedgerTxOut <$> ledgerTxOuts)
-     in (OffChain.hashTxOuts ledgerTxOuts === fromBuiltin (OnChain.hashTxOuts plutusTxOuts))
+    let plutusTxOuts =
+          rights $
+            zipWith
+              (\ix o -> txInfoOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
+              [0 ..]
+              txOuts
+        txOuts = toList utxo
+     in (OffChain.hashUTxO @Tx utxo === fromBuiltin (OnChain.hashTxOuts plutusTxOuts))
           & counterexample ("Plutus: " <> show plutusTxOuts)
-          & counterexample ("Ledger: " <> show ledgerTxOuts)
-          & counterexample ("Ledger CBOR: " <> decodeUtf8 (Base16.encode ledgerBytes))
-          & counterexample ("Plutus CBOR: " <> decodeUtf8 (Base16.encode $ fromBuiltin plutusBytes))
+          & counterexample ("Ledger: " <> show txOuts)
 
 prop_serialiseTxOutCommutesWithHash :: Property
 prop_serialiseTxOutCommutesWithHash =
   forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
-    let ledgerTxOuts = toList utxo
-        serialisePair i o =
-          Commit.Commit
-            { input = toPlutusTxOutRef i
-            , preSerializedOutput = toBuiltin . serialize' . toLedgerTxOut $ o
-            }
-        serialisedTxOuts = uncurry serialisePair <$> UTxO.pairs utxo
-        serialisedUTxO = OnChain.hashPreSerializedCommits serialisedTxOuts
-     in fromBuiltin serialisedUTxO === hashTxOuts ledgerTxOuts
+    let serializedCommits = mapMaybe Commit.serializeCommit $ UTxO.pairs utxo
+        serialisedUTxO = OnChain.hashPreSerializedCommits serializedCommits
+     in fromBuiltin serialisedUTxO === hashUTxO @Tx utxo
           & counterexample ("Hashed CBOR: " <> decodeUtf8 (Base16.encode $ fromBuiltin serialisedUTxO))
 
 prop_verifyOffChainSignatures :: Property
