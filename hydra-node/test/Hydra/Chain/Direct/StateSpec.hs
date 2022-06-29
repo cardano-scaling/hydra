@@ -90,6 +90,7 @@ import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
+import Test.Consensus.Cardano.Generators ()
 import Test.Hspec (shouldBe)
 import Test.Hydra.Prelude (
   Spec,
@@ -571,7 +572,7 @@ genByronCommit = do
 
 genBlockAt :: SlotNo -> [Tx] -> Gen Block
 genBlockAt sl txs = do
-  header <- adjustSlot <$> (error "missing Arbitrary Praos.Header instance") -- FIXME
+  header <- adjustSlot <$> arbitrary
   let body = toTxSeq $ StrictSeq.fromList (toLedgerTx <$> txs)
   pure $ BlockBabbage $ mkShelleyBlock $ Ledger.Block header body
  where
