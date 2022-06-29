@@ -466,9 +466,9 @@ changeHeadOutputDatum fn (TxOut addr value datum) =
       error "Unexpected empty head datum"
     (TxOutDatumHash _ha) ->
       error "Unexpected hash-only datum"
-    (TxOutDatumInTx _sd) ->
-      error "Unexpected non-inlined datum"
-    (TxOutDatumInline sd) ->
+    (TxOutDatumInline _sd) ->
+      error "Unexpected inlined datum"
+    (TxOutDatumInTx sd) ->
       case fromData $ toPlutusData sd of
         Just st ->
           TxOut addr value (mkTxOutDatum $ fn st)
