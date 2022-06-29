@@ -37,7 +37,7 @@ prop_validateToJSON ::
   forall a.
   (ToJSON a, Arbitrary a, Show a) =>
   FilePath ->
-  Text ->
+  Aeson.Key ->
   FilePath ->
   Property
 prop_validateToJSON specFile selector inputFile =
@@ -144,8 +144,8 @@ withJsonSpecifications action = do
       Aeson.encodeFile (dir </> takeBaseName file <.> "yaml") spec'
   action dir
  where
-  addField :: ToJSON a => Text -> a -> Aeson.Value -> Aeson.Value
-  addField k v = withObject (at k ?~ (toJSON v))
+  addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
+  addField k v = withObject (at k ?~ toJSON v)
 
   withObject :: (Aeson.Object -> Aeson.Object) -> Aeson.Value -> Aeson.Value
   withObject fn = \case
