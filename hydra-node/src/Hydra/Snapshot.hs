@@ -137,6 +137,7 @@ genConfirmedSnapshot minSn utxo sks
   confirmedSnapshot = do
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
-    snapshot <- arbitrary `suchThat` \Snapshot{number} -> number > minSn
+    number <- arbitrary `suchThat` (> minSn)
+    let snapshot = Snapshot{number, utxo, confirmed = []}
     let signatures = Hydra.aggregate $ fmap (`Hydra.sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}

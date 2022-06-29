@@ -28,28 +28,30 @@ import Hydra.Chain.Direct.Context (
   genHydraContext,
   genHydraContextFor,
   genInitTx,
-  genStClosed,
   genStIdle,
   genStInitialized,
+  genStOpen,
+  unsafeObserveTx,
  )
 import Hydra.Chain.Direct.State (
+  HeadStateKind (StClosed),
   abort,
+  close,
   commit,
   fanout,
+  getContestationDeadline,
   getKnownUTxO,
   initialize,
  )
 import Hydra.Ledger.Cardano (
-  adaOnly,
-  genKeyPair,
-  genOneUTxOFor,
   genOutput,
   genTxIn,
-  simplifyUTxO,
+  genUTxOAdaOnlyOfSize,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, pparams)
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, pparams, slotNoToPOSIXTime)
+import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
-import Test.QuickCheck (generate, sublistOf, vectorOf)
+import Test.QuickCheck (generate, sublistOf, suchThat)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeInitCost = do
@@ -80,7 +82,7 @@ computeCommitCost = do
   pure $ interesting <> limit
  where
   compute numUTxO = do
-    utxo <- generate $ genSimpleUTxOOfSize numUTxO
+    utxo <- generate $ genUTxOAdaOnlyOfSize numUTxO
     (commitTx, knownUtxo) <- generate $ genCommitTx utxo
     case commitTx of
       Left _ -> pure Nothing
@@ -154,42 +156,41 @@ computeAbortCost =
       Nothing ->
         pure Nothing
 
-  genAbortTx numParties =
-    genHydraContextFor numParties >>= \ctx ->
-      genInitTx ctx >>= \initTx ->
-        (sublistOf . snd =<< genCommits ctx initTx) >>= \commits ->
-          genStIdle ctx >>= \stIdle ->
-            let (_, stInitialized) = executeCommits initTx commits stIdle
-             in pure (abort stInitialized, getKnownUTxO stInitialized)
+  genAbortTx numParties = do
+    ctx <- genHydraContextFor numParties
+    initTx <- genInitTx ctx
+    commits <- sublistOf . snd =<< genCommits ctx initTx
+    stIdle <- genStIdle ctx
+    let (_, stInitialized) = executeCommits initTx commits stIdle
+    pure (abort stInitialized, getKnownUTxO stInitialized)
 
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
 computeFanOutCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [500, 499 .. 51]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 51]
   pure $ interesting <> limit
  where
   compute numElems = do
-    (tx, knownUtxo) <- generate $ genFanoutTx numElems
-    case checkSizeAndEvaluate tx knownUtxo of
+    (utxo, tx) <- generate $ genFanoutTx 3 numElems
+    case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit) ->
         pure $ Just (NumUTxO numElems, txSize, memUnit, cpuUnit)
       Nothing ->
         pure Nothing
 
-  genFanoutTx numOutputs = do
-    ctx <- genHydraContext 3
-    let utxo = genSimpleUTxOOfSize numOutputs `generateWith` 42
-    (_, toFanout, stClosed) <- genStClosed ctx utxo
-    pointInTime <- genPointInTime
-    pure (fanout toFanout pointInTime stClosed, getKnownUTxO stClosed)
-
-genSimpleUTxOOfSize :: Int -> Gen UTxO
-genSimpleUTxOOfSize numUTxO =
-  foldMap simplifyUTxO
-    <$> vectorOf
-      numUTxO
-      ( genKeyPair >>= fmap (fmap adaOnly) . genOneUTxOFor . fst
-      )
+  -- Generate a fanout with a defined number of outputs.
+  genFanoutTx numParties numOutputs = do
+    utxo <- genUTxOAdaOnlyOfSize numOutputs
+    ctx <- genHydraContext numParties
+    (_committed, stOpen) <- genStOpen ctx
+    snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
+    closePoint <- genPointInTime
+    let closeTx = close snapshot closePoint stOpen
+    let stClosed = snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
+    fanoutPoint <-
+      genPointInTime `suchThat` \(slot, _) ->
+        slotNoToPOSIXTime slot > getContestationDeadline stClosed
+    pure (getKnownUTxO stClosed, fanout utxo fanoutPoint stClosed)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)

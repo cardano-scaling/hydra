@@ -32,6 +32,7 @@ import Hydra.Cardano.Api (
   toLedgerTx,
   txInputSet,
   txOutValue,
+  txOuts',
   valueSize,
   pattern ByronAddressInEra,
   pattern TxOut,
@@ -112,6 +113,7 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShow,
   label,
+  sized,
   sublistOf,
   (=/=),
   (===),
@@ -541,15 +543,18 @@ forAllFanout ::
   (OnChainHeadState 'StClosed -> Tx -> property) ->
   Property
 forAllFanout action =
-  forAll (genFanoutTx 3) $ \(stClosed, tx) ->
+  -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
+  forAll (sized $ \n -> genFanoutTx 3 (n `min` maxSupported)) $ \(stClosed, tx) ->
     action stClosed tx
-      & label ("Fanout size: " <> prettyLength (assetsInUtxo $ getKnownUTxO stClosed))
+      & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
-  assetsInUtxo = valueSize . foldMap txOutValue
+  maxSupported = 70
+
+  countAssets = getSum . foldMap (Sum . valueSize . txOutValue)
 
   prettyLength len
-    | len >= 100 = "> 100"
-    | len >= 50 = "50-99"
+    | len > maxSupported = "> " <> show maxSupported <> " ???"
+    | len >= 50 = "50-" <> show maxSupported
     | len >= 10 = "10-49"
     | otherwise = "00-10"
 

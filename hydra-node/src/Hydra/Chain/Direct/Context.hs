@@ -29,11 +29,11 @@ import Hydra.Chain.Direct.State (
   observeTx,
  )
 import qualified Hydra.Crypto as Hydra
-import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxO, genVerificationKey, renderTx, simplifyUTxO)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey, renderTx)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTime, slotNoToPOSIXTime)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
-import Test.QuickCheck (choose, elements, frequency, resize, suchThat, vector)
+import Test.QuickCheck (choose, elements, frequency, suchThat, vector)
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -158,11 +158,10 @@ genContestTx numParties = do
       slotNoToPOSIXTime slot < getContestationDeadline stClosed
   pure (stClosed, contest snapshot pointInTime stClosed)
 
-genFanoutTx :: Int -> Gen (OnChainHeadState 'StClosed, Tx)
-genFanoutTx numParties = do
+genFanoutTx :: Int -> Int -> Gen (OnChainHeadState 'StClosed, Tx)
+genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
-  let maxAssetsSupported = 1
-  utxo <- resize maxAssetsSupported $ simplifyUTxO <$> genUTxO
+  utxo <- genUTxOAdaOnlyOfSize numOutputs
   (_, toFanout, stClosed) <- genStClosed ctx utxo
   pointInTime <-
     genPointInTime `suchThat` \(slot, _) ->
