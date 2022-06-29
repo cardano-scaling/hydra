@@ -314,6 +314,7 @@ test-suite tests
     , network
     , ouroboros-consensus
     , ouroboros-consensus-cardano
+    , ouroboros-consensus-cardano-test
     , ouroboros-consensus-protocol
     , ouroboros-consensus-shelley
     , ouroboros-network
