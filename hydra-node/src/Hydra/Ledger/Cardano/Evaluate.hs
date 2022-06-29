@@ -22,8 +22,8 @@ import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
-import Cardano.Slotting.Slot (EpochSize (EpochSize))
-import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
+import Cardano.Slotting.Slot (EpochSize (EpochSize), SlotNo (SlotNo))
+import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength (getSlotLength), SystemStart (SystemStart), mkSlotLength, toRelativeTime)
 import Data.Array (Array, array)
 import Data.Bits (shift)
 import Data.Default (def)
@@ -31,11 +31,12 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (ExecutionUnits, SlotNo, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
+import Hydra.Cardano.Api (ExecutionUnits, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
 import Hydra.Chain.Direct.Util (Era)
 import qualified Plutus.V1.Ledger.Api as PV1
 import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified Plutus.V2.Ledger.Api as PV2
+import Test.QuickCheck (choose)
 
 type RedeemerReport =
   (Map RdmrPtr (Either (ScriptFailure StandardCrypto) ExUnits))
@@ -93,18 +94,46 @@ defaultCostModel = \case
   PlutusV2 -> CostModel <$> PV2.defaultCostModelParams
 
 epochInfo :: Monad m => EpochInfo m
-epochInfo = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
+epochInfo = fixedEpochInfo (EpochSize 100) slotLength
+
+slotLength :: SlotLength
+slotLength = mkSlotLength 1
 
 systemStart :: SystemStart
 systemStart = SystemStart $ posixSecondsToUTCTime 0
 
--- | Only for use in the context of `evaluateTx`.
 genPointInTime :: Gen (SlotNo, Plutus.POSIXTime)
 genPointInTime = do
   slot <- arbitrary
   pure (slot, slotNoToPOSIXTime slot)
 
--- | Using hard-coded defaults above
+genPointInTimeBefore :: Plutus.POSIXTime -> Gen (SlotNo, Plutus.POSIXTime)
+genPointInTimeBefore deadline = do
+  let SlotNo slotDeadline = slotNoFromPOSIXTime deadline
+  slot <- SlotNo <$> choose (0, slotDeadline)
+  pure (slot, slotNoToPOSIXTime slot)
+
+genPointInTimeAfter :: Plutus.POSIXTime -> Gen (SlotNo, Plutus.POSIXTime)
+genPointInTimeAfter deadline = do
+  let SlotNo slotDeadline = slotNoFromPOSIXTime deadline
+  slot <- SlotNo <$> choose (slotDeadline, maxBound)
+  pure (slot, slotNoToPOSIXTime slot)
+
+-- | Using hard-coded systemStart and slotLength, do not use in production!
+slotNoFromPOSIXTime :: Plutus.POSIXTime -> SlotNo
+slotNoFromPOSIXTime posixTime =
+  SlotNo $ truncate (relativeTime / getSlotLength slotLength)
+ where
+  (RelativeTime relativeTime) =
+    toRelativeTime systemStart utcTime
+
+  utcTime =
+    posixSecondsToUTCTime $
+      realToFrac $
+        (`div` 1000) $
+          Plutus.getPOSIXTime posixTime
+
+-- | Using hard-coded epochInfo and systemStart, do not use in production!
 slotNoToPOSIXTime :: SlotNo -> Plutus.POSIXTime
 slotNoToPOSIXTime =
   runIdentity
