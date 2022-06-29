@@ -23,7 +23,7 @@ import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
-import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
+import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength, toRelativeTime)
 import Data.Array (Array, array)
 import Data.Bits (shift)
 import Data.Default (def)
@@ -33,6 +33,7 @@ import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (ExecutionUnits, SlotNo, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
 import Hydra.Chain.Direct.Util (Era)
+import Ouroboros.Consensus.HardFork.History (wallclockToSlot)
 import qualified Plutus.V1.Ledger.Api as PV1
 import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified Plutus.V2.Ledger.Api as PV2
@@ -103,6 +104,18 @@ genPointInTime :: Gen (SlotNo, Plutus.POSIXTime)
 genPointInTime = do
   slot <- arbitrary
   pure (slot, slotNoToPOSIXTime slot)
+
+genPointInTimeBefore :: Plutus.POSIXTime -> Gen (SlotNo, Plutus.POSIXTime)
+genPointInTimeBefore deadline = do
+  undefined $ slotNoFromPOSIXTime deadline
+
+slotNoFromPOSIXTime :: Plutus.POSIXTime -> SlotNo
+slotNoFromPOSIXTime posixTime =
+  undefined $ wallclockToSlot relativeTime
+ where
+  relativeTime = toRelativeTime systemStart utcTime
+
+  utcTime = undefined posixTime
 
 -- | Using hard-coded defaults above
 slotNoToPOSIXTime :: SlotNo -> Plutus.POSIXTime
