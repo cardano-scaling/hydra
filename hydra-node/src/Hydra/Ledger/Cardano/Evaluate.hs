@@ -114,6 +114,7 @@ genPointInTimeBefore deadline = do
   slot <- SlotNo <$> choose (0, slotDeadline)
   pure (slot, slotNoToPOSIXTime slot)
 
+-- | Using hard-coded systemStart and slotLength, do not use in production!
 slotNoFromPOSIXTime :: Plutus.POSIXTime -> SlotNo
 slotNoFromPOSIXTime posixTime =
   SlotNo $ truncate (relativeTime / getSlotLength slotLength)
@@ -127,7 +128,7 @@ slotNoFromPOSIXTime posixTime =
         (`div` 1000) $
           Plutus.getPOSIXTime posixTime
 
--- | Using hard-coded defaults above
+-- | Using hard-coded epochInfo and systemStart, do not use in production!
 slotNoToPOSIXTime :: SlotNo -> Plutus.POSIXTime
 slotNoToPOSIXTime =
   runIdentity

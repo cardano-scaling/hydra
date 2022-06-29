@@ -21,6 +21,7 @@ import Hydra.Ledger.Cardano (
   genSequenceOfValidTransactions,
   renderTx,
  )
+import Hydra.Ledger.Cardano.Evaluate (slotNoFromPOSIXTime, slotNoToPOSIXTime)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
 import Test.QuickCheck (Property, counterexample, forAll, forAllBlind, property, withMaxSuccess, (.&&.), (===))
@@ -68,6 +69,10 @@ spec =
       propCollisionResistant "arbitrary TxId" (arbitrary @TxId)
       propCollisionResistant "arbitrary VerificationKey" (arbitrary @(VerificationKey PaymentKey))
       propCollisionResistant "arbitrary Hash" (arbitrary @(Hash PaymentKey))
+
+    describe "Evaluate helpers" $ do
+      prop "slotNoFromPOSIXTime . slotNoToPOSIXTime === id" $ \slot ->
+        slotNoFromPOSIXTime (slotNoToPOSIXTime slot) === slot
 
 shouldParseJSONAs :: forall a. FromJSON a => LByteString -> Expectation
 shouldParseJSONAs bs =
