@@ -207,7 +207,7 @@ collectComTx ::
 collectComTx networkId vk initialThreadOutput commits =
   unsafeBuildTransaction $
     emptyTxBody
-      & addInputs ((headInput, headWitness) : (mkCommit <$> orderedCommits))
+      & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
       & addOutputs [headOutput]
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
@@ -239,9 +239,7 @@ collectComTx networkId vk initialThreadOutput commits =
       _ -> Nothing
 
   utxoHash =
-    Head.hashPreSerializedCommits $ mapMaybe (extractCommit . snd . snd) orderedCommits
-
-  orderedCommits = Map.toList commits
+    Head.hashPreSerializedCommits $ mapMaybe (extractCommit . snd . snd) $ Map.toList commits
 
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( commitInput
@@ -417,7 +415,7 @@ fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) (sl
     headTokensFromValue headTokenScript (txOutValue headOutput)
 
   fanoutOutputs =
-    map toTxContext $ toList utxo
+    map (toTxContext . snd) . sortOn fst $ UTxO.pairs utxo
 
 data AbortTxError = OverlappingInputs
   deriving (Show)

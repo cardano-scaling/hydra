@@ -17,6 +17,7 @@ import qualified Data.List as List
 import Hydra.Cardano.Api (
   UTxO,
   toLedgerTxOut,
+  toPlutusTxOut,
  )
 import Hydra.Chain.Direct.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
 import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
@@ -43,6 +44,7 @@ import Hydra.Ledger (hashUTxO)
 import qualified Hydra.Ledger as OffChain
 import Hydra.Ledger.Cardano (
   Tx,
+  genOutput,
   genUTxOWithSimplifiedAddresses,
   shrinkUTxO,
  )
@@ -57,6 +59,7 @@ import Test.QuickCheck (
   counterexample,
   forAll,
   forAllShrink,
+  property,
   (===),
  )
 import Test.QuickCheck.Instances ()
@@ -74,10 +77,14 @@ spec = parallel $ do
     prop
       "verifies snapshot multi-signature for list of parties and signatures"
       prop_verifySnapshotSignatures
+
   describe "TxOut hashing" $ do
     modifyMaxSuccess (const 20) $ do
-      prop "OffChain.hashUTxO == OnChain.hashTxOuts" prop_consistentOnAndOffChainHashOfTxOuts
-      prop "serialize' commutes with hashing" prop_serialiseTxOutCommutesWithHash
+      prop "OffChain.hashUTxO == OnChain.hashTxOuts (on sorted tx outs)" prop_consistentOnAndOffChainHashOfTxOuts
+      prop "OnChain.hashPreSerializedCommits == OnChain.hashTxOuts (on sorted tx outs)" prop_consistentHashPreSerializedCommits
+
+  describe "Serializing commits" $
+    prop "deserializeCommit . serializeCommit === id" prop_serializingCommitRoundtrip
 
   describe "Init" $ do
     prop "is healthy" $
@@ -126,6 +133,21 @@ spec = parallel $ do
 -- Properties
 --
 
+prop_serializingCommitRoundtrip :: Property
+prop_serializingCommitRoundtrip =
+  -- NOTE: Generate shelley addressed txOut because Byron not supported by
+  -- Plutus.TxOut
+  forAll ((,) <$> arbitrary <*> (arbitrary >>= genOutput)) $ \singleUTxO ->
+    let serialized = Commit.serializeCommit singleUTxO
+        deserialized = serialized >>= Commit.deserializeCommit
+     in case deserialized of
+          Just actual -> actual === singleUTxO
+          Nothing ->
+            property False
+              & counterexample "roundtrip returned Nothing"
+              & counterexample ("Serialized: " <> show serialized)
+              & counterexample ("Deserialized: " <> show deserialized)
+
 prop_consistentOnAndOffChainHashOfTxOuts :: Property
 prop_consistentOnAndOffChainHashOfTxOuts =
   -- NOTE: We only generate shelley addressed txouts because they are left out
@@ -137,18 +159,24 @@ prop_consistentOnAndOffChainHashOfTxOuts =
               (\ix o -> txInfoOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
               [0 ..]
               txOuts
-        txOuts = toList utxo
+        txOuts = map snd . sortOn fst $ UTxO.pairs utxo
      in (OffChain.hashUTxO @Tx utxo === fromBuiltin (OnChain.hashTxOuts plutusTxOuts))
           & counterexample ("Plutus: " <> show plutusTxOuts)
           & counterexample ("Ledger: " <> show txOuts)
 
-prop_serialiseTxOutCommutesWithHash :: Property
-prop_serialiseTxOutCommutesWithHash =
+prop_consistentHashPreSerializedCommits :: Property
+prop_consistentHashPreSerializedCommits =
   forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
-    let serializedCommits = mapMaybe Commit.serializeCommit $ UTxO.pairs utxo
-        serialisedUTxO = OnChain.hashPreSerializedCommits serializedCommits
-     in fromBuiltin serialisedUTxO === hashUTxO @Tx utxo
-          & counterexample ("Hashed CBOR: " <> decodeUtf8 (Base16.encode $ fromBuiltin serialisedUTxO))
+    let unsortedUTxOPairs = UTxO.pairs utxo
+        toFanoutTxOuts = mapMaybe (toPlutusTxOut . snd) $ sortOn fst unsortedUTxOPairs
+        serializedCommits = mapMaybe Commit.serializeCommit unsortedUTxOPairs
+        hashedCommits = OnChain.hashPreSerializedCommits serializedCommits
+        hashedTxOuts = OnChain.hashTxOuts toFanoutTxOuts
+     in hashedCommits === hashedTxOuts
+          & counterexample ("Hashed commits: " <> decodeUtf8 (Base16.encode $ fromBuiltin hashedCommits))
+          & counterexample ("Hashed txOuts: " <> decodeUtf8 (Base16.encode $ fromBuiltin hashedTxOuts))
+          & counterexample ("Serialized commits: " <> show serializedCommits)
+          & counterexample ("To fanout txOuts: " <> show toFanoutTxOuts)
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =

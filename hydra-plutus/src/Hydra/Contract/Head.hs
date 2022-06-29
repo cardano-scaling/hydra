@@ -464,16 +464,20 @@ findTxOutDatum txInfo o =
     OutputDatum d -> d
 {-# INLINEABLE findTxOutDatum #-}
 
+-- | Hash a potentially unordered list of commits by sorting them, concatenating
+-- their 'preSerializedOutput' bytes and creating a SHA2_256 digest over that.
 hashPreSerializedCommits :: [Commit] -> BuiltinByteString
 hashPreSerializedCommits commits =
-  -- REVIEW: Ensure BuiltinData 'List [Data]' is encoded like we expect
-  sha2_256 . Builtins.serialiseData . toBuiltinData $
+  sha2_256 . foldMap preSerializedOutput $
     sortBy (\a b -> compareRef (input a) (input b)) commits
 {-# INLINEABLE hashPreSerializedCommits #-}
 
+-- | Hash a pre-ordered list of transaction outputs by serializing each
+-- individual 'TxOut', concatenating all bytes together and creating a SHA2_256
+-- digest over that.
 hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
-  sha2_256 . Builtins.serialiseData . toBuiltinData
+  sha2_256 . foldMap (Builtins.serialiseData . toBuiltinData)
 {-# INLINEABLE hashTxOuts #-}
 
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
