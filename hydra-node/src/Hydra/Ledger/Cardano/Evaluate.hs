@@ -102,7 +102,6 @@ slotLength = mkSlotLength 1
 systemStart :: SystemStart
 systemStart = SystemStart $ posixSecondsToUTCTime 0
 
--- | Only for use in the context of `evaluateTx`.
 genPointInTime :: Gen (SlotNo, Plutus.POSIXTime)
 genPointInTime = do
   slot <- arbitrary
@@ -112,6 +111,12 @@ genPointInTimeBefore :: Plutus.POSIXTime -> Gen (SlotNo, Plutus.POSIXTime)
 genPointInTimeBefore deadline = do
   let SlotNo slotDeadline = slotNoFromPOSIXTime deadline
   slot <- SlotNo <$> choose (0, slotDeadline)
+  pure (slot, slotNoToPOSIXTime slot)
+
+genPointInTimeAfter :: Plutus.POSIXTime -> Gen (SlotNo, Plutus.POSIXTime)
+genPointInTimeAfter deadline = do
+  let SlotNo slotDeadline = slotNoFromPOSIXTime deadline
+  slot <- SlotNo <$> choose (slotDeadline, maxBound)
   pure (slot, slotNoToPOSIXTime slot)
 
 -- | Using hard-coded systemStart and slotLength, do not use in production!
