@@ -527,6 +527,8 @@ type TxOut ctx = Cardano.Api.TxOut ctx Era
 {-# COMPLETE TxOut #-}
 
 -- | TxOut specialized for 'Era', hiding 'ReferenceScript'
+-- FIXME: Do not strip off 'ReferenceScript' it's surprising and we will need
+-- them eventually
 pattern TxOut :: AddressInEra -> Value -> TxOutDatum ctx -> TxOut ctx
 pattern TxOut{txOutAddress, txOutValue, txOutDatum} <-
   Cardano.Api.TxOut
