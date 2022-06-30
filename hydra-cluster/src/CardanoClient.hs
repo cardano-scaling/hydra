@@ -35,9 +35,9 @@ queryStakePools :: NetworkId -> FilePath -> QueryPoint -> IO (Set PoolId)
 queryStakePools networkId socket queryPoint =
   let query =
         QueryInEra
-          AlonzoEraInCardanoMode
+          BabbageEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
+              ShelleyBasedEraBabbage
               QueryStakePools
           )
    in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
@@ -52,7 +52,10 @@ buildRaw ins outs fee =
     TxBodyContent
       (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) ins)
       TxInsCollateralNone
+      TxInsReferenceNone
       outs
+      TxTotalCollateralNone
+      TxReturnCollateralNone
       (TxFeeExplicit fee)
       (TxValidityNoLowerBound, TxValidityNoUpperBound)
       TxMetadataNone
@@ -82,7 +85,7 @@ build networkId socket changeAddress ins collateral outs = do
   pure $
     second balancedTxBody $
       makeTransactionBodyAutoBalance
-        AlonzoEraInCardanoMode
+        BabbageEraInCardanoMode
         systemStart
         eraHistory
         pparams
@@ -96,15 +99,18 @@ build networkId socket changeAddress ins collateral outs = do
     TxBodyContent
       (map mkWitness ins)
       (TxInsCollateral collateral)
+      TxInsReferenceNone
       outs
+      TxTotalCollateralNone
+      TxReturnCollateralNone
       dummyFee
       (TxValidityNoLowerBound, TxValidityNoUpperBound)
       (TxMetadataInEra (TxMetadata noMetadataMap))
       (TxAuxScripts [])
       (TxExtraKeyWitnesses [])
       (BuildTxWith $ Just pparams)
-      (TxWithdrawals WithdrawalsInAlonzoEra [])
-      (TxCertificates CertificatesInAlonzoEra [] (BuildTxWith noStakeCredentialWitnesses))
+      (TxWithdrawals WithdrawalsInBabbageEra [])
+      (TxCertificates CertificatesInBabbageEra [] (BuildTxWith noStakeCredentialWitnesses))
       TxUpdateProposalNone
       (TxMintValue noMintedValue (BuildTxWith noPolicyIdToWitnessMap))
       TxScriptValidityNone
@@ -164,7 +170,7 @@ sign signingKey body =
 -- Throws 'CardanoClientException' if submission fails.
 submit :: NetworkId -> FilePath -> Tx -> IO ()
 submit networkId socket tx =
-  submitTxToNodeLocal (localNodeConnectInfo networkId socket) (TxInMode tx AlonzoEraInCardanoMode) >>= \case
+  submitTxToNodeLocal (localNodeConnectInfo networkId socket) (TxInMode tx BabbageEraInCardanoMode) >>= \case
     SubmitSuccess -> pure ()
     SubmitFail err -> throwIO $ ClientSubmitException{reason = show err, tx}
 
