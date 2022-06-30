@@ -26,6 +26,7 @@ import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (addContestationPeriod, contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
+import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano ()
 import Hydra.Ledger.Cardano.Builder (
   addExtraRequiredSigners,
@@ -382,7 +383,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         , parties = closedParties
         , contestationDeadline = closedContestationDeadline
         }
-  utxoHash = Head.hashTxOuts . mapMaybe toPlutusTxOut $ toList utxo
+  utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
 fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
@@ -399,7 +400,7 @@ fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) (sl
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
-      & addOutputs fanoutOutputs
+      & addOutputs orderedTxOutsToFanout
       & burnTokens headTokenScript Burn headTokens
       & setValidityLowerBound slotNo
  where
@@ -414,8 +415,8 @@ fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) (sl
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)
 
-  fanoutOutputs =
-    map (toTxContext . snd) . sortOn fst $ UTxO.pairs utxo
+  orderedTxOutsToFanout =
+    toTxContext <$> toList utxo
 
 data AbortTxError = OverlappingInputs
   deriving (Show)

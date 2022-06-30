@@ -114,7 +114,7 @@ instance IsTx Tx where
 
   txId = getTxId . getTxBody
   balance = foldMap txOutValue
-  hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe (toPlutusTxOut . snd) . sortOn fst . UTxO.pairs
+  hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe toPlutusTxOut . toList
 
 instance ToCBOR Tx where
   toCBOR = CBOR.encodeBytes . serialize' . toLedgerTx
