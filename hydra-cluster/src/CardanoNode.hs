@@ -10,7 +10,7 @@ import Hydra.Prelude
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.KeyMap as Aeson.KeyMap
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), PaymentKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
 import Hydra.Cluster.Util (readConfigFile)
@@ -311,8 +311,8 @@ data NodeLog
 -- Helpers
 --
 
-addField :: ToJSON a => Text -> a -> Aeson.Value -> Aeson.Value
-addField k v = withObject (HM.insert k (toJSON v))
+addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
+addField k v = withObject (Aeson.KeyMap.insert k (toJSON v))
 
 -- | Do something with an a JSON object. Fails if the given JSON value isn't an
 -- object.
