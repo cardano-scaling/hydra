@@ -33,7 +33,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   ExecutionUnits (..),
   LedgerEra,
-  SlotNo (SlotNo),
+  SlotNo,
   StandardCrypto,
   Tx,
   UTxO,

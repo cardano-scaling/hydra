@@ -434,13 +434,6 @@ genTxOutAdaOnly = do
   value <- lovelaceToValue . Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
   pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone
 
--- | Generate an ada-only 'TxOut' payed to an arbitrary public key.
-genTxOutAdaOnly :: Gen (TxOut ctx)
-genTxOutAdaOnly = do
-  vk <- arbitrary
-  value <- lovelaceToValue . Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
-  pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone
-
 -- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
 genTxIn :: Gen TxIn
 genTxIn =
