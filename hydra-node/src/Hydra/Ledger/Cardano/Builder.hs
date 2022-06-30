@@ -60,10 +60,10 @@ instance Exception InvalidTransactionException
 emptyTxBody :: TxBuilder
 emptyTxBody =
   TxBodyContent
-    mempty
-    (TxInsCollateral mempty)
+    mempty -- inputs
+    TxInsCollateralNone
     TxInsReferenceNone
-    mempty
+    mempty -- outputs
     TxTotalCollateralNone
     TxReturnCollateralNone
     (TxFeeExplicit 0)
