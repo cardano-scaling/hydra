@@ -16,7 +16,7 @@ import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
 import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), getLanguageView, hashData, hashScriptIntegrity)
-import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, scriptIntegrityHash, txfee)
+import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, outputs', scriptIntegrityHash, txfee)
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger.Babbage
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Block (bbody)
@@ -26,7 +26,7 @@ import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Era (ValidateScript (..), fromTxSeq)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import qualified Cardano.Ledger.SafeHash as SafeHash
-import Cardano.Ledger.Serialization (mkSized, sizedValue)
+import Cardano.Ledger.Serialization (mkSized)
 import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
 import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
@@ -172,7 +172,7 @@ applyBlock blk isOurs utxo = case blk of
         let txId = getTxId tx
         modify (`Map.withoutKeys` inputs (body tx))
         let indexedOutputs =
-              let outs = map sizedValue . toList $ outputs (body tx)
+              let outs = toList $ outputs' (body tx)
                   maxIx = fromIntegral $ length outs
                in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
         forM_ indexedOutputs $ \(ix, out@(Ledger.Babbage.TxOut addr _ _ _)) ->
@@ -237,10 +237,10 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
       mkChange
         output
         resolvedInputs
-        (map sizedValue . toList $ outputs body)
+        (toList $ outputs' body)
         needlesslyHighFee
 
-  let outputs' = outputs body <> StrictSeq.singleton (mkSized change)
+  let newOutputs = outputs body <> StrictSeq.singleton (mkSized change)
       langs =
         [ getLanguageView pparams l
         | (_hash, script) <- Map.toList (txscripts wits)
@@ -250,7 +250,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
       finalBody =
         body
           { inputs = inputs'
-          , outputs = outputs'
+          , outputs = newOutputs
           , collateral = Set.singleton input
           , txfee = needlesslyHighFee
           , scriptIntegrityHash =

@@ -36,7 +36,7 @@ import qualified Cardano.Ledger.Hashes as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
 import qualified Cardano.Ledger.SafeHash as Ledger
-import Cardano.Ledger.Serialization (Sized, mkSized, sizedValue)
+import Cardano.Ledger.Serialization (Sized, mkSized)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Cardano.Ledger.ShelleyMA.Timelocks as Ledger.Mary
 import qualified Cardano.Ledger.TxIn as Ledger
@@ -279,8 +279,8 @@ instance ToJSON (Ledger.Babbage.TxBody LedgerEra) where
         [ onlyIf (const True) "inputs" (Set.map fromLedgerTxIn (Ledger.Babbage.inputs b))
         , onlyIf (not . null) "collateral" (Set.map fromLedgerTxIn (Ledger.Babbage.collateral b))
         , onlyIf (not . null) "referenceInputs" (Set.map fromLedgerTxIn (Ledger.Babbage.referenceInputs b))
-        , onlyIf (const True) "outputs" (fromLedgerTxOut . sizedValue <$> Ledger.Babbage.outputs b)
-        , onlyIf isSJust "collateralReturn" (fromLedgerTxOut . sizedValue <$> Ledger.Babbage.collateralReturn b)
+        , onlyIf (const True) "outputs" (fromLedgerTxOut <$> Ledger.Babbage.outputs' b)
+        , onlyIf isSJust "collateralReturn" (fromLedgerTxOut <$> Ledger.Babbage.collateralReturn' b)
         , onlyIf isSJust "totalCollateral" (Ledger.Babbage.totalCollateral b)
         , onlyIf (not . null) "certificates" (Ledger.Babbage.txcerts b)
         , onlyIf (not . null . Ledger.unWdrl) "withdrawals" (Ledger.Babbage.txwdrls b)

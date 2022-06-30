@@ -9,14 +9,14 @@ import Test.Hydra.Prelude
 import Cardano.Ledger.Alonzo.Data (Data (Data), Datum (DatumHash), hashData)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (TxSeq))
 import Cardano.Ledger.Babbage.Tx (ValidatedTx (..))
-import Cardano.Ledger.Babbage.TxBody (TxBody (..), pattern TxOut)
+import Cardano.Ledger.Babbage.TxBody (TxBody (..), outputs', pattern TxOut)
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Value)
 import Cardano.Ledger.Era (fromTxSeq)
 import qualified Cardano.Ledger.SafeHash as SafeHash
-import Cardano.Ledger.Serialization (mkSized, sizedValue)
+import Cardano.Ledger.Serialization (mkSized)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
@@ -280,9 +280,9 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
 
 genUTxO :: Gen (Map TxIn TxOut)
 genUTxO = do
-  tx <- arbitrary `suchThat` (\tx -> length (outputs (body tx)) >= 1)
+  tx <- arbitrary `suchThat` (\tx -> length (outputs' (body tx)) >= 1)
   txIn <- toLedgerTxIn <$> genTxIn
-  let txOut = scaleAda . sizedValue $ Prelude.head $ toList $ outputs $ body tx
+  let txOut = scaleAda $ Prelude.head $ toList $ outputs' $ body tx
   pure $ Map.singleton txIn txOut
  where
   scaleAda :: TxOut -> TxOut
@@ -322,7 +322,7 @@ allTxIns (fromTxSeq . bbody -> txs) =
 
 allTxOuts :: Ledger.Block h LedgerEra -> [TxOut]
 allTxOuts (toList . fromTxSeq . bbody -> txs) =
-  toList $ mconcat (fmap sizedValue . outputs . body <$> txs)
+  toList $ mconcat (outputs' . body <$> txs)
 
 isOurs :: Map TxIn TxOut -> Address -> Bool
 isOurs utxo addr =
@@ -358,4 +358,4 @@ knownInputBalance utxo = foldMap resolve . toList . inputs . body
 -- | NOTE: This does not account for deposits
 outputBalance :: ValidatedTx LedgerEra -> Value LedgerEra
 outputBalance =
-  foldMap (getValue . sizedValue) . outputs . body
+  foldMap getValue . outputs' . body
