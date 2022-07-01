@@ -61,7 +61,7 @@ emptyTxBody :: TxBuilder
 emptyTxBody =
   TxBodyContent
     mempty -- inputs
-    TxInsCollateralNone
+    (TxInsCollateral mempty) -- FIXME
     TxInsReferenceNone
     mempty -- outputs
     TxTotalCollateralNone
