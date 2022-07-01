@@ -68,7 +68,7 @@ Should you have any questions, ideas or issues, we would like to hear from you:
 - create a Github [Discussion](https://github.com/input-output-hk/hydra-poc/discussions) or [Issue](https://github.com/input-output-hk/hydra-poc/issues/new)
 - or ask on Cardano [StackExchange](https://cardano.stackexchange.com/) using the `hydra` tag
 
-When contributing to this project and interacting with other contributors, please follow our [Code of Conduct](./CODE-OF-CONDUCT.md).
+When contributing to this project and interacting with others, please follow our [Contributing Guidelines](./CONTRIBUTING.md) and [Code of Conduct](./CODE-OF-CONDUCT.md).
 
 ---
 
