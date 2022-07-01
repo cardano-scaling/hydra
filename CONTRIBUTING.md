@@ -6,7 +6,8 @@ The best way to contribute right now is to try things out and provide feedback,
 but we also accept contributions to the documentation and the obviously to the
 code itself.
 
-This document is contains guidelines to help you get started and how to make sure your contribution gets accepted, making you our newest Hydra contributor!
+This document contains guidelines to help you get started and how to make sure
+your contribution gets accepted, making you our newest Hydra contributor!
 
 ## Communication channels
 
@@ -76,7 +77,7 @@ substituters = https://cache.nixos.org https://iohk.cachix.org https://hydra.ioh
 trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
 ```
 
-From there you can
+From there you can:
 
 * Build the project all its executables using `nix-build`
 * Build the `hydra-node` docker image: `docker build . --target hydra-node`
@@ -101,28 +102,29 @@ Make sure to follow our [Coding
 Standards](https://github.com/input-output-hk/hydra-poc/wiki/Coding-Standards).
 It includes guidelines on Haskell code style, but also on Git commit messages
 and some processes (TODO: clarify separation or unify with these guidelines). To
-propose new standards or changes to the existing standards file an issue.
+propose new standards or changes to the existing standards, file an issue.
 
 ### Creating a pull request
 
-We would like to invite anyone to open pull requests (thanks!), but usually require:
-  + description of the changes - if your commit messages are great, this is less important
-  + change is related to an issue, feature (idea) or bug report - ideally discussed beforehand
-  + well-scoped - rather multiple PRs, than a big one
-  + quality & maintenance is ensured - usually means automated tests are covering the change
+Thank you for contributing your changes by opening a pull requests! To get
+something merged we usually require:
++ Description of the changes - if your commit messages are great, this is less important
++ Quality of changes is ensured - through new or updated automated tests
++ Change is related to an issue, feature (idea) or bug report - ideally discussed beforehand
++ Well-scoped - we prefer multiple PRs, rather than a big one
 
 ### Versioning & Changelog
 
 During development
-  + Make sure `CHANGELOG.md` is kept up-to-date with high-level, technical, but user-focused list of changes according to [keepachangelog](https://keepachangelog.com/en/1.0.0/)
-  + Bump `UNRELEASED` version in `CHANGELOG.md` according to [semver](https://semver.org/)
-  + All `hydra-` packages are versioned the same, at latest on release their versions are aligned.
-  + Other packages are versioned independently of `hydra-` packages and keep a dedicated changelog.
++ Make sure `CHANGELOG.md` is kept up-to-date with high-level, technical, but user-focused list of changes according to [keepachangelog](https://keepachangelog.com/en/1.0.0/)
++ Bump `UNRELEASED` version in `CHANGELOG.md` according to [semver](https://semver.org/)
++ All `hydra-` packages are versioned the same, at latest on release their versions are aligned.
++ Other packages are versioned independently of `hydra-` packages and keep a dedicated changelog.
 
 ### Releasing
 
 To perform a release
-  + Check version to be released is also correct in software components, e.g. `.cabal` files.
-  + Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601)
-  + Create a signed, annotated git tag of the version: `git tag -as <version>`
-  + (ideally) Use the released changes as annotation
++ Check version to be released is also correct in software components, e.g. `.cabal` files.
++ Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601)
++ Create a signed, annotated git tag of the version: `git tag -as <version>`
++ (ideally) Use the released changes as annotation
