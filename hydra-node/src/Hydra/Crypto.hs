@@ -40,6 +40,7 @@ import qualified Data.Map as Map
 import Hydra.Cardano.Api (HasTypeProxy (..), SerialiseAsRawBytes (..), serialiseToRawBytesHexText)
 import qualified Hydra.Contract.HeadState as OnChain
 import qualified Plutus.V2.Ledger.Api as Plutus
+import Test.QuickCheck.Instances.ByteString ()
 import Text.Show (Show (..))
 
 -- | The used signature algorithm

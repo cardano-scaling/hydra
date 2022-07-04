@@ -12,6 +12,7 @@ import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (IsTx (..))
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
+import Test.QuickCheck.Instances.Natural ()
 
 type SnapshotNumber = Natural
 

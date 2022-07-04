@@ -31,7 +31,6 @@ import Hydra.Crypto (hashVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (pparams)
 import Hydra.Party (Party (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck.Instances ()
 
 -- * Party / key utilities
 

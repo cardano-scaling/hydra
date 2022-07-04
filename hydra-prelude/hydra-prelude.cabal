@@ -25,7 +25,6 @@ library
     , generic-random
     , io-classes
     , QuickCheck
-    , quickcheck-instances
     , relude
     , transformers
 

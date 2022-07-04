@@ -16,6 +16,7 @@ import Plutus.V1.Ledger.Api (
  )
 import qualified PlutusTx.AssocMap as AssocMap
 import PlutusTx.Prelude (BuiltinByteString, toBuiltin)
+import Test.QuickCheck.Instances.ByteString ()
 
 instance Arbitrary BuiltinByteString where
   arbitrary = toBuiltin <$> (arbitrary :: Gen ByteString)

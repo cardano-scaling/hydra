@@ -162,6 +162,7 @@ library
     , plutus-ledger-api
     , prometheus
     , QuickCheck
+    , quickcheck-instances
     , req
     , serialise
     , small-steps

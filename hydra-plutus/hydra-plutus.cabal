@@ -107,6 +107,7 @@ library
     , plutus-tx-plugin
     , prettyprinter
     , QuickCheck
+    , quickcheck-instances
     , serialise
     , template-haskell
     , text

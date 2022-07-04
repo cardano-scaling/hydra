@@ -23,6 +23,7 @@ import Hydra.Cardano.Api (
 import Hydra.Ledger (IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
+import Test.QuickCheck.Instances.Time ()
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters

@@ -4,6 +4,8 @@ module Hydra.Ledger where
 
 import Hydra.Prelude
 
+import Test.QuickCheck.Instances.Text ()
+
 class
   ( Eq tx
   , Show tx

@@ -60,7 +60,7 @@ import Test.QuickCheck (
   vectorOf,
   withMaxSuccess,
  )
-import Test.QuickCheck.Instances ()
+import Test.QuickCheck.Instances.Semigroup ()
 
 spec :: Spec
 spec =
