@@ -21,7 +21,6 @@ import Hydra.Chain.Direct.State (
   close,
   collect,
   commit,
-  contest,
   fanout,
   getContestationDeadline,
   idleOnChainHeadState,
@@ -30,7 +29,7 @@ import Hydra.Chain.Direct.State (
  )
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey, renderTx)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genPointInTimeAfter, genPointInTimeBefore)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genPointInTimeAfter)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
 import Test.QuickCheck (choose, elements, frequency, vector)
@@ -146,15 +145,6 @@ genCloseTx numParties = do
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
   pointInTime <- genPointInTime
   pure (stOpen, close snapshot pointInTime stOpen, snapshot)
-
-genContestTx :: Int -> Gen (OnChainHeadState 'StClosed, Tx)
-genContestTx numParties = do
-  ctx <- genHydraContextFor numParties
-  utxo <- arbitrary
-  (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
-  snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
-  pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-  pure (stClosed, contest snapshot pointInTime stClosed)
 
 genFanoutTx :: Int -> Int -> Gen (OnChainHeadState 'StClosed, Tx)
 genFanoutTx numParties numOutputs = do

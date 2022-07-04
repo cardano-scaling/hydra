@@ -18,14 +18,15 @@ import Hydra.Cardano.Api (
 import Hydra.Chain.Direct.Context (
   HydraContext (ctxVerificationKeys),
   ctxHeadParameters,
+  ctxHydraSigningKeys,
   executeCommits,
   genCloseTx,
   genCollectComTx,
   genCommits,
-  genContestTx,
   genHydraContext,
   genHydraContextFor,
   genInitTx,
+  genStClosed,
   genStIdle,
   genStInitialized,
   genStOpen,
@@ -36,6 +37,7 @@ import Hydra.Chain.Direct.State (
   abort,
   close,
   commit,
+  contest,
   fanout,
   getContestationDeadline,
   getKnownUTxO,
@@ -50,6 +52,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx,
   genPointInTime,
   genPointInTimeAfter,
+  genPointInTimeBefore,
   maxCpu,
   maxMem,
   maxTxSize,
@@ -146,6 +149,14 @@ computeContestCost = do
         pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
       Nothing ->
         pure Nothing
+
+  genContestTx numParties = do
+    ctx <- genHydraContextFor numParties
+    utxo <- arbitrary
+    (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
+    snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
+    pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+    pure (stClosed, contest snapshot pointInTime stClosed)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeAbortCost =

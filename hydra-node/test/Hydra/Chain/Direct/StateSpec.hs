@@ -48,10 +48,11 @@ import Hydra.Chain.Direct.Context (
   genCollectComTx,
   genCommit,
   genCommits,
-  genContestTx,
   genFanoutTx,
   genHydraContext,
+  genHydraContextFor,
   genInitTx,
+  genStClosed,
   genStIdle,
   genStInitialized,
   unsafeCommit,
@@ -73,6 +74,8 @@ import Hydra.Chain.Direct.State (
   TransitionFrom (..),
   abort,
   commit,
+  contest,
+  getContestationDeadline,
   getKnownUTxO,
   idleOnChainHeadState,
   initialize,
@@ -85,7 +88,8 @@ import Hydra.Ledger.Cardano (
   renderTx,
   renderTxs,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx', maxTxExecutionUnits, maxTxSize)
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx', genPointInTimeBefore, maxTxExecutionUnits, maxTxSize)
+import Hydra.Snapshot (genConfirmedSnapshot)
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -537,7 +541,18 @@ forAllContest ::
   (OnChainHeadState 'StClosed -> Tx -> property) ->
   Property
 forAllContest action =
-  forAll (genContestTx 3) $ uncurry action
+  forAllBlind genContestTx $ \(HydraContext{ctxContestationPeriod}, stClosed, tx) ->
+    action stClosed tx
+      & counterexample ("Contestation period: " <> show ctxContestationPeriod)
+      & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
+ where
+  genContestTx = do
+    ctx <- genHydraContextFor 3
+    utxo <- arbitrary
+    (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
+    snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
+    pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+    pure (ctx, stClosed, contest snapshot pointInTime stClosed)
 
 forAllFanout ::
   (Testable property) =>
