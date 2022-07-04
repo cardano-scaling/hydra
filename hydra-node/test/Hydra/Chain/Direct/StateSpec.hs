@@ -23,7 +23,6 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.Type.Equality (testEquality, (:~:) (..))
 import Hydra.Cardano.Api (
-  ExecutionUnits (..),
   SlotNo (..),
   Tx,
   UTxO,
@@ -205,19 +204,19 @@ spec = parallel $ do
 
   describe "collectCom" $ do
     propBelowSizeLimit maxTxSize forAllCollectCom
-    propIsValid maxTxExecutionUnits forAllCollectCom
+    propIsValid forAllCollectCom
 
   describe "close" $ do
     propBelowSizeLimit maxTxSize forAllClose
-    propIsValid maxTxExecutionUnits forAllClose
+    propIsValid forAllClose
 
   describe "contest" $ do
     propBelowSizeLimit maxTxSize forAllContest
-    propIsValid maxTxExecutionUnits forAllContest
+    propIsValid forAllContest
 
   describe "fanout" $ do
     propBelowSizeLimit maxTxSize forAllFanout
-    propIsValid maxTxExecutionUnits forAllFanout
+    propIsValid forAllFanout
 
   describe "ChainSyncHandler" $ do
     prop "yields observed transactions rolling forward" $ do
@@ -388,14 +387,13 @@ propBelowSizeLimit txSizeLimit forAllTx =
 -- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionValidates?
 propIsValid ::
   forall st.
-  ExecutionUnits ->
   ((OnChainHeadState st -> Tx -> Property) -> Property) ->
   SpecWith ()
-propIsValid exUnits forAllTx =
-  prop ("validates within " <> show exUnits) $
+propIsValid forAllTx =
+  prop "validates within maxTxExecutionUnits" $
     forAllTx $ \st tx -> do
       let lookupUTxO = getKnownUTxO st
-      case evaluateTx' exUnits tx lookupUTxO of
+      case evaluateTx' maxTxExecutionUnits tx lookupUTxO of
         Left basicFailure ->
           property False
             & counterexample ("Tx: " <> renderTx tx)
