@@ -32,7 +32,7 @@ import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVe
 import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genPointInTimeAfter)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
-import Test.QuickCheck (choose, elements, frequency, vector)
+import Test.QuickCheck (Positive (Positive), choose, elements, frequency, vector)
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -74,7 +74,7 @@ genHydraContextFor n = do
   ctxVerificationKeys <- replicateM n genVerificationKey
   ctxHydraSigningKeys <- fmap Hydra.generateSigningKey <$> vector n
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
-  ctxContestationPeriod <- arbitrary
+  Positive ctxContestationPeriod <- arbitrary
   pure $
     HydraContext
       { ctxVerificationKeys
