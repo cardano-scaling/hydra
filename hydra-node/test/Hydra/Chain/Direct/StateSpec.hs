@@ -52,9 +52,9 @@ import Hydra.Chain.Direct.Context (
   genHydraContext,
   genHydraContextFor,
   genInitTx,
-  genStClosed,
   genStIdle,
   genStInitialized,
+  genStOpen,
   unsafeCommit,
   unsafeObserveTx,
  )
@@ -73,6 +73,7 @@ import Hydra.Chain.Direct.State (
   SomeOnChainHeadState (..),
   TransitionFrom (..),
   abort,
+  close,
   commit,
   contest,
   getContestationDeadline,
@@ -88,8 +89,8 @@ import Hydra.Ledger.Cardano (
   renderTx,
   renderTxs,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx', genPointInTimeBefore, maxTxExecutionUnits, maxTxSize)
-import Hydra.Snapshot (genConfirmedSnapshot)
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx', genPointInTime, genPointInTimeBefore, maxTxExecutionUnits, maxTxSize)
+import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -120,6 +121,7 @@ import Test.QuickCheck (
   label,
   sized,
   sublistOf,
+  tabulate,
   (=/=),
   (===),
   (==>),
@@ -541,18 +543,31 @@ forAllContest ::
   (OnChainHeadState 'StClosed -> Tx -> property) ->
   Property
 forAllContest action =
-  forAllBlind genContestTx $ \(HydraContext{ctxContestationPeriod}, stClosed, tx) ->
+  forAllBlind genContestTx $ \(HydraContext{ctxContestationPeriod}, closePointInTime, stClosed, tx) ->
     action stClosed tx
-      & counterexample ("Contestation period: " <> show ctxContestationPeriod)
       & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
+      & counterexample ("Contestation period: " <> show ctxContestationPeriod)
+      & counterexample ("Close point: " <> show closePointInTime)
+      & tabulate "Contestation deadline" (tabulateNum $ getContestationDeadline stClosed)
+      & tabulate "Contestation period" (tabulateNum ctxContestationPeriod)
+      & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
  where
+  tabulateNum x
+    | x > 0 = ["> 0"]
+    | x < 0 = ["< 0"]
+    | otherwise = ["== 0"]
+
   genContestTx = do
     ctx <- genHydraContextFor 3
+    (u0, stOpen) <- genStOpen ctx
+    confirmed <- genConfirmedSnapshot 0 u0 []
+    closePointInTime <- genPointInTime
+    let closeTx = close confirmed closePointInTime stOpen
+    let stClosed = snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
     utxo <- arbitrary
-    (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
-    snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
-    pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (ctx, stClosed, contest snapshot pointInTime stClosed)
+    contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
+    contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+    pure (ctx, closePointInTime, stClosed, contest contestSnapshot contestPointInTime stClosed)
 
 forAllFanout ::
   (Testable property) =>
