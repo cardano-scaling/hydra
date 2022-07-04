@@ -191,6 +191,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
           <> [""]
           <> outputLines
           <> [""]
+          <> validityLines
+          <> [""]
           <> mintLines
           <> [""]
           <> scriptLines
@@ -240,6 +242,11 @@ renderTxWithUTxO utxo (Tx body _wits) =
       [ foldl' (\n inner -> n + Map.size inner) 0 outer
       | Ledger.TxOut _ (Ledger.Value _ outer) _ _ <- toList outs
       ]
+
+  validityLines =
+    [ "== VALIDITY"
+    , show (txValidityRange content)
+    ]
 
   mintLines =
     [ "== MINT/BURN\n" <> case txMintValue content of
