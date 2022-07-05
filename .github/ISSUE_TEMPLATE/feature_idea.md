@@ -1,6 +1,6 @@
 ---
-name: Feature idea :though_balloon:
-about: Idea or request for some feature on the Hydra roadmap :bulb:
+name: Feature idea
+about: Idea or request for some feature on the Hydra roadmap
 title: ''
 labels: ':thought_balloon: idea'
 assignees: ''
