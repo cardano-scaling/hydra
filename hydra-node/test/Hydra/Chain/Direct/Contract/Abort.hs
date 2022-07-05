@@ -29,6 +29,7 @@ import Hydra.Chain.Direct.Tx (
   mkHeadTokenScript,
  )
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
+import Hydra.ContestationPeriod (mkContestationPeriod)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
@@ -80,7 +81,7 @@ healthyHeadInput = generateWith arbitrary 42
 healthyHeadParameters :: HeadParameters
 healthyHeadParameters =
   HeadParameters
-    { contestationPeriod = 10
+    { contestationPeriod = fromJust $ mkContestationPeriod 10
     , parties = healthyParties
     }
 

@@ -19,10 +19,12 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
+import Data.Maybe (fromJust)
 import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
 import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.ClientInput
+import Hydra.ContestationPeriod (ContestationPeriod, mkContestationPeriod)
 import Hydra.Crypto (aggregate, sign)
 import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (
@@ -525,8 +527,8 @@ toOnChainTx =
       OnFanoutTx
 
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
-testContestationPeriod :: Num a => a
-testContestationPeriod = 3600
+testContestationPeriod :: ContestationPeriod
+testContestationPeriod = fromJust $ mkContestationPeriod 3600
 
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsTx tx) => TestHydraNode tx m -> DiffTime -> m ()

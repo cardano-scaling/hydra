@@ -15,8 +15,8 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
-import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Chain (HeadId (..), HeadParameters (..))
+import Hydra.ContestationPeriod (ContestationPeriod, contestationPeriodFromChain, contestationPeriodToChain)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -24,7 +24,7 @@ import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
-import Hydra.Data.ContestationPeriod (addContestationPeriod, contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
+import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
@@ -127,7 +127,7 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
   headDatum =
     mkTxOutDatum $
       Head.Initial
-        (contestationPeriodFromDiffTime $ contestationPeriod)
+        (contestationPeriodToChain contestationPeriod)
         (map partyToChain parties)
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
@@ -513,8 +513,7 @@ data InitObservation = InitObservation
   , commits :: [UTxOWithScript]
   , headId :: HeadId
   , headTokenScript :: PlutusScript
-  , contestationPeriod ::
-      ContestationPeriod
+  , contestationPeriod :: ContestationPeriod
   , parties :: [Party]
   }
   deriving (Show, Eq)
@@ -532,7 +531,7 @@ observeInitTx networkId cardanoKeys party tx = do
   -- using the Head script address instead.
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   parties <- mapM partyFromChain ps
-  let contestationPeriod = contestationPeriodToDiffTime cp
+  let contestationPeriod = contestationPeriodFromChain cp
   guard $ party `elem` parties
   (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys

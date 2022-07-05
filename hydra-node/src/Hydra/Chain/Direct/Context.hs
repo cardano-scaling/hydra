@@ -27,12 +27,13 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeTx,
  )
+import Hydra.ContestationPeriod (ContestationPeriod)
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey, renderTx)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genPointInTimeAfter)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
-import Test.QuickCheck (Positive, choose, elements, frequency, getPositive, vector)
+import Test.QuickCheck (choose, elements, frequency, vector)
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -45,7 +46,7 @@ data HydraContext = HydraContext
   { ctxVerificationKeys :: [VerificationKey PaymentKey]
   , ctxHydraSigningKeys :: [Hydra.SigningKey]
   , ctxNetworkId :: NetworkId
-  , ctxContestationPeriod :: Period
+  , ctxContestationPeriod :: ContestationPeriod
   }
   deriving (Show)
 
@@ -56,7 +57,7 @@ ctxHeadParameters ::
   HydraContext ->
   HeadParameters
 ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
-  HeadParameters (periodToNominalDiffTime ctxContestationPeriod) (ctxParties ctx)
+  HeadParameters ctxContestationPeriod (ctxParties ctx)
 
 --
 -- Generators

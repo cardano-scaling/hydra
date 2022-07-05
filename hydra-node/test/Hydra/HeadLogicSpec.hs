@@ -10,6 +10,7 @@ module Hydra.HeadLogicSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Hydra.Chain (
   ChainEvent (..),
@@ -17,6 +18,7 @@ import Hydra.Chain (
   OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx, OnContestTx),
   PostChainTx (ContestTx),
  )
+import Hydra.ContestationPeriod (ContestationPeriod, mkContestationPeriod)
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
@@ -303,6 +305,9 @@ isAckSn = \case
   NetworkEffect AckSn{} -> True
   _ -> False
 
+testContestationPeriod :: ContestationPeriod
+testContestationPeriod = fromJust $ mkContestationPeriod 42
+
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
   InitialState
@@ -312,7 +317,7 @@ inInitialState parties =
     , previousRecoverableState = IdleState
     }
  where
-  parameters = HeadParameters 42 parties
+  parameters = HeadParameters testContestationPeriod parties
 
 inOpenState ::
   [Party] ->
@@ -331,7 +336,7 @@ inOpenState' ::
 inOpenState' parties coordinatedHeadState =
   OpenState{parameters, coordinatedHeadState, previousRecoverableState}
  where
-  parameters = HeadParameters 42 parties
+  parameters = HeadParameters testContestationPeriod parties
   previousRecoverableState =
     InitialState
       { parameters
@@ -350,7 +355,7 @@ inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> HeadState SimpleTx
 inClosedState' parties confirmedSnapshot =
   ClosedState{parameters, previousRecoverableState, confirmedSnapshot}
  where
-  parameters = HeadParameters 42 parties
+  parameters = HeadParameters testContestationPeriod parties
   previousRecoverableState = inOpenState parties simpleLedger
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
