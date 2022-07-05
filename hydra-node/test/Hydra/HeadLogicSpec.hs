@@ -10,7 +10,6 @@ module Hydra.HeadLogicSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Hydra.Chain (
   ChainEvent (..),
@@ -18,7 +17,10 @@ import Hydra.Chain (
   OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx, OnContestTx),
   PostChainTx (ContestTx),
  )
-import Hydra.ContestationPeriod (ContestationPeriod, mkContestationPeriod)
+import Hydra.ContestationPeriod (
+  ContestationPeriod,
+  toNominalDiffTime,
+ )
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
@@ -225,7 +227,7 @@ spec = do
               Delay
                 { delay = case s0 of
                     OpenState{parameters = HeadParameters{contestationPeriod}} ->
-                      contestationPeriod
+                      toNominalDiffTime contestationPeriod
                     _ ->
                       error "inOpenState: not OpenState?"
                 , reason =
@@ -306,7 +308,7 @@ isAckSn = \case
   _ -> False
 
 testContestationPeriod :: ContestationPeriod
-testContestationPeriod = fromJust $ mkContestationPeriod 42
+testContestationPeriod = 42
 
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =

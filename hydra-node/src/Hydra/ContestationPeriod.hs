@@ -1,6 +1,7 @@
 module Hydra.ContestationPeriod where
 
 import Data.Ratio ((%))
+import Data.Time (secondsToNominalDiffTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import Hydra.Prelude
 import Test.QuickCheck (Positive (getPositive))
@@ -32,3 +33,6 @@ contestationPeriodToChain (UnsafeContestationPeriod s) =
 contestationPeriodFromChain :: OnChain.ContestationPeriod -> ContestationPeriod
 contestationPeriodFromChain cp =
   UnsafeContestationPeriod . truncate $ toInteger (OnChain.milliseconds cp) % 1000
+
+toNominalDiffTime :: ContestationPeriod -> NominalDiffTime
+toNominalDiffTime (UnsafeContestationPeriod s) = secondsToNominalDiffTime $ fromIntegral s
