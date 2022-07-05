@@ -82,6 +82,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.Util (Block)
+import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genTxIn,
   genValue,
@@ -547,13 +548,28 @@ forAllContest action =
       & counterexample ("Contestation period: " <> show ctxContestationPeriod)
       & counterexample ("Close point: " <> show closePointInTime)
       & tabulate "Contestation deadline" (tabulateNum $ getContestationDeadline stClosed)
-      & label ("Contestation period: " <> show ctxContestationPeriod) -- TODO: remove
+      & tabulate "Contestation period" (tabulateContestationPeriod ctxContestationPeriod)
       & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
  where
   tabulateNum x
     | x > 0 = ["> 0"]
     | x < 0 = ["< 0"]
     | otherwise = ["== 0"]
+
+  tabulateContestationPeriod (toNominalDiffTime -> cp)
+    | cp == confirmedHorizon = ["k blocks on mainnet"]
+    | cp == oneDay = ["one day"]
+    | cp == oneWeek = ["one week"]
+    | cp == oneMonth = ["one month"]
+    | cp == oneYear = ["one year"]
+    | cp < confirmedHorizon = ["< k blocks"]
+    | otherwise = ["> k blocks"]
+
+  confirmedHorizon = 2160 * 20 -- k blocks on mainnet
+  oneDay = 3600 * 24
+  oneWeek = oneDay * 7
+  oneMonth = oneDay * 30
+  oneYear = oneDay * 365
 
   genContestTx = do
     ctx <- genHydraContextFor 3
