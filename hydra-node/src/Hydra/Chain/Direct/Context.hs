@@ -5,7 +5,6 @@ module Hydra.Chain.Direct.Context where
 import Hydra.Prelude
 
 import Data.List ((\\))
-import qualified Data.Time as Time
 import Hydra.Cardano.Api (
   NetworkId (..),
   NetworkMagic (..),
@@ -49,22 +48,6 @@ data HydraContext = HydraContext
   , ctxContestationPeriod :: Period
   }
   deriving (Show)
-
--- | A positive number of seconds.
-newtype Period = UnsafePeriod Natural
-  deriving (Eq, Show)
-
-instance Arbitrary Period where
-  -- NOTE: fromInteger to avoid overlapping instances for 'Arbitrary Natural'
-  arbitrary = UnsafePeriod . fromInteger . getPositive <$> (arbitrary :: Gen (Positive Integer))
-
-mkPeriod :: Natural -> Maybe Period
-mkPeriod n
-  | n == 0 = Nothing
-  | otherwise = Just (UnsafePeriod n)
-
-periodToNominalDiffTime :: Period -> NominalDiffTime
-periodToNominalDiffTime (UnsafePeriod s) = Time.secondsToNominalDiffTime $ fromIntegral s
 
 ctxParties :: HydraContext -> [Party]
 ctxParties = fmap deriveParty . ctxHydraSigningKeys

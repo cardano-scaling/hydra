@@ -15,7 +15,8 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
-import Hydra.Chain (ContestationPeriod, HeadId (..), HeadParameters (..))
+import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.Chain (HeadId (..), HeadParameters (..))
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -126,7 +127,7 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
   headDatum =
     mkTxOutDatum $
       Head.Initial
-        (contestationPeriodFromDiffTime contestationPeriod)
+        (contestationPeriodFromDiffTime $ contestationPeriod)
         (map partyToChain parties)
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
@@ -512,7 +513,8 @@ data InitObservation = InitObservation
   , commits :: [UTxOWithScript]
   , headId :: HeadId
   , headTokenScript :: PlutusScript
-  , contestationPeriod :: ContestationPeriod
+  , contestationPeriod ::
+      ContestationPeriod
   , parties :: [Party]
   }
   deriving (Show, Eq)
