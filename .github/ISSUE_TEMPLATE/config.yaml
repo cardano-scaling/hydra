@@ -1,0 +1,13 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Contributing guidelines
+    url: https://github.com/input-output-hk/hydra-poc/blob/master/CONTRIBUTING.md
+    about: Some rules & processes we honor.
+
+  - name: Feature ideas
+    url: https://github.com/input-output-hk/hydra-poc/discussions/categories/ideas
+    about: Maybe someone else had the same or a similar idea already?
+
+  - name: All issues
+    url: https://github.com/input-output-hk/hydra-poc/issues
+    about: Check whether your issue is not already covered here.
