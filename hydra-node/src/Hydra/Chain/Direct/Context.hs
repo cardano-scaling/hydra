@@ -5,6 +5,7 @@ module Hydra.Chain.Direct.Context where
 import Hydra.Prelude
 
 import Data.List ((\\))
+import qualified Data.Time as Time
 import Hydra.Cardano.Api (
   NetworkId (..),
   NetworkMagic (..),
@@ -32,7 +33,7 @@ import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVe
 import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genPointInTimeAfter)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
-import Test.QuickCheck (Positive (Positive), choose, elements, frequency, vector)
+import Test.QuickCheck (Positive, choose, elements, frequency, getPositive, vector)
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -45,9 +46,25 @@ data HydraContext = HydraContext
   { ctxVerificationKeys :: [VerificationKey PaymentKey]
   , ctxHydraSigningKeys :: [Hydra.SigningKey]
   , ctxNetworkId :: NetworkId
-  , ctxContestationPeriod :: NominalDiffTime
+  , ctxContestationPeriod :: Period
   }
   deriving (Show)
+
+-- | A positive number of seconds.
+newtype Period = UnsafePeriod Natural
+  deriving (Eq, Show)
+
+instance Arbitrary Period where
+  -- NOTE: fromInteger to avoid overlapping instances for 'Arbitrary Natural'
+  arbitrary = UnsafePeriod . fromInteger . getPositive <$> (arbitrary :: Gen (Positive Integer))
+
+mkPeriod :: Natural -> Maybe Period
+mkPeriod n
+  | n == 0 = Nothing
+  | otherwise = Just (UnsafePeriod n)
+
+periodToNominalDiffTime :: Period -> NominalDiffTime
+periodToNominalDiffTime (UnsafePeriod s) = Time.secondsToNominalDiffTime $ fromIntegral s
 
 ctxParties :: HydraContext -> [Party]
 ctxParties = fmap deriveParty . ctxHydraSigningKeys
@@ -56,7 +73,7 @@ ctxHeadParameters ::
   HydraContext ->
   HeadParameters
 ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
-  HeadParameters ctxContestationPeriod (ctxParties ctx)
+  HeadParameters (periodToNominalDiffTime ctxContestationPeriod) (ctxParties ctx)
 
 --
 -- Generators
@@ -74,7 +91,7 @@ genHydraContextFor n = do
   ctxVerificationKeys <- replicateM n genVerificationKey
   ctxHydraSigningKeys <- fmap Hydra.generateSigningKey <$> vector n
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
-  Positive ctxContestationPeriod <- arbitrary
+  ctxContestationPeriod <- arbitrary
   pure $
     HydraContext
       { ctxVerificationKeys

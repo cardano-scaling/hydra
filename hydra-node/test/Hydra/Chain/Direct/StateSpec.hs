@@ -547,7 +547,7 @@ forAllContest action =
       & counterexample ("Contestation period: " <> show ctxContestationPeriod)
       & counterexample ("Close point: " <> show closePointInTime)
       & tabulate "Contestation deadline" (tabulateNum $ getContestationDeadline stClosed)
-      & tabulate "Contestation period" (tabulateNum ctxContestationPeriod)
+      & label ("Contestation period: " <> show ctxContestationPeriod) -- TODO: remove
       & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
  where
   tabulateNum x

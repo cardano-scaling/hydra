@@ -342,7 +342,7 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} headContext contestationDead
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange scriptContextTxInfo) of
-      UpperBound (Finite time) _ -> traceIfFalse "upper bound validity beyond contestation deadline" $ time < contestationDeadline
+      UpperBound (Finite time) _ -> traceIfFalse "upper bound validity beyond contestation deadline" $ time <= contestationDeadline
       _ -> traceError "no upper bound validity interval defined for contest"
 {-# INLINEABLE checkContest #-}
 
