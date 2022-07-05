@@ -46,9 +46,14 @@ For bug reports, it's very important to explain
 
 ### Feature ideas
 
-[Submit an issue](https://github.com/input-output-hk/hydra-poc/issues/new/choose) using the "Feature idea :though_balloon:" template.
+Feature ideas are precursors to high-level features items, which will be
+discussed and fleshed out to ideally become items on our feature roadmap.
 
-Feature ideas are precursors to high-level features items, which will be discussed and fleshed out to ideally become items on our feature roadmap.
+We use the [Ideas discussions
+category](https://github.com/input-output-hk/hydra-poc/discussions/categories/ideas)
+to discuss and vote on feature ideas, but you can also [submit an
+issue](https://github.com/input-output-hk/hydra-poc/issues/new/choose) using the
+"Feature idea :thought_balloon:" template and we convert that to a discussion.
 
 We expect a description of
 * why you (or the user) need/want something (e.g. problem, challenge, pain, benefit), and
