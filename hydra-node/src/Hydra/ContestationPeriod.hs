@@ -13,26 +13,27 @@ newtype ContestationPeriod = UnsafeContestationPeriod Natural
 
 instance Arbitrary ContestationPeriod where
   -- NOTE: fromInteger to avoid overlapping instances for 'Arbitrary Natural'
-  arbitrary = UnsafeContestationPeriod . fromInteger . getPositive <$> (arbitrary :: Gen (Positive Integer))
-
-mkContestationPeriod :: Natural -> Maybe ContestationPeriod
-mkContestationPeriod n
-  | n == 0 = Nothing
-  | otherwise = Just (UnsafeContestationPeriod n)
-
-contestationPeriodSeconds :: ContestationPeriod -> Natural
-contestationPeriodSeconds (UnsafeContestationPeriod s) = s
+  arbitrary =
+    UnsafeContestationPeriod
+      . fromInteger
+      . getPositive
+      <$> (arbitrary :: Gen (Positive Integer))
 
 -- | Convert an off-chain contestation period to its on-chain representation.
-contestationPeriodToChain :: ContestationPeriod -> OnChain.ContestationPeriod
-contestationPeriodToChain (UnsafeContestationPeriod s) =
-  OnChain.UnsafeContestationPeriod . fromIntegral $ s * 1000
+toChain :: ContestationPeriod -> OnChain.ContestationPeriod
+toChain (UnsafeContestationPeriod s) =
+  OnChain.UnsafeContestationPeriod
+    . fromIntegral
+    $ s * 1000
 
 -- | Convert an on-chain contestation period to its off-chain representation.
 -- NOTE: Does truncate to whole seconds.
-contestationPeriodFromChain :: OnChain.ContestationPeriod -> ContestationPeriod
-contestationPeriodFromChain cp =
-  UnsafeContestationPeriod . truncate $ toInteger (OnChain.milliseconds cp) % 1000
+fromChain :: OnChain.ContestationPeriod -> ContestationPeriod
+fromChain cp =
+  UnsafeContestationPeriod
+    . truncate
+    $ toInteger (OnChain.milliseconds cp) % 1000
 
 toNominalDiffTime :: ContestationPeriod -> NominalDiffTime
-toNominalDiffTime (UnsafeContestationPeriod s) = secondsToNominalDiffTime $ fromIntegral s
+toNominalDiffTime (UnsafeContestationPeriod s) =
+  secondsToNominalDiffTime $ fromIntegral s

@@ -23,7 +23,7 @@ import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
 import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.ClientInput
-import Hydra.ContestationPeriod (ContestationPeriod, mkContestationPeriod, toNominalDiffTime)
+import Hydra.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Hydra.Crypto (aggregate, sign)
 import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (

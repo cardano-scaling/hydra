@@ -6,6 +6,7 @@
 module Hydra.Chain.Direct.Contract.Abort where
 
 import Hydra.Cardano.Api
+import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
@@ -29,13 +30,12 @@ import Hydra.Chain.Direct.Tx (
   mkHeadTokenScript,
  )
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
-import Hydra.ContestationPeriod (mkContestationPeriod)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, partyToChain)
-import Hydra.Prelude
+import Test.Hydra.Fixture ()
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchThat)
 
 --
@@ -81,7 +81,7 @@ healthyHeadInput = generateWith arbitrary 42
 healthyHeadParameters :: HeadParameters
 healthyHeadParameters =
   HeadParameters
-    { contestationPeriod = fromJust $ mkContestationPeriod 10
+    { contestationPeriod = 10
     , parties = healthyParties
     }
 

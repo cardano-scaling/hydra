@@ -16,7 +16,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters (..))
-import Hydra.ContestationPeriod (ContestationPeriod, contestationPeriodFromChain, contestationPeriodToChain)
+import Hydra.ContestationPeriod (ContestationPeriod, fromChain, toChain)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -127,7 +127,7 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
   headDatum =
     mkTxOutDatum $
       Head.Initial
-        (contestationPeriodToChain contestationPeriod)
+        (toChain contestationPeriod)
         (map partyToChain parties)
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
@@ -531,7 +531,7 @@ observeInitTx networkId cardanoKeys party tx = do
   -- using the Head script address instead.
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   parties <- mapM partyFromChain ps
-  let contestationPeriod = contestationPeriodFromChain cp
+  let contestationPeriod = fromChain cp
   guard $ party `elem` parties
   (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
