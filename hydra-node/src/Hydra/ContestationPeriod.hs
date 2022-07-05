@@ -1,15 +1,20 @@
 module Hydra.ContestationPeriod where
 
+import Hydra.Prelude hiding (Show, show)
+
 import Data.Ratio ((%))
 import Data.Time (secondsToNominalDiffTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
-import Hydra.Prelude
 import Test.QuickCheck (Positive (getPositive))
+import Text.Show (Show (..))
 
 -- | A positive number of seconds.
 newtype ContestationPeriod = UnsafeContestationPeriod Natural
-  deriving (Eq, Show)
+  deriving (Eq)
   deriving newtype (ToJSON, FromJSON)
+
+instance Show ContestationPeriod where
+  show (UnsafeContestationPeriod s) = show s <> "s"
 
 instance Arbitrary ContestationPeriod where
   -- NOTE: fromInteger to avoid overlapping instances for 'Arbitrary Natural'
