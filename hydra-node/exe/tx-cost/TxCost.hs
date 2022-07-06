@@ -21,7 +21,6 @@ import Hydra.Chain.Direct.Context (
   ctxHydraSigningKeys,
   executeCommits,
   genCloseTx,
-  genCollectComTx,
   genCommits,
   genHydraContext,
   genHydraContextFor,
@@ -36,6 +35,7 @@ import Hydra.Chain.Direct.State (
   HeadStateKind (StClosed),
   abort,
   close,
+  collect,
   commit,
   contest,
   fanout,
@@ -120,6 +120,14 @@ computeCollectComCost =
       Nothing ->
         pure Nothing
 
+  genCollectComTx numParties = do
+    ctx <- genHydraContextFor numParties
+    initTx <- genInitTx ctx
+    commits <- genCommits ctx initTx
+    stIdle <- genStIdle ctx
+    let (_, stInitialized) = executeCommits initTx commits stIdle
+    pure (stInitialized, collect stInitialized)
+
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeCloseCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
@@ -175,7 +183,7 @@ computeAbortCost =
   genAbortTx numParties = do
     ctx <- genHydraContextFor numParties
     initTx <- genInitTx ctx
-    commits <- sublistOf . snd =<< genCommits ctx initTx
+    commits <- sublistOf =<< genCommits ctx initTx
     stIdle <- genStIdle ctx
     let (_, stInitialized) = executeCommits initTx commits stIdle
     pure (abort stInitialized, getKnownUTxO stInitialized)

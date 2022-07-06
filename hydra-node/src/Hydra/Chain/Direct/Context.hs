@@ -113,15 +113,14 @@ genInitTx ctx =
 genCommits ::
   HydraContext ->
   Tx ->
-  Gen (UTxO, [Tx])
+  Gen [Tx]
 genCommits ctx initTx = do
-  commits <- forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
+  forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
     let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
     let stIdle = idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p
     let (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
     utxo <- genCommit
-    pure (utxo, unsafeCommit utxo stInitialized)
-  pure (foldMap fst commits, map snd commits)
+    pure $ unsafeCommit utxo stInitialized
 
 genCommit :: Gen UTxO
 genCommit =
@@ -129,15 +128,6 @@ genCommit =
     [ (1, pure mempty)
     , (10, genVerificationKey >>= genOneUTxOFor)
     ]
-
-genCollectComTx :: Int -> Gen (OnChainHeadState 'StInitialized, Tx)
-genCollectComTx numParties = do
-  ctx <- genHydraContextFor numParties
-  initTx <- genInitTx ctx
-  (_, commits) <- genCommits ctx initTx
-  stIdle <- genStIdle ctx
-  let (_, stInitialized) = executeCommits initTx commits stIdle
-  pure (stInitialized, collect stInitialized)
 
 genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
@@ -160,7 +150,7 @@ genStOpen ::
   Gen (UTxO, OnChainHeadState 'StOpen)
 genStOpen ctx = do
   initTx <- genInitTx ctx
-  (_, commits) <- genCommits ctx initTx
+  commits <- genCommits ctx initTx
   (committed, stInitialized) <- executeCommits initTx commits <$> genStIdle ctx
   let collectComTx = collect stInitialized
   pure (committed, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)

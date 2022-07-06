@@ -44,7 +44,6 @@ import Hydra.Chain.Direct.Context (
   ctxParties,
   executeCommits,
   genCloseTx,
-  genCollectComTx,
   genCommit,
   genCommits,
   genFanoutTx,
@@ -73,6 +72,7 @@ import Hydra.Chain.Direct.State (
   TransitionFrom (..),
   abort,
   close,
+  collect,
   commit,
   contest,
   getContestationDeadline,
@@ -506,7 +506,7 @@ forAllAbort ::
 forAllAbort action = do
   forAll (genHydraContext 3) $ \ctx ->
     forAllShow (genInitTx ctx) renderTx $ \initTx -> do
-      forAllShow (sublistOf . snd =<< genCommits ctx initTx) renderTxs $ \commits ->
+      forAllShow (sublistOf =<< genCommits ctx initTx) renderTxs $ \commits ->
         forAll (genStIdle ctx) $ \stIdle ->
           let (_, stInitialized) = executeCommits initTx commits stIdle
            in action stInitialized (abort stInitialized)
@@ -525,7 +525,17 @@ forAllCollectCom ::
   (OnChainHeadState 'StInitialized -> Tx -> property) ->
   Property
 forAllCollectCom action =
-  forAll (genCollectComTx 3) $ uncurry action
+  forAllBlind genCollectComTx $ \(committedUTxO, stInitialized, tx) ->
+    action stInitialized tx
+      & counterexample ("Committed UTxO: " <> show committedUTxO)
+ where
+  genCollectComTx = do
+    ctx <- genHydraContextFor 3
+    initTx <- genInitTx ctx
+    commits <- genCommits ctx initTx
+    stIdle <- genStIdle ctx
+    let (committedUTxO, stInitialized) = executeCommits initTx commits stIdle
+    pure (committedUTxO, stInitialized, collect stInitialized)
 
 forAllClose ::
   (Testable property) =>
