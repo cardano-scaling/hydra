@@ -1,21 +1,71 @@
 {
     "samples": [
         {
-            "tag": "Close"
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "Contest"
         },
         {
             "tag": "NewTx",
             "transaction": {
-                "id": 1,
+                "id": 4,
                 "inputs": [
-                    -6,
-                    -4,
-                    -3,
-                    0
+                    5
                 ],
                 "outputs": [
+                    -5,
+                    -2,
+                    3
+                ]
+            }
+        },
+        {
+            "contestationPeriod": 43200,
+            "tag": "Init"
+        },
+        {
+            "contestationPeriod": 2592000,
+            "tag": "Init"
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": 6,
+                "inputs": [
+                    -4,
                     -3,
-                    4
+                    0,
+                    3,
+                    6
+                ],
+                "outputs": [
+                    -5,
+                    -4
                 ]
             }
         },
@@ -23,7 +73,99 @@
             "tag": "Close"
         },
         {
+            "tag": "Fanout"
+        },
+        {
+            "contestationPeriod": 17088,
+            "tag": "Init"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": 5,
+                "inputs": [
+                    -2,
+                    -1,
+                    1,
+                    2,
+                    6
+                ],
+                "outputs": [
+                    -4,
+                    0,
+                    3
+                ]
+            }
+        },
+        {
+            "contestationPeriod": 43200,
+            "tag": "Init"
+        },
+        {
             "tag": "Abort"
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "contestationPeriod": 31536000,
+            "tag": "Init"
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                -2,
+                -1
+            ]
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": -6,
+                "inputs": [
+                    -5,
+                    0,
+                    1
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                -3,
+                -2,
+                1,
+                3,
+                4,
+                5
+            ]
+        },
+        {
+            "contestationPeriod": 86400,
+            "tag": "Init"
+        },
+        {
+            "contestationPeriod": 84318,
+            "tag": "Init"
         },
         {
             "tag": "Abort"
@@ -32,84 +174,64 @@
             "tag": "Close"
         },
         {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "Abort"
-        },
-        {
-            "tag": "Abort"
-        },
-        {
             "tag": "Fanout"
         },
         {
             "tag": "Contest"
         },
         {
-            "tag": "GetUTxO"
+            "tag": "NewTx",
+            "transaction": {
+                "id": 0,
+                "inputs": [
+                    -6,
+                    -2,
+                    6
+                ],
+                "outputs": [
+                    -1
+                ]
+            }
         },
         {
-            "tag": "Contest"
+            "tag": "Commit",
+            "utxo": [
+                4,
+                5
+            ]
         },
         {
-            "tag": "Abort"
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "Abort"
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Contest"
+            "contestationPeriod": 43200,
+            "tag": "Init"
         },
         {
             "tag": "GetUTxO"
         },
         {
-            "tag": "Abort"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "Abort"
+            "contestationPeriod": 43200,
+            "tag": "Init"
         },
         {
             "tag": "Close"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "GetUTxO"
         },
         {
             "tag": "NewTx",
             "transaction": {
                 "id": -5,
                 "inputs": [
+                    -5,
                     4
                 ],
                 "outputs": [
-                    -3,
-                    3
+                    -4,
+                    1,
+                    6
                 ]
             }
         },
@@ -117,103 +239,10 @@
             "tag": "Close"
         },
         {
-            "tag": "GetUTxO"
-        },
-        {
-            "contestationPeriod": 4.783244444562,
-            "tag": "Init"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
             "tag": "Close"
-        },
-        {
-            "contestationPeriod": 2.619100597272,
-            "tag": "Init"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "Commit",
-            "utxo": [
-                -6,
-                2,
-                4,
-                6
-            ]
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Contest"
         },
         {
             "tag": "Abort"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "Commit",
-            "utxo": [
-                -5,
-                -4,
-                -3,
-                2,
-                4,
-                5
-            ]
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "contestationPeriod": -3.877926637561,
-            "tag": "Init"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "Abort"
-        },
-        {
-            "contestationPeriod": -0.361444467146,
-            "tag": "Init"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "Close"
         },
         {
             "tag": "NewTx",
@@ -221,41 +250,9 @@
                 "id": 5,
                 "inputs": [],
                 "outputs": [
-                    -6,
-                    -4,
-                    -1,
-                    3,
-                    6
+                    5
                 ]
             }
-        },
-        {
-            "contestationPeriod": -2.488495344953,
-            "tag": "Init"
-        },
-        {
-            "tag": "Commit",
-            "utxo": []
-        },
-        {
-            "tag": "Commit",
-            "utxo": [
-                -6,
-                -1,
-                1,
-                4,
-                5
-            ]
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "contestationPeriod": -4.872547893182,
-            "tag": "Init"
         },
         {
             "tag": "Fanout"
@@ -264,44 +261,10 @@
             "tag": "Abort"
         },
         {
+            "tag": "Abort"
+        },
+        {
             "tag": "Contest"
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": -4,
-                "inputs": [
-                    3
-                ],
-                "outputs": [
-                    -5,
-                    1,
-                    3
-                ]
-            }
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Commit",
-            "utxo": [
-                -2,
-                2,
-                3,
-                4
-            ]
-        },
-        {
-            "contestationPeriod": 0.826481459338,
-            "tag": "Init"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "contestationPeriod": 1.196084069212,
-            "tag": "Init"
         },
         {
             "tag": "NewTx",
@@ -310,82 +273,8 @@
                 "inputs": [
                     -6,
                     -5,
-                    -4,
-                    3,
-                    6
-                ],
-                "outputs": [
-                    0
-                ]
-            }
-        },
-        {
-            "tag": "Commit",
-            "utxo": [
-                -2,
-                -1,
-                0,
-                1,
-                2
-            ]
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "Commit",
-            "utxo": [
-                -3,
-                -2,
-                3,
-                4,
-                5
-            ]
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": -2,
-                "inputs": [
-                    -6,
-                    -5,
-                    4,
-                    5
-                ],
-                "outputs": [
-                    -1,
-                    4,
-                    6
-                ]
-            }
-        },
-        {
-            "tag": "Commit",
-            "utxo": [
-                -6,
-                -3,
-                -1,
-                3
-            ]
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": -6,
-                "inputs": [
-                    -6,
-                    -5,
-                    1,
-                    5
+                    -3,
+                    1
                 ],
                 "outputs": [
                     -3
@@ -393,295 +282,17 @@
             }
         },
         {
-            "contestationPeriod": -2.542122808394,
-            "tag": "Init"
-        },
-        {
-            "tag": "Abort"
-        },
-        {
-            "tag": "Commit",
-            "utxo": [
-                -5,
-                -1,
-                1,
-                6
-            ]
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Commit",
-            "utxo": [
-                -5,
-                -2,
-                -1,
-                4
-            ]
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": 5,
-                "inputs": [
-                    -4
-                ],
-                "outputs": [
-                    -5,
-                    -2,
-                    1
-                ]
-            }
-        },
-        {
-            "tag": "Abort"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "contestationPeriod": -5.053482206508,
-            "tag": "Init"
-        },
-        {
-            "tag": "Commit",
-            "utxo": []
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Abort"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "contestationPeriod": -3.490394518536,
-            "tag": "Init"
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "Commit",
-            "utxo": [
-                -4
-            ]
-        },
-        {
-            "contestationPeriod": 1.371810717876,
-            "tag": "Init"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": -4,
-                "inputs": [
-                    -3,
-                    -1
-                ],
-                "outputs": [
-                    -3,
-                    4
-                ]
-            }
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": 3,
-                "inputs": [
-                    -6,
-                    -1,
-                    1,
-                    4
-                ],
-                "outputs": [
-                    -4,
-                    -2
-                ]
-            }
-        },
-        {
-            "tag": "Close"
-        },
-        {
             "tag": "Fanout"
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "contestationPeriod": 43200,
+            "tag": "Init"
         },
         {
             "tag": "GetUTxO"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": 0,
-                "inputs": [
-                    0,
-                    3,
-                    5
-                ],
-                "outputs": [
-                    -5,
-                    -3,
-                    -2,
-                    5
-                ]
-            }
-        },
-        {
-            "contestationPeriod": 2.603214177548,
-            "tag": "Init"
-        },
-        {
-            "contestationPeriod": 1.329498360437,
-            "tag": "Init"
-        },
-        {
-            "tag": "Abort"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": 5,
-                "inputs": [
-                    0,
-                    1,
-                    5,
-                    6
-                ],
-                "outputs": []
-            }
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": 4,
-                "inputs": [
-                    -2,
-                    6
-                ],
-                "outputs": [
-                    -1,
-                    0,
-                    1,
-                    3
-                ]
-            }
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "contestationPeriod": 2.377834075982,
-            "tag": "Init"
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": 0,
-                "inputs": [],
-                "outputs": [
-                    -2,
-                    -1,
-                    3
-                ]
-            }
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "Abort"
-        },
-        {
-            "tag": "Abort"
-        },
-        {
-            "contestationPeriod": 5.740294074721,
-            "tag": "Init"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Commit",
-            "utxo": []
-        },
-        {
-            "contestationPeriod": -4.161608377332,
-            "tag": "Init"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Commit",
-            "utxo": [
-                -5,
-                1,
-                2,
-                5
-            ]
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": 5,
-                "inputs": [
-                    6
-                ],
-                "outputs": [
-                    -3,
-                    1,
-                    2,
-                    6
-                ]
-            }
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "contestationPeriod": -5.235398076713,
-            "tag": "Init"
-        },
-        {
-            "tag": "Close"
         },
         {
             "tag": "Abort"
@@ -690,99 +301,62 @@
             "tag": "Commit",
             "utxo": [
                 -6,
-                -2,
-                0,
-                3,
-                4,
-                5
+                3
             ]
         },
         {
-            "tag": "Close"
+            "tag": "Commit",
+            "utxo": [
+                -4,
+                1,
+                2,
+                3
+            ]
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": 0,
+                "inputs": [
+                    -3,
+                    3
+                ],
+                "outputs": [
+                    -5,
+                    1,
+                    4
+                ]
+            }
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Contest"
         },
         {
             "tag": "Fanout"
         },
         {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Close"
+            "tag": "Commit",
+            "utxo": [
+                -1
+            ]
         },
         {
             "tag": "NewTx",
             "transaction": {
                 "id": -4,
                 "inputs": [
-                    -2,
-                    4
-                ],
-                "outputs": [
+                    -6,
                     -5,
-                    6
-                ]
-            }
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": -2,
-                "inputs": [
-                    -5
-                ],
-                "outputs": []
-            }
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "contestationPeriod": 5.740281195741,
-            "tag": "Init"
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": -3,
-                "inputs": [
-                    -2,
-                    4
+                    -1
                 ],
                 "outputs": [
                     -2,
-                    2,
+                    1,
                     4
                 ]
-            }
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": 6,
-                "inputs": [
-                    -4,
-                    -2,
-                    1
-                ],
-                "outputs": []
             }
         },
         {
@@ -792,76 +366,73 @@
             ]
         },
         {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "contestationPeriod": 3.805660640275,
-            "tag": "Init"
-        },
-        {
-            "tag": "Contest"
-        },
-        {
-            "tag": "Abort"
-        },
-        {
-            "tag": "Fanout"
+            "tag": "Commit",
+            "utxo": [
+                -4,
+                1
+            ]
         },
         {
             "tag": "GetUTxO"
         },
         {
-            "contestationPeriod": 2.894339401164,
-            "tag": "Init"
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": -6,
+                "inputs": [
+                    -2,
+                    0
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Fanout"
         },
         {
             "tag": "Abort"
         },
         {
-            "tag": "Contest"
+            "tag": "Fanout"
+        },
+        {
+            "contestationPeriod": 43200,
+            "tag": "Init"
         },
         {
             "tag": "Commit",
             "utxo": [
-                -5,
-                -3,
-                5
+                -6,
+                -3
             ]
         },
         {
-            "tag": "Fanout"
-        },
-        {
-            "contestationPeriod": -1.071103353082,
-            "tag": "Init"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Fanout"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "contestationPeriod": -4.671577040455,
-            "tag": "Init"
-        },
-        {
-            "tag": "GetUTxO"
-        },
-        {
-            "tag": "Close"
-        },
-        {
-            "tag": "Fanout"
+            "tag": "NewTx",
+            "transaction": {
+                "id": 5,
+                "inputs": [
+                    -6,
+                    -5,
+                    -4,
+                    -1,
+                    3
+                ],
+                "outputs": [
+                    -6,
+                    2,
+                    3,
+                    5
+                ]
+            }
         },
         {
             "tag": "Commit",
@@ -869,54 +440,170 @@
                 -6,
                 -4,
                 0,
-                3,
-                5
+                4,
+                6
             ]
         },
         {
-            "tag": "Commit",
-            "utxo": []
+            "tag": "Fanout"
         },
         {
             "tag": "Contest"
         },
         {
-            "tag": "Contest"
+            "tag": "Fanout"
+        },
+        {
+            "contestationPeriod": 43200,
+            "tag": "Init"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "Fanout"
         },
         {
             "tag": "Abort"
         },
         {
-            "tag": "NewTx",
-            "transaction": {
-                "id": 1,
-                "inputs": [
-                    -6,
-                    -4,
-                    -3,
-                    1,
-                    3,
-                    6
-                ],
-                "outputs": [
-                    -4,
-                    -1,
-                    0,
-                    1,
-                    2
-                ]
-            }
+            "tag": "Abort"
+        },
+        {
+            "tag": "GetUTxO"
         },
         {
             "tag": "NewTx",
             "transaction": {
-                "id": -4,
+                "id": 6,
                 "inputs": [
-                    -1
+                    -3,
+                    2
                 ],
                 "outputs": [
+                    -1,
+                    0
+                ]
+            }
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                2
+            ]
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                3,
+                4
+            ]
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                -3
+            ]
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": 6,
+                "inputs": [
+                    -4,
                     -2,
-                    3
+                    5
+                ],
+                "outputs": [
+                    -6,
+                    -4,
+                    6
+                ]
+            }
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": 0,
+                "inputs": [
+                    -5,
+                    2
+                ],
+                "outputs": [
+                    -4,
+                    3,
+                    6
+                ]
+            }
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "contestationPeriod": 86400,
+            "tag": "Init"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": 6,
+                "inputs": [
+                    -2,
+                    6
+                ],
+                "outputs": [
+                    -5,
+                    -4,
+                    5,
+                    6
                 ]
             }
         },
@@ -925,25 +612,73 @@
             "transaction": {
                 "id": -3,
                 "inputs": [
+                    -6,
                     -5,
-                    1
+                    1,
+                    5
                 ],
                 "outputs": [
-                    0,
-                    2,
-                    3,
-                    5
+                    -6,
+                    -2
                 ]
             }
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "Close"
         },
         {
             "tag": "Abort"
         },
         {
-            "tag": "GetUTxO"
+            "tag": "Close"
+        },
+        {
+            "tag": "Close"
         },
         {
             "tag": "Fanout"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                2
+            ]
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                -5,
+                -1,
+                2
+            ]
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": -1,
+                "inputs": [],
+                "outputs": [
+                    -2,
+                    2,
+                    4,
+                    5
+                ]
+            }
         },
         {
             "tag": "Fanout"
@@ -951,16 +686,27 @@
         {
             "tag": "NewTx",
             "transaction": {
-                "id": -5,
+                "id": 6,
                 "inputs": [
-                    -4,
-                    3
+                    -6,
+                    0
                 ],
                 "outputs": [
-                    -6,
-                    -3,
-                    0,
+                    -2,
                     1,
+                    4,
+                    6
+                ]
+            }
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": 0,
+                "inputs": [],
+                "outputs": [
+                    -4,
+                    -2,
                     3,
                     4
                 ]
@@ -970,31 +716,7 @@
             "tag": "Close"
         },
         {
-            "tag": "Contest"
-        },
-        {
-            "tag": "NewTx",
-            "transaction": {
-                "id": -2,
-                "inputs": [
-                    -5,
-                    -3,
-                    -2,
-                    2
-                ],
-                "outputs": [
-                    -3,
-                    -2,
-                    2,
-                    6
-                ]
-            }
-        },
-        {
-            "tag": "Abort"
-        },
-        {
-            "tag": "Contest"
+            "tag": "Close"
         },
         {
             "tag": "Close"
@@ -1005,17 +727,301 @@
         {
             "tag": "NewTx",
             "transaction": {
-                "id": -6,
-                "inputs": [],
-                "outputs": [
-                    -4,
+                "id": -2,
+                "inputs": [
+                    -5,
+                    -3,
                     -2,
-                    -1,
-                    4,
-                    5
+                    1,
+                    4
+                ],
+                "outputs": [
+                    1,
+                    5,
+                    6
                 ]
             }
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                0,
+                1
+            ]
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "contestationPeriod": 43200,
+            "tag": "Init"
+        },
+        {
+            "contestationPeriod": 43200,
+            "tag": "Init"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "contestationPeriod": 24231,
+            "tag": "Init"
+        },
+        {
+            "contestationPeriod": 52328,
+            "tag": "Init"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "contestationPeriod": 86400,
+            "tag": "Init"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": 0,
+                "inputs": [],
+                "outputs": [
+                    2,
+                    3,
+                    6
+                ]
+            }
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                -1,
+                1
+            ]
+        },
+        {
+            "contestationPeriod": 604800,
+            "tag": "Init"
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": 5,
+                "inputs": [
+                    -6,
+                    -4,
+                    -2,
+                    0,
+                    1,
+                    6
+                ],
+                "outputs": [
+                    -6,
+                    -5,
+                    -4,
+                    -3,
+                    3
+                ]
+            }
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": -4,
+                "inputs": [],
+                "outputs": [
+                    -1
+                ]
+            }
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                4
+            ]
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": 6,
+                "inputs": [],
+                "outputs": [
+                    2,
+                    3,
+                    4
+                ]
+            }
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                -5,
+                0,
+                1
+            ]
+        },
+        {
+            "tag": "GetUTxO"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Fanout"
+        },
+        {
+            "contestationPeriod": 80895,
+            "tag": "Init"
+        },
+        {
+            "contestationPeriod": 604800,
+            "tag": "Init"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "NewTx",
+            "transaction": {
+                "id": 0,
+                "inputs": [
+                    -5,
+                    -1,
+                    4
+                ],
+                "outputs": [
+                    -4,
+                    0,
+                    1,
+                    3,
+                    6
+                ]
+            }
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "contestationPeriod": 604800,
+            "tag": "Init"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "contestationPeriod": 2592000,
+            "tag": "Init"
+        },
+        {
+            "contestationPeriod": 31536000,
+            "tag": "Init"
+        },
+        {
+            "tag": "Contest"
+        },
+        {
+            "tag": "Commit",
+            "utxo": [
+                -6,
+                -3,
+                -1,
+                0,
+                6
+            ]
+        },
+        {
+            "tag": "Abort"
+        },
+        {
+            "contestationPeriod": 604800,
+            "tag": "Init"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "contestationPeriod": 2592000,
+            "tag": "Init"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "Close"
+        },
+        {
+            "tag": "Fanout"
         }
     ],
-    "seed": 1610872322
+    "seed": 1267454024
 }

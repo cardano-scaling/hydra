@@ -1,20 +1,15 @@
 {
     "samples": [
         {
-            "tag": "ShouldPostFanout"
-        },
-        {
-            "tag": "ShouldPostFanout"
-        },
-        {
-            "message": {
-                "peer": {
-                    "hostname": "0.0.25.72",
-                    "port": 31062
+            "chainEvent": {
+                "contents": {
+                    "contestationPeriod": 2592000,
+                    "parties": [],
+                    "tag": "OnInitTx"
                 },
-                "tag": "Disconnected"
+                "tag": "Observation"
             },
-            "tag": "NetworkEvent"
+            "tag": "OnChainEvent"
         },
         {
             "clientInput": {
@@ -23,12 +18,75 @@
             "tag": "ClientEvent"
         },
         {
-            "chainEvent": {
-                "contents": 27,
-                "tag": "Rollback"
+            "postChainTx": {
+                "confirmedSnapshot": {
+                    "signatures": {
+                        "multiSignature": [
+                            "8bbd3a3952143162d6e0802ee851e4f7524c2e9218e354b6684397d8461be506ef99fab7ac19098bcbbd3417926418504d65dc276fca139b4e91e886eef9300e",
+                            "414397fb545cf1a26ad70f98ba09c0c762a387b592b68e32685ac2a047d5ecc15ded6e6c56be83835c6afdb507e337aa5f02aae561ee1ec03114319c3f416f03",
+                            "a8e63123ce9066a8e254b1414f1271c2fefcfbe14e697d29d9e99b42db79a758ae217362023e399d7a8763a4e2a5f9afac88f10452e5e52f52c758c1f47c7c00",
+                            "1cb1fc09b7d3312f8cd0dc2b229b2edc865ba0332aa6258dddfe3c87ab523f708f3fb13bd62faf141c62e35d8ec890c10bb29ddac8d25666877e298e40524508",
+                            "51c0c7670e124a74193eb386233631df49a480dfda4d4e1c89b89e7e619c9f96a3ffe910568cde02dd700ffb6e9f0ad2eefccf239deb972d0b23cea2f8a5fa08",
+                            "b639fea4088d622cfb16fa307134ed99f5ed911268a5726e32f392555f6eecedf7be0d412bde3c1a45df1b87dee36ff9c2f16f4c7246eef625b05fd2add18c03"
+                        ]
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "snapshotNumber": 16,
+                        "utxo": [
+                            -30,
+                            -25,
+                            -19,
+                            -12,
+                            -1,
+                            3,
+                            16
+                        ]
+                    },
+                    "tag": "ConfirmedSnapshot"
+                },
+                "tag": "ContestTx"
             },
-            "tag": "OnChainEvent"
+            "postTxError": {
+                "headUTxO": [
+                    -30,
+                    -29,
+                    -27,
+                    -24,
+                    -18,
+                    -8,
+                    -3,
+                    -1,
+                    0,
+                    2,
+                    8,
+                    24
+                ],
+                "input": "nL\u000e𰅲aEX𪏨\u0016Z",
+                "tag": "CannotSpendInput",
+                "walletUTxO": [
+                    -3,
+                    -2,
+                    5,
+                    13,
+                    23,
+                    26
+                ]
+            },
+            "tag": "PostTxError"
+        },
+        {
+            "clientInput": {
+                "tag": "Fanout"
+            },
+            "tag": "ClientEvent"
+        },
+        {
+            "clientInput": {
+                "tag": "Abort"
+            },
+            "tag": "ClientEvent"
         }
     ],
-    "seed": -1750422410
+    "seed": 589608564
 }
