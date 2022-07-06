@@ -509,7 +509,7 @@ genOneUTxOFor vk = do
   -- values (quikcheck increases the 'size' parameter upon success) up to the point they are
   -- too large to fit in a transaction and validation fails in the ledger
   output <- scale (const 1) $ genOutput vk
-  pure $ UTxO $ Map.singleton (fromLedgerTxIn input) output
+  pure $ UTxO $ Map.singleton input output
 
 -- | NOTE: See note on 'mkVkAddress' about 'NetworkId'.
 genAddressInEra :: NetworkId -> Gen AddressInEra
