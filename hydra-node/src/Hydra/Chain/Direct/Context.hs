@@ -153,7 +153,7 @@ genStOpen ctx = do
   commits <- genCommits ctx initTx
   (committed, stInitialized) <- executeCommits initTx commits <$> genStIdle ctx
   let collectComTx = collect stInitialized
-  pure (committed, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)
+  pure (fold committed, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)
 
 genStClosed ::
   HydraContext ->
@@ -209,9 +209,9 @@ executeCommits ::
   Tx ->
   [Tx] ->
   OnChainHeadState 'StIdle ->
-  (UTxO, OnChainHeadState 'StInitialized)
+  ([UTxO], OnChainHeadState 'StInitialized)
 executeCommits initTx commits stIdle =
-  (mconcat utxo, stInitialized')
+  (utxo, stInitialized')
  where
   (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
   (utxo, stInitialized') = flip runState stInitialized $ do
