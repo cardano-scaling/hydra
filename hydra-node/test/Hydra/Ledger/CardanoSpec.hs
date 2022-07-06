@@ -13,7 +13,6 @@ import Cardano.Binary (decodeFull, serialize')
 import Data.Aeson (eitherDecode, encode)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
-import qualified Data.List as List
 import Data.Text (unpack)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
 import Hydra.Ledger (applyTransactions)
@@ -21,7 +20,6 @@ import Hydra.Ledger.Cardano (
   cardanoLedger,
   genOneUTxOFor,
   genSequenceOfValidTransactions,
-  genUTxO,
   genUTxOAdaOnlyOfSize,
   genUTxOAlonzo,
   genUTxOFor,
@@ -75,9 +73,8 @@ spec =
       propCollisionResistant "arbitrary @TxId" (arbitrary @TxId)
       propCollisionResistant "arbitrary @(VerificationKey PaymentKey)" (arbitrary @(VerificationKey PaymentKey))
       propCollisionResistant "arbitrary @(Hash PaymentKey)" (arbitrary @(Hash PaymentKey))
-      propDoesNotCollapse "genUTxO" genUTxO
-      propDoesNotCollapse "genUTxOAdaOnlyOfSize" (sized genUTxOAdaOnlyOfSize)
       propDoesNotCollapse "genUTxOAlonzo" genUTxOAlonzo
+      propDoesNotCollapse "genUTxOAdaOnlyOfSize" (sized genUTxOAdaOnlyOfSize)
       propCollisionResistant "genUTxOFor" (genUTxOFor (arbitrary `generateWith` 42))
       propCollisionResistant "genOneUTxOFor" (genOneUTxOFor (arbitrary `generateWith` 42))
 

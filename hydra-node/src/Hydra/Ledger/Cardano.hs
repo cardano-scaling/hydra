@@ -57,7 +57,6 @@ import Test.QuickCheck (
   scale,
   shrinkList,
   shrinkMapBy,
-  sized,
   suchThat,
   vectorOf,
  )
@@ -449,35 +448,6 @@ genTxIn =
     <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
     <*> fmap Ledger.TxIx (choose (0, 99))
 
--- | Generate some number of 'UTxO'. NOTE: We interpret the QuickCheck 'size' as
--- the upper bound of "assets" in this UTxO. That is, instead of sizing on the
--- number of outputs, we also consider the number of native tokens in the output
--- values.
--- TODO: this is unused now!
-genUTxO :: Gen UTxO
-genUTxO =
-  -- TODO: this implementation is a bit stupid and will yield quite low-number
-  -- of utxo, with often up-to-size number of assets. Instead we should be
-  -- generating from multiple cases:
-  --   - all ada-only outputs of length == size
-  --   - one outputs with number of assets == size
-  --   - both of the above within range (0,size) (less likely, because less interesting)
-  --   - empty utxo
-  sized $ \n -> do
-    nAssets <- choose (0, n)
-    UTxO.fromPairs . takeAssetsUTxO nAssets . UTxO.pairs <$> genUTxOAlonzo
- where
-  takeAssetsUTxO remaining ((i, o) : utxo)
-    | remaining > 0 =
-      let o' = modifyTxOutValue (takeAssetsTxOut remaining) o
-          rem' = remaining - valueSize (txOutValue o')
-       in ((i, o') : takeAssetsUTxO rem' utxo)
-    | otherwise = []
-  takeAssetsUTxO _ [] = []
-
-  takeAssetsTxOut remaining =
-    valueFromList . take remaining . valueToList
-
 -- | Generate a fixed size UTxO with ada-only outputs.
 genUTxOAdaOnlyOfSize :: Int -> Gen UTxO
 genUTxOAdaOnlyOfSize numUTxO =
@@ -486,12 +456,17 @@ genUTxOAdaOnlyOfSize numUTxO =
   gen = (,) <$> arbitrary <*> genTxOutAdaOnly
 
 -- | Generate 'Alonzo' era 'UTxO', which may contain arbitrary assets in
--- 'TxOut's addressed to public keys *and* scripts. NOTE: This is not reducing
--- size when generating assets in 'TxOut's, so will end up regularly with 300+
--- assets with generator size 30.
+-- 'TxOut's addressed to public keys *and* scripts.
+-- NOTE: This is not reducing size when generating assets in 'TxOut's, so will
+-- end up regularly with 300+ assets with generator size 30.
+-- NOTE: The Arbitrary TxIn instance from the ledger is producing colliding
+-- values, so we replace them.
 genUTxOAlonzo :: Gen UTxO
-genUTxOAlonzo =
-  fromLedgerUTxO <$> arbitrary
+genUTxOAlonzo = do
+  utxoMap <- Map.toList . Ledger.unUTxO <$> arbitrary
+  fmap UTxO.fromPairs . forM utxoMap $ \(_, o) -> do
+    i <- arbitrary
+    pure (i, fromLedgerTxOut o)
 
 -- | Generate utxos owned by the given cardano key.
 genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
@@ -499,7 +474,7 @@ genUTxOFor vk = do
   n <- arbitrary `suchThat` (> 0)
   inps <- vectorOf n arbitrary
   outs <- vectorOf n (genOutput vk)
-  pure $ UTxO $ Map.fromList $ zip (fromLedgerTxIn <$> inps) outs
+  pure $ UTxO $ Map.fromList $ zip inps outs
 
 -- | Generate a single UTXO owned by 'vk'.
 genOneUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
