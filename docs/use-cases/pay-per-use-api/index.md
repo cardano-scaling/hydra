@@ -2,7 +2,7 @@
 
 > Micro-payments between a service provider and a client.
 
-Let's consider a service of transaction datum resolution in the form of an HTTP API. Given some datum hash, the API can return, if it exists, the pre-image of that hash digest. On the other end, we have a light-wallet provider with full Cardano smart-contract support and extra care for user experience and security. Part of the transaction workflow of the wallet consists of looking up datums and scripts included in transactions it sees, coming from various DApps its users interact with. Doing so, it can better show how a specific transaction will affect a contract and the data it carries. 
+Let's consider a web service for transaction datum resolution in the form of an HTTP API. Given some datum hash, the API can return, if it exists, the pre-image of that hash digest. On the other end, we have a light-wallet provider with full Cardano smart-contract support and extra care for user experience and security. Part of the transaction workflow of the wallet consists of looking up datums and scripts included in transactions it sees, coming from various DApps its users interact with. Doing so, it can better show how a specific transaction will affect a contract and the data it carries. 
 
 To keep the light-wallet infrastructure setup simple, the implementors decide to rely on that external service for datum resolution. However, their relatively new product makes it hard to estimate appropriately the number of resources they would need and how many users they would eventually serve. Thus, they agree with the service provider to create a Hydra Head and use it to issue short-lived API credentials in exchange for a micro-payment. 
 
