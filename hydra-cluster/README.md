@@ -1,6 +1,10 @@
-Integration test suite spinning up a local cluster of Cardano and Hydra nodes.
+Integration test suite spinning up a local cluster of Hydra nodes on a "devnet".
 
-This is used to experiment and explore the design space for the Hydra node, how it interacts with Cardano nodes and have an always available, ad-hoc environment for demos.
+For simplicity, we usually would spin up a trivial Cardano network comprised by
+only a single block producing node, having all the stake. This is of course not
+exactly how a proper Cardano network would work, but the scope of this package
+and it's tests are to assert correct hydra-node behavior in a cluster of Hydra
+nodes.
 
 ## Benchmarks
 
