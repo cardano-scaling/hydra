@@ -212,19 +212,20 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
  where
   args =
     defaultCardanoNodeArgs
-      { nodeConfigFile = "config.json"
-      , nodeTopologyFile = "topology.json"
+      { nodeConfigFile = "cardano-node/config.json"
+      , nodeTopologyFile = "cardano-node/topology.json"
       , nodeByronGenesisFile = "genesis/byron.json"
       , nodeShelleyGenesisFile = "genesis/shelley.json"
       , nodeAlonzoGenesisFile = "genesis/alonzo.json"
       }
 
   copyKnownNetworkFiles = do
-    createDirectoryIfMissing True $ workDir </> "genesis"
+    createDirectoryIfMissing True $ workDir </> "cardano-node"
     readConfigFile (knownNetworkPath </> "cardano-node" </> "config.json")
-      >>= writeFileBS (workDir </> "config.json")
+      >>= writeFileBS (workDir </> "cardano-node" </> "config.json")
     readConfigFile (knownNetworkPath </> "cardano-node" </> "topology.json")
-      >>= writeFileBS (workDir </> "topology.json")
+      >>= writeFileBS (workDir </> "cardano-node" </> "topology.json")
+    createDirectoryIfMissing True $ workDir </> "genesis"
     readConfigFile (knownNetworkPath </> "genesis" </> "byron.json")
       >>= writeFileBS (workDir </> "genesis" </> "byron.json")
     readConfigFile (knownNetworkPath </> "genesis" </> "shelley.json")
