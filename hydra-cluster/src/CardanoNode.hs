@@ -161,11 +161,7 @@ withCardanoNodeDevnet tracer cfg action = do
 
   generateEnvironment args
 
-  withCardanoNode tracer cfg args $ \rn@(RunningNode _ socket) -> do
-    traceWith tracer $ MsgNodeStarting cfg
-    waitForSocket rn
-    traceWith tracer $ MsgSocketIsReady socket
-    action rn
+  withCardanoNode tracer cfg args action
  where
   dirname =
     "stake-pool-" <> show (nodeId cfg)
@@ -204,11 +200,7 @@ withCardanoNodeOnKnownNetwork ::
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   config <- newNodeConfig workDir
   copyKnownNetworkFiles
-  withCardanoNode tracer config args $ \rn@(RunningNode _ socket) -> do
-    traceWith tracer $ MsgNodeStarting config
-    waitForSocket rn
-    traceWith tracer $ MsgSocketIsReady socket
-    action rn
+  withCardanoNode tracer config args action
  where
   args =
     defaultCardanoNodeArgs
@@ -247,17 +239,27 @@ withCardanoNode ::
   CardanoNodeArgs ->
   (RunningNode -> IO ()) ->
   IO ()
-withCardanoNode tr CardanoNodeConfig{stateDirectory, nodeId} args action = do
+withCardanoNode tr config@CardanoNodeConfig{stateDirectory, nodeId} args action = do
   let process = cardanoNodeProcess (Just stateDirectory) args
       logFile = stateDirectory </> show nodeId <.> "log"
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   withFile' logFile $ \out ->
-    withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $ \_stdin _stdout _stderr processHandle ->
-      race_
-        (checkProcessHasNotDied ("cardano-node-" <> show nodeId) processHandle)
-        (action (RunningNode nodeId (stateDirectory </> nodeSocket args)))
-        `finally` cleanupSocketFile
+    withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $
+      \_stdin _stdout _stderr processHandle ->
+        race_
+          (checkProcessHasNotDied ("cardano-node-" <> show nodeId) processHandle)
+          waitForNode
+          `finally` cleanupSocketFile
  where
+  socketPath = stateDirectory </> nodeSocket args
+
+  waitForNode = do
+    let rn = RunningNode nodeId socketPath
+    traceWith tr $ MsgNodeStarting config
+    waitForSocket rn
+    traceWith tr $ MsgSocketIsReady socketPath
+    action rn
+
   cleanupSocketFile =
     whenM (doesFileExist socketFile) $
       removeFile socketFile
