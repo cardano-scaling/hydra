@@ -13,6 +13,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as Aeson.KeyMap
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), PaymentKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
+import Hydra.Cluster.Fixture (KnownNetwork (Testnet, VasilTestnet))
 import Hydra.Cluster.Util (readConfigFile)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import System.Exit (ExitCode (..))
@@ -190,6 +191,48 @@ withBFTNode tracer cfg action = do
       writeFileBS destination bs
     setFileMode destination ownerReadMode
     pure destination
+
+-- | Run a cardano-node as normal network participant on a known network.
+withCardanoNodeOnKnownNetwork ::
+  Tracer IO NodeLog ->
+  FilePath ->
+  KnownNetwork ->
+  (RunningNode -> IO ()) ->
+  IO ()
+withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
+  config <- newNodeConfig workDir
+  copyKnownNetworkFiles
+  withCardanoNode tracer config args action
+ where
+  args =
+    defaultCardanoNodeArgs
+      { nodeConfigFile = "config.json"
+      , nodeTopologyFile = "topology.json"
+      , nodeByronGenesisFile = "genesis/byron.json"
+      , nodeShelleyGenesisFile = "genesis/shelley.json"
+      , nodeAlonzoGenesisFile = "genesis/alonzo.json"
+      }
+
+  copyKnownNetworkFiles = do
+    createDirectoryIfMissing True $ workDir </> "genesis"
+    readConfigFile (knownNetworkPath </> "cardano-node" </> "config.json")
+      >>= writeFileBS (workDir </> "config.json")
+    readConfigFile (knownNetworkPath </> "cardano-node" </> "topology.json")
+      >>= writeFileBS (workDir </> "topology.json")
+    readConfigFile (knownNetworkPath </> "genesis" </> "byron.json")
+      >>= writeFileBS (workDir </> "genesis" </> "byron.json")
+    readConfigFile (knownNetworkPath </> "genesis" </> "shelley.json")
+      >>= writeFileBS (workDir </> "genesis" </> "shelley.json")
+    readConfigFile (knownNetworkPath </> "genesis" </> "alonzo.json")
+      >>= writeFileBS (workDir </> "genesis" </> "alonzo.json")
+
+  -- Folder name in config/cardano-configurations/network
+  knownNetworkName = case knownNetwork of
+    Testnet -> "testnet"
+    VasilTestnet -> "vasil-dev"
+
+  knownNetworkPath =
+    "cardano-configurations" </> "network" </> knownNetworkName
 
 withCardanoNode ::
   Tracer IO NodeLog ->

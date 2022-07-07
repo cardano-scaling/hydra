@@ -1,12 +1,8 @@
 module Hydra.Cluster.Options where
 
+import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Prelude
 import Options.Applicative (Parser, flag', help, long, metavar, strOption)
-
-data KnownNetwork
-  = Testnet
-  | VasilTestnet
-  deriving (Show)
 
 data Options = Options
   { knownNetwork :: KnownNetwork

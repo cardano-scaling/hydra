@@ -2,12 +2,24 @@ module Main where
 
 import Hydra.Prelude
 
-import Hydra.Cluster.Options (Options, parseOptions)
+import CardanoNode (RunningNode (RunningNode), withCardanoNodeOnKnownNetwork)
+import Hydra.Cluster.Options (Options (..), parseOptions)
+import Hydra.Logging (showLogsOnFailure)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
+import Test.Hydra.Prelude (withTempDir)
 
 main :: IO ()
-main = do
-  print =<< execParser hydraClusterOptions
+main =
+  execParser hydraClusterOptions >>= run
+
+run :: Options -> IO ()
+run options =
+  showLogsOnFailure $ \tracer -> do
+    withTempDir ("hydra-cluster-" <> show knownNetwork) $ \tempDir -> do
+      withCardanoNodeOnKnownNetwork tracer tempDir knownNetwork $ \(RunningNode _ socketFile) ->
+        print socketFile
+ where
+  Options{knownNetwork} = options
 
 hydraClusterOptions :: ParserInfo Options
 hydraClusterOptions =

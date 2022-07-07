@@ -5,7 +5,8 @@ module Hydra.Cluster.Fixture where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic))
+import Hydra.Cardano.Api (NetworkId)
+import qualified Hydra.Cardano.Api as Api
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (deriveVerificationKey, generateSigningKey)
 import qualified Hydra.Crypto as Hydra
@@ -35,7 +36,7 @@ cperiod = UnsafeContestationPeriod 10
 -- - overwrite the genesis configuration with the `ClusterConfig`
 -- - pull the network id from the genesis configuration
 defaultNetworkId :: NetworkId
-defaultNetworkId = Testnet (NetworkMagic 42)
+defaultNetworkId = Api.Testnet (Api.NetworkMagic 42)
 
 -- NOTE: This is hard-coded and needs to correspond to the initial funds set in
 -- the genesis-shelley.json file.
@@ -55,3 +56,10 @@ actorName = \case
   Bob -> "bob"
   Carol -> "carol"
   Faucet -> "faucet"
+
+-- | A network known to the hydra-cluster. That means we have configuration
+-- files to connect to at least these networks.
+data KnownNetwork
+  = Testnet
+  | VasilTestnet
+  deriving (Show)

@@ -156,7 +156,9 @@ executable hydra-cluster
   build-depends:
     , base                  >=4.7 && <5
     , hydra-cluster
+    , hydra-node
     , hydra-prelude
+    , hydra-test-utils
     , optparse-applicative
 
   build-tool-depends: hydra-node:hydra-node -any
