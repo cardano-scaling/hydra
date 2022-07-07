@@ -8,7 +8,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoClient (submit, waitForTransaction)
-import CardanoCluster (Marked (Fuel), defaultNetworkId, seedFromFaucet)
 import CardanoNode (RunningNode (..), newNodeConfig, withBFTNode)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
@@ -31,6 +30,8 @@ import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
+import Hydra.Cluster.Faucet (Marked (Fuel), seedFromFaucet)
+import Hydra.Cluster.Fixture (defaultNetworkId)
 import qualified Hydra.Crypto as Hydra
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger (txId)

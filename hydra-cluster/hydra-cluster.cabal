@@ -116,8 +116,8 @@ library
   hs-source-dirs:  src
   exposed-modules:
     CardanoClient
-    CardanoCluster
     CardanoNode
+    Hydra.Cluster.Faucet
     Hydra.Cluster.Fixture
     Hydra.Cluster.Util
     Hydra.Generator
@@ -192,7 +192,6 @@ test-suite integration
   other-modules:
     Paths_hydra_cluster
     Spec
-    Test.CardanoClusterSpec
     Test.CardanoNodeSpec
     Test.DirectChainSpec
     Test.EndToEndSpec

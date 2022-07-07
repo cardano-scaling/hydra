@@ -6,14 +6,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoCluster (
-  Actor (Alice),
-  Marked (Fuel, Normal),
-  chainConfigFor,
-  defaultNetworkId,
-  keysFor,
-  seedFromFaucet_,
- )
 import CardanoNode (NodeLog, RunningNode (RunningNode), newNodeConfig, withBFTNode)
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
@@ -34,6 +26,26 @@ import Graphics.Vty (
   termName,
  )
 import Graphics.Vty.Image (DisplayRegion)
+import Hydra.Cluster.Faucet (
+  Marked (Fuel, Normal),
+  seedFromFaucet,
+  seedFromFaucet_,
+ )
+import Hydra.Cluster.Fixture (
+  Actor (Alice, Bob, Carol),
+  alice,
+  aliceSk,
+  aliceVk,
+  bob,
+  bobSk,
+  bobVk,
+  carol,
+  carolSk,
+  carolVk,
+  cperiod,
+  defaultNetworkId,
+ )
+import Hydra.Cluster.Util (keysFor)
 import qualified Hydra.Crypto as Hydra
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))

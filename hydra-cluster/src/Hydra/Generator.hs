@@ -8,10 +8,11 @@ import Hydra.Prelude hiding (size)
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (mkGenesisTx)
-import CardanoCluster (Actor (Faucet), availableInitialFunds, keysFor)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
+import Hydra.Cluster.Fixture (Actor (Faucet), availableInitialFunds)
+import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (genKeyPair, genSigningKey, mkSimpleTx)
 import Test.QuickCheck (choose, generate, sized)

@@ -32,4 +32,5 @@ spec = do
                   , ports = PortsConfig{ours = ourPort, peers = []}
                   }
           withBFTNode tr config $ \(RunningNode _ socketFile) -> do
+            -- TODO: assert blocks are produced
             doesFileExist socketFile `shouldReturn` True

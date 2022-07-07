@@ -14,14 +14,6 @@ import CardanoClient (
   queryUTxO,
   waitForUTxO,
  )
-import CardanoCluster (
-  Actor (Alice, Bob, Carol),
-  Marked (Fuel, Normal),
-  defaultNetworkId,
-  keysFor,
-  seedFromFaucet,
-  seedFromFaucet_,
- )
 import CardanoNode (NodeLog, RunningNode (..), newNodeConfig, withBFTNode)
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import qualified Data.ByteString.Char8 as B8
@@ -46,7 +38,26 @@ import Hydra.Chain.Direct (
   withIOManager,
  )
 import Hydra.Chain.Direct.Handlers (DirectChainLog, closeGraceTime)
-import Hydra.Cluster.Fixture (alice, aliceSk, bob, carol, cperiod)
+import Hydra.Cluster.Faucet (
+  Marked (Fuel, Normal),
+  seedFromFaucet,
+  seedFromFaucet_,
+ )
+import Hydra.Cluster.Fixture (
+  Actor (Alice, Bob, Carol),
+  alice,
+  aliceSk,
+  aliceVk,
+  bob,
+  bobSk,
+  bobVk,
+  carol,
+  carolSk,
+  carolVk,
+  cperiod,
+  defaultNetworkId,
+ )
+import Hydra.Cluster.Util (keysFor)
 import Hydra.Crypto (aggregate, sign)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)

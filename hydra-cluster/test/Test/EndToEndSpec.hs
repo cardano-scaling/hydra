@@ -9,15 +9,6 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
-import CardanoCluster (
-  Actor (Alice, Bob, Carol),
-  Marked (Fuel, Normal),
-  chainConfigFor,
-  defaultNetworkId,
-  keysFor,
-  seedFromFaucet,
-  seedFromFaucet_,
- )
 import CardanoNode (RunningNode (RunningNode), newNodeConfig, withBFTNode)
 import Control.Lens ((^?))
 import Data.Aeson (Result (..), Value (Object, String), fromJSON, object, (.=))
@@ -40,7 +31,25 @@ import Hydra.Cardano.Api (
   unSlotNo,
  )
 import Hydra.Chain.Direct.Handlers (closeGraceTime)
-import Hydra.Cluster.Fixture (alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
+import Hydra.Cluster.Faucet (
+  Marked (Fuel, Normal),
+  seedFromFaucet,
+  seedFromFaucet_,
+ )
+import Hydra.Cluster.Fixture (
+  Actor (Alice, Bob, Carol),
+  alice,
+  aliceSk,
+  aliceVk,
+  bob,
+  bobSk,
+  bobVk,
+  carol,
+  carolSk,
+  carolVk,
+  defaultNetworkId,
+ )
+import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)

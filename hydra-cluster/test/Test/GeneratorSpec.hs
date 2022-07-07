@@ -6,9 +6,10 @@ module Test.GeneratorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoCluster (Actor (Faucet), keysFor)
 import Data.Text (unpack)
 import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
+import Hydra.Cluster.Fixture (Actor (Faucet))
+import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (
   ClientDataset (..),
   Dataset (..),
@@ -27,7 +28,13 @@ import Hydra.Ledger.Cardano.Configuration (
   shelleyGenesisFromJson,
  )
 import Test.Aeson.GenericSpecs (roundtripSpecs)
-import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll, idempotentIOProperty)
+import Test.QuickCheck (
+  Positive (Positive),
+  Property,
+  counterexample,
+  forAll,
+  idempotentIOProperty,
+ )
 
 spec :: Spec
 spec = parallel $ do
