@@ -49,6 +49,18 @@ data CardanoNodeConfig = CardanoNodeConfig
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+newNodeConfig :: FilePath -> IO CardanoNodeConfig
+newNodeConfig stateDirectory = do
+  nodePort <- randomUnusedTCPPort
+  systemStart <- initSystemStart
+  pure $
+    CardanoNodeConfig
+      { nodeId = 1
+      , stateDirectory
+      , systemStart
+      , ports = PortsConfig nodePort []
+      }
+
 -- | Arguments given to the 'cardano-node' command-line to run a node.
 data CardanoNodeArgs = CardanoNodeArgs
   { nodeSocket :: FilePath
@@ -110,14 +122,15 @@ withBFTNode ::
   IO ()
 withBFTNode tracer cfg action = do
   createDirectoryIfMissing False (stateDirectory cfg)
+  createDirectoryIfMissing False (stateDirectory cfg </> dirname (nodeId cfg))
 
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-
     forM
-      [ dlgCertFilename nid
-      , signKeyFilename nid
-      , vrfKeyFilename nid
-      , kesKeyFilename nid
-      , opCertFilename nid
+      [ dlgCertFilename (nodeId cfg)
+      , signKeyFilename (nodeId cfg)
+      , vrfKeyFilename (nodeId cfg)
+      , kesKeyFilename (nodeId cfg)
+      , opCertFilename (nodeId cfg)
       ]
       (copyCredential (stateDirectory cfg))
 
@@ -153,11 +166,19 @@ withBFTNode tracer cfg action = do
     traceWith tracer $ MsgSocketIsReady socket
     action rn
  where
-  dlgCertFilename i = "delegation-cert.00" <> show (i - 1) <> ".json"
-  signKeyFilename i = "delegate-keys.00" <> show (i - 1) <> ".key"
-  vrfKeyFilename i = "delegate" <> show i <> ".vrf.skey"
-  kesKeyFilename i = "delegate" <> show i <> ".kes.skey"
-  opCertFilename i = "opcert" <> show i <> ".cert"
+  dirname i =
+    "stake-pool-" <> show i
+
+  dlgCertFilename i =
+    dirname i </> "byron-delegation.cert"
+  signKeyFilename i =
+    dirname i </> "byron-delegate.key"
+  vrfKeyFilename i =
+    dirname i </> "vrf.skey"
+  kesKeyFilename i =
+    dirname i </> "kes.skey"
+  opCertFilename i =
+    dirname i </> "opcert.cert"
 
   copyCredential parentDir file = do
     bs <- readConfigFile ("credentials" </> file)
@@ -166,8 +187,6 @@ withBFTNode tracer cfg action = do
       writeFileBS destination bs
     setFileMode destination ownerReadMode
     pure destination
-
-  nid = nodeId cfg
 
 withCardanoNode ::
   Tracer IO NodeLog ->
@@ -197,18 +216,6 @@ withCardanoNode tr cfg@CardanoNodeConfig{stateDirectory, nodeId} args action = d
       removeFile socketFile
 
   socketFile = stateDirectory </> nodeSocket args
-
-newNodeConfig :: FilePath -> IO CardanoNodeConfig
-newNodeConfig stateDirectory = do
-  nodePort <- randomUnusedTCPPort
-  systemStart <- initSystemStart
-  pure $
-    CardanoNodeConfig
-      { nodeId = 1
-      , stateDirectory
-      , systemStart
-      , ports = PortsConfig nodePort []
-      }
 
 -- | Wait for the node socket file to become available.
 waitForSocket :: RunningNode -> IO ()
