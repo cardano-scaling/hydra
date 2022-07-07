@@ -10,7 +10,7 @@ module Hydra.Ledger.Cardano (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (initialLedgerState)
 import Hydra.Ledger.Cardano.Builder
 
 import qualified Cardano.Api.UTxO as UTxO
@@ -34,6 +34,7 @@ import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
 import Control.Arrow (left)
+import Control.Monad (foldM)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
@@ -370,58 +371,43 @@ genKeyPair = do
   sk <- genSigningKey
   pure (getVerificationKey sk, sk)
 
-genSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Gen (UTxO, [Tx])
-genSequenceOfValidTransactions globals ledgerEnv = do
+-- | Generates a sequence of simple "transfer" transactions for a single key.
+-- The kind of transactions produced by this generator is very limited, see `generateOneTransfer`.
+genSequenceOfSimplePaymentTransactions :: Gen (UTxO, [Tx])
+genSequenceOfSimplePaymentTransactions = do
   n <- getSize
   numTxs <- choose (1, n)
-  genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs
+  genFixedSizeSequenceOfSimplePaymentTransactions numTxs
 
-genFixedSizeSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Int -> Gen (UTxO, [Tx])
-genFixedSizeSequenceOfValidTransactions _globals _ledgerEnv _numTxs = do
-  -- FIXME: There is no 'EraGen BabbageEra' instance!
-  error "missing EraGen BabbageEra"
+genFixedSizeSequenceOfSimplePaymentTransactions :: Int -> Gen (UTxO, [Tx])
+genFixedSizeSequenceOfSimplePaymentTransactions numTxs = do
+  keyPair@(vk, _) <- genKeyPair
+  utxo <- genOneUTxOFor vk
+  txs <-
+    reverse . thrd
+      <$> foldM (generateOneTransfer testNetworkId) (utxo, keyPair, []) [1 .. numTxs]
+  pure (utxo, txs)
+ where
+  thrd (_, _, c) = c
+  testNetworkId = Testnet $ NetworkMagic 42
 
---  n <- getSize
---  numUTxOs <- choose (0, n)
---  let genEnv = customGenEnv numUTxOs
---  initialUTxO <- fromLedgerUTxO <$> Ledger.Generator.genUtxo0 genEnv
---  (_, txs) <- foldM (nextTx genEnv) (initialUTxO, []) [1 .. numTxs]
---  pure (initialUTxO, reverse txs)
--- where
---  nextTx genEnv (utxos, acc) _ = do
---    tx <- genTx genEnv utxos
---    case applyTransactions (cardanoLedger globals ledgerEnv) utxos [tx] of
---      Left err -> error $ show err
---      Right newUTxOs -> pure (newUTxOs, tx : acc)
-
---  genTx genEnv utxos = do
---    fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv ledgerState
---   where
---    ledgerState =
---      Ledger.LedgerState
---        { Ledger.lsUTxOState = def{Ledger._utxo = toLedgerUTxO utxos}
---        , Ledger.lsDPState = Ledger.DPState def def
---        }
-
---  -- NOTE(AB): This sets some parameters for the tx generator that will affect
---  -- the structure of generated transactions. In our case, we want to remove
---  -- "special" capabilities which are irrelevant in the context of a Hydra head
---  -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
---  customGenEnv n =
---    (Ledger.Generator.genEnv Proxy)
---      { Ledger.Generator.geConstants = constants n
---      }
-
---  constants n =
---    Ledger.Generator.defaultConstants
---      { Ledger.Generator.minGenesisUTxOouts = 1
---      , -- NOTE: The genUtxo0 generator seems to draw twice from the range
---        -- [minGenesisUTxOouts, maxGenesisUTxOouts]
---        Ledger.Generator.maxGenesisUTxOouts = n `div` 2
---      , Ledger.Generator.frequencyTxUpdates = 0
---      , Ledger.Generator.frequencyTxWithMetadata = 0
---      , Ledger.Generator.maxCertsPerTx = 0
---      }
+generateOneTransfer ::
+  NetworkId ->
+  (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx]) ->
+  Int ->
+  Gen (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx])
+generateOneTransfer networkId (utxo, (_, sender), txs) _ = do
+  recipient <- genKeyPair
+  -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
+  -- this function to be ever used in production, and crash will be caught in tests
+  case UTxO.pairs utxo of
+    [txin] ->
+      case mkSimpleTx txin (mkVkAddress networkId (fst recipient), balance @Tx utxo) sender of
+        Left e -> error $ "Tx construction failed: " <> show e <> ", utxo: " <> show utxo
+        Right tx ->
+          pure (utxoFromTx tx, recipient, tx : txs)
+    _ ->
+      error "Couldn't generate transaction sequence: need exactly one UTXO."
 
 -- TODO: Enable arbitrary datum in generators
 -- TODO: This should better be called 'genOutputFor'

@@ -133,6 +133,7 @@ library
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
     , cardano-ledger-shelley-test
+    , cardano-ledger-test
     , cardano-prelude
     , cardano-slotting
     , cborg

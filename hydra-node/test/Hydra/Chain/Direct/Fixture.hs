@@ -31,6 +31,7 @@ import Hydra.Crypto (hashVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (pparams)
 import Hydra.Party (Party (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
+import Test.Cardano.Ledger.Generic.ModelState (accountStateZero)
 
 -- * Party / key utilities
 
@@ -78,7 +79,7 @@ defaultLedgerEnv =
     { Ledger.ledgerSlotNo = SlotNo 1
     , Ledger.ledgerIx = TxIx 0
     , Ledger.ledgerPp = pparams
-    , Ledger.ledgerAccount = error "ledgerEnv: ledgersAccount undefined"
+    , Ledger.ledgerAccount = accountStateZero
     }
 
 defaultGlobals :: Ledger.Globals

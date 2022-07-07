@@ -19,7 +19,7 @@ import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
   genOneUTxOFor,
-  genSequenceOfValidTransactions,
+  genSequenceOfSimplePaymentTransactions,
   genUTxOAdaOnlyOfSize,
   genUTxOAlonzo,
   genUTxOFor,
@@ -78,7 +78,7 @@ spec =
       propCollisionResistant "genUTxOFor" (genUTxOFor (arbitrary `generateWith` 42))
       propCollisionResistant "genOneUTxOFor" (genOneUTxOFor (arbitrary `generateWith` 42))
 
-    describe "Evaluate helpers" $ do
+    describe "Evaluate helpers" $
       prop "slotNoFromPOSIXTime . slotNoToPOSIXTime === id" $ \slot ->
         slotNoFromPOSIXTime (slotNoToPOSIXTime slot) === slot
 
@@ -111,7 +111,7 @@ roundtripCBOR a =
 
 appliesValidTransaction :: Property
 appliesValidTransaction =
-  forAllBlind (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv) $ \(utxo, txs) ->
+  forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
     let result = applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo txs
      in case result of
           Right _ -> property True
@@ -124,7 +124,7 @@ appliesValidTransaction =
 
 appliesValidTransactionFromJSON :: Property
 appliesValidTransactionFromJSON =
-  forAllBlind (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv) $ \(utxo, txs) ->
+  forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
     let encoded = encode txs
         result = eitherDecode encoded >>= first show . applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo
      in isRight result
