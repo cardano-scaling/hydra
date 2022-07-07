@@ -1,0 +1,144 @@
+digraph starshaped {
+  rankdir = LR;
+
+  {  node [ "shape" = "record" ];
+    init_s_a [ label = "Init S+A | S" ];
+    init_s_b [ label = "Init S+B | S" ];
+
+    commit_a [ label = "Commit | A" ];
+    commit_b [ label = "Commit | B" ];
+    commit_s1 [ label = "Commit | S" ];
+    commit_s2 [ label = "Commit | S" ];
+
+    collect_com_1  [ label = "CollectCom | S" ];
+    collect_com_2  [ label = "CollectCom | S" ];
+
+    close_1  [ label = "Close | A" ];
+    close_2  [ label = "Close | S" ];
+
+    fanout_1 [ label = "Fan-out | A" ];
+    fanout_2 [ label = "Fan-out | S", style = filled, fillcolor = "lightgray" ];
+  }
+
+  {  node [ label = "", "shape" = "circle", width = "0.1" ];
+    initial_s1 [ xlabel = "ν_initial" ];
+    initial_s2 [ xlabel = "ν_initial" ];
+    initial_a [ xlabel = "ν_initial" ];
+    initial_b [ xlabel = "ν_initial" ];
+
+    committed_s1 [ xlabel = "∅" ];
+    committed_s2 [ xlabel = "∅" ];
+    committed_a [ xlabel = "a" ];
+    committed_b [ xlabel = "b" ];
+
+    ν_commit_s1 [ xlabel = "∅" ];
+    ν_commit_s2 [ xlabel = "∅" ];
+    ν_commit_a [ xlabel = "a" ];
+    ν_commit_b [ xlabel = "b" ];
+
+    c [ xlabel = "c" ];
+
+    head_s1 [ xlabel = "ν_head (1)" ];
+    head_s2 [ xlabel = "ν_head (2)" ];
+
+    head_s1_open [ xlabel = "ν_head [a]" ];
+    head_s2_open [ xlabel = "ν_head [b]" ];
+
+    head_s1_closed [ xlabel = "ν_head [c]" ];
+    head_s2_closed [ xlabel = "ν_head [c]" ];
+}
+
+subgraph cluster_1 {
+  label = "off-chain head 1";
+
+  { node [ label = "", "shape" = "circle", width = "0.1" ];
+    U_1_0_a [xlabel = "[a,b]", color = red, fontcolor = red];
+    U_1_c [xlabel = "c"];
+  }
+
+  { node [ "shape" = "record" ];
+    tx_1_1 [ label = "tx_1 | X"];
+    tx_1_2 [ label = "tx_2 | X"];
+    tx_1_3 [ label = "tx_3 | X"];
+  }
+
+  U_1_0_a -> tx_1_1;
+  tx_1_1 -> tx_1_2;
+  tx_1_2 -> tx_1_3;
+  tx_1_3 -> U_1_c;
+
+}
+
+subgraph cluster_2 {
+  label = "off-chain head 2";
+
+  { node [ label = "", "shape" = "circle", width = "0.1" ];
+    U_2_0_b [xlabel = "[a,b]", fontcolor = red, color = red];
+    U_2_c [xlabel = "c"];
+  }
+
+  { node [ "shape" = "record" ];
+    tx_2_1 [ label = "tx_1 | X"];
+    tx_2_2 [ label = "tx_2 | X"];
+    tx_2_3 [ label = "tx_3 | X"];
+  }
+
+  U_2_0_b -> tx_2_1 -> tx_2_2 -> tx_2_3 -> U_2_c;
+}
+
+tx_1_1 -> tx_2_1  [ style = dashed ];
+tx_2_2 -> tx_1_2  [ style = dashed ];
+tx_2_3 -> tx_1_3  [ style = dashed ];
+
+  init_s_a -> initial_s1 [ arrowhead = none ];
+  init_s_a -> initial_a  [ arrowhead = none ];
+  init_s_a -> head_s1  [ arrowhead = none ];
+
+  init_s_b -> initial_s2 [ arrowhead = none ];
+  init_s_b -> initial_b [ arrowhead = none ];
+  init_s_b -> head_s2 [ arrowhead = none ];
+
+  initial_s1 -> commit_s1;
+  committed_s1 -> commit_s1;
+  commit_s1 -> ν_commit_s1  [ arrowhead = none ];
+
+  initial_s2 -> commit_s2;
+  committed_s2 -> commit_s2;
+  commit_s2 -> ν_commit_s2  [ arrowhead = none ];
+
+  initial_a -> commit_a;
+  committed_a -> commit_a;
+  commit_a -> ν_commit_a  [ arrowhead = none ];
+
+  initial_b -> commit_b;
+  committed_b -> commit_b;
+  commit_b -> ν_commit_b  [ arrowhead = none ];
+
+
+  ν_commit_a -> collect_com_1;
+  ν_commit_s1 -> collect_com_1;
+  head_s1 -> collect_com_1;
+  collect_com_1 -> head_s1_open [ arrowhead = none ];
+
+  ν_commit_b -> collect_com_2;
+  ν_commit_s2 -> collect_com_2;
+  head_s2 -> collect_com_2;
+  collect_com_2 -> head_s2_open [ arrowhead = none ];
+
+  head_s1_open -> U_1_0_a [ style = dotted ];
+  head_s2_open -> U_2_0_b  [ style = dotted ];
+
+  U_1_c -> close_1 [ style = dotted ];
+  U_2_c -> close_2 [ style = dotted ];
+  head_s1_open -> close_1;
+  head_s2_open -> close_2;
+  close_1 -> head_s1_closed  [ arrowhead = none ];
+  close_2 -> head_s2_closed  [ arrowhead = none ];
+
+  close_1 -> close_2 [ style = dashed ];
+
+  head_s1_closed -> fanout_1;
+  fanout_1 -> c [ arrowhead = none ];
+
+  head_s2_closed -> fanout_2;
+}

@@ -31,3 +31,4 @@ test-results.xml
 # Getting started / demo instructions
 devnet/
 testnet/
+docs/yarn.lock
