@@ -21,7 +21,6 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   lovelaceToValue,
   txOutValue,
-  unSlotNo,
   unsafeDeserialiseFromRawBytesBase16,
  )
 import Hydra.Chain (
@@ -37,7 +36,7 @@ import Hydra.Chain.Direct (
   withDirectChain,
   withIOManager,
  )
-import Hydra.Chain.Direct.Handlers (DirectChainLog, closeGraceTime)
+import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   seedFromFaucet,
@@ -223,16 +222,15 @@ spec = around showLogsOnFailure $ do
                 , signatures = aggregate [sign aliceSk snapshot]
                 }
 
-            alicesCallback `shouldSatisfyInTime` \case
-              Observation OnCloseTx{snapshotNumber} ->
-                -- FIXME(SN): should assert contestationDeadline > current
-                snapshotNumber == 1
-              _ ->
-                False
+            fanoutDelay <-
+              alicesCallback `shouldSatisfyInTime` \case
+                Observation OnCloseTx{snapshotNumber, remainingContestationPeriod} ->
+                  -- FIXME(SN): should assert contestationDeadline > current
+                  Just (snapshotNumber == 1, remainingContestationPeriod)
+                _ ->
+                  Nothing
 
-            -- TODO: compute from chain parameters
-            -- contestation period + closeGraceTime * slot length
-            threadDelay $ 1 + (fromIntegral (unSlotNo closeGraceTime) * 0.1)
+            threadDelay (toEnum (fromEnum fanoutDelay))
             postTx $
               FanoutTx
                 { utxo = someUTxO
@@ -289,10 +287,16 @@ observesInTime mvar expected =
       Observation obs -> obs `shouldBe` expected
       _ -> go
 
-shouldSatisfyInTime :: Show a => MVar a -> (a -> Bool) -> Expectation
+shouldSatisfyInTime :: MVar a -> (a -> Maybe (Bool, b)) -> IO b
 shouldSatisfyInTime mvar f =
-  failAfter 10 $
-    takeMVar mvar >>= flip shouldSatisfy f
+  failAfter 10 $ do
+    a <- takeMVar mvar
+    case f a of
+      Nothing ->
+        fail "predicate failed."
+      Just (predicate, b) -> do
+        shouldSatisfy predicate identity
+        return b
 
 isIntersectionNotFoundException :: IntersectionNotFoundException -> Bool
 isIntersectionNotFoundException _ = True
