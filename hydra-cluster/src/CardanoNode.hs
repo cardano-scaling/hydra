@@ -159,6 +159,8 @@ withCardanoNodeDevnet tracer cfg action = do
     >>= writeFileBS
       (stateDirectory cfg </> nodeAlonzoGenesisFile args)
 
+  generateEnvironment args
+
   withCardanoNode tracer cfg args $ \rn@(RunningNode _ socket) -> do
     traceWith tracer $ MsgNodeStarting cfg
     waitForSocket rn
@@ -186,6 +188,11 @@ withCardanoNodeDevnet tracer cfg action = do
       writeFileBS destination bs
     setFileMode destination ownerReadMode
     pure destination
+
+  generateEnvironment args = do
+    refreshSystemStart cfg args
+    let topology = mkTopology $ peers $ ports cfg
+    Aeson.encodeFile (stateDirectory cfg </> nodeTopologyFile args) topology
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
@@ -239,8 +246,7 @@ withCardanoNode ::
   CardanoNodeArgs ->
   (RunningNode -> IO ()) ->
   IO ()
-withCardanoNode tr cfg@CardanoNodeConfig{stateDirectory, nodeId} args action = do
-  generateEnvironment
+withCardanoNode tr CardanoNodeConfig{stateDirectory, nodeId} args action = do
   let process = cardanoNodeProcess (Just stateDirectory) args
       logFile = stateDirectory </> show nodeId <.> "log"
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
@@ -251,11 +257,6 @@ withCardanoNode tr cfg@CardanoNodeConfig{stateDirectory, nodeId} args action = d
         (action (RunningNode nodeId (stateDirectory </> nodeSocket args)))
         `finally` cleanupSocketFile
  where
-  generateEnvironment = do
-    refreshSystemStart cfg args
-    let topology = mkTopology $ peers $ ports cfg
-    Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) topology
-
   cleanupSocketFile =
     whenM (doesFileExist socketFile) $
       removeFile socketFile
