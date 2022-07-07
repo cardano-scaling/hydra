@@ -14,27 +14,23 @@ license-files:
 extra-source-files: README.md
 data-files:
   config/cardano-node.json
-
-  config/genesis-byron.json
-  config/genesis-shelley.json
-  config/genesis-alonzo.json
-  config/protocol-parameters.json
-
   config/credentials/alice.sk
   config/credentials/alice.vk
   config/credentials/bob.sk
   config/credentials/bob.vk
   config/credentials/carol.sk
   config/credentials/carol.vk
-
   config/credentials/faucet.sk
   config/credentials/faucet.vk
-
-  config/credentials/stake-pool-1/kes.skey
-  config/credentials/stake-pool-1/vrf.skey
-  config/credentials/stake-pool-1/opcert.cert
   config/credentials/stake-pool-1/byron-delegate.key
   config/credentials/stake-pool-1/byron-delegation.cert
+  config/credentials/stake-pool-1/kes.skey
+  config/credentials/stake-pool-1/opcert.cert
+  config/credentials/stake-pool-1/vrf.skey
+  config/genesis-alonzo.json
+  config/genesis-byron.json
+  config/genesis-shelley.json
+  config/protocol-parameters.json
 
 source-repository head
   type:     git
@@ -99,6 +95,7 @@ library
     Hydra.Cluster.Faucet
     Hydra.Cluster.Fixture
     Hydra.Cluster.Options
+    Hydra.Cluster.Scenarios
     Hydra.Cluster.Util
     Hydra.Generator
     Hydra.LogFilter

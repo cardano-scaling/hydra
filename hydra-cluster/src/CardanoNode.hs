@@ -202,7 +202,11 @@ withCardanoNodeOnKnownNetwork ::
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   config <- newNodeConfig workDir
   copyKnownNetworkFiles
-  withCardanoNode tracer config args action
+  withCardanoNode tracer config args $ \rn@(RunningNode _ socket) -> do
+    traceWith tracer $ MsgNodeStarting config
+    waitForSocket rn
+    traceWith tracer $ MsgSocketIsReady socket
+    action rn
  where
   args =
     defaultCardanoNodeArgs
