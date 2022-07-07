@@ -18,7 +18,7 @@ A _Star-shaped Hydra Network_ or more precisely a Star-shaped Heads Network is c
 
 ![Star-shaped Heads Network](./star-shaped-general.jpg)
 
-Client nodes want to be able to interact with each other efficiently, at a low cost, using L2 solution, with all the Hydra safety guarantees, but without bearing the operational burden of operating an always online "full" Hydra node (eg. using an embedded version of the node, or a lighweight version). There might be a lot of them, say in the 100s or even 1000s but they are not always all live and up at the same time.
+Client nodes want to be able to interact with each other efficiently, at a low cost, using L2 solution, with all the Hydra safety guarantees, but without bearing the operational burden of operating an always online "full" Hydra node (eg. using an embedded version of the node, or a lightweight version). There might be a lot of them, say in the 100s or even 1000s but they are not always all live and up at the same time.
 
 Client nodes establish pairwise Heads (eg. _channels_) with the server: This setup is simpler than with a normal multiparty head because the server has as a well-known identity and the client can always provide the needed parameters (keys, IP) to the server when setting up the Head using some specific service whose definition is outside of the scope of this document.
 

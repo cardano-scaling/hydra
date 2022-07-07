@@ -74,6 +74,16 @@ const config = {
       'content-docs',
       /** @type {import('@docusaurus/plugin-content-docs').Options} */
       ({
+        id: 'use-cases',
+        path: 'use-cases',
+        routeBasePath: 'use-cases',
+        editUrl
+      })
+    ],
+    [
+      'content-docs',
+      /** @type {import('@docusaurus/plugin-content-docs').Options} */
+      ({
         id: 'topologies',
         path: 'topologies',
         routeBasePath: 'topologies',
@@ -106,6 +116,11 @@ const config = {
           {
             to: '/docs/getting-started',
             label: 'User Manual',
+            position: 'left',
+          },
+          {
+            to: '/use-cases',
+            label: 'Use Cases',
             position: 'left',
           },
           {
