@@ -11,7 +11,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
 import CardanoNode (RunningNode (RunningNode), newNodeConfig, withBFTNode)
 import Control.Lens ((^?))
-import Data.Aeson (Result (..), Value (Object, String), fromJSON, object, (.=))
+import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
@@ -371,6 +371,10 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
                 , object
                     [ "address" .= String (serialiseAddress $ inHeadAddress bobCardanoVk)
                     , "value" .= object ["lovelace" .= int paymentFromAliceToBob]
+                    , "datum" .= Null
+                    , "datumhash" .= Null
+                    , "inlineDatum" .= Null
+                    , "referenceScript" .= Null
                     ]
                 )
               ,
@@ -378,6 +382,10 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
                 , object
                     [ "address" .= String (serialiseAddress $ inHeadAddress aliceCardanoVk)
                     , "value" .= object ["lovelace" .= int (aliceCommittedToHead - paymentFromAliceToBob)]
+                    , "datum" .= Null
+                    , "datumhash" .= Null
+                    , "inlineDatum" .= Null
+                    , "referenceScript" .= Null
                     ]
                 )
               ]
