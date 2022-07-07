@@ -8,9 +8,9 @@ We sketch a way to run NFT auctions inside Hydra Head that would alleviate that 
 
 ![](./diagram.png)
 
-- The auctioneer forges some "participation tokens" (a.k.a PT) representing participation in an auction for some NFT;
-- The auctioneer commits the PTs in a Head;
-- The Auction PTs can be "grabbed" by bidders to bid some amounts for a given NFT auction;
+- The auctioneer forges some "auction tokens" (a.k.a VT) representing participation in an auction for some NFT;
+- The auctioneer commits the ATs in a Head;
+- The Auction ATs can be "grabbed" by bidders to bid some amounts for a given NFT auction;
 - The bidders do not have to be Head parties<sup>1</sup>, they just do "normal" cardano transactions to grab a bid token and then possibly keep bidding until the auction ends;
 - The auctioneer posts a settlement transaction that consumes all current bids at some point, producing a voucher for the NFT to be sent to Bob if he pays V2'. The voucher is only valid if produced by this script, and there might be some reserve price to ensure price does not fall below some threshold;
 - Then Head is closed and the voucher is posted on-chain;
@@ -18,7 +18,7 @@ We sketch a way to run NFT auctions inside Hydra Head that would alleviate that 
 
 The auctioneer runs the risk of opening/closing a Head with the winner not reclaiming his NFT. If it does not run the head itself, it runs the risk of the Head parties rigging the auction but in the worst case, the Head is closed with someone having a voucher to claim the NFT at a reserved price, or the NFTs themselves are paid back to auctioneer.
 
-The bidders run the same risk of bidding in a rigged auction but in the worst case, they can refuse to pay for the NFT.
+The bidders run the same risk of bidding in a rigged auction but in the worst case, they can refuse to pay for the NFT. Anyhow, this setup would offer already a much better security story than all the fully custodial NFT drops done on Cardano today
 
 :::info NOTES 
 
