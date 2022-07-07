@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoNode (NodeLog, RunningNode (RunningNode), newNodeConfig, withBFTNode)
+import CardanoNode (NodeLog, RunningNode (RunningNode), newNodeConfig, withCardanoNodeDevnet)
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
 import Graphics.Vty (
@@ -109,7 +109,7 @@ setupNodeAndTUI action =
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       config <- newNodeConfig tmpDir
       (aliceCardanoVk, _) <- keysFor Alice
-      withBFTNode (contramap FromCardano tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withCardanoNodeDevnet (contramap FromCardano tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         chainConfig <- chainConfigFor Alice tmpDir nodeSocket []
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1

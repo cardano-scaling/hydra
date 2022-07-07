@@ -7,7 +7,7 @@ import CardanoNode (
   RunningNode (..),
   getCardanoNodeVersion,
   newNodeConfig,
-  withBFTNode,
+  withCardanoNodeDevnet,
  )
 
 import Hydra.Logging (showLogsOnFailure)
@@ -21,11 +21,11 @@ spec = do
   it "has expected cardano-node version available" $
     getCardanoNodeVersion >>= (`shouldContain` "1.35.0")
 
-  it "withBFTNode does start a node within 3 seconds" $
+  it "withCardanoNodeDevnet does start a node within 3 seconds" $
     failAfter 3 $
       showLogsOnFailure $ \tr -> do
         withTempDir "hydra-cluster" $ \tmp -> do
           config <- newNodeConfig tmp
-          withBFTNode tr config $ \(RunningNode _ socketFile) -> do
+          withCardanoNodeDevnet tr config $ \(RunningNode _ socketFile) -> do
             -- TODO: assert blocks are produced
             doesFileExist socketFile `shouldReturn` True

@@ -112,20 +112,15 @@ getCardanoNodeVersion :: IO String
 getCardanoNodeVersion =
   readProcess "cardano-node" ["--version"] ""
 
--- | Start a cardano-node in BFT mode using the config from config/ and
--- credentials from config/credentials/ using given 'nodeId'. Only the 'Faucet'
--- actor will receive "initialFunds". Use 'seedFromFaucet' to distribute funds
--- other wallets.
---
--- FIXME: This is actually not a BFT node and it also only supports nodeId == 1.
--- We should rename this function and also think about removing the `nodeId`
--- from `CardanoNodeConfig` as it is a lie.
-withBFTNode ::
+-- | Start a single cardano-node devnet using the config from config/ and
+-- credentials from config/credentials/. Only the 'Faucet' actor will receive
+-- "initialFunds". Use 'seedFromFaucet' to distribute funds other wallets.
+withCardanoNodeDevnet ::
   Tracer IO NodeLog ->
   CardanoNodeConfig ->
   (RunningNode -> IO ()) ->
   IO ()
-withBFTNode tracer cfg action = do
+withCardanoNodeDevnet tracer cfg action = do
   createDirectoryIfMissing True (stateDirectory cfg </> dirname)
 
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-

@@ -8,7 +8,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoClient (submit, waitForTransaction)
-import CardanoNode (RunningNode (..), newNodeConfig, withBFTNode)
+import CardanoNode (RunningNode (..), newNodeConfig, withCardanoNodeDevnet)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Control.Monad.Class.MonadSTM (
@@ -82,7 +82,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
           let parties = Set.fromList (deriveParty <$> hydraKeys)
           config <- newNodeConfig workDir
           withOSStats workDir $
-            withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
               withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys $ \(leader :| followers) -> do
                 let clients = leader : followers
                 waitForNodesConnected tracer clients
