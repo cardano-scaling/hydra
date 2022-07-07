@@ -35,7 +35,7 @@ import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, partyToChain)
-import Test.Hydra.Fixture ()
+import Test.Hydra.Fixture (cperiod)
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchThat)
 
 --
@@ -81,7 +81,7 @@ healthyHeadInput = generateWith arbitrary 42
 healthyHeadParameters :: HeadParameters
 healthyHeadParameters =
   HeadParameters
-    { contestationPeriod = 10
+    { contestationPeriod = cperiod
     , parties = healthyParties
     }
 

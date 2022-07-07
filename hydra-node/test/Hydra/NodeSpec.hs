@@ -39,7 +39,7 @@ import Hydra.Node (
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (PostTxOnChainFailed))
 import Hydra.Snapshot (Snapshot (..))
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 
 spec :: Spec
 spec = parallel $ do
@@ -101,14 +101,14 @@ spec = parallel $ do
       let events =
             [ NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
             , NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
-            , ClientEvent $ Init 10
+            , ClientEvent $ Init cperiod
             ]
       (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
 
       runToCompletion tracer node
 
       outputs <- getServerOutputs
-      outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters 10 [alice, bob, carol]) NoSeedInput]
+      outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters cperiod [alice, bob, carol]) NoSeedInput]
 
 isReqSn :: Message tx -> Bool
 isReqSn = \case
@@ -120,7 +120,7 @@ eventsToOpenHead =
   [ NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
   , NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
   , OnChainEvent
-      { chainEvent = Observation $ OnInitTx 10 [alice, bob, carol]
+      { chainEvent = Observation $ OnInitTx cperiod [alice, bob, carol]
       }
   , ClientEvent{clientInput = Commit (utxoRef 2)}
   , OnChainEvent{chainEvent = Observation $ OnCommitTx carol (utxoRef 3)}

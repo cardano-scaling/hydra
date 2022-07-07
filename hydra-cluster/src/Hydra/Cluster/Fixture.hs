@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- | Test and example values used across hydra-node tests.
-module Test.Hydra.Fixture where
+-- | Test and example values used across hydra-cluster tests and benchmarks.
+module Hydra.Cluster.Fixture where
 
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (deriveVerificationKey, generateSigningKey)
@@ -24,4 +24,4 @@ bobVk = deriveVerificationKey bobSk
 carolVk = deriveVerificationKey carolSk
 
 cperiod :: ContestationPeriod
-cperiod = UnsafeContestationPeriod 42
+cperiod = UnsafeContestationPeriod 10

@@ -8,7 +8,7 @@ import qualified Hydra.Data.ContestationPeriod as OnChain
 import Test.QuickCheck (choose, oneof)
 import Text.Show (Show (..))
 
--- | A positive number of seconds.
+-- | A positive, non-zero number of seconds.
 newtype ContestationPeriod = UnsafeContestationPeriod Natural
   deriving (Eq)
   deriving newtype (ToJSON, FromJSON)

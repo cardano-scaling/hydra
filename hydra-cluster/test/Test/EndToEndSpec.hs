@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Test.EndToEndSpec where
 
@@ -39,15 +40,15 @@ import Hydra.Cardano.Api (
   unSlotNo,
  )
 import Hydra.Chain.Direct.Handlers (closeGraceTime)
-import Hydra.Crypto (deriveVerificationKey, generateSigningKey)
-import qualified Hydra.Crypto as Hydra
+import Hydra.Cluster.Fixture (alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
+import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (
   ChainConfig (startChainFrom),
  )
-import Hydra.Party (Party, deriveParty)
+import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (..),
   getMetrics,
@@ -72,21 +73,6 @@ allNodeIds = [1 .. 3]
 
 spec :: Spec
 spec = around showLogsOnFailure $ do
-  let aliceSk, bobSk, carolSk :: Hydra.SigningKey
-      aliceSk = generateSigningKey "alice"
-      bobSk = generateSigningKey "bob"
-      carolSk = generateSigningKey "carol"
-
-      aliceVk, bobVk, carolVk :: Hydra.VerificationKey
-      aliceVk = deriveVerificationKey aliceSk
-      bobVk = deriveVerificationKey bobSk
-      carolVk = deriveVerificationKey carolSk
-
-      alice, bob, carol :: Party
-      alice = deriveParty aliceSk
-      bob = deriveParty bobSk
-      carol = deriveParty carolSk
-
   describe "End-to-end test using a single cardano-node" $ do
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->

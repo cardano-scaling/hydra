@@ -25,7 +25,7 @@ import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, cperiod)
 import Test.QuickCheck (Property, counterexample, forAll, label, (==>))
 import qualified Prelude
 
@@ -42,7 +42,7 @@ spec = do
                 , otherParties = List.delete party threeParties
                 }
 
-    let params = HeadParameters 42 threeParties
+    let params = HeadParameters cperiod threeParties
 
     describe "New Snapshot Decision" $ do
       it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
@@ -129,7 +129,7 @@ prop_singleMemberHeadAlwaysSnapshot sn =
           , confirmedSnapshot = sn
           , seenSnapshot = NoSeenSnapshot
           }
-      params = HeadParameters 42 [alice]
+      params = HeadParameters cperiod [alice]
       decision = newSn aliceEnv params st
       Snapshot{number} = getSnapshot sn
    in decision == ShouldSnapshot (succ number) [tx]
@@ -154,7 +154,7 @@ inOpenState' ::
 inOpenState' parties coordinatedHeadState =
   OpenState{parameters, coordinatedHeadState, previousRecoverableState}
  where
-  parameters = HeadParameters 42 parties
+  parameters = HeadParameters cperiod parties
   previousRecoverableState =
     InitialState
       { parameters
