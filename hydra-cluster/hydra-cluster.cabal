@@ -98,6 +98,7 @@ library
     CardanoNode
     Hydra.Cluster.Faucet
     Hydra.Cluster.Fixture
+    Hydra.Cluster.Options
     Hydra.Cluster.Util
     Hydra.Generator
     Hydra.LogFilter
@@ -129,6 +130,7 @@ library
     , lens
     , lens-aeson
     , network
+    , optparse-applicative
     , ouroboros-consensus
     , ouroboros-network
     , process
@@ -146,10 +148,24 @@ library
 
   ghc-options:     -haddock
 
+executable hydra-cluster
+  import:             project-config
+  hs-source-dirs:     exe/hydra-cluster
+  main-is:            Main.hs
+  ghc-options:        -threaded -rtsopts
+  build-depends:
+    , base                  >=4.7 && <5
+    , hydra-cluster
+    , hydra-prelude
+    , optparse-applicative
+
+  build-tool-depends: hydra-node:hydra-node -any
+  ghc-options:        -threaded -rtsopts
+
 executable log-filter
   import:         project-config
-  hs-source-dirs: exe
-  main-is:        log-filter.hs
+  hs-source-dirs: exe/log-filter
+  main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
   build-depends:
     , aeson
