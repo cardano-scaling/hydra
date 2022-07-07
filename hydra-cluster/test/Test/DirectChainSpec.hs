@@ -47,13 +47,8 @@ import Hydra.Cluster.Fixture (
   Actor (Alice, Bob, Carol),
   alice,
   aliceSk,
-  aliceVk,
   bob,
-  bobSk,
-  bobVk,
   carol,
-  carolSk,
-  carolVk,
   cperiod,
   defaultNetworkId,
  )
