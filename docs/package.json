@@ -5,8 +5,8 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "validate:inputs": "./validate-api.js publish '/' '../hydra-node/golden/ReasonablySized (ClientInput (Tx AlonzoEra)).json'",
-    "validate:outputs": "./validate-api.js subscribe '/' '../hydra-node/golden/ReasonablySized (ServerOutput (Tx AlonzoEra)).json'",
+    "validate:inputs": "./validate-api.js publish '/' '../hydra-node/golden/ReasonablySized (ClientInput (Tx BabbageEra)).json'",
+    "validate:outputs": "./validate-api.js subscribe '/' '../hydra-node/golden/ReasonablySized (ServerOutput (Tx BabbageEra)).json'",
     "validate": "yarn validate:inputs && yarn validate:outputs",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",

@@ -23,7 +23,6 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.Type.Equality (testEquality, (:~:) (..))
 import Hydra.Cardano.Api (
-  ExecutionUnits (..),
   SlotNo (..),
   Tx,
   UTxO,
@@ -45,19 +44,18 @@ import Hydra.Chain.Direct.Context (
   ctxParties,
   executeCommits,
   genCloseTx,
-  genCollectComTx,
   genCommit,
   genCommits,
-  genContestTx,
   genFanoutTx,
   genHydraContext,
+  genHydraContextFor,
   genInitTx,
   genStIdle,
   genStInitialized,
+  genStOpen,
   unsafeCommit,
   unsafeObserveTx,
  )
-import Hydra.Chain.Direct.Fixture (maxTxExecutionUnits, maxTxSize)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   RecordedAt (..),
@@ -73,23 +71,31 @@ import Hydra.Chain.Direct.State (
   SomeOnChainHeadState (..),
   TransitionFrom (..),
   abort,
+  close,
+  collect,
   commit,
+  contest,
+  getContestationDeadline,
   getKnownUTxO,
   idleOnChainHeadState,
   initialize,
   observeSomeTx,
  )
 import Hydra.Chain.Direct.Util (Block)
+import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genTxIn,
   genValue,
   renderTx,
   renderTxs,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx', genPointInTime, genPointInTimeBefore, maxTxExecutionUnits, maxTxSize)
+import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
 import Ouroboros.Consensus.Block (Point, blockPoint)
-import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
+import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
+import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
+import Test.Consensus.Cardano.Generators ()
 import Test.Hspec (shouldBe)
 import Test.Hydra.Prelude (
   Spec,
@@ -115,6 +121,7 @@ import Test.QuickCheck (
   label,
   sized,
   sublistOf,
+  tabulate,
   (=/=),
   (===),
   (==>),
@@ -198,19 +205,19 @@ spec = parallel $ do
 
   describe "collectCom" $ do
     propBelowSizeLimit maxTxSize forAllCollectCom
-    propIsValid maxTxExecutionUnits forAllCollectCom
+    propIsValid forAllCollectCom
 
   describe "close" $ do
     propBelowSizeLimit maxTxSize forAllClose
-    propIsValid maxTxExecutionUnits forAllClose
+    propIsValid forAllClose
 
   describe "contest" $ do
     propBelowSizeLimit maxTxSize forAllContest
-    propIsValid maxTxExecutionUnits forAllContest
+    propIsValid forAllContest
 
   describe "fanout" $ do
     propBelowSizeLimit maxTxSize forAllFanout
-    propIsValid maxTxExecutionUnits forAllFanout
+    propIsValid forAllFanout
 
   describe "ChainSyncHandler" $ do
     prop "yields observed transactions rolling forward" $ do
@@ -363,7 +370,7 @@ stAtGenesis currentOnChainHeadState =
 
 propBelowSizeLimit ::
   forall st.
-  Int64 ->
+  Natural ->
   ((OnChainHeadState st -> Tx -> Property) -> Property) ->
   SpecWith ()
 propBelowSizeLimit txSizeLimit forAllTx =
@@ -371,7 +378,7 @@ propBelowSizeLimit txSizeLimit forAllTx =
     forAllTx $ \_ tx ->
       let cbor = serialize tx
           len = LBS.length cbor
-       in len < txSizeLimit
+       in len < fromIntegral txSizeLimit
             & label (showKB len)
             & counterexample (renderTx tx)
             & counterexample ("Actual size: " <> show len)
@@ -381,14 +388,13 @@ propBelowSizeLimit txSizeLimit forAllTx =
 -- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionValidates?
 propIsValid ::
   forall st.
-  ExecutionUnits ->
   ((OnChainHeadState st -> Tx -> Property) -> Property) ->
   SpecWith ()
-propIsValid exUnits forAllTx =
-  prop ("validates within " <> show exUnits) $
+propIsValid forAllTx =
+  prop "validates within maxTxExecutionUnits" $
     forAllTx $ \st tx -> do
       let lookupUTxO = getKnownUTxO st
-      case evaluateTx' exUnits tx lookupUTxO of
+      case evaluateTx' maxTxExecutionUnits tx lookupUTxO of
         Left basicFailure ->
           property False
             & counterexample ("Tx: " <> renderTx tx)
@@ -500,7 +506,7 @@ forAllAbort ::
 forAllAbort action = do
   forAll (genHydraContext 3) $ \ctx ->
     forAllShow (genInitTx ctx) renderTx $ \initTx -> do
-      forAllShow (sublistOf . snd =<< genCommits ctx initTx) renderTxs $ \commits ->
+      forAllShow (sublistOf =<< genCommits ctx initTx) renderTxs $ \commits ->
         forAll (genStIdle ctx) $ \stIdle ->
           let (_, stInitialized) = executeCommits initTx commits stIdle
            in action stInitialized (abort stInitialized)
@@ -519,7 +525,17 @@ forAllCollectCom ::
   (OnChainHeadState 'StInitialized -> Tx -> property) ->
   Property
 forAllCollectCom action =
-  forAll (genCollectComTx 3) $ uncurry action
+  forAllBlind genCollectComTx $ \(committedUTxO, stInitialized, tx) ->
+    action stInitialized tx
+      & counterexample ("Committed UTxO: " <> show committedUTxO)
+ where
+  genCollectComTx = do
+    ctx <- genHydraContextFor 3
+    initTx <- genInitTx ctx
+    commits <- genCommits ctx initTx
+    stIdle <- genStIdle ctx
+    let (committedUTxO, stInitialized) = executeCommits initTx commits stIdle
+    pure (committedUTxO, stInitialized, collect stInitialized)
 
 forAllClose ::
   (Testable property) =>
@@ -536,7 +552,46 @@ forAllContest ::
   (OnChainHeadState 'StClosed -> Tx -> property) ->
   Property
 forAllContest action =
-  forAll (genContestTx 3) $ uncurry action
+  forAllBlind genContestTx $ \(HydraContext{ctxContestationPeriod}, closePointInTime, stClosed, tx) ->
+    action stClosed tx
+      & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
+      & counterexample ("Contestation period: " <> show ctxContestationPeriod)
+      & counterexample ("Close point: " <> show closePointInTime)
+      & tabulate "Contestation deadline" (tabulateNum $ getContestationDeadline stClosed)
+      & tabulate "Contestation period" (tabulateContestationPeriod ctxContestationPeriod)
+      & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
+ where
+  tabulateNum x
+    | x > 0 = ["> 0"]
+    | x < 0 = ["< 0"]
+    | otherwise = ["== 0"]
+
+  tabulateContestationPeriod (toNominalDiffTime -> cp)
+    | cp == confirmedHorizon = ["k blocks on mainnet"]
+    | cp == oneDay = ["one day"]
+    | cp == oneWeek = ["one week"]
+    | cp == oneMonth = ["one month"]
+    | cp == oneYear = ["one year"]
+    | cp < confirmedHorizon = ["< k blocks"]
+    | otherwise = ["> k blocks"]
+
+  confirmedHorizon = 2160 * 20 -- k blocks on mainnet
+  oneDay = 3600 * 24
+  oneWeek = oneDay * 7
+  oneMonth = oneDay * 30
+  oneYear = oneDay * 365
+
+  genContestTx = do
+    ctx <- genHydraContextFor 3
+    (u0, stOpen) <- genStOpen ctx
+    confirmed <- genConfirmedSnapshot 0 u0 []
+    closePointInTime <- genPointInTime
+    let closeTx = close confirmed closePointInTime stOpen
+    let stClosed = snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
+    utxo <- arbitrary
+    contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
+    contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+    pure (ctx, closePointInTime, stClosed, contest contestSnapshot contestPointInTime stClosed)
 
 forAllFanout ::
   (Testable property) =>
@@ -573,11 +628,11 @@ genBlockAt :: SlotNo -> [Tx] -> Gen Block
 genBlockAt sl txs = do
   header <- adjustSlot <$> arbitrary
   let body = toTxSeq $ StrictSeq.fromList (toLedgerTx <$> txs)
-  pure $ BlockAlonzo $ mkShelleyBlock $ Ledger.Block header body
+  pure $ BlockBabbage $ mkShelleyBlock $ Ledger.Block header body
  where
-  adjustSlot (Ledger.BHeader body sig) =
-    let body' = body{Ledger.bheaderSlotNo = sl}
-     in Ledger.BHeader body' sig
+  adjustSlot (Praos.Header body sig) =
+    let body' = body{Praos.hbSlotNo = sl}
+     in Praos.Header body' sig
 
 --
 -- Wrapping Transition for easy labelling

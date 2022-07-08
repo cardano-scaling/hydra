@@ -6,10 +6,10 @@ import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 
 -- * Type Conversions
 
--- | Convert a cardano-api's 'ExecutionUnits' into a cardano-ledger's 'ExUnits'
+-- | Convert a cardano-api 'ExecutionUnits' into a cardano-ledger 'ExUnits'
 toLedgerExUnits :: ExecutionUnits -> Ledger.ExUnits
 toLedgerExUnits = toAlonzoExUnits
 
--- | Convert a cardano-ledger's 'ExUnits' into a cardano-api's 'ExecutionUnits'
+-- | Convert a cardano-ledger 'ExUnits' into a cardano-api 'ExecutionUnits'
 fromLedgerExUnits :: Ledger.ExUnits -> ExecutionUnits
 fromLedgerExUnits = fromAlonzoExUnits

@@ -10,7 +10,7 @@ import Hydra.Prelude
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.KeyMap as Aeson.KeyMap
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), PaymentKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
 import Hydra.Cluster.Util (readConfigFile)
@@ -48,6 +48,18 @@ data CardanoNodeConfig = CardanoNodeConfig
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+newNodeConfig :: FilePath -> IO CardanoNodeConfig
+newNodeConfig stateDirectory = do
+  nodePort <- randomUnusedTCPPort
+  systemStart <- initSystemStart
+  pure $
+    CardanoNodeConfig
+      { nodeId = 1
+      , stateDirectory
+      , systemStart
+      , ports = PortsConfig nodePort []
+      }
 
 -- | Arguments given to the 'cardano-node' command-line to run a node.
 data CardanoNodeArgs = CardanoNodeArgs
@@ -100,24 +112,28 @@ getCardanoNodeVersion =
   readProcess "cardano-node" ["--version"] ""
 
 -- | Start a cardano-node in BFT mode using the config from config/ and
--- credentials from config/credentials/ using given 'nodeId'. NOTE: This means
--- that nodeId should only be 1,2 or 3 and that only the faucet receives
--- 'initialFunds'. Use 'seedFromFaucet' to distribute funds other wallets.
+-- credentials from config/credentials/ using given 'nodeId'. Only the 'Faucet'
+-- actor will receive "initialFunds". Use 'seedFromFaucet' to distribute funds
+-- other wallets.
+--
+-- FIXME: This is actually not a BFT node and it also only supports nodeId == 1.
+-- We should rename this function and also think about removing the `nodeId`
+-- from `CardanoNodeConfig` as it is a lie.
 withBFTNode ::
   Tracer IO NodeLog ->
   CardanoNodeConfig ->
   (RunningNode -> IO ()) ->
   IO ()
 withBFTNode tracer cfg action = do
-  createDirectoryIfMissing False (stateDirectory cfg)
+  createDirectoryIfMissing True (stateDirectory cfg </> dirname)
 
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-
     forM
-      [ dlgCertFilename nid
-      , signKeyFilename nid
-      , vrfKeyFilename nid
-      , kesKeyFilename nid
-      , opCertFilename nid
+      [ dlgCertFilename
+      , signKeyFilename
+      , vrfKeyFilename
+      , kesKeyFilename
+      , opCertFilename
       ]
       (copyCredential (stateDirectory cfg))
 
@@ -153,11 +169,19 @@ withBFTNode tracer cfg action = do
     traceWith tracer $ MsgSocketIsReady socket
     action rn
  where
-  dlgCertFilename i = "delegation-cert.00" <> show (i - 1) <> ".json"
-  signKeyFilename i = "delegate-keys.00" <> show (i - 1) <> ".key"
-  vrfKeyFilename i = "delegate" <> show i <> ".vrf.skey"
-  kesKeyFilename i = "delegate" <> show i <> ".kes.skey"
-  opCertFilename i = "opcert" <> show i <> ".cert"
+  dirname =
+    "stake-pool-" <> show (nodeId cfg)
+
+  dlgCertFilename =
+    dirname </> "byron-delegation.cert"
+  signKeyFilename =
+    dirname </> "byron-delegate.key"
+  vrfKeyFilename =
+    dirname </> "vrf.skey"
+  kesKeyFilename =
+    dirname </> "kes.skey"
+  opCertFilename =
+    dirname </> "opcert.cert"
 
   copyCredential parentDir file = do
     bs <- readConfigFile ("credentials" </> file)
@@ -166,8 +190,6 @@ withBFTNode tracer cfg action = do
       writeFileBS destination bs
     setFileMode destination ownerReadMode
     pure destination
-
-  nid = nodeId cfg
 
 withCardanoNode ::
   Tracer IO NodeLog ->
@@ -197,18 +219,6 @@ withCardanoNode tr cfg@CardanoNodeConfig{stateDirectory, nodeId} args action = d
       removeFile socketFile
 
   socketFile = stateDirectory </> nodeSocket args
-
-newNodeConfig :: FilePath -> IO CardanoNodeConfig
-newNodeConfig stateDirectory = do
-  nodePort <- randomUnusedTCPPort
-  systemStart <- initSystemStart
-  pure $
-    CardanoNodeConfig
-      { nodeId = 1
-      , stateDirectory
-      , systemStart
-      , ports = PortsConfig nodePort []
-      }
 
 -- | Wait for the node socket file to become available.
 waitForSocket :: RunningNode -> IO ()
@@ -311,8 +321,8 @@ data NodeLog
 -- Helpers
 --
 
-addField :: ToJSON a => Text -> a -> Aeson.Value -> Aeson.Value
-addField k v = withObject (HM.insert k (toJSON v))
+addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
+addField k v = withObject (Aeson.KeyMap.insert k (toJSON v))
 
 -- | Do something with an a JSON object. Fails if the given JSON value isn't an
 -- object.

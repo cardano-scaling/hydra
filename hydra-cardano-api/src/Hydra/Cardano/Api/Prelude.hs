@@ -29,15 +29,13 @@ import Cardano.Api.Shelley hiding (
  )
 import Cardano.Api.UTxO (UTxO, UTxO' (..))
 import qualified Cardano.Crypto.Hash.Class as CC
-import qualified Cardano.Ledger.Alonzo as Ledger
+import qualified Cardano.Ledger.Babbage as Ledger
 import Cardano.Ledger.Crypto (StandardCrypto)
 import qualified Cardano.Ledger.Era as Ledger.Era
 
-type Era =
-  AlonzoEra
+type Era = BabbageEra
 
-type LedgerEra =
-  Ledger.AlonzoEra StandardCrypto
+type LedgerEra = Ledger.BabbageEra StandardCrypto
 
 type UsesStandardCrypto era =
   (Ledger.Era.Crypto (ShelleyLedgerEra era) ~ StandardCrypto)

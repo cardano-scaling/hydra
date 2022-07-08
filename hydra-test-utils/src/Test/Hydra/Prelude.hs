@@ -36,6 +36,7 @@ import Control.Monad.Class.MonadTimer (timeout)
 import Data.Ratio ((%))
 import Data.Typeable (typeRep)
 import GHC.Exception (SrcLoc (..))
+import GHC.IO.Exception (IOErrorType (..), IOException (..))
 import System.Directory (removePathForcibly)
 import System.Exit (ExitCode (..))
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
@@ -61,8 +62,20 @@ withTempDir :: String -> (FilePath -> IO r) -> IO r
 withTempDir baseName action = do
   tmpDir <- createSystemTempDirectory baseName
   res <- action tmpDir
-  removePathForcibly tmpDir
+  cleanup 0 tmpDir
   pure res
+ where
+  -- NOTE: Somehow, since 1.35.0, cleaning-up cardano-node database directory
+  -- _sometimes_ generates an empty 'clean' file which prevents the 'db' folder
+  -- to be fully removed and triggers an 'UnsatisfiedConstraints' IOException.
+  cleanup (maxAttempts :: Word) dir =
+    removePathForcibly dir
+      `catch` ( \e -> case ioe_type e of
+                  UnsatisfiedConstraints ->
+                    if maxAttempts < 3 then cleanup (succ maxAttempts) dir else throwIO e
+                  _ ->
+                    throwIO e
+              )
 
 -- | Print a message with filepath to @stderr@ on exceptions.
 withFile' :: FilePath -> (Handle -> IO a) -> IO a

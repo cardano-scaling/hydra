@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Test.EndToEndSpec where
 
@@ -8,18 +9,9 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
-import CardanoCluster (
-  Actor (Alice, Bob, Carol),
-  Marked (Fuel, Normal),
-  chainConfigFor,
-  defaultNetworkId,
-  keysFor,
-  seedFromFaucet,
-  seedFromFaucet_,
- )
 import CardanoNode (RunningNode (RunningNode), newNodeConfig, withBFTNode)
 import Control.Lens ((^?))
-import Data.Aeson (Result (..), Value (Object, String), fromJSON, object, (.=))
+import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
@@ -39,15 +31,33 @@ import Hydra.Cardano.Api (
   unSlotNo,
  )
 import Hydra.Chain.Direct.Handlers (closeGraceTime)
-import Hydra.Crypto (deriveVerificationKey, generateSigningKey)
-import qualified Hydra.Crypto as Hydra
+import Hydra.Cluster.Faucet (
+  Marked (Fuel, Normal),
+  seedFromFaucet,
+  seedFromFaucet_,
+ )
+import Hydra.Cluster.Fixture (
+  Actor (Alice, Bob, Carol),
+  alice,
+  aliceSk,
+  aliceVk,
+  bob,
+  bobSk,
+  bobVk,
+  carol,
+  carolSk,
+  carolVk,
+  defaultNetworkId,
+ )
+import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (
   ChainConfig (startChainFrom),
  )
-import Hydra.Party (Party, deriveParty)
+import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (..),
   getMetrics,
@@ -72,21 +82,6 @@ allNodeIds = [1 .. 3]
 
 spec :: Spec
 spec = around showLogsOnFailure $ do
-  let aliceSk, bobSk, carolSk :: Hydra.SigningKey
-      aliceSk = generateSigningKey "alice"
-      bobSk = generateSigningKey "bob"
-      carolSk = generateSigningKey "carol"
-
-      aliceVk, bobVk, carolVk :: Hydra.VerificationKey
-      aliceVk = deriveVerificationKey aliceSk
-      bobVk = deriveVerificationKey bobSk
-      carolVk = deriveVerificationKey carolSk
-
-      alice, bob, carol :: Party
-      alice = deriveParty aliceSk
-      bob = deriveParty bobSk
-      carol = deriveParty carolSk
-
   describe "End-to-end test using a single cardano-node" $ do
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
@@ -376,6 +371,10 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
                 , object
                     [ "address" .= String (serialiseAddress $ inHeadAddress bobCardanoVk)
                     , "value" .= object ["lovelace" .= int paymentFromAliceToBob]
+                    , "datum" .= Null
+                    , "datumhash" .= Null
+                    , "inlineDatum" .= Null
+                    , "referenceScript" .= Null
                     ]
                 )
               ,
@@ -383,6 +382,10 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
                 , object
                     [ "address" .= String (serialiseAddress $ inHeadAddress aliceCardanoVk)
                     , "value" .= object ["lovelace" .= int (aliceCommittedToHead - paymentFromAliceToBob)]
+                    , "datum" .= Null
+                    , "datumhash" .= Null
+                    , "inlineDatum" .= Null
+                    , "referenceScript" .= Null
                     ]
                 )
               ]

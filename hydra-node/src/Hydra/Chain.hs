@@ -20,13 +20,15 @@ import Hydra.Cardano.Api (
   SerialiseAsRawBytes (..),
   UsingRawBytesHex (..),
  )
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
+import Test.QuickCheck.Instances.Time ()
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
-  { contestationPeriod :: NominalDiffTime
+  { contestationPeriod :: ContestationPeriod
   , parties :: [Party] -- NOTE(SN): The order of this list is important for leader selection.
   }
   deriving stock (Eq, Show, Generic)
@@ -37,8 +39,6 @@ instance Arbitrary HeadParameters where
    where
     dedupParties HeadParameters{contestationPeriod, parties} =
       HeadParameters{contestationPeriod, parties = nub parties}
-
-type ContestationPeriod = NominalDiffTime
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.

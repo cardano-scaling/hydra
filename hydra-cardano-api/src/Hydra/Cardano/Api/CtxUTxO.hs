@@ -13,7 +13,8 @@ instance ToUTxOContext TxOutDatum where
   toUTxOContext = \case
     TxOutDatumNone -> TxOutDatumNone
     TxOutDatumHash s h -> TxOutDatumHash s h
-    TxOutDatum s d -> TxOutDatumHash s (hashScriptData d)
+    TxOutDatumInTx s d -> TxOutDatumHash s (hashScriptData d)
+    TxOutDatumInline s sd -> TxOutDatumInline s sd
 
 instance ToUTxOContext TxOut where
   toUTxOContext =

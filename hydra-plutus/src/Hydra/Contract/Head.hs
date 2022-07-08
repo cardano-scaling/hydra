@@ -9,27 +9,19 @@ import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
-import Hydra.Contract.Encoding (serialiseTxOuts)
-import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
+import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod)
 import Hydra.Data.Party (Party (vkey))
-import Plutus.Codec.CBOR.Encoding (
-  encodeBeginList,
-  encodeBreak,
-  encodeByteString,
-  encodeInteger,
-  encodingToBuiltinByteString,
-  unsafeEncodeRaw,
- )
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Ada (lovelaceValueOf)
-import Plutus.V1.Ledger.Api (
+import Plutus.V2.Ledger.Api (
   Address,
   CurrencySymbol,
   Datum (..),
+  Extended (Finite),
   FromData (fromBuiltinData),
   Interval (..),
   LowerBound (LowerBound),
+  OutputDatum (..),
   POSIXTime,
   PubKeyHash (getPubKeyHash),
   Script,
@@ -48,13 +40,14 @@ import Plutus.V1.Ledger.Api (
   adaToken,
   mkValidatorScript,
  )
-import Plutus.V1.Ledger.Contexts (findDatum, findDatumHash, findOwnInput, getContinuingOutputs)
-import Plutus.V1.Ledger.Crypto (Signature (getSignature))
-import Plutus.V1.Ledger.Interval (Extended (Finite))
-import Plutus.V1.Ledger.Value (valueOf)
+import Plutus.V2.Ledger.Contexts (findDatum, findDatumHash, findOwnInput, getContinuingOutputs)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
+import qualified PlutusTx.Builtins as Builtins
+
+-- REVIEW: Functions not re-exported "as V2", but using the same data types.
+import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 
 type DatumType = State
 type RedeemerType = Input
@@ -251,15 +244,12 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
 
   commitDatum :: TxOut -> Maybe Commit
   commitDatum o = do
-    dh <- txOutDatumHash o
-    d <- getDatum <$> findDatum dh txInfo
-    case fromBuiltinData @Commit.DatumType d of
-      Just (_p, _, Just serializedTxOut) ->
-        Just serializedTxOut
-      Just (_p, _, Nothing) ->
-        Nothing
+    let d = findTxOutDatum txInfo o
+    case fromBuiltinData @Commit.DatumType $ getDatum d of
+      Just (_p, _, mCommit) ->
+        mCommit
       Nothing ->
-        traceError "fromBuiltinData failed"
+        traceError "commitDatum failed fromBuiltinData"
 {-# INLINEABLE checkCollectCom #-}
 
 -- | The close validator must verify that:
@@ -352,25 +342,28 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} headContext contestationDead
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange scriptContextTxInfo) of
-      UpperBound (Finite time) _ -> traceIfFalse "upper bound validity beyond contestation deadline" $ time < contestationDeadline
+      UpperBound (Finite time) _ -> traceIfFalse "upper bound validity beyond contestation deadline" $ time <= contestationDeadline
       _ -> traceError "no upper bound validity interval defined for contest"
 {-# INLINEABLE checkContest #-}
 
 checkHeadOutputDatum :: ToData a => ScriptContext -> a -> Bool
 checkHeadOutputDatum ctx d =
-  case (ownDatumHash, expectedDatumHash) of
-    (Just actual, Just expected) ->
-      traceIfFalse "output datum hash mismatch" $ actual == expected
-    (Nothing, _) ->
-      traceError "no head output datum"
-    (_, Nothing) ->
-      traceError "expected datum hash not found"
+  case ownDatum of
+    NoOutputDatum ->
+      traceError "missing datum"
+    OutputDatumHash actualHash ->
+      traceIfFalse "output datum hash mismatch" $
+        Just actualHash == expectedHash
+    OutputDatum actual ->
+      traceIfFalse "output datum mismatch" $ getDatum actual == expectedData
  where
-  expectedDatumHash = findDatumHash (Datum $ toBuiltinData d) txInfo
+  expectedData = toBuiltinData d
 
-  ownDatumHash =
+  expectedHash = findDatumHash (Datum $ toBuiltinData d) txInfo
+
+  ownDatum =
     case getContinuingOutputs ctx of
-      [o] -> txOutDatumHash o
+      [o] -> txOutDatum o
       _ -> traceError "expected only one head output"
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
@@ -446,7 +439,7 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
       traceError "no continuing head output"
     (o : rest)
       | txOutAddress o == headAddress ->
-        traceIfFalse "wrong output head datum" (txOutDatum txInfo o == datum)
+        traceIfFalse "wrong output head datum" (findTxOutDatum txInfo o == datum)
           && traceIfFalse "wrong output value" (checkOutputValue (xs <> rest))
     (o : rest) ->
       checkOutputDatum (o : xs) rest
@@ -456,31 +449,35 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
       True
     [o]
       | txOutAddress o /= headAddress ->
-        txOutValue o == lovelaceValueOf changeValue
+        txOutValue o == lovelaceValue changeValue
     _ ->
       traceError "invalid collect-com outputs: more than 2 outputs."
+
+  lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
 {-# INLINEABLE mustContinueHeadWith #-}
 
-txOutDatum :: TxInfo -> TxOut -> Datum
-txOutDatum txInfo o =
-  case txOutDatumHash o >>= (`findDatum` txInfo) of
-    Nothing -> traceError "no datum"
-    Just dt -> dt
-{-# INLINEABLE txOutDatum #-}
+findTxOutDatum :: TxInfo -> TxOut -> Datum
+findTxOutDatum txInfo o =
+  case txOutDatum o of
+    NoOutputDatum -> traceError "no output datum"
+    OutputDatumHash dh -> fromMaybe (traceError "datum not found") $ findDatum dh txInfo
+    OutputDatum d -> d
+{-# INLINEABLE findTxOutDatum #-}
 
+-- | Hash a potentially unordered list of commits by sorting them, concatenating
+-- their 'preSerializedOutput' bytes and creating a SHA2_256 digest over that.
 hashPreSerializedCommits :: [Commit] -> BuiltinByteString
 hashPreSerializedCommits commits =
-  sha2_256 . encodingToBuiltinByteString $
-    encodeBeginList
-      <> foldMap
-        (unsafeEncodeRaw . preSerializedOutput)
-        (sortBy (\a b -> compareRef (input a) (input b)) commits)
-      <> encodeBreak
+  sha2_256 . foldMap preSerializedOutput $
+    sortBy (\a b -> compareRef (input a) (input b)) commits
 {-# INLINEABLE hashPreSerializedCommits #-}
 
+-- | Hash a pre-ordered list of transaction outputs by serializing each
+-- individual 'TxOut', concatenating all bytes together and creating a SHA2_256
+-- digest over that.
 hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
-  sha2_256 . serialiseTxOuts
+  sha2_256 . foldMap (Builtins.serialiseData . toBuiltinData)
 {-# INLINEABLE hashTxOuts #-}
 
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
@@ -493,11 +490,12 @@ verifySnapshotSignature parties snapshotNumber utxoHash sigs =
 verifyPartySignature :: SnapshotNumber -> BuiltinByteString -> Party -> Signature -> Bool
 verifyPartySignature snapshotNumber utxoHash party signed =
   traceIfFalse "party signature verification failed" $
-    verifySignature (vkey party) message (getSignature signed)
+    verifyEd25519Signature (vkey party) message signed
  where
   message =
-    encodingToBuiltinByteString $
-      encodeInteger snapshotNumber <> encodeByteString utxoHash
+    -- TODO: document CDDL format, either here or in 'Hydra.Snapshot.getSignableRepresentation'
+    Builtins.serialiseData (toBuiltinData snapshotNumber)
+      <> Builtins.serialiseData (toBuiltinData utxoHash)
 {-# INLINEABLE verifyPartySignature #-}
 
 compareRef :: TxOutRef -> TxOutRef -> Ordering

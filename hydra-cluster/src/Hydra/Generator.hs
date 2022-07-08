@@ -8,12 +8,12 @@ import Hydra.Prelude hiding (size)
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (mkGenesisTx)
-import CardanoCluster (Actor (Faucet), availableInitialFunds, keysFor)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
-import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (genKeyPair, genSigningKey, mkSimpleTx)
+import Hydra.Cluster.Fixture (Actor (Faucet), availableInitialFunds)
+import Hydra.Cluster.Util (keysFor)
+import Hydra.Ledger.Cardano (genKeyPair, genSigningKey, generateOneTransfer)
 import Test.QuickCheck (choose, generate, sized)
 
 networkId :: NetworkId
@@ -119,22 +119,5 @@ genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
         initialUTxO = UTxO.singleton (txIn, txOut)
     txSequence <-
       reverse . thrd
-        <$> foldM generateOneTransfer (initialUTxO, keyPair, []) [1 .. nTxs]
+        <$> foldM (generateOneTransfer networkId) (initialUTxO, keyPair, []) [1 .. nTxs]
     pure ClientDataset{signingKey = sk, initialUTxO, txSequence}
-
-  generateOneTransfer ::
-    (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx]) ->
-    Int ->
-    Gen (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx])
-  generateOneTransfer (utxo, (_, sender), txs) _ = do
-    recipient <- genKeyPair
-    -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
-    -- this function to be ever used in production, and crash will be caught in tests
-    case UTxO.pairs utxo of
-      [txin] ->
-        case mkSimpleTx txin (mkVkAddress networkId (fst recipient), balance @Tx utxo) sender of
-          Left e -> error $ "Tx construction failed: " <> show e <> ", utxo: " <> show utxo
-          Right tx ->
-            pure (utxoFromTx tx, recipient, tx : txs)
-      _ ->
-        error "Couldn't generate transaction sequence: need exactly one UTXO."

@@ -134,8 +134,9 @@ import Hydra.Cardano.Api
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Babbage.TxBody as Ledger
+import Cardano.Ledger.Serialization (mkSized)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.List as List
@@ -150,10 +151,7 @@ import Hydra.Ledger.Cardano (genKeyPair, genOutput, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (
-  fromData,
-  toData,
- )
+import Plutus.V2.Ledger.Api (fromData, toData)
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -441,7 +439,7 @@ instance Arbitrary Head.State where
 isHeadOutput :: TxOut CtxUTxO -> Bool
 isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
-  headAddress = mkScriptAddress @PlutusScriptV1 Fixture.testNetworkId headScript
+  headAddress = mkScriptAddress @PlutusScriptV2 Fixture.testNetworkId headScript
   headScript = fromPlutusScript Head.validatorScript
 
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.
@@ -452,7 +450,8 @@ addDatum datum scriptData =
   case datum of
     TxOutDatumNone -> error "unexpected datum none"
     TxOutDatumHash _ha -> error "hash only, expected full datum"
-    TxOutDatum sd ->
+    TxOutDatumInline _sd -> error "not useful for inline datums"
+    TxOutDatumInTx sd ->
       case scriptData of
         TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
         TxBodyScriptData (Ledger.TxDats dats) redeemers ->
@@ -467,7 +466,9 @@ changeHeadOutputDatum fn (TxOut addr value datum) =
       error "Unexpected empty head datum"
     (TxOutDatumHash _ha) ->
       error "Unexpected hash-only datum"
-    (TxOutDatum sd) ->
+    (TxOutDatumInline _sd) ->
+      error "Unexpected inlined datum"
+    (TxOutDatumInTx sd) ->
       case fromData $ toPlutusData sd of
         Just st ->
           TxOut addr value (mkTxOutDatum $ fn st)
@@ -481,7 +482,7 @@ ensureDatums outs scriptData =
  where
   ensureDatum txOut sd =
     case txOutDatum txOut of
-      d@(TxOutDatum _) -> addDatum d sd
+      d@(TxOutDatumInTx _) -> addDatum d sd
       _ -> sd
 
 -- | Alter a transaction's  redeemers map given some mapping function.
@@ -543,9 +544,9 @@ alterTxOuts fn tx =
   body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
   ledgerBody' = ledgerBody{Ledger.outputs = ledgerOutputs'}
 
-  ledgerOutputs' = StrictSeq.fromList . map (toLedgerTxOut . toCtxUTxOTxOut) $ outputs'
+  ledgerOutputs' = StrictSeq.fromList . map (mkSized . toLedgerTxOut . toCtxUTxOTxOut) $ outputs'
 
-  outputs' = fn . fmap fromLedgerTxOut . toList $ Ledger.outputs ledgerBody
+  outputs' = fn . fmap fromLedgerTxOut . toList $ Ledger.outputs' ledgerBody
 
   scriptData' = ensureDatums outputs' scriptData
 

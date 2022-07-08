@@ -14,14 +14,6 @@ import CardanoClient (
   queryUTxO,
   waitForUTxO,
  )
-import CardanoCluster (
-  Actor (Alice, Bob, Carol),
-  Marked (Fuel, Normal),
-  defaultNetworkId,
-  keysFor,
-  seedFromFaucet,
-  seedFromFaucet_,
- )
 import CardanoNode (NodeLog, RunningNode (..), newNodeConfig, withBFTNode)
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import qualified Data.ByteString.Char8 as B8
@@ -29,7 +21,6 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   lovelaceToValue,
   txOutValue,
-  unSlotNo,
   unsafeDeserialiseFromRawBytesBase16,
  )
 import Hydra.Chain (
@@ -45,13 +36,26 @@ import Hydra.Chain.Direct (
   withDirectChain,
   withIOManager,
  )
-import Hydra.Chain.Direct.Handlers (DirectChainLog, closeGraceTime)
-import Hydra.Crypto (aggregate, generateSigningKey, sign)
-import qualified Hydra.Crypto as Hydra
+import Hydra.Chain.Direct.Handlers (DirectChainLog)
+import Hydra.Cluster.Faucet (
+  Marked (Fuel, Normal),
+  seedFromFaucet,
+  seedFromFaucet_,
+ )
+import Hydra.Cluster.Fixture (
+  Actor (Alice, Bob, Carol),
+  alice,
+  aliceSk,
+  bob,
+  carol,
+  cperiod,
+  defaultNetworkId,
+ )
+import Hydra.Cluster.Util (keysFor)
+import Hydra.Crypto (aggregate, sign)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.QuickCheck (generate)
 
@@ -71,9 +75,9 @@ spec = around showLogsOnFailure $ do
             withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys Nothing (putMVar bobsCallback) $ \_ -> do
               seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
-              postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
-              alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
-              bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
+              postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
+              alicesCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
+              bobsCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
 
               postTx $ AbortTx mempty
 
@@ -94,9 +98,9 @@ spec = around showLogsOnFailure $ do
             withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys Nothing (putMVar bobsCallback) $ \_ -> do
               seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
-              postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
-              alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
-              bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
+              postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
+              alicesCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
+              bobsCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
 
               let aliceCommitment = 66_000_000
               aliceUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk aliceCommitment Normal
@@ -132,8 +136,8 @@ spec = around showLogsOnFailure $ do
             withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys Nothing (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
               seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
-              alicePostTx $ InitTx $ HeadParameters 100 [alice, carol]
-              alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
+              alicePostTx $ InitTx $ HeadParameters cperiod [alice, carol]
+              alicesCallback `observesInTime` OnInitTx cperiod [alice, carol]
 
               bobPostTx (AbortTx mempty)
                 `shouldThrow` (== InvalidStateToPost @Tx (AbortTx mempty))
@@ -149,8 +153,8 @@ spec = around showLogsOnFailure $ do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
             seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
-            postTx $ InitTx $ HeadParameters 100 [alice]
-            alicesCallback `observesInTime` OnInitTx 100 [alice]
+            postTx $ InitTx $ HeadParameters cperiod [alice]
+            alicesCallback `observesInTime` OnInitTx cperiod [alice]
 
             someUTxOA <- generate $ genOneUTxOFor aliceCardanoVk
             someUTxOB <- generate $ genOneUTxOFor aliceCardanoVk
@@ -178,8 +182,8 @@ spec = around showLogsOnFailure $ do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
             seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
-            postTx $ InitTx $ HeadParameters 100 [alice]
-            alicesCallback `observesInTime` OnInitTx 100 [alice]
+            postTx $ InitTx $ HeadParameters cperiod [alice]
+            alicesCallback `observesInTime` OnInitTx cperiod [alice]
 
             postTx $ CommitTx alice mempty
             alicesCallback `observesInTime` OnCommitTx alice mempty
@@ -195,8 +199,8 @@ spec = around showLogsOnFailure $ do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
             seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
-            postTx $ InitTx $ HeadParameters 1 [alice]
-            alicesCallback `observesInTime` OnInitTx 1 [alice]
+            postTx $ InitTx $ HeadParameters cperiod [alice]
+            alicesCallback `observesInTime` OnInitTx cperiod [alice]
 
             someUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk 1_000_000 Normal
             postTx $ CommitTx alice someUTxO
@@ -215,19 +219,18 @@ spec = around showLogsOnFailure $ do
             postTx . CloseTx $
               ConfirmedSnapshot
                 { snapshot
-                , signatures = aggregate [sign aliceSigningKey snapshot]
+                , signatures = aggregate [sign aliceSk snapshot]
                 }
 
-            alicesCallback `shouldSatisfyInTime` \case
-              Observation OnCloseTx{snapshotNumber} ->
-                -- FIXME(SN): should assert contestationDeadline > current
-                snapshotNumber == 1
-              _ ->
-                False
+            fanoutDelay <-
+              alicesCallback `shouldSatisfyInTime` \case
+                Observation OnCloseTx{snapshotNumber, remainingContestationPeriod} ->
+                  -- FIXME(SN): should assert contestationDeadline > current
+                  Just (snapshotNumber == 1, remainingContestationPeriod)
+                _ ->
+                  Nothing
 
-            -- TODO: compute from chain parameters
-            -- contestation period + closeGraceTime * slot length
-            threadDelay $ 1 + (fromIntegral (unSlotNo closeGraceTime) * 0.1)
+            threadDelay (toEnum (fromEnum fanoutDelay))
             postTx $
               FanoutTx
                 { utxo = someUTxO
@@ -247,12 +250,12 @@ spec = around showLogsOnFailure $ do
           tip <- withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
             seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
             tip <- queryTip defaultNetworkId nodeSocket
-            alicePostTx $ InitTx $ HeadParameters 100 [alice]
-            alicesCallback `observesInTime` OnInitTx 100 [alice]
+            alicePostTx $ InitTx $ HeadParameters cperiod [alice]
+            alicesCallback `observesInTime` OnInitTx cperiod [alice]
             return tip
 
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just tip) (putMVar alicesCallback) $ \_ -> do
-            alicesCallback `observesInTime` OnInitTx 100 [alice]
+            alicesCallback `observesInTime` OnInitTx cperiod [alice]
 
   it "cannot restart head to an unknown point" $ \tracer -> do
     alicesCallback <- newEmptyMVar
@@ -269,14 +272,6 @@ spec = around showLogsOnFailure $ do
             withDirectChain aliceTrace defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just fakeTip) (putMVar alicesCallback) $ \_ -> do
               threadDelay 5 >> fail "should not execute main action but did?"
 
-alice, bob, carol :: Party
-alice = deriveParty aliceSigningKey
-bob = deriveParty $ generateSigningKey "bob"
-carol = deriveParty $ generateSigningKey "carol"
-
-aliceSigningKey :: Hydra.SigningKey
-aliceSigningKey = generateSigningKey "alice"
-
 data TestClusterLog
   = FromNode NodeLog
   | FromDirectChain Text DirectChainLog
@@ -292,10 +287,16 @@ observesInTime mvar expected =
       Observation obs -> obs `shouldBe` expected
       _ -> go
 
-shouldSatisfyInTime :: Show a => MVar a -> (a -> Bool) -> Expectation
+shouldSatisfyInTime :: MVar a -> (a -> Maybe (Bool, b)) -> IO b
 shouldSatisfyInTime mvar f =
-  failAfter 10 $
-    takeMVar mvar >>= flip shouldSatisfy f
+  failAfter 10 $ do
+    a <- takeMVar mvar
+    case f a of
+      Nothing ->
+        fail "predicate failed."
+      Just (predicate, b) -> do
+        shouldSatisfy predicate identity
+        return b
 
 isIntersectionNotFoundException :: IntersectionNotFoundException -> Bool
 isIntersectionNotFoundException _ = True

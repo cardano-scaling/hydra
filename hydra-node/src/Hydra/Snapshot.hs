@@ -5,12 +5,14 @@ module Hydra.Snapshot where
 
 import Hydra.Prelude
 
-import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (..))
+import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger (IsTx (..))
+import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
+import Test.QuickCheck.Instances.Natural ()
 
 type SnapshotNumber = Natural
 
@@ -36,12 +38,12 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) wher
     ]
 
 -- | Binary representation of snapshot signatures
--- TODO: document CDDL format, either here or on the verification site
--- REVIEW: Why is the @tx necessary here? It surprised us a bit that we need it.
+-- TODO: document CDDL format, either here or on in 'Hydra.Contract.Head.verifyPartySignature'
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation Snapshot{number, utxo} =
-    serialize' number -- CBOR integer
-      <> serialize' (hashUTxO @tx utxo) -- CBOR bytestring
+    toStrict $
+      serialise (toData $ toInteger number) -- CBOR(I(integer))
+        <> serialise (toData . toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
 
 instance IsTx tx => ToJSON (Snapshot tx) where
   toJSON s =

@@ -10,5 +10,8 @@ class HasScriptLanguage lang era where
 instance HasScriptLanguage PlutusScriptV1 AlonzoEra where
   scriptLanguageInEra = PlutusScriptV1InAlonzo
 
-instance HasScriptLanguage PlutusScriptV2 AlonzoEra where
-  scriptLanguageInEra = PlutusScriptV2InAlonzo
+instance HasScriptLanguage PlutusScriptV1 BabbageEra where
+  scriptLanguageInEra = PlutusScriptV1InBabbage
+
+instance HasScriptLanguage PlutusScriptV2 BabbageEra where
+  scriptLanguageInEra = PlutusScriptV2InBabbage

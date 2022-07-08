@@ -1,0 +1,5 @@
+# Cardano node state
+db/
+
+# Secrets
+credentials/

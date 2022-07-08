@@ -17,6 +17,7 @@ import Hydra.Chain (
   OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx, OnContestTx),
   PostChainTx (ContestTx),
  )
+import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
@@ -38,7 +39,7 @@ import Hydra.Party (Party (..))
 import Hydra.ServerOutput (ServerOutput (PeerConnected, RolledBack))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 import Test.QuickCheck (forAll)
 import Test.QuickCheck.Monadic (monadicIO, run)
 
@@ -223,7 +224,7 @@ spec = do
               Delay
                 { delay = case s0 of
                     OpenState{parameters = HeadParameters{contestationPeriod}} ->
-                      contestationPeriod
+                      toNominalDiffTime contestationPeriod
                     _ ->
                       error "inOpenState: not OpenState?"
                 , reason =
@@ -312,7 +313,7 @@ inInitialState parties =
     , previousRecoverableState = IdleState
     }
  where
-  parameters = HeadParameters 42 parties
+  parameters = HeadParameters cperiod parties
 
 inOpenState ::
   [Party] ->
@@ -331,7 +332,7 @@ inOpenState' ::
 inOpenState' parties coordinatedHeadState =
   OpenState{parameters, coordinatedHeadState, previousRecoverableState}
  where
-  parameters = HeadParameters 42 parties
+  parameters = HeadParameters cperiod parties
   previousRecoverableState =
     InitialState
       { parameters
@@ -350,7 +351,7 @@ inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> HeadState SimpleTx
 inClosedState' parties confirmedSnapshot =
   ClosedState{parameters, previousRecoverableState, confirmedSnapshot}
  where
-  parameters = HeadParameters 42 parties
+  parameters = HeadParameters cperiod parties
   previousRecoverableState = inOpenState parties simpleLedger
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)

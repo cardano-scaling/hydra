@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Cardano.Api.AddressInEra where
 
 import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
@@ -5,6 +7,20 @@ import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api.Byron (Address (..))
 import qualified Cardano.Ledger.Address as Ledger
+import qualified Cardano.Ledger.BaseTypes as Ledger
+import qualified Cardano.Ledger.Credential as Ledger
+import qualified Cardano.Ledger.Hashes as Ledger
+import qualified Cardano.Ledger.Keys as Ledger
+import Hydra.Cardano.Api.Network (Network)
+import qualified Plutus.V1.Ledger.Address as Plutus
+import Plutus.V2.Ledger.Api (
+  Address (..),
+  Credential (..),
+  PubKeyHash (PubKeyHash),
+  StakingCredential (StakingHash, StakingPtr),
+  ValidatorHash (ValidatorHash),
+  fromBuiltin,
+ )
 
 -- * Extras
 
@@ -58,3 +74,29 @@ toLedgerAddr = \case
     Ledger.AddrBootstrap (Ledger.BootstrapAddress addr)
   AddressInEra (ShelleyAddressInEra _) (ShelleyAddress ntwrk creds stake) ->
     Ledger.Addr ntwrk creds stake
+
+-- | Convert a plutus 'Address' to an api 'AddressInEra'.
+-- NOTE: Requires the 'Network' discriminator (Testnet or Mainnet) because
+-- Plutus addresses are stripped off it.
+fromPlutusAddress :: IsShelleyBasedEra era => Network -> Plutus.Address -> AddressInEra era
+fromPlutusAddress network plutusAddress =
+  fromLedgerAddr $
+    case (addressCredential, addressStakingCredential) of
+      (cred, Just (StakingHash stakeCred)) ->
+        Ledger.Addr network (unsafeCredential cred) . Ledger.StakeRefBase $ unsafeCredential stakeCred
+      (cred, Just (StakingPtr slot txix certix)) ->
+        Ledger.Addr network (unsafeCredential cred) . Ledger.StakeRefPtr $
+          Ledger.Ptr
+            (fromInteger slot)
+            (Ledger.TxIx $ fromInteger txix)
+            (Ledger.CertIx $ fromInteger certix)
+      (cred, Nothing) ->
+        Ledger.Addr network (unsafeCredential cred) Ledger.StakeRefNull
+ where
+  unsafeCredential = \case
+    PubKeyCredential (PubKeyHash h) ->
+      Ledger.KeyHashObj . Ledger.KeyHash . unsafeHashFromBytes $ fromBuiltin h
+    ScriptCredential (ValidatorHash h) ->
+      Ledger.ScriptHashObj . Ledger.ScriptHash . unsafeHashFromBytes $ fromBuiltin h
+
+  Plutus.Address{addressCredential, addressStakingCredential} = plutusAddress

@@ -1076,6 +1076,45 @@ components:
       type: string
       contentEncoding: base16
 
+    Script:
+      type: object
+      additionalProperties: false
+      required:
+        - scriptLanguage
+        - script
+      properties:
+        scriptLanguage:
+          type: string
+        script:
+          type: object
+          additionalProperties: false
+          required:
+            - cborHex
+            - description
+            - type
+          properties:
+            cborHex:
+              type: string
+              contentEncoding: base16
+            description:
+              type: string
+            type:
+              type: string
+              enum:
+                - SimpleScriptV2
+                - SimpleScriptV1
+                - PlutusScriptV1
+                - PlutusScriptV2
+      example:
+        {
+          "script": {
+              "cborHex": "8303018282051927168200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4",
+              "description": "",
+              "type": "SimpleScriptV2"
+          },
+          "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+        }
+
     TextEnvelopeTransaction:
       title: TextEnvelopeTransaction
       description: |
@@ -1186,12 +1225,25 @@ components:
             A list of inputs for this transaction. Technically, this is actually a Set, eg. the order of elements does not matter and they must be unique.
           items:
             $ref: "#/components/schemas/TxIn"
+        referenceInputs:
+          type: array
+          description: >-
+            A list of inputs for this transaction. Technically, this is actually a Set, eg. the order of elements does not matter and they must be unique.
+          items:
+            $ref: "#/components/schemas/TxIn"
         collateral:
           type: array
           description: >-
             A list of collateral inputs for this transaction.
           items:
             $ref: "#/components/schemas/TxIn"
+        totalCollateral:
+          oneOf:
+            - type: integer
+              minimum: 0
+            - type: "null"
+        collateralReturn:
+          $ref: "#/components/schemas/TxOut"
         outputs:
           type: array
           description: >-
@@ -1285,9 +1337,29 @@ components:
           $ref: "#/components/schemas/Address"
         value:
           $ref: "#/components/schemas/Value"
+        referenceScript:
+          oneOf:
+            - $ref: "#/components/schemas/Script"
+            - type: "null"
         datumhash:
-          type: string
-          contentEncoding: base16
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
+        inlineDatum:
+          oneOf:
+            - type: object
+            - type: "null"
+        inlineDatumhash:
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
+        datum:
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
 
     UTxO:
       type: object

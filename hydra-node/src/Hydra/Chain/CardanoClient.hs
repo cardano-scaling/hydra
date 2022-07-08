@@ -86,9 +86,9 @@ queryProtocolParameters :: NetworkId -> FilePath -> QueryPoint -> IO ProtocolPar
 queryProtocolParameters networkId socket queryPoint =
   let query =
         QueryInEra
-          AlonzoEraInCardanoMode
+          BabbageEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
+              ShelleyBasedEraBabbage
               QueryProtocolParameters
           )
    in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
@@ -100,9 +100,9 @@ queryUTxO :: NetworkId -> FilePath -> QueryPoint -> [Address ShelleyAddr] -> IO 
 queryUTxO networkId socket queryPoint addresses =
   let query =
         QueryInEra
-          AlonzoEraInCardanoMode
+          BabbageEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
+              ShelleyBasedEraBabbage
               ( QueryUTxO
                   (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
               )
@@ -116,9 +116,9 @@ queryUTxOByTxIn :: NetworkId -> FilePath -> QueryPoint -> [TxIn] -> IO UTxO
 queryUTxOByTxIn networkId socket queryPoint inputs =
   let query =
         QueryInEra
-          AlonzoEraInCardanoMode
+          BabbageEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraAlonzo
+              ShelleyBasedEraBabbage
               (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
           )
    in UTxO.fromApi <$> (runQuery networkId socket queryPoint query >>= throwOnEraMismatch)
@@ -133,8 +133,10 @@ queryUTxOWhole networkId socket queryPoint = do
  where
   query =
     QueryInEra
-      AlonzoEraInCardanoMode
-      ( QueryInShelleyBasedEra ShelleyBasedEraAlonzo (QueryUTxO QueryUTxOWhole)
+      BabbageEraInCardanoMode
+      ( QueryInShelleyBasedEra
+          ShelleyBasedEraBabbage
+          (QueryUTxO QueryUTxOWhole)
       )
 
 -- | Throws at least 'QueryException' if query fails.

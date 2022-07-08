@@ -49,6 +49,8 @@ import Data.Aeson (pairs, (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as Text
+import Test.QuickCheck.Instances.Text ()
+import Test.QuickCheck.Instances.Time ()
 
 data Verbosity = Quiet | Verbose Text
   deriving (Eq, Show)

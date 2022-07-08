@@ -1,6 +1,7 @@
 import Hydra.Prelude hiding (catch)
 
 import Data.ByteString (hPut)
+import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -28,9 +29,6 @@ import TxCost (
   computeContestCost,
   computeFanOutCost,
   computeInitCost,
-  maxCpu,
-  maxMem,
-  maxTxSize,
  )
 
 newtype Options = Options {outputDirectory :: Maybe FilePath}

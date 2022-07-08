@@ -10,9 +10,10 @@ TARGETDIR="devnet"
 [ -d "$TARGETDIR" ] && { echo "Cleaning up directory $TARGETDIR" ; sudo rm -r $TARGETDIR ; }
 
 cp -af "$BASEDIR/hydra-cluster/config/." "$TARGETDIR"
-find $TARGETDIR -type f -exec chmod 0400 {} \;
 
 echo '{"Producers": []}' > "$TARGETDIR/topology.json"
 sed -i "s/\"startTime\": [0-9]*/\"startTime\": $(date +%s)/" "$TARGETDIR/genesis-byron.json" && \
 sed -i "s/\"systemStart\": \".*\"/\"systemStart\": \"$(date -u +%FT%TZ)\"/" "$TARGETDIR/genesis-shelley.json"
+
+find $TARGETDIR -type f -exec chmod 0400 {} \;
 echo "Prepared devnet, you can start the cluster now"

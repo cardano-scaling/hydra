@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Cardano.Api.Witness where
 
 import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
@@ -19,7 +21,7 @@ mkScriptWitness script datum redeemer =
   PlutusScriptWitness
     (scriptLanguageInEra @lang @era)
     (plutusScriptVersion (proxyToAsType (Proxy @lang)))
-    script
+    (PScript script)
     datum
     redeemer
     (ExecutionUnits 0 0)

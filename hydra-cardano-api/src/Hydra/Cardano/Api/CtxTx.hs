@@ -13,6 +13,7 @@ instance ToTxContext TxOutDatum where
   toTxContext = \case
     TxOutDatumNone -> TxOutDatumNone
     TxOutDatumHash era h -> TxOutDatumHash era h
+    TxOutDatumInline s sd -> TxOutDatumInline s sd
 
 instance ToTxContext TxOut where
   toTxContext =

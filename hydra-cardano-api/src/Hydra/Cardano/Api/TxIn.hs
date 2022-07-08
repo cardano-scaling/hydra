@@ -5,7 +5,7 @@ import Hydra.Cardano.Api.Prelude
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Data.Set as Set
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- * Extras
 
@@ -41,6 +41,6 @@ fromPlutusTxOutRef (Plutus.TxOutRef (Plutus.TxId bytes) ix) =
     (TxId $ unsafeHashFromBytes $ Plutus.fromBuiltin bytes)
     (TxIx $ fromIntegral ix)
 
--- | Convert a cardano-api's 'TxIn' into a plutus' 'TxOutRef'.
+-- | Convert a cardano-api 'TxIn' into a plutus 'TxOutRef'.
 toPlutusTxOutRef :: TxIn -> Plutus.TxOutRef
 toPlutusTxOutRef = Ledger.txInfoIn' . toLedgerTxIn

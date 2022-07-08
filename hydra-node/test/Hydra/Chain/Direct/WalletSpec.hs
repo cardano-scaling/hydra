@@ -6,16 +6,17 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
-import Cardano.Ledger.Alonzo.TxBody (TxBody (..), pattern TxOut)
-import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
-import Cardano.Ledger.BaseTypes (StrictMaybe (SJust))
+import Cardano.Ledger.Alonzo.Data (Data (Data), Datum (DatumHash), hashData)
+import Cardano.Ledger.Alonzo.TxSeq (TxSeq (TxSeq))
+import Cardano.Ledger.Babbage.Tx (ValidatedTx (..))
+import Cardano.Ledger.Babbage.TxBody (TxBody (..), outputs', pattern TxOut)
+import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Value)
+import Cardano.Ledger.Era (fromTxSeq)
 import qualified Cardano.Ledger.SafeHash as SafeHash
-import Cardano.Ledger.Shelley.API (BHeader)
+import Cardano.Ledger.Serialization (mkSized)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
@@ -24,8 +25,10 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
+  LedgerEra,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
+  StandardCrypto,
   VerificationKey,
   fromConsensusPointHF,
   fromLedgerTx,
@@ -37,7 +40,7 @@ import qualified Hydra.Cardano.Api as Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Fixture (epochInfo, pparams, systemStart, testNetworkId)
-import Hydra.Chain.Direct.Util (Block, Era, markerDatum)
+import Hydra.Chain.Direct.Util (Block, markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
@@ -50,9 +53,11 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genTxIn, renderTx)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
+import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Ouroboros.Network.Block (genesisPoint)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
+import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -139,7 +144,7 @@ prop_wellSuitedGenerators =
         & counterexample ("Our TxOuts: " <> show (length $ ourOutputs utxo blk))
  where
   smallTxSets blk =
-    length (txSeqTxns $ bbody blk) <= 10
+    length (fromTxSeq $ bbody blk) <= 10
 
   noneIsOurs utxo blk =
     null (ourDirectInputs utxo blk) && null (ourOutputs utxo blk)
@@ -156,7 +161,7 @@ prop_reducesWhenNotOurs ::
 prop_reducesWhenNotOurs =
   forAll genUTxO $ \utxo ->
     forAllBlind (genBlock utxo) $ \blk ->
-      let utxo' = applyBlock (BlockAlonzo $ mkShelleyBlock blk) (const False) utxo
+      let utxo' = applyBlock (BlockBabbage $ mkShelleyBlock blk) (const False) utxo
        in (length utxo' <= length utxo)
             & counterexample ("New UTXO: " <> show utxo')
             & counterexample ("UTXO size:     " <> show (length utxo))
@@ -167,7 +172,7 @@ prop_seenInputsAreConsumed ::
 prop_seenInputsAreConsumed =
   forAll genUTxO $ \utxo ->
     forAllBlind (genBlock utxo) $ \blk ->
-      let utxo' = applyBlock (BlockAlonzo $ mkShelleyBlock blk) (isOurs utxo) utxo
+      let utxo' = applyBlock (BlockBabbage $ mkShelleyBlock blk) (isOurs utxo) utxo
           seenInputs = fromList $ ourDirectInputs utxo blk
        in null (Map.restrictKeys utxo' seenInputs)
             & counterexample ("Seen inputs: " <> show seenInputs)
@@ -193,7 +198,7 @@ prop_balanceTransaction =
           Right (_, tx') ->
             isBalanced (lookupUTxO <> walletUTxO) tx tx'
 
-isBalanced :: Map TxIn TxOut -> ValidatedTx Era -> ValidatedTx Era -> Property
+isBalanced :: Map TxIn TxOut -> ValidatedTx LedgerEra -> ValidatedTx LedgerEra -> Property
 isBalanced utxo originalTx balancedTx =
   let inp' = knownInputBalance utxo balancedTx
       out' = outputBalance balancedTx
@@ -231,18 +236,18 @@ prop_removeUsedInputs =
 -- | Generate an arbitrary block, from a UTXO set such that, transactions may
 -- *sometimes* consume given UTXO and produce new ones. The generator is geared
 -- towards certain use-cases,
-genBlock :: Map TxIn TxOut -> Gen (Ledger.Block BHeader Era)
+genBlock :: Map TxIn TxOut -> Gen (Ledger.Block (Praos.Header StandardCrypto) LedgerEra)
 genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
   header <- arbitrary
   body <- TxSeq . StrictSeq.fromList <$> evalStateT genTxs utxo
   pure $ Ledger.Block header body
  where
-  genTxs :: StateT (Map TxIn TxOut) Gen [ValidatedTx Era]
+  genTxs :: StateT (Map TxIn TxOut) Gen [ValidatedTx LedgerEra]
   genTxs = do
     n <- lift getSize
     replicateM n genTx
 
-  genTx :: StateT (Map TxIn TxOut) Gen (ValidatedTx Era)
+  genTx :: StateT (Map TxIn TxOut) Gen (ValidatedTx LedgerEra)
   genTx = do
     genBody <-
       lift $
@@ -260,30 +265,30 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
   -- Generate a TxBody by consuming a UTXO from the state, and generating a new
   -- one. The number of UTXO in the state after calling this function remains
   -- identical.
-  genBodyFromUTxO :: StateT (Map TxIn TxOut) Gen (TxBody Era)
+  genBodyFromUTxO :: StateT (Map TxIn TxOut) Gen (TxBody LedgerEra)
   genBodyFromUTxO = do
     base <- lift arbitrary
     (input, output) <- gets Map.findMax
     let body =
           base
             { inputs = Set.singleton input
-            , outputs = StrictSeq.fromList [output]
+            , outputs = StrictSeq.fromList [mkSized output]
             }
-    let input' = Ledger.TxIn (Ledger.TxId $ SafeHash.hashAnnotated body) 0
+    let input' = Ledger.TxIn (Ledger.TxId $ SafeHash.hashAnnotated body) (Ledger.TxIx 0)
     modify (\m -> m & Map.delete input & Map.insert input' output)
     pure body
 
 genUTxO :: Gen (Map TxIn TxOut)
 genUTxO = do
-  tx <- arbitrary `suchThat` (\tx -> length (outputs (body tx)) >= 1)
+  tx <- arbitrary `suchThat` (\tx -> length (outputs' (body tx)) >= 1)
   txIn <- toLedgerTxIn <$> genTxIn
-  let txOut = scaleAda $ Prelude.head $ toList $ outputs $ body tx
+  let txOut = scaleAda $ Prelude.head $ toList $ outputs' $ body tx
   pure $ Map.singleton txIn txOut
  where
   scaleAda :: TxOut -> TxOut
-  scaleAda (TxOut addr value datum) =
+  scaleAda (TxOut addr value datum refScript) =
     let value' = value <> inject (Coin 20_000_000)
-     in TxOut addr value' datum
+     in TxOut addr value' datum refScript
 
 genMarkedUTxO :: Gen (Map TxIn TxOut)
 genMarkedUTxO = do
@@ -291,17 +296,17 @@ genMarkedUTxO = do
   pure $ markForWallet <$> utxo
  where
   markForWallet :: TxOut -> TxOut
-  markForWallet (TxOut addr value _) =
-    let datum' = (SJust $ hashData $ Data @Era markerDatum)
-     in TxOut addr value datum'
+  markForWallet (TxOut addr value _ refScript) =
+    let datum' = (DatumHash $ hashData $ Data @LedgerEra markerDatum)
+     in TxOut addr value datum' refScript
 
-genOutputsForInputs :: ValidatedTx Era -> Gen (Map TxIn TxOut)
+genOutputsForInputs :: ValidatedTx LedgerEra -> Gen (Map TxIn TxOut)
 genOutputsForInputs ValidatedTx{body} = do
   let n = Set.size (inputs body)
   outs <- vectorOf n arbitrary
   pure $ Map.fromList $ zip (toList (inputs body)) outs
 
-genValidatedTx :: Gen (ValidatedTx Era)
+genValidatedTx :: Gen (ValidatedTx LedgerEra)
 genValidatedTx = do
   tx <- arbitrary
   body <- (\x -> x{txfee = Coin 0}) <$> arbitrary
@@ -311,46 +316,46 @@ genValidatedTx = do
 -- Helpers
 --
 
-allTxIns :: Ledger.Block h Era -> Set TxIn
-allTxIns (txSeqTxns . bbody -> txs) =
+allTxIns :: Ledger.Block h LedgerEra -> Set TxIn
+allTxIns (fromTxSeq . bbody -> txs) =
   Set.unions (inputs . body <$> txs)
 
-allTxOuts :: Ledger.Block h Era -> [TxOut]
-allTxOuts (txSeqTxns . bbody -> txs) =
-  toList $ mconcat $ toList (outputs . body <$> txs)
+allTxOuts :: Ledger.Block h LedgerEra -> [TxOut]
+allTxOuts (toList . fromTxSeq . bbody -> txs) =
+  toList $ mconcat (outputs' . body <$> txs)
 
 isOurs :: Map TxIn TxOut -> Address -> Bool
 isOurs utxo addr =
-  addr `elem` ((\(TxOut addr' _ _) -> addr') <$> Map.elems utxo)
+  addr `elem` ((\(TxOut addr' _ _ _) -> addr') <$> Map.elems utxo)
 
 -- NOTE: 'direct' here means inputs that can be identified from our initial
 -- UTXO set. UTXOs that are created in a transaction from that blk aren't
 -- counted here.
-ourDirectInputs :: Map TxIn TxOut -> Ledger.Block h Era -> [TxIn]
+ourDirectInputs :: Map TxIn TxOut -> Ledger.Block h LedgerEra -> [TxIn]
 ourDirectInputs utxo blk =
   Map.keys $ Map.restrictKeys utxo (allTxIns blk)
 
-ourOutputs :: Map TxIn TxOut -> Ledger.Block h Era -> [TxOut]
+ourOutputs :: Map TxIn TxOut -> Ledger.Block h LedgerEra -> [TxOut]
 ourOutputs utxo blk =
   let ours = Map.elems utxo
    in filter (`elem` ours) (allTxOuts blk)
 
-getValue :: TxOut -> Value Era
-getValue (TxOut _ value _) = value
+getValue :: TxOut -> Value LedgerEra
+getValue (TxOut _ value _ _) = value
 
-deltaValue :: Value Era -> Value Era -> Value Era
+deltaValue :: Value LedgerEra -> Value LedgerEra -> Value LedgerEra
 deltaValue a b
   | coin a > coin b = a <> invert b
   | otherwise = invert a <> b
 
 -- | NOTE: This does not account for withdrawals
-knownInputBalance :: Map TxIn TxOut -> ValidatedTx Era -> Value Era
+knownInputBalance :: Map TxIn TxOut -> ValidatedTx LedgerEra -> Value LedgerEra
 knownInputBalance utxo = foldMap resolve . toList . inputs . body
  where
-  resolve :: TxIn -> Value Era
+  resolve :: TxIn -> Value LedgerEra
   resolve k = maybe zero getValue (Map.lookup k utxo)
 
 -- | NOTE: This does not account for deposits
-outputBalance :: ValidatedTx Era -> Value Era
+outputBalance :: ValidatedTx LedgerEra -> Value LedgerEra
 outputBalance =
-  foldMap getValue . outputs . body
+  foldMap getValue . outputs' . body

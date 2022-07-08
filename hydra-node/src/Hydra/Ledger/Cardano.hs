@@ -10,20 +10,17 @@ module Hydra.Ledger.Cardano (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (initialLedgerState)
 import Hydra.Ledger.Cardano.Builder
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeAnnotator, serialize, serialize', unsafeDeserialize')
 import qualified Cardano.Crypto.DSIGN as CC
-import Cardano.Crypto.Hash (SHA256, digest)
-import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
+import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Babbage.Tx as Ledger
+import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import qualified Cardano.Ledger.BaseTypes as Ledger
-import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger
@@ -38,11 +35,10 @@ import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
 import Control.Arrow (left)
 import Control.Monad (foldM)
-import qualified Control.State.Transition as Ledger
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
-import Data.Default (Default, def)
+import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -54,27 +50,21 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
-import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
-import qualified Test.Cardano.Ledger.Shelley.Generator.Constants as Ledger.Generator
-import qualified Test.Cardano.Ledger.Shelley.Generator.Core as Ledger.Generator
-import qualified Test.Cardano.Ledger.Shelley.Generator.EraGen as Ledger.Generator
-import qualified Test.Cardano.Ledger.Shelley.Generator.Presets as Ledger.Generator
-import qualified Test.Cardano.Ledger.Shelley.Generator.Utxo as Ledger.Generator
+import Plutus.V2.Ledger.Api (fromBuiltin)
+import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 import Test.QuickCheck (
   choose,
   getSize,
   scale,
   shrinkList,
   shrinkMapBy,
-  sized,
   suchThat,
   vectorOf,
  )
 
 -- * Ledger
 
--- TODO(SN): Pre-validate transactions to get less confusing errors on
--- transactions which are not expected to working on a layer-2
+-- | Use the cardano-ledger as an in-hydra 'Ledger'.
 cardanoLedger :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Ledger Tx
 cardanoLedger globals ledgerEnv =
   Ledger
@@ -90,6 +80,8 @@ cardanoLedger globals ledgerEnv =
       utxo' <- left (first fromLedgerTx) $ fromLedgerUTxO <$> applyTx ledgerEnv (toLedgerUTxO utxo) (toLedgerTx tx)
       applyAll utxo' txs
 
+  -- TODO(SN): Pre-validate transactions to get less confusing errors on
+  -- transactions which are not expected to work on a layer-2
   -- NOTE(SN): This is will fail on any transaction requiring the 'DPState' to be
   -- in a certain state as we do throw away the resulting 'DPState' and only take
   -- the ledger's 'UTxO' forward.
@@ -98,21 +90,21 @@ cardanoLedger globals ledgerEnv =
   -- got confused why a sequence of transactions worked but sequentially applying
   -- single transactions didn't. This was because of this not-keeping the'DPState'
   -- as described above.
-  applyTx ::
-    ( Ledger.ApplyTx era
-    , Default (Ledger.State (Ledger.EraRule "PPUP" era))
-    ) =>
-    Ledger.LedgerEnv era ->
-    Ledger.UTxO era ->
-    Ledger.Tx era ->
-    Either (Ledger.Tx era, ValidationError) (Ledger.UTxO era)
   applyTx env utxo tx =
-    case Ledger.applyTxsTransition globals env (pure tx) memPoolState of
-      Left err -> Left (tx, toValidationError err)
-      Right (ls, _ds) -> Right $ Ledger._utxo ls
+    case Ledger.applyTx globals env memPoolState tx of
+      Left err ->
+        Left (tx, toValidationError err)
+      Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
+        Right $ Ledger._utxo us
    where
     toValidationError = ValidationError . show
-    memPoolState = (def{Ledger._utxo = utxo}, def)
+
+    memPoolState =
+      Ledger.LedgerState
+        { Ledger.lsUTxOState = def{Ledger._utxo = utxo}
+        , Ledger.lsDPState = def
+        }
+
 -- * Cardano Tx
 
 instance IsTx Tx where
@@ -122,7 +114,7 @@ instance IsTx Tx where
 
   txId = getTxId . getTxBody
   balance = foldMap txOutValue
-  hashUTxO = hashTxOuts . toList
+  hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe toPlutusTxOut . toList
 
 instance ToCBOR Tx where
   toCBOR = CBOR.encodeBytes . serialize' . toLedgerTx
@@ -145,9 +137,9 @@ instance Arbitrary Tx where
   -- TODO: shrinker!
   arbitrary = fromLedgerTx . withoutProtocolUpdates <$> arbitrary
    where
-    withoutProtocolUpdates tx@(Ledger.Alonzo.ValidatedTx body _ _ _) =
-      let body' = body{Ledger.Alonzo.txUpdates = SNothing}
-       in tx{Ledger.Alonzo.body = body'}
+    withoutProtocolUpdates tx@(Ledger.ValidatedTx body _ _ _) =
+      let body' = body{Ledger.txUpdates = SNothing}
+       in tx{Ledger.body = body'}
 
 -- | Create a zero-fee, payment cardano transaction.
 mkSimpleTx ::
@@ -199,6 +191,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
           <> [""]
           <> outputLines
           <> [""]
+          <> validityLines
+          <> [""]
           <> mintLines
           <> [""]
           <> scriptLines
@@ -246,8 +240,13 @@ renderTxWithUTxO utxo (Tx body _wits) =
   totalNumberOfAssets =
     sum $
       [ foldl' (\n inner -> n + Map.size inner) 0 outer
-      | Ledger.TxOut _ (Ledger.Value _ outer) _ <- toList outs
+      | Ledger.TxOut _ (Ledger.Value _ outer) _ _ <- toList outs
       ]
+
+  validityLines =
+    [ "== VALIDITY"
+    , show (txValidityRange content)
+    ]
 
   mintLines =
     [ "== MINT/BURN\n" <> case txMintValue content of
@@ -266,16 +265,19 @@ renderTxWithUTxO utxo (Tx body _wits) =
       "TxOutDatumNone"
     TxOutDatumHash h ->
       "TxOutDatumHash " <> show h
-    _ ->
-      error "absurd"
+    TxOutDatumInline scriptData ->
+      "TxOutDatumInline " <> prettyScriptData scriptData
+    _ -> error "absurd"
 
   prettyDatumCtx = \case
     TxOutDatumNone ->
       "TxOutDatumNone"
     TxOutDatumHash h ->
       "TxOutDatumHash " <> show h
-    TxOutDatum scriptData ->
-      "TxOutDatum " <> prettyScriptData scriptData
+    TxOutDatumInTx scriptData ->
+      "TxOutDatumInTx " <> prettyScriptData scriptData
+    TxOutDatumInline scriptData ->
+      "TxOutDatumInline " <> prettyScriptData scriptData
 
   scriptLines =
     [ "== SCRIPTS (" <> show (length scripts) <> ")"
@@ -286,11 +288,11 @@ renderTxWithUTxO utxo (Tx body _wits) =
   totalScriptSize = sum $ BL.length . serialize <$> scripts
 
   prettyScript (fromLedgerScript -> script)
-    | script == fromPlutusScript @PlutusScriptV1 Initial.validatorScript =
+    | script == fromPlutusScript @PlutusScriptV2 Initial.validatorScript =
       "InitialScript Script (" <> scriptHash <> ")"
-    | script == fromPlutusScript @PlutusScriptV1 Commit.validatorScript =
+    | script == fromPlutusScript @PlutusScriptV2 Commit.validatorScript =
       "CommitScript Script (" <> scriptHash <> ")"
-    | script == fromPlutusScript @PlutusScriptV1 Head.validatorScript =
+    | script == fromPlutusScript @PlutusScriptV2 Head.validatorScript =
       "Head Script (" <> scriptHash <> ")"
     | otherwise =
       "Unknown Script (" <> scriptHash <> ")"
@@ -325,8 +327,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
     unwords
       [ show tag <> "#" <> show ix
       , mconcat
-          [ "( cpu = " <> show (Ledger.Alonzo.exUnitsSteps redeemerBudget)
-          , ", mem = " <> show (Ledger.Alonzo.exUnitsMem redeemerBudget) <> " )"
+          [ "( cpu = " <> show (Ledger.exUnitsSteps redeemerBudget)
+          , ", mem = " <> show (Ledger.exUnitsMem redeemerBudget) <> " )"
           ]
       , "\n  " <> prettyScriptData (fromLedgerData redeemerData)
       ]
@@ -335,10 +337,6 @@ renderTxWithUTxO utxo (Tx body _wits) =
     "== REQUIRED SIGNERS" : case txExtraKeyWits content of
       TxExtraKeyWitnessesNone -> ["[]"]
       TxExtraKeyWitnesses xs -> ("- " <>) . show <$> xs
-
-hashTxOuts :: [TxOut CtxUTxO] -> ByteString
-hashTxOuts =
-  digest @SHA256 Proxy . serialize' . fmap toLedgerTxOut
 
 deriving newtype instance ToJSON UTxO
 
@@ -373,52 +371,43 @@ genKeyPair = do
   sk <- genSigningKey
   pure (getVerificationKey sk, sk)
 
-genSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Gen (UTxO, [Tx])
-genSequenceOfValidTransactions globals ledgerEnv = do
+-- | Generates a sequence of simple "transfer" transactions for a single key.
+-- The kind of transactions produced by this generator is very limited, see `generateOneTransfer`.
+genSequenceOfSimplePaymentTransactions :: Gen (UTxO, [Tx])
+genSequenceOfSimplePaymentTransactions = do
   n <- getSize
   numTxs <- choose (1, n)
-  genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs
+  genFixedSizeSequenceOfSimplePaymentTransactions numTxs
 
-genFixedSizeSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Int -> Gen (UTxO, [Tx])
-genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs = do
-  n <- getSize
-  numUTxOs <- choose (0, n)
-  let genEnv = customGenEnv numUTxOs
-  initialUTxO <- fromLedgerUTxO <$> Ledger.Generator.genUtxo0 genEnv
-  (_, txs) <- foldM (nextTx genEnv) (initialUTxO, []) [1 .. numTxs]
-  pure (initialUTxO, reverse txs)
+genFixedSizeSequenceOfSimplePaymentTransactions :: Int -> Gen (UTxO, [Tx])
+genFixedSizeSequenceOfSimplePaymentTransactions numTxs = do
+  keyPair@(vk, _) <- genKeyPair
+  utxo <- genOneUTxOFor vk
+  txs <-
+    reverse . thrd
+      <$> foldM (generateOneTransfer testNetworkId) (utxo, keyPair, []) [1 .. numTxs]
+  pure (utxo, txs)
  where
-  nextTx genEnv (utxos, acc) _ = do
-    tx <- genTx genEnv utxos
-    case applyTransactions (cardanoLedger globals ledgerEnv) utxos [tx] of
-      Left err -> error $ show err
-      Right newUTxOs -> pure (newUTxOs, tx : acc)
+  thrd (_, _, c) = c
+  testNetworkId = Testnet $ NetworkMagic 42
 
-  genTx genEnv utxos = do
-    fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv (utxoState, dpState)
-   where
-    utxoState = def{Ledger._utxo = toLedgerUTxO utxos}
-    dpState = Ledger.DPState def def
-
-  -- NOTE(AB): This sets some parameters for the tx generator that will affect
-  -- the structure of generated transactions. In our case, we want to remove
-  -- "special" capabilities which are irrelevant in the context of a Hydra head
-  -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
-  customGenEnv n =
-    (Ledger.Generator.genEnv Proxy)
-      { Ledger.Generator.geConstants = constants n
-      }
-
-  constants n =
-    Ledger.Generator.defaultConstants
-      { Ledger.Generator.minGenesisUTxOouts = 1
-      , -- NOTE: The genUtxo0 generator seems to draw twice from the range
-        -- [minGenesisUTxOouts, maxGenesisUTxOouts]
-        Ledger.Generator.maxGenesisUTxOouts = n `div` 2
-      , Ledger.Generator.frequencyTxUpdates = 0
-      , Ledger.Generator.frequencyTxWithMetadata = 0
-      , Ledger.Generator.maxCertsPerTx = 0
-      }
+generateOneTransfer ::
+  NetworkId ->
+  (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx]) ->
+  Int ->
+  Gen (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx])
+generateOneTransfer networkId (utxo, (_, sender), txs) _ = do
+  recipient <- genKeyPair
+  -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
+  -- this function to be ever used in production, and crash will be caught in tests
+  case UTxO.pairs utxo of
+    [txin] ->
+      case mkSimpleTx txin (mkVkAddress networkId (fst recipient), balance @Tx utxo) sender of
+        Left e -> error $ "Tx construction failed: " <> show e <> ", utxo: " <> show utxo
+        Right tx ->
+          pure (utxoFromTx tx, recipient, tx : txs)
+    _ ->
+      error "Couldn't generate transaction sequence: need exactly one UTXO."
 
 -- TODO: Enable arbitrary datum in generators
 -- TODO: This should better be called 'genOutputFor'
@@ -443,36 +432,7 @@ genTxIn =
   fmap fromLedgerTxIn . Ledger.TxIn
     -- NOTE: [88, 32] is a CBOR prefix for a bytestring of 32 bytes.
     <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
-    <*> fmap fromIntegral (choose @Int (0, 99))
-
--- | Generate some number of 'UTxO'. NOTE: We interpret the QuickCheck 'size' as
--- the upper bound of "assets" in this UTxO. That is, instead of sizing on the
--- number of outputs, we also consider the number of native tokens in the output
--- values.
--- TODO: this is unused now!
-genUTxO :: Gen UTxO
-genUTxO =
-  -- TODO: this implementation is a bit stupid and will yield quite low-number
-  -- of utxo, with often up-to-size number of assets. Instead we should be
-  -- generating from multiple cases:
-  --   - all ada-only outputs of length == size
-  --   - one outputs with number of assets == size
-  --   - both of the above within range (0,size) (less likely, because less interesting)
-  --   - empty utxo
-  sized $ \n -> do
-    nAssets <- choose (0, n)
-    UTxO.fromPairs . takeAssetsUTxO nAssets . UTxO.pairs <$> genUTxOAlonzo
- where
-  takeAssetsUTxO remaining ((i, o) : utxo)
-    | remaining > 0 =
-      let o' = modifyTxOutValue (takeAssetsTxOut remaining) o
-          rem' = remaining - valueSize (txOutValue o')
-       in ((i, o') : takeAssetsUTxO rem' utxo)
-    | otherwise = []
-  takeAssetsUTxO _ [] = []
-
-  takeAssetsTxOut remaining =
-    valueFromList . take remaining . valueToList
+    <*> fmap Ledger.TxIx (choose (0, 99))
 
 -- | Generate a fixed size UTxO with ada-only outputs.
 genUTxOAdaOnlyOfSize :: Int -> Gen UTxO
@@ -482,12 +442,17 @@ genUTxOAdaOnlyOfSize numUTxO =
   gen = (,) <$> arbitrary <*> genTxOutAdaOnly
 
 -- | Generate 'Alonzo' era 'UTxO', which may contain arbitrary assets in
--- 'TxOut's addressed to public keys *and* scripts. NOTE: This is not reducing
--- size when generating assets in 'TxOut's, so will end up regularly with 300+
--- assets with generator size 30.
+-- 'TxOut's addressed to public keys *and* scripts.
+-- NOTE: This is not reducing size when generating assets in 'TxOut's, so will
+-- end up regularly with 300+ assets with generator size 30.
+-- NOTE: The Arbitrary TxIn instance from the ledger is producing colliding
+-- values, so we replace them.
 genUTxOAlonzo :: Gen UTxO
-genUTxOAlonzo =
-  fromLedgerUTxO <$> arbitrary
+genUTxOAlonzo = do
+  utxoMap <- Map.toList . Ledger.unUTxO <$> arbitrary
+  fmap UTxO.fromPairs . forM utxoMap $ \(_, o) -> do
+    i <- arbitrary
+    pure (i, fromLedgerTxOut o)
 
 -- | Generate utxos owned by the given cardano key.
 genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
@@ -495,7 +460,7 @@ genUTxOFor vk = do
   n <- arbitrary `suchThat` (> 0)
   inps <- vectorOf n arbitrary
   outs <- vectorOf n (genOutput vk)
-  pure $ UTxO $ Map.fromList $ zip (fromLedgerTxIn <$> inps) outs
+  pure $ UTxO $ Map.fromList $ zip inps outs
 
 -- | Generate a single UTXO owned by 'vk'.
 genOneUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
@@ -505,7 +470,7 @@ genOneUTxOFor vk = do
   -- values (quikcheck increases the 'size' parameter upon success) up to the point they are
   -- too large to fit in a transaction and validation fails in the ledger
   output <- scale (const 1) $ genOutput vk
-  pure $ UTxO $ Map.singleton (fromLedgerTxIn input) output
+  pure $ UTxO $ Map.singleton input output
 
 -- | NOTE: See note on 'mkVkAddress' about 'NetworkId'.
 genAddressInEra :: NetworkId -> Gen AddressInEra

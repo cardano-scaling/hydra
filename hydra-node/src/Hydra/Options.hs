@@ -63,6 +63,7 @@ import Options.Applicative (
 import Options.Applicative.Builder (str)
 import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
+import Test.QuickCheck.Instances.Natural ()
 
 data Options = Options
   { verbosity :: Verbosity

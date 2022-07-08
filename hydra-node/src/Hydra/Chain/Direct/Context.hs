@@ -21,16 +21,16 @@ import Hydra.Chain.Direct.State (
   close,
   collect,
   commit,
-  contest,
   fanout,
   getContestationDeadline,
   idleOnChainHeadState,
   initialize,
   observeTx,
  )
+import Hydra.ContestationPeriod (ContestationPeriod)
 import qualified Hydra.Crypto as Hydra
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey, renderTx)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genPointInTimeAfter, genPointInTimeBefore)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genPointInTimeAfter)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
 import Test.QuickCheck (choose, elements, frequency, vector)
@@ -46,7 +46,7 @@ data HydraContext = HydraContext
   { ctxVerificationKeys :: [VerificationKey PaymentKey]
   , ctxHydraSigningKeys :: [Hydra.SigningKey]
   , ctxNetworkId :: NetworkId
-  , ctxContestationPeriod :: NominalDiffTime
+  , ctxContestationPeriod :: ContestationPeriod
   }
   deriving (Show)
 
@@ -113,15 +113,14 @@ genInitTx ctx =
 genCommits ::
   HydraContext ->
   Tx ->
-  Gen (UTxO, [Tx])
+  Gen [Tx]
 genCommits ctx initTx = do
-  commits <- forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
+  forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
     let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
     let stIdle = idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p
     let (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
     utxo <- genCommit
-    pure (utxo, unsafeCommit utxo stInitialized)
-  pure (foldMap fst commits, map snd commits)
+    pure $ unsafeCommit utxo stInitialized
 
 genCommit :: Gen UTxO
 genCommit =
@@ -130,15 +129,6 @@ genCommit =
     , (10, genVerificationKey >>= genOneUTxOFor)
     ]
 
-genCollectComTx :: Int -> Gen (OnChainHeadState 'StInitialized, Tx)
-genCollectComTx numParties = do
-  ctx <- genHydraContextFor numParties
-  initTx <- genInitTx ctx
-  (_, commits) <- genCommits ctx initTx
-  stIdle <- genStIdle ctx
-  let (_, stInitialized) = executeCommits initTx commits stIdle
-  pure (stInitialized, collect stInitialized)
-
 genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
@@ -146,15 +136,6 @@ genCloseTx numParties = do
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
   pointInTime <- genPointInTime
   pure (stOpen, close snapshot pointInTime stOpen, snapshot)
-
-genContestTx :: Int -> Gen (OnChainHeadState 'StClosed, Tx)
-genContestTx numParties = do
-  ctx <- genHydraContextFor numParties
-  utxo <- arbitrary
-  (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
-  snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
-  pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-  pure (stClosed, contest snapshot pointInTime stClosed)
 
 genFanoutTx :: Int -> Int -> Gen (OnChainHeadState 'StClosed, Tx)
 genFanoutTx numParties numOutputs = do
@@ -169,10 +150,10 @@ genStOpen ::
   Gen (UTxO, OnChainHeadState 'StOpen)
 genStOpen ctx = do
   initTx <- genInitTx ctx
-  (_, commits) <- genCommits ctx initTx
+  commits <- genCommits ctx initTx
   (committed, stInitialized) <- executeCommits initTx commits <$> genStIdle ctx
   let collectComTx = collect stInitialized
-  pure (committed, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)
+  pure (fold committed, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)
 
 genStClosed ::
   HydraContext ->
@@ -228,9 +209,9 @@ executeCommits ::
   Tx ->
   [Tx] ->
   OnChainHeadState 'StIdle ->
-  (UTxO, OnChainHeadState 'StInitialized)
+  ([UTxO], OnChainHeadState 'StInitialized)
 executeCommits initTx commits stIdle =
-  (mconcat utxo, stInitialized')
+  (utxo, stInitialized')
  where
   (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
   (utxo, stInitialized') = flip runState stInitialized $ do

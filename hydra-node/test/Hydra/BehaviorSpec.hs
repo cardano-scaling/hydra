@@ -23,6 +23,7 @@ import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
 import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.ClientInput
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (aggregate, sign)
 import qualified Hydra.Crypto as Hydra
 import Hydra.HeadLogic (
@@ -515,7 +516,7 @@ toOnChainTx =
     (CloseTx confirmedSnapshot) ->
       OnCloseTx
         { snapshotNumber = number (getSnapshot confirmedSnapshot)
-        , remainingContestationPeriod = testContestationPeriod
+        , remainingContestationPeriod = toNominalDiffTime testContestationPeriod
         }
     ContestTx{confirmedSnapshot} ->
       OnContestTx
@@ -525,8 +526,8 @@ toOnChainTx =
       OnFanoutTx
 
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
-testContestationPeriod :: Num a => a
-testContestationPeriod = 3600
+testContestationPeriod :: ContestationPeriod
+testContestationPeriod = UnsafeContestationPeriod 3600
 
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsTx tx) => TestHydraNode tx m -> DiffTime -> m ()

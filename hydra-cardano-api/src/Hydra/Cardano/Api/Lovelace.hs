@@ -8,7 +8,7 @@ import qualified Cardano.Ledger.Coin as Ledger
 
 -- | Directly retrieve the amount of 'Lovelace' stored in a 'TxOut'.
 txOutLovelace :: TxOut ctx era -> Lovelace
-txOutLovelace (TxOut _ v _) = txOutValueToLovelace v
+txOutLovelace (TxOut _ v _ _) = txOutValueToLovelace v
 
 -- * Type Conversions
 
@@ -16,6 +16,6 @@ txOutLovelace (TxOut _ v _) = txOutValueToLovelace v
 fromLedgerCoin :: Ledger.Coin -> Lovelace
 fromLedgerCoin (Ledger.Coin n) = Lovelace n
 
--- | Convert a cardano-api's 'Lovelace' into a cardano-ledger's 'Coin'.
+-- | Convert a cardano-api 'Lovelace' into a cardano-ledger 'Coin'.
 toLedgerCoin :: Lovelace -> Ledger.Coin
 toLedgerCoin (Lovelace n) = Ledger.Coin n

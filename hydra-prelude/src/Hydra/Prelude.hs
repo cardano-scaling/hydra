@@ -153,7 +153,6 @@ import Test.QuickCheck (
   scale,
  )
 import Test.QuickCheck.Gen (Gen (..))
-import Test.QuickCheck.Instances ()
 import Test.QuickCheck.Random (mkQCGen)
 
 -- | Provides a sensible way of automatically deriving generic 'Arbitrary'

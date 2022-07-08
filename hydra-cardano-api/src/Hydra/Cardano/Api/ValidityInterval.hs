@@ -27,12 +27,12 @@ instance Arbitrary (TxValidityLowerBound Era) where
   arbitrary =
     oneof
       [ pure TxValidityNoLowerBound
-      , TxValidityLowerBound ValidityLowerBoundInAlonzoEra . SlotNo <$> arbitrary
+      , TxValidityLowerBound ValidityLowerBoundInBabbageEra . SlotNo <$> arbitrary
       ]
 
 instance Arbitrary (TxValidityUpperBound Era) where
   arbitrary =
     oneof
-      [ pure $ TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra
-      , TxValidityUpperBound ValidityUpperBoundInAlonzoEra . SlotNo <$> arbitrary
+      [ pure $ TxValidityNoUpperBound ValidityNoUpperBoundInBabbageEra
+      , TxValidityUpperBound ValidityUpperBoundInBabbageEra . SlotNo <$> arbitrary
       ]

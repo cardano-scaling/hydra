@@ -13,17 +13,17 @@ import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput, mkHeadTokenScript)
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (
   adaOnly,
   genOutput,
   genUTxOWithSimplifiedAddresses,
   genValue,
-  hashTxOuts,
  )
 import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
 import Hydra.Party (partyToChain)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (POSIXTime, toBuiltin, toData)
+import Plutus.V2.Ledger.Api (POSIXTime, toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Instances ()
 
@@ -76,7 +76,7 @@ healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
   Head.Closed
     { snapshotNumber = 1
-    , utxoHash = toBuiltin $ hashTxOuts $ toList healthyFanoutUTxO
+    , utxoHash = toBuiltin $ hashUTxO @Tx healthyFanoutUTxO
     , parties = partyToChain <$> arbitrary `generateWith` 42
     , contestationDeadline = healthyContestationDeadline
     }

@@ -18,12 +18,13 @@ import Hydra.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Crypto as Hydra
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey, hashTxOuts)
+import Hydra.Ledger (hashUTxO)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (toBuiltin, toData)
+import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -80,7 +81,7 @@ healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =
   CloseWithConfirmedSnapshot
     { snapshotNumber = healthySnapshotNumber
-    , closeUtxoHash = hashTxOuts $ toList healthyCloseUTxO
+    , closeUtxoHash = hashUTxO @Tx healthyCloseUTxO
     , signatures = healthySignature healthySnapshotNumber
     }
 
@@ -104,7 +105,7 @@ healthyCloseDatum :: Head.State
 healthyCloseDatum =
   Head.Open
     { parties = healthyOnChainParties
-    , utxoHash = toBuiltin $ hashTxOuts $ toList healthyUTxO
+    , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
     , contestationPeriod = healthyContestationPeriod
     }
 

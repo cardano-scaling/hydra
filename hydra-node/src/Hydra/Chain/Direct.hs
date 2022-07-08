@@ -14,13 +14,14 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
-import Cardano.Ledger.Alonzo.Rules.Utxos (TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
-import Cardano.Ledger.Alonzo.Rules.Utxow (AlonzoPredFail (WrappedShelleyEraFailure))
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
-import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure), debugPlutus, slotToPOSIXTime)
+import Cardano.Ledger.Alonzo.Rules.Utxos (FailureDescription (PlutusFailure), TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
+import Cardano.Ledger.Alonzo.Rules.Utxow (UtxowPredicateFail (WrappedShelleyEraFailure))
+import Cardano.Ledger.Alonzo.TxInfo (PlutusDebugInfo (..), debugPlutus, slotToPOSIXTime)
+import Cardano.Ledger.Babbage.PParams (PParams' (..))
+import Cardano.Ledger.Babbage.Rules.Utxo (BabbageUtxoPred (FromAlonzoUtxoFail))
+import Cardano.Ledger.Babbage.Rules.Utxow (BabbageUtxowPred (FromAlonzoUtxowFail))
+import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError))
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
@@ -43,11 +44,11 @@ import Data.List ((\\))
 import Hydra.Cardano.Api (
   CardanoMode,
   ChainPoint (..),
+  Era,
   EraHistory (EraHistory),
   LedgerEra,
   NetworkId,
   PaymentKey,
-  ShelleyBasedEra (ShelleyBasedEraAlonzo),
   SigningKey,
   Tx,
   VerificationKey,
@@ -87,7 +88,6 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.Util (
   Block,
-  Era,
   defaultCodecs,
   nullConnectTracers,
   versions,
@@ -99,8 +99,10 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
-import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo))
-import Ouroboros.Consensus.HardFork.Combinator (PastHorizonException)
+import Ouroboros.Consensus.Cardano.Block (
+  GenTx (..),
+  HardForkApplyTxErr (ApplyTxErrBabbage),
+ )
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -207,9 +209,10 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
     epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath queryPoint
     pure (utxo, pparams, systemStart, epochInfo)
 
-  toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Except PastHorizonException)
+  toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Either Text)
   toEpochInfo (EraHistory _ interpreter) =
-    Consensus.interpreterToEpochInfo interpreter
+    hoistEpochInfo (first show . runExcept) $
+      Consensus.interpreterToEpochInfo interpreter
 
   submitTx queue vtx = do
     response <- atomically $ do
@@ -230,7 +233,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
 
 -- | Query ad-hoc epoch, system start and protocol parameters to determine
 -- current point in time.
-queryTimeHandle :: MonadThrow m => NetworkId -> FilePath -> IO (TimeHandle m)
+queryTimeHandle :: NetworkId -> FilePath -> IO TimeHandle
 queryTimeHandle networkId socketPath = do
   tip@(ChainPoint slotNo _) <- queryTip networkId socketPath
   systemStart <- querySystemStart networkId socketPath (QueryAt tip)
@@ -239,7 +242,7 @@ queryTimeHandle networkId socketPath = do
   pparams <- queryProtocolParameters networkId socketPath (QueryAt tip)
   let toTime =
         slotToPOSIXTime
-          (toLedgerPParams ShelleyBasedEraAlonzo pparams :: PParams LedgerEra)
+          (toLedgerPParams (shelleyBasedEra @Era) pparams)
           epochInfo
           systemStart
   pure $
@@ -251,9 +254,9 @@ queryTimeHandle networkId socketPath = do
           pure (adjusted, time)
       }
  where
-  toEpochInfo :: MonadThrow m => EraHistory CardanoMode -> EpochInfo m
+  toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Either Text)
   toEpochInfo (EraHistory _ interpreter) =
-    hoistEpochInfo (either throwIO pure . runExcept) $
+    hoistEpochInfo (first show . runExcept) $
       Consensus.interpreterToEpochInfo interpreter
 
 data ConnectException = ConnectException
@@ -281,7 +284,7 @@ ouroborosApplication ::
   (MonadST m, MonadTimer m, MonadThrow m) =>
   Tracer m DirectChainLog ->
   Maybe (Point Block) ->
-  TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
+  TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
   ChainSyncHandler m ->
   TinyWallet m ->
   NodeToClientVersion ->
@@ -401,7 +404,7 @@ txSubmissionClient ::
   forall m.
   (MonadSTM m) =>
   Tracer m DirectChainLog ->
-  TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
+  TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
 txSubmissionClient tracer queue =
   LocalTxSubmissionClient clientStIdle
@@ -412,7 +415,7 @@ txSubmissionClient tracer queue =
     traceWith tracer (PostingTx (getTxId tx, tx))
     pure $
       SendMsgSubmitTx
-        (GenTxAlonzo . mkShelleyTx $ tx)
+        (GenTxBabbage . mkShelleyTx $ tx)
         ( \case
             SubmitSuccess -> do
               traceWith tracer (PostedTx (getTxId tx))
@@ -426,16 +429,28 @@ txSubmissionClient tracer queue =
   -- XXX(SN): patch-work error pretty printing on single plutus script failures
   onFail err =
     case err of
-      ApplyTxErrAlonzo (ApplyTxError [failure]) ->
+      ApplyTxErrBabbage (ApplyTxError [failure]) ->
         fromMaybe failedToPostTx (unwrapPlutus failure)
       _ ->
         failedToPostTx
    where
     failedToPostTx = FailedToPostTx{failureReason = show err}
 
-  unwrapPlutus :: LedgerPredicateFailure Era -> Maybe (PostTxError Tx)
+  unwrapPlutus :: LedgerPredicateFailure LedgerEra -> Maybe (PostTxError Tx)
   unwrapPlutus = \case
-    UtxowFailure (WrappedShelleyEraFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly [PlutusFailure plutusFailure debug]))))) ->
-      Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo = show (debugPlutus PlutusV1 (decodeUtf8 debug))}
+    UtxowFailure (FromAlonzoUtxowFail (WrappedShelleyEraFailure (UtxoFailure (FromAlonzoUtxoFail (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure plutusFailure debug :| _)))))))) ->
+      let plutusDebugInfo =
+            case debugPlutus (decodeUtf8 debug) of
+              DebugSuccess budget -> "DebugSuccess: " <> show budget
+              DebugCannotDecode err -> "DebugCannotDecode: " <> fromString err
+              DebugInfo logs err _debug ->
+                unlines
+                  [ "DebugInfo:"
+                  , "  Error: " <> show err
+                  , "  Logs:"
+                  ]
+                  <> unlines (fmap ("    " <>) logs)
+              DebugBadHex err -> "DebugBadHex: " <> fromString err
+       in Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo}
     _ ->
       Nothing

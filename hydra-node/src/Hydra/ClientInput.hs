@@ -4,7 +4,7 @@ module Hydra.ClientInput where
 
 import Hydra.Prelude
 
-import Hydra.Chain (ContestationPeriod)
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (IsTx, UTxOType)
 
 data ClientInput tx

@@ -11,13 +11,14 @@ import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
 import Plutus.V1.Ledger.Api (POSIXTime)
-import Plutus.V1.Ledger.Crypto (Signature)
 import qualified PlutusTx
 import Text.Show (Show)
 
 type SnapshotNumber = Integer
 
 type Hash = BuiltinByteString
+
+type Signature = BuiltinByteString
 
 data State
   = Initial

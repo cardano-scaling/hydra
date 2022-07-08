@@ -11,6 +11,7 @@ import Test.Hydra.Prelude
 import Cardano.Crypto.DSIGN.Ed25519 (SigDSIGN (SigEd25519DSIGN))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (counterexample, forAll, shuffle, (=/=), (==>))
+import Test.QuickCheck.Instances.UnorderedContainers ()
 
 spec :: Spec
 spec = do

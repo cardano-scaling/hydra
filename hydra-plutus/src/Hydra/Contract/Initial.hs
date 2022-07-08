@@ -2,21 +2,19 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
--- | The Initial validator which allows participants to commit or abort. To
--- focus on the off-chain datum types this is currently 'const True'.
+-- | The initial validator which allows participants to commit or abort.
 module Hydra.Contract.Initial where
 
 import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
-import Hydra.Contract.Encoding (encodeTxOut)
-import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Ada (Ada (getLovelace), fromValue)
-import Plutus.V1.Ledger.Api (
+import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
+import Plutus.V2.Ledger.Api (
   Datum (..),
   FromData (fromBuiltinData),
+  OutputDatum (..),
   PubKeyHash (getPubKeyHash),
   Redeemer (Redeemer),
   Script,
@@ -30,12 +28,15 @@ import Plutus.V1.Ledger.Api (
   Validator (getValidator),
   ValidatorHash,
   Value (getValue),
+  adaSymbol,
+  adaToken,
   mkValidatorScript,
  )
-import Plutus.V1.Ledger.Contexts (findDatum, findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
+import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
+import qualified PlutusTx.Builtins as Builtins
 
 data InitialRedeemer
   = ViaAbort
@@ -123,7 +124,7 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
         traceError "committed TxOut, but nothing in output datum"
       (Just (ref, txOut), Just Commit{input, preSerializedOutput}) ->
         traceIfFalse "mismatch committed TxOut in datum" $
-          encodingToBuiltinByteString (encodeTxOut txOut) == preSerializedOutput
+          Builtins.serialiseData (toBuiltinData txOut) == preSerializedOutput
             && ref == input
 
   initialValue =
@@ -140,17 +141,22 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
 
   lockedCommit =
     case scriptOutputsAt commitValidator txInfo of
-      [(dh, _)] ->
-        case getDatum <$> findDatum dh txInfo of
-          Nothing -> traceError "expected optional commit datum"
-          (Just da) ->
-            case fromBuiltinData @Commit.DatumType da of
-              Nothing -> traceError "expected commit datum type, got something else"
-              Just (_party, _headScriptHash, mCommit) ->
-                mCommit
+      [(dat, _)] ->
+        case dat of
+          NoOutputDatum -> traceError "missing datum"
+          OutputDatum _ -> traceError "unexpected inline datum"
+          OutputDatumHash dh ->
+            case findDatum dh txInfo of
+              Nothing -> traceError "could not find datum"
+              Just da ->
+                case fromBuiltinData @Commit.DatumType $ getDatum da of
+                  Nothing -> traceError "expected commit datum type, got something else"
+                  Just (_party, _headScriptHash, mCommit) ->
+                    mCommit
       _ -> traceError "expected single commit output"
 
-  debugValue = debugInteger . getLovelace . fromValue
+  debugValue v =
+    debugInteger . assetClassValueOf v $ assetClass adaSymbol adaToken
 
 -- | Show an 'Integer' as decimal number. This is very inefficient and only
 -- should be used for debugging.

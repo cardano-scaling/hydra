@@ -15,7 +15,9 @@ import qualified Cardano.Api
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
-type UTxO = UTxO' (TxOut CtxUTxO AlonzoEra)
+type Era = BabbageEra
+
+type UTxO = UTxO' (TxOut CtxUTxO Era)
 
 -- | Newtype with phantom types mostly required to work around the poor interface
 -- of 'Ledger.UTXO'and provide 'Monoid' and 'Foldable' instances to make utxo
@@ -40,7 +42,7 @@ fromPairs :: [(TxIn, out)] -> UTxO' out
 fromPairs = UTxO . Map.fromList
 
 -- | Create a 'UTxO' from a single unspent transaction output.
-singleton :: (TxIn, TxOut CtxUTxO AlonzoEra) -> UTxO
+singleton :: (TxIn, TxOut CtxUTxO Era) -> UTxO
 singleton (i, o) = UTxO $ Map.singleton i o
 
 -- | Find an 'out' for a given 'TxIn'.
@@ -57,7 +59,7 @@ inputSet = Map.keysSet . toMap
 
 -- | Get a human-readable pretty text representation of a UTxO.
 render :: (TxIn, TxOut ctx era) -> Text
-render (k, TxOut _ (txOutValueToValue -> v) _) =
+render (k, TxOut _ (txOutValueToValue -> v) _ _) =
   T.drop 54 (renderTxIn k) <> " ↦ " <> renderValue v
 
 -- | Select the minimum (by TxIn) utxo entry from the UTxO map.
@@ -68,8 +70,8 @@ min = UTxO . uncurry Map.singleton . Map.findMin . toMap
 
 -- * Type Conversions
 
-fromApi :: Cardano.Api.UTxO AlonzoEra -> UTxO
+fromApi :: Cardano.Api.UTxO Era -> UTxO
 fromApi = coerce
 
-toApi :: UTxO -> Cardano.Api.UTxO AlonzoEra
+toApi :: UTxO -> Cardano.Api.UTxO Era
 toApi = coerce

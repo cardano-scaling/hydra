@@ -60,15 +60,18 @@ instance Exception InvalidTransactionException
 emptyTxBody :: TxBuilder
 emptyTxBody =
   TxBodyContent
-    mempty
-    (TxInsCollateral mempty)
-    mempty
+    mempty -- inputs
+    (TxInsCollateral mempty) -- FIXME
+    TxInsReferenceNone
+    mempty -- outputs
+    TxTotalCollateralNone
+    TxReturnCollateralNone
     (TxFeeExplicit 0)
     (TxValidityNoLowerBound, TxValidityNoUpperBound)
     TxMetadataNone
     TxAuxScriptsNone
     TxExtraKeyWitnessesNone
-    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraAlonzo def) -- FIXME
+    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def) -- FIXME
     TxWithdrawalsNone
     TxCertificatesNone
     TxUpdateProposalNone

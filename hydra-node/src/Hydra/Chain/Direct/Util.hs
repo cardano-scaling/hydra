@@ -16,13 +16,12 @@ import Control.Tracer (nullTracer)
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import Hydra.Cardano.Api hiding (AlonzoEra, Block, SigningKey, VerificationKey)
+import Hydra.Cardano.Api hiding (Block, SigningKey, VerificationKey)
 import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Cardano.Api as Shelley
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
 import Ouroboros.Consensus.Cardano (CardanoBlock)
 import Ouroboros.Consensus.Cardano.Block (
-  AlonzoEra,
   CodecConfig (..),
  )
 import Ouroboros.Consensus.Network.NodeToClient (
@@ -43,7 +42,7 @@ import Ouroboros.Network.NodeToClient (
   simpleSingletonVersions,
  )
 import Ouroboros.Network.Protocol.Handshake.Version (Versions)
-import Plutus.V1.Ledger.Api (BuiltinByteString, Data, ToData (toBuiltinData), toData)
+import Plutus.V2.Ledger.Api (BuiltinByteString, Data, ToData (toBuiltinData), toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (oneof)
 
@@ -52,8 +51,6 @@ import Test.QuickCheck (oneof)
 --
 
 type Block = CardanoBlock StandardCrypto
-
-type Era = AlonzoEra StandardCrypto
 type VerificationKey = Crypto.VerKeyDSIGN (DSIGN StandardCrypto)
 type SigningKey = Crypto.SignKeyDSIGN (DSIGN StandardCrypto)
 
@@ -113,13 +110,14 @@ defaultCodecs nodeToClientV =
   clientCodecs cfg (supportedVersions ! nodeToClientV) nodeToClientV
  where
   supportedVersions = supportedNodeToClientVersions (Proxy @Block)
-  cfg = CardanoCodecConfig byron shelley allegra mary alonzo
+  cfg = CardanoCodecConfig byron shelley allegra mary alonzo babbage
    where
     byron = ByronCodecConfig epochSlots
     shelley = ShelleyCodecConfig
     allegra = ShelleyCodecConfig
     mary = ShelleyCodecConfig
     alonzo = ShelleyCodecConfig
+    babbage = ShelleyCodecConfig
 
   -- Fixed epoch slots used in the ByronCodecConfig.
   --

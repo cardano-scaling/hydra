@@ -14,17 +14,14 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.Tools as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import Data.List (intersectBy)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (
-  costModels,
   epochInfo,
   genForParty,
-  maxTxExecutionUnits,
   pparams,
   systemStart,
   testNetworkId,
@@ -43,8 +40,9 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
   renderTx,
  )
+import Hydra.Ledger.Cardano.Evaluate (RedeemerReport, evaluateTx, maxTxExecutionUnits)
 import Hydra.Party (Party, partyToChain)
-import Plutus.V1.Ledger.Api (toData)
+import Plutus.V2.Ledger.Api (toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
@@ -62,7 +60,7 @@ import Test.QuickCheck (
   vectorOf,
   withMaxSuccess,
  )
-import Test.QuickCheck.Instances ()
+import Test.QuickCheck.Instances.Semigroup ()
 
 spec :: Spec
 spec =
@@ -95,7 +93,7 @@ spec =
                         signer
                         initialThreadOutput
                         consumedOutputs
-                 in case validateTxScriptsUnlimited onChainUTxO tx of
+                 in case evaluateTx tx onChainUTxO of
                       Left basicFailure ->
                         property False & counterexample ("Basic failure: " <> show basicFailure)
                       Right redeemerReport ->
@@ -130,7 +128,7 @@ spec =
                     Left OverlappingInputs ->
                       property (isJust $ txIn `Map.lookup` initials)
                     Right tx ->
-                      case validateTxScriptsUnlimited utxo tx of
+                      case evaluateTx tx utxo of
                         Left basicFailure ->
                           property False & counterexample ("Basic failure: " <> show basicFailure)
                         Right redeemerReport ->
@@ -188,7 +186,7 @@ spec =
                       & counterexample "Failed to construct and observe init tx."
                       & counterexample (renderTx tx)
 
-withinTxExecutionBudget :: Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits) -> Property
+withinTxExecutionBudget :: RedeemerReport -> Property
 withinTxExecutionBudget redeemers =
   ( mem <= maxMem
       && cpu <= maxCpu
@@ -231,7 +229,7 @@ generateCommitUTxOs parties = do
   mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
-          (mkScriptAddress @PlutusScriptV1 testNetworkId commitScript)
+          (mkScriptAddress @PlutusScriptV2 testNetworkId commitScript)
           commitValue
           (mkTxOutDatum commitDatum)
     , fromPlutusData (toData commitDatum)
@@ -249,31 +247,7 @@ generateCommitUTxOs parties = do
     commitScript = fromPlutusScript Commit.validatorScript
     commitDatum = mkCommitDatum party Head.validatorHash utxo
 
--- | Evaluate all plutus scripts and return execution budgets of a given
--- transaction (any included budgets are ignored).
---
--- TODO: We may want to define a full cardano-api version of that one somewhere
--- else (that is, which also return cardano-api types and not ledger ones).
-validateTxScriptsUnlimited ::
-  -- | UTxO set used to create context for any tx inputs.
-  UTxO ->
-  Tx ->
-  Either
-    (Ledger.BasicFailure StandardCrypto)
-    (Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits))
-validateTxScriptsUnlimited (toLedgerUTxO -> utxo) (toLedgerTx -> tx) =
-  runIdentity $
-    Ledger.evaluateTransactionExecutionUnits
-      pparams
-      tx
-      utxo
-      epochInfo
-      systemStart
-      costModels
-
-prettyRedeemerReport ::
-  Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits) ->
-  String
+prettyRedeemerReport :: RedeemerReport -> String
 prettyRedeemerReport (Map.toList -> xs) =
   "Script Evaluation(s):\n" <> intercalate "\n" (prettyKeyValue <$> xs)
  where
@@ -282,9 +256,7 @@ prettyRedeemerReport (Map.toList -> xs) =
   prettyResult =
     either (T.replace "\n" " " . show) show
 
-successfulRedeemersSpending ::
-  Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits) ->
-  [Ledger.RdmrPtr]
+successfulRedeemersSpending :: RedeemerReport -> [Ledger.RdmrPtr]
 successfulRedeemersSpending =
   Map.foldrWithKey onlySuccessfulSpending []
  where
@@ -296,7 +268,7 @@ successfulRedeemersSpending =
         Ledger.RdmrPtr _ _ -> identity
 
 successfulRedeemersMinting ::
-  Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits) ->
+  RedeemerReport ->
   [Ledger.RdmrPtr]
 successfulRedeemersMinting =
   Map.foldrWithKey onlySuccessfulMinting []
@@ -338,7 +310,7 @@ genAbortableOutputs parties =
   initialTxOut vk =
     toUTxOContext $
       TxOut
-        (mkScriptAddress @PlutusScriptV1 testNetworkId initialScript)
+        (mkScriptAddress @PlutusScriptV2 testNetworkId initialScript)
         ( headValue
             <> valueFromList
               [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)

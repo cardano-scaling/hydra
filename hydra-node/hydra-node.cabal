@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-node
-version:            0.6.0
+version:            0.7.0
 synopsis:           The Hydra node
 author:             IOG
 copyright:          2022 IOG
@@ -85,6 +85,7 @@ library
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
     Hydra.ClientInput
+    Hydra.ContestationPeriod
     Hydra.Crypto
     Hydra.HeadLogic
     Hydra.Ledger
@@ -124,13 +125,15 @@ library
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
+    , cardano-ledger-babbage
+    , cardano-ledger-babbage-test
     , cardano-ledger-byron
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
     , cardano-ledger-shelley-test
-    , cardano-node
+    , cardano-ledger-test
     , cardano-prelude
     , cardano-slotting
     , cborg
@@ -154,12 +157,14 @@ library
     , ouroboros-consensus
     , ouroboros-consensus-byron
     , ouroboros-consensus-cardano
+    , ouroboros-consensus-protocol
     , ouroboros-consensus-shelley
     , ouroboros-network
     , ouroboros-network-framework
     , plutus-ledger-api
     , prometheus
     , QuickCheck
+    , quickcheck-instances
     , req
     , serialise
     , small-steps
@@ -209,7 +214,6 @@ benchmark tx-cost
     , hydra-node
     , hydra-plutus
     , hydra-prelude
-    , hydra-test-utils
     , mtl
     , optparse-applicative
     , plutus-ledger-api
@@ -280,6 +284,7 @@ test-suite tests
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
+    , cardano-ledger-babbage
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
@@ -312,6 +317,8 @@ test-suite tests
     , network
     , ouroboros-consensus
     , ouroboros-consensus-cardano
+    , ouroboros-consensus-cardano-test
+    , ouroboros-consensus-protocol
     , ouroboros-consensus-shelley
     , ouroboros-network
     , ouroboros-network-framework

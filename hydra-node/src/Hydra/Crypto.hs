@@ -38,9 +38,10 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (HasTypeProxy (..), SerialiseAsRawBytes (..), serialiseToRawBytesHexText)
-import qualified Plutus.V1.Ledger.Api as Plutus
-import qualified Plutus.V1.Ledger.Crypto as Plutus
-import Text.Show (Show (show))
+import qualified Hydra.Contract.HeadState as OnChain
+import qualified Plutus.V2.Ledger.Api as Plutus
+import Test.QuickCheck.Instances.ByteString ()
+import Text.Show (Show (..))
 
 -- | The used signature algorithm
 type SignAlg = Ed25519DSIGN
@@ -216,10 +217,10 @@ aggregateInOrder signatures = HydraMultiSignature . foldr appendSignature []
       Nothing -> sigs
       Just sig -> sig : sigs
 
-toPlutusSignatures :: MultiSignature a -> [Plutus.Signature]
+toPlutusSignatures :: MultiSignature a -> [OnChain.Signature]
 toPlutusSignatures (HydraMultiSignature sigs) =
   toPlutusSignature <$> sigs
  where
-  toPlutusSignature :: Signature a -> Plutus.Signature
+  toPlutusSignature :: Signature a -> OnChain.Signature
   toPlutusSignature (HydraSignature sig) =
-    Plutus.Signature . Plutus.toBuiltin $ rawSerialiseSigDSIGN sig
+    Plutus.toBuiltin $ rawSerialiseSigDSIGN sig

@@ -18,13 +18,17 @@ import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
-  genSequenceOfValidTransactions,
+  genOneUTxOFor,
+  genSequenceOfSimplePaymentTransactions,
+  genUTxOAdaOnlyOfSize,
+  genUTxOAlonzo,
+  genUTxOFor,
   renderTx,
  )
 import Hydra.Ledger.Cardano.Evaluate (slotNoFromPOSIXTime, slotNoToPOSIXTime)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Property, counterexample, forAll, forAllBlind, property, withMaxSuccess, (.&&.), (===))
+import Test.QuickCheck (Property, counterexample, forAll, forAllBlind, property, sized, vectorOf, withMaxSuccess, (.&&.), (===))
 
 spec :: Spec
 spec =
@@ -64,13 +68,17 @@ spec =
             \ \"auxiliaryData\":null}"
       shouldParseJSONAs @Tx bs
 
-    describe "orphan instances" $ do
-      propCollisionResistant "arbitrary TxIn" (arbitrary @TxIn)
-      propCollisionResistant "arbitrary TxId" (arbitrary @TxId)
-      propCollisionResistant "arbitrary VerificationKey" (arbitrary @(VerificationKey PaymentKey))
-      propCollisionResistant "arbitrary Hash" (arbitrary @(Hash PaymentKey))
+    describe "Generators" $ do
+      propCollisionResistant "arbitrary @TxIn" (arbitrary @TxIn)
+      propCollisionResistant "arbitrary @TxId" (arbitrary @TxId)
+      propCollisionResistant "arbitrary @(VerificationKey PaymentKey)" (arbitrary @(VerificationKey PaymentKey))
+      propCollisionResistant "arbitrary @(Hash PaymentKey)" (arbitrary @(Hash PaymentKey))
+      propDoesNotCollapse "genUTxOAlonzo" genUTxOAlonzo
+      propDoesNotCollapse "genUTxOAdaOnlyOfSize" (sized genUTxOAdaOnlyOfSize)
+      propCollisionResistant "genUTxOFor" (genUTxOFor (arbitrary `generateWith` 42))
+      propCollisionResistant "genOneUTxOFor" (genOneUTxOFor (arbitrary `generateWith` 42))
 
-    describe "Evaluate helpers" $ do
+    describe "Evaluate helpers" $
       prop "slotNoFromPOSIXTime . slotNoToPOSIXTime === id" $ \slot ->
         slotNoFromPOSIXTime (slotNoToPOSIXTime slot) === slot
 
@@ -103,7 +111,7 @@ roundtripCBOR a =
 
 appliesValidTransaction :: Property
 appliesValidTransaction =
-  forAllBlind (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv) $ \(utxo, txs) ->
+  forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
     let result = applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo txs
      in case result of
           Right _ -> property True
@@ -116,7 +124,7 @@ appliesValidTransaction =
 
 appliesValidTransactionFromJSON :: Property
 appliesValidTransactionFromJSON =
-  forAllBlind (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv) $ \(utxo, txs) ->
+  forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
     let encoded = encode txs
         result = eitherDecode encoded >>= first show . applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo
      in isRight result
@@ -131,3 +139,9 @@ propCollisionResistant name gen =
       forAll gen $ \a ->
         forAll gen $ \b ->
           a /= b
+
+propDoesNotCollapse :: (Show (t a), Foldable t, Monoid (t a)) => String -> Gen (t a) -> Spec
+propDoesNotCollapse name gen =
+  prop (name <> " does not generate collapsing values") $
+    forAll (vectorOf 100 gen) $ \xs ->
+      sum (length <$> xs) === length (fold xs)

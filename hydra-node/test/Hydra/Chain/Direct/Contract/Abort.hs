@@ -6,6 +6,7 @@
 module Hydra.Chain.Direct.Contract.Abort where
 
 import Hydra.Cardano.Api
+import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
@@ -34,7 +35,7 @@ import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, partyToChain)
-import Hydra.Prelude
+import Test.Hydra.Fixture (cperiod)
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchThat)
 
 --
@@ -80,7 +81,7 @@ healthyHeadInput = generateWith arbitrary 42
 healthyHeadParameters :: HeadParameters
 healthyHeadParameters =
   HeadParameters
-    { contestationPeriod = 10
+    { contestationPeriod = cperiod
     , parties = healthyParties
     }
 
@@ -106,7 +107,7 @@ propHasInitial (_, utxo) =
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Initial Script: " <> show addr)
  where
-  addr = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Initial.validatorScript)
+  addr = mkScriptAddress @PlutusScriptV2 testNetworkId (fromPlutusScript Initial.validatorScript)
   paysToInitialScript txOut =
     txOutAddress txOut == addr
 
@@ -116,7 +117,7 @@ propHasCommit (_, utxo) =
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Commit Script: " <> show addr)
  where
-  addr = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Commit.validatorScript)
+  addr = mkScriptAddress @PlutusScriptV2 testNetworkId (fromPlutusScript Commit.validatorScript)
   paysToCommitScript txOut =
     txOutAddress txOut == addr
 

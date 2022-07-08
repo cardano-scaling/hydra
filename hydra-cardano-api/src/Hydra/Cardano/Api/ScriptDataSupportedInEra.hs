@@ -9,3 +9,6 @@ class HasScriptData era where
 
 instance HasScriptData AlonzoEra where
   scriptDataSupportedInEra = ScriptDataInAlonzoEra
+
+instance HasScriptData BabbageEra where
+  scriptDataSupportedInEra = ScriptDataInBabbageEra

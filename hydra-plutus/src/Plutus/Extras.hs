@@ -3,7 +3,7 @@
 
 module Plutus.Extras where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (fromMaybe)
 
 import Hydra.Cardano.Api (
   SerialiseAsRawBytes (serialiseToRawBytes),
@@ -11,8 +11,8 @@ import Hydra.Cardano.Api (
   hashScript,
   pattern PlutusScript,
  )
-import Plutus.V1.Ledger.Api (Script, ScriptContext, ValidatorHash (ValidatorHash))
-import PlutusTx (BuiltinData, UnsafeFromData (..))
+import Plutus.V1.Ledger.Api (Script, UnsafeFromData (unsafeFromBuiltinData), ValidatorHash (ValidatorHash))
+import PlutusTx (BuiltinData)
 import PlutusTx.Prelude (check, toBuiltin)
 
 -- * Vendored from plutus-ledger
@@ -24,24 +24,31 @@ type ValidatorType = BuiltinData -> BuiltinData -> BuiltinData -> ()
 -- be passed to `PlutusTx.compile`.
 -- REVIEW: There might be better ways to name this than "wrap"
 wrapValidator ::
-  (UnsafeFromData datum, UnsafeFromData redeemer) =>
-  (datum -> redeemer -> ScriptContext -> Bool) ->
+  (UnsafeFromData datum, UnsafeFromData redeemer, UnsafeFromData context) =>
+  (datum -> redeemer -> context -> Bool) ->
   ValidatorType
--- We can use unsafeFromBuiltinData here as we would fail immediately anyway if parsing failed
-wrapValidator f d r p = check $ f (unsafeFromBuiltinData d) (unsafeFromBuiltinData r) (unsafeFromBuiltinData p)
+wrapValidator f d r c =
+  check $ f datum redeemer context
+ where
+  datum = unsafeFromBuiltinData d
+  redeemer = unsafeFromBuiltinData r
+  context = unsafeFromBuiltinData c
 {-# INLINEABLE wrapValidator #-}
 
 -- | Signature of an untyped minting policy script.
 type MintingPolicyType = BuiltinData -> BuiltinData -> ()
 
--- | Wrap a typed minting policy to get the basic `MintintPolicyType` signature
+-- | Wrap a typed minting policy to get the basic `MintingPolicyType` signature
 -- which can be passed to `PlutusTx.compile`.
 wrapMintingPolicy ::
-  UnsafeFromData redeemer =>
-  (redeemer -> ScriptContext -> Bool) ->
+  (UnsafeFromData redeemer, UnsafeFromData context) =>
+  (redeemer -> context -> Bool) ->
   MintingPolicyType
--- We can use unsafeFromBuiltinData here as we would fail immediately anyway if parsing failed
-wrapMintingPolicy f r p = check $ f (unsafeFromBuiltinData r) (unsafeFromBuiltinData p)
+wrapMintingPolicy f r c =
+  check $ f redeemer context
+ where
+  redeemer = unsafeFromBuiltinData r
+  context = unsafeFromBuiltinData c
 {-# INLINEABLE wrapMintingPolicy #-}
 
 -- * Similar utilities as plutus-ledger

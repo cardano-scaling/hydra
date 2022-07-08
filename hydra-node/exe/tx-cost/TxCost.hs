@@ -6,10 +6,8 @@ import Hydra.Prelude hiding (catch)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
-import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Data.ByteString.Lazy as LBS
-import Data.Fixed
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   NetworkId (Testnet),
@@ -20,14 +18,14 @@ import Hydra.Cardano.Api (
 import Hydra.Chain.Direct.Context (
   HydraContext (ctxVerificationKeys),
   ctxHeadParameters,
+  ctxHydraSigningKeys,
   executeCommits,
   genCloseTx,
-  genCollectComTx,
   genCommits,
-  genContestTx,
   genHydraContext,
   genHydraContextFor,
   genInitTx,
+  genStClosed,
   genStIdle,
   genStInitialized,
   genStOpen,
@@ -37,7 +35,9 @@ import Hydra.Chain.Direct.State (
   HeadStateKind (StClosed),
   abort,
   close,
+  collect,
   commit,
+  contest,
   fanout,
   getContestationDeadline,
   getKnownUTxO,
@@ -48,15 +48,23 @@ import Hydra.Ledger.Cardano (
   genTxIn,
   genUTxOAdaOnlyOfSize,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx, genPointInTime, genPointInTimeAfter, pparams)
+import Hydra.Ledger.Cardano.Evaluate (
+  evaluateTx,
+  genPointInTime,
+  genPointInTimeAfter,
+  genPointInTimeBefore,
+  maxCpu,
+  maxMem,
+  maxTxSize,
+ )
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
 import Test.QuickCheck (generate, sublistOf)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeInitCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 30]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 11]
   pure $ interesting <> limit
  where
   compute numParties = do
@@ -112,6 +120,14 @@ computeCollectComCost =
       Nothing ->
         pure Nothing
 
+  genCollectComTx numParties = do
+    ctx <- genHydraContextFor numParties
+    initTx <- genInitTx ctx
+    commits <- genCommits ctx initTx
+    stIdle <- genStIdle ctx
+    let (_, stInitialized) = executeCommits initTx commits stIdle
+    pure (stInitialized, collect stInitialized)
+
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeCloseCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
@@ -142,6 +158,14 @@ computeContestCost = do
       Nothing ->
         pure Nothing
 
+  genContestTx numParties = do
+    ctx <- genHydraContextFor numParties
+    utxo <- arbitrary
+    (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
+    snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
+    pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+    pure (stClosed, contest snapshot pointInTime stClosed)
+
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeAbortCost =
   -- NOTE: We can't even close with one party right now, so no point in
@@ -159,7 +183,7 @@ computeAbortCost =
   genAbortTx numParties = do
     ctx <- genHydraContextFor numParties
     initTx <- genInitTx ctx
-    commits <- sublistOf . snd =<< genCommits ctx initTx
+    commits <- sublistOf =<< genCommits ctx initTx
     stIdle <- genStIdle ctx
     let (_, stInitialized) = executeCommits initTx commits stIdle
     pure (abort stInitialized, getKnownUTxO stInitialized)
@@ -219,13 +243,6 @@ checkSizeAndEvaluate tx knownUTxO = do
     _ -> Nothing
  where
   txSize = fromIntegral $ LBS.length $ serialize tx
-
-maxTxSize :: Natural
-maxTxSize = Ledger._maxTxSize pparams
-
-maxMem, maxCpu :: Fixed E2
-Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
-  Ledger._maxTxExUnits pparams
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42

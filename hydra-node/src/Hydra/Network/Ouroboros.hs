@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 -- | Ouroboros-based implementation of 'Hydra.Network' interface.
 -- This implements a dumb 'FireForget' protocol and maintains one connection to each peer.
 -- Contrary to other protocols implemented in Ouroboros, this is a push-based protocol.
@@ -10,7 +12,6 @@ module Hydra.Network.Ouroboros (
 
 import Hydra.Prelude
 
-import Cardano.Tracing.OrphanInstances.Network ()
 import Codec.CBOR.Term (Term)
 import qualified Codec.CBOR.Term as CBOR
 import Control.Concurrent.STM (
@@ -26,7 +27,7 @@ import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import Data.Map.Strict as Map
-import Hydra.Logging (ToObject (..), Tracer, TracingVerbosity (..), nullTracer)
+import Hydra.Logging (Tracer, nullTracer)
 import Hydra.Network (
   Host (..),
   Network (..),
@@ -66,7 +67,7 @@ import Ouroboros.Network.Driver.Simple (
  )
 import Ouroboros.Network.ErrorPolicy (
   ErrorPolicyTrace,
-  WithAddr,
+  WithAddr (WithAddr),
   nullErrorPolicies,
  )
 import Ouroboros.Network.IOManager (withIOManager)
@@ -111,7 +112,7 @@ import Ouroboros.Network.Subscription (
   WithIPList,
  )
 import qualified Ouroboros.Network.Subscription as Subscription
-import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..))
+import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..), WithIPList (WithIPList))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 
 withOuroborosNetwork ::
@@ -305,25 +306,51 @@ data TraceOuroborosNetwork msg
   | TraceSendRecv (TraceSendRecv (FireForget msg))
   deriving stock (Show, Generic)
 
+-- NOTE: cardano-node would have orphan ToObject instances for most of these
+-- types, but we want to avoid that dependency.
 instance ToJSON msg => ToJSON (TraceOuroborosNetwork msg) where
   toJSON = \case
     TraceSubscriptions withIpList ->
-      tagged "TraceSubscriptions" ["subscriptions" .= toObject MaximalVerbosity withIpList]
+      tagged "TraceSubscriptions" ["subscriptions" .= encodeWithIPList withIpList]
     TraceErrorPolicy withAddr ->
-      tagged "TraceErrorPolicy" ["errors" .= toObject MaximalVerbosity withAddr]
+      tagged "TraceErrorPolicy" ["errors" .= encodeWithAddr withAddr]
     TraceAcceptPolicy accept ->
-      tagged "TraceAcceptPolicy" ["accept" .= toObject MaximalVerbosity accept]
+      tagged "TraceAcceptPolicy" ["accept" .= show @Text accept]
     TraceHandshake handshake ->
       tagged "TraceHandshake" ["handshake" .= encodeTraceSendRecvHandshake handshake]
     TraceMux withMuxBearer ->
-      tagged "TraceMux" ["mux" .= toObject MaximalVerbosity withMuxBearer]
+      tagged "TraceMux" ["mux" .= encodeWithMuxBearer withMuxBearer]
     TraceSendRecv sndRcv ->
       tagged "TraceSendRecv" ["trace" .= encodeTraceSendRecvFireForget sndRcv]
-   where
-    tagged :: Text -> [Aeson.Pair] -> Aeson.Value
-    tagged tag pairs = object (("tag" .= tag) : pairs)
 
--- NOTE: No instances for those traces in cardano-node or ouroboros-network :(
+tagged :: Text -> [Aeson.Pair] -> Aeson.Value
+tagged tag pairs = object (("tag" .= tag) : pairs)
+
+encodeWithIPList :: WithIPList (SubscriptionTrace SockAddr) -> Aeson.Value
+encodeWithIPList (WithIPList src dsts ev) =
+  tagged
+    "WithIPList"
+    [ "src" .= show @Text src
+    , "dsts" .= show @Text dsts
+    , "event" .= show @Text ev
+    ]
+
+encodeWithAddr :: WithAddr SockAddr ErrorPolicyTrace -> Aeson.Value
+encodeWithAddr (WithAddr addr ev) =
+  tagged
+    "WithAddr"
+    [ "addr" .= show @Text addr
+    , "event" .= show @Text ev
+    ]
+
+encodeWithMuxBearer :: WithMuxBearer (ConnectionId SockAddr) MuxTrace -> Aeson.Value
+encodeWithMuxBearer (WithMuxBearer peerId ev) =
+  tagged
+    "WithMuxBearer"
+    [ "peerId" .= show @Text peerId
+    , "event" .= show @Text ev
+    ]
+
 encodeTraceSendRecvHandshake ::
   WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)) ->
   [Aeson.Pair]

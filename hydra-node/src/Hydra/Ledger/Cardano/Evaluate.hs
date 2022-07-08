@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 -- | Simplified interface to phase-2 validation of transaction, eg. evaluation of Plutus scripts.
 --
 -- The `evaluateTx` function simplifies the call to underlying Plutus providing execution report
@@ -11,15 +13,11 @@ module Hydra.Ledger.Cardano.Evaluate where
 import Hydra.Prelude hiding (label)
 
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
-import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
-import Cardano.Ledger.Alonzo.Scripts (CostModel (..), ExUnits (..), Prices (..))
-import Cardano.Ledger.Alonzo.Tools (
-  BasicFailure,
-  ScriptFailure,
-  evaluateTransactionExecutionUnits,
- )
-import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
+import Cardano.Ledger.Alonzo.Scripts (CostModel, CostModels (CostModels), ExUnits (..), Prices (..))
+import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
+import Cardano.Ledger.Alonzo.TxInfo (TranslationError, slotToPOSIXTime)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
+import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
 import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize), SlotNo (SlotNo))
@@ -27,24 +25,33 @@ import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength (getSlotLe
 import Data.Array (Array, array)
 import Data.Bits (shift)
 import Data.Default (def)
+import Data.Fixed (E2, Fixed)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (ExecutionUnits, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
-import Hydra.Chain.Direct.Util (Era)
-import qualified Plutus.V1.Ledger.Api as PV1
-import qualified Plutus.V1.Ledger.Api as Plutus
-import qualified Plutus.V2.Ledger.Api as PV2
+import Hydra.Cardano.Api (
+  ExecutionUnits (..),
+  LedgerEra,
+  StandardCrypto,
+  Tx,
+  UTxO,
+  fromLedgerExUnits,
+  toLedgerExUnits,
+  toLedgerTx,
+  toLedgerUTxO,
+ )
+import qualified Plutus.V2.Ledger.Api as Plutus
+import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import Test.QuickCheck (choose)
 
 type RedeemerReport =
-  (Map RdmrPtr (Either (ScriptFailure StandardCrypto) ExUnits))
+  (Map RdmrPtr (Either (TransactionScriptFailure StandardCrypto) ExUnits))
 
 evaluateTx ::
   Tx ->
   UTxO ->
-  Either (BasicFailure StandardCrypto) RedeemerReport
+  Either (TranslationError StandardCrypto) RedeemerReport
 evaluateTx = evaluateTx' (fromLedgerExUnits $ _maxTxExUnits pparams)
 
 evaluateTx' ::
@@ -52,33 +59,39 @@ evaluateTx' ::
   ExecutionUnits ->
   Tx ->
   UTxO ->
-  Either (BasicFailure StandardCrypto) RedeemerReport
+  Either (TranslationError StandardCrypto) RedeemerReport
 evaluateTx' maxTxExUnits tx utxo =
-  runIdentity $
-    evaluateTransactionExecutionUnits
-      pparams{_maxTxExUnits = toLedgerExUnits maxTxExUnits}
-      (toLedgerTx tx)
-      (toLedgerUTxO utxo)
-      epochInfo
-      systemStart
-      costModels
+  evaluateTransactionExecutionUnits
+    pparams{_maxTxExUnits = toLedgerExUnits maxTxExUnits}
+    (toLedgerTx tx)
+    (toLedgerUTxO utxo)
+    epochInfo
+    systemStart
+    costModels
 
--- | Cost models used in 'evaluateTx'. See also 'pparams' and 'defaultCostModel'
+-- | Cost models used in 'evaluateTx'.
 costModels :: Array Language CostModel
 costModels =
   array
-    (PlutusV1, PlutusV1)
-    [(PlutusV1, fromJust $ defaultCostModel PlutusV1)]
+    (PlutusV1, PlutusV2)
+    [ (PlutusV1, testingCostModelV1)
+    , (PlutusV2, testingCostModelV2)
+    ]
 
 -- | Current mainchain cost parameters.
-pparams :: PParams Era
+pparams :: PParams LedgerEra
 pparams =
   def
-    { _costmdls = Map.singleton PlutusV1 $ fromJust $ defaultCostModel PlutusV1
+    { _costmdls =
+        CostModels $
+          Map.fromList
+            [ (PlutusV1, testingCostModelV1)
+            , (PlutusV2, testingCostModelV2)
+            ]
     , _maxValSize = 1000000000
     , _maxTxExUnits = ExUnits 14_000_000 10_000_000_000
     , _maxBlockExUnits = ExUnits 56_000_000 40_000_000_000
-    , _protocolVersion = ProtVer 6 0
+    , _protocolVersion = ProtVer 7 0
     , _maxTxSize = 1 `shift` 14 -- 16kB
     , _prices =
         Prices
@@ -87,11 +100,22 @@ pparams =
           }
     }
 
--- | Default cost model used in 'pparams'.
-defaultCostModel :: Language -> Maybe CostModel
-defaultCostModel = \case
-  PlutusV1 -> CostModel <$> PV1.defaultCostModelParams
-  PlutusV2 -> CostModel <$> PV2.defaultCostModelParams
+-- | Max transaction size of the current 'pparams'.
+maxTxSize :: Natural
+maxTxSize = _maxTxSize pparams
+
+-- | Max transaction execution unit budget of the current 'params'.
+maxTxExecutionUnits :: ExecutionUnits
+maxTxExecutionUnits =
+  ExecutionUnits
+    { executionMemory = truncate maxMem
+    , executionSteps = truncate maxCpu
+    }
+
+-- | Max memory and cpu units of the current 'pparams'.
+maxMem, maxCpu :: Fixed E2
+ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
+  _maxTxExUnits pparams
 
 epochInfo :: Monad m => EpochInfo m
 epochInfo = fixedEpochInfo (EpochSize 100) slotLength
@@ -104,8 +128,9 @@ systemStart = SystemStart $ posixSecondsToUTCTime 0
 
 genPointInTime :: Gen (SlotNo, Plutus.POSIXTime)
 genPointInTime = do
-  slot <- arbitrary
-  pure (slot, slotNoToPOSIXTime slot)
+  slot <- SlotNo <$> arbitrary
+  let time = slotNoToPOSIXTime slot
+  pure (slot, time)
 
 genPointInTimeBefore :: Plutus.POSIXTime -> Gen (SlotNo, Plutus.POSIXTime)
 genPointInTimeBefore deadline = do
@@ -133,10 +158,10 @@ slotNoFromPOSIXTime posixTime =
         (`div` 1000) $
           Plutus.getPOSIXTime posixTime
 
--- | Using hard-coded epochInfo and systemStart, do not use in production!
-slotNoToPOSIXTime :: SlotNo -> Plutus.POSIXTime
+-- | Using hard-coded defaults above. Fails for slots past epoch boundaries.
+slotNoToPOSIXTime :: HasCallStack => SlotNo -> Plutus.POSIXTime
 slotNoToPOSIXTime =
-  runIdentity
+  either error id
     . slotToPOSIXTime
       pparams
       epochInfo

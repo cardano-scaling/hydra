@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Cardano.Api.Tx where
 
 import Hydra.Cardano.Api.Prelude
@@ -10,11 +12,10 @@ import Hydra.Cardano.Api.KeyWitness (
 import Hydra.Cardano.Api.Lovelace (fromLedgerCoin)
 import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
 
-import qualified Cardano.Ledger.Alonzo as Ledger
-import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.Tx as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Babbage.PParams as Ledger
+import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import qualified Cardano.Ledger.Era as Ledger
 import qualified Data.Map as Map
 import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
@@ -32,6 +33,7 @@ txFee' (getTxBody -> TxBody body) =
     TxFeeExplicit TxFeesExplicitInAllegraEra fee -> fee
     TxFeeExplicit TxFeesExplicitInMaryEra fee -> fee
     TxFeeExplicit TxFeesExplicitInAlonzoEra fee -> fee
+    TxFeeExplicit TxFeesExplicitInBabbageEra fee -> fee
     TxFeeImplicit _ -> error "impossible: TxFeeImplicit on non-Byron transaction."
 
 -- | Calculate the total execution cost of a transaction, according to the
@@ -52,7 +54,7 @@ totalExecutionCost pparams tx =
 
 -- * Type Conversions
 
--- | Convert a cardano-api's 'Tx' into a cardano-ledger's 'Tx' in the Alonzo era
+-- | Convert a cardano-api 'Tx' into a cardano-ledger 'Tx' in the Alonzo era
 -- (a.k.a. 'ValidatedTx').
 toLedgerTx :: Tx Era -> Ledger.ValidatedTx (ShelleyLedgerEra Era)
 toLedgerTx = \case
@@ -88,8 +90,8 @@ toLedgerTx = \case
                 }
           }
 
--- | Convert a cardano-ledger's 'Tx' in the Alonzo era (a.k.a. 'ValidatedTx')
--- into a cardano-api's 'Tx'.
+-- | Convert a cardano-ledger's 'Tx' in the Babbage era (a.k.a. 'ValidatedTx')
+-- into a cardano-api 'Tx'.
 fromLedgerTx :: Ledger.ValidatedTx (ShelleyLedgerEra Era) -> Tx Era
 fromLedgerTx (Ledger.ValidatedTx body wits isValid auxData) =
   Tx
@@ -97,16 +99,19 @@ fromLedgerTx (Ledger.ValidatedTx body wits isValid auxData) =
     (fromLedgerTxWitness wits)
  where
   era =
-    ShelleyBasedEraAlonzo
+    ShelleyBasedEraBabbage
+
   scripts =
     Map.elems $ Ledger.txscripts' wits
+
   scriptsData =
     TxBodyScriptData
-      ScriptDataInAlonzoEra
+      ScriptDataInBabbageEra
       (Ledger.txdats' wits)
       (Ledger.txrdmrs' wits)
+
   validity = case isValid of
     Ledger.IsValid True ->
-      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptValid
+      TxScriptValidity TxScriptValiditySupportedInBabbageEra ScriptValid
     Ledger.IsValid False ->
-      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptInvalid
+      TxScriptValidity TxScriptValiditySupportedInBabbageEra ScriptInvalid

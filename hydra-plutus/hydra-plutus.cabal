@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          hydra-plutus
-version:       0.6.0
+version:       0.7.0
 synopsis:      Hydra Plutus Contracts
 author:        IOG
 copyright:     2022 IOG
@@ -107,6 +107,8 @@ library
     , plutus-tx-plugin
     , prettyprinter
     , QuickCheck
+    , quickcheck-instances
+    , serialise
     , template-haskell
     , text
     , time

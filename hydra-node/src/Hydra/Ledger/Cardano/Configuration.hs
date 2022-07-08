@@ -27,7 +27,6 @@ readJsonFileThrow parser filepath = do
   case Json.parseEither parser value of
     Left e -> fail e
     Right a -> pure a
-
 -- * Globals
 
 shelleyGenesisFromJson :: Json.Value -> Json.Parser (Ledger.ShelleyGenesis LedgerEra)
@@ -49,7 +48,6 @@ newGlobals shelleyGenesis =
       & hoistEpochInfo (left show . runExcept)
   epochSize = Ledger.sgEpochLength shelleyGenesis
   slotLength = mkSlotLength (Ledger.sgSlotLength shelleyGenesis)
-
 -- * LedgerEnv
 
 protocolParametersFromJson :: Json.Value -> Json.Parser ProtocolParameters
@@ -79,5 +77,5 @@ newLedgerEnv pparams =
       -- both unused in Hydra. There might be room for interesting features in the
       -- future with these two but for now, we'll consider them empty.
       Ledger.ledgerAccount = Ledger.AccountState mempty mempty
-    , Ledger.ledgerPp = toLedgerPParams ShelleyBasedEraAlonzo pparams
+    , Ledger.ledgerPp = toLedgerPParams ShelleyBasedEraBabbage pparams
     }

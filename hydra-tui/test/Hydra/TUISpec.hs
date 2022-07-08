@@ -6,14 +6,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoCluster (
-  Actor (Alice),
-  Marked (Fuel, Normal),
-  chainConfigFor,
-  defaultNetworkId,
-  keysFor,
-  seedFromFaucet_,
- )
 import CardanoNode (NodeLog, RunningNode (RunningNode), newNodeConfig, withBFTNode)
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
@@ -34,7 +26,17 @@ import Graphics.Vty (
   termName,
  )
 import Graphics.Vty.Image (DisplayRegion)
-import qualified Hydra.Crypto as Hydra
+import Hydra.Cluster.Faucet (
+  Marked (Fuel, Normal),
+  seedFromFaucet_,
+ )
+import Hydra.Cluster.Fixture (
+  Actor (Alice),
+  aliceSk,
+  defaultNetworkId,
+ )
+import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Options (ChainConfig (..))
@@ -87,7 +89,7 @@ spec =
           threadDelay 1
           shouldRender "Closed"
           shouldRender "Remaining time to contest"
-          threadDelay (realToFrac $ tuiContestationPeriod + gracePeriod + someTime)
+          threadDelay (realToFrac $ toNominalDiffTime tuiContestationPeriod + gracePeriod + someTime)
           sendInputEvent $ EvKey (KChar 'f') []
           threadDelay 1
           shouldRender "Final"
@@ -232,6 +234,3 @@ data TUILog
   = FromCardano NodeLog
   | FromHydra EndToEndLog
   deriving (Show, Generic, ToJSON)
-
-aliceSk :: Hydra.SigningKey
-aliceSk = Hydra.generateSigningKey "alice"
