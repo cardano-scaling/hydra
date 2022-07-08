@@ -7,6 +7,7 @@ import Hydra.Cluster.Fixture (knownNetworkId)
 import Hydra.Cluster.Options (Options (..), parseOptions)
 import Hydra.Cluster.Scenarios (singlePartyHeadFullLifeCycle)
 import Hydra.Logging (Verbosity (Verbose), withTracer)
+import HydraNode (EndToEndLog (FromCardanoNode))
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 import Test.Hydra.Prelude (withTempDir)
 
@@ -18,8 +19,8 @@ run :: Options -> IO ()
 run options =
   withTracer (Verbose "hydra-cluster") $ \tracer -> do
     withStateDirectory $ \workDir ->
-      withCardanoNodeOnKnownNetwork tracer workDir knownNetwork $
-        singlePartyHeadFullLifeCycle (knownNetworkId knownNetwork)
+      withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir knownNetwork $
+        singlePartyHeadFullLifeCycle tracer workDir (knownNetworkId knownNetwork)
  where
   Options{knownNetwork, stateDirectory} = options
 
