@@ -3,8 +3,9 @@ module Main where
 import Hydra.Prelude
 
 import CardanoNode (withCardanoNodeOnKnownNetwork)
+import Hydra.Cluster.Fixture (knownNetworkId)
 import Hydra.Cluster.Options (Options (..), parseOptions)
-import Hydra.Cluster.Scenarios (knownNetworkId, singlePartyHeadFullLifeCycle)
+import Hydra.Cluster.Scenarios (singlePartyHeadFullLifeCycle)
 import Hydra.Logging (Verbosity (Verbose), withTracer)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 import Test.Hydra.Prelude (withTempDir)

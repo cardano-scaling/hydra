@@ -63,3 +63,9 @@ data KnownNetwork
   = Testnet
   | VasilTestnet
   deriving (Show)
+
+-- TODO: Determine networkId instead in 'withCardanoNodeOnKnownNetwork' and pass via RunningNode
+knownNetworkId :: KnownNetwork -> NetworkId
+knownNetworkId = \case
+  Testnet -> Api.Testnet (Api.NetworkMagic 1097911063)
+  VasilTestnet -> Api.Testnet (Api.NetworkMagic 9)
