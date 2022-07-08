@@ -164,7 +164,9 @@ withCardanoNodeDevnet tracer cfg action = do
 
   generateEnvironment args
 
-  withCardanoNode tracer cfg args action
+  withCardanoNode tracer cfg args $ \rn -> do
+    traceWith tracer MsgNodeIsReady
+    action rn
  where
   dirname =
     "stake-pool-" <> show (nodeId cfg)
@@ -205,6 +207,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   copyKnownNetworkFiles
   withCardanoNode tracer config args $ \node -> do
     waitForFullySynchronized tracer knownNetwork node
+    traceWith tracer MsgNodeIsReady
     action node
  where
   args =
@@ -259,7 +262,7 @@ waitForFullySynchronized tracer knownNetwork (RunningNode _ nodeSocket) = do
     let timeDifference = diffRelativeTime targetTime tipTime
     let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
     traceWith tracer $ MsgSynchronizing{percentDone}
-    if timeDifference < 1
+    if timeDifference < 20 -- TODO: derive from known network and block times
       then pure ()
       else threadDelay 3 >> check systemStart
 
@@ -274,6 +277,7 @@ withCardanoNode tr config@CardanoNodeConfig{stateDirectory, nodeId} args action 
   let process = cardanoNodeProcess (Just stateDirectory) args
       logFile = stateDirectory </> "cardano-node-" <> show nodeId <.> "log"
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
+  -- FIXME: for some reason this file is not written to if it exists?
   withFile' logFile $ \out -> do
     hSetBuffering out LineBuffering
     withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $
@@ -394,6 +398,7 @@ data NodeLog
   | MsgNodeStarting CardanoNodeConfig
   | MsgSocketIsReady FilePath
   | MsgSynchronizing {percentDone :: Centi}
+  | MsgNodeIsReady
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
