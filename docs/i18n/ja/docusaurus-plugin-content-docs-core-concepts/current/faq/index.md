@@ -1,47 +1,47 @@
-# Frequently Asked Questions
+# よくある質問
 
 > And their answers!
 
 <details>
-  <summary>When Hydra?</summary>
+  <summary>Hydraはいつ?</summary>
   
-  Our <a href="https://github.com/orgs/input-output-hk/projects/21/">roadmap</a> is publicly available on Github. Note that there are multiple sections behind tabs to view it from different angles (as release packages, as quarters, etc...)  
+  <a href="https://github.com/orgs/input-output-hk/projects/21/">ロードマップ</a> はGithubで公開されています。タブには、さまざまな角度から表示するための複数のセクションがあることに注意してください（リリースパッケージ、クォーターなど）
 
 </details>
 
 <details>
-  <summary>When is the Hydra Head protocol a good fit?</summary>
+  <summary>Hydraラヘッドプロトコルは、どのような場合に適していますか？</summary>
 
-  The Hydra Head protocol is well-suited for any situation where a known set of participants know each other well-enough to agree on building a network but don't trust one another enough with funds management to do so without ways to secure their assets backed by the possibility to settle disputes on the main chain.
+ Hydraヘッドプロトコルは、既知の参加者がネットワーク構築に合意するほど互いをよく知っているが、メインチェーンでの紛争を解決する可能性に裏打ちされた資産を確保する方法がないために、資金管理について十分に信頼していない状況に適しています。
 </details>
 
 <details>
-  <summary>Can I run Plutus scripts inside a head?</summary>
+  <summary>ヘッド内でPlutusのスクリプトを実行できますか？</summary>
 
-  Yes! Transactions running between head participants are full-blown Alonzo transactions. They carry scripts, and spend UTxO in all-the-same manner as layer 1 transactions. Incidentally, each Hydra node is running a Cardano ledger and maintaining a ledger state. However, DApps which currently reliy on the PAB for on-chain interactions will fall short when it comes to driving the execution of a Plutus contract inside a head. Indeed, the PAB is currently tightly coupled to the Cardano layer 1 chain; it is a Cardano client that interacts with the chain using the node-to-client mini-protocols (chain-sync, state-query, tx-submission). Hydra nodes do not expose such protocols (yet), making it incompatible with the PAB.
+  はい!　ヘッド参加者間で実行されるトランザクションは、本格的なAlonzoトランザクションです。これらはスクリプトを持ち、レイヤー1トランザクションとまったく同じ方法でUTxOを使用します。ちなみに、各HydraノードはCardano元帳を実行し、元帳の状態を維持しています。しかし、現在のチェーン上のインタラクションでPABに依存しているDAppsは、Plutusコントラクトの実行をヘッド内で実行することに関しては不十分です。実際PABは、カルダノレイヤー1に密接に結合しています。これは、ノードからクライアントへのミニプロトコル(チェーン同期、状態クエリー、tx送信)を使用してチェーンと対話するCardanoクライアントです。Hydraノードはこのようなプロトコルを (まだ) 公開していないため, PABとの互換性がありません。
 </details>
 
 <details>
-  <summary>Can a third-party run a Hydra node on behalf of a wallet owners (e.g. running managed Hydra Heads)?</summary>
+  <summary>サードパーティがウォレットの所有者に代わってHydraノードを実行することは可能ですか（例：マネージドHydraヘッドの実行）</summary>
 
-  Totally! This is similar for instance to [Phoenix](https://phoenix.acinq.co/) in Bitcoin Lightning: a non-custodial managed lightning node. As an end-user, one still have full control on the keys and funds, but the underlying infrastructure is managed on one's behalf (provided fees). This however implies some form of trust between the service provider and the user. Indeed, the user implicitly trusts the service provider to, for instance, properly handle contestations and closure of a head.   
+  可能です！これは、たとえば、Bitcoin Lightningの [Phoenix] (https://phoenix.acinq.co/) に似ています。非カストディアンの管理されたlightningノードです。エンドユーザーはキーと資金を完全に管理できますが、基盤となるインフラストラクチャはユーザーに代わって管理されます (提供された料金) しかし、これはサービス・プロバイダーとユーザーとの間にある種の信頼関係を意味します。実際、ユーザーはサービス・プロバイダーを暗黙的に信頼して、たとえばヘッドの競合やクローズを適切に処理します。
 </details>
 
 <details>
-  <summary>What is the relationship between Hydra heads and Hydra nodes?</summary>
+  <summary>HydraヘッドとHydraノードの関係は？</summary>
 
-  It is (at least\*) a **one-to-many** relationship. Each Hydra head is comprised of several Hydra nodes. We are currently aiming for up to 100 nodes per head as a stretch goal. Heads are independent and form an isolated network. It is possible to have infinitely many heads running in parallel. 
+  これは (少なくとも*) 1 対 多 の関係です。各HydraヘッドはいくつかのHydraノードで構成されています。現在、拡張目標としてヘッドあたり最大100ノードを目指しています。ヘッドは独立しており、独立したネットワークを形成します。無限に多くのヘッドを並列に動かすことができます。
 
-  _(\*) It is possible to make Hydra nodes support multiple heads making it a many-to-many relationship._
+ _ (*) Hydraノードが複数のヘッドをサポートするようにして、多 対 多 の関係にすることができます。_
 </details>
 
 <details>
-  <summary>Is the Hydra Head protocol a side-chain?</summary>
+  <summary>Hydraヘッドのプロトコルはサイドチェーンなのですか？</summary>
   
-  No it isn't. In fact, there are two crucial facts that discards heads from being seen as side-chains:
+  いいえ、違います。実は、ヘッドをサイドチェーンと見なすには、次の2つの決定的な事実があります。
 
-  1. There's no guaranteed data availability on Hydra. Said differently, transactions are (a) only known of the head participants, and (b) typically forgotten as soon as they're processed. Indeed, there's no block in a Hydra head and also no incentive for participants to either keep the history around or make it available to users outside of the head.
+  1. Hydraのデータ可用性は保証されていません。別の言い方をすると、トランザクションは (a) 先頭の参加者についてのみ知られており、 (b) 処理されるとすぐに一般的に忘れられます。実際、Hydraヘッドにはブロックがなく、参加者が履歴を保持したり、ヘッドの外のユーザーが利用できるようにしたりする動機もありません。
 
-  2. A head network is static, new participants cannot join and have to be decided upfront. The network is thus very much isolated / private, and not reachable by any peer. Hydra heads are really channels between a set of well-known participants.
+  2. ヘッドネットワークは静的で、新しい参加者は参加できず、前もって決定しておく必要があります。そのため、ネットワークは非常に孤立またはプライベートであり、どのピアからも到達できません。Hydraヘッドは、実際にはよく知られた参加者同士の集合チャンネルとなります。
 
 </details>

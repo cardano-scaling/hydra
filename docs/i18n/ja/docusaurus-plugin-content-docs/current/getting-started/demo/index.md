@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-# Demo
+# デモ
 
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';
