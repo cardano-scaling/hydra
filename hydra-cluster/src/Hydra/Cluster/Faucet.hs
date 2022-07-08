@@ -23,6 +23,13 @@ import Hydra.Cluster.Util (keysFor)
 
 data Marked = Fuel | Normal
 
+data FaucetException
+  = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
+  | FaucetFailedToBuildTx {reason :: TxBodyErrorAutoBalance}
+  deriving (Show)
+
+instance Exception FaucetException
+
 -- | Create a specially marked "seed" UTXO containing requested 'Lovelace' by
 -- redeeming funds available to the well-known faucet.
 --
@@ -40,14 +47,14 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lovelace marked = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retry isCardanoClientException $ submitFuelingTx faucetVk faucetSk
+  retry isCardanoClientException $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
-  submitFuelingTx faucetVk faucetSk = do
+  submitSeedTx faucetVk faucetSk = do
     (i, _o) <- findUTxO faucetVk
     let changeAddress = buildAddress faucetVk networkId
     build networkId nodeSocket changeAddress [(i, Nothing)] [] [theOutput] >>= \case
-      Left e -> error (show e)
+      Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
         submit networkId nodeSocket (sign faucetSk body)
 
@@ -56,8 +63,7 @@ seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lov
     let foundUTxO = find (\(_i, o) -> txOutLovelace o >= lovelace) $ UTxO.pairs faucetUTxO
     case foundUTxO of
       Just o -> pure o
-      Nothing ->
-        findUTxO faucetVk
+      Nothing -> throwIO $ FaucetHasNotEnoughFunds{faucetUTxO}
 
   receivingAddress = buildAddress receivingVerificationKey networkId
 
