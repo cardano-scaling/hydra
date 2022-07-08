@@ -10,6 +10,10 @@ changes.
 
 ## [0.7.0] - UNRELEASED
 
+#### Added
+
+- The user manual is now also available in japanese thanks to @btbf! :jp:
+
 #### Changed
 
 - **BREAKING** Switch to `BabbageEra` and `PlutusV2`
