@@ -5,7 +5,7 @@ import Hydra.Prelude
 import CardanoNode (withCardanoNodeOnKnownNetwork)
 import Hydra.Cluster.Options (Options (..), parseOptions)
 import Hydra.Cluster.Scenarios (knownNetworkId, singlePartyHeadFullLifeCycle)
-import Hydra.Logging (showLogsOnFailure)
+import Hydra.Logging (Verbosity (Verbose), withTracer)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 import Test.Hydra.Prelude (withTempDir)
 
@@ -15,12 +15,16 @@ main =
 
 run :: Options -> IO ()
 run options =
-  showLogsOnFailure $ \tracer -> do
-    withTempDir ("hydra-cluster-" <> show knownNetwork) $ \tempDir ->
-      withCardanoNodeOnKnownNetwork tracer tempDir knownNetwork $
+  withTracer (Verbose "hydra-cluster") $ \tracer -> do
+    withStateDirectory $ \workDir ->
+      withCardanoNodeOnKnownNetwork tracer workDir knownNetwork $
         singlePartyHeadFullLifeCycle (knownNetworkId knownNetwork)
  where
-  Options{knownNetwork} = options
+  Options{knownNetwork, stateDirectory} = options
+
+  withStateDirectory action = case stateDirectory of
+    Nothing -> withTempDir ("hydra-cluster-" <> show knownNetwork) action
+    Just sd -> action sd
 
 hydraClusterOptions :: ParserInfo Options
 hydraClusterOptions =

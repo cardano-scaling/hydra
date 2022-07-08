@@ -240,6 +240,7 @@ withCardanoNode ::
   (RunningNode -> IO ()) ->
   IO ()
 withCardanoNode tr config@CardanoNodeConfig{stateDirectory, nodeId} args action = do
+  traceWith tr $ MsgUsingStateDirectory stateDirectory
   let process = cardanoNodeProcess (Just stateDirectory) args
       logFile = stateDirectory </> show nodeId <.> "log"
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
@@ -353,7 +354,8 @@ instance Exception ProcessHasExited
 -- Logging
 
 data NodeLog
-  = MsgNodeCmdSpec Text
+  = MsgUsingStateDirectory FilePath
+  | MsgNodeCmdSpec Text
   | MsgCLI [Text]
   | MsgCLIStatus Text Text
   | MsgCLIRetry Text

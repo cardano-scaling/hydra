@@ -18,3 +18,5 @@ knownNetworkId = \case
 singlePartyHeadFullLifeCycle :: NetworkId -> RunningNode -> IO ()
 singlePartyHeadFullLifeCycle networkId (RunningNode _ nodeSocket) = do
   print =<< queryTip networkId nodeSocket
+  threadDelay 3
+  print =<< queryTip networkId nodeSocket
