@@ -310,7 +310,7 @@ instance
     case List.lookup (from tx) (confirmedUTxO offChainState) of
       Just v -> v == value tx
       Nothing -> False
-  precondition _ Stop =
+  precondition WorldState{hydraState = Open{}} Stop =
     True
   precondition _ _ =
     False
