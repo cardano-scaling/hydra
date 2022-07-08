@@ -13,6 +13,7 @@ import Control.Tracer (Tracer, traceWith)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as Aeson.KeyMap
+import Data.Fixed (Centi)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), PaymentKey, SigningKey, VerificationKey, generateSigningKey, getProgress, getVerificationKey)
 import Hydra.Cluster.Fixture (KnownNetwork (Testnet, VasilTestnet), knownNetworkId)
@@ -256,7 +257,7 @@ waitForFullySynchronized tracer knownNetwork (RunningNode _ nodeSocket) = do
     tipSlotNo <- queryTipSlotNo networkId nodeSocket
     (tipTime, _slotLength) <- either throwIO pure $ getProgress tipSlotNo eraHistory
     let timeDifference = diffRelativeTime targetTime tipTime
-    let percentDone = realToFrac $ getRelativeTime tipTime / getRelativeTime targetTime
+    let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
     traceWith tracer $ MsgSynchronizing{percentDone}
     if timeDifference < 1
       then pure ()
@@ -392,7 +393,7 @@ data NodeLog
   | MsgCLIRetryResult Text Int
   | MsgNodeStarting CardanoNodeConfig
   | MsgSocketIsReady FilePath
-  | MsgSynchronizing {percentDone :: Double}
+  | MsgSynchronizing {percentDone :: Centi}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
