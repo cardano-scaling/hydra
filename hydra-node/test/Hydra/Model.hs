@@ -240,6 +240,9 @@ instance
       , command :: ClientInput Payment
       } ->
       Action (WorldState m) ()
+    -- | Temporary action to cut the sequence of actions.
+    -- TODO: Implement proper Close sequence
+    Stop :: Action (WorldState m) ()
 
   -- The monad in which we `perform` actions.
   -- NOTE: We are using a `State` monad in order to be able to retrieve a handle
@@ -249,6 +252,7 @@ instance
   actionName :: Action (WorldState m) a -> String
   actionName Command{command} = unsafeConstructorName command
   actionName Seed{} = "Seed"
+  actionName Stop = "Stop"
 
   initialState =
     WorldState
@@ -268,7 +272,8 @@ instance
           ]
       Open{} ->
         frequency
-          [ (10, genNewTx)
+          [ (8, genNewTx)
+          , (2, pure $ Some Stop)
           ]
       _ -> genSeed
    where
@@ -305,12 +310,16 @@ instance
     case List.lookup (from tx) (confirmedUTxO offChainState) of
       Just v -> v == value tx
       Nothing -> False
+  precondition _ Stop =
+    True
   precondition _ _ =
     False
 
   nextState :: WorldState m -> Action (WorldState m) a -> Var a -> WorldState m
-  nextState WorldState{hydraParties, hydraState} a _ =
+  nextState s@WorldState{hydraParties, hydraState} a _ =
     case a of
+      Stop -> s{hydraState = Final empty}
+      --
       Seed{seedKeys} -> WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys}}
        where
         idleParties = map (deriveParty . fst) seedKeys
@@ -386,6 +395,7 @@ instance
 
   perform :: WorldState m -> Action (WorldState m) a -> LookUp -> StateT (Nodes m) m a
   perform _ Seed{seedKeys} _ = seedWorld seedKeys
+  perform _ Stop _ = pure ()
   perform st Command{party, command} _ = do
     case command of
       Input.Commit{Input.utxo = utxo} ->
