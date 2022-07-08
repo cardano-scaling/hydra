@@ -14,8 +14,9 @@ changes.
 
 - **BREAKING** Switch to `BabbageEra` and `PlutusV2`
   + `hydra-cardano-api` now uses `Era = BabbageEra` and constructs `PlutusV2` scripts
-  + `hydra-plutus` scripts now use the `serializeData` builtin to CBOR encode data on-chain
-  + `hydra-node` now deserializes `BabbageEra` transactions (should be backward-compatible)
+  + `hydra-plutus` scripts now use the `serialiseData` builtin to CBOR encode data on-chain
+  + `hydra-node` now expects `BabbageEra` blocks and produces `BabbageEra` transactions
+  + `hydra-cluster` now spins up a stake pool instead of a BFT node (not possible in `Praos` anymore)
 
 #### Fixed
 
