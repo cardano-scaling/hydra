@@ -1,0 +1,30 @@
+{
+  "title": {
+    "message": "Hydra: Head Protocol",
+    "description": "The title in the navbar"
+  },
+  "item.label.User Manual": {
+    "message": "ユーザーズマニュアル",
+    "description": "Navbar item with label User Manual"
+  },
+  "item.label.Core Concepts": {
+    "message": "コアコンセプト",
+    "description": "Navbar item with label Core Concepts"
+  },
+  "item.label.Topologies": {
+    "message": "トポロジー",
+    "description": "Navbar item with label Topologies"
+  },
+  "item.label.Benchmarks": {
+    "message": "ベンチマーク",
+    "description": "Navbar item with label Benchmarks"
+  },
+  "item.label.API Reference": {
+    "message": "APIリファレンス",
+    "description": "Navbar item with label API Reference"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub",
+    "description": "Navbar item with label GitHub"
+  }
+}
