@@ -59,7 +59,7 @@ import System.Process (
   withCreateProcess,
  )
 import System.Timeout (timeout)
-import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withFile')
+import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withLogFile)
 import qualified Prelude
 
 data HydraClient = HydraClient
@@ -248,7 +248,7 @@ withHydraNode ::
   (HydraClient -> IO a) ->
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
-  withFile' (workDir </> show hydraNodeId) $ \out -> do
+  withLogFile (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let cardanoLedgerGenesisFile = dir </> "genesis.json"
       readConfigFile "genesis-shelley.json" >>= writeFileBS cardanoLedgerGenesisFile

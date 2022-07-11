@@ -277,7 +277,6 @@ withCardanoNode tr config@CardanoNodeConfig{stateDirectory, nodeId} args action 
   let process = cardanoNodeProcess (Just stateDirectory) args
       logFile = stateDirectory </> "cardano-node-" <> show nodeId <.> "log"
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
-  -- FIXME: for some reason this file is not written to if it exists?
   withLogFile logFile $ \out -> do
     hSetBuffering out NoBuffering
     withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $
