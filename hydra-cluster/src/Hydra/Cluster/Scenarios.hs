@@ -46,13 +46,14 @@ singlePartyHeadFullLifeCycle tracer workDir networkId node = do
       output "HeadIsOpen" ["utxo" .= object mempty]
     -- Close head
     send n1 $ input "Close" []
-    remainingText <- waitMatch 600 n1 $ \v -> do
+    remainingSeconds <- waitMatch 600 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       v ^? key "remainingContestationPeriod" . _Number
-    print remainingText
-    -- TODO: parameterize waitFor accordingly here
-    waitFor tracer 600 [n1] $
+    -- Expect to see readyToFanout within 10 seconds after deadline
+    waitFor tracer (truncate $ remainingSeconds + 10) [n1] $
       output "ReadyToFanout" []
+    -- FIXME: We need to wait a bit more?
+    threadDelay 15
     send n1 $ input "Fanout" []
     waitFor tracer 600 [n1] $
       output "HeadIsFinalized" ["utxo" .= object mempty]
