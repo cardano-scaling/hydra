@@ -188,8 +188,9 @@ data EndToEndLog
   | ReceivedMessage Int Aeson.Value
   | EndWaiting Int
   | FromCardanoNode NodeLog
-  | StartingFunds {actor :: String, fuelUTxO :: UTxO}
+  | StartingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
   | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, fuelUTxO :: UTxO}
+  | RemainingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can

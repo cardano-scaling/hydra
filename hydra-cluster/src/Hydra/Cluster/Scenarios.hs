@@ -56,8 +56,14 @@ singlePartyHeadFullLifeCycle tracer workDir networkId node = do
     send n1 $ input "Fanout" []
     waitFor tracer 600 [n1] $
       output "HeadIsFinalized" ["utxo" .= object mempty]
+  traceRemainingFunds Alice
  where
   (RunningNode _ nodeSocket) = node
+
+  traceRemainingFunds actor = do
+    (actorVk, _) <- keysFor actor
+    (fuelUTxO, otherUTxO) <- queryMarkedUTxO networkId node actorVk
+    traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::
@@ -69,9 +75,9 @@ refuelIfNeeded ::
   IO ()
 refuelIfNeeded tracer networkId node actor amount = do
   (actorVk, _) <- keysFor actor
-  (actorFuel, _actorNormal) <- queryMarkedUTxO networkId node actorVk
-  traceWith tracer $ StartingFunds{actor = actorName actor, fuelUTxO = actorFuel}
-  let fuelBalance = selectLovelace $ balance @Tx actorFuel
+  (fuelUTxO, otherUTxO) <- queryMarkedUTxO networkId node actorVk
+  traceWith tracer $ StartingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+  let fuelBalance = selectLovelace $ balance @Tx fuelUTxO
   when (fuelBalance < amount) $ do
     utxo <- seedFromFaucet networkId node actorVk amount Fuel
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, fuelUTxO = utxo}
