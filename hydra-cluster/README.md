@@ -1,10 +1,45 @@
-Integration test suite spinning up a local cluster of Hydra nodes on a "devnet".
+## Executable
 
-For simplicity, we usually would spin up a trivial Cardano network comprised by
-only a single block producing node, having all the stake. This is of course not
-exactly how a proper Cardano network would work, but the scope of this package
-and it's tests are to assert correct hydra-node behavior in a cluster of Hydra
-nodes.
+This package contains the same-named `hydra-cluster` executable, which can be
+used for "smoke testing" the `hydra-node` against an existing, well-known
+Cardano network.
+
+It would spin up a `cardano-node` as a network participant, synchronize the
+block chain and execute a single scenario (single party, full life cycle) using
+funds available to the `config/credentials/faucet.sk` on that network.
+
+The `hydra-cluster` requires `hydra-node` to be in scope. You could use a
+special nix shell containing `hydra-node` and `hydra-cluster` executables:
+ 
+ ``` sh
+nix-shell -A exes
+```
+
+Or use an alias:
+
+``` sh
+cabal build hydra-node
+alias hydra-node=$(cabal exec which -- hydra-node)
+```
+
+Then, to run the smoke test against the official cardano testnet using a local
+`state-testnet` directory (to re-use the synchronized chain db):
+
+``` sh
+hydra-cluster --testnet --state-directory state-testnet
+```
+
+## Test suite
+
+The `hydra-cluster:test:integration` test suite runs multiple scenarios on a
+local cluster of `hydra-node`s connected to a local Cardano "devnet".
+
+This "devnet" is a trivial Cardano network comprised by only a single block
+producing node, having all the stake. This is of course not exactly how a proper
+Cardano network would work, but the scope of this package and it's tests are to
+assert correct hydra-node behavior in a cluster of Hydra nodes.
+
+Run the integration test suite with `cabal test`
 
 ## Benchmarks
 
