@@ -17,7 +17,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (startChainFrom)
+import Hydra.Options (networkId, startChainFrom)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitMatch, withHydraNode)
 
 -- TODO: The 'RunningNode' should convey the networkId
@@ -33,7 +33,7 @@ singlePartyHeadFullLifeCycle tracer workDir networkId node = do
   tip <- queryTip networkId nodeSocket
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket []
-      <&> \config -> config{startChainFrom = Just tip}
+      <&> \config -> config{networkId, startChainFrom = Just tip}
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     -- Initialize & open head
     let contestationPeriod = 1 :: Natural
