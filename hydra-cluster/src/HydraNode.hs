@@ -74,8 +74,9 @@ input :: Text -> [Pair] -> Aeson.Value
 input tag pairs = object $ ("tag" .= tag) : pairs
 
 send :: HydraClient -> Aeson.Value -> IO ()
-send HydraClient{connection} v =
+send HydraClient{tracer, hydraNodeId, connection} v = do
   sendTextData connection (Aeson.encode v)
+  traceWith tracer $ SentMessage hydraNodeId v
 
 -- | Create an output as expected by 'waitFor' and 'waitForAll'.
 output :: Text -> [Pair] -> Aeson.Value
@@ -181,6 +182,7 @@ queryNode nodeId =
 
 data EndToEndLog
   = NodeStarted Int
+  | SentMessage Int Aeson.Value
   | StartWaiting [Int] [Aeson.Value]
   | ReceivedMessage Int Aeson.Value
   | EndWaiting Int
