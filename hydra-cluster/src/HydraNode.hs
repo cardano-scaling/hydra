@@ -40,6 +40,7 @@ import qualified Data.Text as T
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Crypto (deriveVerificationKey, serialiseSigningKeyToRawBytes, serialiseVerificationKeyToRawBytes)
 import qualified Hydra.Crypto as Hydra
+import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Host (Host))
 import qualified Hydra.Network as Network
@@ -184,6 +185,8 @@ data EndToEndLog
   | ReceivedMessage Int Aeson.Value
   | EndWaiting Int
   | FromCardanoNode NodeLog
+  | StartingFunds {actor :: String, fuelUTxO :: UTxO}
+  | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, fuelUTxO :: UTxO}
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can
