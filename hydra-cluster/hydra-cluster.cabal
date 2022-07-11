@@ -152,6 +152,7 @@ executable hydra-cluster
   ghc-options:        -threaded -rtsopts
   build-depends:
     , base                  >=4.7 && <5
+    , hydra-cardano-api
     , hydra-cluster
     , hydra-node
     , hydra-prelude
