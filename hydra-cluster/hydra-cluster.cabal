@@ -13,6 +13,16 @@ license-files:
 
 extra-source-files: README.md
 data-files:
+  config/cardano-configurations/network/testnet/cardano-node/config.json
+  config/cardano-configurations/network/testnet/cardano-node/topology.json
+  config/cardano-configurations/network/testnet/genesis/alonzo.json
+  config/cardano-configurations/network/testnet/genesis/byron.json
+  config/cardano-configurations/network/testnet/genesis/shelley.json
+  config/cardano-configurations/network/vasil-dev/cardano-node/config.json
+  config/cardano-configurations/network/vasil-dev/cardano-node/topology.json
+  config/cardano-configurations/network/vasil-dev/genesis/alonzo.json
+  config/cardano-configurations/network/vasil-dev/genesis/byron.json
+  config/cardano-configurations/network/vasil-dev/genesis/shelley.json
   config/cardano-node.json
   config/credentials/alice.sk
   config/credentials/alice.vk
