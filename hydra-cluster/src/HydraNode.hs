@@ -97,7 +97,7 @@ waitNext HydraClient{connection} = do
     Right value -> pure value
 
 waitMatch :: HasCallStack => Natural -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
-waitMatch delay HydraClient{hydraNodeId, connection} match = do
+waitMatch delay HydraClient{tracer, hydraNodeId, connection} match = do
   seenMsgs <- newTVarIO []
   timeout (fromIntegral delay * 1_000_000) (go seenMsgs) >>= \case
     Just x -> pure x
@@ -117,6 +117,7 @@ waitMatch delay HydraClient{hydraNodeId, connection} match = do
     case Aeson.decode' bytes of
       Nothing -> go seenMsgs
       Just msg -> do
+        traceWith tracer (ReceivedMessage hydraNodeId msg)
         atomically (modifyTVar' seenMsgs (msg :))
         maybe (go seenMsgs) pure (match msg)
 
