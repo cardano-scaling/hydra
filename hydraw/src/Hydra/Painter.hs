@@ -35,7 +35,7 @@ paintPixel signingKeyPath cnx pixel = do
     Left e -> error $ "Failed to decode server answer:  " <> show e
     Right (GetUTxOResponse (UTxO utxo)) -> do
       let myAddress = mkVkAddress networkId vk
-          (txIn, txOut) = Map.findMin $ Map.filter (\(TxOut addr _ _) -> addr == myAddress) utxo
+          (txIn, txOut) = Map.findMin $ Map.filter (\TxOut{txOutAddress = addr} -> addr == myAddress) utxo
       case mkPaintTx (txIn, txOut) (myAddress, txOutValue txOut) sk pixel of
         Left err -> error $ "failed to build pixel transaction " <> show err
         Right tx -> sendTextData cnx $ Aeson.encode $ NewTx tx
@@ -60,7 +60,7 @@ mkPaintTx ::
   SigningKey PaymentKey ->
   Pixel ->
   Either TxBodyError Tx
-mkPaintTx (txin, TxOut owner valueIn datum) (recipient, valueOut) sk Pixel{x, y, red, green, blue} = do
+mkPaintTx (txin, txOutBefore) (recipient, valueOut) sk Pixel{x, y, red, green, blue} = do
   body <- makeTransactionBody bodyContent
   let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
   pure $ makeSignedTransaction witnesses body
@@ -68,6 +68,8 @@ mkPaintTx (txin, TxOut owner valueIn datum) (recipient, valueOut) sk Pixel{x, y,
   metadata = TxMetadataInEra $ TxMetadata $ Map.fromList [(14, listOfInts)]
 
   listOfInts = TxMetaList $ TxMetaNumber . fromIntegral <$> [x, y, red, green, blue]
+
+  TxOut{txOutValue = valueIn} = txOutBefore
 
   bodyContent =
     emptyTxBody
@@ -78,11 +80,8 @@ mkPaintTx (txin, TxOut owner valueIn datum) (recipient, valueOut) sk Pixel{x, y,
       }
 
   outs =
-    TxOut @CtxTx recipient valueOut TxOutDatumNone :
-      [ TxOut @CtxTx
-        owner
-        (valueIn <> negateValue valueOut)
-        (toTxContext datum)
+    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone :
+      [ toTxContext $ txOutBefore{txOutValue = valueIn <> negateValue valueOut}
       | valueOut /= valueIn
       ]
 

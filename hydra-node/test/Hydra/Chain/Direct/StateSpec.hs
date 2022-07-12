@@ -34,6 +34,7 @@ import Hydra.Cardano.Api (
   txOuts',
   valueSize,
   pattern ByronAddressInEra,
+  pattern ReferenceScriptNone,
   pattern TxOut,
   pattern TxOutDatumNone,
  )
@@ -622,7 +623,7 @@ genByronCommit = do
   input <- arbitrary
   addr <- ByronAddressInEra <$> arbitrary
   value <- genValue
-  pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone)
+  pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone ReferenceScriptNone)
 
 genBlockAt :: SlotNo -> [Tx] -> Gen Block
 genBlockAt sl txs = do

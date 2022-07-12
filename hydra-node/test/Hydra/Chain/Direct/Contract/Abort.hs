@@ -164,7 +164,7 @@ genAbortMutation (tx, utxo) =
         (input, output, _) <- elements healthyInitials
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
 
-        let TxOut addr value datum = output
+        let value = txOutValue output
             assetNames =
               [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList value, policyId == testPolicyId
               ]
@@ -184,7 +184,7 @@ genAbortMutation (tx, utxo) =
               TxMintValueNone -> error "expected minted value"
               TxMintValue v _ -> valueFromList $ filter (not . ptForAssetName) $ valueToList v
 
-            output' = TxOut addr newValue datum
+            output' = output{txOutValue = newValue}
 
         pure $
           Changes

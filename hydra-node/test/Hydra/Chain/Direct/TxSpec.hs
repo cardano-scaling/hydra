@@ -232,6 +232,7 @@ generateCommitUTxOs parties = do
           (mkScriptAddress @PlutusScriptV2 testNetworkId commitScript)
           commitValue
           (mkTxOutDatum commitDatum)
+          ReferenceScriptNone
     , fromPlutusData (toData commitDatum)
     , maybe mempty (UTxO.fromPairs . pure) utxo
     )
@@ -317,6 +318,7 @@ genAbortableOutputs parties =
               ]
         )
         (mkTxOutDatum initialDatum)
+        ReferenceScriptNone
 
   initialScript = fromPlutusScript Initial.validatorScript
 

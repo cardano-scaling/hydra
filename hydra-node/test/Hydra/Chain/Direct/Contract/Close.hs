@@ -10,9 +10,9 @@ import Hydra.Prelude hiding (label)
 import Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize')
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeHeadOutputDatum, genHash)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), assetNameFromVerificationKey, closeTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Data.ContestationPeriod as OnChain
@@ -64,17 +64,6 @@ healthyCloseTx =
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
-
-addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
-addParticipationTokens parties (TxOut addr val datum) =
-  TxOut addr val' datum
- where
-  val' =
-    val
-      <> valueFromList
-        [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
-        | cardanoVk <- genForParty genVerificationKey <$> parties
-        ]
 
 healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =
