@@ -1,4 +1,5 @@
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Cluster.Faucet where
 
@@ -94,8 +95,34 @@ seedFromFaucet_ node vk ll marked =
 --
 -- The given key is used to pay for fees in required transactions, it is
 -- expected to have funds.
-publishHydraScripts :: RunningNode -> SigningKey PaymentKey -> IO TxId
-publishHydraScripts = error "publishHydraScripts"
+publishHydraScripts :: NetworkId -> RunningNode -> SigningKey PaymentKey -> IO TxId
+publishHydraScripts networkId node@(RunningNode _ nodeSocket) sk = do
+  utxo <- queryUTxOFor networkId node QueryTip vk
+  let someTxIn = Set.findMin UTxO.inputSet utxo
+  body <-
+    build
+      networkId
+      nodeSocket
+      changeAddress
+      [(someTxIn, Nothing)]
+      []
+      [publishInitial]
+  return (getTxId body)
+ where
+  changeAddress = buildAddress vk networkId
+  vk = getVerificationKey sk
+
+  publishInitial :: TxOut
+  publishInitial =
+    TxOut
+      changeAddress -- FIXME: Can be whatever we want, but ideally a 'sink' address that can't be spent
+      probablyEnoughAda
+      TxOutDatumNone
+      (ReferenceScript (toScriptInAnyLang (fromPlutusScript @PlutusScriptV2 Initial.validatorScript)))
+
+  -- This depends on protocol parameters and the size of the script.
+  probablyEnoughAda =
+    lovelaceToValue 10_000_000
 
 -- | Query UTxO for the address of given verification key at point.
 --
