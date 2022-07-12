@@ -83,6 +83,7 @@ withChain tracer party callback config action = do
       party
       (vk : otherCardanoKeys)
       startChainFrom
+      (error "no txid for reference scripts available, yet")
       callback
       action
  where

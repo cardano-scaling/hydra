@@ -47,6 +47,7 @@ import Hydra.Cardano.Api (
   PaymentKey,
   SigningKey,
   Tx,
+  TxId,
   VerificationKey,
   fromConsensusPointHF,
   shelleyBasedEra,
@@ -154,8 +155,10 @@ withDirectChain ::
   [VerificationKey PaymentKey] ->
   -- | Point at which to start following the chain.
   Maybe ChainPoint ->
+  -- | Transaction id at which Hydra scripts should be published.
+  TxId ->
   ChainComponent Tx IO a
-withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point callback action = do
+withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point hydraScriptsTxId callback action = do
   queue <- newTQueueIO
   wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair queryUTxOEtc
   let (vk, _) = keyPair
