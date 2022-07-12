@@ -90,6 +90,13 @@ seedFromFaucet_ ::
 seedFromFaucet_ node vk ll marked =
   void $ seedFromFaucet node vk ll marked
 
+-- | Publish Hydra scripts as scripts outputs for later referencing them.
+--
+-- The given key is used to pay for fees in required transactions, it is
+-- expected to have funds.
+publishHydraScripts :: RunningNode -> SigningKey PaymentKey -> IO TxId
+publishHydraScripts = error "publishHydraScripts"
+
 -- | Query UTxO for the address of given verification key at point.
 --
 -- Throws at least 'QueryException' if query fails.
