@@ -53,6 +53,10 @@ resolve k = Map.lookup k . toMap
 pairs :: UTxO' out -> [(TxIn, out)]
 pairs = Map.toList . toMap
 
+-- | Filter UTxO to only include 'out's satisfying given predicate.
+filter :: (out -> Bool) -> UTxO' out -> UTxO' out
+filter fn = UTxO . Map.filter fn . toMap
+
 -- | Get the 'UTxO' domain input's set
 inputSet :: UTxO' out -> Set TxIn
 inputSet = Map.keysSet . toMap

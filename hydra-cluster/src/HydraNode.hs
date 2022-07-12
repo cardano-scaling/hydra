@@ -40,6 +40,7 @@ import qualified Data.Text as T
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Crypto (deriveVerificationKey, serialiseSigningKeyToRawBytes, serialiseVerificationKeyToRawBytes)
 import qualified Hydra.Crypto as Hydra
+import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Host (Host))
 import qualified Hydra.Network as Network
@@ -59,7 +60,7 @@ import System.Process (
   withCreateProcess,
  )
 import System.Timeout (timeout)
-import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withFile')
+import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withLogFile)
 import qualified Prelude
 
 data HydraClient = HydraClient
@@ -73,8 +74,9 @@ input :: Text -> [Pair] -> Aeson.Value
 input tag pairs = object $ ("tag" .= tag) : pairs
 
 send :: HydraClient -> Aeson.Value -> IO ()
-send HydraClient{connection} v =
+send HydraClient{tracer, hydraNodeId, connection} v = do
   sendTextData connection (Aeson.encode v)
+  traceWith tracer $ SentMessage hydraNodeId v
 
 -- | Create an output as expected by 'waitFor' and 'waitForAll'.
 output :: Text -> [Pair] -> Aeson.Value
@@ -95,7 +97,7 @@ waitNext HydraClient{connection} = do
     Right value -> pure value
 
 waitMatch :: HasCallStack => Natural -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
-waitMatch delay HydraClient{hydraNodeId, connection} match = do
+waitMatch delay HydraClient{tracer, hydraNodeId, connection} match = do
   seenMsgs <- newTVarIO []
   timeout (fromIntegral delay * 1_000_000) (go seenMsgs) >>= \case
     Just x -> pure x
@@ -115,6 +117,7 @@ waitMatch delay HydraClient{hydraNodeId, connection} match = do
     case Aeson.decode' bytes of
       Nothing -> go seenMsgs
       Just msg -> do
+        traceWith tracer (ReceivedMessage hydraNodeId msg)
         atomically (modifyTVar' seenMsgs (msg :))
         maybe (go seenMsgs) pure (match msg)
 
@@ -180,10 +183,14 @@ queryNode nodeId =
 
 data EndToEndLog
   = NodeStarted Int
+  | SentMessage Int Aeson.Value
   | StartWaiting [Int] [Aeson.Value]
   | ReceivedMessage Int Aeson.Value
   | EndWaiting Int
   | FromCardanoNode NodeLog
+  | StartingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
+  | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, fuelUTxO :: UTxO}
+  | RemainingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can
@@ -248,7 +255,7 @@ withHydraNode ::
   (HydraClient -> IO a) ->
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
-  withFile' (workDir </> show hydraNodeId) $ \out -> do
+  withLogFile (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let cardanoLedgerGenesisFile = dir </> "genesis.json"
       readConfigFile "genesis-shelley.json" >>= writeFileBS cardanoLedgerGenesisFile

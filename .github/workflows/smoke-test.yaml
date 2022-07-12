@@ -1,0 +1,42 @@
+name: "Smoke test"
+on:
+  workflow_dispatch:
+    network:
+      description: "Cardano network to run against"
+      required: true
+      default: "vasil-dev"
+      type: choice
+      options:
+      - vasil-dev
+      - testnet
+
+jobs:
+  smoke-test:
+    name: "Smoke test"
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+
+    - name: Prepare nix
+      uses: cachix/install-nix-action@v17
+      with:
+        extra_nix_config: |
+          trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+          substituters = https://cache.nixos.org https://cache.iog.io https://iohk.cachix.org
+
+    - name: Cachix cache of nix derivations
+      uses: cachix/cachix-action@v10
+      with:
+        name: hydra-node
+        authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
+
+    - name: Prepare nix-shell
+      run: |
+        nix-build -A exes shell.nix
+
+    - name: Run hydra-cluster 
+      run: |
+        nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --state-directory state-${{inputs.network}}"

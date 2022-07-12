@@ -17,17 +17,22 @@ import CardanoClient (
   waitForPayment,
  )
 import CardanoNode (RunningNode (..))
-import Hydra.Chain.Direct.Util (markerDatumHash, retry)
+import qualified Data.Map as Map
+import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash, retry)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 
 data Marked = Fuel | Normal
 
+data FaucetException
+  = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
+  | FaucetFailedToBuildTx {reason :: TxBodyErrorAutoBalance}
+  deriving (Show)
+
+instance Exception FaucetException
+
 -- | Create a specially marked "seed" UTXO containing requested 'Lovelace' by
 -- redeeming funds available to the well-known faucet.
---
--- NOTE: This function is querying and looping forever until it finds a suitable
--- output!
 seedFromFaucet ::
   NetworkId ->
   RunningNode ->
@@ -40,14 +45,14 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lovelace marked = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retry isCardanoClientException $ submitFuelingTx faucetVk faucetSk
+  retry isCardanoClientException $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
-  submitFuelingTx faucetVk faucetSk = do
+  submitSeedTx faucetVk faucetSk = do
     (i, _o) <- findUTxO faucetVk
     let changeAddress = buildAddress faucetVk networkId
     build networkId nodeSocket changeAddress [(i, Nothing)] [] [theOutput] >>= \case
-      Left e -> error (show e)
+      Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
         submit networkId nodeSocket (sign faucetSk body)
 
@@ -56,8 +61,7 @@ seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lov
     let foundUTxO = find (\(_i, o) -> txOutLovelace o >= lovelace) $ UTxO.pairs faucetUTxO
     case foundUTxO of
       Just o -> pure o
-      Nothing ->
-        findUTxO faucetVk
+      Nothing -> throwIO $ FaucetHasNotEnoughFunds{faucetUTxO}
 
   receivingAddress = buildAddress receivingVerificationKey networkId
 
@@ -87,3 +91,19 @@ seedFromFaucet_ ::
   IO ()
 seedFromFaucet_ nid node vk ll marked =
   void $ seedFromFaucet nid node vk ll marked
+
+-- | Query UTxO for the address of given verification key at point.
+--
+-- Throws at least 'QueryException' if query fails.
+queryUTxOFor :: NetworkId -> RunningNode -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
+queryUTxOFor networkId (RunningNode _ nodeSocket) queryPoint vk =
+  queryUTxO networkId nodeSocket queryPoint [buildAddress vk networkId]
+
+-- | Like 'queryUTxOFor' at the tip, but also partition outputs marked as 'Fuel' and 'Normal'.
+--
+-- Throws at least 'QueryException' if query fails.
+queryMarkedUTxO :: NetworkId -> RunningNode -> VerificationKey PaymentKey -> IO (UTxO, UTxO)
+queryMarkedUTxO networkId node vk =
+  mkPartition <$> queryUTxOFor networkId node QueryTip vk
+ where
+  mkPartition = bimap UTxO UTxO . Map.partition isMarkedOutput . UTxO.toMap

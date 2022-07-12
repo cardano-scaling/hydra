@@ -24,7 +24,7 @@ module Test.Hydra.Prelude (
   module Test.Hspec,
   module Test.Hspec.QuickCheck,
   withTempDir,
-  withFile',
+  withLogFile,
   checkProcessHasNotDied,
 ) where
 
@@ -77,10 +77,11 @@ withTempDir baseName action = do
                     throwIO e
               )
 
--- | Print a message with filepath to @stderr@ on exceptions.
-withFile' :: FilePath -> (Handle -> IO a) -> IO a
-withFile' filepath io =
-  withFile filepath ReadWriteMode io
+-- | Open given log file non-buffered in append mode and print a message with
+-- filepath to @stderr@ on exceptions.
+withLogFile :: FilePath -> (Handle -> IO a) -> IO a
+withLogFile filepath io =
+  withFile filepath AppendMode (\out -> hSetBuffering out NoBuffering >> io out)
     `onException` putStrLn ("Logfile written to: " <> filepath)
 
 -- | Fails a test with given error message.

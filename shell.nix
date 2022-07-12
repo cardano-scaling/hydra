@@ -127,5 +127,17 @@ let
     STACK_IN_NIX_SHELL = "true";
   };
 
+  # A shell which does provide hydra-node and hydra-cluster executables.
+  exeShell = pkgs.mkShell {
+    name = "hydra-node-exe-shell";
+
+    buildInputs = [
+      hsPkgs.hydra-node.components.exes.hydra-node
+      hsPkgs.hydra-cluster.components.exes.hydra-cluster
+    ];
+  };
 in
-haskellNixShell // { cabalOnly = cabalShell; }
+haskellNixShell // {
+  cabalOnly = cabalShell;
+  exes = exeShell;
+}

@@ -13,28 +13,34 @@ license-files:
 
 extra-source-files: README.md
 data-files:
+  config/cardano-configurations/network/testnet/cardano-node/config.json
+  config/cardano-configurations/network/testnet/cardano-node/topology.json
+  config/cardano-configurations/network/testnet/genesis/alonzo.json
+  config/cardano-configurations/network/testnet/genesis/byron.json
+  config/cardano-configurations/network/testnet/genesis/shelley.json
+  config/cardano-configurations/network/vasil-dev/cardano-node/config.json
+  config/cardano-configurations/network/vasil-dev/cardano-node/topology.json
+  config/cardano-configurations/network/vasil-dev/genesis/alonzo.json
+  config/cardano-configurations/network/vasil-dev/genesis/byron.json
+  config/cardano-configurations/network/vasil-dev/genesis/shelley.json
   config/cardano-node.json
-
-  config/genesis-byron.json
-  config/genesis-shelley.json
-  config/genesis-alonzo.json
-  config/protocol-parameters.json
-
   config/credentials/alice.sk
   config/credentials/alice.vk
   config/credentials/bob.sk
   config/credentials/bob.vk
   config/credentials/carol.sk
   config/credentials/carol.vk
-
   config/credentials/faucet.sk
   config/credentials/faucet.vk
-
-  config/credentials/stake-pool-1/kes.skey
-  config/credentials/stake-pool-1/vrf.skey
-  config/credentials/stake-pool-1/opcert.cert
   config/credentials/stake-pool-1/byron-delegate.key
   config/credentials/stake-pool-1/byron-delegation.cert
+  config/credentials/stake-pool-1/kes.skey
+  config/credentials/stake-pool-1/opcert.cert
+  config/credentials/stake-pool-1/vrf.skey
+  config/genesis-alonzo.json
+  config/genesis-byron.json
+  config/genesis-shelley.json
+  config/protocol-parameters.json
 
 source-repository head
   type:     git
@@ -98,6 +104,8 @@ library
     CardanoNode
     Hydra.Cluster.Faucet
     Hydra.Cluster.Fixture
+    Hydra.Cluster.Options
+    Hydra.Cluster.Scenarios
     Hydra.Cluster.Util
     Hydra.Generator
     Hydra.LogFilter
@@ -129,6 +137,7 @@ library
     , lens
     , lens-aeson
     , network
+    , optparse-applicative
     , ouroboros-consensus
     , ouroboros-network
     , process
@@ -146,10 +155,27 @@ library
 
   ghc-options:     -haddock
 
+executable hydra-cluster
+  import:             project-config
+  hs-source-dirs:     exe/hydra-cluster
+  main-is:            Main.hs
+  ghc-options:        -threaded -rtsopts
+  build-depends:
+    , base                  >=4.7 && <5
+    , hydra-cardano-api
+    , hydra-cluster
+    , hydra-node
+    , hydra-prelude
+    , hydra-test-utils
+    , optparse-applicative
+
+  build-tool-depends: hydra-node:hydra-node -any
+  ghc-options:        -threaded -rtsopts
+
 executable log-filter
   import:         project-config
-  hs-source-dirs: exe
-  main-is:        log-filter.hs
+  hs-source-dirs: exe/log-filter
+  main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
   build-depends:
     , aeson

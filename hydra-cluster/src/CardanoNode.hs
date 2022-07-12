@@ -7,12 +7,16 @@ module CardanoNode where
 
 import Hydra.Prelude
 
+import Cardano.Slotting.Time (RelativeTime (getRelativeTime), diffRelativeTime, toRelativeTime)
+import CardanoClient (QueryPoint (QueryTip), queryEraHistory, querySystemStart, queryTipSlotNo)
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as Aeson.KeyMap
+import Data.Fixed (Centi)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Hydra.Cardano.Api (AsType (AsPaymentKey), PaymentKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
+import Hydra.Cardano.Api (AsType (AsPaymentKey), PaymentKey, SigningKey, VerificationKey, generateSigningKey, getProgress, getVerificationKey)
+import Hydra.Cluster.Fixture (KnownNetwork (Testnet, VasilTestnet), knownNetworkId)
 import Hydra.Cluster.Util (readConfigFile)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import System.Exit (ExitCode (..))
@@ -111,20 +115,15 @@ getCardanoNodeVersion :: IO String
 getCardanoNodeVersion =
   readProcess "cardano-node" ["--version"] ""
 
--- | Start a cardano-node in BFT mode using the config from config/ and
--- credentials from config/credentials/ using given 'nodeId'. Only the 'Faucet'
--- actor will receive "initialFunds". Use 'seedFromFaucet' to distribute funds
--- other wallets.
---
--- FIXME: This is actually not a BFT node and it also only supports nodeId == 1.
--- We should rename this function and also think about removing the `nodeId`
--- from `CardanoNodeConfig` as it is a lie.
-withBFTNode ::
+-- | Start a single cardano-node devnet using the config from config/ and
+-- credentials from config/credentials/. Only the 'Faucet' actor will receive
+-- "initialFunds". Use 'seedFromFaucet' to distribute funds other wallets.
+withCardanoNodeDevnet ::
   Tracer IO NodeLog ->
   CardanoNodeConfig ->
   (RunningNode -> IO ()) ->
   IO ()
-withBFTNode tracer cfg action = do
+withCardanoNodeDevnet tracer cfg action = do
   createDirectoryIfMissing True (stateDirectory cfg </> dirname)
 
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-
@@ -163,10 +162,10 @@ withBFTNode tracer cfg action = do
     >>= writeFileBS
       (stateDirectory cfg </> nodeAlonzoGenesisFile args)
 
-  withCardanoNode tracer cfg args $ \rn@(RunningNode _ socket) -> do
-    traceWith tracer $ MsgNodeStarting cfg
-    waitForSocket rn
-    traceWith tracer $ MsgSocketIsReady socket
+  generateEnvironment args
+
+  withCardanoNode tracer cfg args $ \rn -> do
+    traceWith tracer MsgNodeIsReady
     action rn
  where
   dirname =
@@ -191,28 +190,110 @@ withBFTNode tracer cfg action = do
     setFileMode destination ownerReadMode
     pure destination
 
+  generateEnvironment args = do
+    refreshSystemStart cfg args
+    let topology = mkTopology $ peers $ ports cfg
+    Aeson.encodeFile (stateDirectory cfg </> nodeTopologyFile args) topology
+
+-- | Run a cardano-node as normal network participant on a known network.
+withCardanoNodeOnKnownNetwork ::
+  Tracer IO NodeLog ->
+  FilePath ->
+  KnownNetwork ->
+  (RunningNode -> IO ()) ->
+  IO ()
+withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
+  config <- newNodeConfig workDir
+  copyKnownNetworkFiles
+  withCardanoNode tracer config args $ \node -> do
+    waitForFullySynchronized tracer knownNetwork node
+    traceWith tracer MsgNodeIsReady
+    action node
+ where
+  args =
+    defaultCardanoNodeArgs
+      { nodeConfigFile = "cardano-node/config.json"
+      , nodeTopologyFile = "cardano-node/topology.json"
+      , nodeByronGenesisFile = "genesis/byron.json"
+      , nodeShelleyGenesisFile = "genesis/shelley.json"
+      , nodeAlonzoGenesisFile = "genesis/alonzo.json"
+      }
+
+  copyKnownNetworkFiles = do
+    createDirectoryIfMissing True $ workDir </> "cardano-node"
+    readConfigFile (knownNetworkPath </> "cardano-node" </> "config.json")
+      >>= writeFileBS (workDir </> "cardano-node" </> "config.json")
+    readConfigFile (knownNetworkPath </> "cardano-node" </> "topology.json")
+      >>= writeFileBS (workDir </> "cardano-node" </> "topology.json")
+    createDirectoryIfMissing True $ workDir </> "genesis"
+    readConfigFile (knownNetworkPath </> "genesis" </> "byron.json")
+      >>= writeFileBS (workDir </> "genesis" </> "byron.json")
+    readConfigFile (knownNetworkPath </> "genesis" </> "shelley.json")
+      >>= writeFileBS (workDir </> "genesis" </> "shelley.json")
+    readConfigFile (knownNetworkPath </> "genesis" </> "alonzo.json")
+      >>= writeFileBS (workDir </> "genesis" </> "alonzo.json")
+
+  -- Folder name in config/cardano-configurations/network
+  knownNetworkName = case knownNetwork of
+    Testnet -> "testnet"
+    VasilTestnet -> "vasil-dev"
+
+  knownNetworkPath =
+    "cardano-configurations" </> "network" </> knownNetworkName
+
+-- | Wait until the node is fully caught up with the network. This can take a
+-- while!
+waitForFullySynchronized ::
+  Tracer IO NodeLog ->
+  KnownNetwork ->
+  RunningNode ->
+  IO ()
+waitForFullySynchronized tracer knownNetwork (RunningNode _ nodeSocket) = do
+  systemStart <- querySystemStart networkId nodeSocket QueryTip
+  check systemStart
+ where
+  networkId = knownNetworkId knownNetwork
+
+  check systemStart = do
+    targetTime <- toRelativeTime systemStart <$> getCurrentTime
+    eraHistory <- queryEraHistory networkId nodeSocket QueryTip
+    tipSlotNo <- queryTipSlotNo networkId nodeSocket
+    (tipTime, _slotLength) <- either throwIO pure $ getProgress tipSlotNo eraHistory
+    let timeDifference = diffRelativeTime targetTime tipTime
+    let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
+    traceWith tracer $ MsgSynchronizing{percentDone}
+    if timeDifference < 20 -- TODO: derive from known network and block times
+      then pure ()
+      else threadDelay 3 >> check systemStart
+
 withCardanoNode ::
   Tracer IO NodeLog ->
   CardanoNodeConfig ->
   CardanoNodeArgs ->
   (RunningNode -> IO ()) ->
   IO ()
-withCardanoNode tr cfg@CardanoNodeConfig{stateDirectory, nodeId} args action = do
-  generateEnvironment
+withCardanoNode tr config@CardanoNodeConfig{stateDirectory, nodeId} args action = do
+  traceWith tr $ MsgUsingStateDirectory stateDirectory
   let process = cardanoNodeProcess (Just stateDirectory) args
-      logFile = stateDirectory </> show nodeId <.> "log"
+      logFile = stateDirectory </> "cardano-node-" <> show nodeId <.> "log"
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
-  withFile' logFile $ \out ->
-    withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $ \_stdin _stdout _stderr processHandle ->
-      race_
-        (checkProcessHasNotDied ("cardano-node-" <> show nodeId) processHandle)
-        (action (RunningNode nodeId (stateDirectory </> nodeSocket args)))
-        `finally` cleanupSocketFile
+  withLogFile logFile $ \out -> do
+    hSetBuffering out NoBuffering
+    withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $
+      \_stdin _stdout _stderr processHandle ->
+        race_
+          (checkProcessHasNotDied ("cardano-node-" <> show nodeId) processHandle)
+          waitForNode
+          `finally` cleanupSocketFile
  where
-  generateEnvironment = do
-    refreshSystemStart cfg args
-    let topology = mkTopology $ peers $ ports cfg
-    Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) topology
+  socketPath = stateDirectory </> nodeSocket args
+
+  waitForNode = do
+    let rn = RunningNode nodeId socketPath
+    traceWith tr $ MsgNodeStarting config
+    waitForSocket rn
+    traceWith tr $ MsgSocketIsReady socketPath
+    action rn
 
   cleanupSocketFile =
     whenM (doesFileExist socketFile) $
@@ -307,13 +388,16 @@ instance Exception ProcessHasExited
 -- Logging
 
 data NodeLog
-  = MsgNodeCmdSpec Text
+  = MsgUsingStateDirectory FilePath
+  | MsgNodeCmdSpec Text
   | MsgCLI [Text]
   | MsgCLIStatus Text Text
   | MsgCLIRetry Text
   | MsgCLIRetryResult Text Int
   | MsgNodeStarting CardanoNodeConfig
   | MsgSocketIsReady FilePath
+  | MsgSynchronizing {percentDone :: Centi}
+  | MsgNodeIsReady
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

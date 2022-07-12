@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
-import CardanoNode (RunningNode (RunningNode), newNodeConfig, withBFTNode)
+import CardanoNode (RunningNode (RunningNode), newNodeConfig, withCardanoNodeDevnet)
 import Control.Lens ((^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
@@ -88,7 +88,7 @@ spec = around showLogsOnFailure $ do
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            withBFTNode (contramap FromCardanoNode tracer) config $ \node -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node -> do
               initAndClose tracer 1 node
 
       it "inits a Head and closes it immediately " $ \tracer ->
@@ -96,7 +96,7 @@ spec = around showLogsOnFailure $ do
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
             let clusterIx = 0
-            withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
               aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
               bobKeys@(bobCardanoVk, _) <- generate genKeyPair
               carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -151,7 +151,7 @@ spec = around showLogsOnFailure $ do
       it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
         withTempDir "end-to-end-chain-observer" $ \tmp -> do
           config <- newNodeConfig tmp
-          withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
             tip <- withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] $ \n1 -> do
@@ -175,7 +175,7 @@ spec = around showLogsOnFailure $ do
       it "close of an initial snapshot from restarting node is contested" $ \tracer -> do
         withTempDir "end-to-end-chain-observer" $ \tmp -> do
           config <- newNodeConfig tmp
-          withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
             (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
 
@@ -240,7 +240,7 @@ spec = around showLogsOnFailure $ do
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            withBFTNode (contramap FromCardanoNode tracer) config $ \node -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node -> do
               concurrently_
                 (initAndClose tracer 0 node)
                 (initAndClose tracer 1 node)
@@ -249,7 +249,7 @@ spec = around showLogsOnFailure $ do
         failAfter 60 $
           withTempDir "end-to-end-two-heads" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket []
@@ -285,7 +285,7 @@ spec = around showLogsOnFailure $ do
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, _) <- keysFor Alice
-          withBFTNode (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [Bob, Carol]
             bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice, Carol]
             carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket [Bob, Carol]
