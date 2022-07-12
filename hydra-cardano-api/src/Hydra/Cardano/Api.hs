@@ -529,23 +529,42 @@ pattern TxMintValue{txMintValueInEra, txMintValueScriptWitnesses} <-
 type TxOut ctx = Cardano.Api.TxOut ctx Era
 {-# COMPLETE TxOut #-}
 
--- | TxOut specialized for 'Era', hiding 'ReferenceScript'
--- FIXME: Do not strip off 'ReferenceScript' it's surprising and we will need
--- them eventually
-pattern TxOut :: AddressInEra -> Value -> TxOutDatum ctx -> TxOut ctx
-pattern TxOut{txOutAddress, txOutValue, txOutDatum} <-
+-- | TxOut specialized for 'Era'
+pattern TxOut :: AddressInEra -> Value -> TxOutDatum ctx -> ReferenceScript -> TxOut ctx
+pattern TxOut{txOutAddress, txOutValue, txOutDatum, txOutReferenceScript} <-
   Cardano.Api.TxOut
     txOutAddress
     (TxOutValue MultiAssetInBabbageEra txOutValue)
     txOutDatum
-    _txReferenceScript
+    txOutReferenceScript
   where
-    TxOut addr value datum =
+    TxOut addr value datum ref =
       Cardano.Api.TxOut
         addr
         (TxOutValue MultiAssetInBabbageEra value)
         datum
-        Cardano.Api.Shelley.ReferenceScriptNone
+        ref
+
+-- ** ReferenceScript
+
+type ReferenceScript = Cardano.Api.Shelley.ReferenceScript Era
+
+pattern ReferenceScript :: ScriptInAnyLang -> ReferenceScript
+pattern ReferenceScript{referenceScript} <-
+  Cardano.Api.Shelley.ReferenceScript
+    Cardano.Api.Shelley.ReferenceTxInsScriptsInlineDatumsInBabbageEra
+    referenceScript
+  where
+    ReferenceScript =
+      Cardano.Api.Shelley.ReferenceScript
+        Cardano.Api.Shelley.ReferenceTxInsScriptsInlineDatumsInBabbageEra
+
+pattern ReferenceScriptNone :: Cardano.Api.Shelley.ReferenceScript Era
+pattern ReferenceScriptNone <-
+  Cardano.Api.Shelley.ReferenceScriptNone
+  where
+    ReferenceScriptNone =
+      Cardano.Api.Shelley.ReferenceScriptNone
 
 -- ** TxOutDatum
 
