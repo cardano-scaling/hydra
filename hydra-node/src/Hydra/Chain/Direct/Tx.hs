@@ -114,10 +114,12 @@ initTx networkId cardanoKeys parameters seed =
     [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
 
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
-mkHeadOutput networkId tokenPolicyId =
+mkHeadOutput networkId tokenPolicyId datum =
   TxOut
     (mkScriptAddress @PlutusScriptV2 networkId headScript)
     (headValue <> valueFromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
+    datum
+    ReferenceScriptNone
  where
   headScript = fromPlutusScript Head.validatorScript
 
@@ -133,7 +135,7 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
 mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
-  TxOut initialAddress initialValue initialDatum
+  TxOut initialAddress initialValue initialDatum ReferenceScriptNone
  where
   initialValue =
     headValue <> valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
@@ -175,7 +177,7 @@ commitTx networkId party utxo (initialInput, out, vkh) =
   mCommittedInput =
     fst <$> utxo
   commitOutput =
-    TxOut commitAddress commitValue commitDatum
+    TxOut commitAddress commitValue commitDatum ReferenceScriptNone
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitAddress =
@@ -232,6 +234,7 @@ collectComTx networkId vk initialThreadOutput commits =
       (mkScriptAddress @PlutusScriptV2 networkId headScript)
       (txOutValue initialHeadOutput <> commitValue)
       headDatumAfter
+      ReferenceScriptNone
   headDatumAfter =
     mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash, contestationPeriod = initialContestationPeriod}
 
@@ -560,7 +563,7 @@ observeInitTx networkId cardanoKeys party tx = do
       }
  where
   headOutput = \case
-    (ix, out@(TxOut _ _ (TxOutDatumInTx d))) ->
+    (ix, out@(TxOut _ _ (TxOutDatumInTx d) _)) ->
       (ix,out,toLedgerData d,) <$> fromData (toPlutusData d)
     _ -> Nothing
 
@@ -576,7 +579,7 @@ observeInitTx networkId cardanoKeys party tx = do
       )
       initialOutputs
 
-  isInitial (TxOut addr _ _) = addr == initialAddress
+  isInitial (TxOut addr _ _ _) = addr == initialAddress
 
   initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
 

@@ -271,9 +271,9 @@ commit utxo st@OnChainHeadState{networkId, ownParty, ownVerificationKey, stateMa
 
   rejectByronAddress :: (TxIn, TxOut CtxUTxO) -> Either (PostTxError Tx) ()
   rejectByronAddress = \case
-    (_, TxOut (ByronAddressInEra addr) _ _) ->
+    (_, TxOut (ByronAddressInEra addr) _ _ _) ->
       Left (UnsupportedLegacyOutput addr)
-    (_, TxOut ShelleyAddressInEra{} _ _) ->
+    (_, TxOut ShelleyAddressInEra{} _ _ _) ->
       Right ()
 
 abort ::

@@ -116,6 +116,7 @@ genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
             (mkVkAddress networkId vk)
             (lovelaceToValue amount)
             TxOutDatumNone
+            ReferenceScriptNone
         initialUTxO = UTxO.singleton (txIn, txOut)
     txSequence <-
       reverse . thrd

@@ -1,5 +1,4 @@
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Cluster.Faucet where
 
@@ -19,9 +18,11 @@ import CardanoClient (
  )
 import CardanoNode (RunningNode (..))
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash, retry)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
+import qualified Hydra.Contract.Initial as Initial
 
 data Marked = Fuel | Normal
 
@@ -70,6 +71,7 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
       (shelleyAddressInEra receivingAddress)
       (lovelaceToValue lovelace)
       theOutputDatum
+      ReferenceScriptNone
 
   theOutputDatum = case marked of
     Fuel -> TxOutDatumHash markerDatumHash
@@ -98,27 +100,28 @@ seedFromFaucet_ node vk ll marked =
 publishHydraScripts :: NetworkId -> RunningNode -> SigningKey PaymentKey -> IO TxId
 publishHydraScripts networkId node@(RunningNode _ nodeSocket) sk = do
   utxo <- queryUTxOFor networkId node QueryTip vk
-  let someTxIn = Set.findMin UTxO.inputSet utxo
-  body <-
-    build
-      networkId
-      nodeSocket
-      changeAddress
-      [(someTxIn, Nothing)]
-      []
-      [publishInitial]
-  return (getTxId body)
+  let someTxIn = Set.findMin $ UTxO.inputSet utxo
+  build
+    networkId
+    nodeSocket
+    changeAddress
+    [(someTxIn, Nothing)]
+    []
+    [publishInitial]
+    >>= \case
+      Left e -> throwErrorAsException e
+      Right body -> return $ getTxId body
  where
   changeAddress = buildAddress vk networkId
   vk = getVerificationKey sk
 
-  publishInitial :: TxOut
+  publishInitial :: TxOut CtxTx
   publishInitial =
     TxOut
-      changeAddress -- FIXME: Can be whatever we want, but ideally a 'sink' address that can't be spent
+      (shelleyAddressInEra changeAddress) -- FIXME: Can be whatever we want, but ideally a 'sink' address that can't be spent
       probablyEnoughAda
       TxOutDatumNone
-      (ReferenceScript (toScriptInAnyLang (fromPlutusScript @PlutusScriptV2 Initial.validatorScript)))
+      (ReferenceScript (toScriptInAnyLang $ PlutusScript (fromPlutusScript Initial.validatorScript)))
 
   -- This depends on protocol parameters and the size of the script.
   probablyEnoughAda =
