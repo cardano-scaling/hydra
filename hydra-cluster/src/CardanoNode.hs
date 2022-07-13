@@ -34,7 +34,6 @@ import System.Process (
   withCreateProcess,
  )
 import Test.Hydra.Prelude
-import Test.Network.Ports (randomUnusedTCPPort)
 
 type Port = Int
 
@@ -57,17 +56,6 @@ data DevnetConfig = DevnetConfig
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-newDevnetConfig :: FilePath -> IO DevnetConfig
-newDevnetConfig stateDirectory = do
-  nodePort <- randomUnusedTCPPort
-  systemStart <- initSystemStart
-  pure $
-    DevnetConfig
-      { stateDirectory
-      , systemStart
-      , ports = PortsConfig nodePort []
-      }
 
 -- | Arguments given to the 'cardano-node' command-line to run a node.
 data CardanoNodeArgs = CardanoNodeArgs
@@ -124,12 +112,12 @@ getCardanoNodeVersion =
 -- "initialFunds". Use 'seedFromFaucet' to distribute funds other wallets.
 withCardanoNodeDevnet ::
   Tracer IO NodeLog ->
-  DevnetConfig ->
+  -- | State directory in which credentials, db & logs are persisted.
+  FilePath ->
   (RunningNode -> IO ()) ->
   IO ()
-withCardanoNodeDevnet tracer cfg action = do
+withCardanoNodeDevnet tracer stateDirectory action = do
   createDirectoryIfMissing True stateDirectory
-
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-
     mapM
       copyDevnetCredential
@@ -146,17 +134,15 @@ withCardanoNodeDevnet tracer cfg action = do
           , nodeVrfKeyFile = Just vrfKey
           , nodeKesKeyFile = Just kesKey
           , nodeOpCertFile = Just opCert
-          , nodePort = Just ourPort
           }
   copyDevnetFiles args
-  generateEnvironment args
+  refreshSystemStart stateDirectory args
+  writeTopology [] args
 
   withCardanoNode tracer networkId stateDirectory args $ \rn -> do
     traceWith tracer MsgNodeIsReady
     action rn
  where
-  DevnetConfig{stateDirectory, ports = PortsConfig{ours = ourPort}} = cfg
-
   -- NOTE: This needs to match what's in config/genesis-shelley.json
   networkId = defaultNetworkId
 
@@ -182,15 +168,16 @@ withCardanoNodeDevnet tracer cfg action = do
       >>= writeFileBS
         (stateDirectory </> nodeAlonzoGenesisFile args)
 
-  generateEnvironment args = do
-    refreshSystemStart cfg args
-    let topology = mkTopology $ peers $ ports cfg
-    Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) topology
+  writeTopology peers args =
+    Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) $
+      mkTopology peers
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
   Tracer IO NodeLog ->
+  -- | State directory in which node db & logs are persisted.
   FilePath ->
+  -- | A well-known Cardano network to connect to.
   KnownNetwork ->
   (RunningNode -> IO ()) ->
   IO ()
@@ -354,8 +341,13 @@ initSystemStart =
   addUTCTime 1 <$> getCurrentTime
 
 -- | Re-generate configuration and genesis files with fresh system start times.
-refreshSystemStart :: DevnetConfig -> CardanoNodeArgs -> IO ()
-refreshSystemStart DevnetConfig{stateDirectory, systemStart} args = do
+refreshSystemStart ::
+  -- | Working directory in which paths of 'CardanoNodeArgs' are resolved.
+  FilePath ->
+  CardanoNodeArgs ->
+  IO ()
+refreshSystemStart stateDirectory args = do
+  systemStart <- initSystemStart
   let startTime = round @_ @Int $ utcTimeToPOSIXSeconds systemStart
   byronGenesis <-
     unsafeDecodeJsonFile (stateDirectory </> nodeByronGenesisFile args)
