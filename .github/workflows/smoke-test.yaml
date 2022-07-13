@@ -1,4 +1,4 @@
-name: "Smoke test on ${{inputs.network}}"
+name: "Smoke test"
 on:
   workflow_dispatch:
     inputs:
