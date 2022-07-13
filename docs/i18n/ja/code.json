@@ -11,7 +11,7 @@
     "description": "Hydra heads' first highlight: security."
   },
   "homepage.featureList.secure.tagline": {
-    "message": "ハイドラヘッド参加者は、明示的に同意していない資金を失うことはありません。",
+    "message": "Hydra Headの参加者は、明示的に同意していない資金を失うことはありません。",
     "description": "Tagline for the 'secure' property."
   },
   "homepage.featureList.fast.title": {
@@ -19,15 +19,15 @@
     "description": "Hydra heads' second highlight: swiftness."
   },
   "homepage.featureList.fast.tagline": {
-    "message": "ハイドラヘッド内で実行されるトランザクションは、ほぼ即時決済が可能です。",
+    "message": "Hydra Head内で実行されるトランザクションは、ほぼ即時決済が可能です。",
     "description": "Tagline for the 'fast' property."
   },
   "homepage.featureList.isomorphic.title": {
-    "message": "同形",
+    "message": "同型",
     "description": "Hydra heads' third highlight: isomorphism."
   },
   "homepage.featureList.isomorphic.tagline": {
-    "message": "カルダノメイン元帳の堅牢な機能、インターフェース、安全性を利用することができます。",
+    "message": "Cardanoのメイン台帳の堅牢な機能、インターフェース、安全性を利用することができます。",
     "description": "Tagline for the 'isomorphic' property."
   },
   "theme.ErrorPageContent.title": {
