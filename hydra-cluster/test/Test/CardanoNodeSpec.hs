@@ -26,6 +26,6 @@ spec = do
       showLogsOnFailure $ \tr -> do
         withTempDir "hydra-cluster" $ \tmp -> do
           config <- newNodeConfig tmp
-          withCardanoNodeDevnet tr config $ \(RunningNode _ socketFile) -> do
+          withCardanoNodeDevnet tr config $ \RunningNode{nodeSocket} -> do
             -- TODO: assert blocks are produced
-            doesFileExist socketFile `shouldReturn` True
+            doesFileExist nodeSocket `shouldReturn` True

@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -9,14 +10,17 @@ import Hydra.Prelude
 
 import Cardano.Slotting.Time (RelativeTime (getRelativeTime), diffRelativeTime, toRelativeTime)
 import CardanoClient (QueryPoint (QueryTip), queryEraHistory, querySystemStart, queryTipSlotNo)
+import Control.Lens ((^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as Aeson.KeyMap
+import Data.Aeson.Lens (key, _Number)
 import Data.Fixed (Centi)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Hydra.Cardano.Api (AsType (AsPaymentKey), PaymentKey, SigningKey, VerificationKey, generateSigningKey, getProgress, getVerificationKey)
-import Hydra.Cluster.Fixture (KnownNetwork (Testnet, VasilTestnet), knownNetworkId)
+import Hydra.Cardano.Api (AsType (AsPaymentKey), NetworkId, PaymentKey, SigningKey, VerificationKey, generateSigningKey, getProgress, getVerificationKey)
+import qualified Hydra.Cardano.Api as Api
+import Hydra.Cluster.Fixture (KnownNetwork (Testnet, VasilTestnet), defaultNetworkId, knownNetworkId)
 import Hydra.Cluster.Util (readConfigFile)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import System.Exit (ExitCode (..))
@@ -37,9 +41,14 @@ type Port = Int
 newtype NodeId = NodeId Int
   deriving newtype (Eq, Show, Num, ToJSON, FromJSON)
 
-data RunningNode = RunningNode NodeId FilePath
+data RunningNode = RunningNode
+  { nodeId :: NodeId
+  , nodeSocket :: FilePath
+  , networkId :: NetworkId
+  }
 
 -- | Configuration parameters for a single node of the cluster
+-- TODO: this is only really used by `withCardanoNodeDevnet` -> rename?
 data CardanoNodeConfig = CardanoNodeConfig
   { -- | An identifier for the node
     nodeId :: NodeId
@@ -164,12 +173,16 @@ withCardanoNodeDevnet tracer cfg action = do
 
   generateEnvironment args
 
-  withCardanoNode tracer cfg args $ \rn -> do
+  withCardanoNode tracer networkId cfg args $ \rn -> do
     traceWith tracer MsgNodeIsReady
     action rn
  where
-  dirname =
-    "stake-pool-" <> show (nodeId cfg)
+  CardanoNodeConfig{nodeId} = cfg
+
+  dirname = "stake-pool-" <> show nodeId
+
+  -- NOTE: This needs to match what's in config/genesis-shelley.json
+  networkId = defaultNetworkId
 
   dlgCertFilename =
     dirname </> "byron-delegation.cert"
@@ -203,9 +216,10 @@ withCardanoNodeOnKnownNetwork ::
   (RunningNode -> IO ()) ->
   IO ()
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
+  networkId <- readNetworkId
   config <- newNodeConfig workDir
   copyKnownNetworkFiles
-  withCardanoNode tracer config args $ \node -> do
+  withCardanoNode tracer networkId config args $ \node -> do
     waitForFullySynchronized tracer knownNetwork node
     traceWith tracer MsgNodeIsReady
     action node
@@ -218,6 +232,15 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
       , nodeShelleyGenesisFile = "genesis/shelley.json"
       , nodeAlonzoGenesisFile = "genesis/alonzo.json"
       }
+
+  -- Read 'NetworkId' from shelley genesis, failing if on mainnet or not able to
+  -- find the network magic.
+  readNetworkId = do
+    shelleyGenesis :: Aeson.Value <- unsafeDecodeJson =<< readConfigFile (knownNetworkPath </> "genesis" </> "shelley.json")
+    when (shelleyGenesis ^?! key "networkId" == "Mainnet") $
+      fail "Mainnet not supported yet"
+    let magic = shelleyGenesis ^?! key "networkMagic" . _Number
+    pure $ Api.Testnet (Api.NetworkMagic $ truncate magic)
 
   copyKnownNetworkFiles = do
     createDirectoryIfMissing True $ workDir </> "cardano-node"
@@ -248,7 +271,7 @@ waitForFullySynchronized ::
   KnownNetwork ->
   RunningNode ->
   IO ()
-waitForFullySynchronized tracer knownNetwork (RunningNode _ nodeSocket) = do
+waitForFullySynchronized tracer knownNetwork RunningNode{nodeSocket} = do
   systemStart <- querySystemStart networkId nodeSocket QueryTip
   check systemStart
  where
@@ -268,11 +291,12 @@ waitForFullySynchronized tracer knownNetwork (RunningNode _ nodeSocket) = do
 
 withCardanoNode ::
   Tracer IO NodeLog ->
+  NetworkId ->
   CardanoNodeConfig ->
   CardanoNodeArgs ->
   (RunningNode -> IO ()) ->
   IO ()
-withCardanoNode tr config@CardanoNodeConfig{stateDirectory, nodeId} args action = do
+withCardanoNode tr networkId config@CardanoNodeConfig{stateDirectory, nodeId} args@CardanoNodeArgs{nodeSocket} action = do
   traceWith tr $ MsgUsingStateDirectory stateDirectory
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   withLogFile logFilePath $ \out -> do
@@ -288,45 +312,57 @@ withCardanoNode tr config@CardanoNodeConfig{stateDirectory, nodeId} args action 
 
   logFilePath = stateDirectory </> "logs" </> "cardano-node-" <> show nodeId <.> "log"
 
-  socketPath = stateDirectory </> nodeSocket args
+  socketPath = stateDirectory </> nodeSocket
 
   waitForNode = do
-    let rn = RunningNode nodeId socketPath
+    let rn = RunningNode{nodeId, nodeSocket = socketPath, networkId}
     traceWith tr $ MsgNodeStarting config
     waitForSocket rn
     traceWith tr $ MsgSocketIsReady socketPath
     action rn
 
   cleanupSocketFile =
-    whenM (doesFileExist socketFile) $
-      removeFile socketFile
-
-  socketFile = stateDirectory </> nodeSocket args
+    whenM (doesFileExist socketPath) $
+      removeFile socketPath
 
 -- | Wait for the node socket file to become available.
 waitForSocket :: RunningNode -> IO ()
-waitForSocket node@(RunningNode _ socket) = do
-  unlessM (doesFileExist socket) $ do
+waitForSocket node@RunningNode{nodeSocket} =
+  unlessM (doesFileExist nodeSocket) $ do
     threadDelay 0.1
     waitForSocket node
 
 -- | Generate command-line arguments for launching @cardano-node@.
 cardanoNodeProcess :: Maybe FilePath -> CardanoNodeArgs -> CreateProcess
-cardanoNodeProcess cwd args = (proc "cardano-node" strArgs){cwd}
+cardanoNodeProcess cwd args =
+  (proc "cardano-node" strArgs){cwd}
  where
+  CardanoNodeArgs
+    { nodeConfigFile
+    , nodeTopologyFile
+    , nodeDatabaseDir
+    , nodeSocket
+    , nodePort
+    , nodeSignKeyFile
+    , nodeDlgCertFile
+    , nodeOpCertFile
+    , nodeKesKeyFile
+    , nodeVrfKeyFile
+    } = args
+
   strArgs =
     "run" :
     mconcat
-      [ ["--config", nodeConfigFile args]
-      , ["--topology", nodeTopologyFile args]
-      , ["--database-path", nodeDatabaseDir args]
-      , ["--socket-path", nodeSocket args]
-      , opt "--port" (show <$> nodePort args)
-      , opt "--byron-signing-key" (nodeSignKeyFile args)
-      , opt "--byron-delegation-certificate" (nodeDlgCertFile args)
-      , opt "--shelley-operational-certificate" (nodeOpCertFile args)
-      , opt "--shelley-kes-key" (nodeKesKeyFile args)
-      , opt "--shelley-vrf-key" (nodeVrfKeyFile args)
+      [ ["--config", nodeConfigFile]
+      , ["--topology", nodeTopologyFile]
+      , ["--database-path", nodeDatabaseDir]
+      , ["--socket-path", nodeSocket]
+      , opt "--port" (show <$> nodePort)
+      , opt "--byron-signing-key" nodeSignKeyFile
+      , opt "--byron-delegation-certificate" nodeDlgCertFile
+      , opt "--shelley-operational-certificate" nodeOpCertFile
+      , opt "--shelley-kes-key" nodeKesKeyFile
+      , opt "--shelley-vrf-key" nodeVrfKeyFile
       ]
 
   opt :: a -> Maybe a -> [a]
@@ -337,7 +373,7 @@ cardanoNodeProcess cwd args = (proc "cardano-node" strArgs){cwd}
 -- | Initialize the system start time to now (modulo a small offset needed to
 -- give time to the system to bootstrap correctly).
 initSystemStart :: IO UTCTime
-initSystemStart = do
+initSystemStart =
   addUTCTime 1 <$> getCurrentTime
 
 -- | Re-generate configuration and genesis files with fresh system start times.
@@ -369,7 +405,7 @@ refreshSystemStart cfg args = do
 
 -- | Generate a topology file from a list of peers.
 mkTopology :: [Port] -> Aeson.Value
-mkTopology peers = do
+mkTopology peers =
   Aeson.object ["Producers" .= map encodePeer peers]
  where
   encodePeer :: Int -> Aeson.Value
@@ -416,6 +452,9 @@ withObject :: (Aeson.Object -> Aeson.Object) -> Aeson.Value -> Aeson.Value
 withObject fn = \case
   Aeson.Object m -> Aeson.Object (fn m)
   x -> x
+
+unsafeDecodeJson :: FromJSON a => ByteString -> IO a
+unsafeDecodeJson = either fail pure . Aeson.eitherDecodeStrict
 
 unsafeDecodeJsonFile :: FromJSON a => FilePath -> IO a
 unsafeDecodeJsonFile = Aeson.eitherDecodeFileStrict >=> either fail pure
