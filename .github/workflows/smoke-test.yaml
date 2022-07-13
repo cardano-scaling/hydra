@@ -35,6 +35,12 @@ jobs:
         name: hydra-node
         authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
 
+    - name: Github cache of state-directory
+      uses: actions/cache@v2.1.5
+      with:
+        path: state-${{inputs.network}}
+        key: state-${{inputs.network}}
+
     - name: Prepare nix-shell
       run: |
         nix-build -A exes shell.nix
@@ -42,3 +48,10 @@ jobs:
     - name: Run hydra-cluster 
       run: |
         nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --state-directory state-${{inputs.network}}"
+
+    - name: Archive logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: hydra-cluster-logs
+        path: state-${{inputs.network}}/logs/**/*
