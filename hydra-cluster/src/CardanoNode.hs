@@ -274,10 +274,8 @@ withCardanoNode ::
   IO ()
 withCardanoNode tr config@CardanoNodeConfig{stateDirectory, nodeId} args action = do
   traceWith tr $ MsgUsingStateDirectory stateDirectory
-  let process = cardanoNodeProcess (Just stateDirectory) args
-      logFile = stateDirectory </> "cardano-node-" <> show nodeId <.> "log"
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
-  withLogFile logFile $ \out -> do
+  withLogFile logFilePath $ \out -> do
     hSetBuffering out NoBuffering
     withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $
       \_stdin _stdout _stderr processHandle ->
@@ -286,6 +284,10 @@ withCardanoNode tr config@CardanoNodeConfig{stateDirectory, nodeId} args action 
           waitForNode
           `finally` cleanupSocketFile
  where
+  process = cardanoNodeProcess (Just stateDirectory) args
+
+  logFilePath = stateDirectory </> "logs" </> "cardano-node-" <> show nodeId <.> "log"
+
   socketPath = stateDirectory </> nodeSocket args
 
   waitForNode = do

@@ -35,6 +35,7 @@ library
     , containers
     , data-default
     , directory
+    , filepath
     , hspec
     , hspec-core
     , hspec-junit-formatter
