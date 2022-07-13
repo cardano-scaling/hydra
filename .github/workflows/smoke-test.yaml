@@ -1,14 +1,15 @@
 name: "Smoke test"
 on:
   workflow_dispatch:
-    network:
-      description: "Cardano network to run against"
-      required: true
-      default: "vasil-dev"
-      type: choice
-      options:
-      - vasil-dev
-      - testnet
+    inputs:
+      network:
+        description: "Cardano network to run against"
+        required: true
+        default: "vasil-dev"
+        type: choice
+        options:
+        - vasil-dev
+        - testnet
 
 jobs:
   smoke-test:
