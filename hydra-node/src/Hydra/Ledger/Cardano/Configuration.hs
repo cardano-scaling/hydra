@@ -32,6 +32,10 @@ readJsonFileThrow parser filepath = do
 shelleyGenesisFromJson :: Json.Value -> Json.Parser (Ledger.ShelleyGenesis LedgerEra)
 shelleyGenesisFromJson = parseJSON
 
+-- FIXME: We should not need the shelley genesis as the Ledger.Globals are
+-- irrelevant (e.g. active slot coefficient) or can be derived from chain config
+-- (e.g. networkId). Consequence of this would be less configuration for the
+-- hydra-node (only protocol-parameters).
 newGlobals :: Ledger.ShelleyGenesis LedgerEra -> Ledger.Globals
 newGlobals shelleyGenesis =
   Ledger.mkShelleyGlobals

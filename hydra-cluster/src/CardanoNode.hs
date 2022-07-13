@@ -24,7 +24,7 @@ import Hydra.Cluster.Fixture (KnownNetwork (Testnet, VasilTestnet), defaultNetwo
 import Hydra.Cluster.Util (readConfigFile)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import System.Exit (ExitCode (..))
-import System.FilePath ((<.>), (</>))
+import System.FilePath ((</>))
 import System.Posix (ownerReadMode, setFileMode)
 import System.Process (
   CreateProcess (..),
@@ -42,17 +42,13 @@ newtype NodeId = NodeId Int
   deriving newtype (Eq, Show, Num, ToJSON, FromJSON)
 
 data RunningNode = RunningNode
-  { nodeId :: NodeId
-  , nodeSocket :: FilePath
+  { nodeSocket :: FilePath
   , networkId :: NetworkId
   }
 
--- | Configuration parameters for a single node of the cluster
--- TODO: this is only really used by `withCardanoNodeDevnet` -> rename?
-data CardanoNodeConfig = CardanoNodeConfig
-  { -- | An identifier for the node
-    nodeId :: NodeId
-  , -- | Parent state directory in which create a state directory for the cluster
+-- | Configuration parameters for a single node devnet
+data DevnetConfig = DevnetConfig
+  { -- | Parent state directory
     stateDirectory :: FilePath
   , -- | Blockchain start time
     systemStart :: UTCTime
@@ -62,14 +58,13 @@ data CardanoNodeConfig = CardanoNodeConfig
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-newNodeConfig :: FilePath -> IO CardanoNodeConfig
-newNodeConfig stateDirectory = do
+newDevnetConfig :: FilePath -> IO DevnetConfig
+newDevnetConfig stateDirectory = do
   nodePort <- randomUnusedTCPPort
   systemStart <- initSystemStart
   pure $
-    CardanoNodeConfig
-      { nodeId = 1
-      , stateDirectory
+    DevnetConfig
+      { stateDirectory
       , systemStart
       , ports = PortsConfig nodePort []
       }
@@ -129,22 +124,21 @@ getCardanoNodeVersion =
 -- "initialFunds". Use 'seedFromFaucet' to distribute funds other wallets.
 withCardanoNodeDevnet ::
   Tracer IO NodeLog ->
-  CardanoNodeConfig ->
+  DevnetConfig ->
   (RunningNode -> IO ()) ->
   IO ()
 withCardanoNodeDevnet tracer cfg action = do
-  createDirectoryIfMissing True (stateDirectory cfg </> dirname)
+  createDirectoryIfMissing True stateDirectory
 
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-
-    forM
-      [ dlgCertFilename
-      , signKeyFilename
-      , vrfKeyFilename
-      , kesKeyFilename
-      , opCertFilename
+    mapM
+      copyDevnetCredential
+      [ "byron-delegation.cert"
+      , "byron-delegate.key"
+      , "vrf.skey"
+      , "kes.skey"
+      , "opcert.cert"
       ]
-      (copyCredential (stateDirectory cfg))
-
   let args =
         defaultCardanoNodeArgs
           { nodeDlgCertFile = Just dlgCert
@@ -152,61 +146,46 @@ withCardanoNodeDevnet tracer cfg action = do
           , nodeVrfKeyFile = Just vrfKey
           , nodeKesKeyFile = Just kesKey
           , nodeOpCertFile = Just opCert
-          , nodePort = Just (ours (ports cfg))
+          , nodePort = Just ourPort
           }
-
-  readConfigFile "cardano-node.json"
-    >>= writeFileBS
-      (stateDirectory cfg </> nodeConfigFile args)
-
-  readConfigFile "genesis-byron.json"
-    >>= writeFileBS
-      (stateDirectory cfg </> nodeByronGenesisFile args)
-
-  readConfigFile "genesis-shelley.json"
-    >>= writeFileBS
-      (stateDirectory cfg </> nodeShelleyGenesisFile args)
-
-  readConfigFile "genesis-alonzo.json"
-    >>= writeFileBS
-      (stateDirectory cfg </> nodeAlonzoGenesisFile args)
-
+  copyDevnetFiles args
   generateEnvironment args
 
-  withCardanoNode tracer networkId cfg args $ \rn -> do
+  withCardanoNode tracer networkId stateDirectory args $ \rn -> do
     traceWith tracer MsgNodeIsReady
     action rn
  where
-  CardanoNodeConfig{nodeId} = cfg
-
-  dirname = "stake-pool-" <> show nodeId
+  DevnetConfig{stateDirectory, ports = PortsConfig{ours = ourPort}} = cfg
 
   -- NOTE: This needs to match what's in config/genesis-shelley.json
   networkId = defaultNetworkId
 
-  dlgCertFilename =
-    dirname </> "byron-delegation.cert"
-  signKeyFilename =
-    dirname </> "byron-delegate.key"
-  vrfKeyFilename =
-    dirname </> "vrf.skey"
-  kesKeyFilename =
-    dirname </> "kes.skey"
-  opCertFilename =
-    dirname </> "opcert.cert"
-
-  copyCredential parentDir file = do
-    bs <- readConfigFile ("credentials" </> file)
-    let destination = parentDir </> file
+  copyDevnetCredential file = do
+    let destination = stateDirectory </> file
     unlessM (doesFileExist destination) $
-      writeFileBS destination bs
+      readConfigFile ("devnet" </> file)
+        >>= writeFileBS destination
     setFileMode destination ownerReadMode
     pure destination
+
+  copyDevnetFiles args = do
+    readConfigFile ("devnet" </> "cardano-node.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeConfigFile args)
+    readConfigFile ("devnet" </> "genesis-byron.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeByronGenesisFile args)
+    readConfigFile ("devnet" </> "genesis-shelley.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeShelleyGenesisFile args)
+    readConfigFile ("devnet" </> "genesis-alonzo.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeAlonzoGenesisFile args)
 
   generateEnvironment args = do
     refreshSystemStart cfg args
     let topology = mkTopology $ peers $ ports cfg
-    Aeson.encodeFile (stateDirectory cfg </> nodeTopologyFile args) topology
+    Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) topology
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
@@ -217,9 +196,8 @@ withCardanoNodeOnKnownNetwork ::
   IO ()
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   networkId <- readNetworkId
-  config <- newNodeConfig workDir
   copyKnownNetworkFiles
-  withCardanoNode tracer networkId config args $ \node -> do
+  withCardanoNode tracer networkId workDir args $ \node -> do
     waitForFullySynchronized tracer knownNetwork node
     traceWith tracer MsgNodeIsReady
     action node
@@ -292,31 +270,30 @@ waitForFullySynchronized tracer knownNetwork RunningNode{nodeSocket} = do
 withCardanoNode ::
   Tracer IO NodeLog ->
   NetworkId ->
-  CardanoNodeConfig ->
+  FilePath ->
   CardanoNodeArgs ->
   (RunningNode -> IO ()) ->
   IO ()
-withCardanoNode tr networkId config@CardanoNodeConfig{stateDirectory, nodeId} args@CardanoNodeArgs{nodeSocket} action = do
-  traceWith tr $ MsgUsingStateDirectory stateDirectory
+withCardanoNode tr networkId stateDirectory args@CardanoNodeArgs{nodeSocket} action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
+  traceWith tr $ MsgNodeStarting{stateDirectory}
   withLogFile logFilePath $ \out -> do
     hSetBuffering out NoBuffering
     withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $
       \_stdin _stdout _stderr processHandle ->
         race_
-          (checkProcessHasNotDied ("cardano-node-" <> show nodeId) processHandle)
+          (checkProcessHasNotDied "cardano-node" processHandle)
           waitForNode
           `finally` cleanupSocketFile
  where
   process = cardanoNodeProcess (Just stateDirectory) args
 
-  logFilePath = stateDirectory </> "logs" </> "cardano-node-" <> show nodeId <.> "log"
+  logFilePath = stateDirectory </> "logs" </> "cardano-node.log"
 
   socketPath = stateDirectory </> nodeSocket
 
   waitForNode = do
-    let rn = RunningNode{nodeId, nodeSocket = socketPath, networkId}
-    traceWith tr $ MsgNodeStarting config
+    let rn = RunningNode{nodeSocket = socketPath, networkId}
     waitForSocket rn
     traceWith tr $ MsgSocketIsReady socketPath
     action rn
@@ -377,31 +354,31 @@ initSystemStart =
   addUTCTime 1 <$> getCurrentTime
 
 -- | Re-generate configuration and genesis files with fresh system start times.
-refreshSystemStart :: CardanoNodeConfig -> CardanoNodeArgs -> IO ()
-refreshSystemStart cfg args = do
-  let startTime = round @_ @Int . utcTimeToPOSIXSeconds $ systemStart cfg
+refreshSystemStart :: DevnetConfig -> CardanoNodeArgs -> IO ()
+refreshSystemStart DevnetConfig{stateDirectory, systemStart} args = do
+  let startTime = round @_ @Int $ utcTimeToPOSIXSeconds systemStart
   byronGenesis <-
-    unsafeDecodeJsonFile (stateDirectory cfg </> nodeByronGenesisFile args)
+    unsafeDecodeJsonFile (stateDirectory </> nodeByronGenesisFile args)
       <&> addField "startTime" startTime
 
   let systemStartUTC =
         posixSecondsToUTCTime . fromRational . toRational $ startTime
   shelleyGenesis <-
-    unsafeDecodeJsonFile (stateDirectory cfg </> nodeShelleyGenesisFile args)
+    unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
       <&> addField "systemStart" systemStartUTC
 
   config <-
-    unsafeDecodeJsonFile (stateDirectory cfg </> nodeConfigFile args)
+    unsafeDecodeJsonFile (stateDirectory </> nodeConfigFile args)
       <&> addField "ByronGenesisFile" (nodeByronGenesisFile args)
       <&> addField "ShelleyGenesisFile" (nodeShelleyGenesisFile args)
 
   Aeson.encodeFile
-    (stateDirectory cfg </> nodeByronGenesisFile args)
+    (stateDirectory </> nodeByronGenesisFile args)
     byronGenesis
   Aeson.encodeFile
-    (stateDirectory cfg </> nodeShelleyGenesisFile args)
+    (stateDirectory </> nodeShelleyGenesisFile args)
     shelleyGenesis
-  Aeson.encodeFile (stateDirectory cfg </> nodeConfigFile args) config
+  Aeson.encodeFile (stateDirectory </> nodeConfigFile args) config
 
 -- | Generate a topology file from a list of peers.
 mkTopology :: [Port] -> Aeson.Value
@@ -426,13 +403,12 @@ instance Exception ProcessHasExited
 -- Logging
 
 data NodeLog
-  = MsgUsingStateDirectory FilePath
-  | MsgNodeCmdSpec Text
+  = MsgNodeCmdSpec Text
   | MsgCLI [Text]
   | MsgCLIStatus Text Text
   | MsgCLIRetry Text
   | MsgCLIRetryResult Text Int
-  | MsgNodeStarting CardanoNodeConfig
+  | MsgNodeStarting {stateDirectory :: FilePath}
   | MsgSocketIsReady FilePath
   | MsgSynchronizing {percentDone :: Centi}
   | MsgNodeIsReady

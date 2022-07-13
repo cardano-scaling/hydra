@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoNode (NodeLog, RunningNode (..), newNodeConfig, withCardanoNodeDevnet)
+import CardanoNode (NodeLog, RunningNode (..), newDevnetConfig, withCardanoNodeDevnet)
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
 import Graphics.Vty (
@@ -120,7 +120,7 @@ setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI action =
   showLogsOnFailure $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
-      config <- newNodeConfig tmpDir
+      config <- newDevnetConfig tmpDir
       (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) config $ \node@RunningNode{nodeSocket} -> do
         chainConfig <- chainConfigFor Alice tmpDir nodeSocket []

@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 import CardanoNode (
   RunningNode (..),
   getCardanoNodeVersion,
-  newNodeConfig,
+  newDevnetConfig,
   withCardanoNodeDevnet,
  )
 
@@ -25,7 +25,7 @@ spec = do
     failAfter 3 $
       showLogsOnFailure $ \tr -> do
         withTempDir "hydra-cluster" $ \tmp -> do
-          config <- newNodeConfig tmp
+          config <- newDevnetConfig tmp
           withCardanoNodeDevnet tr config $ \RunningNode{nodeSocket} -> do
             -- TODO: assert blocks are produced
             doesFileExist nodeSocket `shouldReturn` True

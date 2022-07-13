@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
-import CardanoNode (RunningNode (..), newNodeConfig, withCardanoNodeDevnet)
+import CardanoNode (RunningNode (..), newDevnetConfig, withCardanoNodeDevnet)
 import Control.Lens ((^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
@@ -87,14 +87,14 @@ spec = around showLogsOnFailure $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
-            config <- newNodeConfig tmpDir
+            config <- newDevnetConfig tmpDir
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node -> do
               initAndClose tracer 1 node
 
       it "inits a Head and closes it immediately " $ \tracer ->
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
-            config <- newNodeConfig tmpDir
+            config <- newDevnetConfig tmpDir
             let clusterIx = 0
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@RunningNode{nodeSocket} -> do
               aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
@@ -150,7 +150,7 @@ spec = around showLogsOnFailure $ do
     describe "start chain observer from the past" $
       it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
         withTempDir "end-to-end-chain-observer" $ \tmp -> do
-          config <- newNodeConfig tmp
+          config <- newDevnetConfig tmp
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@RunningNode{nodeSocket} -> do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
@@ -174,7 +174,7 @@ spec = around showLogsOnFailure $ do
     describe "contestation scenarios" $ do
       it "close of an initial snapshot from restarting node is contested" $ \tracer -> do
         withTempDir "end-to-end-chain-observer" $ \tmp -> do
-          config <- newNodeConfig tmp
+          config <- newDevnetConfig tmp
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@RunningNode{nodeSocket} -> do
             (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
@@ -239,7 +239,7 @@ spec = around showLogsOnFailure $ do
       it "two heads on the same network do not conflict" $ \tracer ->
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
-            config <- newNodeConfig tmpDir
+            config <- newDevnetConfig tmpDir
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node -> do
               concurrently_
                 (initAndClose tracer 0 node)
@@ -248,7 +248,7 @@ spec = around showLogsOnFailure $ do
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
           withTempDir "end-to-end-two-heads" $ \tmpDir -> do
-            config <- newNodeConfig tmpDir
+            config <- newDevnetConfig tmpDir
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@RunningNode{nodeSocket} -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
@@ -283,7 +283,7 @@ spec = around showLogsOnFailure $ do
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
-          config <- newNodeConfig tmpDir
+          config <- newDevnetConfig tmpDir
           (aliceCardanoVk, _) <- keysFor Alice
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@RunningNode{nodeSocket} -> do
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [Bob, Carol]

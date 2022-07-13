@@ -14,7 +14,7 @@ import CardanoClient (
   queryUTxO,
   waitForUTxO,
  )
-import CardanoNode (NodeLog, RunningNode (..), newNodeConfig, withCardanoNodeDevnet)
+import CardanoNode (NodeLog, RunningNode (..), newDevnetConfig, withCardanoNodeDevnet)
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
@@ -65,7 +65,7 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
+      config <- newDevnetConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@RunningNode{nodeSocket} -> do
         bobKeys <- keysFor Bob
@@ -88,7 +88,7 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
+      config <- newDevnetConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@RunningNode{nodeSocket} -> do
         bobKeys <- keysFor Bob
@@ -125,7 +125,7 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
+      config <- newDevnetConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       (carolCardanoVk, _) <- keysFor Carol
       withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@RunningNode{nodeSocket} -> do
@@ -145,7 +145,7 @@ spec = around showLogsOnFailure $ do
   it "can commit" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
+      config <- newDevnetConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@RunningNode{nodeSocket} -> do
         let cardanoKeys = [aliceCardanoVk]
@@ -174,7 +174,7 @@ spec = around showLogsOnFailure $ do
   it "can commit empty UTxO" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
+      config <- newDevnetConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@RunningNode{nodeSocket} -> do
         let cardanoKeys = [aliceCardanoVk]
@@ -191,7 +191,7 @@ spec = around showLogsOnFailure $ do
   it "can open, close & fanout a Head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
+      config <- newDevnetConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@RunningNode{nodeSocket} -> do
         let cardanoKeys = [aliceCardanoVk]
@@ -242,7 +242,7 @@ spec = around showLogsOnFailure $ do
   it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "direct-chain" $ \tmp -> do
-      config <- newNodeConfig tmp
+      config <- newDevnetConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@RunningNode{nodeSocket} -> do
         let cardanoKeys = [aliceCardanoVk]
@@ -260,7 +260,7 @@ spec = around showLogsOnFailure $ do
   it "cannot restart head to an unknown point" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "direct-chain" $ \tmp -> do
-      config <- newNodeConfig tmp
+      config <- newDevnetConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromNode tracer) config $ \RunningNode{nodeSocket} -> do
         let aliceTrace = contramap (FromDirectChain "alice") tracer
