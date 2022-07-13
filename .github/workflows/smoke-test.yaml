@@ -20,6 +20,7 @@ jobs:
       with:
         repository: input-output-hk/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
+        submodules: true
 
     - name: Prepare nix
       uses: cachix/install-nix-action@v17
