@@ -51,8 +51,8 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} = do
     -- Expect to see readyToFanout within 10 seconds after deadline
     waitFor tracer (truncate $ remainingSeconds + 10) [n1] $
       output "ReadyToFanout" []
-    -- FIXME: We need to wait a bit more?
-    threadDelay 15
+    -- FIXME: Why do we need to wait a bit here? Up to one block off?
+    threadDelay 20
     send n1 $ input "Fanout" []
     waitFor tracer 600 [n1] $
       output "HeadIsFinalized" ["utxo" .= object mempty]
