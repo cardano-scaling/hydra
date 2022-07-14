@@ -299,13 +299,14 @@ genRollbackPoint blks = do
 -- to observe at least one state transition and different levels of rollback.
 genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadStateAt, [Block])
 genSequenceOfObservableBlocks = do
+  referenceScriptsUTxO <- genReferenceScripts
   ctx <- genHydraContext 3
 
   -- NOTE: commits must be generated from each participant POV, and thus, we
   -- need all their respective StIdle to move on.
   let stIdles = flip map (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) ->
         let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
-         in idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p
+         in idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p referenceScriptsUTxO
 
   stIdle <- elements stIdles
   blks <- flip execStateT [] $ do

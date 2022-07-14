@@ -64,7 +64,8 @@ genHealthyIdleSt :: Gen (OnChainHeadState 'StIdle)
 genHealthyIdleSt = do
   party <- elements healthyParties
   let vk = genVerificationKey `genForParty` party
-  pure $ idleOnChainHeadState testNetworkId (healthyCardanoKeys \\ [vk]) vk party
+  referenceScriptsUTxO <- genReferenceScripts
+  pure $ idleOnChainHeadState testNetworkId (healthyCardanoKeys \\ [vk]) vk party referenceScriptsUTxO
 
 data InitMutation
   = MutateThreadTokenQuantity
