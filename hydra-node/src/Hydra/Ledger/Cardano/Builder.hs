@@ -83,6 +83,16 @@ addInputs :: TxIns BuildTx -> TxBuilder -> TxBuilder
 addInputs ins tx =
   tx{txIns = txIns tx <> ins}
 
+addReferenceInputs :: [TxIn] -> TxBuilder -> TxBuilder
+addReferenceInputs refs' tx =
+  tx
+    { txInsReference = case txInsReference tx of
+        TxInsReferenceNone ->
+          TxInsReference refs'
+        TxInsReference refs ->
+          TxInsReference (refs <> refs')
+    }
+
 -- | Like 'addInputs' but only for vk inputs which requires no additional data.
 addVkInputs :: [TxIn] -> TxBuilder -> TxBuilder
 addVkInputs ins =

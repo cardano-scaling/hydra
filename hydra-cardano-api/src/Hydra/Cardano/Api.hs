@@ -52,6 +52,7 @@ import Cardano.Api as X hiding (
   TxExtraKeyWitnesses (..),
   TxFee (..),
   TxInsCollateral (..),
+  TxInsReference (..),
   TxMetadataInEra (..),
   TxMintValue (..),
   TxOut (..),
@@ -352,7 +353,7 @@ type TxBodyContent build = Cardano.Api.TxBodyContent build Era
 pattern TxBodyContent ::
   TxIns build ->
   TxInsCollateral ->
-  TxInsReference build Era ->
+  TxInsReference build ->
   [TxOut CtxTx] ->
   TxTotalCollateral Era ->
   TxReturnCollateral CtxTx Era ->
@@ -462,7 +463,26 @@ pattern TxFeeExplicit{txFeeExplicit} <-
 
 -- ** TxIns
 
-type TxIns build = [(TxIn, BuildTxWith build (Cardano.Api.Witness WitCtxTxIn Era))]
+type TxIns buidl = [(TxIn, BuildTxWith buidl (Cardano.Api.Witness WitCtxTxIn Era))]
+
+-- ** TxInsReference
+
+type TxInsReference buidl = Cardano.Api.TxInsReference buidl Era
+{-# COMPLETE TxInsReferenceNone, TxInsReference #-}
+
+pattern TxInsReferenceNone :: TxInsReference buidl
+pattern TxInsReferenceNone <-
+  Cardano.Api.TxInsReferenceNone
+  where
+    TxInsReferenceNone =
+      Cardano.Api.TxInsReferenceNone
+
+pattern TxInsReference :: [TxIn] -> TxInsReference buidl
+pattern TxInsReference{txInsReference'} <-
+  Cardano.Api.TxInsReference _ txInsReference'
+  where
+    TxInsReference =
+      Cardano.Api.TxInsReference Cardano.Api.Shelley.ReferenceTxInsScriptsInlineDatumsInBabbageEra
 
 -- ** TxInsCollateral
 
