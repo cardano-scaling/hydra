@@ -15,6 +15,7 @@ import CardanoClient (
   sign,
   submit,
   waitForPayment,
+  waitForTransaction,
  )
 import CardanoNode (RunningNode (..))
 import qualified Data.Map as Map
@@ -23,6 +24,7 @@ import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash, retry)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import qualified Hydra.Contract.Initial as Initial
+import Hydra.Ledger.Cardano ()
 
 data Marked = Fuel | Normal
 
@@ -109,8 +111,14 @@ publishHydraScripts networkId node@(RunningNode _ nodeSocket) sk = do
     []
     [publishInitial]
     >>= \case
-      Left e -> throwErrorAsException e
-      Right body -> return $ getTxId body
+      Left e ->
+        throwErrorAsException e
+      Right body -> do
+        let tx = sign sk body
+        submit networkId nodeSocket tx
+        utxo <- waitForTransaction networkId nodeSocket tx
+        print (encodePretty utxo)
+        return $ getTxId body
  where
   changeAddress = buildAddress vk networkId
   vk = getVerificationKey sk
@@ -124,8 +132,9 @@ publishHydraScripts networkId node@(RunningNode _ nodeSocket) sk = do
       (ReferenceScript (toScriptInAnyLang $ PlutusScript (fromPlutusScript Initial.validatorScript)))
 
   -- This depends on protocol parameters and the size of the script.
+  -- TODO: Calculate this value instead from pparams.
   probablyEnoughAda =
-    lovelaceToValue 10_000_000
+    lovelaceToValue 23_437_780
 
 -- | Query UTxO for the address of given verification key at point.
 --
