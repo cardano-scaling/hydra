@@ -99,8 +99,10 @@ seedFromFaucet_ node vk ll marked =
 --
 -- The given key is used to pay for fees in required transactions, it is
 -- expected to have funds.
-publishHydraScripts :: NetworkId -> RunningNode -> SigningKey PaymentKey -> IO TxId
-publishHydraScripts networkId node@(RunningNode _ nodeSocket) sk = do
+publishHydraScripts :: NetworkId -> RunningNode -> Actor -> IO TxId
+publishHydraScripts networkId node@(RunningNode _ nodeSocket) actor = do
+  (vk, sk) <- keysFor actor
+  let changeAddress = buildAddress vk networkId
   utxo <- queryUTxOFor networkId node QueryTip vk
   let someTxIn = Set.findMin $ UTxO.inputSet utxo
   build
@@ -120,16 +122,16 @@ publishHydraScripts networkId node@(RunningNode _ nodeSocket) sk = do
         print (encodePretty utxo)
         return $ getTxId body
  where
-  changeAddress = buildAddress vk networkId
-  vk = getVerificationKey sk
-
   publishInitial :: TxOut CtxTx
   publishInitial =
     TxOut
-      (shelleyAddressInEra changeAddress) -- FIXME: Can be whatever we want, but ideally a 'sink' address that can't be spent
+      unspendableScriptAddress
       probablyEnoughAda
       TxOutDatumNone
       (ReferenceScript (toScriptInAnyLang $ PlutusScript (fromPlutusScript Initial.validatorScript)))
+
+  unspendableScriptAddress =
+    mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
 
   -- This depends on protocol parameters and the size of the script.
   -- TODO: Calculate this value instead from pparams.
