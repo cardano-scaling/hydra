@@ -452,7 +452,7 @@ abortTx hydraScriptsTxId vk (headInput, initialHeadOutput, ScriptDatumForTxIn ->
       unsafeBuildTransaction $
         emptyTxBody
           & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-          & addReferenceInputs [TxIn hydraScriptsTxId (TxIx 0)]
+          & addReferenceInputs [initialScriptRefeferenceTxIn]
           & addOutputs commitOutputs
           & burnTokens headTokenScript Burn headTokens
           & addExtraRequiredSigners [verificationKeyHash vk]
@@ -482,10 +482,17 @@ abortTx hydraScriptsTxId vk (headInput, initialHeadOutput, ScriptDatumForTxIn ->
   -- transition.
   mkAbortInitial (initialInput, (_, ScriptDatumForTxIn -> initialDatum)) =
     (initialInput, mkAbortWitness initialDatum)
+
   mkAbortWitness initialDatum =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness initialScript initialDatum initialRedeemer
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference initialScriptRefeferenceTxIn initialScript initialDatum initialRedeemer
+
+  initialScriptRefeferenceTxIn = TxIn hydraScriptsTxId (TxIx 0)
+
   initialScript =
     fromPlutusScript @PlutusScriptV2 Initial.validatorScript
+
   initialRedeemer =
     toScriptData $ Initial.redeemer Initial.ViaAbort
 
