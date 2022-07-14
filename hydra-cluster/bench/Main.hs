@@ -108,7 +108,7 @@ main =
   play Options{scalingFactor, timeoutSeconds, clusterSize} benchDir = do
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
     pparams <-
-      eitherDecodeFileStrict' ("config" </> "genesis-shelley.json") >>= \case
+      eitherDecodeFileStrict' ("config" </> "devnet" </> "genesis-shelley.json") >>= \case
         Left err -> fail $ show err
         Right shelleyGenesis ->
           pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
