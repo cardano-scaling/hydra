@@ -118,8 +118,7 @@ publishHydraScripts networkId node@(RunningNode _ nodeSocket) actor = do
       Right body -> do
         let tx = sign sk body
         submit networkId nodeSocket tx
-        utxo <- waitForTransaction networkId nodeSocket tx
-        print (encodePretty utxo)
+        void $ waitForTransaction networkId nodeSocket tx
         return $ getTxId body
  where
   publishInitial :: TxOut CtxTx

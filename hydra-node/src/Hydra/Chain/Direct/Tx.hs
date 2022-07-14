@@ -488,7 +488,7 @@ abortTx hydraScriptsTxId vk (headInput, initialHeadOutput, ScriptDatumForTxIn ->
       ScriptWitness scriptWitnessCtx $
         mkScriptReference initialScriptRefeferenceTxIn initialScript initialDatum initialRedeemer
 
-  initialScriptRefeferenceTxIn = TxIn hydraScriptsTxId (TxIx 0)
+  initialScriptRefeferenceTxIn = TxIn hydraScriptsTxId (TxIx 1)
 
   initialScript =
     fromPlutusScript @PlutusScriptV2 Initial.validatorScript

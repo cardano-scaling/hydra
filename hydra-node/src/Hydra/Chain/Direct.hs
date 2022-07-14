@@ -167,7 +167,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
   let (vk, _) = keyPair
   -- XXX: DRY expected reference scripts [TxIn] with Chain.Direct.Tx module
   referenceScriptsUTxO <-
-    queryUTxOByTxIn networkId socketPath QueryTip [TxIn hydraScriptsTxId (TxIx 0)]
+    queryUTxOByTxIn networkId socketPath QueryTip [TxIn hydraScriptsTxId (TxIx 1)]
   headState <-
     newTVarIO $
       SomeOnChainHeadStateAt
