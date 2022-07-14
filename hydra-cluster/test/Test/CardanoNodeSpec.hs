@@ -24,8 +24,8 @@ spec = do
 
   -- NOTE: We hard-code the expected networkId here to detect any change to the
   -- genesis-shelley.json
-  it "withCardanoNodeDevnet does start a devnet within 3 seconds" $
-    failAfter 3 $
+  it "withCardanoNodeDevnet does start a block-producing devnet within 5 seconds" $
+    failAfter 5 $
       showLogsOnFailure $ \tr -> do
         withTempDir "hydra-cluster" $ \tmp -> do
           withCardanoNodeDevnet tr tmp $ \RunningNode{nodeSocket, networkId} -> do
