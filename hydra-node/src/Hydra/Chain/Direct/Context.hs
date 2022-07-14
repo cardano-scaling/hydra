@@ -1,9 +1,11 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Direct.Context where
 
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Data.List ((\\))
 import Hydra.Cardano.Api (
   NetworkId (..),
@@ -11,8 +13,15 @@ import Hydra.Cardano.Api (
   PaymentKey,
   SigningKey,
   Tx,
+  TxIn (..),
+  TxIx (..),
   UTxO,
   VerificationKey,
+  fromPlutusScript,
+  toScriptInAnyLang,
+  txOutReferenceScript,
+  pattern PlutusScript,
+  pattern ReferenceScript,
  )
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.State (
@@ -29,8 +38,9 @@ import Hydra.Chain.Direct.State (
   observeTx,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Crypto (HydraKey, generateSigningKey)
-import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey, renderTx)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genTxOutAdaOnly, genUTxOAdaOnlyOfSize, genVerificationKey, renderTx)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTime, slotNoFromPOSIXTime)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
@@ -63,6 +73,24 @@ ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
 --
 -- Generators
 --
+
+genReferenceScripts :: Gen UTxO
+genReferenceScripts = do
+  txId <- arbitrary
+  txOut <- genTxOutAdaOnly
+  pure $
+    UTxO.singleton
+      ( TxIn txId (TxIx 0)
+      , txOut
+          { txOutReferenceScript = initialScriptRef
+          }
+      )
+ where
+  initialScriptRef =
+    ReferenceScript $
+      toScriptInAnyLang $
+        PlutusScript $
+          fromPlutusScript Initial.validatorScript
 
 -- | Generate a `HydraContext` for a bounded arbitrary number of parties.
 --
