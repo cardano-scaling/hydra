@@ -426,11 +426,17 @@ fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) dea
 data AbortTxError = OverlappingInputs
   deriving (Show)
 
+-- | Hydra scripts published as reference scripts at these UTxO.
+newtype HydraScriptRegistry = HydraScriptRegistry
+  { initialReferenceOutput :: (TxIn, TxOut CtxUTxO)
+  }
+  deriving (Eq, Show)
+
 -- | Create transaction which aborts a head by spending the Head output and all
 -- other "initial" outputs.
 abortTx ::
-  -- | Published Hydra scripts are assumed to be at this id.
-  TxId ->
+  -- | Published Hydra scripts to reference.
+  HydraScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
