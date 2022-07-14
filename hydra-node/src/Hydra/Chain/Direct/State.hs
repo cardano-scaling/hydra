@@ -278,13 +278,15 @@ commit utxo st@OnChainHeadState{networkId, ownParty, ownVerificationKey, stateMa
 
 abort ::
   HasCallStack =>
+  -- | Published Hydra scripts are assumed to be at this id.
+  TxId ->
   OnChainHeadState 'StInitialized ->
   Tx
-abort OnChainHeadState{ownVerificationKey, stateMachine} = do
+abort hydraScriptsTxId OnChainHeadState{ownVerificationKey, stateMachine} = do
   let InitialThreadOutput{initialThreadUTxO = (i, o, dat)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
-   in case abortTx ownVerificationKey (i, o, dat) (initialHeadTokenScript stateMachine) initials commits of
+   in case abortTx hydraScriptsTxId ownVerificationKey (i, o, dat) (initialHeadTokenScript stateMachine) initials commits of
         Left err ->
           -- FIXME: Exception with MonadThrow?
           error $ show err

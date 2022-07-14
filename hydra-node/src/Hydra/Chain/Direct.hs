@@ -158,7 +158,7 @@ withDirectChain ::
   -- | Transaction id at which Hydra scripts should be published.
   TxId ->
   ChainComponent Tx IO a
-withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point _hydraScriptsTxId callback action = do
+withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point hydraScriptsTxId callback action = do
   queue <- newTQueueIO
   wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair queryUTxOEtc
   let (vk, _) = keyPair
@@ -181,6 +181,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
           action $
             mkChain
               tracer
+              hydraScriptsTxId
               (queryTimeHandle networkId socketPath)
               cardanoKeys
               wallet

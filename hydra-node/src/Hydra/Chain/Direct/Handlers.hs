@@ -14,7 +14,6 @@ import Hydra.Prelude
 import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
-import Cardano.Ledger.Shelley.API (TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (readTVarIO, throwSTM, writeTVar)
@@ -25,6 +24,7 @@ import Hydra.Cardano.Api (
   PaymentKey,
   SlotNo,
   Tx,
+  TxId,
   VerificationKey,
   fromConsensusPointHF,
   fromLedgerTx,
@@ -91,13 +91,15 @@ type SubmitTx m = ValidatedTx LedgerEra -> m ()
 mkChain ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
+  -- | Published Hydra scripts are assumed to be at this id.
+  TxId ->
   m TimeHandle ->
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle cardanoKeys wallet headState submitTx =
+mkChain tracer hydraScriptsTxId queryTimeHandle cardanoKeys wallet headState submitTx =
   Chain
     { postTx = \tx -> do
         traceWith tracer $ ToPost{toPost = tx}
@@ -115,7 +117,7 @@ mkChain tracer queryTimeHandle cardanoKeys wallet headState submitTx =
               -- bootstrap the init transaction.
               -- For now, we bear with it and keep the static keys in
               -- context.
-              fromPostChainTx timeHandle cardanoKeys wallet headState tx
+              fromPostChainTx hydraScriptsTxId timeHandle cardanoKeys wallet headState tx
                 >>= finalizeTx wallet headState . toLedgerTx
             )
         submitTx vtx
@@ -272,13 +274,15 @@ closeGraceTime = 100
 
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
+  -- | Published Hydra scripts are assumed to be at this id.
+  TxId ->
   TimeHandle ->
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx timeHandle cardanoKeys wallet someHeadState tx = do
+fromPostChainTx hydraScriptsTxId timeHandle cardanoKeys wallet someHeadState tx = do
   pointInTime <- throwLeft currentPointInTime
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
@@ -289,7 +293,7 @@ fromPostChainTx timeHandle cardanoKeys wallet someHeadState tx = do
         Nothing ->
           throwIO (NoSeedInput @Tx)
     (AbortTx{}, TkInitialized) -> do
-      pure (abort st)
+      pure (abort hydraScriptsTxId st)
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
@@ -343,9 +347,9 @@ getBabbageTxs = \case
 
 data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
-  | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx LedgerEra)}
-  | PostedTx {postedTxId :: TxId StandardCrypto}
-  | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx LedgerEra)]}
+  | PostingTx {postedTx :: (Ledger.TxId StandardCrypto, ValidatedTx LedgerEra)}
+  | PostedTx {postedTxId :: Ledger.TxId StandardCrypto}
+  | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(Ledger.TxId StandardCrypto, ValidatedTx LedgerEra)]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)

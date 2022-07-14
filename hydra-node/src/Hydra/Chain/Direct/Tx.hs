@@ -429,6 +429,8 @@ data AbortTxError = OverlappingInputs
 -- | Create transaction which aborts a head by spending the Head output and all
 -- other "initial" outputs.
 abortTx ::
+  -- | Published Hydra scripts are assumed to be at this id.
+  TxId ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
@@ -442,7 +444,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
+abortTx _hydraScriptsTxId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
