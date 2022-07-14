@@ -29,7 +29,7 @@ import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
-import Hydra.Ledger.Cardano ()
+import Hydra.Ledger.Cardano (addReferenceInputs)
 import Hydra.Ledger.Cardano.Builder (
   addExtraRequiredSigners,
   addInputs,
@@ -444,7 +444,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx _hydraScriptsTxId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
+abortTx hydraScriptsTxId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
@@ -452,6 +452,7 @@ abortTx _hydraScriptsTxId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -
       unsafeBuildTransaction $
         emptyTxBody
           & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
+          & addReferenceInputs [TxIn hydraScriptsTxId (TxIx 0)]
           & addOutputs commitOutputs
           & burnTokens headTokenScript Burn headTokens
           & addExtraRequiredSigners [verificationKeyHash vk]
