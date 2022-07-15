@@ -14,7 +14,7 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
 import Cardano.Ledger.Alonzo.Scripts (CostModel, CostModels (CostModels), ExUnits (..), Prices (..))
-import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
+import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure (MissingScript), evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError, slotToPOSIXTime)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
@@ -47,6 +47,17 @@ import Test.QuickCheck (choose)
 
 type RedeemerReport =
   (Map RdmrPtr (Either (TransactionScriptFailure StandardCrypto) ExUnits))
+
+renderRedeemerReportFailures :: RedeemerReport -> Text
+renderRedeemerReportFailures reportMap =
+  unlines $ renderTransactionScriptFailure <$> failures
+ where
+  failures = lefts $ foldMap (: []) reportMap
+
+renderTransactionScriptFailure :: TransactionScriptFailure c -> Text
+renderTransactionScriptFailure = \case
+  MissingScript missingRdmrPtr _ -> "Missing script of redeemer pointer " <> show missingRdmrPtr
+  f -> show f
 
 evaluateTx ::
   Tx ->

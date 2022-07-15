@@ -91,7 +91,14 @@ import Hydra.Ledger.Cardano (
   renderTx,
   renderTxs,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx', genPointInTime, genPointInTimeBefore, maxTxExecutionUnits, maxTxSize)
+import Hydra.Ledger.Cardano.Evaluate (
+  evaluateTx',
+  genPointInTime,
+  genPointInTimeBefore,
+  maxTxExecutionUnits,
+  maxTxSize,
+  renderRedeemerReportFailures,
+ )
 import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
@@ -189,7 +196,8 @@ spec = parallel $ do
         _ -> property False
 
   describe "abort" $ do
-    propBelowSizeLimit (2 * maxTxSize) forAllAbort
+    propBelowSizeLimit maxTxSize forAllAbort
+    propIsValid forAllAbort
 
     prop "ignore aborts of other heads" $ do
       let twoDistinctHeads = do
@@ -407,7 +415,7 @@ propIsValid forAllTx =
           all isRight (Map.elems redeemerReport)
             & counterexample ("Tx: " <> renderTx tx)
             & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
-            & counterexample ("Redeemer report: " <> show redeemerReport)
+            & counterexample (toString $ "Redeemer report: " <> renderRedeemerReportFailures redeemerReport)
             & counterexample "Phase-2 validation failed"
 
 --
@@ -508,9 +516,9 @@ forAllAbort ::
   Property
 forAllAbort action = do
   forAll (genHydraContext 3) $ \ctx ->
-    forAllShow (genInitTx ctx) renderTx $ \initTx -> do
-      forAllShow (sublistOf =<< genCommits ctx initTx) renderTxs $ \commits ->
-        forAll (genStIdle ctx) $ \stIdle ->
+    forAll (genStIdle ctx) $ \stIdle ->
+      forAllShow (genInitTx ctx) renderTx $ \initTx -> do
+        forAllShow (sublistOf =<< genCommits ctx initTx) renderTxs $ \commits ->
           let (_, stInitialized) = executeCommits initTx commits stIdle
            in action stInitialized (abort stInitialized)
                 & classify
