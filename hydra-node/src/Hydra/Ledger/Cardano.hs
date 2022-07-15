@@ -190,6 +190,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
           <> [""]
           <> inputLines
           <> [""]
+          <> referenceInputLines
+          <> [""]
           <> outputLines
           <> [""]
           <> validityLines
@@ -210,9 +212,18 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   inputLines =
     "== INPUTS (" <> show (length (txIns content)) <> ")" :
-    (("- " <>) . prettyTxIn <$> sortBy (compare `on` fst) (txIns content))
+    (("- " <>) . prettyTxIn . fst <$> sortBy (compare `on` fst) (txIns content))
 
-  prettyTxIn (i, _) =
+  referenceInputLines =
+    "== REFERENCE INPUTS (" <> show (length referenceInputs) <> ")" :
+    (("- " <>) . prettyTxIn <$> sort referenceInputs)
+
+  referenceInputs =
+    case txInsReference content of
+      TxInsReferenceNone -> []
+      TxInsReference refInputs -> refInputs
+
+  prettyTxIn i =
     case UTxO.resolve i utxo of
       Nothing -> renderTxIn i
       Just o ->

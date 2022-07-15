@@ -89,6 +89,7 @@ import Hydra.Ledger.Cardano (
   genTxIn,
   genValue,
   renderTx,
+  renderTxWithUTxO,
   renderTxs,
  )
 import Hydra.Ledger.Cardano.Evaluate (
@@ -408,13 +409,11 @@ propIsValid forAllTx =
       case evaluateTx' maxTxExecutionUnits tx lookupUTxO of
         Left basicFailure ->
           property False
-            & counterexample ("Tx: " <> renderTx tx)
-            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
           all isRight (Map.elems redeemerReport)
-            & counterexample ("Tx: " <> renderTx tx)
-            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample (toString $ "Redeemer report: " <> renderRedeemerReportFailures redeemerReport)
             & counterexample "Phase-2 validation failed"
 
@@ -517,8 +516,8 @@ forAllAbort ::
 forAllAbort action = do
   forAll (genHydraContext 3) $ \ctx ->
     forAll (genStIdle ctx) $ \stIdle ->
-      forAllShow (genInitTx ctx) renderTx $ \initTx -> do
-        forAllShow (sublistOf =<< genCommits ctx initTx) renderTxs $ \commits ->
+      forAll (genInitTx ctx) renderTx $ \initTx -> do
+        forAll (sublistOf =<< genCommits ctx initTx) renderTxs $ \commits ->
           let (_, stInitialized) = executeCommits initTx commits stIdle
            in action stInitialized (abort stInitialized)
                 & classify
