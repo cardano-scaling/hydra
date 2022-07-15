@@ -21,6 +21,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId, testSeedInput)
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.Tx (
   UTxOWithScript,
   abortTx,
@@ -54,11 +55,14 @@ healthyAbortTx =
   tx =
     either (error . show) id $
       abortTx
+        scriptRegistry
         somePartyCardanoVerificationKey
         (healthyHeadInput, toUTxOContext headOutput, headDatum)
         headTokenScript
         (Map.fromList (tripleToPair <$> healthyInitials))
         (Map.fromList (tripleToPair <$> healthyCommits))
+
+  scriptRegistry = genScriptRegistry `generateWith` 42
 
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties

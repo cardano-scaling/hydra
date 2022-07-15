@@ -8,6 +8,7 @@ import Hydra.Chain.Direct.ScriptRegistry (
   newScriptRegistry,
   registryUtxo,
  )
+import Test.QuickCheck (forAll, (===))
 
 spec :: Spec
 spec =
