@@ -28,7 +28,7 @@ import Hydra.Chain.Direct.Fixture (
   testPolicyId,
   testSeedInput,
  )
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUtxo)
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
@@ -123,7 +123,7 @@ spec =
                     commitsUTxO = drop3rd <$> resolvedCommits
                     utxo =
                       mconcat
-                        [ registryUtxo scriptRegistry
+                        [ registryUTxO scriptRegistry
                         , UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
                         ]
                     headInfo = (txIn, headOutput, fromPlutusData $ toData headDatum)
@@ -162,7 +162,7 @@ spec =
                           lookupUTxO =
                             mconcat
                               [ Map.fromList ((headInput, headOutput) : [(a, b) | (a, b, _) <- initials])
-                              , UTxO.toMap (registryUtxo scriptRegistry)
+                              , UTxO.toMap (registryUTxO scriptRegistry)
                               ]
                               & Map.mapKeys toLedgerTxIn
                               & Map.map toLedgerTxOut

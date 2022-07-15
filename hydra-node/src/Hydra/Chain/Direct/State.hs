@@ -41,7 +41,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
-import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), registryUtxo)
+import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), registryUTxO)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
@@ -132,18 +132,18 @@ getKnownUTxO ::
 getKnownUTxO OnChainHeadState{stateMachine, scriptRegistry} =
   case stateMachine of
     Idle{} ->
-      registryUtxo scriptRegistry
+      registryUTxO scriptRegistry
     Initialized{initialThreadOutput = InitialThreadOutput{initialThreadUTxO}, initialInitials, initialCommits} ->
-      registryUtxo scriptRegistry <> headUtxo
+      registryUTxO scriptRegistry <> headUtxo
      where
       headUtxo =
         UTxO $
           Map.fromList $
             take2Of3 initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
     Open{openThreadOutput = OpenThreadOutput{openThreadUTxO = (i, o, _)}} ->
-      registryUtxo scriptRegistry <> UTxO.singleton (i, o)
+      registryUTxO scriptRegistry <> UTxO.singleton (i, o)
     Closed{closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}} ->
-      registryUtxo scriptRegistry <> UTxO.singleton (i, o)
+      registryUTxO scriptRegistry <> UTxO.singleton (i, o)
 
 getContestationDeadline :: OnChainHeadState 'StClosed -> POSIXTime
 getContestationDeadline

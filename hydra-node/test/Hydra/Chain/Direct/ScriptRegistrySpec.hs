@@ -6,12 +6,12 @@ import Test.Hydra.Prelude
 import Hydra.Chain.Direct.ScriptRegistry (
   genScriptRegistry,
   newScriptRegistry,
-  registryUtxo,
+  registryUTxO,
  )
 import Test.QuickCheck (forAll, (===))
 
 spec :: Spec
 spec =
-  prop "newScriptRegistry (registryUtxo r) === Just r" $
+  prop "newScriptRegistry (registryUTxO r) === Just r" $
     forAll genScriptRegistry $ \r ->
-      newScriptRegistry (registryUtxo r) === Just r
+      newScriptRegistry (registryUTxO r) === Just r

@@ -59,9 +59,9 @@ newScriptRegistry =
 --
 -- **Property**:
 --
---     newScriptRegistry (registryUtxo r) === Just r
-registryUtxo :: ScriptRegistry -> UTxO
-registryUtxo scriptRegistry =
+--     newScriptRegistry (registryUTxO r) === Just r
+registryUTxO :: ScriptRegistry -> UTxO
+registryUTxO scriptRegistry =
   UTxO.fromPairs [initialReference]
  where
   ScriptRegistry

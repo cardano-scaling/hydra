@@ -21,7 +21,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId, testSeedInput)
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
   UTxOWithScript,
   abortTx,
@@ -51,6 +51,7 @@ healthyAbortTx =
     UTxO.singleton (healthyHeadInput, toUTxOContext headOutput)
       <> UTxO (Map.fromList (drop3rd <$> healthyInitials))
       <> UTxO (Map.fromList (drop3rd <$> healthyCommits))
+      <> registryUTxO scriptRegistry
 
   tx =
     either (error . show) id $
