@@ -49,6 +49,7 @@ import Hydra.Cluster.Fixture (
   carolVk,
   defaultNetworkId,
  )
+import Hydra.Cluster.Scenarios (singlePartyHeadFullLifeCycle)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
@@ -80,7 +81,13 @@ allNodeIds = [1 .. 3]
 
 spec :: Spec
 spec = around showLogsOnFailure $ do
-  describe "End-to-end test using a single cardano-node" $ do
+  describe "End-to-end on Cardano devnet" $ do
+    describe "single party hydra head" $ do
+      it "full head life-cycle" $ \tracer -> do
+        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $
+            singlePartyHeadFullLifeCycle tracer tmpDir
+
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $
