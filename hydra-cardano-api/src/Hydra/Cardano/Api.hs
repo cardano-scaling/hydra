@@ -568,6 +568,7 @@ pattern TxOut{txOutAddress, txOutValue, txOutDatum, txOutReferenceScript} <-
 -- ** ReferenceScript
 
 type ReferenceScript = Cardano.Api.Shelley.ReferenceScript Era
+{-# COMPLETE ReferenceScript, ReferenceScriptNone #-}
 
 pattern ReferenceScript :: ScriptInAnyLang -> ReferenceScript
 pattern ReferenceScript{referenceScript} <-

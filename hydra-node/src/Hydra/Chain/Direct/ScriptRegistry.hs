@@ -1,3 +1,5 @@
+{-# LANGUAGE PatternSynonyms #-}
+
 -- | A data-type to keep track of reference Hydra scripts published on-chain,
 -- and needed to construct transactions leveraging reference inputs.
 module Hydra.Chain.Direct.ScriptRegistry where
@@ -5,21 +7,48 @@ module Hydra.Chain.Direct.ScriptRegistry where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
+import qualified Cardano.Api.UTxO as UTxO
+import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   CtxUTxO,
   NetworkId,
+  ScriptHash,
   TxId,
   TxIn (..),
   TxIx (..),
   TxOut,
+  hashScriptInAnyLang,
+  txOutReferenceScript,
+  pattern ReferenceScript,
+  pattern ReferenceScriptNone,
  )
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOByTxIn)
+import Hydra.Contract (ScriptInfo (ScriptInfo, initialScriptHash), scriptInfo)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 newtype ScriptRegistry = ScriptRegistry
   { initialReference :: (TxIn, TxOut CtxUTxO)
   }
   deriving (Eq, Show)
+
+-- | Create a script registry from a UTxO containing outputs with reference
+-- scripts. This will return 'Nothing' if one or all of the references could not
+-- be found.
+newScriptRegistry :: UTxO -> Maybe ScriptRegistry
+newScriptRegistry =
+  resolve . Map.foldMapWithKey collect . UTxO.toMap
+ where
+  collect :: TxIn -> TxOut CtxUTxO -> Map ScriptHash (TxIn, TxOut CtxUTxO)
+  collect i o =
+    case txOutReferenceScript o of
+      ReferenceScriptNone -> mempty
+      ReferenceScript script -> Map.singleton (hashScriptInAnyLang script) (i, o)
+
+  resolve :: Map ScriptHash (TxIn, TxOut CtxUTxO) -> Maybe ScriptRegistry
+  resolve m =
+    ScriptRegistry <$> lookup initialScriptHash m
+
+  ScriptInfo{initialScriptHash} = scriptInfo
 
 registryUtxo :: ScriptRegistry -> UTxO
 registryUtxo = undefined
@@ -39,14 +68,10 @@ instance Exception UnableToConstructRegistry
 -- NOTE: This is limited to an upper bound of 10 to not query too much before
 -- providing an error.
 queryScriptRegistry :: NetworkId -> FilePath -> TxId -> IO ScriptRegistry
-queryScriptRegistry networkId nodeSocket txId =
-  loop [TxIx 0 .. maxIteration]
+queryScriptRegistry networkId nodeSocket txId = do
+  utxo <- queryUTxOByTxIn networkId nodeSocket QueryTip candidates
+  case newScriptRegistry utxo of
+    Nothing -> throwIO UnableToConstructRegistry
+    Just sr -> pure sr
  where
-  maxIteration = TxIx 10 -- Arbitrary but, high-enough.
-  loop = \case
-    [] ->
-      throwIO UnableToConstructRegistry
-    ixs -> do
-      _utxo <- queryUTxOByTxIn networkId nodeSocket QueryTip (TxIn txId <$> ixs)
-      print _utxo
-      loop []
+  candidates = [TxIn txId ix | ix <- [TxIx 0 .. TxIx 10]] -- Arbitrary but, high-enough.
