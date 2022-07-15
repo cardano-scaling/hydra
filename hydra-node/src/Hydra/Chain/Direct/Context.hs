@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Direct.Context where
@@ -12,18 +11,11 @@ import Hydra.Cardano.Api (
   PaymentKey,
   SigningKey,
   Tx,
-  TxIn (..),
-  TxIx (..),
   UTxO,
   VerificationKey,
-  fromPlutusScript,
-  toScriptInAnyLang,
-  txOutReferenceScript,
-  pattern PlutusScript,
-  pattern ReferenceScript,
  )
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
-import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (
   HeadStateKind (..),
   ObserveTx,
@@ -73,26 +65,6 @@ ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
 --
 -- Generators
 --
-
-genScriptRegistry :: Gen ScriptRegistry
-genScriptRegistry = do
-  txId <- arbitrary
-  txOut <- genTxOutAdaOnly
-  pure $
-    ScriptRegistry
-      { initialReference =
-          ( TxIn txId (TxIx 0)
-          , txOut
-              { txOutReferenceScript = initialScriptRef
-              }
-          )
-      }
- where
-  initialScriptRef =
-    ReferenceScript $
-      toScriptInAnyLang $
-        PlutusScript $
-          fromPlutusScript Initial.validatorScript
 
 -- | Generate a `HydraContext` for a bounded arbitrary number of parties.
 --

@@ -18,12 +18,17 @@ import Hydra.Cardano.Api (
   TxIx (..),
   TxOut,
   hashScriptInAnyLang,
+  toScriptInAnyLang,
   txOutReferenceScript,
+  pattern PlutusScript,
   pattern ReferenceScript,
   pattern ReferenceScriptNone,
  )
+import Hydra.Cardano.Api.PlutusScript (fromPlutusScript)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOByTxIn)
 import Hydra.Contract (ScriptInfo (ScriptInfo, initialScriptHash), scriptInfo)
+import qualified Hydra.Contract.Initial as Initial
+import Hydra.Ledger.Cardano (genTxOutAdaOnly)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 newtype ScriptRegistry = ScriptRegistry
@@ -50,8 +55,18 @@ newScriptRegistry =
 
   ScriptInfo{initialScriptHash} = scriptInfo
 
+-- | Get the UTxO that corresponds to a script registry.
+--
+-- **Property**:
+--
+--     newScriptRegistry (registryUtxo r) === Just r
 registryUtxo :: ScriptRegistry -> UTxO
-registryUtxo = undefined
+registryUtxo scriptRegistry =
+  UTxO.fromPairs [initialReference]
+ where
+  ScriptRegistry
+    { initialReference
+    } = scriptRegistry
 
 -- TODO: Give more context to this exception.
 data UnableToConstructRegistry = UnableToConstructRegistry
@@ -75,3 +90,23 @@ queryScriptRegistry networkId nodeSocket txId = do
     Just sr -> pure sr
  where
   candidates = [TxIn txId ix | ix <- [TxIx 0 .. TxIx 10]] -- Arbitrary but, high-enough.
+
+genScriptRegistry :: Gen ScriptRegistry
+genScriptRegistry = do
+  txId <- arbitrary
+  txOut <- genTxOutAdaOnly
+  pure $
+    ScriptRegistry
+      { initialReference =
+          ( TxIn txId (TxIx 0)
+          , txOut
+              { txOutReferenceScript = initialScriptRef
+              }
+          )
+      }
+ where
+  initialScriptRef =
+    ReferenceScript $
+      toScriptInAnyLang $
+        PlutusScript $
+          fromPlutusScript Initial.validatorScript

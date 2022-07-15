@@ -28,6 +28,7 @@ import Hydra.Chain.Direct.Fixture (
   testPolicyId,
   testSeedInput,
  )
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUtxo)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
@@ -109,82 +110,90 @@ spec =
         forAll (vectorOf 4 arbitrary) $ \parties txIn contestationPeriod ->
           forAll (genAbortableOutputs parties) $ \(resolvedInitials, resolvedCommits) ->
             forAll (genForParty genVerificationKey <$> elements parties) $ \signer ->
-              let headUTxO = (txIn :: TxIn, headOutput)
-                  headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
-                  headDatum =
-                    Head.Initial
-                      (contestationPeriodFromDiffTime contestationPeriod)
-                      (map partyToChain parties)
-                  initials = Map.fromList (drop2nd <$> resolvedInitials)
-                  initialsUTxO = drop3rd <$> resolvedInitials
-                  commits = Map.fromList (drop2nd <$> resolvedCommits)
-                  commitsUTxO = drop3rd <$> resolvedCommits
-                  utxo = UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
-                  headInfo = (txIn, headOutput, fromPlutusData $ toData headDatum)
-                  headScript = mkHeadTokenScript testSeedInput
-                  abortableCommits = Map.fromList $ map tripleToPair resolvedCommits
-                  abortableInitials = Map.fromList $ map tripleToPair resolvedInitials
-               in checkCoverage $ case abortTx signer headInfo headScript abortableInitials abortableCommits of
-                    Left OverlappingInputs ->
-                      property (isJust $ txIn `Map.lookup` initials)
-                    Right tx ->
-                      case evaluateTx tx utxo of
-                        Left basicFailure ->
-                          property False & counterexample ("Basic failure: " <> show basicFailure)
-                        Right redeemerReport ->
-                          -- NOTE: There's 1 redeemer report for the head + 1 for the mint script +
-                          -- 1 for each of either initials or commits
-                          conjoin
-                            [ withinTxExecutionBudget redeemerReport
-                            , 2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
-                                & counterexample ("Redeemer report: " <> show redeemerReport)
-                                & counterexample ("Tx: " <> renderTx tx)
-                                & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
-                            ]
-                            & cover 80 True "Success"
+              forAll genScriptRegistry $ \scriptRegistry ->
+                let headUTxO = (txIn :: TxIn, headOutput)
+                    headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
+                    headDatum =
+                      Head.Initial
+                        (contestationPeriodFromDiffTime contestationPeriod)
+                        (map partyToChain parties)
+                    initials = Map.fromList (drop2nd <$> resolvedInitials)
+                    initialsUTxO = drop3rd <$> resolvedInitials
+                    commits = Map.fromList (drop2nd <$> resolvedCommits)
+                    commitsUTxO = drop3rd <$> resolvedCommits
+                    utxo =
+                      mconcat
+                        [ registryUtxo scriptRegistry
+                        , UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
+                        ]
+                    headInfo = (txIn, headOutput, fromPlutusData $ toData headDatum)
+                    headScript = mkHeadTokenScript testSeedInput
+                    abortableCommits = Map.fromList $ map tripleToPair resolvedCommits
+                    abortableInitials = Map.fromList $ map tripleToPair resolvedInitials
+                 in checkCoverage $ case abortTx scriptRegistry signer headInfo headScript abortableInitials abortableCommits of
+                      Left OverlappingInputs ->
+                        property (isJust $ txIn `Map.lookup` initials)
+                      Right tx ->
+                        case evaluateTx tx utxo of
+                          Left basicFailure ->
+                            property False & counterexample ("Basic failure: " <> show basicFailure)
+                          Right redeemerReport ->
+                            -- NOTE: There's 1 redeemer report for the head + 1 for the mint script +
+                            -- 1 for each of either initials or commits
+                            conjoin
+                              [ withinTxExecutionBudget redeemerReport
+                              , 2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
+                                  & counterexample ("Redeemer report: " <> show redeemerReport)
+                                  & counterexample ("Tx: " <> renderTx tx)
+                                  & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
+                              ]
+                              & cover 80 True "Success"
 
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys walletUTxO ->
           forAll (genForParty genVerificationKey <$> elements (party : parties)) $ \signer ->
-            let params = HeadParameters cperiod (party : parties)
-                tx = initTx testNetworkId cardanoKeys params txIn
-             in case observeInitTx testNetworkId cardanoKeys party tx of
-                  Just InitObservation{initials, threadOutput} -> do
-                    let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
-                        initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
-                        lookupUTxO =
-                          ((headInput, headOutput) : [(a, b) | (a, b, _) <- initials])
-                            & Map.fromList
-                            & Map.mapKeys toLedgerTxIn
-                            & Map.map toLedgerTxOut
-                     in case abortTx signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
-                          Left err ->
-                            property False & counterexample ("AbortTx construction failed: " <> show err)
-                          Right (toLedgerTx -> txAbort) ->
-                            case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO txAbort of
-                              Left err ->
-                                True
-                                  & label
-                                    ( case err of
-                                        ErrNoAvailableUTxO -> "No available UTxO"
-                                        ErrNoPaymentUTxOFound -> "No payment UTxO found"
-                                        ErrNotEnoughFunds{} -> "Not enough funds"
-                                        ErrUnknownInput{} -> "Unknown input"
-                                        ErrScriptExecutionFailed{} -> "Script(s) execution failed"
-                                    )
-                              Right (_, fromLedgerTx -> txAbortWithFees) ->
-                                let actualExecutionCost = totalExecutionCost pparams txAbortWithFees
-                                    fee = txFee' txAbortWithFees
-                                 in actualExecutionCost > Lovelace 0 && fee > actualExecutionCost
-                                      & label "Ok"
-                                      & counterexample ("Execution cost: " <> show actualExecutionCost)
-                                      & counterexample ("Fee: " <> show fee)
-                                      & counterexample ("Tx: " <> show txAbortWithFees)
-                                      & counterexample ("Input utxo: " <> show (walletUTxO <> lookupUTxO))
-                  _ ->
-                    property False
-                      & counterexample "Failed to construct and observe init tx."
-                      & counterexample (renderTx tx)
+            forAll genScriptRegistry $ \scriptRegistry ->
+              let params = HeadParameters cperiod (party : parties)
+                  tx = initTx testNetworkId cardanoKeys params txIn
+               in case observeInitTx testNetworkId cardanoKeys party tx of
+                    Just InitObservation{initials, threadOutput} -> do
+                      let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
+                          initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
+                          lookupUTxO =
+                            mconcat
+                              [ Map.fromList ((headInput, headOutput) : [(a, b) | (a, b, _) <- initials])
+                              , UTxO.toMap (registryUtxo scriptRegistry)
+                              ]
+                              & Map.mapKeys toLedgerTxIn
+                              & Map.map toLedgerTxOut
+                       in case abortTx scriptRegistry signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
+                            Left err ->
+                              property False & counterexample ("AbortTx construction failed: " <> show err)
+                            Right (toLedgerTx -> txAbort) ->
+                              case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO txAbort of
+                                Left err ->
+                                  True
+                                    & label
+                                      ( case err of
+                                          ErrNoAvailableUTxO -> "No available UTxO"
+                                          ErrNoPaymentUTxOFound -> "No payment UTxO found"
+                                          ErrNotEnoughFunds{} -> "Not enough funds"
+                                          ErrUnknownInput{} -> "Unknown input"
+                                          ErrScriptExecutionFailed{} -> "Script(s) execution failed"
+                                      )
+                                Right (_, fromLedgerTx -> txAbortWithFees) ->
+                                  let actualExecutionCost = totalExecutionCost pparams txAbortWithFees
+                                      fee = txFee' txAbortWithFees
+                                   in actualExecutionCost > Lovelace 0 && fee > actualExecutionCost
+                                        & label "Ok"
+                                        & counterexample ("Execution cost: " <> show actualExecutionCost)
+                                        & counterexample ("Fee: " <> show fee)
+                                        & counterexample ("Tx: " <> show txAbortWithFees)
+                                        & counterexample ("Input utxo: " <> show (walletUTxO <> lookupUTxO))
+                    _ ->
+                      property False
+                        & counterexample "Failed to construct and observe init tx."
+                        & counterexample (renderTx tx)
 
 withinTxExecutionBudget :: RedeemerReport -> Property
 withinTxExecutionBudget redeemers =
