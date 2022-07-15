@@ -24,7 +24,6 @@ import Hydra.Cardano.Api (
   PaymentKey,
   SlotNo,
   Tx,
-  TxId,
   VerificationKey,
   fromConsensusPointHF,
   fromLedgerTx,
@@ -91,15 +90,13 @@ type SubmitTx m = ValidatedTx LedgerEra -> m ()
 mkChain ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
-  -- | Published Hydra scripts are assumed to be at this id.
-  TxId ->
   m TimeHandle ->
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer hydraScriptsTxId queryTimeHandle cardanoKeys wallet headState submitTx =
+mkChain tracer queryTimeHandle cardanoKeys wallet headState submitTx =
   Chain
     { postTx = \tx -> do
         traceWith tracer $ ToPost{toPost = tx}
@@ -117,7 +114,7 @@ mkChain tracer hydraScriptsTxId queryTimeHandle cardanoKeys wallet headState sub
               -- bootstrap the init transaction.
               -- For now, we bear with it and keep the static keys in
               -- context.
-              fromPostChainTx hydraScriptsTxId timeHandle cardanoKeys wallet headState tx
+              fromPostChainTx timeHandle cardanoKeys wallet headState tx
                 >>= finalizeTx wallet headState . toLedgerTx
             )
         submitTx vtx
@@ -274,15 +271,13 @@ closeGraceTime = 100
 
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
-  -- | Published Hydra scripts are assumed to be at this id.
-  TxId ->
   TimeHandle ->
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx hydraScriptsTxId timeHandle cardanoKeys wallet someHeadState tx = do
+fromPostChainTx timeHandle cardanoKeys wallet someHeadState tx = do
   pointInTime <- throwLeft currentPointInTime
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
@@ -293,7 +288,7 @@ fromPostChainTx hydraScriptsTxId timeHandle cardanoKeys wallet someHeadState tx 
         Nothing ->
           throwIO (NoSeedInput @Tx)
     (AbortTx{}, TkInitialized) -> do
-      pure (abort hydraScriptsTxId st)
+      pure (abort st)
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.

@@ -16,6 +16,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters (..))
+import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.ContestationPeriod (ContestationPeriod, fromChain, toChain)
 import qualified Hydra.Contract.Commit as Commit
@@ -426,17 +427,11 @@ fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) dea
 data AbortTxError = OverlappingInputs
   deriving (Show)
 
--- | Hydra scripts published as reference scripts at these UTxO.
-newtype HydraScriptRegistry = HydraScriptRegistry
-  { initialReferenceOutput :: (TxIn, TxOut CtxUTxO)
-  }
-  deriving (Eq, Show)
-
 -- | Create transaction which aborts a head by spending the Head output and all
 -- other "initial" outputs.
 abortTx ::
   -- | Published Hydra scripts to reference.
-  HydraScriptRegistry ->
+  ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
@@ -450,7 +445,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx hydraScriptsTxId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
+abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
@@ -494,7 +489,7 @@ abortTx hydraScriptsTxId vk (headInput, initialHeadOutput, ScriptDatumForTxIn ->
       ScriptWitness scriptWitnessCtx $
         mkScriptReference initialScriptRefeferenceTxIn initialScript initialDatum initialRedeemer
 
-  initialScriptRefeferenceTxIn = TxIn hydraScriptsTxId (TxIx 1)
+  initialScriptRefeferenceTxIn = fst (initialReference scriptRegistry)
 
   initialScript =
     fromPlutusScript @PlutusScriptV2 Initial.validatorScript
