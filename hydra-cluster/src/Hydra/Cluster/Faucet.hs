@@ -23,6 +23,7 @@ import qualified Data.Set as Set
 import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash, retry)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
+import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano ()
 
@@ -111,7 +112,7 @@ publishHydraScripts networkId node@(RunningNode _ nodeSocket) actor = do
     changeAddress
     [(someTxIn, Nothing)]
     []
-    [publishInitial]
+    [publishInitial, publishCommit]
     >>= \case
       Left e ->
         throwErrorAsException e
@@ -121,20 +122,33 @@ publishHydraScripts networkId node@(RunningNode _ nodeSocket) actor = do
         void $ waitForTransaction networkId nodeSocket tx
         return $ getTxId body
  where
-  publishInitial :: TxOut CtxTx
+  -- TODO: Move to hydra-cardano-api
+  mkScriptRef =
+    ReferenceScript . toScriptInAnyLang . PlutusScript . fromPlutusScript
+
   publishInitial =
     TxOut
       unspendableScriptAddress
-      probablyEnoughAda
+      probablyEnoughAdaForInitial
       TxOutDatumNone
-      (ReferenceScript (toScriptInAnyLang $ PlutusScript (fromPlutusScript Initial.validatorScript)))
+      (mkScriptRef Initial.validatorScript)
+
+  publishCommit =
+    TxOut
+      unspendableScriptAddress
+      probablyEnoughAdaForCommit
+      TxOutDatumNone
+      (mkScriptRef Commit.validatorScript)
 
   unspendableScriptAddress =
     mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
 
   -- This depends on protocol parameters and the size of the script.
   -- TODO: Calculate this value instead from pparams.
-  probablyEnoughAda =
+  probablyEnoughAdaForInitial =
+    lovelaceToValue 23_437_780
+
+  probablyEnoughAdaForCommit =
     lovelaceToValue 23_437_780
 
 -- | Query UTxO for the address of given verification key at point.

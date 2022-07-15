@@ -26,13 +26,15 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.PlutusScript (fromPlutusScript)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOByTxIn)
-import Hydra.Contract (ScriptInfo (ScriptInfo, initialScriptHash), scriptInfo)
+import Hydra.Contract (ScriptInfo (..), scriptInfo)
+import qualified Hydra.Contract.Initial as Commit
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genTxOutAdaOnly)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
-newtype ScriptRegistry = ScriptRegistry
+data ScriptRegistry = ScriptRegistry
   { initialReference :: (TxIn, TxOut CtxUTxO)
+  , commitReference :: (TxIn, TxOut CtxUTxO)
   }
   deriving (Eq, Show)
 
@@ -51,9 +53,14 @@ newScriptRegistry =
 
   resolve :: Map ScriptHash (TxIn, TxOut CtxUTxO) -> Maybe ScriptRegistry
   resolve m =
-    ScriptRegistry <$> lookup initialScriptHash m
+    ScriptRegistry
+      <$> lookup initialScriptHash m
+      <*> lookup commitScriptHash m
 
-  ScriptInfo{initialScriptHash} = scriptInfo
+  ScriptInfo
+    { initialScriptHash
+    , commitScriptHash
+    } = scriptInfo
 
 -- | Get the UTxO that corresponds to a script registry.
 --
@@ -62,10 +69,11 @@ newScriptRegistry =
 --     newScriptRegistry (registryUTxO r) === Just r
 registryUTxO :: ScriptRegistry -> UTxO
 registryUTxO scriptRegistry =
-  UTxO.fromPairs [initialReference]
+  UTxO.fromPairs [initialReference, commitReference]
  where
   ScriptRegistry
     { initialReference
+    , commitReference
     } = scriptRegistry
 
 -- TODO: Give more context to this exception.
@@ -100,13 +108,17 @@ genScriptRegistry = do
       { initialReference =
           ( TxIn txId (TxIx 0)
           , txOut
-              { txOutReferenceScript = initialScriptRef
+              { txOutReferenceScript = mkScriptRef Initial.validatorScript
+              }
+          )
+      , commitReference =
+          ( TxIn txId (TxIx 1)
+          , txOut
+              { txOutReferenceScript = mkScriptRef Commit.validatorScript
               }
           )
       }
  where
-  initialScriptRef =
-    ReferenceScript $
-      toScriptInAnyLang $
-        PlutusScript $
-          fromPlutusScript Initial.validatorScript
+  -- TODO: Could be moved to hydra-cardano-api, generic enough.
+  mkScriptRef =
+    ReferenceScript . toScriptInAnyLang . PlutusScript . fromPlutusScript

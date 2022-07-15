@@ -453,8 +453,8 @@ abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
       unsafeBuildTransaction $
         emptyTxBody
           & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-          & addReferenceInputs [initialScriptRefeferenceTxIn]
-          & addOutputs commitOutputs
+          & addReferenceInputs [initialScriptRef, commitScriptRef]
+          & addOutputs reimbursedOutputs
           & burnTokens headTokenScript Burn headTokens
           & addExtraRequiredSigners [verificationKeyHash vk]
  where
@@ -482,31 +482,35 @@ abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
   -- state-machine on-chain validator to control the correctness of the
   -- transition.
   mkAbortInitial (initialInput, (_, ScriptDatumForTxIn -> initialDatum)) =
-    (initialInput, mkAbortWitness initialDatum)
+    (initialInput, mkAbortInitialWitness initialDatum)
 
-  mkAbortWitness initialDatum =
+  mkAbortInitialWitness initialDatum =
     BuildTxWith $
       ScriptWitness scriptWitnessCtx $
-        mkScriptReference initialScriptRefeferenceTxIn initialScript initialDatum initialRedeemer
-
-  initialScriptRefeferenceTxIn = fst (initialReference scriptRegistry)
-
+        mkScriptReference initialScriptRef initialScript initialDatum initialRedeemer
+  initialScriptRef =
+    fst (initialReference scriptRegistry)
   initialScript =
     fromPlutusScript @PlutusScriptV2 Initial.validatorScript
-
   initialRedeemer =
     toScriptData $ Initial.redeemer Initial.ViaAbort
 
   mkAbortCommit (commitInput, (_, ScriptDatumForTxIn -> commitDatum)) =
-    (commitInput, mkCommitWitness commitDatum)
-  mkCommitWitness commitDatum =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness commitScript commitDatum commitRedeemer
+    (commitInput, mkAbortCommitWitness commitDatum)
+
+  mkAbortCommitWitness commitDatum =
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference commitScriptRef commitScript commitDatum commitRedeemer
+  commitScriptRef =
+    fst (commitReference scriptRegistry)
   commitScript =
     fromPlutusScript @PlutusScriptV2 Commit.validatorScript
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
-  commitOutputs = mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
+  reimbursedOutputs =
+    mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
 
   mkCommitOutput :: ScriptData -> Maybe (TxOut CtxTx)
   mkCommitOutput x =
