@@ -37,6 +37,7 @@ import Hydra.Chain.Direct (
   withIOManager,
  )
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
+import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScripts,
@@ -268,6 +269,15 @@ spec = around showLogsOnFailure $ do
           flip shouldThrow isIntersectionNotFoundException $
             withDirectChain aliceTrace defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just fakeTip) hydraScriptsTxId (putMVar alicesCallback) $ \_ -> do
               threadDelay 5 >> fail "should not execute main action but did?"
+
+  it "can publish and query reference scripts in a timely manner" $ \tracer -> do
+    withTempDir "direct-chain" $ \tmp -> do
+      config <- newNodeConfig tmp
+      withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+        hydraScriptsTxId <- publishHydraScripts defaultNetworkId node Faucet
+        failAfter 5 $
+          void $
+            queryScriptRegistry defaultNetworkId nodeSocket hydraScriptsTxId
 
 data TestClusterLog
   = FromNode NodeLog
