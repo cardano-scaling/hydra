@@ -18,7 +18,6 @@ import Cardano.Ledger.Shelley.API (TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (readTVarIO, throwSTM, writeTVar)
-import Data.Aeson (Value (String), object, (.=))
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -56,7 +55,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
   reifyState,
  )
-import Hydra.Chain.Direct.Tx (PointInTime)
+import Hydra.Chain.Direct.TimeHandle (PointInTime, TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block, SomePoint (..))
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
@@ -70,6 +69,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..), blockPoint)
+import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
@@ -120,14 +120,6 @@ mkChain tracer queryTimeHandle cardanoKeys wallet headState submitTx =
             )
         submitTx vtx
     }
-
-data TimeHandle = TimeHandle
-  { -- | Get the current 'PointInTime'
-    currentPointInTime :: Either Text PointInTime
-  , -- | Adjust a 'PointInTime' by some number of slots, positively or
-    -- negatively.
-    adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
-  }
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::

@@ -39,5 +39,8 @@ instance (Arbitrary k, Arbitrary v) => Arbitrary (AssocMap.Map k v) where
 instance Arbitrary POSIXTime where
   arbitrary = POSIXTime <$> arbitrary
 
+instance ToJSON POSIXTime where
+  toJSON (POSIXTime ms) = toJSON ms
+
 instance Arbitrary a => Arbitrary (UpperBound a) where
   arbitrary = upperBound <$> arbitrary

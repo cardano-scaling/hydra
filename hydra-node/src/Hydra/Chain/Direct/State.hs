@@ -41,6 +41,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
+import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
   CloseObservation (..),
@@ -53,7 +54,6 @@ import Hydra.Chain.Direct.Tx (
   InitObservation (..),
   InitialThreadOutput (..),
   OpenThreadOutput (..),
-  PointInTime,
   UTxOWithScript,
   abortTx,
   closeTx,
