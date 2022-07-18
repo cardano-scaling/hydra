@@ -100,8 +100,9 @@ mkChain ::
 mkChain tracer queryTimeHandle cardanoKeys wallet headState submitTx =
   Chain
     { postTx = \tx -> do
-        traceWith tracer $ ToPost tx
         timeHandle <- queryTimeHandle
+        let pointInTime = currentPointInTime timeHandle
+        traceWith tracer $ ToPost{toPost = tx, pointInTime}
         vtx <-
           atomically
             ( -- FIXME (MB): 'cardanoKeys' should really not be here. They
@@ -335,49 +336,15 @@ getBabbageTxs = \case
 -- Tracing
 --
 
--- TODO add  ToJSON, FromJSON instances
 data DirectChainLog
-  = ToPost {toPost :: PostChainTx Tx}
+  = ToPost {toPost :: PostChainTx Tx, pointInTime :: Either Text PointInTime}
   | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx LedgerEra)}
   | PostedTx {postedTxId :: TxId StandardCrypto}
   | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx LedgerEra)]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
 
 instance Arbitrary DirectChainLog where
   arbitrary = genericArbitrary
-
-instance ToJSON DirectChainLog where
-  toJSON = \case
-    ToPost{toPost} ->
-      object
-        [ "tag" .= String "ToPost"
-        , "toPost" .= toPost
-        ]
-    PostingTx{postedTx} ->
-      object
-        [ "tag" .= String "PostingTx"
-        , "postedTx" .= postedTx
-        ]
-    PostedTx{postedTxId} ->
-      object
-        [ "tag" .= String "PostedTx"
-        , "postedTxId" .= postedTxId
-        ]
-    ReceivedTxs{onChainTxs, receivedTxs} ->
-      object
-        [ "tag" .= String "ReceivedTxs"
-        , "onChainTxs" .= onChainTxs
-        , "receivedTxs" .= receivedTxs
-        ]
-    RolledBackward{point} ->
-      object
-        [ "tag" .= String "RolledBackward"
-        , "point" .= show @Text point
-        ]
-    Wallet log ->
-      object
-        [ "tag" .= String "Wallet"
-        , "contents" .= log
-        ]
