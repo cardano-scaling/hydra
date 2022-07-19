@@ -9,7 +9,7 @@ TARGETDIR="devnet"
 
 [ -d "$TARGETDIR" ] && { echo "Cleaning up directory $TARGETDIR" ; sudo rm -r $TARGETDIR ; }
 
-cp -af "$BASEDIR/hydra-cluster/config/devnet/*" "$TARGETDIR"
+cp -af "$BASEDIR/hydra-cluster/config/devnet/" "$TARGETDIR"
 cp -af "$BASEDIR/hydra-cluster/config/credentials" "$TARGETDIR"
 cp -af "$BASEDIR/hydra-cluster/config/protocol-parameters.json" "$TARGETDIR"
 echo '{"Producers": []}' > "$TARGETDIR/topology.json"
