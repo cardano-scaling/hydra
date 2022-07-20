@@ -55,7 +55,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
   reifyState,
  )
-import Hydra.Chain.Direct.TimeHandle (PointInTime, TimeHandle (..))
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block, SomePoint (..))
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
@@ -100,9 +100,8 @@ mkChain ::
 mkChain tracer queryTimeHandle cardanoKeys wallet headState submitTx =
   Chain
     { postTx = \tx -> do
+        traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
-        let pointInTime = currentPointInTime timeHandle
-        traceWith tracer $ ToPost{toPost = tx, pointInTime}
         vtx <-
           atomically
             ( -- FIXME (MB): 'cardanoKeys' should really not be here. They
@@ -337,7 +336,7 @@ getBabbageTxs = \case
 --
 
 data DirectChainLog
-  = ToPost {toPost :: PostChainTx Tx, pointInTime :: Either Text PointInTime}
+  = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx LedgerEra)}
   | PostedTx {postedTxId :: TxId StandardCrypto}
   | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx LedgerEra)]}
