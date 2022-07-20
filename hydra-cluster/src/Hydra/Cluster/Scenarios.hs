@@ -53,9 +53,9 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} = do
       output "ReadyToFanout" []
     -- FIXME: Ideally the 'ReadyToFanout' is only sent when it's really ready,
     -- but the cardano-ledger only updates it's "current slot" when it sees a
-    -- block. So we wait for roughly one block here (if not fixable, should at
+    -- block. So we wait for roughly 1-2 blocks here (if not fixable, should at
     -- least configure this given the shelley genesis)
-    threadDelay (20 + 5)
+    threadDelay (2 * 20)
     send n1 $ input "Fanout" []
     waitFor tracer 600 [n1] $
       output "HeadIsFinalized" ["utxo" .= object mempty]
