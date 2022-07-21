@@ -20,6 +20,7 @@ import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
 import Data.Time (defaultTimeLocale, formatTime)
+import Data.Time.Format (FormatTime)
 import Data.Version (showVersion)
 import Graphics.Vty (
   Event (EvKey),
@@ -432,6 +433,8 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
 --
 -- View
 --
+timeFormatted :: (FormatTime t) => t -> String
+timeFormatted r = formatTime defaultTimeLocale "%Dd %Hh %Mm %Ss" r
 
 draw :: Client Tx m -> CardanoClient -> State -> [Widget Name]
 draw Client{sk} CardanoClient{networkId} s =
@@ -551,7 +554,7 @@ draw Client{sk} CardanoClient{networkId} s =
     | remaining > 0 =
       padLeftRight 1 $
         txt "Remaining time to contest: "
-          <+> str (formatTime defaultTimeLocale "%dd %hh %mm %ss" remaining)
+          <+> str (timeFormatted remaining)
     | otherwise =
       txt "Contestation period passed, ready to fan out."
 

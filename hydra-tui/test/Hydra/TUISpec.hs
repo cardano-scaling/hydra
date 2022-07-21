@@ -40,61 +40,65 @@ import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Options (ChainConfig (..))
-import Hydra.TUI (runWithVty, tuiContestationPeriod)
+import Hydra.TUI (runWithVty, timeFormatted, tuiContestationPeriod)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
 spec :: Spec
 spec =
-  around setupNodeAndTUI $
-    context "end-to-end smoke tests" $ do
-      it "starts & renders" $
-        \TUITest{sendInputEvent, shouldRender} -> do
-          threadDelay 1
-          shouldRender "TUI"
-          -- Using hex representation of aliceSk's HydraVerificationKey
-          shouldRender "Party 38088e4c2ae82"
-          sendInputEvent $ EvKey (KChar 'q') []
+  describe "Terminal User Interface" $ do
+    around setupNodeAndTUI $
+      context "end-to-end smoke tests" $ do
+        it "starts & renders" $
+          \TUITest{sendInputEvent, shouldRender} -> do
+            threadDelay 1
+            shouldRender "TUI"
+            -- Using hex representation of aliceSk's HydraVerificationKey
+            shouldRender "Party 38088e4c2ae82"
+            sendInputEvent $ EvKey (KChar 'q') []
 
-      it "supports the init & abort Head life cycle" $
-        \TUITest{sendInputEvent, shouldRender} -> do
-          threadDelay 1
-          shouldRender "connected"
-          shouldRender "Idle"
-          sendInputEvent $ EvKey (KChar 'i') []
-          threadDelay 1
-          shouldRender "Initializing"
-          sendInputEvent $ EvKey (KChar 'a') []
-          threadDelay 1
-          shouldRender "Idle"
-          sendInputEvent $ EvKey (KChar 'q') []
+        it "supports the init & abort Head life cycle" $
+          \TUITest{sendInputEvent, shouldRender} -> do
+            threadDelay 1
+            shouldRender "connected"
+            shouldRender "Idle"
+            sendInputEvent $ EvKey (KChar 'i') []
+            threadDelay 1
+            shouldRender "Initializing"
+            sendInputEvent $ EvKey (KChar 'a') []
+            threadDelay 1
+            shouldRender "Idle"
+            sendInputEvent $ EvKey (KChar 'q') []
 
-      it "supports the full Head life cycle" $
-        \TUITest{sendInputEvent, shouldRender} -> do
-          threadDelay 1
-          shouldRender "connected"
-          shouldRender "Idle"
-          sendInputEvent $ EvKey (KChar 'i') []
-          threadDelay 1
-          shouldRender "Initializing"
-          sendInputEvent $ EvKey (KChar 'c') []
-          threadDelay 1
-          shouldRender "42000000 lovelace"
-          sendInputEvent $ EvKey (KChar ' ') []
-          sendInputEvent $ EvKey KEnter []
-          threadDelay 1
-          shouldRender "Open"
-          sendInputEvent $ EvKey (KChar 'c') []
-          threadDelay 1
-          shouldRender "Closed"
-          shouldRender "Remaining time to contest"
-          threadDelay (realToFrac $ toNominalDiffTime tuiContestationPeriod + gracePeriod + someTime)
-          sendInputEvent $ EvKey (KChar 'f') []
-          threadDelay 1
-          shouldRender "Final"
-          shouldRender "42000000 lovelace"
-          sendInputEvent $ EvKey (KChar 'q') []
+        it "supports the full Head life cycle" $
+          \TUITest{sendInputEvent, shouldRender} -> do
+            threadDelay 1
+            shouldRender "connected"
+            shouldRender "Idle"
+            sendInputEvent $ EvKey (KChar 'i') []
+            threadDelay 1
+            shouldRender "Initializing"
+            sendInputEvent $ EvKey (KChar 'c') []
+            threadDelay 1
+            shouldRender "42000000 lovelace"
+            sendInputEvent $ EvKey (KChar ' ') []
+            sendInputEvent $ EvKey KEnter []
+            threadDelay 1
+            shouldRender "Open"
+            sendInputEvent $ EvKey (KChar 'c') []
+            threadDelay 1
+            shouldRender "Closed"
+            shouldRender "Remaining time to contest"
+            threadDelay (realToFrac $ toNominalDiffTime tuiContestationPeriod + gracePeriod + someTime)
+            sendInputEvent $ EvKey (KChar 'f') []
+            threadDelay 1
+            shouldRender "Final"
+            shouldRender "42000000 lovelace"
+            sendInputEvent $ EvKey (KChar 'q') []
+    it "should format time with whole values for every unit, not total values" $ do
+      let time = (3675 :: NominalDiffTime)
+      timeFormatted time `shouldBe` "0d 1h 1m 15s"
 
 -- XXX: The same hack as in EndToEndSpec
 gracePeriod :: NominalDiffTime
