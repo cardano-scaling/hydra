@@ -18,7 +18,7 @@ La démo comprend:
 - une interface utilisateur dans le terminal pour se connecter et opérer chaque noeud Hydra. 
 
 :::caution Avertissement!
-Le noeud Cardano créé un "réseau" privé et local qui démarre depuis un bloc _genesis_. Pour démarrer, la configuration du noeud doit être à jour (comprendre, récente). Si au démarrage, le noeud Cardano retourne `LedgerNoView`, alors c'est que l'heure de démarrage indiquée dans la configuration génésis est trop loin dans le passé: il faut en ce cas générer la configuration à nouveau via `prepare-devnet.sh`.
+Le noeud Cardano créé un "réseau" privé et local qui démarre depuis un bloc _genesis_. Pour démarrer, la configuration du noeud doit être à jour (comprendre, récente). Si au démarrage, le noeud Cardano retourne `TraceNoLedgerView`, alors c'est que l'heure de démarrage indiquée dans la configuration génésis est trop loin dans le passé: il faut en ce cas générer la configuration à nouveau via `prepare-devnet.sh`.
 :::
 
 ## Mise en place du réseau
