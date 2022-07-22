@@ -104,7 +104,10 @@ spec = do
         days = hours * 24  
         time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
       renderTime (time :: NominalDiffTime) `shouldBe` "10d 1h 1m 15s"
-      renderTime (-time :: NominalDiffTime) `shouldBe` "-10d -1h -1m -15s"
+      renderTime (-time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
+      let 
+        time' = 1 * hours + 1 * minutes + 15 * seconds
+      renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
 -- XXX: The same hack as in EndToEndSpec
 gracePeriod :: NominalDiffTime

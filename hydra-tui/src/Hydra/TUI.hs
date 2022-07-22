@@ -624,8 +624,10 @@ draw Client{sk} CardanoClient{networkId} s =
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = txt . (" - " <>) . show
 
-renderTime :: (FormatTime t) => t -> String
-renderTime = formatTime defaultTimeLocale "%dd %Hh %Mm %Ss"
+renderTime :: (Ord t, Num t, FormatTime t) => t -> String
+renderTime r
+  | r < 0 = "-" <> renderTime (negate r)
+  | otherwise = formatTime defaultTimeLocale "%dd %Hh %Mm %Ss" r
 
 -- HACK(SN): This might be too expensive for a general case and we should move
 -- this somehwere.
