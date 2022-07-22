@@ -40,7 +40,7 @@ import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Options (ChainConfig (..))
-import Hydra.TUI (runWithVty, timeFormatted, tuiContestationPeriod)
+import Hydra.TUI (renderTime, runWithVty, tuiContestationPeriod)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
@@ -98,7 +98,7 @@ spec =
             sendInputEvent $ EvKey (KChar 'q') []
     it "should format time with whole values for every unit, not total values" $ do
       let time = (3675 :: NominalDiffTime)
-      timeFormatted time `shouldBe` "0d 1h 1m 15s"
+      renderTime time `shouldBe` "0d 1h 1m 15s"
 
 -- XXX: The same hack as in EndToEndSpec
 gracePeriod :: NominalDiffTime

@@ -433,8 +433,6 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
 --
 -- View
 --
-timeFormatted :: (FormatTime t) => t -> String
-timeFormatted r = formatTime defaultTimeLocale "%Dd %Hh %Mm %Ss" r
 
 draw :: Client Tx m -> CardanoClient -> State -> [Widget Name]
 draw Client{sk} CardanoClient{networkId} s =
@@ -554,7 +552,7 @@ draw Client{sk} CardanoClient{networkId} s =
     | remaining > 0 =
       padLeftRight 1 $
         txt "Remaining time to contest: "
-          <+> str (timeFormatted remaining)
+          <+> str (renderTime remaining)
     | otherwise =
       txt "Contestation period passed, ready to fan out."
 
@@ -625,6 +623,9 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = txt . (" - " <>) . show
+
+renderTime :: (FormatTime t) => t -> String
+renderTime r = formatTime defaultTimeLocale "%Dd %Hh %Mm %Ss" r
 
 -- HACK(SN): This might be too expensive for a general case and we should move
 -- this somehwere.
