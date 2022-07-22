@@ -14,7 +14,7 @@ Proposed
 
 * In the desire to make Hydra transactions smaller and cheaper (at the time of writing any abort tx was too big), we want to use the **reference script** and **reference input** features of the upcoming `Babbage` ledger era. See the [babbage ledger spec](https://hydra.iohk.io/build/16861604/download/1/babbage-changes.pdf), [CIP-31](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0031) and [CIP-33](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0033) for details.
 
-* With these features we not need to (re-)include the same scripts in each transaction.
+* With these features we do not need to (re-)include scripts in each transaction.
 
 * The CIPs do not specify how reference scripts are to be managed and we can see at least two options:
   1. Add them as outputs to the `init` transaction or prior that as part of each Hydra Head instance
