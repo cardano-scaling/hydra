@@ -20,7 +20,7 @@ Proposed
   1. Add them as outputs to the `init` transaction or prior that as part of each Hydra Head instance
   2. Post them out-of-band, separate to individual Head instances
 
-* Ownership of the outputs holding the scripts is to be considered. If these "reference outputs" are spent, they cannot be referred to anymore. This would mean all heads referring ot them become denialed of service (DoS).
+* Ownership of the outputs holding the scripts is to be considered. If these "reference outputs" are spent, they cannot be referred to anymore. This would mean all heads referring to them can be denied of service (DoS).
 
 * Each head will need to refer to the correct version of the hydra scripts. That is, consistent with the script hashes known to the `hydra-node`.
   + This is also related to the problem of managing script versions & updates.
