@@ -97,8 +97,13 @@ spec = do
           sendInputEvent $ EvKey (KChar 'q') []
   context "text rendering tests" $ do
     it "should format time with whole values for every unit, not total values" $ do
-      let time = (3675 :: NominalDiffTime)
-      renderTime time `shouldBe` "0d 1h 1m 15s"
+      let
+        seconds = 1
+        minutes = seconds * 60
+        hours = minutes * 60
+        days = hours * 24  
+        time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
+      renderTime (time :: NominalDiffTime) `shouldBe` "10d 1h 1m 15s"
 
 -- XXX: The same hack as in EndToEndSpec
 gracePeriod :: NominalDiffTime

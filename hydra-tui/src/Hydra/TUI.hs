@@ -625,7 +625,7 @@ draw Client{sk} CardanoClient{networkId} s =
   drawShow = txt . (" - " <>) . show
 
 renderTime :: (FormatTime t) => t -> String
-renderTime r = formatTime defaultTimeLocale "%Dd %Hh %Mm %Ss" r
+renderTime r = formatTime defaultTimeLocale "%dd %Hh %Mm %Ss" r
 
 -- HACK(SN): This might be too expensive for a general case and we should move
 -- this somehwere.
