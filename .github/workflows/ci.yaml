@@ -174,7 +174,7 @@ jobs:
 
   publish-benchmark-results:
     name: Publish benchmark results
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     # TODO: this is actually only requires the tx-cost benchmark results
     needs: [haddock-benchmarks]
     runs-on: ubuntu-latest

@@ -46,7 +46,7 @@ function seedFaucet() {
         MARKER="--tx-out-datum-hash ${MARKER_DATUM_HASH}"
     fi
 
-    ccli transaction build --alonzo-era --cardano-mode \
+    ccli transaction build --babbage-era --cardano-mode \
         --change-address ${FAUCET_ADDR} \
         --tx-in ${FAUCET_TXIN} \
         --tx-out ${ACTOR_ADDR}+${AMOUNT} \

@@ -18,7 +18,7 @@ import TerminalWindow from '@site/src/components/TerminalWindow';
 - 個々のHydraノードと対話するためのアドホック端末ユーザーインターフェイスクライアント
 
 :::caution Caution!
-genesisブロックから始まるアドホックなプライベート開発ネットを使用するため、開発ネットの設定が最新であることを都度確認する必要があります。 Cardano ノードから `LedgerNoView` エラーが発生した場合、開始時刻が過去になっているため、 `prepare-devnet.sh` スクリプトを使って更新する必要があります。
+genesisブロックから始まるアドホックなプライベート開発ネットを使用するため、開発ネットの設定が最新であることを都度確認する必要があります。 Cardano ノードから `TraceNoLedgerView` エラーが発生した場合、開始時刻が過去になっているため、 `prepare-devnet.sh` スクリプトを使って更新する必要があります。
 :::
 
 ## ネットワークの設定

@@ -1,8 +1,8 @@
 {
-    "epochLength": 500,
+    "epochLength": 432000,
     "activeSlotsCoeff": 1.0,
     "slotLength": 0.1,
-    "securityParam": 100,
+    "securityParam": 2160,
     "genDelegs": {},
     "initialFunds": {
         "00813c32c92aad21770ff8001de0918f598df8c06775f77f8e8839d2a0074a515f7f32bf31a4f41c7417a8136e8152bfb42f06d71b389a6896": 900000000000,

@@ -34,9 +34,9 @@ cabal exec cardano-node -- run \
   --topology topology.json \
   --database-path db \
   --socket-path ipc/node.socket \
-  --shelley-operational-certificate credentials/opcert1.cert \
-  --shelley-kes-key credentials/delegate1.kes.skey \
-  --shelley-vrf-key credentials/delegate1.vrf.skey
+  --shelley-operational-certificate credentials/stake-pool-1/opcert.cert \
+  --shelley-kes-key credentials/stake-pool-1/kes.skey \
+  --shelley-vrf-key credentials/stake-pool-1/vrf.skey
 ```
 
 </TerminalWindow>
