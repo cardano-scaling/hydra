@@ -1,0 +1,14 @@
+cabal exec hydra-node -- \
+  --node-id 1 --port 5001 --api-port 4001 --monitoring-port 6001 \
+  --peer localhost:5002 \
+  --peer localhost:5003 \
+  --hydra-signing-key alice.sk \
+  --hydra-verification-key bob.vk \
+  --hydra-verification-key carol.vk \
+  --cardano-signing-key devnet/credentials/alice.sk \
+  --cardano-verification-key devnet/credentials/bob.vk \
+  --cardano-verification-key devnet/credentials/carol.vk \
+  --ledger-genesis devnet/genesis-shelley.json \
+  --ledger-protocol-parameters devnet/protocol-parameters.json \
+  --network-id 42 \
+  --node-socket ./devnet/ipc/node.socket
