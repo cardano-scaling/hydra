@@ -6,10 +6,11 @@ import Test.Hydra.Prelude
 import CardanoNode (
   RunningNode (..),
   getCardanoNodeVersion,
-  newNodeConfig,
   withCardanoNodeDevnet,
  )
 
+import CardanoClient (queryTipSlotNo)
+import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic))
 import Hydra.Logging (showLogsOnFailure)
 import System.Directory (doesFileExist)
 
@@ -21,11 +22,17 @@ spec = do
   it "has expected cardano-node version available" $
     getCardanoNodeVersion >>= (`shouldContain` "1.35.0")
 
-  it "withCardanoNodeDevnet does start a node within 3 seconds" $
-    failAfter 3 $
+  -- NOTE: We hard-code the expected networkId here to detect any change to the
+  -- genesis-shelley.json
+  it "withCardanoNodeDevnet does start a block-producing devnet within 5 seconds" $
+    failAfter 5 $
       showLogsOnFailure $ \tr -> do
         withTempDir "hydra-cluster" $ \tmp -> do
-          config <- newNodeConfig tmp
-          withCardanoNodeDevnet tr config $ \(RunningNode _ socketFile) -> do
-            -- TODO: assert blocks are produced
-            doesFileExist socketFile `shouldReturn` True
+          withCardanoNodeDevnet tr tmp $ \RunningNode{nodeSocket, networkId} -> do
+            doesFileExist nodeSocket `shouldReturn` True
+            networkId `shouldBe` Testnet (NetworkMagic 42)
+            -- Should produce blocks (tip advances)
+            slot1 <- queryTipSlotNo networkId nodeSocket
+            threadDelay 1
+            slot2 <- queryTipSlotNo networkId nodeSocket
+            slot2 `shouldSatisfy` (> slot1)

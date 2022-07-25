@@ -14,6 +14,7 @@ import Hydra.Chain.CardanoClient
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
+import qualified Hydra.Chain.CardanoClient as CardanoClient
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
 -- TODO(SN): DRY with Hydra.Cardano.Api

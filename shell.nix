@@ -132,6 +132,8 @@ let
     name = "hydra-node-exe-shell";
 
     buildInputs = [
+      cardano-node.cardano-node
+      cardano-node.cardano-cli
       hsPkgs.hydra-node.components.exes.hydra-node
       hsPkgs.hydra-cluster.components.exes.hydra-cluster
     ];

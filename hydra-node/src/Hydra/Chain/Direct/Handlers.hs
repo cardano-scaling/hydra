@@ -18,7 +18,6 @@ import Cardano.Ledger.Shelley.API (TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (readTVarIO, throwSTM, writeTVar)
-import Data.Aeson (Value (String), object, (.=))
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -56,7 +55,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
   reifyState,
  )
-import Hydra.Chain.Direct.Tx (PointInTime)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block, SomePoint (..))
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
@@ -70,6 +69,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..), blockPoint)
+import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
@@ -100,7 +100,7 @@ mkChain ::
 mkChain tracer queryTimeHandle cardanoKeys wallet headState submitTx =
   Chain
     { postTx = \tx -> do
-        traceWith tracer $ ToPost tx
+        traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
         vtx <-
           atomically
@@ -120,14 +120,6 @@ mkChain tracer queryTimeHandle cardanoKeys wallet headState submitTx =
             )
         submitTx vtx
     }
-
-data TimeHandle = TimeHandle
-  { -- | Get the current 'PointInTime'
-    currentPointInTime :: Either Text PointInTime
-  , -- | Adjust a 'PointInTime' by some number of slots, positively or
-    -- negatively.
-    adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
-  }
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::
@@ -343,7 +335,6 @@ getBabbageTxs = \case
 -- Tracing
 --
 
--- TODO add  ToJSON, FromJSON instances
 data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx LedgerEra)}
@@ -352,40 +343,7 @@ data DirectChainLog
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
 
 instance Arbitrary DirectChainLog where
   arbitrary = genericArbitrary
-
-instance ToJSON DirectChainLog where
-  toJSON = \case
-    ToPost{toPost} ->
-      object
-        [ "tag" .= String "ToPost"
-        , "toPost" .= toPost
-        ]
-    PostingTx{postedTx} ->
-      object
-        [ "tag" .= String "PostingTx"
-        , "postedTx" .= postedTx
-        ]
-    PostedTx{postedTxId} ->
-      object
-        [ "tag" .= String "PostedTx"
-        , "postedTxId" .= postedTxId
-        ]
-    ReceivedTxs{onChainTxs, receivedTxs} ->
-      object
-        [ "tag" .= String "ReceivedTxs"
-        , "onChainTxs" .= onChainTxs
-        , "receivedTxs" .= receivedTxs
-        ]
-    RolledBackward{point} ->
-      object
-        [ "tag" .= String "RolledBackward"
-        , "point" .= show @Text point
-        ]
-    Wallet log ->
-      object
-        [ "tag" .= String "Wallet"
-        , "contents" .= log
-        ]

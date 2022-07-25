@@ -14,7 +14,7 @@ import CardanoClient (
   queryUTxO,
   waitForUTxO,
  )
-import CardanoNode (NodeLog, RunningNode (..), newNodeConfig, withCardanoNodeDevnet)
+import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
@@ -65,15 +65,14 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         bobKeys <- keysFor Bob
         cardanoKeys <- fmap fst <$> mapM keysFor [Alice, Bob, Carol]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys Nothing (putMVar bobsCallback) $ \_ -> do
-              seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+              seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
 
               postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
@@ -88,22 +87,21 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         bobKeys <- keysFor Bob
         cardanoKeys <- fmap fst <$> mapM keysFor [Alice, Bob, Carol]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys Nothing (putMVar bobsCallback) $ \_ -> do
-              seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+              seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
 
               postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
               bobsCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
 
               let aliceCommitment = 66_000_000
-              aliceUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk aliceCommitment Normal
+              aliceUTxO <- seedFromFaucet node aliceCardanoVk aliceCommitment Normal
               postTx $ CommitTx alice aliceUTxO
 
               alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
@@ -125,16 +123,15 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       (carolCardanoVk, _) <- keysFor Carol
-      withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         bobKeys <- keysFor Bob
         let cardanoKeys = [aliceCardanoVk, carolCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
             withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys Nothing (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
-              seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+              seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
 
               alicePostTx $ InitTx $ HeadParameters cperiod [alice, carol]
               alicesCallback `observesInTime` OnInitTx cperiod [alice, carol]
@@ -145,13 +142,12 @@ spec = around showLogsOnFailure $ do
   it "can commit" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
-            seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+            seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
             alicesCallback `observesInTime` OnInitTx cperiod [alice]
@@ -167,20 +163,19 @@ spec = around showLogsOnFailure $ do
                 (CannotSpendInput{} :: PostTxError Tx) -> True
                 _ -> False
 
-            aliceUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk 1_000_000 Normal
+            aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal
             postTx $ CommitTx alice aliceUTxO
             alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
 
   it "can commit empty UTxO" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
-            seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+            seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
             alicesCallback `observesInTime` OnInitTx cperiod [alice]
@@ -191,18 +186,17 @@ spec = around showLogsOnFailure $ do
   it "can open, close & fanout a Head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx} -> do
-            seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+            seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
             alicesCallback `observesInTime` OnInitTx cperiod [alice]
 
-            someUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk 1_000_000 Normal
+            someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal
             postTx $ CommitTx alice someUTxO
             alicesCallback `observesInTime` OnCommitTx alice someUTxO
 
@@ -242,13 +236,12 @@ spec = around showLogsOnFailure $ do
   it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "direct-chain" $ \tmp -> do
-      config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           tip <- withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
-            seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+            seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
             tip <- queryTip defaultNetworkId nodeSocket
             alicePostTx $ InitTx $ HeadParameters cperiod [alice]
             alicesCallback `observesInTime` OnInitTx cperiod [alice]
@@ -260,9 +253,8 @@ spec = around showLogsOnFailure $ do
   it "cannot restart head to an unknown point" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "direct-chain" $ \tmp -> do
-      config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromNode tracer) config $ \(RunningNode _ nodeSocket) -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \RunningNode{nodeSocket} -> do
         let aliceTrace = contramap (FromDirectChain "alice") tracer
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do

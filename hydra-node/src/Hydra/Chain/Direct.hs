@@ -1,8 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
 -- protocols to submit "hand-rolled" transactions.
@@ -17,8 +15,7 @@ import Hydra.Prelude
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
 import Cardano.Ledger.Alonzo.Rules.Utxos (FailureDescription (PlutusFailure), TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
 import Cardano.Ledger.Alonzo.Rules.Utxow (UtxowPredicateFail (WrappedShelleyEraFailure))
-import Cardano.Ledger.Alonzo.TxInfo (PlutusDebugInfo (..), debugPlutus, slotToPOSIXTime)
-import Cardano.Ledger.Babbage.PParams (PParams' (..))
+import Cardano.Ledger.Alonzo.TxInfo (PlutusDebugInfo (..), debugPlutus)
 import Cardano.Ledger.Babbage.Rules.Utxo (BabbageUtxoPred (FromAlonzoUtxoFail))
 import Cardano.Ledger.Babbage.Rules.Utxow (BabbageUtxowPred (FromAlonzoUtxowFail))
 import Cardano.Ledger.Babbage.Tx (ValidatedTx)
@@ -44,7 +41,6 @@ import Data.List ((\\))
 import Hydra.Cardano.Api (
   CardanoMode,
   ChainPoint (..),
-  Era,
   EraHistory (EraHistory),
   LedgerEra,
   NetworkId,
@@ -68,7 +64,6 @@ import Hydra.Chain.CardanoClient (
   queryEraHistory,
   queryProtocolParameters,
   querySystemStart,
-  queryTip,
   queryUTxO,
  )
 import Hydra.Chain.Direct.Handlers (
@@ -76,7 +71,6 @@ import Hydra.Chain.Direct.Handlers (
   DirectChainLog (..),
   RecordedAt (..),
   SomeOnChainHeadStateAt (..),
-  TimeHandle (..),
   chainSyncHandler,
   mkChain,
   onRollBackward,
@@ -86,6 +80,7 @@ import Hydra.Chain.Direct.State (
   SomeOnChainHeadState (..),
   idleOnChainHeadState,
  )
+import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Util (
   Block,
   defaultCodecs,
@@ -230,34 +225,6 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
         , socketPath
         , networkId
         }
-
--- | Query ad-hoc epoch, system start and protocol parameters to determine
--- current point in time.
-queryTimeHandle :: NetworkId -> FilePath -> IO TimeHandle
-queryTimeHandle networkId socketPath = do
-  tip@(ChainPoint slotNo _) <- queryTip networkId socketPath
-  systemStart <- querySystemStart networkId socketPath (QueryAt tip)
-  eraHistory <- queryEraHistory networkId socketPath (QueryAt tip)
-  let epochInfo = toEpochInfo eraHistory
-  pparams <- queryProtocolParameters networkId socketPath (QueryAt tip)
-  let toTime =
-        slotToPOSIXTime
-          (toLedgerPParams (shelleyBasedEra @Era) pparams)
-          epochInfo
-          systemStart
-  pure $
-    TimeHandle
-      { currentPointInTime = (slotNo,) <$> toTime slotNo
-      , adjustPointInTime = \n (slot, _) -> do
-          let adjusted = slot + n
-          time <- toTime adjusted
-          pure (adjusted, time)
-      }
- where
-  toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Either Text)
-  toEpochInfo (EraHistory _ interpreter) =
-    hoistEpochInfo (first show . runExcept) $
-      Consensus.interpreterToEpochInfo interpreter
 
 data ConnectException = ConnectException
   { ioException :: IOException

@@ -23,7 +23,7 @@ spec = parallel $ do
 
   describe "ShelleyGenesis" $ do
     it "can be read from JSON" $ do
-      bytes <- readConfigFile "genesis-shelley.json"
+      bytes <- readConfigFile "devnet/genesis-shelley.json"
       case Json.eitherDecodeStrict' bytes of
         Left err -> fail err
         Right json -> do

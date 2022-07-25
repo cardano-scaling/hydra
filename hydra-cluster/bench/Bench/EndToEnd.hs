@@ -8,7 +8,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoClient (submit, waitForTransaction)
-import CardanoNode (RunningNode (..), newNodeConfig, withCardanoNodeDevnet)
+import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Control.Monad.Class.MonadSTM (
@@ -80,9 +80,8 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
           let cardanoKeys = map (\ClientDataset{signingKey} -> (getVerificationKey signingKey, signingKey)) clientDatasets
           let hydraKeys = Hydra.generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
           let parties = Set.fromList (deriveParty <$> hydraKeys)
-          config <- newNodeConfig workDir
           withOSStats workDir $
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
               withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys $ \(leader :| followers) -> do
                 let clients = leader : followers
                 waitForNodesConnected tracer clients
@@ -214,7 +213,7 @@ movingAverage confirmations =
 -- | Distribute 100 ADA fuel and starting funds from faucet for each client in
 -- the dataset.
 seedNetwork :: RunningNode -> Dataset -> IO ()
-seedNetwork node@(RunningNode _ nodeSocket) Dataset{fundingTransaction, clientDatasets} = do
+seedNetwork node@RunningNode{nodeSocket} Dataset{fundingTransaction, clientDatasets} = do
   fundClients
   forM_ clientDatasets fuelWith100Ada
  where
@@ -224,7 +223,7 @@ seedNetwork node@(RunningNode _ nodeSocket) Dataset{fundingTransaction, clientDa
 
   fuelWith100Ada ClientDataset{signingKey} = do
     let vk = getVerificationKey signingKey
-    seedFromFaucet defaultNetworkId node vk 100_000_000 Fuel
+    seedFromFaucet node vk 100_000_000 Fuel
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
 -- (asumed same sequence) of clients.

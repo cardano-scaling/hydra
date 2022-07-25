@@ -37,8 +37,9 @@ import Data.Ratio ((%))
 import Data.Typeable (typeRep)
 import GHC.Exception (SrcLoc (..))
 import GHC.IO.Exception (IOErrorType (..), IOException (..))
-import System.Directory (removePathForcibly)
+import System.Directory (createDirectoryIfMissing, removePathForcibly)
 import System.Exit (ExitCode (..))
+import System.FilePath (takeDirectory)
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 import System.Info (os)
 import System.Process (ProcessHandle, waitForProcess)
@@ -80,7 +81,8 @@ withTempDir baseName action = do
 -- | Open given log file non-buffered in append mode and print a message with
 -- filepath to @stderr@ on exceptions.
 withLogFile :: FilePath -> (Handle -> IO a) -> IO a
-withLogFile filepath io =
+withLogFile filepath io = do
+  createDirectoryIfMissing True (takeDirectory filepath)
   withFile filepath AppendMode (\out -> hSetBuffering out NoBuffering >> io out)
     `onException` putStrLn ("Logfile written to: " <> filepath)
 

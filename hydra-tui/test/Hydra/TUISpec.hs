@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoNode (NodeLog, RunningNode (RunningNode), newNodeConfig, withCardanoNodeDevnet)
+import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
 import Graphics.Vty (
@@ -120,17 +120,16 @@ setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI action =
   showLogsOnFailure $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
-      config <- newNodeConfig tmpDir
       (aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromCardano tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
         chainConfig <- chainConfigFor Alice tmpDir nodeSocket []
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
           -- Fuel to pay hydra transactions
-          seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+          seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
           -- Some ADA to commit
-          seedFromFaucet_ defaultNetworkId node aliceCardanoVk 42_000_000 Normal
+          seedFromFaucet_ node aliceCardanoVk 42_000_000 Normal
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
