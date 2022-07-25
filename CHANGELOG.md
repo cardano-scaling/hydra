@@ -25,10 +25,6 @@ changes.
 #### Fixed
 
 - Head contract check UTxO hash upon closing the head [#338](https://github.com/input-output-hk/hydra-poc/pull/338). This prevents closing the head with arbitrary UTxO.
-
-## [0.6.1] - 2022-07-22
-
-#### Fixed
 - Remaining contestation period displayed in `hydra-tui` [#437](https://github.com/input-output-hk/hydra-poc/pull/437). Previously it was displaying 'total whole values' instead of 'relative whole values'.
 
 
