@@ -40,15 +40,15 @@ import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Options (ChainConfig (..))
-import Hydra.TUI (runWithVty, tuiContestationPeriod)
+import Hydra.TUI (renderTime, runWithVty, tuiContestationPeriod)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
 spec :: Spec
-spec =
-  around setupNodeAndTUI $
-    context "end-to-end smoke tests" $ do
+spec = do
+  context "end-to-end smoke tests" $ do
+    around setupNodeAndTUI $ do
       it "starts & renders" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
@@ -95,6 +95,19 @@ spec =
           shouldRender "Final"
           shouldRender "42000000 lovelace"
           sendInputEvent $ EvKey (KChar 'q') []
+  context "text rendering tests" $ do
+    it "should format time with whole values for every unit, not total values" $ do
+      let
+        seconds = 1
+        minutes = seconds * 60
+        hours = minutes * 60
+        days = hours * 24  
+        time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
+      renderTime (time :: NominalDiffTime) `shouldBe` "10d 1h 1m 15s"
+      renderTime (-time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
+      let 
+        time' = 1 * hours + 1 * minutes + 15 * seconds
+      renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
 -- XXX: The same hack as in EndToEndSpec
 gracePeriod :: NominalDiffTime

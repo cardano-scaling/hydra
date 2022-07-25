@@ -20,6 +20,7 @@ import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
 import Data.Time (defaultTimeLocale, formatTime)
+import Data.Time.Format (FormatTime)
 import Data.Version (showVersion)
 import Graphics.Vty (
   Event (EvKey),
@@ -551,7 +552,7 @@ draw Client{sk} CardanoClient{networkId} s =
     | remaining > 0 =
       padLeftRight 1 $
         txt "Remaining time to contest: "
-          <+> str (formatTime defaultTimeLocale "%dd %hh %mm %ss" remaining)
+          <+> str (renderTime remaining)
     | otherwise =
       txt "Contestation period passed, ready to fan out."
 
@@ -622,6 +623,11 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = txt . (" - " <>) . show
+
+renderTime :: (Ord t, Num t, FormatTime t) => t -> String
+renderTime r
+  | r < 0 = "-" <> renderTime (negate r)
+  | otherwise = formatTime defaultTimeLocale "%dd %Hh %Mm %Ss" r
 
 -- HACK(SN): This might be too expensive for a general case and we should move
 -- this somehwere.
