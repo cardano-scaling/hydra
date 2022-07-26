@@ -201,6 +201,7 @@ data L2Outcome tx
   | NextInitialState {pendingCommits :: PendingCommits, committed :: Committed tx}
   | NextOpenState {coordinatedHeadState :: CoordinatedHeadState tx}
   | NextClosedState {confirmedSnapshot :: ConfirmedSnapshot tx}
+  | L2Wait WaitReason
 
 l2OutcomeToState :: L2Outcome tx -> Maybe HeadParameters -> HeadState tx -> HeadState tx
 l2OutcomeToState SameState _ previousRecoverableState = previousRecoverableState
@@ -210,7 +211,7 @@ l2OutcomeToState NextOpenState{coordinatedHeadState} (Just parameters) previousR
   OpenState{parameters, coordinatedHeadState, previousRecoverableState}
 l2OutcomeToState NextClosedState{confirmedSnapshot} (Just parameters) previousRecoverableState =
   ClosedState{parameters, confirmedSnapshot, previousRecoverableState}
-l2OutcomeToState _ _ _ = IdleState -- This should never happen.
+l2OutcomeToState _ _ previousRecoverableState = previousRecoverableState
 
 type L2Out tx = (L2Outcome tx, [Effect tx])
 
@@ -242,7 +243,7 @@ onInitialHandleClientCommitTxEvent party utxo =
  where
   effects = [OnChainEffect (CommitTx party utxo)]
 
--- | On InitialState, upon client commit tx
+-- | On InitialState, upon chain commit tx
 --   1. build effects to produce
 --   2. move to new InitialState
 onInitialHandleChainCommitTxEvent ::
@@ -265,8 +266,8 @@ onInitialHandleChainCommitTxEvent pt party utxo pendingCommits committed =
   canCollectCom = null remainingParties && pt == party
   collectedUTxO = mconcat $ Map.elems newCommitted
 
--- | On InitialState, upon client commit tx
---   1. biold coordinatedHeadState
+-- | On InitialState, upon chain collect tx
+--   1. build coordinatedHeadState
 --   2. build effects to produce
 --   3. move to new OpenState
 onIdleHandleChainCollectTxEvent ::
@@ -277,6 +278,26 @@ onIdleHandleChainCollectTxEvent committed =
       coordinatedHeadState =
         CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
    in (NextOpenState{coordinatedHeadState}, effects)
+
+-- | On OpenState, upon network request tx
+--   1. evaluate eitherTx
+--    a/ if the transaction is not applicable yet, wait on not applicable tx and produce no effects
+--    b/ otherwise, move to new OpenState using appied tx and produce client tx seen effects
+onOpenHandleNetworkReqTxEvent ::
+  Either (a, ValidationError) (UTxOType tx) ->
+  tx ->
+  CoordinatedHeadState tx ->
+  [tx] ->
+  (L2Outcome tx, [Effect tx])
+onOpenHandleNetworkReqTxEvent eitherTx tx headState seenTxs =
+  case eitherTx of
+    Left (_, err) ->
+      (L2Wait $ WaitOnNotApplicableTx err, []) -- The transaction may not be applicable yet.
+    Right utxo' ->
+      let newSeenTxs = seenTxs <> [tx]
+          coordinatedHeadState = headState{seenTxs = newSeenTxs, seenUTxO = utxo'}
+          effects = [ClientEffect $ TxSeen tx]
+       in (NextOpenState{coordinatedHeadState}, effects)
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
@@ -361,22 +382,12 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
         Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
   (OpenState{parameters, coordinatedHeadState = headState@CoordinatedHeadState{seenTxs, seenUTxO}, previousRecoverableState}, NetworkEvent (ReqTx _ tx)) ->
-    case applyTransactions ledger seenUTxO [tx] of
-      Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
-      Right utxo' ->
-        let newSeenTxs = seenTxs <> [tx]
-         in nextState
-              ( OpenState
-                  { parameters
-                  , coordinatedHeadState =
-                      headState
-                        { seenTxs = newSeenTxs
-                        , seenUTxO = utxo'
-                        }
-                  , previousRecoverableState
-                  }
-              )
-              [ClientEffect $ TxSeen tx]
+    nextState newState effects
+   where
+    eitherTx = applyTransactions ledger seenUTxO [tx]
+    (l2Outcome, effects) =
+      onOpenHandleNetworkReqTxEvent eitherTx tx headState seenTxs
+    newState = l2OutcomeToState l2Outcome (Just parameters) previousRecoverableState
   (OpenState{parameters, coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousRecoverableState}, e@(NetworkEvent (ReqSn otherParty sn txs)))
     | (number . getSnapshot) confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
       -- TODO: Also we might be robust against multiple ReqSn for otherwise
@@ -496,9 +507,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       -- and/or not try to fan out on the `ShouldPostFanout` later.
       sameState [ClientEffect HeadIsContested{snapshotNumber}]
   (ClosedState{}, ShouldPostFanout) ->
-    sameState effects
-   where
-    effects = [ClientEffect ReadyToFanout]
+    sameState [ClientEffect ReadyToFanout]
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
     nextState IdleState effects
    where
@@ -511,21 +520,13 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     effects = [ClientEffect RolledBack]
   --
   (_, ClientEvent{clientInput}) ->
-    sameState effects
-   where
-    effects = [ClientEffect $ CommandFailed clientInput]
+    sameState [ClientEffect $ CommandFailed clientInput]
   (_, NetworkEvent (Connected host)) ->
-    sameState effects
-   where
-    effects = [ClientEffect $ PeerConnected host]
+    sameState [ClientEffect $ PeerConnected host]
   (_, NetworkEvent (Disconnected host)) ->
-    sameState effects
-   where
-    effects = [ClientEffect $ PeerDisconnected host]
+    sameState [ClientEffect $ PeerDisconnected host]
   (_, PostTxError{postChainTx, postTxError}) ->
-    sameState effects
-   where
-    effects = [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
+    sameState [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
   _ ->
     Error $ InvalidEvent ev st
  where
