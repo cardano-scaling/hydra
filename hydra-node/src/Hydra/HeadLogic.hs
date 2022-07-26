@@ -20,7 +20,7 @@ import Hydra.Chain (
   HeadParameters (..),
   OnChainTx (..),
   PostChainTx (..),
-  PostTxError
+  PostTxError,
  )
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Crypto (HydraKey, Signature, SigningKey, aggregateInOrder, sign, verify)
@@ -196,9 +196,6 @@ data Environment = Environment
   }
 
 --
-nextState' :: HeadState tx -> [Effect tx] -> Outcome tx
-nextState' = NewState
-
 data L2Outcome tx
   = SameState
   | NextInitialState {pendingCommits :: PendingCommits, committed :: Committed tx}
@@ -228,11 +225,12 @@ onIdleHandleClientInitTxEvent parameters =
 
 -- | On IdleState, upon chain init tx
 --   1. build effects to produce
---   2. move to InitialState
+--   2. move to new InitialState
 onIdleHandleChainInitTxEvent :: [Party] -> L2Out tx
 onIdleHandleChainInitTxEvent parties =
-  (NextInitialState{ pendingCommits = Set.fromList parties, committed = mempty }, effects)
+  (nextState, effects)
  where
+  nextState = NextInitialState{pendingCommits = Set.fromList parties, committed = mempty}
   effects = [ClientEffect $ ReadyToCommit $ fromList parties]
 
 -- | On InitialState, upon client commit tx
@@ -243,6 +241,29 @@ onInitialHandleClientCommitTxEvent party utxo =
   (SameState, effects)
  where
   effects = [OnChainEffect (CommitTx party utxo)]
+
+-- | On InitialState, upon client commit tx
+--   1. build effects to produce
+--   2. move to new InitialState
+onInitialHandleChainCommitTxEvent ::
+  Monoid (UTxOType tx) =>
+  Party ->
+  Party ->
+  UTxOType tx ->
+  Set Party ->
+  Map Party (UTxOType tx) ->
+  L2Out tx
+onInitialHandleChainCommitTxEvent pt party utxo pendingCommits committed =
+  (nextState, effects)
+ where
+  nextState = NextInitialState{pendingCommits = remainingParties, committed = newCommitted}
+  effects =
+    [ClientEffect $ Committed pt utxo]
+      <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
+  remainingParties = Set.delete pt pendingCommits
+  newCommitted = Map.insert pt utxo committed
+  canCollectCom = null remainingParties && pt == party
+  collectedUTxO = mconcat $ Map.elems newCommitted
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
@@ -257,45 +278,35 @@ update ::
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   (IdleState, ClientEvent (Init contestationPeriod)) ->
-    nextState' newState effects
-    where 
-      (l2Outcome, effects) = onIdleHandleClientInitTxEvent parameters
-      parameters = HeadParameters{contestationPeriod, parties = party : otherParties}
-      newState = l2OutcomeToState l2Outcome (Just parameters) st
-  (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
-    nextState' newState effects
-    where 
-      (l2Outcome, effects) = onIdleHandleChainInitTxEvent parties
-      parameters = Just HeadParameters{contestationPeriod, parties}
-      newState = l2OutcomeToState l2Outcome parameters st
-  (InitialState{pendingCommits}, ClientEvent (Commit utxo))
-    | canCommit -> 
-      nextState' newState effects
-    where 
-      canCommit = party `Set.member` pendingCommits
-      (l2Outcome, effects) = onInitialHandleClientCommitTxEvent party utxo
-      parameters = Nothing
-      newState = l2OutcomeToState l2Outcome parameters st
-  (previousRecoverableState@InitialState{parameters, pendingCommits, committed}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
-    nextState newHeadState $
-      [ClientEffect $ Committed pt utxo]
-        <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
+    sameState effects
    where
-    newHeadState =
-      InitialState
-        { parameters
-        , pendingCommits = remainingParties
-        , committed = newCommitted
-        , previousRecoverableState
-        }
-    remainingParties = Set.delete pt pendingCommits
-    newCommitted = Map.insert pt utxo committed
-    canCollectCom = null remainingParties && pt == party
-    collectedUTxO = mconcat $ Map.elems newCommitted
+    (_, effects) = onIdleHandleClientInitTxEvent parameters
+    parameters = HeadParameters{contestationPeriod, parties = party : otherParties}
+  (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
+    nextState newState effects
+   where
+    (l2Outcome, effects) = onIdleHandleChainInitTxEvent parties
+    parameters = Just HeadParameters{contestationPeriod, parties}
+    newState = l2OutcomeToState l2Outcome parameters st
+  (InitialState{pendingCommits}, ClientEvent (Commit utxo))
+    | canCommit ->
+      sameState effects
+   where
+    canCommit = party `Set.member` pendingCommits
+    (_, effects) = onInitialHandleClientCommitTxEvent party utxo
+  (previousRecoverableState@InitialState{parameters, pendingCommits, committed}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
+    nextState newState effects
+   where
+    (l2Outcome, effects) = onInitialHandleChainCommitTxEvent pt party utxo pendingCommits committed
+    newState = l2OutcomeToState l2Outcome (Just parameters) previousRecoverableState
   (InitialState{committed}, ClientEvent GetUTxO) ->
-    sameState [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
+    sameState effects
+   where
+    effects = [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
   (InitialState{committed}, ClientEvent Abort) ->
-    sameState [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
+    sameState effects
+    where
+      effects = [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
   (_, OnChainEvent (Observation OnCommitTx{})) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
