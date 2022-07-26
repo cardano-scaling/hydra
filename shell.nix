@@ -127,6 +127,16 @@ let
     STACK_IN_NIX_SHELL = "true";
   };
 
+  # A shell which provides env for the demo application
+  demoShell = pkgs.mkShell {
+    name = "hydra-demo-shell";
+    buildInputs = [
+      cardano-node.cardano-node
+      cardano-node.cardano-cli
+      hsPkgs.hydra-node.components.exes.hydra-node
+    ];
+  };
+
   # A shell which does provide hydra-node and hydra-cluster executables.
   exeShell = pkgs.mkShell {
     name = "hydra-node-exe-shell";
@@ -141,5 +151,6 @@ let
 in
 haskellNixShell // {
   cabalOnly = cabalShell;
+  demo = demoShell;
   exes = exeShell;
 }
