@@ -265,6 +265,19 @@ onInitialHandleChainCommitTxEvent pt party utxo pendingCommits committed =
   canCollectCom = null remainingParties && pt == party
   collectedUTxO = mconcat $ Map.elems newCommitted
 
+-- | On InitialState, upon client commit tx
+--   1. biold coordinatedHeadState
+--   2. build effects to produce
+--   3. move to new OpenState
+onIdleHandleChainCollectTxEvent ::
+  (Foldable t, Monoid (UTxOType tx)) => t (UTxOType tx) -> L2Out tx
+onIdleHandleChainCollectTxEvent committed =
+  let u0 = fold committed
+      effects = [ClientEffect $ HeadIsOpen u0]
+      coordinatedHeadState =
+        CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
+   in (NextOpenState{coordinatedHeadState}, effects)
+
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
@@ -305,8 +318,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     effects = [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
   (InitialState{committed}, ClientEvent Abort) ->
     sameState effects
-    where
-      effects = [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
+   where
+    effects = [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
   (_, OnChainEvent (Observation OnCommitTx{})) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
@@ -316,31 +329,29 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     -- TODO: We would want to check whether this even matches our local state.
     -- For example, we do expect `null remainingParties` but what happens if
     -- it's untrue?
-    let u0 = fold committed
-     in nextState
-          ( OpenState
-              { parameters
-              , coordinatedHeadState = CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
-              , previousRecoverableState
-              }
-          )
-          [ClientEffect $ HeadIsOpen u0]
+    nextState newState effects
+   where
+    (l2Outcome, effects) = onIdleHandleChainCollectTxEvent committed
+    newState = l2OutcomeToState l2Outcome (Just parameters) previousRecoverableState
   (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
-    nextState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
+    nextState IdleState effects
+   where
+    effects = [ClientEffect $ HeadIsAborted $ fold committed]
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
-    sameState
-      [ OnChainEffect (CloseTx confirmedSnapshot)
-      ]
+    sameState effects
+   where
+    effects = [OnChainEffect (CloseTx confirmedSnapshot)]
   --
   (ClosedState{confirmedSnapshot}, ClientEvent Fanout) ->
-    sameState
-      [ OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)
-      ]
+    sameState effects
+   where
+    effects = [OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)]
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
-    sameState
-      [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+    sameState effects
+   where
+    effects = [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}, ClientEvent (NewTx tx)) ->
     sameState effects
@@ -485,21 +496,36 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       -- and/or not try to fan out on the `ShouldPostFanout` later.
       sameState [ClientEffect HeadIsContested{snapshotNumber}]
   (ClosedState{}, ShouldPostFanout) ->
-    sameState [ClientEffect ReadyToFanout]
+    sameState effects
+   where
+    effects = [ClientEffect ReadyToFanout]
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
-    nextState IdleState [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+    nextState IdleState effects
+   where
+    effects = [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --
   (currentState, OnChainEvent (Rollback n)) ->
-    nextState (rollback n currentState) [ClientEffect RolledBack]
+    nextState newState effects
+   where
+    newState = rollback n currentState
+    effects = [ClientEffect RolledBack]
   --
   (_, ClientEvent{clientInput}) ->
-    sameState [ClientEffect $ CommandFailed clientInput]
+    sameState effects
+   where
+    effects = [ClientEffect $ CommandFailed clientInput]
   (_, NetworkEvent (Connected host)) ->
-    sameState [ClientEffect $ PeerConnected host]
+    sameState effects
+   where
+    effects = [ClientEffect $ PeerConnected host]
   (_, NetworkEvent (Disconnected host)) ->
-    sameState [ClientEffect $ PeerDisconnected host]
+    sameState effects
+   where
+    effects = [ClientEffect $ PeerDisconnected host]
   (_, PostTxError{postChainTx, postTxError}) ->
-    sameState [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
+    sameState effects
+   where
+    effects = [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
   _ ->
     Error $ InvalidEvent ev st
  where
