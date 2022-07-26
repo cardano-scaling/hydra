@@ -36,7 +36,7 @@ import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), deserialiseFromRawBytes)
 import Hydra.Chain (Chain (..), ChainEvent, PostTxError)
 import Hydra.ClientInput (ClientInput)
-import Hydra.Crypto (AsType (AsHydraKey))
+import Hydra.Crypto (AsType (AsHydraKey),deserialiseSigningKeyFromRawBytes,deserialiseVerificationKeyFromRawBytes)
 import Hydra.HeadLogic (
   Effect (..),
   Environment (..),
@@ -44,9 +44,8 @@ import Hydra.HeadLogic (
   HeadState (..),
   LogicError (..),
   Outcome (..),
-  emitSnapshot,
  )
-import qualified Hydra.HeadLogic as Logic
+import qualified Hydra.Head.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
