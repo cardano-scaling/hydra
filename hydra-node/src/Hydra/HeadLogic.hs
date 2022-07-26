@@ -206,18 +206,18 @@ newState = NewState
 -- | On IdleState, upon client init tx
 --   1. build head parameters using args
 --   2. build effects to produce
---   3. stay in same state and produce effects built given head params
+--   3. stay in same IdleState
 onIdleHandleClientInitTxEvent :: ContestationPeriod -> [Party] -> Party -> Outcome tx
 onIdleHandleClientInitTxEvent contestationPeriod otherParties party =
   sameState IdleState effects
  where
-  parameters = HeadParameters { contestationPeriod, parties = party : otherParties }
+  parameters = HeadParameters{contestationPeriod, parties = party : otherParties}
   effects = [OnChainEffect (InitTx parameters)]
 
 -- | On IdleState, upon chain init tx
 --   1. build head parameters using args
 --   2. build effects to produce
---   3. move to new state Initial given head params and produce effects
+--   3. move to InitialState
 onIdleHandleChainInitTxEvent :: ContestationPeriod -> [Party] -> Outcome tx
 onIdleHandleChainInitTxEvent contestationPeriod parties =
   newState
@@ -229,8 +229,21 @@ onIdleHandleChainInitTxEvent contestationPeriod parties =
       }
     effects
  where
-  parameters = HeadParameters{ contestationPeriod, parties }
+  parameters = HeadParameters{contestationPeriod, parties}
   effects = [ClientEffect $ ReadyToCommit $ fromList parties]
+
+-- | On InitialState, upon client commit tx
+--   1. build effects to produce
+--   2. stay in same InitialState
+onInitialHandleClientCommitTxEvent ::
+  HeadState tx ->
+  Party ->
+  UTxOType tx ->
+  Outcome tx
+onInitialHandleClientCommitTxEvent currentState party utxo =
+  sameState currentState effects
+ where
+  effects = [OnChainEffect (CommitTx party utxo)]
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
@@ -250,7 +263,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     onIdleHandleChainInitTxEvent contestationPeriod parties
   --
   (InitialState{pendingCommits}, ClientEvent (Commit utxo))
-    | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
+    | canCommit -> onInitialHandleClientCommitTxEvent st party utxo
    where
     canCommit = party `Set.member` pendingCommits
   (previousRecoverableState@InitialState{parameters, pendingCommits, committed}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
