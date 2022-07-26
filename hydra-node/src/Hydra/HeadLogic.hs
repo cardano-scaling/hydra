@@ -196,41 +196,48 @@ data Environment = Environment
   }
 
 --
-data L2Outcome tx
+data L2NextState tx
   = SameState
   | NextInitialState {pendingCommits :: PendingCommits, committed :: Committed tx}
   | NextOpenState {coordinatedHeadState :: CoordinatedHeadState tx}
   | NextClosedState {confirmedSnapshot :: ConfirmedSnapshot tx}
+
+data L2Outcome tx
+  = L2NewState (L2NextState tx, [Effect tx])
   | L2Wait WaitReason
 
-processL2OutCome :: L2Outcome tx -> Maybe HeadParameters -> HeadState tx -> Either WaitReason (HeadState tx)
-processL2OutCome SameState _ previousRecoverableState = Right previousRecoverableState
-processL2OutCome NextInitialState{pendingCommits, committed} (Just parameters) previousRecoverableState =
-  Right InitialState{parameters, pendingCommits, committed, previousRecoverableState}
-processL2OutCome NextOpenState{coordinatedHeadState} (Just parameters) previousRecoverableState =
-  Right OpenState{parameters, coordinatedHeadState, previousRecoverableState}
-processL2OutCome NextClosedState{confirmedSnapshot} (Just parameters) previousRecoverableState =
-  Right ClosedState{parameters, confirmedSnapshot, previousRecoverableState}
-processL2OutCome (L2Wait reason) _ _ = Left reason
-processL2OutCome _ _ previousRecoverableState = Right previousRecoverableState -- "should be unreachable"
+processL2NextState :: L2NextState tx -> Maybe HeadParameters -> HeadState tx -> HeadState tx
+processL2NextState SameState _ previousRecoverableState = previousRecoverableState
+processL2NextState NextInitialState{pendingCommits, committed} (Just parameters) previousRecoverableState =
+  InitialState{parameters, pendingCommits, committed, previousRecoverableState}
+processL2NextState NextOpenState{coordinatedHeadState} (Just parameters) previousRecoverableState =
+  OpenState{parameters, coordinatedHeadState, previousRecoverableState}
+processL2NextState NextClosedState{confirmedSnapshot} (Just parameters) previousRecoverableState =
+  ClosedState{parameters, confirmedSnapshot, previousRecoverableState}
+processL2NextState _ _ previousRecoverableState = previousRecoverableState -- "unreachable"
 
-type L2Out tx = (L2Outcome tx, [Effect tx]) -- effects can be push downstream within l2outcome
+processL2OutCome ::
+  L2Outcome tx -> Maybe HeadParameters -> HeadState tx -> Outcome tx
+processL2OutCome (L2NewState (nextState, effects)) parameters previousRecoverableState =
+  let nextState' = processL2NextState nextState parameters previousRecoverableState
+   in NewState nextState' effects
+processL2OutCome (L2Wait reason) _ _ = Wait reason
 
 -- | On IdleState, upon client init tx
 --   1. build effects to produce
 --   2. stay in same IdleState
-onIdleHandleClientInitTxEvent :: HeadParameters -> L2Out tx
+onIdleHandleClientInitTxEvent :: HeadParameters -> L2Outcome tx
 onIdleHandleClientInitTxEvent parameters =
-  (SameState, effects)
+  L2NewState (SameState, effects)
  where
   effects = [OnChainEffect (InitTx parameters)]
 
 -- | On IdleState, upon chain init tx
 --   1. build effects to produce
 --   2. move to new InitialState
-onIdleHandleChainInitTxEvent :: [Party] -> L2Out tx
+onIdleHandleChainInitTxEvent :: [Party] -> L2Outcome tx
 onIdleHandleChainInitTxEvent parties =
-  (nextState, effects)
+  L2NewState (nextState, effects)
  where
   nextState = NextInitialState{pendingCommits = Set.fromList parties, committed = mempty}
   effects = [ClientEffect $ ReadyToCommit $ fromList parties]
@@ -238,9 +245,9 @@ onIdleHandleChainInitTxEvent parties =
 -- | On InitialState, upon client commit tx
 --   1. build effects to produce
 --   2. stay in same InitialState
-onInitialHandleClientCommitTxEvent :: Party -> UTxOType tx -> L2Out tx
+onInitialHandleClientCommitTxEvent :: Party -> UTxOType tx -> L2Outcome tx
 onInitialHandleClientCommitTxEvent party utxo =
-  (SameState, effects)
+  L2NewState (SameState, effects)
  where
   effects = [OnChainEffect (CommitTx party utxo)]
 
@@ -254,9 +261,9 @@ onInitialHandleChainCommitTxEvent ::
   UTxOType tx ->
   Set Party ->
   Map Party (UTxOType tx) ->
-  L2Out tx
+  L2Outcome tx
 onInitialHandleChainCommitTxEvent pt party utxo pendingCommits committed =
-  (nextState, effects)
+  L2NewState (nextState, effects)
  where
   nextState = NextInitialState{pendingCommits = remainingParties, committed = newCommitted}
   effects =
@@ -272,13 +279,13 @@ onInitialHandleChainCommitTxEvent pt party utxo pendingCommits committed =
 --   2. build effects to produce
 --   3. move to new OpenState
 onIdleHandleChainCollectTxEvent ::
-  (Foldable t, Monoid (UTxOType tx)) => t (UTxOType tx) -> L2Out tx
+  (Foldable t, Monoid (UTxOType tx)) => t (UTxOType tx) -> L2Outcome tx
 onIdleHandleChainCollectTxEvent committed =
   let u0 = fold committed
       effects = [ClientEffect $ HeadIsOpen u0]
       coordinatedHeadState =
         CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
-   in (NextOpenState{coordinatedHeadState}, effects)
+   in L2NewState (NextOpenState{coordinatedHeadState}, effects)
 
 -- | On OpenState, upon network request tx
 --   1. evaluate eitherTx
@@ -289,16 +296,16 @@ onOpenHandleNetworkReqTxEvent ::
   CoordinatedHeadState tx ->
   [tx] ->
   Either (a, ValidationError) (UTxOType tx) ->
-  L2Out tx
+  L2Outcome tx
 onOpenHandleNetworkReqTxEvent tx headState seenTxs =
   \case
     Left (_, err) ->
-      (L2Wait $ WaitOnNotApplicableTx err, []) -- The transaction may not be applicable yet.
+      L2Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
     Right utxo' ->
       let newSeenTxs = seenTxs <> [tx]
           coordinatedHeadState = headState{seenTxs = newSeenTxs, seenUTxO = utxo'}
           effects = [ClientEffect $ TxSeen tx]
-       in (NextOpenState{coordinatedHeadState}, effects)
+       in L2NewState (NextOpenState{coordinatedHeadState}, effects)
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
@@ -313,31 +320,25 @@ update ::
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   (IdleState, ClientEvent (Init contestationPeriod)) ->
-    sameState effects
+    processL2OutCome l2Outcome (Just parameters) st -- sameState effects
    where
-    (_, effects) = onIdleHandleClientInitTxEvent parameters
+    l2Outcome = onIdleHandleClientInitTxEvent parameters
     parameters = HeadParameters{contestationPeriod, parties = party : otherParties}
   (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
-    case processL2OutCome l2Outcome parameters st of
-      Left waitReason -> Wait waitReason
-      Right newState ->
-        nextState newState effects
+    processL2OutCome l2Outcome parameters st
    where
     parameters = Just HeadParameters{contestationPeriod, parties}
-    (l2Outcome, effects) = onIdleHandleChainInitTxEvent parties
+    l2Outcome = onIdleHandleChainInitTxEvent parties
   (InitialState{pendingCommits}, ClientEvent (Commit utxo))
     | canCommit ->
-      sameState effects
+      processL2OutCome l2Outcome Nothing st -- sameState effects
    where
     canCommit = party `Set.member` pendingCommits
-    (_, effects) = onInitialHandleClientCommitTxEvent party utxo
+    l2Outcome = onInitialHandleClientCommitTxEvent party utxo
   (previousRecoverableState@InitialState{parameters, pendingCommits, committed}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
-    case processL2OutCome l2Outcome (Just parameters) previousRecoverableState of
-      Left waitReason -> Wait waitReason
-      Right newState ->
-        nextState newState effects
+    processL2OutCome l2Outcome (Just parameters) previousRecoverableState
    where
-    (l2Outcome, effects) = onInitialHandleChainCommitTxEvent pt party utxo pendingCommits committed
+    l2Outcome = onInitialHandleChainCommitTxEvent pt party utxo pendingCommits committed
   (InitialState{committed}, ClientEvent GetUTxO) ->
     sameState effects
    where
@@ -355,12 +356,9 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     -- TODO: We would want to check whether this even matches our local state.
     -- For example, we do expect `null remainingParties` but what happens if
     -- it's untrue?
-    case processL2OutCome l2Outcome (Just parameters) previousRecoverableState of
-      Left waitReason -> Wait waitReason
-      Right newState ->
-        nextState newState effects
+    processL2OutCome l2Outcome (Just parameters) previousRecoverableState
    where
-    (l2Outcome, effects) = onIdleHandleChainCollectTxEvent committed
+    l2Outcome = onIdleHandleChainCollectTxEvent committed
   (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
     nextState IdleState effects
    where
@@ -389,12 +387,10 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
         Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
   (OpenState{parameters, coordinatedHeadState = headState@CoordinatedHeadState{seenTxs, seenUTxO}, previousRecoverableState}, NetworkEvent (ReqTx _ tx)) ->
-    case processL2OutCome l2Outcome (Just parameters) previousRecoverableState of
-      Left waitReason -> Wait waitReason
-      Right newState -> nextState newState effects
+    processL2OutCome l2Outcome (Just parameters) previousRecoverableState
    where
     eitherTx = applyTransactions ledger seenUTxO [tx]
-    (l2Outcome, effects) = onOpenHandleNetworkReqTxEvent tx headState seenTxs eitherTx
+    l2Outcome = onOpenHandleNetworkReqTxEvent tx headState seenTxs eitherTx
   (OpenState{parameters, coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousRecoverableState}, e@(NetworkEvent (ReqSn otherParty sn txs)))
     | (number . getSnapshot) confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
       -- TODO: Also we might be robust against multiple ReqSn for otherwise
