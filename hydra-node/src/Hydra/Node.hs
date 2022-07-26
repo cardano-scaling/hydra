@@ -44,8 +44,9 @@ import Hydra.HeadLogic (
   HeadState (..),
   LogicError (..),
   Outcome (..),
+  emitSnapshot,
  )
-import qualified Hydra.Head.HeadLogic as Logic
+import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))

@@ -88,9 +88,7 @@ library
     Hydra.ClientInput
     Hydra.ContestationPeriod
     Hydra.Crypto
-    Hydra.Head.HeadTypes
-    Hydra.Head.HeadTransition
-    Hydra.Head.HeadLogic
+    Hydra.HeadLogic
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Cardano.Builder

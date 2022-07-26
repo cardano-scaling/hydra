@@ -8,18 +8,16 @@ import Test.Hydra.Prelude
 
 import qualified Data.List as List
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Head.HeadTypes(
+import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
   HeadState (..),
-  SeenSnapshot (..),
- )
-import Hydra.Head.HeadTransition (isLeader)
-import Hydra.Head.HeadLogic (
   NoSnapshotReason (..),
+  SeenSnapshot (..),
   SnapshotOutcome (..),
   emitSnapshot,
+  isLeader,
   newSn,
  )
 import Hydra.Ledger (Ledger (..))

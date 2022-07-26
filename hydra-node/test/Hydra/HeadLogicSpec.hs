@@ -19,8 +19,7 @@ import Hydra.Chain (
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
-import Hydra.Head.HeadLogic (update)
-import Hydra.Head.HeadTypes (
+import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
@@ -30,6 +29,7 @@ import Hydra.Head.HeadTypes (
   Outcome (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   WaitReason (..),
+  update,
  )
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)

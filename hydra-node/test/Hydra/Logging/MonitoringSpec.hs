@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Data.Text as Text
-import Hydra.Head.HeadTypes (
+import Hydra.HeadLogic (
   Effect (ClientEffect),
   Event (NetworkEvent),
  )

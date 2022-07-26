@@ -23,7 +23,11 @@ import Hydra.Chain (
   PostTxError,
  )
 import Hydra.ClientInput (ClientInput (..))
+<<<<<<< HEAD
 import Hydra.Crypto (HydraKey, Signature, SigningKey, aggregateInOrder, sign, verify)
+=======
+import Hydra.Crypto (Signature, SigningKey, aggregateInOrder, sign, verify)
+>>>>>>> ea6f08ad (Revert "Smoke test suite follow up")
 import Hydra.Ledger (
   IsTx,
   Ledger,
@@ -191,7 +195,11 @@ data Environment = Environment
     party :: Party
   , -- NOTE(MB): In the long run we would not want to keep the signing key in
     -- memory, i.e. have an 'Effect' for signing or so.
+<<<<<<< HEAD
     signingKey :: SigningKey HydraKey
+=======
+    signingKey :: SigningKey
+>>>>>>> ea6f08ad (Revert "Smoke test suite follow up")
   , otherParties :: [Party]
   }
 
