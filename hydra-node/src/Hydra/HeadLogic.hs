@@ -20,11 +20,10 @@ import Hydra.Chain (
   HeadParameters (..),
   OnChainTx (..),
   PostChainTx (..),
-  PostTxError,
+  PostTxError
  )
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Crypto (HydraKey, Signature, SigningKey, aggregateInOrder, sign, verify)
-import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (
   IsTx,
   Ledger,
@@ -197,51 +196,51 @@ data Environment = Environment
   }
 
 --
-sameState :: HeadState tx -> [Effect tx] -> Outcome tx
-sameState = NewState
+nextState' :: HeadState tx -> [Effect tx] -> Outcome tx
+nextState' = NewState
 
-newState :: HeadState tx -> [Effect tx] -> Outcome tx
-newState = NewState
+data L2Outcome tx
+  = SameState
+  | NextInitialState {pendingCommits :: PendingCommits, committed :: Committed tx}
+  | NextOpenState {coordinatedHeadState :: CoordinatedHeadState tx}
+  | NextClosedState {confirmedSnapshot :: ConfirmedSnapshot tx}
+
+l2OutcomeToState :: L2Outcome tx -> Maybe HeadParameters -> HeadState tx -> HeadState tx
+l2OutcomeToState SameState _ previousRecoverableState = previousRecoverableState
+l2OutcomeToState NextInitialState{pendingCommits, committed} (Just parameters) previousRecoverableState =
+  InitialState{parameters, pendingCommits, committed, previousRecoverableState}
+l2OutcomeToState NextOpenState{coordinatedHeadState} (Just parameters) previousRecoverableState =
+  OpenState{parameters, coordinatedHeadState, previousRecoverableState}
+l2OutcomeToState NextClosedState{confirmedSnapshot} (Just parameters) previousRecoverableState =
+  ClosedState{parameters, confirmedSnapshot, previousRecoverableState}
+l2OutcomeToState _ _ _ = IdleState -- This should never happen.
+
+type L2Out tx = (L2Outcome tx, [Effect tx])
 
 -- | On IdleState, upon client init tx
---   1. build head parameters using args
---   2. build effects to produce
---   3. stay in same IdleState
-onIdleHandleClientInitTxEvent :: ContestationPeriod -> [Party] -> Party -> Outcome tx
-onIdleHandleClientInitTxEvent contestationPeriod otherParties party =
-  sameState IdleState effects
+--   1. build effects to produce
+--   2. stay in same IdleState
+onIdleHandleClientInitTxEvent :: HeadParameters -> L2Out tx
+onIdleHandleClientInitTxEvent parameters =
+  (SameState, effects)
  where
-  parameters = HeadParameters{contestationPeriod, parties = party : otherParties}
   effects = [OnChainEffect (InitTx parameters)]
 
 -- | On IdleState, upon chain init tx
---   1. build head parameters using args
---   2. build effects to produce
---   3. move to InitialState
-onIdleHandleChainInitTxEvent :: ContestationPeriod -> [Party] -> Outcome tx
-onIdleHandleChainInitTxEvent contestationPeriod parties =
-  newState
-    InitialState
-      { parameters = parameters
-      , pendingCommits = Set.fromList parties
-      , committed = mempty
-      , previousRecoverableState = IdleState
-      }
-    effects
+--   1. build effects to produce
+--   2. move to InitialState
+onIdleHandleChainInitTxEvent :: [Party] -> L2Out tx
+onIdleHandleChainInitTxEvent parties =
+  (NextInitialState{ pendingCommits = Set.fromList parties, committed = mempty }, effects)
  where
-  parameters = HeadParameters{contestationPeriod, parties}
   effects = [ClientEffect $ ReadyToCommit $ fromList parties]
 
 -- | On InitialState, upon client commit tx
 --   1. build effects to produce
 --   2. stay in same InitialState
-onInitialHandleClientCommitTxEvent ::
-  HeadState tx ->
-  Party ->
-  UTxOType tx ->
-  Outcome tx
-onInitialHandleClientCommitTxEvent currentState party utxo =
-  sameState currentState effects
+onInitialHandleClientCommitTxEvent :: Party -> UTxOType tx -> L2Out tx
+onInitialHandleClientCommitTxEvent party utxo =
+  (SameState, effects)
  where
   effects = [OnChainEffect (CommitTx party utxo)]
 
@@ -258,14 +257,25 @@ update ::
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   (IdleState, ClientEvent (Init contestationPeriod)) ->
-    onIdleHandleClientInitTxEvent contestationPeriod otherParties party
+    nextState' newState effects
+    where 
+      (l2Outcome, effects) = onIdleHandleClientInitTxEvent parameters
+      parameters = HeadParameters{contestationPeriod, parties = party : otherParties}
+      newState = l2OutcomeToState l2Outcome (Just parameters) st
   (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
-    onIdleHandleChainInitTxEvent contestationPeriod parties
-  --
+    nextState' newState effects
+    where 
+      (l2Outcome, effects) = onIdleHandleChainInitTxEvent parties
+      parameters = Just HeadParameters{contestationPeriod, parties}
+      newState = l2OutcomeToState l2Outcome parameters st
   (InitialState{pendingCommits}, ClientEvent (Commit utxo))
-    | canCommit -> onInitialHandleClientCommitTxEvent st party utxo
-   where
-    canCommit = party `Set.member` pendingCommits
+    | canCommit -> 
+      nextState' newState effects
+    where 
+      canCommit = party `Set.member` pendingCommits
+      (l2Outcome, effects) = onInitialHandleClientCommitTxEvent party utxo
+      parameters = Nothing
+      newState = l2OutcomeToState l2Outcome parameters st
   (previousRecoverableState@InitialState{parameters, pendingCommits, committed}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
     nextState newHeadState $
       [ClientEffect $ Committed pt utxo]
