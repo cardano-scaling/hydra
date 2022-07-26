@@ -278,7 +278,7 @@ fromPostChainTx ::
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx TimeHandle{currentPointInTime, adjustPointInTime} cardanoKeys wallet someHeadState tx = do
+fromPostChainTx timeHandle cardanoKeys wallet someHeadState tx = do
   pointInTime <- throwLeft currentPointInTime
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
@@ -310,13 +310,19 @@ fromPostChainTx TimeHandle{currentPointInTime, adjustPointInTime} cardanoKeys wa
     (ContestTx{confirmedSnapshot}, TkClosed) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (contest confirmedSnapshot shifted st)
-    (FanoutTx{utxo}, TkClosed) ->
-      pure (fanout utxo pointInTime st)
+    (FanoutTx{utxo}, TkClosed) -> do
+      -- NOTE: It's a bit weir that we inspect the state here, but handing
+      -- errors around while we want the possibly failing "time -> slot"
+      -- conversion to be done here is not prettier.
+      deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
+      pure (fanout utxo deadlineSlot st)
     (_, _) ->
       throwIO $ InvalidStateToPost tx
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure
+
+  TimeHandle{currentPointInTime, adjustPointInTime, slotFromPOSIXTime} = timeHandle
 
 --
 -- Helpers

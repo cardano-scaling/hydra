@@ -35,7 +35,7 @@ healthyFanoutTx =
     fanoutTx
       healthyFanoutUTxO
       (headInput, headOutput, headDatum)
-      (healthySlotNo, slotNoToPOSIXTime healthySlotNo)
+      healthySlotNo
       headTokenScript
 
   headInput = generateWith arbitrary 42
