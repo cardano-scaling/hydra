@@ -41,6 +41,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
+import Hydra.ContestationPeriod (ContestationPeriod)
 
 data Event tx
   = ClientEvent {clientInput :: ClientInput tx}
@@ -203,6 +204,25 @@ data Environment = Environment
   , otherParties :: [Party]
   }
 
+--
+sameState :: HeadState tx -> [Effect tx] -> Outcome tx
+sameState = NewState
+
+-- | On IdleState, upon chain init tx
+--   1. build head parameters using args
+--   2. build effects to produce
+--   3. stay in same state and produce effects built given head params
+onIdleHandleClientInitTxEvent :: ContestationPeriod -> [Party] -> Party -> Outcome tx
+onIdleHandleClientInitTxEvent contestationPeriod otherParties party  = 
+  sameState IdleState effects
+    where
+      parameters =
+        HeadParameters
+          { contestationPeriod
+          , parties = party : otherParties
+          }
+      effects = [OnChainEffect (InitTx parameters)]
+
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
@@ -216,13 +236,7 @@ update ::
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   (IdleState, ClientEvent (Init contestationPeriod)) ->
-    nextState IdleState [OnChainEffect (InitTx parameters)]
-   where
-    parameters =
-      HeadParameters
-        { contestationPeriod
-        , parties = party : otherParties
-        }
+    onIdleHandleClientInitTxEvent contestationPeriod otherParties party
   (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
     NewState
       ( InitialState
