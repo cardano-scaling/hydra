@@ -364,6 +364,7 @@ getConfirmedSnapshot = \case
 assertNewState :: IsTx tx => Outcome tx -> IO (HeadState tx)
 assertNewState = \case
   NewState st _ -> pure st
+  OnlyEffects effects -> failure $ "Unexpected 'OnlyEffects' outcome: " <> show effects
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
   Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
 
