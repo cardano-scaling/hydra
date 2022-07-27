@@ -34,7 +34,6 @@ instance Exception FaucetException
 -- | Create a specially marked "seed" UTXO containing requested 'Lovelace' by
 -- redeeming funds available to the well-known faucet.
 seedFromFaucet ::
-  NetworkId ->
   RunningNode ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
@@ -43,7 +42,7 @@ seedFromFaucet ::
   -- | Marked as fuel or normal output?
   Marked ->
   IO UTxO
-seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lovelace marked = do
+seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked = do
   (faucetVk, faucetSk) <- keysFor Faucet
   retry isCardanoClientException $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
@@ -80,7 +79,6 @@ seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lov
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
-  NetworkId ->
   RunningNode ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
@@ -89,21 +87,21 @@ seedFromFaucet_ ::
   -- | Marked as fuel or normal output?
   Marked ->
   IO ()
-seedFromFaucet_ nid node vk ll marked =
-  void $ seedFromFaucet nid node vk ll marked
+seedFromFaucet_ node vk ll marked =
+  void $ seedFromFaucet node vk ll marked
 
 -- | Query UTxO for the address of given verification key at point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxOFor :: NetworkId -> RunningNode -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
-queryUTxOFor networkId (RunningNode _ nodeSocket) queryPoint vk =
+queryUTxOFor :: RunningNode -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
+queryUTxOFor RunningNode{networkId, nodeSocket} queryPoint vk =
   queryUTxO networkId nodeSocket queryPoint [buildAddress vk networkId]
 
 -- | Like 'queryUTxOFor' at the tip, but also partition outputs marked as 'Fuel' and 'Normal'.
 --
 -- Throws at least 'QueryException' if query fails.
-queryMarkedUTxO :: NetworkId -> RunningNode -> VerificationKey PaymentKey -> IO (UTxO, UTxO)
-queryMarkedUTxO networkId node vk =
-  mkPartition <$> queryUTxOFor networkId node QueryTip vk
+queryMarkedUTxO :: RunningNode -> VerificationKey PaymentKey -> IO (UTxO, UTxO)
+queryMarkedUTxO node vk =
+  mkPartition <$> queryUTxOFor node QueryTip vk
  where
   mkPartition = bimap UTxO UTxO . Map.partition isMarkedOutput . UTxO.toMap

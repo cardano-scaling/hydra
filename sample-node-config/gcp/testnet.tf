@@ -70,7 +70,7 @@ resource "google_compute_instance" "hydra-testnet" {
   }
 
   provisioner "file" {
-    source      = "../../hydra-cluster/config/genesis-shelley.json"
+    source      = "../../hydra-cluster/config/devnet/genesis-shelley.json"
     destination = "/home/curry/genesis-shelley.json"
 
     connection {

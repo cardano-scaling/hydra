@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Cluster.Scenarios where
@@ -5,12 +6,12 @@ module Hydra.Cluster.Scenarios where
 import Hydra.Prelude
 
 import CardanoClient (queryTip)
-import CardanoNode (RunningNode (RunningNode))
+import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (object, (.=))
 import Data.Aeson.Lens (key, _Number)
 import qualified Data.Set as Set
-import Hydra.Cardano.Api (Lovelace, NetworkId, selectLovelace)
+import Hydra.Cardano.Api (Lovelace, selectLovelace)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Alice), actorName, alice, aliceSk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -20,15 +21,13 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (networkId, startChainFrom)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitMatch, withHydraNode)
 
--- TODO: The 'RunningNode' should convey the networkId
 singlePartyHeadFullLifeCycle ::
   Tracer IO EndToEndLog ->
   FilePath ->
-  NetworkId ->
   RunningNode ->
   IO ()
-singlePartyHeadFullLifeCycle tracer workDir networkId node = do
-  refuelIfNeeded tracer networkId node Alice 100_000_000
+singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} = do
+  refuelIfNeeded tracer node Alice 100_000_000
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
   aliceChainConfig <-
@@ -52,33 +51,35 @@ singlePartyHeadFullLifeCycle tracer workDir networkId node = do
     -- Expect to see readyToFanout within 10 seconds after deadline
     waitFor tracer (truncate $ remainingSeconds + 10) [n1] $
       output "ReadyToFanout" []
-    -- FIXME: We need to wait a bit more?
-    threadDelay 15
+    -- FIXME: Ideally the 'ReadyToFanout' is only sent when it's really ready,
+    -- but the cardano-ledger only updates it's "current slot" when it sees a
+    -- block. So we wait for roughly 1-2 blocks here (if not fixable, should at
+    -- least configure this given the shelley genesis)
+    threadDelay (2 * 20)
     send n1 $ input "Fanout" []
     waitFor tracer 600 [n1] $
       output "HeadIsFinalized" ["utxo" .= object mempty]
   traceRemainingFunds Alice
  where
-  (RunningNode _ nodeSocket) = node
+  RunningNode{nodeSocket} = node
 
   traceRemainingFunds actor = do
     (actorVk, _) <- keysFor actor
-    (fuelUTxO, otherUTxO) <- queryMarkedUTxO networkId node actorVk
+    (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::
   Tracer IO EndToEndLog ->
-  NetworkId ->
   RunningNode ->
   Actor ->
   Lovelace ->
   IO ()
-refuelIfNeeded tracer networkId node actor amount = do
+refuelIfNeeded tracer node actor amount = do
   (actorVk, _) <- keysFor actor
-  (fuelUTxO, otherUTxO) <- queryMarkedUTxO networkId node actorVk
+  (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
   traceWith tracer $ StartingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
   let fuelBalance = selectLovelace $ balance @Tx fuelUTxO
   when (fuelBalance < amount) $ do
-    utxo <- seedFromFaucet networkId node actorVk amount Fuel
+    utxo <- seedFromFaucet node actorVk amount Fuel
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, fuelUTxO = utxo}

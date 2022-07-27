@@ -1,24 +1,26 @@
 name: "Smoke test"
 on:
   workflow_dispatch:
-    network:
-      description: "Cardano network to run against"
-      required: true
-      default: "vasil-dev"
-      type: choice
-      options:
-      - vasil-dev
-      - testnet
+    inputs:
+      network:
+        description: "Cardano network to run against"
+        required: true
+        default: "vasil-dev"
+        type: choice
+        options:
+        - vasil-dev
+        - testnet
 
 jobs:
   smoke-test:
-    name: "Smoke test"
+    name: "Smoke test on ${{inputs.network}}"
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.3.1
       with:
         repository: input-output-hk/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
+        submodules: true
 
     - name: Prepare nix
       uses: cachix/install-nix-action@v17
@@ -33,6 +35,12 @@ jobs:
         name: hydra-node
         authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
 
+    - name: Github cache of state-directory
+      uses: actions/cache@v2.1.5
+      with:
+        path: state-${{inputs.network}}
+        key: state-${{inputs.network}}
+
     - name: Prepare nix-shell
       run: |
         nix-build -A exes shell.nix
@@ -40,3 +48,10 @@ jobs:
     - name: Run hydra-cluster 
       run: |
         nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --state-directory state-${{inputs.network}}"
+
+    - name: Archive logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: hydra-cluster-logs
+        path: state-${{inputs.network}}/logs/**/*

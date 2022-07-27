@@ -23,7 +23,6 @@ data-files:
   config/cardano-configurations/network/vasil-dev/genesis/alonzo.json
   config/cardano-configurations/network/vasil-dev/genesis/byron.json
   config/cardano-configurations/network/vasil-dev/genesis/shelley.json
-  config/cardano-node.json
   config/credentials/alice.sk
   config/credentials/alice.vk
   config/credentials/bob.sk
@@ -32,14 +31,15 @@ data-files:
   config/credentials/carol.vk
   config/credentials/faucet.sk
   config/credentials/faucet.vk
-  config/credentials/stake-pool-1/byron-delegate.key
-  config/credentials/stake-pool-1/byron-delegation.cert
-  config/credentials/stake-pool-1/kes.skey
-  config/credentials/stake-pool-1/opcert.cert
-  config/credentials/stake-pool-1/vrf.skey
-  config/genesis-alonzo.json
-  config/genesis-byron.json
-  config/genesis-shelley.json
+  config/devnet/byron-delegate.key
+  config/devnet/byron-delegation.cert
+  config/devnet/cardano-node.json
+  config/devnet/genesis-alonzo.json
+  config/devnet/genesis-byron.json
+  config/devnet/genesis-shelley.json
+  config/devnet/kes.skey
+  config/devnet/opcert.cert
+  config/devnet/vrf.skey
   config/protocol-parameters.json
 
 source-repository head

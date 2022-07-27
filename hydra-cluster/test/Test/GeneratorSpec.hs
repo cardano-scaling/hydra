@@ -48,7 +48,7 @@ prop_keepsUTxOConstant =
       faucetSk <- snd <$> keysFor Faucet
       globals <-
         newGlobals
-          <$> readJsonFileThrow shelleyGenesisFromJson "config/genesis-shelley.json"
+          <$> readJsonFileThrow shelleyGenesisFromJson "config/devnet/genesis-shelley.json"
       ledgerEnv <-
         newLedgerEnv
           <$> readJsonFileThrow protocolParametersFromJson "config/protocol-parameters.json"

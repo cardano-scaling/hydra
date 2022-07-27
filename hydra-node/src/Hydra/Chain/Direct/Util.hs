@@ -158,6 +158,9 @@ instance Arbitrary SomePoint where
         [ pure $ Point Origin
         ]
 
+instance ToJSON SomePoint where
+  toJSON = show
+
 --
 -- Helpers
 --

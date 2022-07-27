@@ -14,11 +14,11 @@ services:
       , "--config", "/data/cardano-node.json"
       , "--topology", "/data/topology.json"
       , "--database-path", "/data/db"
-      , "--shelley-kes-key", "/data/credentials/stake-pool-1/kes.skey"
-      , "--shelley-vrf-key", "/data/credentials/stake-pool-1/vrf.skey"
-      , "--shelley-operational-certificate", "/data/credentials/stake-pool-1/opcert.cert"
-      , "--byron-delegation-certificate", "/data/credentials/stake-pool-1/byron-delegation.cert"
-      , "--byron-signing-key", "/data/credentials/stake-pool-1/byron-delegate.key"
+      , "--shelley-kes-key", "/data/kes.skey"
+      , "--shelley-vrf-key", "/data/vrf.skey"
+      , "--shelley-operational-certificate", "/data/opcert.cert"
+      , "--byron-delegation-certificate", "/data/byron-delegation.cert"
+      , "--byron-signing-key", "/data/byron-delegate.key"
       ]
 
   hydra-node-1:

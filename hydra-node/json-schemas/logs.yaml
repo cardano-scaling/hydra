@@ -192,7 +192,7 @@ definitions:
     oneOf:
     - title: ToPost
       description: >-
-        Head logic requests submittal of given logical transaction on-chain.
+        Head logic requests submission of a Head protocol transaction.
       type: object
       additionalProperties: false
       required:
