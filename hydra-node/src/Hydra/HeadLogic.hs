@@ -196,11 +196,11 @@ data Environment = Environment
   , otherParties :: [Party]
   }
 
--- | On IdleState, upon clien-init-tx,
+-- | On IdleState, upon clien-init,
 --   stay in same state
 --   and produce: init-tx chain-effect
-onIdleHandleClientInitTx :: HeadState tx -> Event tx -> Party -> [Party] -> Outcome tx
-onIdleHandleClientInitTx st ev party otherParties =
+onIdleHandleClientInitEvent :: HeadState tx -> Event tx -> Party -> [Party] -> Outcome tx
+onIdleHandleClientInitEvent st ev party otherParties =
   case (st, ev) of
     (IdleState, ClientEvent (Init contestationPeriod)) ->
       OnlyEffects [OnChainEffect (InitTx parameters)]
@@ -230,11 +230,11 @@ onIdleHandleChainInitTx st ev =
         [ClientEffect $ ReadyToCommit $ fromList parties]
     _ -> Error $ InvalidEvent ev st
 
--- | On InitialState, upon client-commit-tx, if the party is pending
+-- | On InitialState, upon client-commit, if the party is pending
 --   stay in same state
 --   and produce: commit-tx chain-effect
-onInitialHandleClientCommitTx :: HeadState tx -> Event tx -> Party -> Outcome tx
-onInitialHandleClientCommitTx st ev party =
+onInitialHandleClientCommitEvent :: HeadState tx -> Event tx -> Party -> Outcome tx
+onInitialHandleClientCommitEvent st ev party =
   case (st, ev) of
     (InitialState{pendingCommits}, ClientEvent (Commit utxo))
       | canCommit ->
@@ -252,14 +252,13 @@ onInitialHandleChainCommitTx ::
   HeadState tx ->
   Event tx ->
   Party ->
-  (HeadState tx -> [Effect tx] -> Outcome tx) ->
   Outcome tx
-onInitialHandleChainCommitTx st ev party nextState =
+onInitialHandleChainCommitTx st ev party =
   case (st, ev) of
     ( previousRecoverableState@InitialState{parameters, pendingCommits, committed}
       , OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})
       ) ->
-        nextState newHeadState $
+        NewState newHeadState $
           [ClientEffect $ Committed pt utxo]
             <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
        where
@@ -279,18 +278,18 @@ onInitialHandleChainCommitTx st ev party nextState =
 -- | On InitialState, upon client-get-utxo
 --   stay in same state
 --   and produce: get-utxo-response client-effect
-onInitialHandleClientGetUTxO :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
-onInitialHandleClientGetUTxO st ev =
+onInitialHandleClientGetUTxOEvent :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
+onInitialHandleClientGetUTxOEvent st ev =
   case (st, ev) of
     (InitialState{committed}, ClientEvent GetUTxO) ->
       OnlyEffects [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
     _ -> Error $ InvalidEvent ev st
 
--- | On InitialState, upon client-abort-tx
+-- | On InitialState, upon client-abort
 --   stay in same state
 --   and produce: abort-tx chain-effect
-onInitialHandleClientAbortTx :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
-onInitialHandleClientAbortTx st ev =
+onInitialHandleClientAbortEvent :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
+onInitialHandleClientAbortEvent st ev =
   case (st, ev) of
     (InitialState{committed}, ClientEvent Abort) ->
       OnlyEffects [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
@@ -329,6 +328,46 @@ onInitialHandleChainCollectTx st ev =
               [ClientEffect $ HeadIsOpen u0]
     _ -> Error $ InvalidEvent ev st
 
+-- | On InitialState, upon chain-abort-tx,
+--   move to new IdleState
+--   and produce: head-is-aborted client-effect
+onInitialHandleChainAbortTx :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
+onInitialHandleChainAbortTx st ev =
+  case (st, ev) of
+    (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
+      NewState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
+    _ -> Error $ InvalidEvent ev st
+
+-- | On OpenState, upon client-close,
+--   stay in same state
+--   and produce: close-tx chain-effect
+onOpenHandleClientCloseEvent :: HeadState tx -> Event tx -> Outcome tx
+onOpenHandleClientCloseEvent st ev =
+  case (st, ev) of
+    (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
+      OnlyEffects [OnChainEffect (CloseTx confirmedSnapshot)]
+    _ -> Error $ InvalidEvent ev st
+
+-- | On ClosedState, upon client-fanout,
+--   stay in same state
+--   and produce: fanout-tx chain-effect
+onClosedHandleClientFanoutEvent :: HeadState tx -> Event tx -> Outcome tx
+onClosedHandleClientFanoutEvent st ev =
+  case (st, ev) of
+    (ClosedState{confirmedSnapshot}, ClientEvent Fanout) ->
+      OnlyEffects [OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)]
+    _ -> Error $ InvalidEvent ev st
+
+-- | On OpenState, upon client-get-utxo,
+--   stay in same state
+--   and produce: get-utxo-response client-effect
+onOpenHandleClientGetUTxOEvent :: HeadState tx -> Event tx -> Outcome tx
+onOpenHandleClientGetUTxOEvent st ev =
+  case (st, ev) of
+    (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
+      OnlyEffects [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+    _ -> Error $ InvalidEvent ev st
+
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
@@ -342,40 +381,35 @@ update ::
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   (IdleState, ClientEvent (Init _)) ->
-    onIdleHandleClientInitTx st ev party otherParties
+    onIdleHandleClientInitEvent st ev party otherParties
   (IdleState, OnChainEvent (Observation OnInitTx{})) ->
     onIdleHandleChainInitTx st ev
   --
   (InitialState{pendingCommits}, ClientEvent (Commit _))
-    | canCommit -> onInitialHandleClientCommitTx st ev party
+    | canCommit -> onInitialHandleClientCommitEvent st ev party
    where
     canCommit = party `Set.member` pendingCommits
   (InitialState{}, OnChainEvent (Observation OnCommitTx{})) ->
-    onInitialHandleChainCommitTx st ev party nextState
+    onInitialHandleChainCommitTx st ev party
   (InitialState{}, ClientEvent GetUTxO) ->
-    onInitialHandleClientGetUTxO st ev
+    onInitialHandleClientGetUTxOEvent st ev
   (InitialState{}, ClientEvent Abort) ->
-    onInitialHandleClientAbortTx st ev
+    onInitialHandleClientAbortEvent st ev
   (_, OnChainEvent (Observation OnCommitTx{})) ->
     onChainCommitTx st ev
   (InitialState{}, OnChainEvent (Observation OnCollectComTx{})) ->
     onInitialHandleChainCollectTx st ev
-  (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
-    nextState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
+  (InitialState{}, OnChainEvent (Observation OnAbortTx{})) ->
+    onInitialHandleChainAbortTx st ev
   --
-  (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
-    sameState
-      [ OnChainEffect (CloseTx confirmedSnapshot)
-      ]
+  (OpenState{}, ClientEvent Close) ->
+    onOpenHandleClientCloseEvent st ev
   --
-  (ClosedState{confirmedSnapshot}, ClientEvent Fanout) ->
-    sameState
-      [ OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)
-      ]
+  (ClosedState{}, ClientEvent Fanout) ->
+    onClosedHandleClientFanoutEvent st ev
   --
-  (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
-    sameState
-      [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+  (OpenState{}, ClientEvent GetUTxO) ->
+    onOpenHandleClientGetUTxOEvent st ev
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}, ClientEvent (NewTx tx)) ->
     sameState effects
