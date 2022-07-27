@@ -198,7 +198,7 @@ data Environment = Environment
 
 -- | On IdleState, upon clien-init,
 --   stay in same state
---   and produce: init-tx chain-effect
+--   and produce: init-tx chain-effect using head-parameters
 onIdleHandleClientInitEvent :: HeadState tx -> Event tx -> Party -> [Party] -> Outcome tx
 onIdleHandleClientInitEvent st ev party otherParties =
   case (st, ev) of
@@ -214,7 +214,7 @@ onIdleHandleClientInitEvent st ev party otherParties =
 
 -- | On IdleState, upon chain-init-tx,
 --   move to new empty InitialState
---   and produce: ready-to-commit client-effect
+--   and produce: ready-to-commit client-effect using parties
 onIdleHandleChainInitTx :: HeadState tx -> Event tx -> Outcome tx
 onIdleHandleChainInitTx st ev =
   case (st, ev) of
@@ -232,7 +232,7 @@ onIdleHandleChainInitTx st ev =
 
 -- | On InitialState, upon client-commit, if the party is pending
 --   stay in same state
---   and produce: commit-tx chain-effect
+--   and produce: commit-tx chain-effect using utxo
 onInitialHandleClientCommitEvent :: HeadState tx -> Event tx -> Party -> Outcome tx
 onInitialHandleClientCommitEvent st ev party =
   case (st, ev) of
@@ -246,7 +246,7 @@ onInitialHandleClientCommitEvent st ev party =
 -- | On InitialState, upon chain-commit-tx,
 --   move to new InitialState
 --    where ...
---   and produce: commited client-effect + collect-tx chain-effect
+--   and produce: commited client-effect + collect-tx chain-effect using ...
 onInitialHandleChainCommitTx ::
   Monoid (UTxOType tx) =>
   HeadState tx ->
@@ -277,7 +277,7 @@ onInitialHandleChainCommitTx st ev party =
 
 -- | On InitialState, upon client-get-utxo
 --   stay in same state
---   and produce: get-utxo-response client-effect
+--   and produce: get-utxo-response client-effect using committed utxos
 onInitialHandleClientGetUTxOEvent :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
 onInitialHandleClientGetUTxOEvent st ev =
   case (st, ev) of
@@ -287,7 +287,7 @@ onInitialHandleClientGetUTxOEvent st ev =
 
 -- | On InitialState, upon client-abort
 --   stay in same state
---   and produce: abort-tx chain-effect
+--   and produce: abort-tx chain-effect using committed utxos
 onInitialHandleClientAbortEvent :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
 onInitialHandleClientAbortEvent st ev =
   case (st, ev) of
@@ -311,7 +311,7 @@ onChainCommitTx st ev =
 -- | On InitialState, upon chain-collect-tx,
 --   move to new OpenState
 --    where ...
---   and produce: head-is-open client-effect
+--   and produce: head-is-open client-effect using reduced utxo
 onInitialHandleChainCollectTx :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
 onInitialHandleChainCollectTx st ev =
   case (st, ev) of
@@ -322,7 +322,8 @@ onInitialHandleChainCollectTx st ev =
         -- For example, we do expect `null remainingParties` but what happens if
         -- it's untrue?
         let u0 = fold committed
-            coordinatedHeadState = CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
+            coordinatedHeadState =
+              CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
          in NewState
               OpenState{parameters, coordinatedHeadState, previousRecoverableState}
               [ClientEffect $ HeadIsOpen u0]
@@ -330,7 +331,7 @@ onInitialHandleChainCollectTx st ev =
 
 -- | On InitialState, upon chain-abort-tx,
 --   move to new IdleState
---   and produce: head-is-aborted client-effect
+--   and produce: head-is-aborted client-effect using reduced utxo
 onInitialHandleChainAbortTx :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
 onInitialHandleChainAbortTx st ev =
   case (st, ev) of
@@ -340,7 +341,7 @@ onInitialHandleChainAbortTx st ev =
 
 -- | On OpenState, upon client-close,
 --   stay in same state
---   and produce: close-tx chain-effect
+--   and produce: close-tx chain-effect using confirmedSnapshot
 onOpenHandleClientCloseEvent :: HeadState tx -> Event tx -> Outcome tx
 onOpenHandleClientCloseEvent st ev =
   case (st, ev) of
@@ -350,7 +351,7 @@ onOpenHandleClientCloseEvent st ev =
 
 -- | On ClosedState, upon client-fanout,
 --   stay in same state
---   and produce: fanout-tx chain-effect
+--   and produce: fanout-tx chain-effect using confirmedSnapshot
 onClosedHandleClientFanoutEvent :: HeadState tx -> Event tx -> Outcome tx
 onClosedHandleClientFanoutEvent st ev =
   case (st, ev) of
@@ -366,6 +367,197 @@ onOpenHandleClientGetUTxOEvent st ev =
   case (st, ev) of
     (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
       OnlyEffects [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+    _ -> Error $ InvalidEvent ev st
+
+-- | On OpenState, upon client-new-tx,
+--   stay in same state
+--   and apply utxo and tx to ledger to produce:
+--    - if valid: tx-valid client-effect + req-tx network-effect
+--    - if invalid: tx-invalid client-effect
+onOpenHandleClientNewTxEvent :: HeadState tx -> Event tx -> Party -> Ledger tx -> Outcome tx
+onOpenHandleClientNewTxEvent st ev party ledger =
+  case (st, ev) of
+    ( OpenState
+        { coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}
+        }
+      , ClientEvent (NewTx tx)
+      ) ->
+        OnlyEffects effects
+       where
+        effects =
+          case canApply ledger utxo tx of
+            Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
+            Invalid err ->
+              [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
+    _ -> Error $ InvalidEvent ev st
+
+-- | On OpenState, upon network-req-tx,
+--   move to new OpenState
+--    where ...
+--   and produce: tx-seen client-effect using tx
+onOpenHandleNetworkReqTx :: HeadState tx -> Event tx -> Ledger tx -> Outcome tx
+onOpenHandleNetworkReqTx st ev ledger =
+  case (st, ev) of
+    ( OpenState
+        { parameters
+        , coordinatedHeadState = headState@CoordinatedHeadState{seenTxs, seenUTxO}
+        , previousRecoverableState
+        }
+      , NetworkEvent (ReqTx _ tx)
+      ) ->
+        case applyTransactions ledger seenUTxO [tx] of
+          Left (_, err) ->
+            Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
+          Right utxo' ->
+            let newSeenTxs = seenTxs <> [tx]
+             in NewState
+                  ( OpenState
+                      { parameters
+                      , coordinatedHeadState =
+                          headState
+                            { seenTxs = newSeenTxs
+                            , seenUTxO = utxo'
+                            }
+                      , previousRecoverableState
+                      }
+                  )
+                  [ClientEffect $ TxSeen tx]
+    _ -> Error $ InvalidEvent ev st
+
+-- | On OpenState, upon network-req-sn,
+--   ...
+onOpenHandleNetworkReqSn ::
+  IsTx tx =>
+  HeadState tx ->
+  Event tx ->
+  Party ->
+  SigningKey ->
+  Ledger tx ->
+  (SeenSnapshot tx -> Bool) ->
+  Outcome tx
+onOpenHandleNetworkReqSn st ev party signingKey ledger snapshotPending =
+  case (st, ev) of
+    ( OpenState
+        { parameters
+        , coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}
+        , previousRecoverableState
+        }
+      , e@(NetworkEvent (ReqSn otherParty sn txs))
+      )
+        | (number . getSnapshot) confirmedSnapshot + 1 == sn
+            && isLeader parameters otherParty sn
+            && not (snapshotPending seenSnapshot) ->
+          -- TODO: Also we might be robust against multiple ReqSn for otherwise
+          -- valid request, which is currently leading to 'Error'
+          -- TODO: Verify the request is signed by (?) / comes from the leader
+          -- (Can we prove a message comes from a given peer, without signature?)
+          case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
+            Left (_, err) -> Wait $ WaitOnNotApplicableTx err
+            Right u ->
+              let nextSnapshot = Snapshot sn u txs
+                  snapshotSignature = sign signingKey nextSnapshot
+               in NewState
+                    ( OpenState
+                        { parameters
+                        , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
+                        , previousRecoverableState
+                        }
+                    )
+                    [NetworkEffect $ AckSn party snapshotSignature sn]
+        | sn > (number . getSnapshot) confirmedSnapshot
+            && isLeader parameters otherParty sn ->
+          -- TODO: How to handle ReqSN with sn > confirmed + 1
+          -- This code feels contrived
+          case seenSnapshot of
+            SeenSnapshot{snapshot}
+              | number snapshot == sn -> Error (InvalidEvent e st)
+              | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
+            _ -> Wait WaitOnSeenSnapshot
+    _ -> Error $ InvalidEvent ev st
+
+-- | On OpenState, upon network-ack-sn,
+--   ...
+onOpenHandleNetworkAckSn :: IsTx tx => HeadState tx -> Event tx -> Outcome tx
+onOpenHandleNetworkAckSn st ev =
+  case (st, ev) of
+    ( OpenState
+        { parameters = parameters@HeadParameters{parties}
+        , coordinatedHeadState = headState@CoordinatedHeadState{seenSnapshot, seenTxs}
+        , previousRecoverableState
+        }
+      , NetworkEvent (AckSn otherParty snapshotSignature sn)
+      ) ->
+        case seenSnapshot of
+          NoSeenSnapshot -> Wait WaitOnSeenSnapshot
+          RequestedSnapshot -> Wait WaitOnSeenSnapshot
+          SeenSnapshot snapshot sigs
+            | number snapshot /= sn -> Wait $ WaitOnSnapshotNumber (number snapshot)
+            | otherwise ->
+              if Map.keysSet sigs' == Set.fromList parties
+                then NewState noSeenSnapshotOpenState [ClientEffect $ SnapshotConfirmed snapshot multisig]
+                else NewState seenSnapshotOpenState []
+           where
+            sigs'
+              -- TODO: Must check whether we know the 'otherParty' signing the snapshot
+              | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
+              | otherwise = sigs
+            multisig = aggregateInOrder sigs' parties
+            noSeenSnapshotOpenState =
+              OpenState
+                { parameters
+                , coordinatedHeadState =
+                    headState
+                      { confirmedSnapshot =
+                          ConfirmedSnapshot
+                            { snapshot
+                            , signatures = multisig
+                            }
+                      , seenSnapshot = NoSeenSnapshot
+                      , seenTxs = seenTxs \\ confirmed snapshot
+                      }
+                , previousRecoverableState
+                }
+            seenSnapshotOpenState =
+              OpenState
+                { parameters
+                , coordinatedHeadState =
+                    headState
+                      { seenSnapshot = SeenSnapshot snapshot sigs'
+                      }
+                , previousRecoverableState
+                }
+    _ -> Error $ InvalidEvent ev st
+
+-- | On OpenState, upon chain-close-tx,
+--   move to new ClosedState
+--    where ...
+--   and produce:
+--    - client-effects: head-is-closed + delay
+--    - chain-effects: contest-tx (if confirmedSnapshotNumber > closedSnapshotNumber)
+onOpenStateHandleChainCloseTx :: HeadState tx -> Event tx -> Outcome tx
+onOpenStateHandleChainCloseTx st ev =
+  case (st, ev) of
+    ( previousRecoverableState@OpenState{parameters, coordinatedHeadState}
+      , OnChainEvent
+          (Observation OnCloseTx{snapshotNumber = closedSnapshotNumber, remainingContestationPeriod})
+      ) ->
+        let CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+            clientEffects =
+              [ ClientEffect
+                  HeadIsClosed{snapshotNumber = closedSnapshotNumber, remainingContestationPeriod}
+              , Delay{delay = remainingContestationPeriod, reason = WaitOnContestationPeriod, event = ShouldPostFanout}
+              ]
+            chainEffects =
+              [ OnChainEffect ContestTx{confirmedSnapshot}
+              | number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
+              ]
+         in -- TODO(2): In principle here, we want to:
+            --
+            --   a) Warn the user about a close tx outside of an open state
+            --   b) Move to close state, using information from the close tx
+            NewState
+              (ClosedState{parameters, previousRecoverableState, confirmedSnapshot})
+              (clientEffects ++ chainEffects)
     _ -> Error $ InvalidEvent ev st
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
@@ -411,136 +603,24 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (OpenState{}, ClientEvent GetUTxO) ->
     onOpenHandleClientGetUTxOEvent st ev
   --
-  (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}, ClientEvent (NewTx tx)) ->
-    sameState effects
-   where
-    effects =
-      case canApply ledger utxo tx of
-        Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
-        Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
-  (OpenState{parameters, coordinatedHeadState = headState@CoordinatedHeadState{seenTxs, seenUTxO}, previousRecoverableState}, NetworkEvent (ReqTx _ tx)) ->
-    case applyTransactions ledger seenUTxO [tx] of
-      Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
-      Right utxo' ->
-        let newSeenTxs = seenTxs <> [tx]
-         in nextState
-              ( OpenState
-                  { parameters
-                  , coordinatedHeadState =
-                      headState
-                        { seenTxs = newSeenTxs
-                        , seenUTxO = utxo'
-                        }
-                  , previousRecoverableState
-                  }
-              )
-              [ClientEffect $ TxSeen tx]
-  (OpenState{parameters, coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousRecoverableState}, e@(NetworkEvent (ReqSn otherParty sn txs)))
-    | (number . getSnapshot) confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
-      -- TODO: Also we might be robust against multiple ReqSn for otherwise
-      -- valid request, which is currently leading to 'Error'
-      -- TODO: Verify the request is signed by (?) / comes from the leader
-      -- (Can we prove a message comes from a given peer, without signature?)
-      case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
-        Left (_, err) -> Wait $ WaitOnNotApplicableTx err
-        Right u ->
-          let nextSnapshot = Snapshot sn u txs
-              snapshotSignature = sign signingKey nextSnapshot
-           in nextState
-                ( OpenState
-                    { parameters
-                    , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
-                    , previousRecoverableState
-                    }
-                )
-                [NetworkEffect $ AckSn party snapshotSignature sn]
-    | sn > (number . getSnapshot) confirmedSnapshot && isLeader parameters otherParty sn ->
-      -- TODO: How to handle ReqSN with sn > confirmed + 1
-      -- This code feels contrived
-      case seenSnapshot of
-        SeenSnapshot{snapshot}
-          | number snapshot == sn -> Error (InvalidEvent e st)
-          | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
-        _ -> Wait WaitOnSeenSnapshot
-  (OpenState{parameters = parameters@HeadParameters{parties}, coordinatedHeadState = headState@CoordinatedHeadState{seenSnapshot, seenTxs}, previousRecoverableState}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
-    case seenSnapshot of
-      NoSeenSnapshot -> Wait WaitOnSeenSnapshot
-      RequestedSnapshot -> Wait WaitOnSeenSnapshot
-      SeenSnapshot snapshot sigs
-        | number snapshot /= sn -> Wait $ WaitOnSnapshotNumber (number snapshot)
-        | otherwise ->
-          let sigs'
-                -- TODO: Must check whether we know the 'otherParty' signing the snapshot
-                | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
-                | otherwise = sigs
-              multisig = aggregateInOrder sigs' parties
-           in if Map.keysSet sigs' == Set.fromList parties
-                then
-                  nextState
-                    ( OpenState
-                        { parameters
-                        , coordinatedHeadState =
-                            headState
-                              { confirmedSnapshot =
-                                  ConfirmedSnapshot
-                                    { snapshot
-                                    , signatures = multisig
-                                    }
-                              , seenSnapshot = NoSeenSnapshot
-                              , seenTxs = seenTxs \\ confirmed snapshot
-                              }
-                        , previousRecoverableState
-                        }
-                    )
-                    [ClientEffect $ SnapshotConfirmed snapshot multisig]
-                else
-                  nextState
-                    ( OpenState
-                        { parameters
-                        , coordinatedHeadState =
-                            headState
-                              { seenSnapshot = SeenSnapshot snapshot sigs'
-                              }
-                        , previousRecoverableState
-                        }
-                    )
-                    []
-  ( previousRecoverableState@OpenState{parameters, coordinatedHeadState}
-    , OnChainEvent
-        ( Observation
-            OnCloseTx
-              { snapshotNumber = closedSnapshotNumber
-              , remainingContestationPeriod
-              }
-          )
-    ) ->
-      let CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
-       in -- TODO(2): In principle here, we want to:
-          --
-          --   a) Warn the user about a close tx outside of an open state
-          --   b) Move to close state, using information from the close tx
-          nextState
-            ( ClosedState
-                { parameters
-                , previousRecoverableState
-                , confirmedSnapshot
-                }
-            )
-            ( [ ClientEffect
-                  HeadIsClosed
-                    { snapshotNumber = closedSnapshotNumber
-                    , remainingContestationPeriod
-                    }
-              , Delay
-                  { delay = remainingContestationPeriod
-                  , reason = WaitOnContestationPeriod
-                  , event = ShouldPostFanout
-                  }
-              ]
-                ++ [ OnChainEffect ContestTx{confirmedSnapshot}
-                   | number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
-                   ]
-            )
+  (OpenState{}, ClientEvent (NewTx _)) ->
+    onOpenHandleClientNewTxEvent st ev party ledger
+  (OpenState{}, NetworkEvent (ReqTx _ _)) ->
+    onOpenHandleNetworkReqTx st ev ledger
+  ( OpenState
+      { parameters
+      , coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot, seenSnapshot}
+      }
+    , NetworkEvent (ReqSn otherParty sn _)
+    )
+      | (number . getSnapshot) confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
+        onOpenHandleNetworkReqSn st ev party signingKey ledger snapshotPending
+      | sn > (number . getSnapshot) confirmedSnapshot && isLeader parameters otherParty sn ->
+        onOpenHandleNetworkReqSn st ev party signingKey ledger snapshotPending
+  (OpenState{}, NetworkEvent AckSn{}) ->
+    onOpenHandleNetworkAckSn st ev
+  (OpenState{}, OnChainEvent (Observation OnCloseTx{})) ->
+    onOpenStateHandleChainCloseTx st ev
   --
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber}))
     | snapshotNumber < number (getSnapshot confirmedSnapshot) ->
