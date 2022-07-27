@@ -199,8 +199,8 @@ data Environment = Environment
 -- | On IdleState, upon clien-init-tx,
 --   stay in same state
 --   and produce: init-tx chain-effect
-onIdleHandleClientInitTxEvent :: HeadState tx -> Event tx -> Party -> [Party] -> Outcome tx
-onIdleHandleClientInitTxEvent st ev party otherParties =
+onIdleHandleClientInitTx :: HeadState tx -> Event tx -> Party -> [Party] -> Outcome tx
+onIdleHandleClientInitTx st ev party otherParties =
   case (st, ev) of
     (IdleState, ClientEvent (Init contestationPeriod)) ->
       OnlyEffects [OnChainEffect (InitTx parameters)]
@@ -215,8 +215,8 @@ onIdleHandleClientInitTxEvent st ev party otherParties =
 -- | On IdleState, upon chain-init-tx,
 --   move to new empty InitialState
 --   and produce: ready-to-commit client-effect
-onIdleHandleChainInitTxEvent :: HeadState tx -> Event tx -> Outcome tx
-onIdleHandleChainInitTxEvent st ev =
+onIdleHandleChainInitTx :: HeadState tx -> Event tx -> Outcome tx
+onIdleHandleChainInitTx st ev =
   case (st, ev) of
     (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
       NewState
@@ -233,8 +233,8 @@ onIdleHandleChainInitTxEvent st ev =
 -- | On InitialState, upon client-commit-tx, if the party is pending
 --   stay in same state
 --   and produce: commit-tx chain-effect
-onInitialHandleClientCommitTxEvent :: HeadState tx -> Event tx -> Party -> Outcome tx
-onInitialHandleClientCommitTxEvent st ev party =
+onInitialHandleClientCommitTx :: HeadState tx -> Event tx -> Party -> Outcome tx
+onInitialHandleClientCommitTx st ev party =
   case (st, ev) of
     (InitialState{pendingCommits}, ClientEvent (Commit utxo))
       | canCommit ->
@@ -247,14 +247,14 @@ onInitialHandleClientCommitTxEvent st ev party =
 --   move to new InitialState
 --    where ...
 --   and produce: commited client-effect + collect-tx chain-effect
-onInitialHandleChainCommitTxEvent ::
+onInitialHandleChainCommitTx ::
   Monoid (UTxOType tx) =>
   HeadState tx ->
   Event tx ->
   Party ->
   (HeadState tx -> [Effect tx] -> Outcome tx) ->
   Outcome tx
-onInitialHandleChainCommitTxEvent st ev party nextState =
+onInitialHandleChainCommitTx st ev party nextState =
   case (st, ev) of
     ( previousRecoverableState@InitialState{parameters, pendingCommits, committed}
       , OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})
@@ -276,6 +276,59 @@ onInitialHandleChainCommitTxEvent st ev party nextState =
         collectedUTxO = mconcat $ Map.elems newCommitted
     _ -> Error $ InvalidEvent ev st
 
+-- | On InitialState, upon client-get-utxo
+--   stay in same state
+--   and produce: get-utxo-response client-effect
+onInitialHandleClientGetUTxO :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
+onInitialHandleClientGetUTxO st ev =
+  case (st, ev) of
+    (InitialState{committed}, ClientEvent GetUTxO) ->
+      OnlyEffects [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
+    _ -> Error $ InvalidEvent ev st
+
+-- | On InitialState, upon client-abort-tx
+--   stay in same state
+--   and produce: abort-tx chain-effect
+onInitialHandleClientAbortTx :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
+onInitialHandleClientAbortTx st ev =
+  case (st, ev) of
+    (InitialState{committed}, ClientEvent Abort) ->
+      OnlyEffects [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
+    _ -> Error $ InvalidEvent ev st
+
+-- | On AnyState, upon chain-commit-tx
+--   stay in same state
+--   and produce: no effects
+onChainCommitTx :: HeadState tx -> Event tx -> Outcome tx
+onChainCommitTx st ev =
+  case (st, ev) of
+    (_, OnChainEvent (Observation OnCommitTx{})) ->
+      -- TODO: This should warn the user / client that something went _terribly_ wrong
+      --       We shouldn't see any commit outside of the collecting state, if we do,
+      --       there's an issue our logic or onChain layer.
+      OnlyEffects []
+    _ -> Error $ InvalidEvent ev st
+
+-- | On InitialState, upon chain-collect-tx,
+--   move to new OpenState
+--    where ...
+--   and produce: head-is-open client-effect
+onInitialHandleChainCollectTx :: Monoid (UTxOType tx) => HeadState tx -> Event tx -> Outcome tx
+onInitialHandleChainCollectTx st ev =
+  case (st, ev) of
+    ( previousRecoverableState@InitialState{parameters, committed}
+      , OnChainEvent (Observation OnCollectComTx{})
+      ) ->
+        -- TODO: We would want to check whether this even matches our local state.
+        -- For example, we do expect `null remainingParties` but what happens if
+        -- it's untrue?
+        let u0 = fold committed
+            coordinatedHeadState = CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
+         in NewState
+              OpenState{parameters, coordinatedHeadState, previousRecoverableState}
+              [ClientEffect $ HeadIsOpen u0]
+    _ -> Error $ InvalidEvent ev st
+
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
@@ -289,38 +342,24 @@ update ::
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   (IdleState, ClientEvent (Init _)) ->
-    onIdleHandleClientInitTxEvent st ev party otherParties
+    onIdleHandleClientInitTx st ev party otherParties
   (IdleState, OnChainEvent (Observation OnInitTx{})) ->
-    onIdleHandleChainInitTxEvent st ev
+    onIdleHandleChainInitTx st ev
   --
   (InitialState{pendingCommits}, ClientEvent (Commit _))
-    | canCommit -> onInitialHandleClientCommitTxEvent st ev party
+    | canCommit -> onInitialHandleClientCommitTx st ev party
    where
     canCommit = party `Set.member` pendingCommits
   (InitialState{}, OnChainEvent (Observation OnCommitTx{})) ->
-    onInitialHandleChainCommitTxEvent st ev party nextState
-  (InitialState{committed}, ClientEvent GetUTxO) ->
-    sameState [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
-  (InitialState{committed}, ClientEvent Abort) ->
-    sameState [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
+    onInitialHandleChainCommitTx st ev party nextState
+  (InitialState{}, ClientEvent GetUTxO) ->
+    onInitialHandleClientGetUTxO st ev
+  (InitialState{}, ClientEvent Abort) ->
+    onInitialHandleClientAbortTx st ev
   (_, OnChainEvent (Observation OnCommitTx{})) ->
-    -- TODO: This should warn the user / client that something went _terribly_ wrong
-    --       We shouldn't see any commit outside of the collecting state, if we do,
-    --       there's an issue our logic or onChain layer.
-    sameState []
-  (previousRecoverableState@InitialState{parameters, committed}, OnChainEvent (Observation OnCollectComTx{})) ->
-    -- TODO: We would want to check whether this even matches our local state.
-    -- For example, we do expect `null remainingParties` but what happens if
-    -- it's untrue?
-    let u0 = fold committed
-     in nextState
-          ( OpenState
-              { parameters
-              , coordinatedHeadState = CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
-              , previousRecoverableState
-              }
-          )
-          [ClientEffect $ HeadIsOpen u0]
+    onChainCommitTx st ev
+  (InitialState{}, OnChainEvent (Observation OnCollectComTx{})) ->
+    onInitialHandleChainCollectTx st ev
   (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
     nextState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
   --
@@ -501,7 +540,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
  where
   nextState s = NewState s
 
-  sameState = nextState st
+  sameState = OnlyEffects
 
   snapshotPending :: SeenSnapshot tx -> Bool
   snapshotPending = \case
