@@ -168,7 +168,8 @@ deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
 deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 
 data Outcome tx
-  = NewState (HeadState tx) [Effect tx]
+  = OnlyEffects [Effect tx]
+  | NewState (HeadState tx) [Effect tx]
   | Wait WaitReason
   | Error (LogicError tx)
 
@@ -195,6 +196,86 @@ data Environment = Environment
   , otherParties :: [Party]
   }
 
+-- | On IdleState, upon clien-init-tx,
+--   stay in same state
+--   and produce: init-tx chain-effect
+onIdleHandleClientInitTxEvent :: HeadState tx -> Event tx -> Party -> [Party] -> Outcome tx
+onIdleHandleClientInitTxEvent st ev party otherParties =
+  case (st, ev) of
+    (IdleState, ClientEvent (Init contestationPeriod)) ->
+      OnlyEffects [OnChainEffect (InitTx parameters)]
+     where
+      parameters =
+        HeadParameters
+          { contestationPeriod
+          , parties = party : otherParties
+          }
+    _ -> Error $ InvalidEvent ev st
+
+-- | On IdleState, upon chain-init-tx,
+--   move to new empty InitialState
+--   and produce: ready-to-commit client-effect
+onIdleHandleChainInitTxEvent :: HeadState tx -> Event tx -> Outcome tx
+onIdleHandleChainInitTxEvent st ev =
+  case (st, ev) of
+    (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
+      NewState
+        ( InitialState
+            { parameters = HeadParameters{contestationPeriod, parties}
+            , pendingCommits = Set.fromList parties
+            , committed = mempty
+            , previousRecoverableState = IdleState
+            }
+        )
+        [ClientEffect $ ReadyToCommit $ fromList parties]
+    _ -> Error $ InvalidEvent ev st
+
+-- | On InitialState, upon client-commit-tx, if the party is pending
+--   stay in same state
+--   and produce: commit-tx chain-effect
+onInitialHandleClientCommitTxEvent :: HeadState tx -> Event tx -> Party -> Outcome tx
+onInitialHandleClientCommitTxEvent st ev party =
+  case (st, ev) of
+    (InitialState{pendingCommits}, ClientEvent (Commit utxo))
+      | canCommit ->
+        OnlyEffects [OnChainEffect (CommitTx party utxo)]
+     where
+      canCommit = party `Set.member` pendingCommits
+    _ -> Error $ InvalidEvent ev st
+
+-- | On InitialState, upon chain-commit-tx,
+--   move to new InitialState
+--    where ...
+--   and produce: commited client-effect + collect-tx chain-effect
+onInitialHandleChainCommitTxEvent ::
+  Monoid (UTxOType tx) =>
+  HeadState tx ->
+  Event tx ->
+  Party ->
+  (HeadState tx -> [Effect tx] -> Outcome tx) ->
+  Outcome tx
+onInitialHandleChainCommitTxEvent st ev party nextState =
+  case (st, ev) of
+    ( previousRecoverableState@InitialState{parameters, pendingCommits, committed}
+      , OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})
+      ) ->
+        nextState newHeadState $
+          [ClientEffect $ Committed pt utxo]
+            <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
+       where
+        newHeadState =
+          InitialState
+            { parameters
+            , pendingCommits = remainingParties
+            , committed = newCommitted
+            , previousRecoverableState
+            }
+        remainingParties = Set.delete pt pendingCommits
+        newCommitted = Map.insert pt utxo committed
+        canCollectCom = null remainingParties && pt == party
+        collectedUTxO = mconcat $ Map.elems newCommitted
+    _ -> Error $ InvalidEvent ev st
+
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
@@ -207,45 +288,17 @@ update ::
   Event tx ->
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
-  (IdleState, ClientEvent (Init contestationPeriod)) ->
-    nextState IdleState [OnChainEffect (InitTx parameters)]
-   where
-    parameters =
-      HeadParameters
-        { contestationPeriod
-        , parties = party : otherParties
-        }
-  (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
-    NewState
-      ( InitialState
-          { parameters = HeadParameters{contestationPeriod, parties}
-          , pendingCommits = Set.fromList parties
-          , committed = mempty
-          , previousRecoverableState = IdleState
-          }
-      )
-      [ClientEffect $ ReadyToCommit $ fromList parties]
+  (IdleState, ClientEvent (Init _)) ->
+    onIdleHandleClientInitTxEvent st ev party otherParties
+  (IdleState, OnChainEvent (Observation OnInitTx{})) ->
+    onIdleHandleChainInitTxEvent st ev
   --
-  (InitialState{pendingCommits}, ClientEvent (Commit utxo))
-    | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
+  (InitialState{pendingCommits}, ClientEvent (Commit _))
+    | canCommit -> onInitialHandleClientCommitTxEvent st ev party
    where
     canCommit = party `Set.member` pendingCommits
-  (previousRecoverableState@InitialState{parameters, pendingCommits, committed}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
-    nextState newHeadState $
-      [ClientEffect $ Committed pt utxo]
-        <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
-   where
-    newHeadState =
-      InitialState
-        { parameters
-        , pendingCommits = remainingParties
-        , committed = newCommitted
-        , previousRecoverableState
-        }
-    remainingParties = Set.delete pt pendingCommits
-    newCommitted = Map.insert pt utxo committed
-    canCollectCom = null remainingParties && pt == party
-    collectedUTxO = mconcat $ Map.elems newCommitted
+  (InitialState{}, OnChainEvent (Observation OnCommitTx{})) ->
+    onInitialHandleChainCommitTxEvent st ev party nextState
   (InitialState{committed}, ClientEvent GetUTxO) ->
     sameState [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
   (InitialState{committed}, ClientEvent Abort) ->
