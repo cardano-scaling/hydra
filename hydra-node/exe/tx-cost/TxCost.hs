@@ -51,11 +51,11 @@ import Hydra.Ledger.Cardano (
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx,
   genPointInTime,
-  genPointInTimeAfter,
   genPointInTimeBefore,
   maxCpu,
   maxMem,
   maxTxSize,
+  slotNoFromPOSIXTime,
  )
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
@@ -211,8 +211,8 @@ computeFanOutCost = do
     closePoint <- genPointInTime
     let closeTx = close snapshot closePoint stOpen
     let stClosed = snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
-    fanoutPoint <- genPointInTimeAfter (getContestationDeadline stClosed)
-    pure (getKnownUTxO stClosed, fanout utxo fanoutPoint stClosed)
+    let deadlineSlotNo = slotNoFromPOSIXTime (getContestationDeadline stClosed)
+    pure (getKnownUTxO stClosed, fanout utxo deadlineSlotNo stClosed)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
