@@ -195,118 +195,6 @@ data Environment = Environment
   , otherParties :: [Party]
   }
 
---
-data L2NextState tx
-  = SameState
-  | NextInitialState {pendingCommits :: PendingCommits, committed :: Committed tx}
-  | NextOpenState {coordinatedHeadState :: CoordinatedHeadState tx}
-  | NextClosedState {confirmedSnapshot :: ConfirmedSnapshot tx}
-
-data L2Outcome tx
-  = L2NewState (L2NextState tx, [Effect tx])
-  | L2Wait WaitReason
-
-processL2NextState :: L2NextState tx -> Maybe HeadParameters -> HeadState tx -> HeadState tx
-processL2NextState SameState _ previousRecoverableState = previousRecoverableState
-processL2NextState NextInitialState{pendingCommits, committed} (Just parameters) previousRecoverableState =
-  InitialState{parameters, pendingCommits, committed, previousRecoverableState}
-processL2NextState NextOpenState{coordinatedHeadState} (Just parameters) previousRecoverableState =
-  OpenState{parameters, coordinatedHeadState, previousRecoverableState}
-processL2NextState NextClosedState{confirmedSnapshot} (Just parameters) previousRecoverableState =
-  ClosedState{parameters, confirmedSnapshot, previousRecoverableState}
-processL2NextState _ _ previousRecoverableState = previousRecoverableState -- "unreachable"
-
-processL2OutCome ::
-  L2Outcome tx -> Maybe HeadParameters -> HeadState tx -> Outcome tx
-processL2OutCome (L2NewState (nextState, effects)) parameters previousRecoverableState =
-  let nextState' = processL2NextState nextState parameters previousRecoverableState
-   in NewState nextState' effects
-processL2OutCome (L2Wait reason) _ _ = Wait reason
-
--- | On IdleState, upon client init tx
---   1. build effects to produce
---   2. stay in same IdleState
-onIdleHandleClientInitTxEvent :: HeadParameters -> L2Outcome tx
-onIdleHandleClientInitTxEvent parameters =
-  L2NewState (SameState, effects)
- where
-  effects = [OnChainEffect (InitTx parameters)]
-
--- | On IdleState, upon chain init tx
---   1. build effects to produce
---   2. move to new InitialState
-onIdleHandleChainInitTxEvent :: [Party] -> L2Outcome tx
-onIdleHandleChainInitTxEvent parties =
-  L2NewState (nextState, effects)
- where
-  nextState = NextInitialState{pendingCommits = Set.fromList parties, committed = mempty}
-  effects = [ClientEffect $ ReadyToCommit $ fromList parties]
-
--- | On InitialState, upon client commit tx
---   1. build effects to produce
---   2. stay in same InitialState
-onInitialHandleClientCommitTxEvent :: Party -> UTxOType tx -> L2Outcome tx
-onInitialHandleClientCommitTxEvent party utxo =
-  L2NewState (SameState, effects)
- where
-  effects = [OnChainEffect (CommitTx party utxo)]
-
--- | On InitialState, upon chain commit tx
---   1. build effects to produce
---   2. move to new InitialState
-onInitialHandleChainCommitTxEvent ::
-  Monoid (UTxOType tx) =>
-  Party ->
-  Party ->
-  UTxOType tx ->
-  Set Party ->
-  Map Party (UTxOType tx) ->
-  L2Outcome tx
-onInitialHandleChainCommitTxEvent pt party utxo pendingCommits committed =
-  L2NewState (nextState, effects)
- where
-  nextState = NextInitialState{pendingCommits = remainingParties, committed = newCommitted}
-  effects =
-    [ClientEffect $ Committed pt utxo]
-      <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
-  remainingParties = Set.delete pt pendingCommits
-  newCommitted = Map.insert pt utxo committed
-  canCollectCom = null remainingParties && pt == party
-  collectedUTxO = mconcat $ Map.elems newCommitted
-
--- | On InitialState, upon chain collect tx
---   1. build coordinatedHeadState
---   2. build effects to produce
---   3. move to new OpenState
-onIdleHandleChainCollectTxEvent ::
-  (Foldable t, Monoid (UTxOType tx)) => t (UTxOType tx) -> L2Outcome tx
-onIdleHandleChainCollectTxEvent committed =
-  let u0 = fold committed
-      effects = [ClientEffect $ HeadIsOpen u0]
-      coordinatedHeadState =
-        CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
-   in L2NewState (NextOpenState{coordinatedHeadState}, effects)
-
--- | On OpenState, upon network request tx
---   1. evaluate eitherTx
---    a/ if the transaction is not applicable yet, wait on not applicable tx and produce no effects
---    b/ otherwise, move to new OpenState using appied tx and produce client tx seen effects
-onOpenHandleNetworkReqTxEvent ::
-  tx ->
-  CoordinatedHeadState tx ->
-  [tx] ->
-  Either (a, ValidationError) (UTxOType tx) ->
-  L2Outcome tx
-onOpenHandleNetworkReqTxEvent tx headState seenTxs =
-  \case
-    Left (_, err) ->
-      L2Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
-    Right utxo' ->
-      let newSeenTxs = seenTxs <> [tx]
-          coordinatedHeadState = headState{seenTxs = newSeenTxs, seenUTxO = utxo'}
-          effects = [ClientEffect $ TxSeen tx]
-       in L2NewState (NextOpenState{coordinatedHeadState}, effects)
-
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
@@ -320,33 +208,48 @@ update ::
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   (IdleState, ClientEvent (Init contestationPeriod)) ->
-    processL2OutCome l2Outcome (Just parameters) st -- sameState effects
+    nextState IdleState [OnChainEffect (InitTx parameters)]
    where
-    l2Outcome = onIdleHandleClientInitTxEvent parameters
-    parameters = HeadParameters{contestationPeriod, parties = party : otherParties}
+    parameters =
+      HeadParameters
+        { contestationPeriod
+        , parties = party : otherParties
+        }
   (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
-    processL2OutCome l2Outcome parameters st
-   where
-    parameters = Just HeadParameters{contestationPeriod, parties}
-    l2Outcome = onIdleHandleChainInitTxEvent parties
+    NewState
+      ( InitialState
+          { parameters = HeadParameters{contestationPeriod, parties}
+          , pendingCommits = Set.fromList parties
+          , committed = mempty
+          , previousRecoverableState = IdleState
+          }
+      )
+      [ClientEffect $ ReadyToCommit $ fromList parties]
+  --
   (InitialState{pendingCommits}, ClientEvent (Commit utxo))
-    | canCommit ->
-      processL2OutCome l2Outcome Nothing st -- sameState effects
+    | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
    where
     canCommit = party `Set.member` pendingCommits
-    l2Outcome = onInitialHandleClientCommitTxEvent party utxo
   (previousRecoverableState@InitialState{parameters, pendingCommits, committed}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
-    processL2OutCome l2Outcome (Just parameters) previousRecoverableState
+    nextState newHeadState $
+      [ClientEffect $ Committed pt utxo]
+        <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
    where
-    l2Outcome = onInitialHandleChainCommitTxEvent pt party utxo pendingCommits committed
+    newHeadState =
+      InitialState
+        { parameters
+        , pendingCommits = remainingParties
+        , committed = newCommitted
+        , previousRecoverableState
+        }
+    remainingParties = Set.delete pt pendingCommits
+    newCommitted = Map.insert pt utxo committed
+    canCollectCom = null remainingParties && pt == party
+    collectedUTxO = mconcat $ Map.elems newCommitted
   (InitialState{committed}, ClientEvent GetUTxO) ->
-    sameState effects
-   where
-    effects = [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
+    sameState [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
   (InitialState{committed}, ClientEvent Abort) ->
-    sameState effects
-   where
-    effects = [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
+    sameState [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
   (_, OnChainEvent (Observation OnCommitTx{})) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
@@ -356,28 +259,31 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     -- TODO: We would want to check whether this even matches our local state.
     -- For example, we do expect `null remainingParties` but what happens if
     -- it's untrue?
-    processL2OutCome l2Outcome (Just parameters) previousRecoverableState
-   where
-    l2Outcome = onIdleHandleChainCollectTxEvent committed
+    let u0 = fold committed
+     in nextState
+          ( OpenState
+              { parameters
+              , coordinatedHeadState = CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
+              , previousRecoverableState
+              }
+          )
+          [ClientEffect $ HeadIsOpen u0]
   (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
-    nextState IdleState effects
-   where
-    effects = [ClientEffect $ HeadIsAborted $ fold committed]
+    nextState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
-    sameState effects
-   where
-    effects = [OnChainEffect (CloseTx confirmedSnapshot)]
+    sameState
+      [ OnChainEffect (CloseTx confirmedSnapshot)
+      ]
   --
   (ClosedState{confirmedSnapshot}, ClientEvent Fanout) ->
-    sameState effects
-   where
-    effects = [OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)]
+    sameState
+      [ OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)
+      ]
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
-    sameState effects
-   where
-    effects = [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+    sameState
+      [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}, ClientEvent (NewTx tx)) ->
     sameState effects
@@ -387,10 +293,22 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
         Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
   (OpenState{parameters, coordinatedHeadState = headState@CoordinatedHeadState{seenTxs, seenUTxO}, previousRecoverableState}, NetworkEvent (ReqTx _ tx)) ->
-    processL2OutCome l2Outcome (Just parameters) previousRecoverableState
-   where
-    eitherTx = applyTransactions ledger seenUTxO [tx]
-    l2Outcome = onOpenHandleNetworkReqTxEvent tx headState seenTxs eitherTx
+    case applyTransactions ledger seenUTxO [tx] of
+      Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
+      Right utxo' ->
+        let newSeenTxs = seenTxs <> [tx]
+         in nextState
+              ( OpenState
+                  { parameters
+                  , coordinatedHeadState =
+                      headState
+                        { seenTxs = newSeenTxs
+                        , seenUTxO = utxo'
+                        }
+                  , previousRecoverableState
+                  }
+              )
+              [ClientEffect $ TxSeen tx]
   (OpenState{parameters, coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousRecoverableState}, e@(NetworkEvent (ReqSn otherParty sn txs)))
     | (number . getSnapshot) confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
       -- TODO: Also we might be robust against multiple ReqSn for otherwise
@@ -512,15 +430,10 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (ClosedState{}, ShouldPostFanout) ->
     sameState [ClientEffect ReadyToFanout]
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
-    nextState IdleState effects
-   where
-    effects = [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+    nextState IdleState [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --
   (currentState, OnChainEvent (Rollback n)) ->
-    nextState newState effects
-   where
-    newState = rollback n currentState
-    effects = [ClientEffect RolledBack]
+    nextState (rollback n currentState) [ClientEffect RolledBack]
   --
   (_, ClientEvent{clientInput}) ->
     sameState [ClientEffect $ CommandFailed clientInput]
