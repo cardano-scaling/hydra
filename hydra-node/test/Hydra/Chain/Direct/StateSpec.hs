@@ -516,8 +516,8 @@ forAllAbort ::
 forAllAbort action = do
   forAll (genHydraContext 3) $ \ctx ->
     forAll (genStIdle ctx) $ \stIdle ->
-      forAll (genInitTx ctx) renderTx $ \initTx -> do
-        forAll (sublistOf =<< genCommits ctx initTx) renderTxs $ \commits ->
+      forAllBlind (genInitTx ctx) $ \initTx -> do
+        forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
           let (_, stInitialized) = executeCommits initTx commits stIdle
            in action stInitialized (abort stInitialized)
                 & classify

@@ -100,11 +100,11 @@ seedFromFaucet_ node vk ll marked =
 --
 -- The given key is used to pay for fees in required transactions, it is
 -- expected to have funds.
-publishHydraScripts :: NetworkId -> RunningNode -> Actor -> IO TxId
-publishHydraScripts networkId node@(RunningNode _ nodeSocket) actor = do
+publishHydraScripts :: RunningNode -> Actor -> IO TxId
+publishHydraScripts node@RunningNode{nodeSocket, networkId} actor = do
   (vk, sk) <- keysFor actor
   let changeAddress = buildAddress vk networkId
-  utxo <- queryUTxOFor networkId node QueryTip vk
+  utxo <- queryUTxOFor node QueryTip vk
   let someTxIn = Set.findMin $ UTxO.inputSet utxo
   build
     networkId
