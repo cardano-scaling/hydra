@@ -48,19 +48,19 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   submitSeedTx faucetVk faucetSk = do
-    (i, _o) <- findUTxO faucetVk
+    faucetUTxO <- findUTxO faucetVk
     let changeAddress = buildAddress faucetVk networkId
-    build networkId nodeSocket changeAddress [(i, Nothing)] [] [theOutput] >>= \case
+    build networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
         submit networkId nodeSocket (sign faucetSk body)
 
   findUTxO faucetVk = do
     faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
-    let foundUTxO = find (\(_i, o) -> txOutLovelace o >= lovelace) $ UTxO.pairs faucetUTxO
-    case foundUTxO of
-      Just o -> pure o
-      Nothing -> throwIO $ FaucetHasNotEnoughFunds{faucetUTxO}
+    let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
+    when (null foundUTxO) $
+      throwIO $ FaucetHasNotEnoughFunds{faucetUTxO}
+    pure foundUTxO
 
   receivingAddress = buildAddress receivingVerificationKey networkId
 

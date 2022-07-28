@@ -73,16 +73,18 @@ build ::
   NetworkId ->
   FilePath ->
   Address ShelleyAddr ->
-  [(TxIn, Maybe (Script, ScriptData, ScriptRedeemer))] ->
+  -- | Unspent transaction outputs to spend.
+  UTxO ->
+  -- | Collateral inputs.
   [TxIn] ->
+  -- | Outputs to create.
   [TxOut CtxTx] ->
   IO (Either TxBodyErrorAutoBalance TxBody)
-build networkId socket changeAddress ins collateral outs = do
+build networkId socket changeAddress utxoToSpend collateral outs = do
   pparams <- queryProtocolParameters networkId socket QueryTip
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
-  utxo <- queryUTxOByTxIn networkId socket QueryTip (map fst ins)
   pure $
     second balancedTxBody $
       makeTransactionBodyAutoBalance
@@ -91,14 +93,14 @@ build networkId socket changeAddress ins collateral outs = do
         eraHistory
         pparams
         stakePools
-        (UTxO.toApi utxo)
+        (UTxO.toApi utxoToSpend)
         (bodyContent pparams)
         (ShelleyAddressInEra changeAddress)
         noOverrideWitness
  where
   bodyContent pparams =
     TxBodyContent
-      (map mkWitness ins)
+      (map mkWitness $ toList $ UTxO.inputSet utxoToSpend)
       (TxInsCollateral collateral)
       TxInsReferenceNone
       outs
@@ -122,18 +124,8 @@ build networkId socket changeAddress ins collateral outs = do
   noOverrideWitness = Nothing
   dummyFee = TxFeeExplicit (Lovelace 0)
 
-  mkWitness ::
-    (TxIn, Maybe (Script, ScriptData, ScriptRedeemer)) ->
-    (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
-  mkWitness (txIn, Nothing) = (txIn, BuildTxWith $ KeyWitness KeyWitnessForSpending)
-  mkWitness (txIn, Just (PlutusScript script, datum, redeemer)) = (txIn, BuildTxWith $ ScriptWitness ScriptWitnessForSpending sWit)
-   where
-    sWit =
-      PlutusScriptWitness
-        script
-        (ScriptDatumForTxIn datum)
-        redeemer
-        (ExecutionUnits 0 0)
+  mkWitness :: TxIn -> (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
+  mkWitness txIn = (txIn, BuildTxWith $ KeyWitness KeyWitnessForSpending)
 
 calculateMinFee :: NetworkId -> TxBody -> Sizes -> ProtocolParameters -> Lovelace
 calculateMinFee networkId body Sizes{inputs, outputs, witnesses} pparams =
