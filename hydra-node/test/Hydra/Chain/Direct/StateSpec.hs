@@ -90,7 +90,6 @@ import Hydra.Ledger.Cardano (
   genValue,
   renderTx,
   renderTxWithUTxO,
-  renderTxs,
  )
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx',

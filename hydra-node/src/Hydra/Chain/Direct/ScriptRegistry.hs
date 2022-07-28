@@ -27,7 +27,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.PlutusScript (fromPlutusScript)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOByTxIn)
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
-import qualified Hydra.Contract.Initial as Commit
+import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genTxOutAdaOnly)
 
