@@ -201,11 +201,13 @@ test-suite integration
     Test.DirectChainSpec
     Test.EndToEndSpec
     Test.GeneratorSpec
+    Test.Hydra.Cluster.FaucetSpec
     Test.Ledger.Cardano.ConfigurationSpec
     Test.LogFilterSpec
 
   build-depends:
     , aeson
+    , async
     , base                       >=4.7 && <5
     , base16-bytestring
     , bytestring
