@@ -36,12 +36,12 @@ import Hydra.Party (Party)
 
 main :: IO ()
 main = do
-  o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort, chainConfig, ledgerConfig} <- identifyNode <$> parseHydraOptions
+  o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort, hydraScriptsTxId, chainConfig, ledgerConfig} <- identifyNode <$> parseHydraOptions
   env@Environment{party} <- initEnvironment o
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       eq <- createEventQueue
-      withChain tracer party (putEvent eq . OnChainEvent) chainConfig $ \oc ->
+      withChain tracer party (putEvent eq . OnChainEvent) hydraScriptsTxId chainConfig $ \oc ->
         withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent) $ \hn ->
           withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
             withCardanoLedger ledgerConfig $ \ledger -> do
@@ -67,10 +67,11 @@ withChain ::
   Tracer IO (HydraLog Tx net) ->
   Party ->
   ChainCallback Tx IO ->
+  TxId ->
   ChainConfig ->
   (Chain Tx IO -> IO ()) ->
   IO ()
-withChain tracer party callback config action = do
+withChain tracer party callback hydraScriptsTxId config action = do
   keyPair@(vk, _) <- readKeyPair cardanoSigningKey
   otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
   withIOManager $ \iocp -> do
@@ -83,7 +84,7 @@ withChain tracer party callback config action = do
       party
       (vk : otherCardanoKeys)
       startChainFrom
-      (error "no txid for reference scripts available, yet")
+      hydraScriptsTxId
       callback
       action
  where

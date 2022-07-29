@@ -27,7 +27,7 @@ import Hydra.Cardano.Api (
   deserialiseFromRawBytes,
   deserialiseFromRawBytesBase16,
   proxyToAsType,
-  serialiseToRawBytesHexText,
+  serialiseToRawBytesHexText, TxId (TxId)
  )
 import qualified Hydra.Contract as Contract
 import Hydra.Logging (Verbosity (..))
@@ -77,6 +77,7 @@ data Options = Options
   , monitoringPort :: Maybe PortNumber
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
+  , hydraScriptsTxId :: TxId
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   }
@@ -95,6 +96,7 @@ defaultOptions =
     , monitoringPort = Nothing
     , hydraSigningKey = "hydra.sk"
     , hydraVerificationKeys = []
+    , hydraScriptsTxId = error "TODO"
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
     }
