@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Squash all utxo of a signing key into a single output.
+# Squash all fuel utxo of a signing key into a single output and mark it as fuel.
 
 set -e
 
@@ -17,19 +17,37 @@ fi
 
 addr=$(cardano-cli address build --testnet-magic ${magic} --payment-verification-key-file $vk)
 
-inputs=($(
- cardano-cli query utxo \
+fuelMarker="a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3"
+utxo=$(cardano-cli query utxo \
     --cardano-mode --epoch-slots 21600 \
     --testnet-magic ${magic} \
     --address $addr \
-    --out-file /dev/stdout | jq -r '. | keys | @sh' | tr -d "'"))
+    --out-file /dev/stdout | jq ". | select(.[].datumhash == \"${fuelMarker}\")")
+inputs=($(echo ${utxo} | jq -r '. | keys | @sh' | tr -d "'"))
+totalLovelace=$(echo ${utxo} | jq -r 'reduce .[] as $item (0; . + $item.value.lovelace)')
 
-echo "Squashing utxos:"
+echo "Squashing utxos (total: ${totalLovelace} lovelace):"
 txInArgs=""
 for input in ${inputs[@]}; do
     echo " - ${input}"
     txInArgs="${txInArgs}--tx-in ${input} "
 done
+
+estimatedFee=$(cardano-cli transaction build \
+    --babbage-era \
+    --cardano-mode --epoch-slots 21600 \
+    --testnet-magic ${magic} \
+    --script-valid \
+    ${txInArgs} \
+    --tx-out $addr+2000000 \
+    --tx-out-datum-hash ${fuelMarker} \
+    --change-address ${addr} \
+    --out-file /dev/null | sed 's/Estimated transaction fee: Lovelace //')
+
+echo "Inputs: ${totalLovelace}"
+echo "Estimated fee: ${estimatedFee}"
+outputLovelace=$((${totalLovelace} - ${estimatedFee}))
+echo "Output: ${outputLovelace}"
 
 tx=$(mktemp)
 cardano-cli transaction build \
@@ -38,8 +56,10 @@ cardano-cli transaction build \
     --testnet-magic ${magic} \
     --script-valid \
     ${txInArgs} \
+    --tx-out $addr+${outputLovelace} \
+    --tx-out-datum-hash "a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3" \
     --change-address ${addr} \
-    --out-file $tx
+    --out-file ${tx}
 
 cardano-cli transaction sign \
     --tx-body-file $tx \
