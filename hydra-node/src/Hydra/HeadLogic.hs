@@ -534,20 +534,21 @@ onOpenChainCloseTx
   coordinatedHeadState
   closedSnapshotNumber
   remainingContestationPeriod =
-    let CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
-        closedState = ClosedState{parameters, previousRecoverableState, confirmedSnapshot}
-        headIsClosed = HeadIsClosed{snapshotNumber = closedSnapshotNumber, remainingContestationPeriod}
-        delay = Delay{delay = remainingContestationPeriod, reason = WaitOnContestationPeriod, event = ShouldPostFanout}
-        onChainEffectCondition = number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
-     in -- TODO(2): In principle here, we want to:
-        --
-        --   a) Warn the user about a close tx outside of an open state
-        --   b) Move to close state, using information from the close tx
-        NewState
-          closedState
-          ( [ClientEffect headIsClosed, delay]
-              ++ [OnChainEffect ContestTx{confirmedSnapshot} | onChainEffectCondition]
-          )
+    -- TODO(2): In principle here, we want to:
+    --
+    --   a) Warn the user about a close tx outside of an open state
+    --   b) Move to close state, using information from the close tx
+    NewState
+      closedState
+      ( [ClientEffect headIsClosed, delay]
+          ++ [OnChainEffect ContestTx{confirmedSnapshot} | onChainEffectCondition]
+      )
+   where
+    CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+    closedState = ClosedState{parameters, previousRecoverableState, confirmedSnapshot}
+    headIsClosed = HeadIsClosed{snapshotNumber = closedSnapshotNumber, remainingContestationPeriod}
+    delay = Delay{delay = remainingContestationPeriod, reason = WaitOnContestationPeriod, event = ShouldPostFanout}
+    onChainEffectCondition = number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
 
 onClosedChainContestTx :: ConfirmedSnapshot tx -> SnapshotNumber -> Outcome tx
 onClosedChainContestTx confirmedSnapshot snapshotNumber
@@ -663,7 +664,11 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         sn
         txs
         evt
-  ( OpenState{parameters = parameters@HeadParameters{parties}, coordinatedHeadState = headState@CoordinatedHeadState{seenSnapshot, seenTxs}, previousRecoverableState}
+  ( OpenState
+      { parameters = parameters@HeadParameters{parties}
+      , coordinatedHeadState = headState@CoordinatedHeadState{seenSnapshot, seenTxs}
+      , previousRecoverableState
+      }
     , NetworkEvent (AckSn otherParty snapshotSignature sn)
     ) ->
       onOpenNetworkAckSn
