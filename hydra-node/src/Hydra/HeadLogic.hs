@@ -198,10 +198,22 @@ data Environment = Environment
   , otherParties :: [Party]
   }
 
--- | Simplified Hydra Head Protocol Without Conflict Resolution
-onIdleHandleClientInitEvent :: Party -> [Party] -> ContestationPeriod -> Outcome tx
+-- * Simplified Hydra Head Protocol Without Conflict Resolution
+
+-- | On IdleState, upon client init event
+-- we post an init-tx to the chain
+-- using the head parameters.
+-- This is not changing the state.
+-- @TODO change signature so it takes [Party] instead (all parties)
+onIdleHandleClientInitEvent :: 
+  -- | Us
+  Party -> 
+  -- | Others
+  [Party] ->
+  ContestationPeriod ->
+  Outcome tx
 onIdleHandleClientInitEvent party otherParties contestationPeriod =
-  NewState IdleState [OnChainEffect (InitTx parameters)]
+  OnlyEffects [OnChainEffect (InitTx parameters)]
  where
   parameters =
     HeadParameters
@@ -209,6 +221,7 @@ onIdleHandleClientInitEvent party otherParties contestationPeriod =
       , parties = party : otherParties
       }
 
+-- | On IdleState, upon chain init tx
 onIdleHandleChainInitTx :: [Party] -> ContestationPeriod -> Outcome tx
 onIdleHandleChainInitTx parties contestationPeriod =
   NewState
