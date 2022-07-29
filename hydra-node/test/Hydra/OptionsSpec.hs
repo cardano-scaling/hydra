@@ -18,6 +18,7 @@ import Hydra.Options (
   toArgs,
  )
 import Test.QuickCheck (Property, counterexample, forAll, property, (===))
+import Hydra.Ledger.Cardano (genTxIn)
 
 spec :: Spec
 spec = parallel $
@@ -165,6 +166,13 @@ spec = parallel $
                           (unsafeDeserialiseFromRawBytesBase16 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
                       )
                 }
+          }
+
+    prop "parses --hydra-scripts-tx-id as a tx id" $ \txId ->
+      ["--hydra-scripts-tx-id", show txId] 
+        `shouldParse` defaultOptions
+          {
+            hydraScriptsTxId = txId
           }
 
     prop "roundtrip options" $
