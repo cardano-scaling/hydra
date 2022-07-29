@@ -205,14 +205,14 @@ data Environment = Environment
 --
 -- __Transition__: N/A
 -- TODO: change signature so it takes [Party] instead (all parties)
-onIdleHandleClientInitEvent ::
+onIdleClientInit ::
   -- | Us
   Party ->
   -- | Others
   [Party] ->
   ContestationPeriod ->
   Outcome tx
-onIdleHandleClientInitEvent party otherParties contestationPeriod =
+onIdleClientInit party otherParties contestationPeriod =
   OnlyEffects [OnChainEffect (InitTx parameters)]
  where
   parameters =
@@ -224,8 +224,8 @@ onIdleHandleClientInitEvent party otherParties contestationPeriod =
 -- | Observing an init transaction. Notifying client they can now commit.
 --
 -- __Transition__: 'IdleState' → 'InitialState'
-onIdleHandleChainInitTx :: [Party] -> ContestationPeriod -> Outcome tx
-onIdleHandleChainInitTx parties contestationPeriod =
+onIdleChainInitTx :: [Party] -> ContestationPeriod -> Outcome tx
+onIdleChainInitTx parties contestationPeriod =
   NewState
     ( InitialState
         { parameters = HeadParameters{contestationPeriod, parties}
@@ -240,14 +240,14 @@ onIdleHandleChainInitTx parties contestationPeriod =
 -- haven't committed yet.
 --
 -- __Transition__: N/A
-onInitialHandleClientCommitEvent ::
+onInitialClientCommit ::
   HeadState tx ->
   Event tx ->
   Party ->
   PendingCommits ->
   UTxOType tx ->
   Outcome tx
-onInitialHandleClientCommitEvent st ev party pendingCommits utxo
+onInitialClientCommit st ev party pendingCommits utxo
   | canCommit =
     OnlyEffects [OnChainEffect (CommitTx party utxo)]
   | otherwise =
@@ -260,7 +260,7 @@ onInitialHandleClientCommitEvent st ev party pendingCommits utxo
 -- transaction on-chain.
 --
 -- __Transition__: 'InitialState' → 'InitialState'
-onInitialHandleChainCommitTx ::
+onInitialChainCommitTx ::
   Monoid (UTxOType tx) =>
   -- | Us
   Party ->
@@ -273,7 +273,7 @@ onInitialHandleChainCommitTx ::
   Party ->
   UTxOType tx ->
   Outcome tx
-onInitialHandleChainCommitTx party previousRecoverableState parameters pendingCommits committed pt utxo =
+onInitialChainCommitTx party previousRecoverableState parameters pendingCommits committed pt utxo =
   NewState newHeadState $
     [ClientEffect $ Committed pt utxo]
       <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
@@ -290,12 +290,12 @@ onInitialHandleChainCommitTx party previousRecoverableState parameters pendingCo
   canCollectCom = null remainingParties && pt == party
   collectedUTxO = mconcat $ Map.elems newCommitted
 
-onInitialHandleClientGetUTxOEvent :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
-onInitialHandleClientGetUTxOEvent committed =
+onInitialClientGetUTxO :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
+onInitialClientGetUTxO committed =
   OnlyEffects [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
 
-onInitialHandleClientAbortEvent :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
-onInitialHandleClientAbortEvent committed =
+onInitialClientAbort :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
+onInitialClientAbort committed =
   OnlyEffects [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
 
 onChainCommitTx :: Outcome tx
@@ -305,9 +305,9 @@ onChainCommitTx =
   --       there's an issue our logic or onChain layer.
   OnlyEffects []
 
-onInitialHandleChainCollectTx ::
+onInitialChainCollectTx ::
   (Foldable t, Monoid (UTxOType tx)) => HeadState tx -> HeadParameters -> t (UTxOType tx) -> Outcome tx
-onInitialHandleChainCollectTx previousRecoverableState parameters committed =
+onInitialChainCollectTx previousRecoverableState parameters committed =
   -- TODO: We would want to check whether this even matches our local state.
   -- For example, we do expect `null remainingParties` but what happens if
   -- it's untrue?
@@ -321,24 +321,24 @@ onInitialHandleChainCollectTx previousRecoverableState parameters committed =
         )
         [ClientEffect $ HeadIsOpen u0]
 
-onInitialHandleChainAbortTx :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
-onInitialHandleChainAbortTx committed =
+onInitialChainAbortTx :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
+onInitialChainAbortTx committed =
   NewState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
 
-onOpenHandleClientCloseEvent :: ConfirmedSnapshot tx -> Outcome tx
-onOpenHandleClientCloseEvent confirmedSnapshot =
+onOpenClientClose :: ConfirmedSnapshot tx -> Outcome tx
+onOpenClientClose confirmedSnapshot =
   OnlyEffects [OnChainEffect (CloseTx confirmedSnapshot)]
 
-onClosedHandleClientFanoutEvent :: ConfirmedSnapshot tx -> Outcome tx
-onClosedHandleClientFanoutEvent confirmedSnapshot =
+onClosedClientFanout :: ConfirmedSnapshot tx -> Outcome tx
+onClosedClientFanout confirmedSnapshot =
   OnlyEffects [OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)]
 
-onOpenHandleClientGetUTxOEvent :: ConfirmedSnapshot tx -> Outcome tx
-onOpenHandleClientGetUTxOEvent confirmedSnapshot =
+onOpenClientGetUTxO :: ConfirmedSnapshot tx -> Outcome tx
+onOpenClientGetUTxO confirmedSnapshot =
   OnlyEffects [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
 
-onOpenHandleClientNewTxEvent :: Ledger tx -> Party -> UTxOType tx -> tx -> Outcome tx
-onOpenHandleClientNewTxEvent ledger party utxo tx =
+onOpenClientNewTx :: Ledger tx -> Party -> UTxOType tx -> tx -> Outcome tx
+onOpenClientNewTx ledger party utxo tx =
   OnlyEffects effects
  where
   effects =
@@ -346,7 +346,7 @@ onOpenHandleClientNewTxEvent ledger party utxo tx =
       Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
       Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
 
-onOpenHandleNetworkReqTx ::
+onOpenNetworkReqTx ::
   Ledger tx ->
   HeadParameters ->
   CoordinatedHeadState tx ->
@@ -355,7 +355,7 @@ onOpenHandleNetworkReqTx ::
   HeadState tx ->
   tx ->
   Outcome tx
-onOpenHandleNetworkReqTx ledger parameters headState seenTxs seenUTxO previousRecoverableState tx =
+onOpenNetworkReqTx ledger parameters headState seenTxs seenUTxO previousRecoverableState tx =
   case applyTransactions ledger seenUTxO [tx] of
     Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
     Right utxo' ->
@@ -393,7 +393,7 @@ onOpenHandleNetworkReqTx ledger parameters headState seenTxs seenUTxO previousRe
 --       * We wait for the snapshots in between, i.e. until this 'ReqSn' is the next.
 --
 -- __Transition__: 'InitialState' → 'InitialState'
-onOpenHandleNetworkReqSn ::
+onOpenNetworkReqSn ::
   IsTx tx =>
   Ledger tx ->
   Party ->
@@ -406,7 +406,7 @@ onOpenHandleNetworkReqSn ::
   [tx] ->
   Event tx ->
   Outcome tx
-onOpenHandleNetworkReqSn
+onOpenNetworkReqSn
   ledger
   party
   signingKey
@@ -456,7 +456,7 @@ onOpenHandleNetworkReqSn
       SeenSnapshot{} -> True
       _ -> False
 
-onOpenHandleNetworkAckSn ::
+onOpenNetworkAckSn ::
   IsTx tx =>
   [Party] ->
   Party ->
@@ -468,7 +468,7 @@ onOpenHandleNetworkAckSn ::
   [tx] ->
   SnapshotNumber ->
   Outcome tx
-onOpenHandleNetworkAckSn
+onOpenNetworkAckSn
   parties
   otherParty
   parameters
@@ -521,14 +521,14 @@ onOpenHandleNetworkAckSn
                     )
                     []
 
-onOpenStateHandleChainCloseTx ::
+onOpenChainCloseTx ::
   HeadParameters ->
   HeadState tx ->
   CoordinatedHeadState tx ->
   SnapshotNumber ->
   NominalDiffTime ->
   Outcome tx
-onOpenStateHandleChainCloseTx
+onOpenChainCloseTx
   parameters
   previousRecoverableState
   coordinatedHeadState
@@ -549,8 +549,8 @@ onOpenStateHandleChainCloseTx
               ++ [OnChainEffect ContestTx{confirmedSnapshot} | onChainEffectCondition]
           )
 
-onClosedHandleChainContestTx :: ConfirmedSnapshot tx -> SnapshotNumber -> Outcome tx
-onClosedHandleChainContestTx confirmedSnapshot snapshotNumber
+onClosedChainContestTx :: ConfirmedSnapshot tx -> SnapshotNumber -> Outcome tx
+onClosedChainContestTx confirmedSnapshot snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
     OnlyEffects
       [ ClientEffect HeadIsContested{snapshotNumber}
@@ -562,32 +562,32 @@ onClosedHandleChainContestTx confirmedSnapshot snapshotNumber
     -- and/or not try to fan out on the `ShouldPostFanout` later.
     OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
 
-onClosedHandleShouldPostFanout :: Outcome tx
-onClosedHandleShouldPostFanout =
+onClosedShouldPostFanout :: Outcome tx
+onClosedShouldPostFanout =
   OnlyEffects [ClientEffect ReadyToFanout]
 
-onClosedHandleChainFanoutTx :: ConfirmedSnapshot tx -> Outcome tx
-onClosedHandleChainFanoutTx confirmedSnapshot =
+onClosedChainFanoutTx :: ConfirmedSnapshot tx -> Outcome tx
+onClosedChainFanoutTx confirmedSnapshot =
   NewState IdleState [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
 
-onCurrentHandleChainRollback :: HeadState tx -> Word -> Outcome tx
-onCurrentHandleChainRollback currentState n =
+onCurrentChainRollback :: HeadState tx -> Word -> Outcome tx
+onCurrentChainRollback currentState n =
   NewState (rollback n currentState) [ClientEffect RolledBack]
 
-onCurrentHandleClientEvent :: ClientInput tx -> Outcome tx
-onCurrentHandleClientEvent clientInput =
+onCurrentClientEvent :: ClientInput tx -> Outcome tx
+onCurrentClientEvent clientInput =
   OnlyEffects [ClientEffect $ CommandFailed clientInput]
 
-onCurrentHandleNetworkConnected :: Host -> Outcome tx
-onCurrentHandleNetworkConnected host =
+onCurrentNetworkConnected :: Host -> Outcome tx
+onCurrentNetworkConnected host =
   OnlyEffects [ClientEffect $ PeerConnected host]
 
-onCurrentHandleNetworkDisconnected :: Host -> Outcome tx
-onCurrentHandleNetworkDisconnected host =
+onCurrentNetworkDisconnected :: Host -> Outcome tx
+onCurrentNetworkDisconnected host =
   OnlyEffects [ClientEffect $ PeerDisconnected host]
 
-onCurrentHandlePostTxError :: PostChainTx tx -> PostTxError tx -> Outcome tx
-onCurrentHandlePostTxError postChainTx postTxError =
+onCurrentPostTxError :: PostChainTx tx -> PostTxError tx -> Outcome tx
+onCurrentPostTxError postChainTx postTxError =
   OnlyEffects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
@@ -603,40 +603,40 @@ update ::
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   (IdleState, ClientEvent (Init contestationPeriod)) ->
-    onIdleHandleClientInitEvent party otherParties contestationPeriod
+    onIdleClientInit party otherParties contestationPeriod
   (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
-    onIdleHandleChainInitTx parties contestationPeriod
+    onIdleChainInitTx parties contestationPeriod
   --
   (InitialState{pendingCommits}, ClientEvent (Commit utxo)) ->
-    onInitialHandleClientCommitEvent st ev party pendingCommits utxo
+    onInitialClientCommit st ev party pendingCommits utxo
   ( previousRecoverableState@InitialState{parameters, pendingCommits, committed}
     , OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})
     ) ->
-      onInitialHandleChainCommitTx party previousRecoverableState parameters pendingCommits committed pt utxo
+      onInitialChainCommitTx party previousRecoverableState parameters pendingCommits committed pt utxo
   (InitialState{committed}, ClientEvent GetUTxO) ->
-    onInitialHandleClientGetUTxOEvent committed
+    onInitialClientGetUTxO committed
   (InitialState{committed}, ClientEvent Abort) ->
-    onInitialHandleClientAbortEvent committed
+    onInitialClientAbort committed
   (_, OnChainEvent (Observation OnCommitTx{})) ->
     onChainCommitTx
   (previousRecoverableState@InitialState{parameters, committed}, OnChainEvent (Observation OnCollectComTx{})) ->
-    onInitialHandleChainCollectTx previousRecoverableState parameters committed
+    onInitialChainCollectTx previousRecoverableState parameters committed
   (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
-    onInitialHandleChainAbortTx committed
+    onInitialChainAbortTx committed
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
-    onOpenHandleClientCloseEvent confirmedSnapshot
+    onOpenClientClose confirmedSnapshot
   --
   (ClosedState{confirmedSnapshot}, ClientEvent Fanout) ->
-    onClosedHandleClientFanoutEvent confirmedSnapshot
+    onClosedClientFanout confirmedSnapshot
   --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
-    onOpenHandleClientGetUTxOEvent confirmedSnapshot
+    onOpenClientGetUTxO confirmedSnapshot
   --
   ( OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}
     , ClientEvent (NewTx tx)
     ) ->
-      onOpenHandleClientNewTxEvent ledger party utxo tx
+      onOpenClientNewTx ledger party utxo tx
   ( OpenState
       { parameters
       , coordinatedHeadState = headState@CoordinatedHeadState{seenTxs, seenUTxO}
@@ -644,7 +644,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       }
     , NetworkEvent (ReqTx _ tx)
     ) ->
-      onOpenHandleNetworkReqTx ledger parameters headState seenTxs seenUTxO previousRecoverableState tx
+      onOpenNetworkReqTx ledger parameters headState seenTxs seenUTxO previousRecoverableState tx
   ( OpenState
       { parameters
       , coordinatedHeadState = s@CoordinatedHeadState{}
@@ -652,7 +652,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       }
     , evt@(NetworkEvent (ReqSn otherParty sn txs))
     ) ->
-      onOpenHandleNetworkReqSn
+      onOpenNetworkReqSn
         ledger
         party
         signingKey
@@ -666,7 +666,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   ( OpenState{parameters = parameters@HeadParameters{parties}, coordinatedHeadState = headState@CoordinatedHeadState{seenSnapshot, seenTxs}, previousRecoverableState}
     , NetworkEvent (AckSn otherParty snapshotSignature sn)
     ) ->
-      onOpenHandleNetworkAckSn
+      onOpenNetworkAckSn
         parties
         otherParty
         parameters
@@ -679,7 +679,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   ( previousRecoverableState@OpenState{parameters, coordinatedHeadState}
     , OnChainEvent (Observation OnCloseTx{snapshotNumber = closedSnapshotNumber, remainingContestationPeriod})
     ) ->
-      onOpenStateHandleChainCloseTx
+      onOpenChainCloseTx
         parameters
         previousRecoverableState
         coordinatedHeadState
@@ -687,23 +687,23 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         remainingContestationPeriod
   --
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
-    onClosedHandleChainContestTx confirmedSnapshot snapshotNumber
+    onClosedChainContestTx confirmedSnapshot snapshotNumber
   (ClosedState{}, ShouldPostFanout) ->
-    onClosedHandleShouldPostFanout
+    onClosedShouldPostFanout
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
-    onClosedHandleChainFanoutTx confirmedSnapshot
+    onClosedChainFanoutTx confirmedSnapshot
   --
   (currentState, OnChainEvent (Rollback n)) ->
-    onCurrentHandleChainRollback currentState n
+    onCurrentChainRollback currentState n
   --
   (_, ClientEvent{clientInput}) ->
-    onCurrentHandleClientEvent clientInput
+    onCurrentClientEvent clientInput
   (_, NetworkEvent (Connected host)) ->
-    onCurrentHandleNetworkConnected host
+    onCurrentNetworkConnected host
   (_, NetworkEvent (Disconnected host)) ->
-    onCurrentHandleNetworkDisconnected host
+    onCurrentNetworkDisconnected host
   (_, PostTxError{postChainTx, postTxError}) ->
-    onCurrentHandlePostTxError postChainTx postTxError
+    onCurrentPostTxError postChainTx postTxError
   _ ->
     Error $ InvalidEvent ev st
 
