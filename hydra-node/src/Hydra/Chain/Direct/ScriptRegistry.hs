@@ -90,6 +90,7 @@ instance Exception UnableToConstructRegistry
 --
 -- NOTE: This is limited to an upper bound of 10 to not query too much before
 -- providing an error.
+-- NOTE: If this should change, make sure to update the command line help.
 queryScriptRegistry :: NetworkId -> FilePath -> TxId -> IO ScriptRegistry
 queryScriptRegistry networkId nodeSocket txId = do
   utxo <- queryUTxOByTxIn networkId nodeSocket QueryTip candidates

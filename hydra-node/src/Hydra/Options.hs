@@ -1,16 +1,4 @@
-module Hydra.Options (
-  Options (..),
-  ChainConfig (..),
-  LedgerConfig (..),
-  parseHydraOptions,
-  parseHydraOptionsFromString,
-  getParseResult,
-  ParserResult (..),
-  toArgs,
-  defaultOptions,
-  defaultLedgerConfig,
-  defaultChainConfig,
-) where
+module Hydra.Options where
 
 import Hydra.Prelude
 
@@ -23,11 +11,12 @@ import Hydra.Cardano.Api (
   NetworkId (..),
   NetworkMagic (..),
   SlotNo (..),
+  TxId (TxId),
   UsingRawBytesHex (..),
   deserialiseFromRawBytes,
   deserialiseFromRawBytesBase16,
   proxyToAsType,
-  serialiseToRawBytesHexText, TxId (TxId)
+  serialiseToRawBytesHexText,
  )
 import qualified Hydra.Contract as Contract
 import Hydra.Logging (Verbosity (..))
@@ -83,24 +72,6 @@ data Options = Options
   }
   deriving (Eq, Show)
 
-defaultOptions :: Options
-defaultOptions =
-  Options
-    { verbosity = Verbose "HydraNode"
-    , nodeId = 1
-    , host = "127.0.0.1"
-    , port = 5001
-    , peers = []
-    , apiHost = "127.0.0.1"
-    , apiPort = 4001
-    , monitoringPort = Nothing
-    , hydraSigningKey = "hydra.sk"
-    , hydraVerificationKeys = []
-    , hydraScriptsTxId = error "TODO"
-    , chainConfig = defaultChainConfig
-    , ledgerConfig = defaultLedgerConfig
-    }
-
 instance Arbitrary Options where
   arbitrary = do
     verbosity <- elements [Quiet, Verbose "HydraNode"]
@@ -113,10 +84,11 @@ instance Arbitrary Options where
     monitoringPort <- arbitrary
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
+    hydraScriptsTxId <- arbitrary
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
     pure $
-      defaultOptions
+      Options
         { verbosity
         , nodeId
         , host
@@ -127,6 +99,7 @@ instance Arbitrary Options where
         , monitoringPort
         , hydraSigningKey
         , hydraVerificationKeys
+        , hydraScriptsTxId
         , chainConfig
         , ledgerConfig
         }
@@ -144,6 +117,7 @@ hydraNodeParser =
     <*> optional monitoringPortParser
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
+    <*> hydraScriptsTxIdParser
     <*> chainConfigParser
     <*> ledgerConfigParser
 
@@ -398,6 +372,18 @@ startChainFromParser =
         pure $ ChainPoint slotNo headerHash
       _ ->
         Nothing
+
+hydraScriptsTxIdParser :: Parser TxId
+hydraScriptsTxIdParser =
+  option
+    (maybeReader undefined)
+    ( long "--hydra-scripts-tx-id"
+        <> metavar "TXID"
+        <> help
+          "The transaction which is expected to have published Hydra scripts as\
+          \reference scripts in its outputs. Note: All scripts need to be in the\
+          \first 10 outputs."
+    )
 
 hydraNodeOptions :: ParserInfo Options
 hydraNodeOptions =
