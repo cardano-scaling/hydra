@@ -461,6 +461,7 @@ toArgs
     , monitoringPort
     , hydraSigningKey
     , hydraVerificationKeys
+    , hydraScriptsTxId
     , chainConfig
     , ledgerConfig
     } =
@@ -474,6 +475,7 @@ toArgs
       <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
       <> concatMap toArgPeer peers
       <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
+      <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
       <> argsChainConfig
       <> argsLedgerConfig
    where
