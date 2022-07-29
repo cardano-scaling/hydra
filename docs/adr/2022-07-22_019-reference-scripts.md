@@ -33,24 +33,27 @@ Proposed
 * Publish outputs holding Hydra scripts out-of-band (option 2), because
   + All scripts would not fit into the `init` transaction directly, we would need to post multiple.
   + Costs (deposits) would need to be payed for each head instance.
-  + Although, heads using option 1 would not be exposed to DoS 
-
-* We will publish scripts on release of the `hydra-node`, or more specifically of the `hydra-plutus` package.
 
 * The scripts are stored at outputs addressed to some **unspendable** `v_publish` validator.
-  + This is to avoid DoS risk and unnecessariy centralization with option 2
+  + This is to avoid DoS risk and unnecessariy centralization
+  + We have considered "garbage collection" by allowing spending these outputs into re-publishing new versions of the script.
+    - This would make things even more complicated and we decided to not bother about "littering the chain" right now.
+
+* We will publish scripts on release of the `hydra-node`, or more specifically of the `hydra-plutus` package.
 
 ## Consequences
 
 * We need a process and/or tool to publish `hydra-plutus` scripts and need to pay the deposits.
   + Any other party could to the same, this does not lead to centralization.
 
-* The `hydra-node` would be need to know the `TxIn`s of the "right" published scripts. In the simplest case we would just make this configurable.
+* The `hydra-node` would be need to know the `TxIn`s of the "right" published scripts.
+  + In the simplest case we would just make this configurable and provide configurations for the various networks after publishing scripts.
 
-* If we parameterize the `v_publish` validator by a "type + version" indicator, this yield a unique address per Head script version.
-  + This address can be used to scan the chain for the relevant addresses to "discover" scripts of a known version (*not* using the local state query by address)
-  + For example, we could define `HydraHeadV1`, `HydraInitialV1` and `HydraCommitV1` as such parameters.
-  + Also with the `TxIn` configuration this allows for some integrity checking or easier configuration (not needing to enumerate which `TxIn` is which script)
+* If we combine the `v_publish` validator with a "tag", this allows nodes to "discover" scripts of a known version 
+  + For example, we could define `HydraHeadV1`, `HydraInitialV1` and `HydraCommitV1` as such tags
+  + We could parameterize the validator by the tag, yielding unique addresses per tag.
+  + Alternatively, the "tag" could be stored in a canonical form as datum on the script outputs. 
+  + In any case, this allows for some checking consistency or easier configuration (not needing to enumerate which `TxIn` is which script)
 
 * By also knowing the script hashes the `hydra-node` can verify the integrity of "found" reference scripts
   + This would be possible right now, as they are compiled into the node
