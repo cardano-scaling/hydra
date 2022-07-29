@@ -200,13 +200,11 @@ data Environment = Environment
 
 -- * Simplified Hydra Head Protocol Without Conflict Resolution
 
--- | On IdleState, upon client init event
--- we post an init-tx to the chain
--- using the head parameters.
--- This is not changing the state.
--- @TODO change signature so it takes [Party] instead (all parties)
+-- | On IdleState, upon client init event we post an init-tx to the chain using
+-- the head parameters. This is not changing the state.
 --
 -- __Transition__: N/A
+-- TODO: change signature so it takes [Party] instead (all parties)
 onIdleHandleClientInitEvent ::
   -- | Us
   Party ->
@@ -375,6 +373,26 @@ onOpenHandleNetworkReqTx ledger parameters headState seenTxs seenUTxO previousRe
             )
             [ClientEffect $ TxSeen tx]
 
+-- | Handle a snapshot request ('ReqSn') from a peer. We do distinguish two cases:
+--
+--   * Case 1:
+--
+--       * The peer is the leader for requested snapshot number.
+--       * Snapshot number is the next expected (based on the last confirmed)
+--       * There is no snapshot pending, i.e. we are not collecting any signatures for a snapshot.
+--       * We try to apply the transactions of the requested snapshot to the confirmed utxo:
+--
+--           * If that succeeds, we do sign the snapshot, yield a snapshot
+--             acknowledgment ('AckSn') and start tracking this snapshot.
+--           * Else, we wait until the transactions become applicable.
+--
+--   * Case 2:
+--
+--       * The peer is the leader for requested snapshot number.
+--       * Snapshot number is greater than the next expected.
+--       * We wait for the snapshots in between, i.e. until this 'ReqSn' is the next.
+--
+-- __Transition__: 'InitialState' → 'InitialState'
 onOpenHandleNetworkReqSn ::
   IsTx tx =>
   Ledger tx ->
@@ -407,7 +425,10 @@ onOpenHandleNetworkReqSn
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
       case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
-        Left (_, err) -> Wait $ WaitOnNotApplicableTx err
+        Left (_, err) ->
+          -- FIXME: this will not happen, as we are always comparing against the
+          -- confirmed snapshot utxo?
+          Wait $ WaitOnNotApplicableTx err
         Right u ->
           let nextSnapshot = Snapshot sn u txs
               snapshotSignature = sign signingKey nextSnapshot
@@ -428,12 +449,12 @@ onOpenHandleNetworkReqSn
           | number snapshot == sn -> Error (InvalidEvent ev st)
           | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
         _ -> Wait WaitOnSeenSnapshot
+    | otherwise = Error $ InvalidEvent ev st
    where
     snapshotPending :: SeenSnapshot tx -> Bool
     snapshotPending = \case
       SeenSnapshot{} -> True
       _ -> False
-onOpenHandleNetworkReqSn _ _ _ st _ _ _ _ _ ev = Error $ InvalidEvent ev st
 
 onOpenHandleNetworkAckSn ::
   IsTx tx =>
