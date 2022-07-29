@@ -205,9 +205,11 @@ data Environment = Environment
 -- using the head parameters.
 -- This is not changing the state.
 -- @TODO change signature so it takes [Party] instead (all parties)
-onIdleHandleClientInitEvent :: 
+--
+-- __Transition__: N/A
+onIdleHandleClientInitEvent ::
   -- | Us
-  Party -> 
+  Party ->
   -- | Others
   [Party] ->
   ContestationPeriod ->
@@ -221,7 +223,9 @@ onIdleHandleClientInitEvent party otherParties contestationPeriod =
       , parties = party : otherParties
       }
 
--- | On IdleState, upon chain init tx
+-- | Observing an init transaction. Notifying client they can now commit.
+--
+-- __Transition__: 'IdleState' → 'InitialState'
 onIdleHandleChainInitTx :: [Party] -> ContestationPeriod -> Outcome tx
 onIdleHandleChainInitTx parties contestationPeriod =
   NewState
@@ -234,18 +238,37 @@ onIdleHandleChainInitTx parties contestationPeriod =
     )
     [ClientEffect $ ReadyToCommit $ fromList parties]
 
+-- | Translate client's commit into an on-chain transaction provided they
+-- haven't committed yet.
+--
+-- __Transition__: N/A
 onInitialHandleClientCommitEvent ::
-  HeadState tx -> Event tx -> Party -> PendingCommits -> UTxOType tx -> Outcome tx
-onInitialHandleClientCommitEvent _ _ party pendingCommits utxo
-  | canCommit = OnlyEffects [OnChainEffect (CommitTx party utxo)]
+  HeadState tx ->
+  Event tx ->
+  Party ->
+  PendingCommits ->
+  UTxOType tx ->
+  Outcome tx
+onInitialHandleClientCommitEvent st ev party pendingCommits utxo
+  | canCommit =
+    OnlyEffects [OnChainEffect (CommitTx party utxo)]
+  | otherwise =
+    Error $ InvalidEvent ev st
  where
   canCommit = party `Set.member` pendingCommits
-onInitialHandleClientCommitEvent st ev _ _ _ = Error $ InvalidEvent ev st
 
+-- | Observe a commit transaction and record the committed UTxO to the state.
+-- Also, if this is the last commit to be observed, post a collect-com
+-- transaction on-chain.
+--
+-- __Transition__: 'InitialState' → 'InitialState'
 onInitialHandleChainCommitTx ::
   Monoid (UTxOType tx) =>
+  -- | Us
   Party ->
+  -- | Current state; recorded as previous recoverable state
   HeadState tx ->
+  -- | TODO: Unused
   HeadParameters ->
   PendingCommits ->
   Committed tx ->
