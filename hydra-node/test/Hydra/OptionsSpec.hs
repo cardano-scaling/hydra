@@ -3,7 +3,7 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), unsafeDeserialiseFromRawBytesBase16)
+import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), TxId, serialiseToRawBytesHexText, unsafeDeserialiseFromRawBytesBase16)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
@@ -18,7 +18,6 @@ import Hydra.Options (
   toArgs,
  )
 import Test.QuickCheck (Property, counterexample, forAll, property, (===))
-import Hydra.Ledger.Cardano (genTxIn)
 
 spec :: Spec
 spec = parallel $
@@ -169,10 +168,9 @@ spec = parallel $
           }
 
     prop "parses --hydra-scripts-tx-id as a tx id" $ \txId ->
-      ["--hydra-scripts-tx-id", show txId] 
+      ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText txId]
         `shouldParse` defaultOptions
-          {
-            hydraScriptsTxId = txId
+          { hydraScriptsTxId = txId
           }
 
     prop "roundtrip options" $
@@ -198,22 +196,3 @@ shouldNotParse args =
     Success a -> failure $ "Unexpected successful parse to " <> show a
     Failure _ -> pure ()
     CompletionInvoked _ -> failure "Unexpected completion invocation"
-
--- | Default options as they should also be provided by the option parser.
-defaultOptions :: Options
-defaultOptions =
-  Options
-    { verbosity = Verbose "HydraNode"
-    , nodeId = 1
-    , host = "127.0.0.1"
-    , port = 5001
-    , peers = []
-    , apiHost = "127.0.0.1"
-    , apiPort = 4001
-    , monitoringPort = Nothing
-    , hydraSigningKey = "hydra.sk"
-    , hydraVerificationKeys = []
-    , hydraScriptsTxId = "00000000000000000000000000000000"
-    , chainConfig = defaultChainConfig
-    , ledgerConfig = defaultLedgerConfig
-    }

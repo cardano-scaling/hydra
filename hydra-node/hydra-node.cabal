@@ -188,6 +188,7 @@ executable hydra-node
   main-is:        Main.hs
   build-depends:
     , base
+    , hydra-cardano-api
     , hydra-node
     , hydra-prelude
 

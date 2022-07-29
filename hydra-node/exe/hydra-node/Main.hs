@@ -5,6 +5,7 @@ module Main where
 import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
+import Hydra.Cardano.Api (TxId)
 import Hydra.Chain (Chain, ChainCallback)
 import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Chain.Direct.Util (readKeyPair, readVerificationKey)

@@ -1,24 +1,32 @@
-module Hydra.Options where
+module Hydra.Options (
+  module Hydra.Options,
+  ParserResult (..),
+) where
 
 import Hydra.Prelude
 
+import Control.Arrow (left)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSC
 import Data.IP (IP (IPv4), toIPv4w)
 import qualified Data.Text as T
 import Data.Version (showVersion)
 import Hydra.Cardano.Api (
+  AsType (AsTxId),
   ChainPoint (..),
   NetworkId (..),
   NetworkMagic (..),
   SlotNo (..),
-  TxId (TxId),
+  TxId,
   UsingRawBytesHex (..),
   deserialiseFromRawBytes,
   deserialiseFromRawBytesBase16,
+  deserialiseFromRawBytesHex,
   proxyToAsType,
   serialiseToRawBytesHexText,
  )
 import qualified Hydra.Contract as Contract
+import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
 import Hydra.Node.Version (gitDescribe)
@@ -29,10 +37,10 @@ import Options.Applicative (
   auto,
   completer,
   defaultPrefs,
+  eitherReader,
   execParserPure,
   flag,
   fullDesc,
-  getParseResult,
   handleParseResult,
   header,
   help,
@@ -52,7 +60,6 @@ import Options.Applicative (
 import Options.Applicative.Builder (str)
 import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
-import Test.QuickCheck.Instances.Natural ()
 
 data Options = Options
   { verbosity :: Verbosity
@@ -172,6 +179,30 @@ data ChainConfig = DirectChainConfig
   , startChainFrom :: Maybe ChainPoint
   }
   deriving (Eq, Show)
+
+-- | Default options as they should also be provided by the option parser.
+-- XXX: UX problem: These are not necessarily good values, e.g. "hydra.sk" not
+-- exists anywhere in our setups or the hydraScriptstTxId is obviously nonsense.
+-- So the user try to start the hydra-node with these and see errors because
+-- this or that file does not exist, needing to add command line options
+-- step-by-step, seeing various errors along the way.
+defaultOptions :: Options
+defaultOptions =
+  Options
+    { verbosity = Verbose "HydraNode"
+    , nodeId = 1
+    , host = "127.0.0.1"
+    , port = 5001
+    , peers = []
+    , apiHost = "127.0.0.1"
+    , apiPort = 4001
+    , monitoringPort = Nothing
+    , hydraSigningKey = "hydra.sk"
+    , hydraVerificationKeys = []
+    , hydraScriptsTxId = "0101010101010101010101010101010101010101010101010101010101010101"
+    , chainConfig = defaultChainConfig
+    , ledgerConfig = defaultLedgerConfig
+    }
 
 defaultChainConfig :: ChainConfig
 defaultChainConfig =
@@ -376,9 +407,10 @@ startChainFromParser =
 hydraScriptsTxIdParser :: Parser TxId
 hydraScriptsTxIdParser =
   option
-    (maybeReader undefined)
-    ( long "--hydra-scripts-tx-id"
+    (eitherReader $ left show . deserialiseFromRawBytesHex AsTxId . BSC.pack)
+    ( long "hydra-scripts-tx-id"
         <> metavar "TXID"
+        <> value "0101010101010101010101010101010101010101010101010101010101010101"
         <> help
           "The transaction which is expected to have published Hydra scripts as\
           \reference scripts in its outputs. Note: All scripts need to be in the\
