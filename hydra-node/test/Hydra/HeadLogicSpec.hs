@@ -266,10 +266,9 @@ spec = do
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             contestSnapshot1Event = OnChainEvent $ Observation $ OnContestTx 1
             contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
-            s1 = update env ledger s0 contestSnapshot1Event
-        s1 `hasEffect` contestTxEffect
+        s1 <- update env ledger s0 contestSnapshot1Event `hasEffect_` contestTxEffect $ s0
         s1 `shouldSatisfy` \case
-          NewState ClosedState{} _ -> True
+          ClosedState{} -> True
           _ -> False
 
 --
@@ -284,6 +283,9 @@ hasEffect (OnlyEffects effects) effect
   | effect `elem` effects = pure ()
   | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
 hasEffect o _ = failure $ "Unexpected outcome: " <> show o
+
+hasEffect_ :: (HasCallStack, IsTx tx) => Outcome tx -> Effect tx -> HeadState tx -> IO (HeadState tx)
+hasEffect_ o e currentState = currentState <$ hasEffect o e
 
 hasEffectSatisfying :: (HasCallStack, IsTx tx) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
 hasEffectSatisfying (NewState s effects) match
