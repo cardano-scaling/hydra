@@ -404,18 +404,20 @@ onOpenNetworkReqSn ::
   Party ->
   SnapshotNumber ->
   [tx] ->
+  HeadState tx ->
   Event tx ->
   Outcome tx
 onOpenNetworkReqSn
   ledger
   party
   signingKey
-  st@previousRecoverableState
+  previousRecoverableState
   parameters
   s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}
   otherParty
   sn
   txs
+  st
   ev
     | (number . getSnapshot) confirmedSnapshot + 1 == sn
         && isLeader parameters otherParty sn
@@ -663,6 +665,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         otherParty
         sn
         txs
+        st
         evt
   ( OpenState
       { parameters = parameters@HeadParameters{parties}
