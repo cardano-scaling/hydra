@@ -381,5 +381,6 @@
     "treasuryCut": 0.1,
     "txFeeFixed": 0,
     "txFeePerByte": 0,
-    "utxoCostPerWord": 34488
+    "utxoCostPerWord": 34488,
+    "utxoCostPerByte": 4310
 }
