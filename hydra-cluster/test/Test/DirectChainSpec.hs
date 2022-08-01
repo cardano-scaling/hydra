@@ -19,7 +19,6 @@ import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
   ChainPoint (..),
-  SigningKey,
   lovelaceToValue,
   txOutValue,
   unsafeDeserialiseFromRawBytesBase16,
@@ -37,7 +36,7 @@ import Hydra.Chain.Direct (
   withDirectChain,
   withIOManager,
  )
-import Hydra.Chain.Direct.Handlers (DirectChainLog, closeGraceTime)
+import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   seedFromFaucet,
@@ -53,7 +52,7 @@ import Hydra.Cluster.Fixture (
   defaultNetworkId,
  )
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Crypto (HydraKey, aggregate, generateSigningKey, sign)
+import Hydra.Crypto (aggregate, sign)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)
 import Hydra.Logging (nullTracer, showLogsOnFailure)

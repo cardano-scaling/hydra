@@ -8,7 +8,15 @@
 -- Currently 'MultiSignature' interface is only supporting naiive, concatenated
 -- multi-signatures and will change when we adopt aggregated multi-signatures
 -- including aggregate keys.
-module Hydra.Crypto where
+module Hydra.Crypto (
+  -- * Cardano Key interface
+  Key (..),
+
+  -- * Hydra specifics
+  Hash (HydraKeyHash),
+  AsType (AsHydraKey),
+  module Hydra.Crypto,
+) where
 
 import Hydra.Prelude hiding (Key, show)
 
