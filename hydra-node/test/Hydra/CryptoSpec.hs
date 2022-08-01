@@ -9,7 +9,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Crypto.DSIGN.Ed25519 (SigDSIGN (SigEd25519DSIGN))
-import Hydra.Cardano.Api (getVerificationKey)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (counterexample, forAll, shuffle, (=/=), (==>))
 import Test.QuickCheck.Instances.UnorderedContainers ()
