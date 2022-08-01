@@ -44,7 +44,7 @@ Proposed
 ## Consequences
 
 * We need a process and/or tool to publish `hydra-plutus` scripts and need to pay the deposits.
-  + Any other party could to the same, this does not lead to centralization.
+  + Any other party could do the same, this does not lead to centralization.
 
 * The `hydra-node` would be need to know the `TxIn`s of the "right" published scripts.
   + In the simplest case we would just make this configurable and provide configurations for the various networks after publishing scripts.
