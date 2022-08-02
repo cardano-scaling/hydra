@@ -12,6 +12,7 @@ import Hydra.Prelude
 
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
 import qualified Cardano.Api
+import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
@@ -52,6 +53,10 @@ resolve k = Map.lookup k . toMap
 -- | Turn a 'UTxO' into a list of pairs.
 pairs :: UTxO' out -> [(TxIn, out)]
 pairs = Map.toList . toMap
+
+-- | Find first 'UTxO' which satisfies given predicate.
+find :: (out -> Bool) -> UTxO' out -> Maybe (TxIn, out)
+find fn utxo = List.find (fn . snd) $ pairs utxo
 
 -- | Filter UTxO to only include 'out's satisfying given predicate.
 filter :: (out -> Bool) -> UTxO' out -> UTxO' out

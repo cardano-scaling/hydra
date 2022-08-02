@@ -105,12 +105,15 @@ publishHydraScripts node@RunningNode{nodeSocket, networkId} actor = do
   (vk, sk) <- keysFor actor
   let changeAddress = buildAddress vk networkId
   utxo <- queryUTxOFor node QueryTip vk
-  let someTxIn = Set.findMin $ UTxO.inputSet utxo
+  let probablyEnoughLovelace = probablyEnoughLovelaceForCommit + probablyEnoughLovelaceForInitial
+      someUTxO =
+        maybe mempty UTxO.singleton $
+          UTxO.find (\o -> selectLovelace (txOutValue o) > probablyEnoughLovelace) utxo
   build
     networkId
     nodeSocket
     changeAddress
-    [(someTxIn, Nothing)]
+    someUTxO
     []
     [publishInitial, publishCommit]
     >>= \case
@@ -129,14 +132,14 @@ publishHydraScripts node@RunningNode{nodeSocket, networkId} actor = do
   publishInitial =
     TxOut
       unspendableScriptAddress
-      probablyEnoughAdaForInitial
+      (lovelaceToValue probablyEnoughLovelaceForInitial)
       TxOutDatumNone
       (mkScriptRef Initial.validatorScript)
 
   publishCommit =
     TxOut
       unspendableScriptAddress
-      probablyEnoughAdaForCommit
+      (lovelaceToValue probablyEnoughLovelaceForCommit)
       TxOutDatumNone
       (mkScriptRef Commit.validatorScript)
 
@@ -145,11 +148,8 @@ publishHydraScripts node@RunningNode{nodeSocket, networkId} actor = do
 
   -- This depends on protocol parameters and the size of the script.
   -- TODO: Calculate this value instead from pparams.
-  probablyEnoughAdaForInitial =
-    lovelaceToValue 23_437_780
-
-  probablyEnoughAdaForCommit =
-    lovelaceToValue 23_437_780
+  probablyEnoughLovelaceForInitial = 23_437_780
+  probablyEnoughLovelaceForCommit = 23_437_780
 
 -- | Query UTxO for the address of given verification key at point.
 --
