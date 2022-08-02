@@ -12,7 +12,6 @@ import Cardano.Crypto.DSIGN.Ed25519 (SigDSIGN (SigEd25519DSIGN))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (counterexample, forAll, shuffle, (=/=), (==>))
 import Test.QuickCheck.Instances.UnorderedContainers ()
-import Test.QuickCheck.Modifiers (Positive (Positive))
 
 spec :: Spec
 spec = do
