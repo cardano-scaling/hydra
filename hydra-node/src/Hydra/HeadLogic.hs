@@ -290,21 +290,19 @@ onInitialChainCommitTx party previousRecoverableState parameters pendingCommits 
   canCollectCom = null remainingParties && pt == party
   collectedUTxO = mconcat $ Map.elems newCommitted
 
-onInitialClientGetUTxO :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
-onInitialClientGetUTxO committed =
-  OnlyEffects [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
-
+-- | A client requests to abort the head.
+-- This leads to an abort transaction on chain, containning the already commited UTxO.
+--
+-- __Transition__: N/A
 onInitialClientAbort :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
 onInitialClientAbort committed =
   OnlyEffects [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
 
-onChainCommitTx :: Outcome tx
-onChainCommitTx =
-  -- TODO: This should warn the user / client that something went _terribly_ wrong
-  --       We shouldn't see any commit outside of the collecting state, if we do,
-  --       there's an issue our logic or onChain layer.
-  OnlyEffects []
-
+-- | Observe a collectCom transaction and transition to open state.
+-- We initialize the open state using parameters and committed UTxO seen before.
+-- From these we construct the initial snapshot u0.
+--
+-- __Transition__: 'InitialState' → 'OpenState'
 onInitialChainCollectTx ::
   (Foldable t, Monoid (UTxOType tx)) => HeadState tx -> HeadParameters -> t (UTxOType tx) -> Outcome tx
 onInitialChainCollectTx previousRecoverableState parameters committed =
@@ -321,6 +319,9 @@ onInitialChainCollectTx previousRecoverableState parameters committed =
         )
         [ClientEffect $ HeadIsOpen u0]
 
+-- | Observe an abort transaction and transition to idle state.
+--
+-- __Transition__: 'InitialState' → 'IdleState'
 onInitialChainAbortTx :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
 onInitialChainAbortTx committed =
   NewState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
@@ -617,11 +618,14 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     ) ->
       onInitialChainCommitTx party previousRecoverableState parameters pendingCommits committed pt utxo
   (InitialState{committed}, ClientEvent GetUTxO) ->
-    onInitialClientGetUTxO committed
+    OnlyEffects [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
   (InitialState{committed}, ClientEvent Abort) ->
     onInitialClientAbort committed
   (_, OnChainEvent (Observation OnCommitTx{})) ->
-    onChainCommitTx
+    -- TODO: This should warn the user / client that something went _terribly_ wrong
+    --       We shouldn't see any commit outside of the collecting (initial) state, if we do,
+    --       there's an issue our logic or onChain layer.
+    OnlyEffects []
   (previousRecoverableState@InitialState{parameters, committed}, OnChainEvent (Observation OnCollectComTx{})) ->
     onInitialChainCollectTx previousRecoverableState parameters committed
   (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
