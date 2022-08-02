@@ -25,6 +25,10 @@ specSigningKey =
   describe "SigningKey" $ do
     it "show includes escaped hex" $
       show (generateSigningKey "aaa") `shouldContain` "\"03616161"
+    it "can be generated when seed exceeds the algorithm size" $
+      let seedA = "1234567891234567891234567891111X"
+          seedB = "1234567891234567891234567891111Z"
+       in generateSigningKey seedA `shouldNotBe` generateSigningKey seedB
     prop "can be generated" $ \(seedA, seedB) -> do
       seedA /= seedB
         ==> generateSigningKey seedA =/= generateSigningKey seedB
