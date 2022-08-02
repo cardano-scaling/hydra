@@ -354,13 +354,14 @@ onOpenClientNewTx ledger party utxo tx =
 onOpenNetworkReqTx ::
   Ledger tx ->
   HeadParameters ->
-  CoordinatedHeadState tx ->
-  [tx] ->
-  UTxOType tx ->
+  -- | Current state; recorded as previous recoverable state
   HeadState tx ->
+  -- | The offchain coordinated head state
+  CoordinatedHeadState tx ->
+  -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx ledger parameters headState seenTxs seenUTxO previousRecoverableState tx =
+onOpenNetworkReqTx ledger parameters previousRecoverableState headState@CoordinatedHeadState{seenTxs, seenUTxO} tx =
   case applyTransactions ledger seenUTxO [tx] of
     Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
     Right utxo' ->
@@ -655,14 +656,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     , ClientEvent (NewTx tx)
     ) ->
       onOpenClientNewTx ledger party utxo tx
-  ( OpenState
-      { parameters
-      , coordinatedHeadState = headState@CoordinatedHeadState{seenTxs, seenUTxO}
-      , previousRecoverableState
-      }
-    , NetworkEvent (ReqTx _ tx)
-    ) ->
-      onOpenNetworkReqTx ledger parameters headState seenTxs seenUTxO previousRecoverableState tx
+  (OpenState{ parameters, coordinatedHeadState, previousRecoverableState}, NetworkEvent (ReqTx _ tx)) ->
+    onOpenNetworkReqTx ledger parameters previousRecoverableState coordinatedHeadState tx
   ( OpenState
       { parameters
       , coordinatedHeadState = s@CoordinatedHeadState{}
