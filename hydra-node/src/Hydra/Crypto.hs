@@ -64,12 +64,6 @@ import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.QuickCheck.Instances.ByteString ()
 import Text.Show (Show (..))
 
--- | The used hash algorithm for 'HydraKey' verification key hashes.
-type HashAlg = Blake2b_256
-
--- | The used signature algorithm for 'HydraKey' signatures.
-type SignAlg = Ed25519DSIGN
-
 -- * Hydra keys
 
 -- | Hydra keys (keyrole) which can be used to 'sign' and 'verify' messages, as
@@ -81,7 +75,8 @@ instance HasTypeProxy HydraKey where
   proxyToAsType _ = AsHydraKey
 
 -- | Hashes of Hydra keys
-newtype instance Hash HydraKey = HydraKeyHash (Crypto.Hash HashAlg (VerificationKey HydraKey))
+newtype instance Hash HydraKey
+  = HydraKeyHash (Crypto.Hash Blake2b_256 (VerificationKey HydraKey))
   deriving stock (Ord, Eq, Show)
 
 instance SerialiseAsRawBytes (Hash HydraKey) where
@@ -92,7 +87,8 @@ instance SerialiseAsRawBytes (Hash HydraKey) where
 
 instance Key HydraKey where
   -- Hydra verification key, which can be used to 'verify' signed messages.
-  newtype VerificationKey HydraKey = HydraVerificationKey (VerKeyDSIGN SignAlg)
+  newtype VerificationKey HydraKey
+    = HydraVerificationKey (VerKeyDSIGN Ed25519DSIGN)
     deriving (Eq, Show)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
@@ -100,10 +96,12 @@ instance Key HydraKey where
   -- Hydra signing key which can be used to 'sign' messages and 'aggregate'
   -- multi-signatures or 'deriveVerificationKey'.
   --
-  -- REVIEW: Maybe rewrite Show instance to /not/ expose secret, eg. 8 bytes from
-  -- the hash of the key? Although both, cardano-api and cardano-crypto-class are
-  -- both deriving this and thus showing secret key material as well.
-  newtype SigningKey HydraKey = HydraSigningKey (SignKeyDSIGN SignAlg)
+  -- REVIEW: Maybe rewrite Show instance to /not/ expose secret, eg. 8 bytes
+  -- from the hash of the key? Although both, cardano-api and
+  -- cardano-crypto-class are both deriving this and thus showing secret key
+  -- material as well.
+  newtype SigningKey HydraKey
+    = HydraSigningKey (SignKeyDSIGN Ed25519DSIGN)
     deriving (Eq, Show)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
@@ -119,9 +117,9 @@ instance Key HydraKey where
   -- Get the number of bytes required to seed a signing key with
   -- 'deterministicSigningKey'.
   deterministicSigningKeySeedSize AsHydraKey =
-    seedSizeDSIGN (Proxy :: Proxy SignAlg)
+    seedSizeDSIGN (Proxy :: Proxy Ed25519DSIGN)
 
-  -- Get the verification key hash of a 'VerificationKey'. See 'HashAlg' for
+  -- Get the verification key hash of a 'VerificationKey'. See 'Blake2b_256' for
   -- info on the used hashing algorithm.
   verificationKeyHash (HydraVerificationKey vk) =
     HydraKeyHash . castHash $ hashVerKeyDSIGN vk
@@ -139,7 +137,7 @@ instance SerialiseAsRawBytes (SigningKey HydraKey) where
 instance HasTextEnvelope (SigningKey HydraKey) where
   textEnvelopeType _ =
     "HydraSigningKey_"
-      <> fromString (algorithmNameDSIGN (Proxy :: Proxy SignAlg))
+      <> fromString (algorithmNameDSIGN (Proxy :: Proxy Ed25519DSIGN))
 
 instance Arbitrary (VerificationKey HydraKey) where
   arbitrary = getVerificationKey . generateSigningKey <$> arbitrary
@@ -174,7 +172,7 @@ instance FromJSON (VerificationKey HydraKey) where
 instance HasTextEnvelope (VerificationKey HydraKey) where
   textEnvelopeType _ =
     "HydraVerificationKey_"
-      <> fromString (algorithmNameDSIGN (Proxy :: Proxy SignAlg))
+      <> fromString (algorithmNameDSIGN (Proxy :: Proxy Ed25519DSIGN))
 
 -- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
 -- not random and insecure, so don't use this in production code!
@@ -182,14 +180,14 @@ generateSigningKey :: ByteString -> SigningKey HydraKey
 generateSigningKey seed =
   HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes padded
  where
-  needed = fromIntegral $ seedSizeDSIGN (Proxy :: Proxy SignAlg)
+  needed = fromIntegral $ seedSizeDSIGN (Proxy :: Proxy Ed25519DSIGN)
   provided = BS.length seed
   padded = seed <> BS.pack (replicate (needed - provided) 0)
 
 -- * Signatures
 
 -- | Signature of 'a', not containing the actual payload.
-newtype Signature a = HydraSignature (SigDSIGN SignAlg)
+newtype Signature a = HydraSignature (SigDSIGN Ed25519DSIGN)
   deriving (Eq)
   deriving newtype (ToCBOR, FromCBOR)
 
@@ -224,10 +222,15 @@ sign :: SignableRepresentation a => SigningKey HydraKey -> a -> Signature a
 sign (HydraSigningKey sk) a =
   HydraSignature $ signDSIGN ctx a sk
  where
-  ctx = () :: ContextDSIGN SignAlg
+  ctx = () :: ContextDSIGN Ed25519DSIGN
 
 -- | Verify a given 'Signature a' and value 'a' using provided 'VerificationKey'.
-verify :: SignableRepresentation a => VerificationKey HydraKey -> Signature a -> a -> Bool
+verify ::
+  SignableRepresentation a =>
+  VerificationKey HydraKey ->
+  Signature a ->
+  a ->
+  Bool
 verify (HydraVerificationKey vk) (HydraSignature sig) a =
   case verifyDSIGN ctx vk a sig of
     Right () -> True
@@ -235,7 +238,7 @@ verify (HydraVerificationKey vk) (HydraSignature sig) a =
     -- to distinguish in our interface
     Left _ -> False
  where
-  ctx = () :: ContextDSIGN SignAlg
+  ctx = () :: ContextDSIGN Ed25519DSIGN
 
 -- * Multi-signatures
 
