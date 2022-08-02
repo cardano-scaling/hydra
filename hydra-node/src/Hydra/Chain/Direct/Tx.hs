@@ -385,6 +385,9 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
+-- | Create the fanout transaction, which distributes the closed state
+-- accordingly. The head validator allows fanout only > deadline, so we need
+-- to set the lower bound to be deadline + 1 slot.
 fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
