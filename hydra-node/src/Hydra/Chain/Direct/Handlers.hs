@@ -311,7 +311,7 @@ fromPostChainTx timeHandle cardanoKeys wallet someHeadState tx = do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (contest confirmedSnapshot shifted st)
     (FanoutTx{utxo}, TkClosed) -> do
-      -- NOTE: It's a bit weir that we inspect the state here, but handing
+      -- NOTE: It's a bit weird that we inspect the state here, but handling
       -- errors around while we want the possibly failing "time -> slot"
       -- conversion to be done here is not prettier.
       deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
