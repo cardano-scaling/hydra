@@ -134,6 +134,17 @@ instance SerialiseAsRawBytes (SigningKey HydraKey) where
   deserialiseFromRawBytes (AsSigningKey AsHydraKey) bs =
     HydraSigningKey <$> rawDeserialiseSignKeyDSIGN bs
 
+-- | Deserialise a signing key from raw bytes.
+deserialiseSigningKeyFromRawBytes :: MonadFail m => ByteString -> m SigningKey
+deserialiseSigningKeyFromRawBytes bytes =
+  case rawDeserialiseSignKeyDSIGN bytes of
+    Nothing -> fail "failed to deserialise signing key"
+    Just key -> pure $ HydraSigningKey key
+
+-- | Get the 'VerificationKey' for a given 'SigningKey'.
+deriveVerificationKey :: SigningKey -> VerificationKey
+deriveVerificationKey (HydraSigningKey sk) = HydraVerificationKey (deriveVerKeyDSIGN sk)
+
 instance HasTextEnvelope (SigningKey HydraKey) where
   textEnvelopeType _ =
     "HydraSigningKey_"
@@ -182,7 +193,8 @@ generateSigningKey seed =
  where
   needed = fromIntegral $ seedSizeDSIGN (Proxy :: Proxy Ed25519DSIGN)
   provided = BS.length seed
-  padded = seed <> BS.pack (replicate (needed - provided) 0)
+  lengthAsByte = fromIntegral $ BS.length seed
+  padded = BS.pack [lengthAsByte] <> seed <> BS.pack (replicate (needed - provided) 0)
 
 -- * Signatures
 
