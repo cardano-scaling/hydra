@@ -46,7 +46,6 @@ import qualified Cardano.Crypto.Hash as Crypto
 import Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
 import qualified Data.Aeson as Aeson
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
@@ -63,7 +62,6 @@ import qualified Hydra.Contract.HeadState as OnChain
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.QuickCheck.Instances.ByteString ()
 import Text.Show (Show (..))
-import Cardano.Crypto.Hash.Class (HashAlgorithm(digest))
 
 -- * Hydra keys
 
