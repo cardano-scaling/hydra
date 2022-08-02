@@ -24,7 +24,7 @@ specSigningKey :: Spec
 specSigningKey =
   describe "SigningKey" $ do
     it "show includes escaped hex" $
-      show (generateSigningKey "aaa") `shouldContain` "\"616161"
+      show (generateSigningKey "aaa") `shouldContain` "\"03616161"
     prop "can be generated" $ \(seedA, seedB) -> do
       seedA /= seedB
         ==> generateSigningKey seedA =/= generateSigningKey seedB
@@ -33,7 +33,7 @@ specVerificationKey :: Spec
 specVerificationKey =
   describe "VerificationKey" $ do
     it "show includes escaped hex" $
-      show (getVerificationKey $ generateSigningKey "alice") `shouldContain` "ce1da235714466fc7"
+      show (deriveVerificationKey $ generateSigningKey "alice") `shouldContain` "0ae826b66821b5c9e"
 
     roundtripAndGoldenSpecs (Proxy @(VerificationKey HydraKey))
 
