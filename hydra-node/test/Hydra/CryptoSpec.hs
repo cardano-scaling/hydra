@@ -24,7 +24,7 @@ specSigningKey :: Spec
 specSigningKey =
   describe "SigningKey" $ do
     it "show includes escaped hex" $
-      show (generateSigningKey "aaa") `shouldContain` "\"c8ed3c"
+      show (generateSigningKey "aaa") `shouldContain` "\"983487"
     it "can be generated when seed exceeds the max seed size for algorithm" $
       let exceedingSizeSeedA = show $ replicate 32 'x' <> "a"
           exceedingSizeSeedB = show $ replicate 32 'x' <> "b"
