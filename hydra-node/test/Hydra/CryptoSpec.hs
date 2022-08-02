@@ -33,9 +33,9 @@ specVerificationKey :: Spec
 specVerificationKey =
   describe "VerificationKey" $ do
     it "show includes escaped hex" $
-      show (deriveVerificationKey $ generateSigningKey "alice") `shouldContain` "ce1da235714466fc7"
+      show (getVerificationKey $ generateSigningKey "alice") `shouldContain` "ce1da235714466fc7"
 
-    roundtripAndGoldenSpecs (Proxy @VerificationKey)
+    roundtripAndGoldenSpecs (Proxy @(VerificationKey HydraKey))
 
 specSignature :: Spec
 specSignature =
@@ -47,7 +47,7 @@ specSignature =
         ==> sign sk msgA =/= sign sk msgB
     prop "sign/verify roundtrip" $ \sk (msg :: ByteString) ->
       let sig = sign sk msg
-       in verify (deriveVerificationKey sk) sig msg
+       in verify (getVerificationKey sk) sig msg
             & counterexample (show sig)
 
 specMultiSignature :: Spec

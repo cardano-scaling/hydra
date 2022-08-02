@@ -46,7 +46,7 @@ import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.ClientInput (ClientInput (NewTx))
 import qualified Hydra.ClientInput as Input
-import qualified Hydra.Crypto as Hydra
+import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (Committed, PendingCommits)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genAdaValue, genKeyPair, genSigningKey, mkSimpleTx)
@@ -117,7 +117,7 @@ data OffChainState = OffChainState
 data WorldState (m :: Type -> Type) = WorldState
   { -- |List of parties identified by both signing keys required to run protocol.
     -- This list must not contain any duplicated key.
-    hydraParties :: [(Hydra.SigningKey, CardanoSigningKey)]
+    hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
   , hydraState :: GlobalState
   }
   deriving (Eq, Show)
@@ -229,7 +229,7 @@ instance
   data Action (WorldState m) a where
     -- | Creation of the world.
     Seed ::
-      { seedKeys :: [(Hydra.SigningKey, CardanoSigningKey)]
+      { seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]
       } ->
       Action (WorldState m) ()
     -- | All other actions are simply `ClientInput` from some `Party`.
@@ -440,7 +440,7 @@ seedWorld ::
   , MonadAsync m
   , MonadCatch m
   ) =>
-  [(Hydra.SigningKey, b)] ->
+  [(SigningKey HydraKey, b)] ->
   ActionMonad (WorldState m) ()
 seedWorld seedKeys = do
   let parties = map (deriveParty . fst) seedKeys
@@ -568,7 +568,7 @@ unsafeConstructorName = Prelude.head . Prelude.words . show
 
 -- |Generate a list of pairs of Hydra/Cardano signing keys.
 -- All the keys in this list are guaranteed to be unique.
-partyKeys :: Gen [(Hydra.SigningKey, CardanoSigningKey)]
+partyKeys :: Gen [(SigningKey HydraKey, CardanoSigningKey)]
 partyKeys =
   sized $ \len -> do
     hks <- nub <$> vectorOf len arbitrary

@@ -4,7 +4,7 @@ module Hydra.ServerOutput where
 
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.ClientInput (ClientInput (..))
-import qualified Hydra.Crypto as Hydra
+import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (Host)
 import Hydra.Party (Party)
@@ -28,7 +28,7 @@ data ServerOutput tx
   | TxInvalid {utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
   | SnapshotConfirmed
       { snapshot :: Snapshot tx
-      , signatures :: Hydra.MultiSignature (Snapshot tx)
+      , signatures :: MultiSignature (Snapshot tx)
       }
   | GetUTxOResponse {utxo :: UTxOType tx}
   | InvalidInput {reason :: String, input :: Text}

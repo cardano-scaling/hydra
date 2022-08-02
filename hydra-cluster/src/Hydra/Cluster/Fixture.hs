@@ -8,8 +8,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api (NetworkId)
 import qualified Hydra.Cardano.Api as Api
 import Hydra.ContestationPeriod (ContestationPeriod (..))
-import Hydra.Crypto (deriveVerificationKey, generateSigningKey)
-import qualified Hydra.Crypto as Hydra
+import Hydra.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
 import Hydra.Party (Party, deriveParty)
 
 alice, bob, carol :: Party
@@ -17,15 +16,15 @@ alice = deriveParty aliceSk
 bob = deriveParty bobSk
 carol = deriveParty carolSk
 
-aliceSk, bobSk, carolSk :: Hydra.SigningKey
+aliceSk, bobSk, carolSk :: SigningKey HydraKey
 aliceSk = generateSigningKey "alice"
 bobSk = generateSigningKey "bob"
 carolSk = generateSigningKey "carol"
 
-aliceVk, bobVk, carolVk :: Hydra.VerificationKey
-aliceVk = deriveVerificationKey aliceSk
-bobVk = deriveVerificationKey bobSk
-carolVk = deriveVerificationKey carolSk
+aliceVk, bobVk, carolVk :: VerificationKey HydraKey
+aliceVk = getVerificationKey aliceSk
+bobVk = getVerificationKey bobSk
+carolVk = getVerificationKey carolSk
 
 cperiod :: ContestationPeriod
 cperiod = UnsafeContestationPeriod 10

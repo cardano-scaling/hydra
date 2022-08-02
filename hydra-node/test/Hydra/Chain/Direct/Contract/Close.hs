@@ -14,8 +14,7 @@ import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), c
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), assetNameFromVerificationKey, closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
-import qualified Hydra.Crypto as Hydra
+import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
@@ -122,7 +121,7 @@ somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey = flip generateWith 42 $ do
   genForParty genVerificationKey <$> elements healthyParties
 
-healthySigningKeys :: [Hydra.SigningKey]
+healthySigningKeys :: [SigningKey HydraKey]
 healthySigningKeys = [aliceSk, bobSk, carolSk]
 
 healthyParties :: [Party]
@@ -131,7 +130,7 @@ healthyParties = deriveParty <$> healthySigningKeys
 healthyOnChainParties :: [OnChain.Party]
 healthyOnChainParties = partyToChain <$> healthyParties
 
-healthySignature :: SnapshotNumber -> Hydra.MultiSignature (Snapshot Tx)
+healthySignature :: SnapshotNumber -> MultiSignature (Snapshot Tx)
 healthySignature number = aggregate [sign sk snapshot | sk <- healthySigningKeys]
  where
   snapshot = healthySnapshot{number}

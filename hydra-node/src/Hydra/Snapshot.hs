@@ -8,7 +8,8 @@ import Hydra.Prelude
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.=))
-import qualified Hydra.Crypto as Hydra
+import Hydra.Cardano.Api (SigningKey)
+import Hydra.Crypto (HydraKey, MultiSignature, aggregate, generateSigningKey, sign)
 import Hydra.Ledger (IsTx (..))
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
@@ -74,7 +75,7 @@ data ConfirmedSnapshot tx
       }
   | ConfirmedSnapshot
       { snapshot :: Snapshot tx
-      , signatures :: Hydra.MultiSignature (Snapshot tx)
+      , signatures :: MultiSignature (Snapshot tx)
       }
   deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
@@ -99,7 +100,7 @@ isInitialSnapshot = \case
 
 instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
-    ks <- fmap Hydra.generateSigningKey <$> arbitrary
+    ks <- fmap generateSigningKey <$> arbitrary
     utxo <- arbitrary
     genConfirmedSnapshot 0 utxo ks
 
@@ -111,7 +112,7 @@ genConfirmedSnapshot ::
   -- this lower bound.
   SnapshotNumber ->
   UTxOType tx ->
-  [Hydra.SigningKey] ->
+  [SigningKey HydraKey] ->
   Gen (ConfirmedSnapshot tx)
 genConfirmedSnapshot minSn utxo sks
   | minSn > 0 = confirmedSnapshot
@@ -141,5 +142,5 @@ genConfirmedSnapshot minSn utxo sks
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
     let snapshot = Snapshot{number, utxo, confirmed = []}
-    let signatures = Hydra.aggregate $ fmap (`Hydra.sign` snapshot) sks
+    let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}

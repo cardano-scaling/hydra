@@ -37,6 +37,7 @@ import Cardano.Api as X hiding (
   AddressInEra (..),
   AddressTypeInEra (..),
   BalancedTxBody (..),
+  Key (..),
   KeyWitness,
   PlutusScript,
   Script (..),
@@ -71,11 +72,13 @@ import Cardano.Api.Byron as X (
  )
 import Cardano.Api.Shelley as X (
   Address (..),
+  Key (..),
   PlutusScriptOrReferenceInput (PScript),
   PoolId,
   ProtocolParameters (..),
   ShelleyGenesis (..),
   ShelleyLedgerEra,
+  SigningKey (..),
   VerificationKey (..),
   fromPlutusData,
   toPlutusData,

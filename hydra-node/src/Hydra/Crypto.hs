@@ -1,15 +1,24 @@
 -- | Hydra multi-signature credentials and cryptographic primitives used to sign
 -- and verify snapshots (or any messages) within the Hydra protocol.
 --
--- Currently this interface is only supporting naiive, concatenated
+-- We are re-using the 'Key' interface of 'cardano-api' for a consistent
+-- representation. For example: Cardano credentials are 'VerificationKey
+-- PaymentKey', Hydra credentials are 'VerificationKey HydraKey'.
+--
+-- Currently 'MultiSignature' interface is only supporting naiive, concatenated
 -- multi-signatures and will change when we adopt aggregated multi-signatures
 -- including aggregate keys.
---
--- It is recommended to import this module qualified to avoid confusion with
--- Cardano keys & signatures.
-module Hydra.Crypto where
+module Hydra.Crypto (
+  -- * Cardano Key interface
+  Key (..),
 
-import Hydra.Prelude hiding (show)
+  -- * Hydra specifics
+  Hash (HydraKeyHash),
+  AsType (AsHydraKey),
+  module Hydra.Crypto,
+) where
+
+import Hydra.Prelude hiding (Key, show)
 
 import Cardano.Crypto.DSIGN (
   ContextDSIGN,
@@ -17,6 +26,7 @@ import Cardano.Crypto.DSIGN (
   SigDSIGN,
   SignKeyDSIGN,
   VerKeyDSIGN,
+  algorithmNameDSIGN,
   deriveVerKeyDSIGN,
   genKeyDSIGN,
   hashVerKeyDSIGN,
@@ -30,78 +40,116 @@ import Cardano.Crypto.DSIGN (
   signDSIGN,
   verifyDSIGN,
  )
-import Cardano.Crypto.Hash (Blake2b_256, Hash, castHash)
-import Cardano.Crypto.Seed (mkSeedFromBytes)
+import qualified Cardano.Crypto.DSIGN as Crypto
+import Cardano.Crypto.Hash (Blake2b_256, castHash, hashFromBytes, hashToBytes)
+import qualified Cardano.Crypto.Hash as Crypto
+import Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
-import Hydra.Cardano.Api (HasTypeProxy (..), SerialiseAsRawBytes (..), serialiseToRawBytesHexText)
+import Hydra.Cardano.Api (
+  AsType (AsHash, AsSigningKey, AsVerificationKey),
+  HasTextEnvelope (..),
+  HasTypeProxy (..),
+  Hash,
+  Key (..),
+  SerialiseAsCBOR,
+  SerialiseAsRawBytes (..),
+  serialiseToRawBytesHexText,
+ )
 import qualified Hydra.Contract.HeadState as OnChain
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.QuickCheck.Instances.ByteString ()
 import Text.Show (Show (..))
 
--- | The used signature algorithm
-type SignAlg = Ed25519DSIGN
-
 -- * Hydra keys
 
--- | Hydra signing key which can be used to 'sign' messages and 'aggregate'
--- multi-signatures or 'deriveVerificationKey'.
---
--- REVIEW: Maybe rewrite Show instance to /not/ expose secret, eg. 8 bytes from
--- the hash of the key? Although both, cardano-api and cardano-crypto-class are
--- both deriving this and thus showing secret key material as well.
-newtype SigningKey = HydraSigningKey (SignKeyDSIGN SignAlg)
-  deriving (Eq, Show)
+-- | Hydra keys (keyrole) which can be used to 'sign' and 'verify' messages, as
+-- well as 'aggregate' multi-signatures.
+data HydraKey
 
-instance Arbitrary SigningKey where
+instance HasTypeProxy HydraKey where
+  data AsType HydraKey = AsHydraKey
+  proxyToAsType _ = AsHydraKey
+
+-- | Hashes of Hydra keys
+newtype instance Hash HydraKey
+  = HydraKeyHash (Crypto.Hash Blake2b_256 (VerificationKey HydraKey))
+  deriving stock (Ord, Eq, Show)
+
+instance SerialiseAsRawBytes (Hash HydraKey) where
+  serialiseToRawBytes (HydraKeyHash vkh) = hashToBytes vkh
+
+  deserialiseFromRawBytes (AsHash AsHydraKey) bs =
+    HydraKeyHash <$> hashFromBytes bs
+
+instance Key HydraKey where
+  -- Hydra verification key, which can be used to 'verify' signed messages.
+  newtype VerificationKey HydraKey
+    = HydraVerificationKey (VerKeyDSIGN Ed25519DSIGN)
+    deriving (Eq, Show)
+    deriving newtype (ToCBOR, FromCBOR)
+    deriving anyclass (SerialiseAsCBOR)
+
+  -- Hydra signing key which can be used to 'sign' messages and 'aggregate'
+  -- multi-signatures or 'deriveVerificationKey'.
+  --
+  -- REVIEW: Maybe rewrite Show instance to /not/ expose secret, eg. 8 bytes
+  -- from the hash of the key? Although both, cardano-api and
+  -- cardano-crypto-class are both deriving this and thus showing secret key
+  -- material as well.
+  newtype SigningKey HydraKey
+    = HydraSigningKey (SignKeyDSIGN Ed25519DSIGN)
+    deriving (Eq, Show)
+    deriving newtype (ToCBOR, FromCBOR)
+    deriving anyclass (SerialiseAsCBOR)
+
+  -- Get the 'VerificationKey' for a given 'SigningKey'.
+  getVerificationKey (HydraSigningKey sk) =
+    HydraVerificationKey $ deriveVerKeyDSIGN sk
+
+  -- Create a new 'SigningKey' from a 'Seed'. See 'generateSigningKey'
+  deterministicSigningKey AsHydraKey =
+    generateSigningKey . getSeedBytes
+
+  -- Get the number of bytes required to seed a signing key with
+  -- 'deterministicSigningKey'.
+  deterministicSigningKeySeedSize AsHydraKey =
+    seedSizeDSIGN (Proxy :: Proxy Ed25519DSIGN)
+
+  -- Get the verification key hash of a 'VerificationKey'. See 'Blake2b_256' for
+  -- info on the used hashing algorithm.
+  verificationKeyHash (HydraVerificationKey vk) =
+    HydraKeyHash . castHash $ hashVerKeyDSIGN vk
+
+instance Arbitrary (SigningKey HydraKey) where
   arbitrary = generateSigningKey <$> arbitrary
 
--- | Serialise the signing key material as raw bytes.
-serialiseSigningKeyToRawBytes :: SigningKey -> ByteString
-serialiseSigningKeyToRawBytes (HydraSigningKey sk) = rawSerialiseSignKeyDSIGN sk
+instance SerialiseAsRawBytes (SigningKey HydraKey) where
+  serialiseToRawBytes (HydraSigningKey sk) =
+    rawSerialiseSignKeyDSIGN sk
 
--- | Deserialise a signing key from raw bytes.
-deserialiseSigningKeyFromRawBytes :: MonadFail m => ByteString -> m SigningKey
-deserialiseSigningKeyFromRawBytes bytes =
-  case rawDeserialiseSignKeyDSIGN bytes of
-    Nothing -> fail "failed to deserialise signing key"
-    Just key -> pure $ HydraSigningKey key
+  deserialiseFromRawBytes (AsSigningKey AsHydraKey) bs =
+    HydraSigningKey <$> rawDeserialiseSignKeyDSIGN bs
 
--- | Get the 'VerificationKey' for a given 'SigningKey'.
-deriveVerificationKey :: SigningKey -> VerificationKey
-deriveVerificationKey (HydraSigningKey sk) = HydraVerificationKey (deriveVerKeyDSIGN sk)
+instance HasTextEnvelope (SigningKey HydraKey) where
+  textEnvelopeType _ =
+    "HydraSigningKey_"
+      <> fromString (algorithmNameDSIGN (Proxy :: Proxy Ed25519DSIGN))
 
--- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
--- not random and insecure, so don't use this in production code!
-generateSigningKey :: ByteString -> SigningKey
-generateSigningKey seed =
-  HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes padded
- where
-  needed = fromIntegral $ seedSizeDSIGN (Proxy :: Proxy SignAlg)
-  provided = BS.length seed
-  padded = seed <> BS.pack (replicate (needed - provided) 0)
+instance Arbitrary (VerificationKey HydraKey) where
+  arbitrary = getVerificationKey . generateSigningKey <$> arbitrary
 
--- | Hydra verification key, which can be used to 'verify' signed messages.
-newtype VerificationKey = HydraVerificationKey (VerKeyDSIGN SignAlg)
-  deriving (Eq, Show)
-  deriving newtype (ToCBOR, FromCBOR)
-
-instance HasTypeProxy VerificationKey where
-  data AsType VerificationKey = AsHydraVerificationKey
-  proxyToAsType _ = AsHydraVerificationKey
-
-instance SerialiseAsRawBytes VerificationKey where
+instance SerialiseAsRawBytes (VerificationKey HydraKey) where
   serialiseToRawBytes (HydraVerificationKey vk) =
     rawSerialiseVerKeyDSIGN vk
 
-  deserialiseFromRawBytes AsHydraVerificationKey bs =
+  deserialiseFromRawBytes (AsVerificationKey AsHydraKey) bs =
     HydraVerificationKey <$> rawDeserialiseVerKeyDSIGN bs
 
-instance ToJSON VerificationKey where
+instance ToJSON (VerificationKey HydraKey) where
   toJSON = toJSON . serialiseToRawBytesHexText
 
 -- TODO: It would be nice(r) to have a bech32 representation for verification
@@ -112,7 +160,7 @@ instance ToJSON VerificationKey where
 --  bech32PrefixFor = const "hydra_vk"
 --  bech32PrefixesPermitted _ = ["hydra_vk"]
 
-instance FromJSON VerificationKey where
+instance FromJSON (VerificationKey HydraKey) where
   parseJSON = Aeson.withText "VerificationKey" $ decodeBase16 >=> deserialiseKey
    where
     deserialiseKey =
@@ -121,29 +169,25 @@ instance FromJSON VerificationKey where
         (pure . HydraVerificationKey)
         . rawDeserialiseVerKeyDSIGN
 
-instance Arbitrary VerificationKey where
-  arbitrary = deriveVerificationKey . generateSigningKey <$> arbitrary
+instance HasTextEnvelope (VerificationKey HydraKey) where
+  textEnvelopeType _ =
+    "HydraVerificationKey_"
+      <> fromString (algorithmNameDSIGN (Proxy :: Proxy Ed25519DSIGN))
 
--- | Serialise the verification key material as raw bytes.
-serialiseVerificationKeyToRawBytes :: VerificationKey -> ByteString
-serialiseVerificationKeyToRawBytes (HydraVerificationKey vk) = rawSerialiseVerKeyDSIGN vk
-
--- | Deserialise a verirfication key from raw bytes.
-deserialiseVerificationKeyFromRawBytes :: MonadFail m => ByteString -> m VerificationKey
-deserialiseVerificationKeyFromRawBytes bytes =
-  case rawDeserialiseVerKeyDSIGN bytes of
-    Nothing -> fail "failed to deserialise verification key"
-    Just key -> pure $ HydraVerificationKey key
-
--- | Get the Blake2b hash of a 'VerificationKey'.
-hashVerificationKey :: VerificationKey -> Hash Blake2b_256 VerificationKey
-hashVerificationKey (HydraVerificationKey vk) =
-  castHash $ hashVerKeyDSIGN vk
+-- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
+-- not random and insecure, so don't use this in production code!
+generateSigningKey :: ByteString -> SigningKey HydraKey
+generateSigningKey seed =
+  HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes padded
+ where
+  needed = fromIntegral $ seedSizeDSIGN (Proxy :: Proxy Ed25519DSIGN)
+  provided = BS.length seed
+  padded = seed <> BS.pack (replicate (needed - provided) 0)
 
 -- * Signatures
 
 -- | Signature of 'a', not containing the actual payload.
-newtype Signature a = HydraSignature (SigDSIGN SignAlg)
+newtype Signature a = HydraSignature (SigDSIGN Ed25519DSIGN)
   deriving (Eq)
   deriving newtype (ToCBOR, FromCBOR)
 
@@ -174,14 +218,19 @@ instance FromJSON a => FromJSON (Signature a) where
       $ rawDeserialiseSigDSIGN bs
 
 -- | Sign some value 'a' with the provided 'SigningKey'.
-sign :: SignableRepresentation a => SigningKey -> a -> Signature a
+sign :: SignableRepresentation a => SigningKey HydraKey -> a -> Signature a
 sign (HydraSigningKey sk) a =
   HydraSignature $ signDSIGN ctx a sk
  where
-  ctx = () :: ContextDSIGN SignAlg
+  ctx = () :: ContextDSIGN Ed25519DSIGN
 
 -- | Verify a given 'Signature a' and value 'a' using provided 'VerificationKey'.
-verify :: SignableRepresentation a => VerificationKey -> Signature a -> a -> Bool
+verify ::
+  SignableRepresentation a =>
+  VerificationKey HydraKey ->
+  Signature a ->
+  a ->
+  Bool
 verify (HydraVerificationKey vk) (HydraSignature sig) a =
   case verifyDSIGN ctx vk a sig of
     Right () -> True
@@ -189,7 +238,7 @@ verify (HydraVerificationKey vk) (HydraSignature sig) a =
     -- to distinguish in our interface
     Left _ -> False
  where
-  ctx = () :: ContextDSIGN SignAlg
+  ctx = () :: ContextDSIGN Ed25519DSIGN
 
 -- * Multi-signatures
 

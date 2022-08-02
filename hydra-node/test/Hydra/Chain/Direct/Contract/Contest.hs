@@ -19,8 +19,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), assetNameFromVerificationKey, contestTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
-import qualified Hydra.Crypto as Hydra
+import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
@@ -138,7 +137,7 @@ somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey = flip generateWith 42 $ do
   genForParty genVerificationKey <$> elements healthyParties
 
-healthySigningKeys :: [Hydra.SigningKey]
+healthySigningKeys :: [SigningKey HydraKey]
 healthySigningKeys = [aliceSk, bobSk, carolSk]
 
 healthyParties :: [Party]
@@ -147,7 +146,7 @@ healthyParties = deriveParty <$> healthySigningKeys
 healthyOnChainParties :: [OnChain.Party]
 healthyOnChainParties = partyToChain <$> healthyParties
 
-healthySignature :: SnapshotNumber -> Hydra.MultiSignature (Snapshot Tx)
+healthySignature :: SnapshotNumber -> MultiSignature (Snapshot Tx)
 healthySignature number =
   aggregate [sign sk snapshot | sk <- healthySigningKeys]
  where
@@ -177,7 +176,7 @@ genContestMutation
     ) =
     oneof
       [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-          mutatedSignature <- arbitrary :: Gen (Hydra.MultiSignature (Snapshot Tx))
+          mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
           pure $
             Head.Contest
               { snapshotNumber = toInteger healthyContestSnapshotNumber
