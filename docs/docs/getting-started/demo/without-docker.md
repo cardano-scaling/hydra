@@ -20,7 +20,7 @@ All commands below are written as if executed from the `demo` folder in the proj
 
 One needs to prepare a `cardano-node` (devnet) and a `hydra-node` "manually". These instructions assume you have both built and in scope for `cabal exec`.
 
-Alternatively you can use a minimal `nix-shell` prepared for this purpose - `nix-shell -A demo`. If you use this method please skip `cabal exec` part when invoking following commands.
+Alternatively you can use a minimal `nix-shell` prepared for this purpose - `nix-shell -A demo`. If you use this method please skip `cabal exec` part and its `--` switch which is present after every commmand.
 
 First, let's prepare and start an ad-hoc, single `cardano-node` devnet using our configuration. Note that this will create a `devnet` directory in your current working directory:
 

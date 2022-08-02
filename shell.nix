@@ -134,6 +134,7 @@ let
       cardano-node.cardano-node
       cardano-node.cardano-cli
       hsPkgs.hydra-node.components.exes.hydra-node
+      hsPkgs.hydra-tui.components.exes.hydra-tui
     ];
   };
 
