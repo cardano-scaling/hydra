@@ -348,6 +348,9 @@ onOpenClientNewTx ledger party utxo tx =
       Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
       Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
 
+-- | Handle a new transaction request ('ReqTx') from a peer. We apply this transaction to the seen utxo (ledger state), resulting in an updated seen ledger state. If it is not applicable then we wait to retry later.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
   Ledger tx ->
   HeadParameters ->
@@ -394,7 +397,7 @@ onOpenNetworkReqTx ledger parameters headState seenTxs seenUTxO previousRecovera
 --       * Snapshot number is greater than the next expected.
 --       * We wait for the snapshots in between, i.e. until this 'ReqSn' is the next.
 --
--- __Transition__: 'InitialState' → 'InitialState'
+-- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqSn ::
   IsTx tx =>
   Ledger tx ->
