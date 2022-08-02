@@ -290,16 +290,23 @@ onInitialChainCommitTx party previousRecoverableState parameters pendingCommits 
   canCollectCom = null remainingParties && pt == party
   collectedUTxO = mconcat $ Map.elems newCommitted
 
--- | A client requests to abort the head.
--- This leads to an abort transaction on chain, containning the already commited UTxO.
+-- | A client requests to abort the head. This leads to an abort transaction on
+-- chain, containing the already commited UTxO.
 --
 -- __Transition__: N/A
 onInitialClientAbort :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
 onInitialClientAbort committed =
   OnlyEffects [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
 
--- | Observe a collectCom transaction and transition to open state.
--- We initialize the open state using parameters and committed UTxO seen before.
+-- | Observe an abort transaction and transition to idle state.
+--
+-- __Transition__: 'InitialState' → 'IdleState'
+onInitialChainAbortTx :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
+onInitialChainAbortTx committed =
+  NewState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
+
+-- | Observe a collectCom transaction and transition to open state. We
+-- initialize the open state using parameters and committed UTxO seen before.
 -- From these we construct the initial snapshot u0.
 --
 -- __Transition__: 'InitialState' → 'OpenState'
@@ -318,25 +325,6 @@ onInitialChainCollectTx previousRecoverableState parameters committed =
             }
         )
         [ClientEffect $ HeadIsOpen u0]
-
--- | Observe an abort transaction and transition to idle state.
---
--- __Transition__: 'InitialState' → 'IdleState'
-onInitialChainAbortTx :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
-onInitialChainAbortTx committed =
-  NewState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
-
-onOpenClientClose :: ConfirmedSnapshot tx -> Outcome tx
-onOpenClientClose confirmedSnapshot =
-  OnlyEffects [OnChainEffect (CloseTx confirmedSnapshot)]
-
-onClosedClientFanout :: ConfirmedSnapshot tx -> Outcome tx
-onClosedClientFanout confirmedSnapshot =
-  OnlyEffects [OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)]
-
-onOpenClientGetUTxO :: ConfirmedSnapshot tx -> Outcome tx
-onOpenClientGetUTxO confirmedSnapshot =
-  OnlyEffects [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
 
 onOpenClientNewTx :: Ledger tx -> Party -> UTxOType tx -> tx -> Outcome tx
 onOpenClientNewTx ledger party utxo tx =
@@ -524,6 +512,14 @@ onOpenNetworkAckSn
                     )
                     []
 
+-- | A client requests to close the head. This leads to a close transaction on
+-- chain using the latest 'confirmedSnapshot'.
+--
+-- __Transition__: N/A
+onOpenClientClose :: ConfirmedSnapshot tx -> Outcome tx
+onOpenClientClose confirmedSnapshot =
+  OnlyEffects [OnChainEffect (CloseTx confirmedSnapshot)]
+
 onOpenChainCloseTx ::
   HeadParameters ->
   HeadState tx ->
@@ -570,6 +566,10 @@ onClosedShouldPostFanout :: Outcome tx
 onClosedShouldPostFanout =
   OnlyEffects [ClientEffect ReadyToFanout]
 
+onClosedClientFanout :: ConfirmedSnapshot tx -> Outcome tx
+onClosedClientFanout confirmedSnapshot =
+  OnlyEffects [OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)]
+
 onClosedChainFanoutTx :: ConfirmedSnapshot tx -> Outcome tx
 onClosedChainFanoutTx confirmedSnapshot =
   NewState IdleState [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
@@ -610,7 +610,6 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     onIdleClientInit party otherParties contestationPeriod
   (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
     onIdleChainInitTx parties contestationPeriod
-  --
   (InitialState{pendingCommits}, ClientEvent (Commit utxo)) ->
     onInitialClientCommit st ev party pendingCommits utxo
   ( previousRecoverableState@InitialState{parameters, pendingCommits, committed}
@@ -630,16 +629,12 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     onInitialChainCollectTx previousRecoverableState parameters committed
   (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
     onInitialChainAbortTx committed
-  --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     onOpenClientClose confirmedSnapshot
-  --
   (ClosedState{confirmedSnapshot}, ClientEvent Fanout) ->
     onClosedClientFanout confirmedSnapshot
-  --
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
-    onOpenClientGetUTxO confirmedSnapshot
-  --
+    OnlyEffects [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   ( OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}
     , ClientEvent (NewTx tx)
     ) ->
@@ -697,17 +692,14 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         coordinatedHeadState
         closedSnapshotNumber
         remainingContestationPeriod
-  --
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
     onClosedChainContestTx confirmedSnapshot snapshotNumber
   (ClosedState{}, ShouldPostFanout) ->
     onClosedShouldPostFanout
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
     onClosedChainFanoutTx confirmedSnapshot
-  --
   (currentState, OnChainEvent (Rollback n)) ->
     onCurrentChainRollback currentState n
-  --
   (_, ClientEvent{clientInput}) ->
     onCurrentClientEvent clientInput
   (_, NetworkEvent (Connected host)) ->
