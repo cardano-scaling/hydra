@@ -33,6 +33,8 @@ for input in ${inputs[@]}; do
     txInArgs="${txInArgs}--tx-in ${input} "
 done
 
+# Use a 2ADA output to have the right number of outputs, but likely enough from
+# the inputs to balance
 estimatedFee=$(cardano-cli transaction build \
     --babbage-era \
     --cardano-mode --epoch-slots 21600 \
