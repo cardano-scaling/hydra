@@ -72,13 +72,13 @@ spec = do
             reqSn = NetworkEvent $ ReqSn alice 1 []
             snapshot1 = Snapshot 1 mempty []
             ackFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot1) 1
-        s1 <- assertNewState s0 $ update env ledger s0 reqSn
-        s2 <- assertNewState s1 $ update env ledger s1 (ackFrom carolSk carol)
-        s3 <- assertNewState s2 $ update env ledger s2 (ackFrom aliceSk alice)
+        s1 <- assertNewState $ update env ledger s0 reqSn
+        s2 <- assertNewState $ update env ledger s1 (ackFrom carolSk carol)
+        s3 <- assertNewState $ update env ledger s2 (ackFrom aliceSk alice)
 
         getConfirmedSnapshot s3 `shouldBe` Just (Snapshot 0 mempty [])
 
-        s4 <- assertNewState s3 $ update env ledger s3 (ackFrom bobSk bob)
+        s4 <- assertNewState $ update env ledger s3 (ackFrom bobSk bob)
         getConfirmedSnapshot s4 `shouldBe` Just snapshot1
 
       it "does not confirm snapshot when given a non-matching signature produced from a different message" $ do
@@ -88,10 +88,10 @@ spec = do
             snapshot' = Snapshot 2 mempty []
             ackFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot) 1
             invalidAckFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot') 1
-        s1 <- assertNewState s0 $ update env ledger s0 reqSn
-        s2 <- assertNewState s1 $ update env ledger s1 (ackFrom carolSk carol)
-        s3 <- assertNewState s2 $ update env ledger s2 (ackFrom aliceSk alice)
-        s4 <- assertNewState s3 $ update env ledger s3 (invalidAckFrom bobSk bob)
+        s1 <- assertNewState $ update env ledger s0 reqSn
+        s2 <- assertNewState $ update env ledger s1 (ackFrom carolSk carol)
+        s3 <- assertNewState $ update env ledger s2 (ackFrom aliceSk alice)
+        s4 <- assertNewState $ update env ledger s3 (invalidAckFrom bobSk bob)
 
         getConfirmedSnapshot s4 `shouldBe` getConfirmedSnapshot s3
 
@@ -100,10 +100,10 @@ spec = do
             reqSn = NetworkEvent $ ReqSn alice 1 []
             snapshot = Snapshot 1 mempty []
             ackFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot) 1
-        s1 <- assertNewState s0 $ update env ledger s0 reqSn
-        s2 <- assertNewState s1 $ update env ledger s1 (ackFrom carolSk carol)
-        s3 <- assertNewState s2 $ update env ledger s2 (ackFrom aliceSk alice)
-        s4 <- assertNewState s3 $ update env ledger s3 (ackFrom (generateSigningKey "foo") bob)
+        s1 <- assertNewState $ update env ledger s0 reqSn
+        s2 <- assertNewState $ update env ledger s1 (ackFrom carolSk carol)
+        s3 <- assertNewState $ update env ledger s2 (ackFrom aliceSk alice)
+        s4 <- assertNewState $ update env ledger s3 (ackFrom (generateSigningKey "foo") bob)
 
         getConfirmedSnapshot s4 `shouldBe` getConfirmedSnapshot s3
 
@@ -127,7 +127,7 @@ spec = do
         let s0 = inOpenState threeParties ledger
             reqSn1 = NetworkEvent $ ReqSn alice 1 []
             reqSn2 = NetworkEvent $ ReqSn bob 2 []
-        s1 <- assertNewState s0 $ update env ledger s0 reqSn1
+        s1 <- assertNewState $ update env ledger s0 reqSn1
         update env ledger s1 reqSn2 `shouldBe` Wait (WaitOnSnapshotNumber 1)
 
       it "acks signed snapshot from the constant leader" $ do
@@ -189,7 +189,7 @@ spec = do
             firstReqSn = NetworkEvent $ ReqSn theLeader nextSN [aValidTx 42]
             secondReqSn = NetworkEvent $ ReqSn theLeader nextSN [aValidTx 51]
 
-        s1 <- assertNewState s0 $ update env ledger s0 firstReqSn
+        s1 <- assertNewState $ update env ledger s0 firstReqSn
         update env ledger s1 secondReqSn `shouldBe` Error (InvalidEvent secondReqSn s1)
 
       it "ignores in-flight ReqTx when closed" $ do
@@ -204,14 +204,14 @@ spec = do
 
       it "cannot observe abort after collect com" $ do
         let s0 = inInitialState threeParties
-        s1 <- assertNewState s0 $ update env ledger s0 (OnChainEvent $ Observation OnCollectComTx)
+        s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ Observation OnCollectComTx)
         let invalidEvent = OnChainEvent $ Observation OnAbortTx
         let s2 = update env ledger s1 invalidEvent
         s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
       it "cannot observe collect com after abort" $ do
         let s0 = inInitialState threeParties
-        s1 <- assertNewState s0 $ update env ledger s0 (OnChainEvent $ Observation OnAbortTx)
+        s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ Observation OnAbortTx)
         let invalidEvent = OnChainEvent $ Observation OnCollectComTx
         let s2 = update env ledger s1 invalidEvent
         s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
@@ -266,10 +266,9 @@ spec = do
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             contestSnapshot1Event = OnChainEvent $ Observation $ OnContestTx 1
             contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
-        s1 <- update env ledger s0 contestSnapshot1Event `hasEffect_` contestTxEffect $ s0
-        s1 `shouldSatisfy` \case
-          ClosedState{} -> True
-          _ -> False
+            s1 = update env ledger s0 contestSnapshot1Event
+        s1 `hasEffect` contestTxEffect
+        assertOnlyEffects s1
 
 --
 -- Assertion utilities
@@ -283,9 +282,6 @@ hasEffect (OnlyEffects effects) effect
   | effect `elem` effects = pure ()
   | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
 hasEffect o _ = failure $ "Unexpected outcome: " <> show o
-
-hasEffect_ :: (HasCallStack, IsTx tx) => Outcome tx -> Effect tx -> HeadState tx -> IO (HeadState tx)
-hasEffect_ o e currentState = currentState <$ hasEffect o e
 
 hasEffectSatisfying :: (HasCallStack, IsTx tx) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
 hasEffectSatisfying (NewState s effects) match
@@ -365,10 +361,17 @@ getConfirmedSnapshot = \case
   _ ->
     Nothing
 
-assertNewState :: IsTx tx => HeadState tx -> Outcome tx -> IO (HeadState tx)
-assertNewState currentSt = \case
+assertNewState :: IsTx tx => Outcome tx -> IO (HeadState tx)
+assertNewState = \case
   NewState st _ -> pure st
-  OnlyEffects _ -> pure currentSt
+  OnlyEffects effects -> failure $ "Unexpected 'OnlyEffects' outcome: " <> show effects
+  Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
+  Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
+
+assertOnlyEffects :: IsTx tx => Outcome tx -> IO ()
+assertOnlyEffects = \case
+  NewState st _ -> failure $ "Unexpected 'NewState' outcome: " <> show st
+  OnlyEffects _ -> pure ()
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
   Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
 
@@ -379,7 +382,7 @@ applyEvent ::
   StateT (HeadState tx) IO ()
 applyEvent action e = do
   s <- get
-  s' <- lift $ assertNewState s (action s e)
+  s' <- lift $ assertNewState (action s e)
   put s'
 
 assertStateUnchangedFrom :: IsTx tx => HeadState tx -> Outcome tx -> Expectation
