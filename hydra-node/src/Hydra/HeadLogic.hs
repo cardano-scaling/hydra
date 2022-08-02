@@ -326,7 +326,20 @@ onInitialChainCollectTx previousRecoverableState parameters committed =
         )
         [ClientEffect $ HeadIsOpen u0]
 
-onOpenClientNewTx :: Ledger tx -> Party -> UTxOType tx -> tx -> Outcome tx
+-- | A client requests to ingest a new transaction (on layer 2). We do check
+-- whether the passed transaction can be applied against the confirmed ledger
+-- state and yield a corresponding 'TxValid' or 'TxInvalid' client response.
+--
+-- __Transition__: N/A
+onOpenClientNewTx ::
+  Ledger tx ->
+  -- | Us
+  Party ->
+  -- | UTxO from the last confirmed snapshot. A.k.a the confirmed ledger state.
+  UTxOType tx ->
+  -- | The transaction to be submitted to the head.
+  tx ->
+  Outcome tx
 onOpenClientNewTx ledger party utxo tx =
   OnlyEffects effects
  where
