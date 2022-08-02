@@ -41,7 +41,7 @@ import Cardano.Crypto.DSIGN (
   verifyDSIGN,
  )
 import qualified Cardano.Crypto.DSIGN as Crypto
-import Cardano.Crypto.Hash (Blake2b_256, castHash, hashFromBytes, hashToBytes)
+import Cardano.Crypto.Hash (Blake2b_256, SHA256, castHash, hashFromBytes, hashToBytes)
 import qualified Cardano.Crypto.Hash as Crypto
 import Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
@@ -63,6 +63,7 @@ import qualified Hydra.Contract.HeadState as OnChain
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.QuickCheck.Instances.ByteString ()
 import Text.Show (Show (..))
+import Cardano.Crypto.Hash.Class (HashAlgorithm(digest))
 
 -- * Hydra keys
 
@@ -134,17 +135,6 @@ instance SerialiseAsRawBytes (SigningKey HydraKey) where
   deserialiseFromRawBytes (AsSigningKey AsHydraKey) bs =
     HydraSigningKey <$> rawDeserialiseSignKeyDSIGN bs
 
--- | Deserialise a signing key from raw bytes.
-deserialiseSigningKeyFromRawBytes :: MonadFail m => ByteString -> m SigningKey
-deserialiseSigningKeyFromRawBytes bytes =
-  case rawDeserialiseSignKeyDSIGN bytes of
-    Nothing -> fail "failed to deserialise signing key"
-    Just key -> pure $ HydraSigningKey key
-
--- | Get the 'VerificationKey' for a given 'SigningKey'.
-deriveVerificationKey :: SigningKey -> VerificationKey
-deriveVerificationKey (HydraSigningKey sk) = HydraVerificationKey (deriveVerKeyDSIGN sk)
-
 instance HasTextEnvelope (SigningKey HydraKey) where
   textEnvelopeType _ =
     "HydraSigningKey_"
@@ -191,10 +181,8 @@ generateSigningKey :: ByteString -> SigningKey HydraKey
 generateSigningKey seed =
   HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes padded
  where
-  needed = fromIntegral $ seedSizeDSIGN (Proxy :: Proxy Ed25519DSIGN)
-  provided = BS.length seed
-  lengthAsByte = fromIntegral $ BS.length seed
-  padded = BS.pack [lengthAsByte] <> seed <> BS.pack (replicate (needed - provided) 0)
+  hashOfSeed = digest (Proxy :: Proxy SHA256) seed
+  padded = hashOfSeed <> seed
 
 -- * Signatures
 
