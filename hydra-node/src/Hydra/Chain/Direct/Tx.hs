@@ -385,24 +385,26 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
+-- | Create the fanout transaction, which distributes the closed state
+-- accordingly. The head validator allows fanout only > deadline, so we need
+-- to set the lower bound to be deadline + 1 slot.
 fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
   -- | Everything needed to spend the Head state-machine output.
   UTxOWithScript ->
-  -- | Point in time at which this transaction is posted, used to set
-  -- lower bound.
-  PointInTime ->
+  -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
+  SlotNo ->
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) (slotNo, _) headTokenScript =
+fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs orderedTxOutsToFanout
       & burnTokens headTokenScript Burn headTokens
-      & setValidityLowerBound slotNo
+      & setValidityLowerBound (deadlineSlotNo + 1)
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer

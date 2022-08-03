@@ -347,14 +347,16 @@ contest confirmedSnapshot pointInTime OnChainHeadState{ownVerificationKey, state
 
 fanout ::
   UTxO ->
-  PointInTime ->
+  -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
+  SlotNo ->
   OnChainHeadState 'StClosed ->
   Tx
-fanout utxo pointInTime OnChainHeadState{stateMachine} = do
-  let ClosedThreadOutput{closedThreadUTxO = (i, o, dat)} = closedThreadOutput
-   in fanoutTx utxo (i, o, dat) pointInTime closedHeadTokenScript
+fanout utxo deadlineSlotNo OnChainHeadState{stateMachine} = do
+  fanoutTx utxo (i, o, dat) deadlineSlotNo closedHeadTokenScript
  where
   Closed{closedThreadOutput, closedHeadTokenScript} = stateMachine
+
+  ClosedThreadOutput{closedThreadUTxO = (i, o, dat)} = closedThreadOutput
 
 -- Observing Transitions
 

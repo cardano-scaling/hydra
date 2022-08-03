@@ -11,7 +11,8 @@ import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
 import Cardano.Ledger.Babbage.PParams (PParams' (..))
 import Cardano.Slotting.EpochInfo (EpochInfo, hoistEpochInfo)
 import Cardano.Slotting.Slot (SlotNo)
-import Cardano.Slotting.Time (RelativeTime, toRelativeTime)
+import Cardano.Slotting.Time (SystemStart, toRelativeTime)
+import Control.Arrow (left)
 import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
   CardanoMode,
@@ -28,8 +29,9 @@ import Hydra.Chain.CardanoClient (
   querySystemStart,
   queryTip,
  )
+import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
-import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, wallclockToSlot)
+import Ouroboros.Consensus.HardFork.History.Qry (PastHorizonException, interpretQuery, wallclockToSlot)
 import Plutus.V2.Ledger.Api (POSIXTime)
 
 type PointInTime = (SlotNo, POSIXTime)
@@ -40,6 +42,8 @@ data TimeHandle = TimeHandle
   , -- | Adjust a 'PointInTime' by some number of slots, positively or
     -- negatively.
     adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
+  , -- | Lookup slot number given a POSIXTime. This will fail if it's outside the "safe zone".
+    slotFromPOSIXTime :: POSIXTime -> Either Text SlotNo
   }
 
 -- | Compute current Query 'PointInTime' from wall clock and by querying the
@@ -53,8 +57,8 @@ queryTimeHandle networkId socketPath = do
   systemStart <- querySystemStart networkId socketPath (QueryAt tip)
   eraHistory <- queryEraHistory networkId socketPath (QueryAt tip)
   pparams <- queryProtocolParameters networkId socketPath (QueryAt tip)
-  relativeTime <- toRelativeTime systemStart <$> getCurrentTime
-  slotNo <- relativeTimeToSlot relativeTime eraHistory
+  currentTime <- getCurrentTime
+  currentSlotNo <- either throwIO pure $ utcTimeToSlot systemStart eraHistory currentTime
   let toTime =
         slotToPOSIXTime
           (toLedgerPParams (shelleyBasedEra @Era) pparams)
@@ -62,11 +66,13 @@ queryTimeHandle networkId socketPath = do
           systemStart
   pure $
     TimeHandle
-      { currentPointInTime = (slotNo,) <$> toTime slotNo
+      { currentPointInTime = (currentSlotNo,) <$> toTime currentSlotNo
       , adjustPointInTime = \n (slot, _) -> do
           let adjusted = slot + n
           time <- toTime adjusted
           pure (adjusted, time)
+      , slotFromPOSIXTime =
+          left show . utcTimeToSlot systemStart eraHistory . posixToUTCTime
       }
  where
   toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Either Text)
@@ -74,8 +80,9 @@ queryTimeHandle networkId socketPath = do
     hoistEpochInfo (first show . runExcept) $
       Consensus.interpreterToEpochInfo interpreter
 
-  relativeTimeToSlot :: RelativeTime -> EraHistory CardanoMode -> IO SlotNo
-  relativeTimeToSlot relativeTime (EraHistory _ interpreter) =
+  utcTimeToSlot :: SystemStart -> EraHistory CardanoMode -> UTCTime -> Either PastHorizonException SlotNo
+  utcTimeToSlot systemStart (EraHistory _ interpreter) utcTime = do
+    let relativeTime = toRelativeTime systemStart utcTime
     case interpretQuery interpreter (wallclockToSlot relativeTime) of
-      Left pastHorizonEx -> throwIO pastHorizonEx
+      Left pastHorizonEx -> Left pastHorizonEx
       Right (slotNo, _timeSpentInSlot, _timeLeftInSlot) -> pure slotNo
