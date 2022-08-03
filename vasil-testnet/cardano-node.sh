@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 exec cardano-node run \
-  --config config/config.json \
-  --topology config/topology.json \
+  --config cardano-node/config.json \
+  --topology cardano-node/topology.json \
   --database-path db \
-  --socket-path ipc/node.socket
+  --socket-path node.socket
