@@ -178,10 +178,9 @@ instance HasTextEnvelope (VerificationKey HydraKey) where
 -- not random and insecure, so don't use this in production code!
 generateSigningKey :: ByteString -> SigningKey HydraKey
 generateSigningKey seed =
-  HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes padded
+  HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes hashOfSeed
  where
   hashOfSeed = digest (Proxy :: Proxy SHA256) seed
-  padded = hashOfSeed <> seed
 
 -- * Signatures
 
