@@ -54,7 +54,7 @@ spec = do
           threadDelay 1
           shouldRender "TUI"
           -- Using hex representation of aliceSk's HydraVerificationKey
-          shouldRender "Party 38088e4c2ae82"
+          shouldRender "Party d5bf4a3fcce71"
           sendInputEvent $ EvKey (KChar 'q') []
 
       it "supports the init & abort Head life cycle" $
