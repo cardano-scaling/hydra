@@ -200,8 +200,8 @@ data Environment = Environment
 
 -- * Simplified Hydra Head Protocol Without Conflict Resolution
 
--- | On IdleState, upon client init event we post an init-tx to the chain using
--- the head parameters. This is not changing the state.
+-- | A client requests to init the head. This leads to an init transaction on chain,
+-- containing the head parameters.
 --
 -- __Transition__: N/A
 -- TODO: maybe change signature so it takes [Party] instead (all parties)?
@@ -236,8 +236,8 @@ onIdleChainInitTx parties contestationPeriod =
     )
     [ClientEffect $ ReadyToCommit $ fromList parties]
 
--- | Translate client's commit into an on-chain transaction provided they
--- haven't committed yet.
+-- | A client requests to commit an utxo to the head. This leads to a commit transaction on chain
+--  containing the utxo if they haven't committed yet.
 --
 -- __Transition__: N/A
 onInitialClientCommit ::
@@ -557,6 +557,10 @@ onOpenClientClose :: ConfirmedSnapshot tx -> Outcome tx
 onOpenClientClose confirmedSnapshot =
   OnlyEffects [OnChainEffect (CloseTx confirmedSnapshot)]
 
+
+-- | Observe a close transaction and transition to closed state.
+--
+-- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
   HeadParameters ->
   -- | Current state; recorded as previous recoverable state
@@ -588,6 +592,9 @@ onOpenChainCloseTx
     delay = Delay{delay = remainingContestationPeriod, reason = WaitOnContestationPeriod, event = ShouldPostFanout}
     onChainEffectCondition = number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
 
+-- | A client requests to contest.
+--
+-- __Transition__: N/A
 onClosedChainContestTx :: ConfirmedSnapshot tx -> SnapshotNumber -> Outcome tx
 onClosedChainContestTx confirmedSnapshot snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
@@ -601,34 +608,51 @@ onClosedChainContestTx confirmedSnapshot snapshotNumber
     -- and/or not try to fan out on the `ShouldPostFanout` later.
     OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
 
+-- | A client requests to post fanout.
+--
+-- __Transition__: N/A
 onClosedShouldPostFanout :: Outcome tx
 onClosedShouldPostFanout =
   OnlyEffects [ClientEffect ReadyToFanout]
 
+-- | A client requests to fanout. This leads to a fanout transaction on
+-- chain using the latest 'confirmedSnapshot'.
+--
+-- __Transition__: N/A
 onClosedClientFanout :: ConfirmedSnapshot tx -> Outcome tx
 onClosedClientFanout confirmedSnapshot =
   OnlyEffects [OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)]
 
+-- | Observe a fanout transaction and finalize the head.
+--
+-- __Transition__: 'OpenState' → 'IdleState'
 onClosedChainFanoutTx :: ConfirmedSnapshot tx -> Outcome tx
 onClosedChainFanoutTx confirmedSnapshot =
   NewState IdleState [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
 
+-- | Observe a rollback transaction and transition to previous recoverable state.
+--
+-- __Transition__: 'OpenState' → 'HeadState'
 onCurrentChainRollback :: HeadState tx -> Word -> Outcome tx
 onCurrentChainRollback currentState n =
   NewState (rollback n currentState) [ClientEffect RolledBack]
 
+-- __Transition__: N/A
 onCurrentClientEvent :: ClientInput tx -> Outcome tx
 onCurrentClientEvent clientInput =
   OnlyEffects [ClientEffect $ CommandFailed clientInput]
 
+-- __Transition__: N/A
 onCurrentNetworkConnected :: Host -> Outcome tx
 onCurrentNetworkConnected host =
   OnlyEffects [ClientEffect $ PeerConnected host]
 
+-- __Transition__: N/A
 onCurrentNetworkDisconnected :: Host -> Outcome tx
 onCurrentNetworkDisconnected host =
   OnlyEffects [ClientEffect $ PeerDisconnected host]
 
+-- __Transition__: N/A
 onCurrentPostTxError :: PostChainTx tx -> PostTxError tx -> Outcome tx
 onCurrentPostTxError postChainTx postTxError =
   OnlyEffects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
