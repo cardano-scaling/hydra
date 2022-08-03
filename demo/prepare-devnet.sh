@@ -17,4 +17,6 @@ sed -i "s/\"startTime\": [0-9]*/\"startTime\": $(date +%s)/" "$TARGETDIR/genesis
 sed -i "s/\"systemStart\": \".*\"/\"systemStart\": \"$(date -u +%FT%TZ)\"/" "$TARGETDIR/genesis-shelley.json"
 
 find $TARGETDIR -type f -exec chmod 0400 {} \;
+mkdir "$TARGETDIR/ipc"
 echo "Prepared devnet, you can start the cluster now"
+

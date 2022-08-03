@@ -20,6 +20,8 @@ All commands below are written as if executed from the `demo` folder in the proj
 
 One needs to prepare a `cardano-node` (devnet) and a `hydra-node` "manually". These instructions assume you have both built and in scope for `cabal exec`.
 
+Alternatively you can use a minimal `nix-shell` prepared for this purpose - `nix-shell -A demo`. If you use this method please skip `cabal exec` part and its `--` switch which is present after every commmand.
+
 First, let's prepare and start an ad-hoc, single `cardano-node` devnet using our configuration. Note that this will create a `devnet` directory in your current working directory:
 
 ````mdx-code-block
@@ -28,15 +30,14 @@ First, let's prepare and start an ad-hoc, single `cardano-node` devnet using our
 ```
 ./prepare-devnet.sh
 cd devnet
-mkdir ipc
 cabal exec cardano-node -- run \
   --config cardano-node.json \
   --topology topology.json \
   --database-path db \
   --socket-path ipc/node.socket \
-  --shelley-operational-certificate credentials/stake-pool-1/opcert.cert \
-  --shelley-kes-key credentials/stake-pool-1/kes.skey \
-  --shelley-vrf-key credentials/stake-pool-1/vrf.skey
+  --shelley-operational-certificate opcert.cert \
+  --shelley-kes-key kes.skey \
+  --shelley-vrf-key vrf.skey
 ```
 
 </TerminalWindow>
