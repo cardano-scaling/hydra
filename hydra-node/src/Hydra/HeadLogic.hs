@@ -242,17 +242,15 @@ onIdleChainInitTx parties contestationPeriod =
 -- __Transition__: N/A
 onInitialClientCommit ::
   -- | Current state;
-  HeadState tx ->
-  Event tx ->
   Party ->
   PendingCommits ->
-  UTxOType tx ->
+  ClientInput tx ->
   Outcome tx
-onInitialClientCommit st ev party pendingCommits utxo
-  | canCommit =
-    OnlyEffects [OnChainEffect (CommitTx party utxo)]
-  | otherwise =
-    Error $ InvalidEvent ev st
+onInitialClientCommit party pendingCommits clientInput =
+  case clientInput of
+    (Commit utxo)
+      | canCommit -> OnlyEffects [OnChainEffect (CommitTx party utxo)]
+    _ -> OnlyEffects [ClientEffect $ CommandFailed clientInput]
  where
   canCommit = party `Set.member` pendingCommits
 
@@ -651,8 +649,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     onIdleClientInit party otherParties contestationPeriod
   (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
     onIdleChainInitTx parties contestationPeriod
-  (InitialState{pendingCommits}, ClientEvent (Commit utxo)) ->
-    onInitialClientCommit st ev party pendingCommits utxo
+  (InitialState{pendingCommits}, ClientEvent clientInput@(Commit _)) ->
+    onInitialClientCommit party pendingCommits clientInput
   ( previousRecoverableState@InitialState{parameters, pendingCommits, committed}
     , OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})
     ) ->
