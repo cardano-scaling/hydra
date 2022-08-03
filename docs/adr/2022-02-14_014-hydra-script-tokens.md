@@ -43,3 +43,4 @@ Accepted
 ## Follow-up questions
 
 * What value does the `ST` actually add? We could always look for the `PT` to identify a Head and contract continuity would already be achieved by the `PT`s!
+* In discussions it turned out to be not clear where the Head's `CurrencySymbol` is coming from, and consequently how to identify that an `ST` is indeed an `ST`?
