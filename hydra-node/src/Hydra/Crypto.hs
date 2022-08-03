@@ -44,7 +44,6 @@ import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash (Blake2b_256, SHA256, castHash, hashFromBytes, hashToBytes)
 import qualified Cardano.Crypto.Hash as Crypto
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
-import Cardano.Crypto.Hash.SHA256 (SHA256)
 import Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
 import qualified Data.Aeson as Aeson
