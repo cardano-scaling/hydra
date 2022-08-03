@@ -23,8 +23,8 @@ import Hydra.Chain (
   PostTxError,
  )
 import Hydra.ClientInput (ClientInput (..))
-import Hydra.Crypto (HydraKey, Signature, SigningKey, aggregateInOrder, sign, verify)
 import Hydra.ContestationPeriod
+import Hydra.Crypto (HydraKey, Signature, SigningKey, aggregateInOrder, sign, verify)
 import Hydra.Ledger (
   IsTx,
   Ledger,
@@ -204,7 +204,7 @@ data Environment = Environment
 -- the head parameters. This is not changing the state.
 --
 -- __Transition__: N/A
--- TODO: change signature so it takes [Party] instead (all parties)
+-- TODO: maybe change signature so it takes [Party] instead (all parties)?
 onIdleClientInit ::
   -- | Us
   Party ->
@@ -241,6 +241,7 @@ onIdleChainInitTx parties contestationPeriod =
 --
 -- __Transition__: N/A
 onInitialClientCommit ::
+  -- | Current state;
   HeadState tx ->
   Event tx ->
   Party ->
@@ -266,7 +267,6 @@ onInitialChainCommitTx ::
   Party ->
   -- | Current state; recorded as previous recoverable state
   HeadState tx ->
-  -- | TODO: Unused
   HeadParameters ->
   PendingCommits ->
   Committed tx ->
@@ -311,7 +311,12 @@ onInitialChainAbortTx committed =
 --
 -- __Transition__: 'InitialState' → 'OpenState'
 onInitialChainCollectTx ::
-  (Foldable t, Monoid (UTxOType tx)) => HeadState tx -> HeadParameters -> t (UTxOType tx) -> Outcome tx
+  (Foldable t, Monoid (UTxOType tx)) =>
+  -- | Current state; recorded as previous recoverable state
+  HeadState tx ->
+  HeadParameters ->
+  t (UTxOType tx) ->
+  Outcome tx
 onInitialChainCollectTx previousRecoverableState parameters committed =
   -- TODO: We would want to check whether this even matches our local state.
   -- For example, we do expect `null remainingParties` but what happens if
@@ -404,8 +409,10 @@ onOpenNetworkReqSn ::
   Ledger tx ->
   Party ->
   SigningKey HydraKey ->
+  -- | Current state; recorded as previous recoverable state
   HeadState tx ->
   HeadParameters ->
+  -- | The offchain coordinated head state
   CoordinatedHeadState tx ->
   Party ->
   SnapshotNumber ->
@@ -485,8 +492,10 @@ onOpenNetworkAckSn ::
   [Party] ->
   Party ->
   HeadParameters ->
+  -- | Current state; recorded as previous recoverable state
   HeadState tx ->
   Signature (Snapshot tx) ->
+  -- | The offchain coordinated head state
   CoordinatedHeadState tx ->
   SnapshotNumber ->
   Outcome tx
@@ -552,7 +561,9 @@ onOpenClientClose confirmedSnapshot =
 
 onOpenChainCloseTx ::
   HeadParameters ->
+  -- | Current state; recorded as previous recoverable state
   HeadState tx ->
+  -- | The offchain coordinated head state
   CoordinatedHeadState tx ->
   SnapshotNumber ->
   NominalDiffTime ->
@@ -669,7 +680,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     , ClientEvent (NewTx tx)
     ) ->
       onOpenClientNewTx ledger party utxo tx
-  (OpenState{ parameters, coordinatedHeadState, previousRecoverableState}, NetworkEvent (ReqTx _ tx)) ->
+  (OpenState{parameters, coordinatedHeadState, previousRecoverableState}, NetworkEvent (ReqTx _ tx)) ->
     onOpenNetworkReqTx ledger parameters previousRecoverableState coordinatedHeadState tx
   ( OpenState
       { parameters

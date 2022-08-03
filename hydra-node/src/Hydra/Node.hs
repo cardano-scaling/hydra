@@ -36,7 +36,7 @@ import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), deserialiseFromRawBytes)
 import Hydra.Chain (Chain (..), ChainEvent, PostTxError)
 import Hydra.ClientInput (ClientInput)
-import Hydra.Crypto (AsType (AsHydraKey),deserialiseSigningKeyFromRawBytes,deserialiseVerificationKeyFromRawBytes)
+import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
   Effect (..),
   Environment (..),
@@ -78,7 +78,6 @@ initEnvironment Options{hydraSigningKey, hydraVerificationKeys} = do
     readFileBS p >>= maybeFail <$> deserialiseFromRawBytes (AsVerificationKey AsHydraKey)
 
   maybeFail = maybe (fail "could not deserialise from raw bytes") pure
-
 -- ** Create and run a hydra node
 
 data HydraNode tx m = HydraNode
