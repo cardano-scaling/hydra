@@ -132,7 +132,7 @@ let
   run-hydra-demo = pkgs.writers.writePython3Bin
     "run-hydra-demo"
     { libraries = [pkgs.python3Packages.libtmux]; }
-    (import ./demo/run-tmux.py);
+    (builtins.readFile ./demo/run-tmux.py);
 
   # A shell which provides env for the demo application
   demoShell = pkgs.mkShell {

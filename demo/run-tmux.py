@@ -1,8 +1,3 @@
-''
-# The above quotation is required because we import this
-# module as a nix `String`.
-# Please don't use triple quotes inside this `Python` module.
-
 import libtmux
 from collections import namedtuple
 import os
@@ -188,4 +183,3 @@ if not child:
     # is required to fix the situation (like a window switch).
     if hydra_tuis_window:
         hydra_tuis_window.select_window()
-''
