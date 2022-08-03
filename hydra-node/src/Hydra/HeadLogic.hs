@@ -464,16 +464,30 @@ onOpenNetworkReqSn
       SeenSnapshot{} -> True
       _ -> False
 
+-- | Handle a acknowledge seen request ('AckSn') from a peer. We do distinguish two cases:
+--   * Case 1: we received an AckSn request we did not expect
+--      + respective AckSn and ReqSn out of order.
+--      + multiple AckSns out of order.
+--
+--     In these cases we simply wait to see the expected AckSn and we reenqueue these messages.
+--
+--     The reason this can happen is because we dont make any assumptions on the network packet delivery,
+--     and therefore the messages can arrive in any order.
+--
+--   * Case 2: we received the expected Ack.
+--      + provided that the signature is valid, we add it to the set of signatories we have
+--      + when we have gather all the signatures then we confirm the snapshot.
+--      + when the signature is not valid then nothing changes.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkAckSn ::
   IsTx tx =>
   [Party] ->
   Party ->
   HeadParameters ->
   HeadState tx ->
-  SeenSnapshot tx ->
   Signature (Snapshot tx) ->
   CoordinatedHeadState tx ->
-  [tx] ->
   SnapshotNumber ->
   Outcome tx
 onOpenNetworkAckSn
@@ -481,10 +495,8 @@ onOpenNetworkAckSn
   otherParty
   parameters
   previousRecoverableState
-  seenSnapshot
   snapshotSignature
-  headState
-  seenTxs
+  headState@CoordinatedHeadState{seenSnapshot, seenTxs}
   sn =
     case seenSnapshot of
       NoSeenSnapshot -> Wait WaitOnSeenSnapshot
@@ -497,7 +509,8 @@ onOpenNetworkAckSn
                 | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
                 | otherwise = sigs
               multisig = aggregateInOrder sigs' parties
-           in if Map.keysSet sigs' == Set.fromList parties
+              allMembersHaveSigned = Map.keysSet sigs' == Set.fromList parties
+           in if allMembersHaveSigned
                 then
                   NewState
                     ( OpenState
@@ -679,7 +692,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         evt
   ( OpenState
       { parameters = parameters@HeadParameters{parties}
-      , coordinatedHeadState = headState@CoordinatedHeadState{seenSnapshot, seenTxs}
+      , coordinatedHeadState = headState@CoordinatedHeadState{}
       , previousRecoverableState
       }
     , NetworkEvent (AckSn otherParty snapshotSignature sn)
@@ -689,10 +702,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         otherParty
         parameters
         previousRecoverableState
-        seenSnapshot
         snapshotSignature
         headState
-        seenTxs
         sn
   ( previousRecoverableState@OpenState{parameters, coordinatedHeadState}
     , OnChainEvent (Observation OnCloseTx{snapshotNumber = closedSnapshotNumber, remainingContestationPeriod})
