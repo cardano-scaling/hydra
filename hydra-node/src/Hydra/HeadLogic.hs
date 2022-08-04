@@ -632,7 +632,7 @@ onClosedChainFanoutTx confirmedSnapshot =
     [ ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot
     ]
 
--- | Observe a rollback transaction and transition to previous recoverable state.
+-- | Observe a chain rollback and transition to previous recoverable state.
 --
 -- __Transition__: 'OpenState' → 'HeadState'
 onCurrentChainRollback :: HeadState tx -> Word -> Outcome tx
