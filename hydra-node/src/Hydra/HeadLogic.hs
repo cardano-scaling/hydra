@@ -611,13 +611,6 @@ onClosedChainContestTx confirmedSnapshot snapshotNumber
     -- and/or not try to fan out on the `ShouldPostFanout` later.
     OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
 
--- | A client requests to post fanout.
---
--- __Transition__: N/A
-onClosedShouldPostFanout :: Outcome tx
-onClosedShouldPostFanout =
-  OnlyEffects [ClientEffect ReadyToFanout]
-
 -- | A client requests to fanout. This leads to a fanout transaction on
 -- chain using the latest 'confirmedSnapshot'.
 --
@@ -753,7 +746,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
     onClosedChainContestTx confirmedSnapshot snapshotNumber
   (ClosedState{}, ShouldPostFanout) ->
-    onClosedShouldPostFanout
+    OnlyEffects [ClientEffect ReadyToFanout]
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
     onClosedChainFanoutTx confirmedSnapshot
   (currentState, OnChainEvent (Rollback n)) ->
