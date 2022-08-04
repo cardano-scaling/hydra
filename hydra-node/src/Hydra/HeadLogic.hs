@@ -617,14 +617,18 @@ onClosedChainContestTx confirmedSnapshot snapshotNumber
 -- __Transition__: N/A
 onClosedClientFanout :: ConfirmedSnapshot tx -> Outcome tx
 onClosedClientFanout confirmedSnapshot =
-  OnlyEffects [OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)]
+  OnlyEffects
+    [ OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)
+    ]
 
 -- | Observe a fanout transaction and finalize the head.
 --
 -- __Transition__: 'OpenState' → 'IdleState'
 onClosedChainFanoutTx :: ConfirmedSnapshot tx -> Outcome tx
 onClosedChainFanoutTx confirmedSnapshot =
-  NewState IdleState [ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+  NewState IdleState
+    [ ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot
+    ]
 
 -- | Observe a rollback transaction and transition to previous recoverable state.
 --
@@ -632,26 +636,6 @@ onClosedChainFanoutTx confirmedSnapshot =
 onCurrentChainRollback :: HeadState tx -> Word -> Outcome tx
 onCurrentChainRollback currentState n =
   NewState (rollback n currentState) [ClientEffect RolledBack]
-
--- __Transition__: N/A
-onCurrentClientEvent :: ClientInput tx -> Outcome tx
-onCurrentClientEvent clientInput =
-  OnlyEffects [ClientEffect $ CommandFailed clientInput]
-
--- __Transition__: N/A
-onCurrentNetworkConnected :: Host -> Outcome tx
-onCurrentNetworkConnected host =
-  OnlyEffects [ClientEffect $ PeerConnected host]
-
--- __Transition__: N/A
-onCurrentNetworkDisconnected :: Host -> Outcome tx
-onCurrentNetworkDisconnected host =
-  OnlyEffects [ClientEffect $ PeerDisconnected host]
-
--- __Transition__: N/A
-onCurrentPostTxError :: PostChainTx tx -> PostTxError tx -> Outcome tx
-onCurrentPostTxError postChainTx postTxError =
-  OnlyEffects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
@@ -751,14 +735,14 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     onClosedChainFanoutTx confirmedSnapshot
   (currentState, OnChainEvent (Rollback n)) ->
     onCurrentChainRollback currentState n
-  (_, ClientEvent{clientInput}) ->
-    onCurrentClientEvent clientInput
   (_, NetworkEvent (Connected host)) ->
-    onCurrentNetworkConnected host
+    OnlyEffects [ClientEffect $ PeerConnected host]
   (_, NetworkEvent (Disconnected host)) ->
-    onCurrentNetworkDisconnected host
+    OnlyEffects [ClientEffect $ PeerDisconnected host]
   (_, PostTxError{postChainTx, postTxError}) ->
-    onCurrentPostTxError postChainTx postTxError
+    OnlyEffects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
+  (_, ClientEvent{clientInput}) ->
+    OnlyEffects [ClientEffect $ CommandFailed clientInput]
   _ ->
     Error $ InvalidEvent ev st
 
