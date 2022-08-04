@@ -594,9 +594,9 @@ onOpenChainCloseTx
 -- | Observe a contest transaction.
 -- if it contest with a snapshot number smaller than the latest confirmed snapshot we know,
 -- then we contest with our higher latest confirmed snapshot number.
--- 
+--
 -- In case the snapshot number contested is higher we do nothing except notifying the clients.
--- 
+--
 -- __Transition__: N/A
 onClosedChainContestTx :: ConfirmedSnapshot tx -> SnapshotNumber -> Outcome tx
 onClosedChainContestTx confirmedSnapshot snapshotNumber
@@ -605,10 +605,12 @@ onClosedChainContestTx confirmedSnapshot snapshotNumber
       [ ClientEffect HeadIsContested{snapshotNumber}
       , OnChainEffect ContestTx{confirmedSnapshot}
       ]
-  | otherwise =
+  | snapshotNumber > number (getSnapshot confirmedSnapshot) =
     -- TODO: A more recent snapshot number was succesfully contested, we will
     -- not be able to fanout! We might want to communicate that to the client
     -- and/or not try to fan out on the `ShouldPostFanout` later.
+    OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
+  | otherwise =
     OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
 
 -- | A client requests to fanout. This leads to a fanout transaction on
