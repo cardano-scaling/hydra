@@ -203,7 +203,7 @@ data Environment = Environment
 -- | A client requests to init the head. This leads to an init transaction on chain,
 -- containing the head parameters.
 --
--- __Transition__: N/A
+-- __Transition__: 'IdleState' → 'IdleState'
 -- TODO: maybe change signature so it takes [Party] instead (all parties)?
 onIdleClientInit ::
   -- | Us
@@ -239,7 +239,7 @@ onIdleChainInitTx parties contestationPeriod =
 -- | A client requests to commit an utxo to the head. This leads to a commit transaction on chain
 --  containing the utxo if they haven't committed yet.
 --
--- __Transition__: N/A
+-- __Transition__: 'InitialState' → 'InitialState'
 onInitialClientCommit ::
   -- | Current state;
   Party ->
@@ -291,7 +291,7 @@ onInitialChainCommitTx party previousRecoverableState parameters pendingCommits 
 -- | A client requests to abort the head. This leads to an abort transaction on
 -- chain, containing the already commited UTxO.
 --
--- __Transition__: N/A
+-- __Transition__: 'InitialState' → 'InitialState'
 onInitialClientAbort :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
 onInitialClientAbort committed =
   OnlyEffects [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
@@ -333,7 +333,7 @@ onInitialChainCollectTx previousRecoverableState parameters committed =
 -- whether the passed transaction can be applied against the confirmed ledger
 -- state and yield a corresponding 'TxValid' or 'TxInvalid' client response.
 --
--- __Transition__: N/A
+-- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientNewTx ::
   Ledger tx ->
   -- | Us
@@ -552,7 +552,7 @@ onOpenNetworkAckSn
 -- | A client requests to close the head. This leads to a close transaction on
 -- chain using the latest 'confirmedSnapshot'.
 --
--- __Transition__: N/A
+-- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientClose :: ConfirmedSnapshot tx -> Outcome tx
 onOpenClientClose confirmedSnapshot =
   OnlyEffects [OnChainEffect (CloseTx confirmedSnapshot)]
@@ -597,7 +597,7 @@ onOpenChainCloseTx
 --
 -- In case the snapshot number contested is higher we do nothing except notifying the clients.
 --
--- __Transition__: N/A
+-- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedChainContestTx :: ConfirmedSnapshot tx -> SnapshotNumber -> Outcome tx
 onClosedChainContestTx confirmedSnapshot snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
@@ -616,7 +616,7 @@ onClosedChainContestTx confirmedSnapshot snapshotNumber
 -- | A client requests to fanout. This leads to a fanout transaction on
 -- chain using the latest 'confirmedSnapshot'.
 --
--- __Transition__: N/A
+-- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedClientFanout :: ConfirmedSnapshot tx -> Outcome tx
 onClosedClientFanout confirmedSnapshot =
   OnlyEffects
@@ -625,7 +625,7 @@ onClosedClientFanout confirmedSnapshot =
 
 -- | Observe a fanout transaction and finalize the head.
 --
--- __Transition__: 'OpenState' → 'IdleState'
+-- __Transition__: 'ClosedState' → 'IdleState'
 onClosedChainFanoutTx :: ConfirmedSnapshot tx -> Outcome tx
 onClosedChainFanoutTx confirmedSnapshot =
   NewState IdleState
