@@ -557,7 +557,9 @@ onOpenClientClose :: ConfirmedSnapshot tx -> Outcome tx
 onOpenClientClose confirmedSnapshot =
   OnlyEffects [OnChainEffect (CloseTx confirmedSnapshot)]
 
--- | Observe a close transaction and transition to closed state.
+-- | Observe a close transaction and schedule a fanout.
+-- If we observe a close transaction with a snapshot number smaller from our last confirmed,
+-- we automatically contest.
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
@@ -581,15 +583,31 @@ onOpenChainCloseTx
     --   b) Move to close state, using information from the close tx
     NewState
       closedState
-      ( [ClientEffect headIsClosed, delay]
+      ( [ClientEffect headIsClosed, scheduledPostFanout]
           ++ [OnChainEffect ContestTx{confirmedSnapshot} | onChainEffectCondition]
       )
    where
-    CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
-    closedState = ClosedState{parameters, previousRecoverableState, confirmedSnapshot}
-    headIsClosed = HeadIsClosed{snapshotNumber = closedSnapshotNumber, remainingContestationPeriod}
-    delay = Delay{delay = remainingContestationPeriod, reason = WaitOnContestationPeriod, event = ShouldPostFanout}
-    onChainEffectCondition = number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
+    CoordinatedHeadState{confirmedSnapshot} =
+      coordinatedHeadState
+    closedState =
+      ClosedState
+        { parameters
+        , previousRecoverableState
+        , confirmedSnapshot
+        }
+    headIsClosed =
+      HeadIsClosed
+        { snapshotNumber = closedSnapshotNumber
+        , remainingContestationPeriod
+        }
+    scheduledPostFanout =
+      Delay
+        { delay = remainingContestationPeriod
+        , reason = WaitOnContestationPeriod
+        , event = ShouldPostFanout
+        }
+    onChainEffectCondition =
+      number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
 
 -- | Observe a contest transaction.
 -- if it contest with a snapshot number smaller than the latest confirmed snapshot we know,
@@ -628,7 +646,8 @@ onClosedClientFanout confirmedSnapshot =
 -- __Transition__: 'ClosedState' → 'IdleState'
 onClosedChainFanoutTx :: ConfirmedSnapshot tx -> Outcome tx
 onClosedChainFanoutTx confirmedSnapshot =
-  NewState IdleState
+  NewState
+    IdleState
     [ ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot
     ]
 
