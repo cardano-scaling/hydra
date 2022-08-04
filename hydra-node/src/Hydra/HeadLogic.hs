@@ -203,8 +203,9 @@ data Environment = Environment
 -- | A client requests to init the head. This leads to an init transaction on chain,
 -- containing the head parameters.
 --
--- __Transition__: 'IdleState' → 'IdleState'
 -- TODO: maybe change signature so it takes [Party] instead (all parties)?
+--
+-- __Transition__: 'IdleState' → 'IdleState'
 onIdleClientInit ::
   -- | Us
   Party ->
@@ -221,7 +222,7 @@ onIdleClientInit party otherParties contestationPeriod =
       , parties = party : otherParties
       }
 
--- | Observing an init transaction. Notifying client they can now commit.
+-- | Observing an init transaction. Notifying clients they can now commit.
 --
 -- __Transition__: 'IdleState' → 'InitialState'
 onIdleChainInitTx :: [Party] -> ContestationPeriod -> Outcome tx
@@ -236,12 +237,12 @@ onIdleChainInitTx parties contestationPeriod =
     )
     [ClientEffect $ ReadyToCommit $ fromList parties]
 
--- | A client requests to commit an utxo to the head. This leads to a commit transaction on chain
---  containing the utxo if they haven't committed yet.
+-- | A client requests to commit a UTxO entry to the head.
+-- Provided the client hasn't committed yet, this leads to a commit transaction
+-- on-chain containing that UTxO entry.
 --
 -- __Transition__: 'InitialState' → 'InitialState'
 onInitialClientCommit ::
-  -- | Current state;
   Party ->
   PendingCommits ->
   ClientInput tx ->
@@ -254,7 +255,7 @@ onInitialClientCommit party pendingCommits clientInput =
  where
   canCommit = party `Set.member` pendingCommits
 
--- | Observe a commit transaction and record the committed UTxO to the state.
+-- | Observe a commit transaction and record the committed UTxO in the state.
 -- Also, if this is the last commit to be observed, post a collect-com
 -- transaction on-chain.
 --
@@ -289,23 +290,23 @@ onInitialChainCommitTx party previousRecoverableState parameters pendingCommits 
   collectedUTxO = mconcat $ Map.elems newCommitted
 
 -- | A client requests to abort the head. This leads to an abort transaction on
--- chain, containing the already commited UTxO.
+-- chain, reimbursing already commited UTxO entries.
 --
 -- __Transition__: 'InitialState' → 'InitialState'
 onInitialClientAbort :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
 onInitialClientAbort committed =
   OnlyEffects [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
 
--- | Observe an abort transaction and transition to idle state.
+-- | Observe an abort transaction.
 --
 -- __Transition__: 'InitialState' → 'IdleState'
 onInitialChainAbortTx :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
 onInitialChainAbortTx committed =
   NewState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
 
--- | Observe a collectCom transaction and transition to open state. We
--- initialize the open state using parameters and committed UTxO seen before.
--- From these we construct the initial snapshot u0.
+-- | Observe a collectCom transaction. We initialize the open state using head
+-- parameters and committed UTxO. From these we construct the initial UTxO set
+-- @u0@.
 --
 -- __Transition__: 'InitialState' → 'OpenState'
 onInitialChainCollectTx ::
@@ -320,10 +321,12 @@ onInitialChainCollectTx previousRecoverableState parameters committed =
   -- For example, we do expect `null remainingParties` but what happens if
   -- it's untrue?
   let u0 = fold committed
+      initialSnapshot = InitialSnapshot $ Snapshot 0 u0 mempty
    in NewState
         ( OpenState
             { parameters
-            , coordinatedHeadState = CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
+            , coordinatedHeadState =
+                CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
             , previousRecoverableState
             }
         )
@@ -348,10 +351,16 @@ onOpenClientNewTx ledger party utxo tx =
  where
   effects =
     case canApply ledger utxo tx of
-      Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
-      Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
+      Valid ->
+        [ ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx
+        ]
+      Invalid err ->
+        [ ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}
+        ]
 
--- | Handle a new transaction request ('ReqTx') from a peer. We apply this transaction to the seen utxo (ledger state), resulting in an updated seen ledger state. If it is not applicable then we wait to retry later.
+-- | Handle a new transaction request ('ReqTx') from a peer. We apply this
+-- transaction to the seen utxo (ledger state), resulting in an updated seen
+-- ledger state. If it is not applicable then we wait to retry later.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
