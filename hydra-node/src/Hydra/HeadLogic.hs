@@ -34,7 +34,6 @@ import Hydra.Ledger (
   applyTransactions,
   canApply,
  )
-import Hydra.Network (Host)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
 import Hydra.ServerOutput (ServerOutput (..))
