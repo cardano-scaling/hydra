@@ -12,6 +12,7 @@ import Cardano.Crypto.DSIGN.Ed25519 (SigDSIGN (SigEd25519DSIGN))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (counterexample, forAll, shuffle, (=/=), (==>))
 import Test.QuickCheck.Instances.UnorderedContainers ()
+import qualified Data.ByteString.Char8 as Char8
 
 spec :: Spec
 spec = do
@@ -24,7 +25,11 @@ specSigningKey :: Spec
 specSigningKey =
   describe "SigningKey" $ do
     it "show includes escaped hex" $
-      show (generateSigningKey "aaa") `shouldContain` "\"616161"
+      show (generateSigningKey "aaa") `shouldContain` "\"983487"
+    it "can be generated when seed exceeds the max seed size for algorithm" $
+      let exceedingSizeSeedA = Char8.pack $ replicate 32 'x' <> "a"
+          exceedingSizeSeedB = Char8.pack $ replicate 32 'x' <> "b"
+       in generateSigningKey exceedingSizeSeedA `shouldNotBe` generateSigningKey exceedingSizeSeedB
     prop "can be generated" $ \(seedA, seedB) -> do
       seedA /= seedB
         ==> generateSigningKey seedA =/= generateSigningKey seedB
@@ -33,7 +38,7 @@ specVerificationKey :: Spec
 specVerificationKey =
   describe "VerificationKey" $ do
     it "show includes escaped hex" $
-      show (getVerificationKey $ generateSigningKey "alice") `shouldContain` "ce1da235714466fc7"
+      show (getVerificationKey $ generateSigningKey "alice") `shouldContain` "d5bf4a3fcce717b03"
 
     roundtripAndGoldenSpecs (Proxy @(VerificationKey HydraKey))
 

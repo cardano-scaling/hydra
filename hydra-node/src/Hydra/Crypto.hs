@@ -41,12 +41,12 @@ import Cardano.Crypto.DSIGN (
   verifyDSIGN,
  )
 import qualified Cardano.Crypto.DSIGN as Crypto
-import Cardano.Crypto.Hash (Blake2b_256, castHash, hashFromBytes, hashToBytes)
+import Cardano.Crypto.Hash (Blake2b_256, SHA256, castHash, hashFromBytes, hashToBytes)
 import qualified Cardano.Crypto.Hash as Crypto
+import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
 import qualified Data.Aeson as Aeson
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
@@ -178,11 +178,9 @@ instance HasTextEnvelope (VerificationKey HydraKey) where
 -- not random and insecure, so don't use this in production code!
 generateSigningKey :: ByteString -> SigningKey HydraKey
 generateSigningKey seed =
-  HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes padded
+  HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes hashOfSeed
  where
-  needed = fromIntegral $ seedSizeDSIGN (Proxy :: Proxy Ed25519DSIGN)
-  provided = BS.length seed
-  padded = seed <> BS.pack (replicate (needed - provided) 0)
+  hashOfSeed = digest (Proxy :: Proxy SHA256) seed
 
 -- * Signatures
 
