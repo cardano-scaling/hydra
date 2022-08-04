@@ -30,8 +30,8 @@ import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
-import Hydra.Cluster.Faucet (Marked (Fuel), seedFromFaucet)
-import Hydra.Cluster.Fixture (defaultNetworkId)
+import Hydra.Cluster.Faucet (Marked (Fuel), publishHydraScripts, seedFromFaucet)
+import Hydra.Cluster.Fixture (Actor (Faucet), defaultNetworkId)
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger (txId)
@@ -82,7 +82,8 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
           let parties = Set.fromList (deriveParty <$> hydraKeys)
           withOSStats workDir $
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
-              withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys $ \(leader :| followers) -> do
+              hydraScriptsTxId <- publishHydraScripts node Faucet
+              withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId $ \(leader :| followers) -> do
                 let clients = leader : followers
                 waitForNodesConnected tracer clients
 

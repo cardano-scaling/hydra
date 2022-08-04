@@ -33,11 +33,12 @@ import Hydra.Cardano.Api (
 import Hydra.Chain.Direct.Handlers (closeGraceTime)
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
+  publishHydraScripts,
   seedFromFaucet,
   seedFromFaucet_,
  )
 import Hydra.Cluster.Fixture (
-  Actor (Alice, Bob, Carol),
+  Actor (Alice, Bob, Carol, Faucet),
   alice,
   aliceSk,
   aliceVk,
@@ -93,7 +94,8 @@ spec = around showLogsOnFailure $ do
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
-              initAndClose tracer 1 node
+              hydraScriptsTxId <- publishHydraScripts node Faucet
+              initAndClose tracer 1 hydraScriptsTxId node
 
       it "inits a Head and closes it immediately " $ \tracer ->
         failAfter 60 $
@@ -109,7 +111,8 @@ spec = around showLogsOnFailure $ do
 
               let firstNodeId = clusterIx * 3
 
-              withHydraCluster tracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys $ \nodes -> do
+              hydraScriptsTxId <- publishHydraScripts node Faucet
+              withHydraCluster tracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
                 let [n1, n2, n3] = toList nodes
                 waitForNodesConnected tracer [n1, n2, n3]
 
@@ -156,7 +159,8 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
-            tip <- withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] $ \n1 -> do
+            hydraScriptsTxId <- publishHydraScripts node Faucet
+            tip <- withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
               seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
               tip <- queryTip defaultNetworkId nodeSocket
               let contestationPeriod = 10 :: Natural
@@ -169,7 +173,7 @@ spec = around showLogsOnFailure $ do
                   aliceChainConfig
                     { startChainFrom = Just tip
                     }
-            withHydraNode tracer aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
+            withHydraNode tracer aliceChainConfig' tmp 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
               waitFor tracer 10 [n1] $
                 output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
 
@@ -177,6 +181,8 @@ spec = around showLogsOnFailure $ do
       it "close of an initial snapshot from restarting node is contested" $ \tracer -> do
         withTempDir "end-to-end-chain-observer" $ \tmp -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
+            hydraScriptsTxId <- publishHydraScripts node Faucet
+
             (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
 
@@ -192,8 +198,8 @@ spec = around showLogsOnFailure $ do
             let aliceNodeId = 1
                 bobNodeId = 2
                 allNodesIds = [aliceNodeId, bobNodeId]
-                withAliceNode = withHydraNode tracer aliceChainConfig tmp aliceNodeId aliceSk [bobVk] allNodesIds
-                withBobNode = withHydraNode tracer bobChainConfig tmp bobNodeId bobSk [aliceVk] allNodesIds
+                withAliceNode = withHydraNode tracer aliceChainConfig tmp aliceNodeId aliceSk [bobVk] allNodesIds hydraScriptsTxId
+                withBobNode = withHydraNode tracer bobChainConfig tmp bobNodeId bobSk [aliceVk] allNodesIds hydraScriptsTxId
 
             withAliceNode $ \n1 -> do
               withBobNode $ \n2 -> do
@@ -241,9 +247,10 @@ spec = around showLogsOnFailure $ do
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+              hydraScriptsTxId <- publishHydraScripts node Faucet
               concurrently_
-                (initAndClose tracer 0 node)
-                (initAndClose tracer 1 node)
+                (initAndClose tracer 0 hydraScriptsTxId node)
+                (initAndClose tracer 1 hydraScriptsTxId node)
 
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
@@ -253,8 +260,9 @@ spec = around showLogsOnFailure $ do
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket []
               bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice]
-              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] allNodeIds $ \n1 ->
-                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
+              hydraScriptsTxId <- publishHydraScripts node Faucet
+              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] allNodeIds hydraScriptsTxId $ \n1 ->
+                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds hydraScriptsTxId $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
                   seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
                   seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel
@@ -284,13 +292,14 @@ spec = around showLogsOnFailure $ do
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           (aliceCardanoVk, _) <- keysFor Alice
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
+            hydraScriptsTxId <- publishHydraScripts node Faucet
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [Bob, Carol]
             bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice, Carol]
             carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket [Bob, Carol]
             failAfter 20 $
-              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
-                  withHydraNode tracer carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds hydraScriptsTxId $ \n1 ->
+                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds hydraScriptsTxId $ \n2 ->
+                  withHydraNode tracer carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds hydraScriptsTxId $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
                     seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
                     waitForNodesConnected tracer [n1, n2, n3]
@@ -305,8 +314,8 @@ spec = around showLogsOnFailure $ do
           version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
 
-initAndClose :: Tracer IO EndToEndLog -> Int -> RunningNode -> IO ()
-initAndClose tracer clusterIx node@RunningNode{nodeSocket} = do
+initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
+initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket} = do
   withTempDir "end-to-end-init-and-close" $ \tmpDir -> do
     aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
     bobKeys@(bobCardanoVk, _) <- generate genKeyPair
@@ -324,8 +333,7 @@ initAndClose tracer clusterIx node@RunningNode{nodeSocket} = do
         hydraKeys = [aliceSk, bobSk, carolSk]
 
     let firstNodeId = clusterIx * 3
-
-    withHydraCluster tracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys $ \nodes -> do
+    withHydraCluster tracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
       let [n1, n2, n3] = toList nodes
       waitForNodesConnected tracer [n1, n2, n3]
 

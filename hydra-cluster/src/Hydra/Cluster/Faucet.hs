@@ -19,7 +19,6 @@ import CardanoClient (
  )
 import CardanoNode (RunningNode (..))
 import qualified Data.Map as Map
-import qualified Data.Set as Set
 import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash, retry)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)

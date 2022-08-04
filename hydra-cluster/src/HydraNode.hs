@@ -203,9 +203,11 @@ withHydraCluster ::
   -- | NOTE: This decides on the size of the cluster!
   [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
   [SigningKey HydraKey] ->
+  -- | Transaction id at which Hydra scripts should have been published.
+  TxId ->
   (NonEmpty HydraClient -> IO ()) ->
   IO ()
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action = do
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId action = do
   -- We have been bitten by this in the past
   when (clusterSize == 0) $
     error "Cannot run a cluster with 0 number of nodes"
@@ -241,6 +243,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action 
         hydraSKey
         hydraVKeys
         allNodeIds
+        hydraScriptsTxId
         (\c -> startNodes (c : clients) rest)
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
@@ -254,9 +257,11 @@ withHydraNode ::
   SigningKey HydraKey ->
   [VerificationKey HydraKey] ->
   [Int] ->
+  -- | Transaction id at which Hydra scripts should have been published.
+  TxId ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
   withLogFile logFilePath $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let cardanoLedgerGenesisFile = dir </> "genesis.json"
@@ -282,6 +287,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                   , monitoringPort = Just $ fromIntegral $ 6000 + hydraNodeId
                   , hydraSigningKey
                   , hydraVerificationKeys
+                  , hydraScriptsTxId
                   , chainConfig
                   , ledgerConfig
                   , peers

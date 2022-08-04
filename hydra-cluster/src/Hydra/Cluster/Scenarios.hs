@@ -12,8 +12,8 @@ import Data.Aeson (object, (.=))
 import Data.Aeson.Lens (key, _Number)
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (Lovelace, selectLovelace)
-import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet)
-import Hydra.Cluster.Fixture (Actor (Alice), actorName, alice, aliceSk)
+import Hydra.Cluster.Faucet (Marked (Fuel), publishHydraScripts, queryMarkedUTxO, seedFromFaucet)
+import Hydra.Cluster.Fixture (Actor (Alice, Faucet), actorName, alice, aliceSk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (Tx)
@@ -33,7 +33,8 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} = do
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket []
       <&> \config -> config{networkId, startChainFrom = Just tip}
-  withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+  hydraScriptsTxId <- publishHydraScripts node Faucet
+  withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     let contestationPeriod = 1 :: Natural
     send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
