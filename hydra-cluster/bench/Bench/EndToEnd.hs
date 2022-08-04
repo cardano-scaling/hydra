@@ -82,13 +82,11 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
           let parties = Set.fromList (deriveParty <$> hydraKeys)
           withOSStats workDir $
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
-              hydraScriptsTxId <- publishHydraScripts node Faucet
+              putTextLn "Seeding network"
+              hydraScriptsTxId <- seedNetwork node dataset
               withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId $ \(leader :| followers) -> do
                 let clients = leader : followers
                 waitForNodesConnected tracer clients
-
-                putTextLn "Seeding network"
-                seedNetwork node dataset
 
                 putTextLn "Initializing Head"
                 let contestationPeriod = 10 :: Natural
@@ -211,12 +209,14 @@ movingAverage confirmations =
               )
    in map average fiveSeconds
 
--- | Distribute 100 ADA fuel and starting funds from faucet for each client in
--- the dataset.
-seedNetwork :: RunningNode -> Dataset -> IO ()
+-- | Distribute 100 ADA fuel, starting funds from faucet for each client in the
+-- dataset, and also publish the hydra scripts. The 'TxId' of the publishing
+-- transaction is returned.
+seedNetwork :: RunningNode -> Dataset -> IO TxId
 seedNetwork node@RunningNode{nodeSocket} Dataset{fundingTransaction, clientDatasets} = do
   fundClients
   forM_ clientDatasets fuelWith100Ada
+  publishHydraScripts node Faucet
  where
   fundClients = do
     submit defaultNetworkId nodeSocket fundingTransaction
