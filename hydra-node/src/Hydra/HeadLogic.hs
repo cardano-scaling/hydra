@@ -557,7 +557,6 @@ onOpenClientClose :: ConfirmedSnapshot tx -> Outcome tx
 onOpenClientClose confirmedSnapshot =
   OnlyEffects [OnChainEffect (CloseTx confirmedSnapshot)]
 
-
 -- | Observe a close transaction and transition to closed state.
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
@@ -592,8 +591,12 @@ onOpenChainCloseTx
     delay = Delay{delay = remainingContestationPeriod, reason = WaitOnContestationPeriod, event = ShouldPostFanout}
     onChainEffectCondition = number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
 
--- | A client requests to contest.
---
+-- | Observe a contest transaction.
+-- if it contest with a snapshot number smaller than the latest confirmed snapshot we know,
+-- then we contest with our higher latest confirmed snapshot number.
+-- 
+-- In case the snapshot number contested is higher we do nothing except notifying the clients.
+-- 
 -- __Transition__: N/A
 onClosedChainContestTx :: ConfirmedSnapshot tx -> SnapshotNumber -> Outcome tx
 onClosedChainContestTx confirmedSnapshot snapshotNumber
