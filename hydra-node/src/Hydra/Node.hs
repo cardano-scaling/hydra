@@ -78,7 +78,6 @@ initEnvironment Options{hydraSigningKey, hydraVerificationKeys} = do
     readFileBS p >>= maybeFail <$> deserialiseFromRawBytes (AsVerificationKey AsHydraKey)
 
   maybeFail = maybe (fail "could not deserialise from raw bytes") pure
-
 -- ** Create and run a hydra node
 
 data HydraNode tx m = HydraNode
@@ -171,6 +170,7 @@ processNextEvent ::
 processNextEvent HydraNode{hh, env} e =
   modifyHeadState hh $ \s ->
     case Logic.update env (ledger hh) s e of
+      OnlyEffects effects -> (Right effects, s)
       NewState s' effects ->
         let (s'', effects') = emitSnapshot env effects s'
          in (Right effects', s'')

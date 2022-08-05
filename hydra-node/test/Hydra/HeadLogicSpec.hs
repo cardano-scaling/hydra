@@ -137,7 +137,7 @@ spec = do
             sig = sign bobSk snapshot
             st = inOpenState threeParties ledger
             ack = AckSn (party env) sig (number snapshot)
-        update env ledger st event `hasEffect_` NetworkEffect ack
+        update env ledger st event `hasEffect` NetworkEffect ack
 
       it "does not ack snapshots from non-leaders" $ do
         let event = NetworkEvent $ ReqSn notTheLeader 1 []
@@ -200,7 +200,7 @@ spec = do
       it "notifies client when it receives a ping" $ do
         let peer = Host{hostname = "1.2.3.4", port = 1}
         update env ledger (inOpenState threeParties ledger) (NetworkEvent $ Connected peer)
-          `hasEffect_` ClientEffect (PeerConnected peer)
+          `hasEffect` ClientEffect (PeerConnected peer)
 
       it "cannot observe abort after collect com" $ do
         let s0 = inInitialState threeParties
@@ -233,7 +233,7 @@ spec = do
                     ShouldPostFanout
                 }
 
-        update env ledger s0 closeTx `hasEffect_` shouldPostFanout
+        update env ledger s0 closeTx `hasEffect` shouldPostFanout
 
       it "notify user on rollback" $
         forAll arbitrary $ \s -> monadicIO $ do
@@ -254,9 +254,10 @@ spec = do
                   }
             closeTxEvent = OnChainEvent $ Observation $ OnCloseTx 0 42
             contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
-        s1 <- update env ledger s0 closeTxEvent `hasEffect` contestTxEffect
+            s1 = update env ledger s0 closeTxEvent
+        s1 `hasEffect` contestTxEffect
         s1 `shouldSatisfy` \case
-          ClosedState{} -> True
+          NewState ClosedState{} _ -> True
           _ -> False
 
       it "re-contests when detecting contest with old snapshot" $ do
@@ -265,23 +266,22 @@ spec = do
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             contestSnapshot1Event = OnChainEvent $ Observation $ OnContestTx 1
             contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
-        s1 <- update env ledger s0 contestSnapshot1Event `hasEffect` contestTxEffect
-        s1 `shouldSatisfy` \case
-          ClosedState{} -> True
-          _ -> False
+            s1 = update env ledger s0 contestSnapshot1Event
+        s1 `hasEffect` contestTxEffect
+        assertOnlyEffects s1
 
 --
 -- Assertion utilities
 --
 
-hasEffect :: (HasCallStack, IsTx tx) => Outcome tx -> Effect tx -> IO (HeadState tx)
-hasEffect (NewState s effects) effect
-  | effect `elem` effects = pure s
+hasEffect :: (HasCallStack, IsTx tx) => Outcome tx -> Effect tx -> IO ()
+hasEffect (NewState _ effects) effect
+  | effect `elem` effects = pure ()
+  | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
+hasEffect (OnlyEffects effects) effect
+  | effect `elem` effects = pure ()
   | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
 hasEffect o _ = failure $ "Unexpected outcome: " <> show o
-
-hasEffect_ :: (HasCallStack, IsTx tx) => Outcome tx -> Effect tx -> IO ()
-hasEffect_ o e = void $ hasEffect o e
 
 hasEffectSatisfying :: (HasCallStack, IsTx tx) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
 hasEffectSatisfying (NewState s effects) match
@@ -364,6 +364,14 @@ getConfirmedSnapshot = \case
 assertNewState :: IsTx tx => Outcome tx -> IO (HeadState tx)
 assertNewState = \case
   NewState st _ -> pure st
+  OnlyEffects effects -> failure $ "Unexpected 'OnlyEffects' outcome: " <> show effects
+  Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
+  Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
+
+assertOnlyEffects :: IsTx tx => Outcome tx -> IO ()
+assertOnlyEffects = \case
+  NewState st _ -> failure $ "Unexpected 'NewState' outcome: " <> show st
+  OnlyEffects _ -> pure ()
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
   Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
 
