@@ -32,23 +32,33 @@ import Hydra.Node (
   initEnvironment,
   runHydraNode,
  )
-import Hydra.Options (ChainConfig (..), LedgerConfig (..), Options (..), parseHydraCommand)
+import Hydra.Options (ChainConfig (..), Command (Publish, Run), LedgerConfig (..), Options (..), parseHydraCommand)
 import Hydra.Party (Party)
 
 main :: IO ()
 main = do
-  o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort, hydraScriptsTxId, chainConfig, ledgerConfig} <- identifyNode <$> parseHydraCommand
-  env@Environment{party} <- initEnvironment o
-  withTracer verbosity $ \tracer' ->
-    withMonitoring monitoringPort tracer' $ \tracer -> do
-      eq <- createEventQueue
-      withChain tracer party (putEvent eq . OnChainEvent) hydraScriptsTxId chainConfig $ \oc ->
-        withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent) $ \hn ->
-          withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
-            withCardanoLedger ledgerConfig $ \ledger -> do
-              node <- createHydraNode eq hn ledger oc server env
-              runHydraNode (contramap Node tracer) node
+  command <- parseHydraCommand
+  case command of
+    Run options -> run (identifyNode options)
+    Publish _ -> undefined
  where
+  run opts = do
+    let Options{verbosity, monitoringPort} = opts
+    env@Environment{party} <- initEnvironment opts
+    withTracer verbosity $ \tracer' ->
+      withMonitoring monitoringPort tracer' $ \tracer -> do
+        eq <- createEventQueue
+        let Options{hydraScriptsTxId, chainConfig} = opts
+        withChain tracer party (putEvent eq . OnChainEvent) hydraScriptsTxId chainConfig $ \oc -> do
+          let Options{host, port, peers} = opts
+          withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent) $ \hn -> do
+            let Options{apiHost, apiPort} = opts
+            withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
+              let Options{ledgerConfig} = opts
+              withCardanoLedger ledgerConfig $ \ledger -> do
+                node <- createHydraNode eq hn ledger oc server env
+                runHydraNode (contramap Node tracer) node
+
   withNetwork tracer host port peers =
     let localhost = Host{hostname = show host, port}
      in withHeartbeat localhost $ withOuroborosNetwork tracer localhost peers
