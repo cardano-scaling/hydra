@@ -509,10 +509,6 @@ toArgs
       Nothing ->
         []
 
-    toArgNetworkId = \case
-      Mainnet -> error "Mainnet not supported"
-      Testnet (NetworkMagic magic) -> show magic
-
     argsChainConfig =
       ["--network-id", toArgNetworkId networkId]
         <> ["--node-socket", nodeSocket]
@@ -536,6 +532,11 @@ toArgs
       , cardanoVerificationKeys
       , startChainFrom
       } = chainConfig
+
+toArgNetworkId :: NetworkId -> String
+toArgNetworkId = \case
+  Mainnet -> error "Mainnet not supported"
+  Testnet (NetworkMagic magic) -> show magic
 
 genFilePath :: String -> Gen FilePath
 genFilePath extension = do

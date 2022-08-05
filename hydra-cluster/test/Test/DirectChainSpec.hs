@@ -53,12 +53,17 @@ import Hydra.Cluster.Fixture (
   cperiod,
   defaultNetworkId,
  )
-import Hydra.Cluster.Util (keysFor)
+import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Crypto (aggregate, sign)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
+import Hydra.Options (
+  ChainConfig (..),
+  toArgNetworkId,
+ )
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import System.Process (proc, readCreateProcess)
 import Test.QuickCheck (generate)
 
 spec :: Spec
@@ -273,10 +278,22 @@ spec = around showLogsOnFailure $ do
   it "can publish and query reference scripts in a timely manner" $ \tracer -> do
     withTempDir "direct-chain" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
-        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-        failAfter 5 $
-          void $
-            queryScriptRegistry networkId nodeSocket hydraScriptsTxId
+        DirectChainConfig{cardanoSigningKey} <- chainConfigFor Faucet tmp nodeSocket []
+        hydraScriptsTxIdStr <-
+          readCreateProcess
+            ( proc
+                "hydra-node"
+                ( "publish-scripts" :
+                  mconcat
+                    [ ["--node-socket", nodeSocket]
+                    , ["--network-id", toArgNetworkId networkId]
+                    , ["--cardano-signing-key", cardanoSigningKey]
+                    ]
+                )
+            )
+            ""
+        let hydraScriptsTxId = unsafeDeserialiseFromRawBytesBase16 (encodeUtf8 hydraScriptsTxIdStr)
+        failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
 
 data TestClusterLog
   = FromNode NodeLog
