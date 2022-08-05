@@ -40,10 +40,10 @@ import qualified Data.Text as T
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Crypto (HydraKey)
 import Hydra.Ledger.Cardano ()
-import Hydra.Logging (Tracer, traceWith)
+import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host))
 import qualified Hydra.Network as Network
-import Hydra.Options (ChainConfig (..), LedgerConfig (..), Options (..), defaultChainConfig, defaultOptions, toArgs)
+import Hydra.Options (ChainConfig (..), LedgerConfig (..), Options (..), defaultChainConfig, toArgs)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -280,9 +280,13 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
               }
       let p =
             ( hydraNodeProcess $
-                defaultOptions
-                  { nodeId = fromIntegral hydraNodeId
+                Options
+                  { verbosity = Verbose "HydraNode"
+                  , nodeId = fromIntegral hydraNodeId
+                  , host = "127.0.0.1"
                   , port = fromIntegral $ 5000 + hydraNodeId
+                  , peers
+                  , apiHost = "127.0.0.1"
                   , apiPort = fromIntegral $ 4000 + hydraNodeId
                   , monitoringPort = Just $ fromIntegral $ 6000 + hydraNodeId
                   , hydraSigningKey
@@ -290,7 +294,6 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                   , hydraScriptsTxId
                   , chainConfig
                   , ledgerConfig
-                  , peers
                   }
             )
               { std_out = UseHandle out

@@ -5,6 +5,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), serialiseToRawBytesHexText, unsafeDeserialiseFromRawBytesBase16)
 import Hydra.Chain.Direct (NetworkMagic (..))
+import Hydra.Logging (Verbosity(..))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
   ChainConfig (..),
@@ -13,7 +14,6 @@ import Hydra.Options (
   ParserResult (..),
   defaultChainConfig,
   defaultLedgerConfig,
-  defaultOptions,
   parseHydraOptionsFromString,
   toArgs,
  )
@@ -196,3 +196,22 @@ shouldNotParse args =
     Success a -> failure $ "Unexpected successful parse to " <> show a
     Failure _ -> pure ()
     CompletionInvoked _ -> failure "Unexpected completion invocation"
+
+-- Default options as they should also be provided by the option parser.
+defaultOptions :: Options
+defaultOptions =
+  Options
+    { verbosity = Verbose "HydraNode"
+    , nodeId = 1
+    , host = "127.0.0.1"
+    , port = 5001
+    , peers = []
+    , apiHost = "127.0.0.1"
+    , apiPort = 4001
+    , monitoringPort = Nothing
+    , hydraSigningKey = "hydra.sk"
+    , hydraVerificationKeys = []
+    , hydraScriptsTxId = "0101010101010101010101010101010101010101010101010101010101010101"
+    , chainConfig = defaultChainConfig
+    , ledgerConfig = defaultLedgerConfig
+    }
