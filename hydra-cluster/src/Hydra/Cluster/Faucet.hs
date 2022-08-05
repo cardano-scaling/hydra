@@ -21,11 +21,12 @@ import Hydra.Chain.CardanoClient (
   queryUTxOFor,
   submitTransaction,
  )
+import Hydra.Chain.Direct.ScriptRegistry (
+  publishHydraScripts,
+ )
 import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash, retry)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
-import qualified Hydra.Contract.Commit as Commit
-import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano ()
 
 data Marked = Fuel | Normal
@@ -101,63 +102,10 @@ seedFromFaucet_ node vk ll marked =
 --
 -- The given key is used to pay for fees in required transactions, it is
 -- expected to have funds.
-publishHydraScripts :: RunningNode -> Actor -> IO TxId
-publishHydraScripts node@RunningNode{nodeSocket, networkId} actor = do
-  (vk, sk) <- keysFor actor
-  let changeAddress = buildAddress vk networkId
-  utxo <- queryUTxOFor node QueryTip vk
-  let probablyEnoughLovelace = probablyEnoughLovelaceForCommit + probablyEnoughLovelaceForInitial
-      someUTxO =
-        maybe mempty UTxO.singleton $
-          UTxO.find (\o -> selectLovelace (txOutValue o) > probablyEnoughLovelace) utxo
-  build
-    networkId
-    nodeSocket
-    changeAddress
-    someUTxO
-    []
-    [publishInitial, publishCommit]
-    >>= \case
-      Left e ->
-        throwErrorAsException e
-      Right body -> do
-        let tx = sign sk body
-        submit networkId nodeSocket tx
-        void $ waitForTransaction networkId nodeSocket tx
-        return $ getTxId body
- where
-  -- TODO: Move to hydra-cardano-api
-  mkScriptRef =
-    ReferenceScript . toScriptInAnyLang . PlutusScript . fromPlutusScript
-
-  publishInitial =
-    TxOut
-      unspendableScriptAddress
-      (lovelaceToValue probablyEnoughLovelaceForInitial)
-      TxOutDatumNone
-      (mkScriptRef Initial.validatorScript)
-
-  publishCommit =
-    TxOut
-      unspendableScriptAddress
-      (lovelaceToValue probablyEnoughLovelaceForCommit)
-      TxOutDatumNone
-      (mkScriptRef Commit.validatorScript)
-
-  unspendableScriptAddress =
-    mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
-
-  -- This depends on protocol parameters and the size of the script.
-  -- TODO: Calculate this value instead from pparams.
-  probablyEnoughLovelaceForInitial = 23_437_780
-  probablyEnoughLovelaceForCommit = 23_437_780
-
--- | Query UTxO for the address of given verification key at point.
---
--- Throws at least 'QueryException' if query fails.
-queryUTxOFor :: RunningNode -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
-queryUTxOFor RunningNode{networkId, nodeSocket} queryPoint vk =
-  queryUTxO networkId nodeSocket queryPoint [buildAddress vk networkId]
+publishHydraScriptsAs :: RunningNode -> Actor -> IO TxId
+publishHydraScriptsAs RunningNode{nodeSocket, networkId} actor = do
+  (_, sk) <- keysFor actor
+  publishHydraScripts networkId nodeSocket sk
 
 -- | Like 'queryUTxOFor' at the tip, but also partition outputs marked as 'Fuel' and 'Normal'.
 --

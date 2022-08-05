@@ -7,7 +7,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoClient (submit, waitForTransaction)
+import Hydra.Chain.CardanoClient (submitTransaction, awaitTransaction)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
@@ -30,7 +30,7 @@ import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
-import Hydra.Cluster.Faucet (Marked (Fuel), publishHydraScripts, seedFromFaucet)
+import Hydra.Cluster.Faucet (Marked (Fuel), publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet), defaultNetworkId)
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
@@ -216,11 +216,11 @@ seedNetwork :: RunningNode -> Dataset -> IO TxId
 seedNetwork node@RunningNode{nodeSocket} Dataset{fundingTransaction, clientDatasets} = do
   fundClients
   forM_ clientDatasets fuelWith100Ada
-  publishHydraScripts node Faucet
+  publishHydraScriptsAs node Faucet
  where
   fundClients = do
-    submit defaultNetworkId nodeSocket fundingTransaction
-    void $ waitForTransaction defaultNetworkId nodeSocket fundingTransaction
+    submitTransaction defaultNetworkId nodeSocket fundingTransaction
+    void $ awaitTransaction defaultNetworkId nodeSocket fundingTransaction
 
   fuelWith100Ada ClientDataset{signingKey} = do
     let vk = getVerificationKey signingKey

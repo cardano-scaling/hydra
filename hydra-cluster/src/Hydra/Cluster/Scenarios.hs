@@ -12,7 +12,7 @@ import Data.Aeson (object, (.=))
 import Data.Aeson.Lens (key, _Number)
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (Lovelace, selectLovelace)
-import Hydra.Cluster.Faucet (Marked (Fuel), publishHydraScripts, queryMarkedUTxO, seedFromFaucet)
+import Hydra.Cluster.Faucet (Marked (Fuel), publishHydraScriptsAs, queryMarkedUTxO, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Alice, Faucet), actorName, alice, aliceSk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger (IsTx (balance))
@@ -33,7 +33,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} = do
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket []
       <&> \config -> config{networkId, startChainFrom = Just tip}
-  hydraScriptsTxId <- publishHydraScripts node Faucet
+  hydraScriptsTxId <- publishHydraScriptsAs node Faucet
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     let contestationPeriod = 1 :: Natural

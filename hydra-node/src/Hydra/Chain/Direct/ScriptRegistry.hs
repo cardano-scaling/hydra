@@ -11,21 +11,38 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   CtxUTxO,
+  Key (..),
   NetworkId,
+  PaymentKey,
   ScriptHash,
+  ShelleyWitnessSigningKey (WitnessPaymentKey),
+  SigningKey,
   TxId,
   TxIn (..),
   TxIx (..),
   TxOut,
+  WitCtx (..),
+  examplePlutusScriptAlwaysFails,
+  getTxId,
   hashScriptInAnyLang,
+  lovelaceToValue,
+  makeShelleyKeyWitness,
+  makeSignedTransaction,
+  mkScriptAddress,
+  mkVkAddress,
+  selectLovelace,
+  throwErrorAsException,
   toScriptInAnyLang,
   txOutReferenceScript,
+  txOutValue,
   pattern PlutusScript,
   pattern ReferenceScript,
   pattern ReferenceScriptNone,
+  pattern TxOut,
+  pattern TxOutDatumNone,
  )
 import Hydra.Cardano.Api.PlutusScript (fromPlutusScript)
-import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOByTxIn)
+import Hydra.Chain.CardanoClient (QueryPoint (..), awaitTransaction, buildTransaction, queryUTxOByTxIn, queryUTxOFor, submitTransaction)
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Initial as Initial
@@ -123,3 +140,62 @@ genScriptRegistry = do
   -- TODO: Could be moved to hydra-cardano-api, generic enough.
   mkScriptRef =
     ReferenceScript . toScriptInAnyLang . PlutusScript . fromPlutusScript
+
+publishHydraScripts ::
+  -- | Expected network discriminant.
+  NetworkId ->
+  -- | Path to the cardano-node's domain socket
+  FilePath ->
+  -- | Keys assumed to hold funds to pay for the publishing transaction.
+  SigningKey PaymentKey ->
+  IO TxId
+publishHydraScripts networkId nodeSocket sk = do
+  utxo <- queryUTxOFor networkId nodeSocket QueryTip vk
+  let probablyEnoughLovelace = probablyEnoughLovelaceForCommit + probablyEnoughLovelaceForInitial
+      someUTxO =
+        maybe mempty UTxO.singleton $
+          UTxO.find (\o -> selectLovelace (txOutValue o) > probablyEnoughLovelace) utxo
+  buildTransaction
+    networkId
+    nodeSocket
+    changeAddress
+    someUTxO
+    []
+    [publishInitial, publishCommit]
+    >>= \case
+      Left e ->
+        throwErrorAsException e
+      Right body -> do
+        let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
+        submitTransaction networkId nodeSocket tx
+        void $ awaitTransaction networkId nodeSocket tx
+        return $ getTxId body
+ where
+  vk = getVerificationKey sk
+  changeAddress = mkVkAddress networkId vk
+
+  -- TODO: Move to hydra-cardano-api
+  mkScriptRef =
+    ReferenceScript . toScriptInAnyLang . PlutusScript . fromPlutusScript
+
+  publishInitial =
+    TxOut
+      unspendableScriptAddress
+      (lovelaceToValue probablyEnoughLovelaceForInitial)
+      TxOutDatumNone
+      (mkScriptRef Initial.validatorScript)
+
+  publishCommit =
+    TxOut
+      unspendableScriptAddress
+      (lovelaceToValue probablyEnoughLovelaceForCommit)
+      TxOutDatumNone
+      (mkScriptRef Commit.validatorScript)
+
+  unspendableScriptAddress =
+    mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
+
+  -- This depends on protocol parameters and the size of the script.
+  -- TODO: Calculate this value instead from pparams.
+  probablyEnoughLovelaceForInitial = 23_437_780
+  probablyEnoughLovelaceForCommit = 23_437_780
