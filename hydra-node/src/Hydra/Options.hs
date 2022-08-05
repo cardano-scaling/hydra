@@ -87,12 +87,19 @@ commandParser =
             )
         )
 
-data PublishOptions
-  = PublishOptions
+data PublishOptions = PublishOptions
+  { publishNetworkId :: NetworkId
+  , publishNodeSocket :: FilePath
+  , publishSigningKey :: FilePath
+  }
   deriving (Show, Eq)
 
 publishOptionsParser :: Parser PublishOptions
-publishOptionsParser = pure PublishOptions
+publishOptionsParser =
+  PublishOptions
+    <$> networkIdParser
+    <*> nodeSocketParser
+    <*> cardanoSigningKeyFileParser
 
 -- TODO: Rename to RunOptions for consistency
 data Options = Options

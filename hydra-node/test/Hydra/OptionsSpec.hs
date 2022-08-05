@@ -188,9 +188,50 @@ spec = parallel $
     prop "roundtrip options" $
       forAll arbitrary canRoundtripOptionsAndPrettyPrinting
 
-    it "parses 'publish-scripts' command" $
-      ["publish-scripts"]
-        `shouldParse` Publish PublishOptions
+    describe "publish-scripts sub-command" $ do
+      xit "does not parse without any options" $
+        shouldNotParse
+          [ "publish-scripts"
+          ]
+
+      xit "does not parse with some missing option (1)" $
+        shouldNotParse $
+          mconcat
+            [ ["publish-scripts"]
+            , ["--node-socket", "foo"]
+            , ["--network-id", "42"]
+            ]
+
+      xit "does not parse with some missing option (2)" $
+        shouldNotParse $
+          mconcat
+            [ ["publish-scripts"]
+            , ["--network-id", "42"]
+            , ["--cardano-signing-key", "foo"]
+            ]
+
+      xit "does not parse with some missing option (3)" $
+        shouldNotParse $
+          mconcat
+            [ ["publish-scripts"]
+            , ["--node-socket", "foo"]
+            , ["--cardano-signing-key", "foo"]
+            ]
+
+      it "should parse with all options" $
+        mconcat
+          [ ["publish-scripts"]
+          , ["--node-socket", "foo"]
+          , ["--network-id", "42"]
+          , ["--cardano-signing-key", "bar"]
+          ]
+          `shouldParse` ( Publish
+                            PublishOptions
+                              { publishNodeSocket = "foo"
+                              , publishNetworkId = Testnet (NetworkMagic 42)
+                              , publishSigningKey = "bar"
+                              }
+                        )
 
 canRoundtripOptionsAndPrettyPrinting :: Options -> Property
 canRoundtripOptionsAndPrettyPrinting opts =
