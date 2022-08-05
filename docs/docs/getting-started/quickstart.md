@@ -29,6 +29,7 @@ Options                                                 | Description
 `--host` <br/> `--port`                                 | This Hydra node host and port, to which peers from the Hydra network can connect to.
 `--node-socket`                                         | The Cardano node's IPC socket filepath, used for inter-process communication with the node.
 `--ledger-genesis` <br/> `--ledger-protocol-parameters` | The Hydra ledger rules and parameters for the head.
+`--hydra-scripts-tx-id`                                 | A transaction id referencing Hydra's Plutus scripts. See release notes.
 `--hydra-signing-key` <br/> `--cardano-signing-key` <br/> `--hydra-verification-key` <br/> `--cardano-verification-key` | The Cardano and Hydra credentials for peers and the node itself. Those options may also be provided multiple times depending on the number of peers.
 
 Also, optionally:
@@ -66,6 +67,18 @@ From there, each participant is expected to share their verification key with ot
 The second set of keys are the so-called Hydra keys, which are used for multi-signing snapshots within a Head. While in the long-run, those keys will be key pairs used within MuSig2 aggregated multi-signature scheme. At present however, the aggregated multisig cryptography is [yet to be implemented](https://github.com/input-output-hk/hydra-poc/issues/193) and the Hydra nodes are a naiive, but secure multi-signature scheme based on Ed25519 keys.
 
 These are similar to cardano keys, but shall not be mixed up and thus we use a different, more basic on-disk representation basically directly consisting of the key material (while Cardano keys usually are stored CBOR-encoded in text envelopes). We provide demo key pairs as `alice.{vk,sk}`, `bob.{vk,sk}` and `carol.{vk,sk}` in our [demo folder](https://github.com/input-output-hk/hydra-poc/tree/master/demo). Currently, participants are expected to pick one of those and in a similar fashion to Cardano keys, share the verification key with their peers and use the signing key for them. (TODO: we should provide an easy way to generate new ones using some system entropy)
+
+### Reference Scripts
+
+Hydra makes use of reference scripts to reduce the size of transactions driving the Head's lifecycle. In principle, reference scripts will be published with each release and the corresponding transaction id will be advertised in the release notes. However, if you do want to play around with this and provide alternative versions, you can do so by first publishing the scripts yourself via the `publish-scripts` command:
+
+```mdx-code-block
+<TerminalWindow>
+hydra-node publish-scripts --network-id 42 --node-socket /path/to/node.socket --cardano-signing-key cardano.sk
+</TerminalWindow>
+```
+
+On success, this commands outputs a transaction id ready to be used. The provided key is expected to hold funds (> 50 ADA), and will be used to create multiple **UNSPENDABLE** UTxO entries on-chain, each carrying a script that can be later referenced by the Hydra node.
 
 ### Ledger Parameters
 
