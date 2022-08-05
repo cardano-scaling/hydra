@@ -30,9 +30,8 @@ import Hydra.Chain.Direct.State (
   observeTx,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
-import qualified Hydra.Contract.Initial as Initial
 import Hydra.Crypto (HydraKey, generateSigningKey)
-import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genTxOutAdaOnly, genUTxOAdaOnlyOfSize, genVerificationKey, renderTx)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey, renderTx)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTime, slotNoFromPOSIXTime)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
