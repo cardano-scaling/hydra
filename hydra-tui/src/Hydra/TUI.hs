@@ -231,6 +231,8 @@ handleAppEvent s = \case
     Disconnected{nodeHost = s ^. nodeHostL}
   Update Greetings{me} ->
     s & meL ?~ me
+  Update (PeersModified peers) ->
+    s & warn ("Modified the list of peers in the network with: " <> show peers)
   Update (PeerConnected p) ->
     s & peersL %~ \cp -> nub $ cp <> [p]
   Update (PeerDisconnected p) ->

@@ -38,6 +38,7 @@ data ServerOutput tx
     Greetings {me :: Party}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RolledBack
+  | PeersModified [Host]
   deriving (Generic)
 
 deriving instance IsTx tx => Eq (ServerOutput tx)
@@ -70,3 +71,4 @@ instance IsTx tx => Arbitrary (ServerOutput tx) where
     Greetings me -> Greetings <$> shrink me
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     RolledBack -> []
+    PeersModified ps -> PeersModified <$> shrink ps

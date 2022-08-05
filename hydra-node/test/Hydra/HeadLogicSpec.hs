@@ -36,12 +36,13 @@ import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.Party (Party (..))
-import Hydra.ServerOutput (ServerOutput (PeerConnected, RolledBack))
+import Hydra.ServerOutput (ServerOutput (PeerConnected, RolledBack, PeersModified, CommandFailed))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 import Test.QuickCheck (forAll)
 import Test.QuickCheck.Monadic (monadicIO, run)
+import Hydra.ClientInput (ClientInput(ModifyPeers))
 
 spec :: Spec
 spec = do
@@ -59,6 +60,25 @@ spec = do
               , signingKey = bobSk
               , otherParties = [alice, carol]
               }
+
+      it "notify user that peers will get modified if head is in idle state" $ do
+        let 
+            clientInput = ModifyPeers []
+            event = ClientEvent clientInput
+            s0 = IdleState
+
+        update env ledger s0 event `hasEffect` ClientEffect (PeersModified [])
+
+      it "fail to process modify peers input if not in idle state" $ do
+        let clientInput = ModifyPeers []
+            event = ClientEvent clientInput
+            s1 = inInitialState threeParties
+            s2 = inOpenState threeParties ledger
+            s3 = inClosedState threeParties
+
+        update env ledger s1 event `hasEffect` ClientEffect (CommandFailed clientInput)
+        update env ledger s2 event `hasEffect` ClientEffect (CommandFailed clientInput)
+        update env ledger s3 event `hasEffect` ClientEffect (CommandFailed clientInput)
 
       it "waits if a requested tx is not (yet) applicable" $ do
         let reqTx = NetworkEvent $ ReqTx alice $ SimpleTx 2 inputs mempty

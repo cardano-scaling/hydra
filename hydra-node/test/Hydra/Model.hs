@@ -398,6 +398,8 @@ instance
   perform _ Stop _ = pure ()
   perform st Command{party, command} _ = do
     case command of
+      Input.ModifyPeers peers ->
+        party `sendsInput` Input.ModifyPeers peers
       Input.Commit{Input.utxo = utxo} ->
         performCommit party utxo
       Input.NewTx{Input.transaction = tx} ->

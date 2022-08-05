@@ -6,9 +6,12 @@ import Hydra.Prelude
 
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (IsTx, UTxOType)
+import Hydra.Network (Host)
 
 data ClientInput tx
-  = Init {contestationPeriod :: ContestationPeriod}
+  = 
+  ModifyPeers [Host]
+  | Init {contestationPeriod :: ContestationPeriod}
   | Abort
   | Commit {utxo :: UTxOType tx}
   | NewTx {transaction :: tx}
@@ -30,6 +33,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ClientInput tx) w
   -- Overlapping instances with 'UTxOType tx' even though for a fixed `tx`, there
   -- should be only one 'UTxOType tx'
   shrink = \case
+    ModifyPeers{} -> []
     Init{} -> []
     Abort -> []
     Commit xs -> Commit <$> shrink xs
