@@ -47,8 +47,19 @@ import Hydra.Cardano.Api (
   evaluateTransactionExecutionUnits,
   fromLedgerPParams,
   getTxBody,
+  toLedgerPParams,
  )
-import Ouroboros.Consensus.HardFork.History (mkInterpreter, neverForksSummary)
+import Ouroboros.Consensus.Cardano.Block (CardanoEras)
+import Ouroboros.Consensus.HardFork.History (
+  EraEnd (EraUnbounded),
+  EraParams (..),
+  EraSummary (..),
+  SafeZone (..),
+  Summary (Summary),
+  initBound,
+  mkInterpreter,
+ )
+import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import Test.QuickCheck (choose)
@@ -145,7 +156,24 @@ eraHistory :: EraHistory CardanoMode
 eraHistory =
   EraHistory CardanoMode (mkInterpreter summary)
  where
-  summary = neverForksSummary (EpochSize 100) (mkSlotLength 1)
+  summary :: Summary (CardanoEras StandardCrypto)
+  summary = Summary neverForksUntyped
+
+  -- NOTE: Inlined / similar to --
+  -- Ouroboros.Consensus.HardFork.History.Summary.neverForksSummary, but without
+  -- a fixed '[x] type so we can use the CardanoMode eras
+  neverForksUntyped =
+    NonEmptyOne $
+      EraSummary
+        { eraStart = initBound
+        , eraEnd = EraUnbounded
+        , eraParams =
+            EraParams
+              { eraEpochSize = EpochSize 100
+              , eraSlotLength = mkSlotLength 1
+              , eraSafeZone = UnsafeIndefiniteSafeZone
+              }
+        }
 
 epochInfo :: Monad m => EpochInfo m
 epochInfo = fixedEpochInfo (EpochSize 100) slotLength
@@ -193,6 +221,6 @@ slotNoToPOSIXTime :: HasCallStack => SlotNo -> Plutus.POSIXTime
 slotNoToPOSIXTime =
   either error id
     . slotToPOSIXTime
-      pparams
+      (toLedgerPParams (shelleyBasedEra @Era) pparams)
       epochInfo
       systemStart
