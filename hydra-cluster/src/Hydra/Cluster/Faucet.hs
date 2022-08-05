@@ -9,16 +9,18 @@ import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
   CardanoClientException,
   QueryPoint (QueryTip),
-  build,
   buildAddress,
   queryUTxO,
   sign,
-  submit,
   waitForPayment,
-  waitForTransaction,
  )
 import CardanoNode (RunningNode (..))
 import qualified Data.Map as Map
+import Hydra.Chain.CardanoClient (
+  buildTransaction,
+  queryUTxOFor,
+  submitTransaction,
+ )
 import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash, retry)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
@@ -53,11 +55,11 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
  where
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findUTxO faucetVk
-    let changeAddress = buildAddress faucetVk networkId
-    build networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
+    let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
+    buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
-        submit networkId nodeSocket (sign faucetSk body)
+        submitTransaction networkId nodeSocket (sign faucetSk body)
 
   findUTxO faucetVk = do
     faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
@@ -161,7 +163,7 @@ queryUTxOFor RunningNode{networkId, nodeSocket} queryPoint vk =
 --
 -- Throws at least 'QueryException' if query fails.
 queryMarkedUTxO :: RunningNode -> VerificationKey PaymentKey -> IO (UTxO, UTxO)
-queryMarkedUTxO node vk =
-  mkPartition <$> queryUTxOFor node QueryTip vk
+queryMarkedUTxO RunningNode{nodeSocket, networkId} vk =
+  mkPartition <$> queryUTxOFor networkId nodeSocket QueryTip vk
  where
   mkPartition = bimap UTxO UTxO . Map.partition isMarkedOutput . UTxO.toMap
