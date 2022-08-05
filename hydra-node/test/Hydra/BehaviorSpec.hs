@@ -19,6 +19,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
+import Data.List (nub)
 import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
 import Hydra.Cardano.Api (SigningKey)
@@ -471,6 +472,8 @@ simulatedChainAndNetwork :: (MonadSTM m) => m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
   history <- newTVarIO []
   nodes <- newTVarIO []
+  allNodes <- readTVarIO nodes
+  let allNodesPeers = peers . hn <$> allNodes
   pure $
     ConnectToChain
       { chainComponent = \node -> do
@@ -478,7 +481,7 @@ simulatedChainAndNetwork = do
           pure $
             node
               { oc = Chain{postTx = postTx nodes history}
-              , hn = Network{broadcast = broadcast node nodes}
+              , hn = Network{broadcast = broadcast node nodes, peers = peers' node allNodesPeers}
               }
       , history
       }
@@ -498,6 +501,12 @@ simulatedChainAndNetwork = do
     mapM_ (`handleMessage` msg) otherNodes
 
   getNodeId = getField @"party" . env
+
+  peers' node allNodesPeers = allPeers
+   where
+    peer = peers . hn $ node
+    otherPeers = nub . mconcat $ allNodesPeers
+    allPeers = nub $ peer <> otherPeers
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
@@ -587,7 +596,7 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
   chainComponent connectToChain $
     HydraNode
       { eq
-      , hn = Network{broadcast = const $ pure ()}
+      , hn = Network{broadcast = const $ pure (), peers = []}
       , hh
       , oc = Chain (const $ pure ())
       , server =

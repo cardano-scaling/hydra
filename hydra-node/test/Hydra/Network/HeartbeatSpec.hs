@@ -13,15 +13,22 @@ import Test.Hydra.Fixture (alice, bob)
 spec :: Spec
 spec = parallel $
   describe "Heartbeat" $ do
-    let captureOutgoing msgqueue _cb action =
-          action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)}
-
-        captureIncoming receivedMessages msg =
-          atomically $ modifyTVar' receivedMessages (msg :)
-
+    let 
         localhost = Host{hostname = "1.2.3.4", port = 1}
 
         otherPeer = Host{hostname = "2.3.4.5", port = 1}
+
+        peers' = [localhost, otherPeer]
+
+        captureOutgoing msgqueue _cb action =
+          action $
+            Network
+              { broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)
+                , peers = peers'
+              }
+
+        captureIncoming receivedMessages msg =
+          atomically $ modifyTVar' receivedMessages (msg :)
 
     it "sends a heartbeat message with local host after 500 ms" $ do
       let sentHeartbeats = runSimOrThrow $ do
@@ -73,7 +80,7 @@ spec = parallel $
 
             let component incoming action =
                   race_
-                    (action (Network noop))
+                    (action (Network noop peers'))
                     (incoming (Ping otherPeer) >> threadDelay 4 >> incoming (Ping otherPeer) >> threadDelay 7)
 
             withHeartbeat localhost component (captureIncoming receivedMessages) $ \_ ->

@@ -39,13 +39,17 @@ import Text.Show (Show (show))
 -- * Hydra network interface
 
 -- | Handle to interface with the hydra network and send messages "off chain".
-newtype Network m msg = Network
+data Network m msg = Network
   { -- | Send a `msg` to the whole hydra network.
     broadcast :: msg -> m ()
+  , -- | Returns the list of connected peers in the whole hydra network.
+    peers :: [Host]
   }
 
 instance Contravariant (Network m) where
-  contramap f (Network bcast) = Network $ \msg -> bcast (f msg)
+  contramap f (Network bcast peers) = Network bcast' peers
+   where
+    bcast' = bcast . f
 
 -- | Handle to interface for inbound messages.
 type NetworkCallback msg m = msg -> m ()
