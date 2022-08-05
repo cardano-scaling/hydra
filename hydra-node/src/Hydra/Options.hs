@@ -406,7 +406,11 @@ hydraScriptsTxIdParser =
 hydraNodeCommand :: ParserInfo Command
 hydraNodeCommand =
   info
-    (hydraNodeParser <**> helper <**> versionInfo <**> scriptInfo)
+    ( (Run <$> hydraNodeParser)
+        <**> helper
+        <**> versionInfo
+        <**> scriptInfo
+    )
     ( fullDesc
         <> progDesc "Starts a Hydra Node"
         <> header "hydra-node - A prototype of Hydra Head protocol"
