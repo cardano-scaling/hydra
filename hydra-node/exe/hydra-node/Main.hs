@@ -32,12 +32,12 @@ import Hydra.Node (
   initEnvironment,
   runHydraNode,
  )
-import Hydra.Options (ChainConfig (..), LedgerConfig (..), Options (..), parseHydraOptions)
+import Hydra.Options (ChainConfig (..), LedgerConfig (..), Options (..), parseHydraCommand)
 import Hydra.Party (Party)
 
 main :: IO ()
 main = do
-  o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort, hydraScriptsTxId, chainConfig, ledgerConfig} <- identifyNode <$> parseHydraOptions
+  o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort, hydraScriptsTxId, chainConfig, ledgerConfig} <- identifyNode <$> parseHydraCommand
   env@Environment{party} <- initEnvironment o
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do

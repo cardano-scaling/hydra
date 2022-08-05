@@ -61,6 +61,16 @@ import Options.Applicative.Builder (str)
 import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
 
+data Command
+  = Run Options
+  | Publish PublishOptions
+  deriving (Show, Eq)
+
+data PublishOptions
+  = PublishOptions
+  deriving (Show, Eq)
+
+-- TODO: Rename to RunOptions for consistency
 data Options = Options
   { verbosity :: Verbosity
   , nodeId :: Natural
@@ -393,8 +403,8 @@ hydraScriptsTxIdParser =
           \first 10 outputs."
     )
 
-hydraNodeOptions :: ParserInfo Options
-hydraNodeOptions =
+hydraNodeCommand :: ParserInfo Command
+hydraNodeCommand =
   info
     (hydraNodeParser <**> helper <**> versionInfo <**> scriptInfo)
     ( fullDesc
@@ -413,12 +423,12 @@ hydraNodeOptions =
       (long "script-info" <> help "Dump script info as JSON")
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
-parseHydraOptions :: IO Options
-parseHydraOptions = getArgs <&> parseHydraOptionsFromString >>= handleParseResult
+parseHydraCommand :: IO Command
+parseHydraCommand = getArgs <&> parseHydraCommandFromArgs >>= handleParseResult
 
 -- | Pure parsing of `Option` from a list of arguments.
-parseHydraOptionsFromString :: [String] -> ParserResult Options
-parseHydraOptionsFromString = execParserPure defaultPrefs hydraNodeOptions
+parseHydraCommandFromArgs :: [String] -> ParserResult Command
+parseHydraCommandFromArgs = execParserPure defaultPrefs hydraNodeCommand
 
 -- | Convert an 'Options' instance into the corresponding list of command-line arguments.
 --
