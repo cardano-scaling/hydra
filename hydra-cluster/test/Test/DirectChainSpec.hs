@@ -16,6 +16,7 @@ import CardanoClient (
  )
 import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -292,7 +293,10 @@ spec = around showLogsOnFailure $ do
                 )
             )
             ""
-        let hydraScriptsTxId = unsafeDeserialiseFromRawBytesBase16 (encodeUtf8 hydraScriptsTxIdStr)
+        let hydraScriptsTxId =
+              let removeTrailingNewline = BS.init
+               in unsafeDeserialiseFromRawBytesBase16
+                    (removeTrailingNewline (encodeUtf8 hydraScriptsTxIdStr))
         failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
 
 data TestClusterLog

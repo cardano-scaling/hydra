@@ -41,6 +41,7 @@ import Options.Applicative (
   eitherReader,
   execParserPure,
   flag,
+  footer,
   fullDesc,
   handleParseResult,
   header,
@@ -54,12 +55,14 @@ import Options.Applicative (
   metavar,
   option,
   progDesc,
+  progDescDoc,
   short,
   strOption,
   subparser,
   value,
  )
 import Options.Applicative.Builder (str)
+import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
 
@@ -83,7 +86,24 @@ commandParser =
         ( info
             (helper <*> publishOptionsParser)
             ( fullDesc
-                <> progDesc "Publish Plutus scripts on chain for later reference."
+                <> header
+                  "Publish Hydra's Plutus scripts on chain for later reference."
+                <> progDescDoc
+                  ( Just $
+                      vsep
+                        [ " ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ "
+                        , " ┃              ⚠ WARNING ⚠              ┃ "
+                        , " ┣═══════════════════════════════════════┫ "
+                        , " ┃    This costs money. About 50 Ada.    ┃ "
+                        , " ┃ Spent using the provided signing key. ┃ "
+                        , " ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ "
+                        ]
+                  )
+                <> footer
+                  "The command outputs the transaction id (in base16) \
+                  \of the publishing transaction. This transaction id \
+                  \can then be passed onto '--hydra-scripts-tx-id' to \
+                  \start a hydra-node using the referenced scripts."
             )
         )
 

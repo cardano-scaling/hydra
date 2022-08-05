@@ -5,9 +5,10 @@ module Main where
 import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
-import Hydra.Cardano.Api (TxId)
+import Hydra.Cardano.Api (TxId, serialiseToRawBytesHex)
 import Hydra.Chain (Chain, ChainCallback)
 import Hydra.Chain.Direct (withDirectChain)
+import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair, readVerificationKey)
 import Hydra.HeadLogic (Environment (..), Event (..))
 import Hydra.Ledger.Cardano (Tx)
@@ -32,15 +33,24 @@ import Hydra.Node (
   initEnvironment,
   runHydraNode,
  )
-import Hydra.Options (ChainConfig (..), Command (Publish, Run), LedgerConfig (..), Options (..), parseHydraCommand)
+import Hydra.Options (
+  ChainConfig (..),
+  Command (Publish, Run),
+  LedgerConfig (..),
+  Options (..),
+  PublishOptions (..),
+  parseHydraCommand,
+ )
 import Hydra.Party (Party)
 
 main :: IO ()
 main = do
   command <- parseHydraCommand
   case command of
-    Run options -> run (identifyNode options)
-    Publish _ -> undefined
+    Run options ->
+      run (identifyNode options)
+    Publish options ->
+      publish options
  where
   run opts = do
     let Options{verbosity, monitoringPort} = opts
@@ -58,6 +68,12 @@ main = do
               withCardanoLedger ledgerConfig $ \ledger -> do
                 node <- createHydraNode eq hn ledger oc server env
                 runHydraNode (contramap Node tracer) node
+
+  publish opts = do
+    (_, sk) <- readKeyPair (publishSigningKey opts)
+    let PublishOptions{publishNetworkId = networkId, publishNodeSocket = nodeSocket} = opts
+    txId <- publishHydraScripts networkId nodeSocket sk
+    putStrLn (decodeUtf8 (serialiseToRawBytesHex txId))
 
   withNetwork tracer host port peers =
     let localhost = Host{hostname = show host, port}
