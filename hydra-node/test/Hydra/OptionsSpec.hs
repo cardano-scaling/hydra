@@ -5,7 +5,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), serialiseToRawBytesHexText, unsafeDeserialiseFromRawBytesBase16)
 import Hydra.Chain.Direct (NetworkMagic (..))
-import Hydra.Logging (Verbosity(..))
+import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
   ChainConfig (..),
@@ -13,6 +13,7 @@ import Hydra.Options (
   LedgerConfig (..),
   Options (..),
   ParserResult (..),
+  PublishOptions (..),
   defaultChainConfig,
   defaultLedgerConfig,
   parseHydraCommandFromArgs,
@@ -85,97 +86,111 @@ spec = parallel $
     it "parses --network-id option as a number" $ do
       shouldNotParse ["--network-id", "abc"]
       ["--network-id", "0"]
-        `shouldParse` Run defaultOptions
-          { chainConfig =
-              defaultChainConfig
-                { networkId = Testnet (NetworkMagic 0)
-                }
-          }
+        `shouldParse` Run
+          defaultOptions
+            { chainConfig =
+                defaultChainConfig
+                  { networkId = Testnet (NetworkMagic 0)
+                  }
+            }
       ["--network-id", "-1"] -- Word32 overflow expected
-        `shouldParse` Run defaultOptions
-          { chainConfig =
-              defaultChainConfig
-                { networkId = Testnet (NetworkMagic 4294967295)
-                }
-          }
+        `shouldParse` Run
+          defaultOptions
+            { chainConfig =
+                defaultChainConfig
+                  { networkId = Testnet (NetworkMagic 4294967295)
+                  }
+            }
       ["--network-id", "123"]
-        `shouldParse` Run defaultOptions
-          { chainConfig =
-              defaultChainConfig
-                { networkId = Testnet (NetworkMagic 123)
-                }
-          }
+        `shouldParse` Run
+          defaultOptions
+            { chainConfig =
+                defaultChainConfig
+                  { networkId = Testnet (NetworkMagic 123)
+                  }
+            }
 
     it "parses --mainnet flag" $ do
       shouldNotParse ["--mainnet"]
 
     it "parses --node-socket as a filepath" $
       ["--node-socket", "foo.sock"]
-        `shouldParse` Run defaultOptions
-          { chainConfig =
-              defaultChainConfig
-                { nodeSocket = "foo.sock"
-                }
-          }
+        `shouldParse` Run
+          defaultOptions
+            { chainConfig =
+                defaultChainConfig
+                  { nodeSocket = "foo.sock"
+                  }
+            }
 
     it "parses --cardano-signing-key option as a filepath" $
       ["--cardano-signing-key", "./alice-cardano.sk"]
-        `shouldParse` Run defaultOptions
-          { chainConfig =
-              defaultChainConfig
-                { cardanoSigningKey = "./alice-cardano.sk"
-                }
-          }
+        `shouldParse` Run
+          defaultOptions
+            { chainConfig =
+                defaultChainConfig
+                  { cardanoSigningKey = "./alice-cardano.sk"
+                  }
+            }
 
     it "parses --cardano-verification-key option as a filepath" $
       ["--cardano-verification-key", "./alice-cardano.vk"]
-        `shouldParse` Run defaultOptions
-          { chainConfig =
-              defaultChainConfig
-                { cardanoVerificationKeys = ["./alice-cardano.vk"]
-                }
-          }
+        `shouldParse` Run
+          defaultOptions
+            { chainConfig =
+                defaultChainConfig
+                  { cardanoVerificationKeys = ["./alice-cardano.vk"]
+                  }
+            }
 
     it "parses --ledger-genesis-file as a filepath" $
       ["--ledger-genesis", "my-custom-genesis.json"]
-        `shouldParse` Run defaultOptions
-          { ledgerConfig =
-              defaultLedgerConfig
-                { cardanoLedgerGenesisFile = "my-custom-genesis.json"
-                }
-          }
+        `shouldParse` Run
+          defaultOptions
+            { ledgerConfig =
+                defaultLedgerConfig
+                  { cardanoLedgerGenesisFile = "my-custom-genesis.json"
+                  }
+            }
 
     it "parses --ledger-protocol-parameters-file as a filepath" $
       ["--ledger-protocol-parameters", "my-custom-protocol-parameters.json"]
-        `shouldParse` Run defaultOptions
-          { ledgerConfig =
-              defaultLedgerConfig
-                { cardanoLedgerProtocolParametersFile = "my-custom-protocol-parameters.json"
-                }
-          }
+        `shouldParse` Run
+          defaultOptions
+            { ledgerConfig =
+                defaultLedgerConfig
+                  { cardanoLedgerProtocolParametersFile = "my-custom-protocol-parameters.json"
+                  }
+            }
 
     it "parses --start-chain-from as a pair of slot number and block header hash" $
       ["--start-chain-from", "1000.0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]
-        `shouldParse` Run defaultOptions
-          { chainConfig =
-              defaultChainConfig
-                { startChainFrom =
-                    Just
-                      ( ChainPoint
-                          1000
-                          (unsafeDeserialiseFromRawBytesBase16 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-                      )
-                }
-          }
+        `shouldParse` Run
+          defaultOptions
+            { chainConfig =
+                defaultChainConfig
+                  { startChainFrom =
+                      Just
+                        ( ChainPoint
+                            1000
+                            (unsafeDeserialiseFromRawBytesBase16 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                        )
+                  }
+            }
 
     prop "parses --hydra-scripts-tx-id as a tx id" $ \txId ->
       ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText txId]
-        `shouldParse` Run defaultOptions
-          { hydraScriptsTxId = txId
-          }
+        `shouldParse` Run
+          defaultOptions
+            { hydraScriptsTxId = txId
+            }
 
     prop "roundtrip options" $
       forAll arbitrary canRoundtripOptionsAndPrettyPrinting
+
+    it "parses 'publish-scripts' command" $
+      ["publish-scripts"]
+        `shouldParse` Publish PublishOptions
 
 canRoundtripOptionsAndPrettyPrinting :: Options -> Property
 canRoundtripOptionsAndPrettyPrinting opts =

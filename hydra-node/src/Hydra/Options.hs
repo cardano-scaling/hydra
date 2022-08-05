@@ -35,6 +35,7 @@ import Options.Applicative (
   ParserInfo,
   ParserResult (..),
   auto,
+  command,
   completer,
   defaultPrefs,
   eitherReader,
@@ -55,6 +56,7 @@ import Options.Applicative (
   progDesc,
   short,
   strOption,
+  subparser,
   value,
  )
 import Options.Applicative.Builder (str)
@@ -66,9 +68,31 @@ data Command
   | Publish PublishOptions
   deriving (Show, Eq)
 
+commandParser :: Parser Command
+commandParser =
+  asum
+    [ Run <$> runOptionsParser
+    , Publish <$> publishScriptsParser
+    ]
+ where
+  publishScriptsParser :: Parser PublishOptions
+  publishScriptsParser =
+    subparser $
+      command
+        "publish-scripts"
+        ( info
+            (helper <*> publishOptionsParser)
+            ( fullDesc
+                <> progDesc "Publish Plutus scripts on chain for later reference."
+            )
+        )
+
 data PublishOptions
   = PublishOptions
   deriving (Show, Eq)
+
+publishOptionsParser :: Parser PublishOptions
+publishOptionsParser = pure PublishOptions
 
 -- TODO: Rename to RunOptions for consistency
 data Options = Options
@@ -121,8 +145,8 @@ instance Arbitrary Options where
         , ledgerConfig
         }
 
-hydraNodeParser :: Parser Options
-hydraNodeParser =
+runOptionsParser :: Parser Options
+runOptionsParser =
   Options
     <$> verbosityParser
     <*> nodeIdParser
@@ -406,10 +430,10 @@ hydraScriptsTxIdParser =
 hydraNodeCommand :: ParserInfo Command
 hydraNodeCommand =
   info
-    ( (Run <$> hydraNodeParser)
-        <**> helper
+    ( commandParser
         <**> versionInfo
         <**> scriptInfo
+        <**> helper
     )
     ( fullDesc
         <> progDesc "Starts a Hydra Node"
