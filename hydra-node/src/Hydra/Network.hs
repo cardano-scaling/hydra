@@ -43,11 +43,12 @@ data Network m msg = Network
   { -- | Send a `msg` to the whole hydra network.
     broadcast :: msg -> m ()
   , -- | Returns the list of connected peers in the whole hydra network.
-    peers :: [Host]
+    getPeers :: [Host]
+  , setPeers :: [Host] -> m ()
   }
 
 instance Contravariant (Network m) where
-  contramap f (Network bcast peers) = Network bcast' peers
+  contramap f (Network bcast getPeers setPeers) = Network bcast' getPeers setPeers
    where
     bcast' = bcast . f
 

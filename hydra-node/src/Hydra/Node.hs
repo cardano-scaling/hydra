@@ -35,7 +35,6 @@ import Control.Monad.Class.MonadSTM (
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), deserialiseFromRawBytes)
 import Hydra.Chain (Chain (..), ChainEvent, PostTxError)
-import Hydra.ClientInput (ClientInput)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
   Effect (..),
@@ -50,9 +49,10 @@ import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message)
-import Hydra.Options (RunOptions (..))
+import Hydra.Network.Message (Message (PeersUpdated))
+import Hydra.Options (Options (..))
 import Hydra.Party (Party (..), deriveParty)
+import Hydra.ClientInput (ClientInput)
 
 -- * Environment Handling
 
@@ -190,6 +190,7 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
   traceWith tracer $ ProcessingEffect party e
   case e of
     ClientEffect i -> sendOutput server i
+    NetworkEffect (PeersUpdated peers) -> setPeers hn peers
     NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent msg)
     OnChainEffect postChainTx ->
       postTx oc postChainTx

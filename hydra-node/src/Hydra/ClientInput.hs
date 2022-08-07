@@ -10,7 +10,7 @@ import Hydra.Network (Host)
 
 data ClientInput tx
   = 
-  ModifyPeers [Host]
+  ModifyPeers {peers :: [Host]}
   | Init {contestationPeriod :: ContestationPeriod}
   | Abort
   | Commit {utxo :: UTxOType tx}
@@ -33,7 +33,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ClientInput tx) w
   -- Overlapping instances with 'UTxOType tx' even though for a fixed `tx`, there
   -- should be only one 'UTxOType tx'
   shrink = \case
-    ModifyPeers{} -> []
+    ModifyPeers ps -> ModifyPeers <$> shrink ps
     Init{} -> []
     Abort -> []
     Commit xs -> Commit <$> shrink xs

@@ -149,7 +149,12 @@ createHydraNode signingKey otherParties events = do
   pure $
     HydraNode
       { eq
-      , hn = Network{broadcast = const $ pure (), peers = []}
+      , hn =
+          Network
+            { broadcast = const $ pure ()
+            , getPeers = []
+            , setPeers = \_ -> pure ()
+            }
       , hh
       , oc = Chain{postTx = const $ pure ()}
       , server = Server{sendOutput = const $ pure ()}
@@ -166,7 +171,17 @@ createHydraNode signingKey otherParties events = do
 recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
 recordNetwork node = do
   (record, query) <- messageRecorder
-  pure (node{hn = Network{broadcast = record, peers = peers . hn $ node}}, query)
+  pure
+    ( node
+        { hn =
+            Network
+              { broadcast = record
+              , getPeers = getPeers . hn $ node
+              , setPeers = \_ -> pure ()
+              }
+        }
+    , query
+    )
 
 recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
 recordServerOutputs node = do

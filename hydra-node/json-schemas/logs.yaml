@@ -59,7 +59,6 @@ properties:
                 enum: ["APIServer"]
               api:
                 $ref: "#/definitions/APIServer"
-
           - title: Node
             type: object
             additionalProperties: false
@@ -75,7 +74,6 @@ properties:
                 enum: ["Node"]
               node:
                 $ref: "#/definitions/Node"
-
           - title: DirectChain
             type: object
             additionalProperties: false
@@ -90,7 +88,6 @@ properties:
                 enum: ["DirectChain"]
               directChain:
                 $ref: "#/definitions/DirectChain"
-
           - title: Network
             type: object
             additionalProperties: false
@@ -257,7 +254,6 @@ definitions:
           type: array
           items:
             type: integer
-
     - title: RolledBackward
       description: >-
         Observation of a rollback.
@@ -272,7 +268,6 @@ definitions:
           enum: ["RolledBackward"]
         point:
           $ref: "api.yaml#/components/schemas/Point"
-
     - title: Wallet
       description: >-
         Logs coming from the wallet.
@@ -624,6 +619,7 @@ definitions:
           enum: ["ClientEvent"]
         clientInput:
           oneOf:
+            - $ref: "api.yaml#/components/messages/ModifyPeers/payload"
             - $ref: "api.yaml#/components/messages/Init/payload"
             - $ref: "api.yaml#/components/messages/Abort/payload"
             - $ref: "api.yaml#/components/messages/Commit/payload"
@@ -632,7 +628,6 @@ definitions:
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
-
     - title: NetworkEvent
       type: object
       additionalProperties: false
@@ -790,6 +785,22 @@ definitions:
             enum: ["Disconnected"]
           peer:
             $ref: "api.yaml#/components/schemas/Peer"
+      - title: PeersUpdated
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - peers
+        description: >-
+          Network will be reinitialize using new given peers 
+        properties:
+          tag:
+            type: string
+            enum: ["PeersUpdated"]
+          peers:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/Peer"
 
   OnChainEvent:
     oneOf:
@@ -805,7 +816,6 @@ definitions:
             enum: ["Observation"]
           contents:
             $ref: "#/definitions/OnChainTx"
-
       - title: Rollback
         type: object
         additionalProperties: false
@@ -966,7 +976,7 @@ definitions:
             - $ref: "api.yaml#/components/messages/PostTxOnChainFailed/payload"
             - $ref: "api.yaml#/components/messages/CommandFailed/payload"
             - $ref: "api.yaml#/components/messages/RolledBack/payload"
-
+            - $ref: "api.yaml#/components/messages/PeersModified/payload"
     - title: NetworkEffect
       type: object
       additionalProperties: false

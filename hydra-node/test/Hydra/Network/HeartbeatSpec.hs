@@ -13,8 +13,7 @@ import Test.Hydra.Fixture (alice, bob)
 spec :: Spec
 spec = parallel $
   describe "Heartbeat" $ do
-    let 
-        localhost = Host{hostname = "1.2.3.4", port = 1}
+    let localhost = Host{hostname = "1.2.3.4", port = 1}
 
         otherPeer = Host{hostname = "2.3.4.5", port = 1}
 
@@ -24,7 +23,8 @@ spec = parallel $
           action $
             Network
               { broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)
-                , peers = peers'
+              , getPeers = peers'
+              , setPeers = \_ -> pure ()
               }
 
         captureIncoming receivedMessages msg =
@@ -80,7 +80,7 @@ spec = parallel $
 
             let component incoming action =
                   race_
-                    (action (Network noop peers'))
+                    (action (Network noop peers' (\_ -> pure ())))
                     (incoming (Ping otherPeer) >> threadDelay 4 >> incoming (Ping otherPeer) >> threadDelay 7)
 
             withHeartbeat localhost component (captureIncoming receivedMessages) $ \_ ->

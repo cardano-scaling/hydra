@@ -38,7 +38,7 @@ data ServerOutput tx
     Greetings {me :: Party}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RolledBack
-  | PeersModified [Host]
+  | PeersModified {peers :: [Host]}
   deriving (Generic)
 
 deriving instance IsTx tx => Eq (ServerOutput tx)

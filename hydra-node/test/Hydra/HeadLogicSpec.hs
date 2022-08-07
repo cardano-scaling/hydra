@@ -34,7 +34,7 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
-import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
+import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx, PeersUpdated))
 import Hydra.Party (Party (..))
 import Hydra.ServerOutput (ServerOutput (PeerConnected, RolledBack, PeersModified, CommandFailed))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
@@ -63,11 +63,13 @@ spec = do
 
       it "notify user that peers will get modified if head is in idle state" $ do
         let 
-            clientInput = ModifyPeers []
+            host = Host "localhost" 8080
+            clientInput = ModifyPeers [host]
             event = ClientEvent clientInput
             s0 = IdleState
 
-        update env ledger s0 event `hasEffect` ClientEffect (PeersModified [])
+        update env ledger s0 event `hasEffect` ClientEffect (PeersModified [host])
+        update env ledger s0 event `hasEffect` NetworkEffect (PeersUpdated [host])
 
       it "fail to process modify peers input if not in idle state" $ do
         let clientInput = ModifyPeers []

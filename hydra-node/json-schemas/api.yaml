@@ -59,12 +59,14 @@ channels:
           - $ref: "#/components/messages/InvalidInput"
           - $ref: "#/components/messages/PostTxOnChainFailed"
           - $ref: "#/components/messages/CommandFailed"
+          - $ref: "#/components/messages/PeersModified"
 
     publish:
       summary: Commands sent to the Hydra node.
       operationId: clientInput
       message:
         oneOf:
+          - $ref: "#/components/messages/ModifyPeers"
           - $ref: "#/components/messages/Init"
           - $ref: "#/components/messages/Abort"
           - $ref: "#/components/messages/Commit"
@@ -81,6 +83,23 @@ components:
     # Client Inputs
     #
     #######
+    ModifyPeers:
+      title: ModifyPeers
+      description: |
+        Modifies the list of peers the network is connected to. This command only works when when a Head is in idle state, otherwise in a no-op.
+      payload:
+        type: object
+        required:
+          - tag
+          - peers
+        properties:
+          tag:
+            type: string
+            enum: ["ModifyPeers"]
+          peers:
+            type: array
+            items: 
+              $ref: "#/components/schemas/Peer"
 
     Init:
       title: Init
@@ -531,6 +550,24 @@ components:
             type: string
             enum: ["RolledBack"]
 
+    PeersModified:
+      title: PeersModified
+      description: |
+        The network node has adopted a different list of peers, so it will get reinitialized.
+      payload:
+        type: object
+        required:
+        - tag
+        - peers
+        properties:
+          tag:
+            type: string
+            enum: ["PeersModified"]
+          peers:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/Peer"
+
     CommandFailed:
       title: CommandFailed
       description: |
@@ -546,6 +583,7 @@ components:
             enum: ["CommandFailed"]
           clientInput:
             oneOf:
+              - $ref: "#/components/messages/ModifyPeers/payload"
               - $ref: "#/components/messages/Init/payload"
               - $ref: "#/components/messages/Abort/payload"
               - $ref: "#/components/messages/Commit/payload"

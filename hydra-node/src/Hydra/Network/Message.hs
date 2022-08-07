@@ -18,6 +18,7 @@ data Message tx
   | AckSn {party :: Party, signed :: Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
   | Connected {peer :: Host}
   | Disconnected {peer :: Host}
+  | PeersUpdated {peers :: [Host]}
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -31,6 +32,7 @@ instance (ToCBOR tx, ToCBOR (UTxOType tx)) => ToCBOR (Message tx) where
     AckSn party sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sig <> toCBOR sn
     Connected host -> toCBOR ("Connected" :: Text) <> toCBOR host
     Disconnected host -> toCBOR ("Disconnected" :: Text) <> toCBOR host
+    PeersUpdated peers -> toCBOR ("PeersUpdated" :: Text) <> toCBOR peers
 
 instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Message tx) where
   fromCBOR =
@@ -40,4 +42,5 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Message tx) where
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "Connected" -> Connected <$> fromCBOR
       "Disconnected" -> Disconnected <$> fromCBOR
+      "PeersUpdated" -> PeersUpdated <$> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"

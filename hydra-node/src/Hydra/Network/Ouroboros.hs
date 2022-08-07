@@ -134,7 +134,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
         between $
           Network
             { broadcast = atomically . writeTChan bchan
-            , peers = localHost : remoteHosts
+            , getPeers = localHost : remoteHosts
+            , setPeers = \_ -> pure ()
             }
  where
   resolveSockAddr Host{hostname, port} = do

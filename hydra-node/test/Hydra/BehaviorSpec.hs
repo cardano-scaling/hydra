@@ -473,7 +473,7 @@ simulatedChainAndNetwork = do
   history <- newTVarIO []
   nodes <- newTVarIO []
   allNodes <- readTVarIO nodes
-  let allNodesPeers = peers . hn <$> allNodes
+  let allNodesPeers = getPeers . hn <$> allNodes
   pure $
     ConnectToChain
       { chainComponent = \node -> do
@@ -481,7 +481,12 @@ simulatedChainAndNetwork = do
           pure $
             node
               { oc = Chain{postTx = postTx nodes history}
-              , hn = Network{broadcast = broadcast node nodes, peers = peers' node allNodesPeers}
+              , hn =
+                  Network
+                    { broadcast = broadcast node nodes
+                    , getPeers = peers' node allNodesPeers
+                    , setPeers = \_ -> pure ()
+                    }
               }
       , history
       }
@@ -504,7 +509,7 @@ simulatedChainAndNetwork = do
 
   peers' node allNodesPeers = allPeers
    where
-    peer = peers . hn $ node
+    peer = getPeers . hn $ node
     otherPeers = nub . mconcat $ allNodesPeers
     allPeers = nub $ peer <> otherPeers
 
@@ -596,7 +601,7 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
   chainComponent connectToChain $
     HydraNode
       { eq
-      , hn = Network{broadcast = const $ pure (), peers = []}
+      , hn = Network{broadcast = const $ pure (), getPeers = [], setPeers = \_ -> pure ()}
       , hh
       , oc = Chain (const $ pure ())
       , server =

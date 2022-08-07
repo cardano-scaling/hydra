@@ -12,8 +12,8 @@ import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Network (Host (..), Network (peers), PortNumber)
-import Hydra.Network.Message (Message (..))
+import Hydra.Network (Host (..), Network (getPeers), PortNumber)
+import Hydra.Network.Message (Message(..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Network.Ports (randomUnusedTCPPorts)
@@ -35,8 +35,8 @@ spec = parallel $
           withOuroborosNetwork tracer (Host lo port1) [Host lo port2] (const @_ @Integer $ pure ()) $ \hn1 ->
             withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \hn2 -> do
               let peersList = [Host lo port1, Host lo port2]
-              peers hn1 `shouldMatchList` peersList
-              peers hn2 `shouldMatchList` peersList
+              getPeers hn1 `shouldMatchList` peersList
+              getPeers hn2 `shouldMatchList` peersList
               withAsync (1 `broadcastFrom` hn1) $ \_ ->
                 atomically (readTQueue received) `shouldReturn` 1
 
@@ -50,9 +50,9 @@ spec = parallel $
             withOuroborosNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 -> do
               withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
                 let peersList = [Host lo port1, Host lo port2, Host lo port3]
-                peers hn1 `shouldMatchList` peersList
-                peers hn2 `shouldMatchList` peersList
-                peers hn3 `shouldMatchList` peersList
+                getPeers hn1 `shouldMatchList` peersList
+                getPeers hn2 `shouldMatchList` peersList
+                getPeers hn3 `shouldMatchList` peersList
                 assertAllNodesBroadcast
                   [ (port1, hn1, node1received)
                   , (port2, hn2, node2received)
