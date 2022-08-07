@@ -14,6 +14,7 @@ import Hydra.Prelude
 
 import Codec.CBOR.Term (Term)
 import qualified Codec.CBOR.Term as CBOR
+import Control.Concurrent (newMVar, putMVar, readMVar, takeMVar)
 import Control.Concurrent.STM (
   TChan,
   dupTChan,
@@ -129,13 +130,15 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
   let newBroadcastChannel = atomically $ dupTChan bchan
   -- TODO: Factor this out, there should be only one IOManager per process.
   withIOManager $ \iomgr -> do
-    race_ (connect iomgr newBroadcastChannel hydraClient) $
+    -- init a signal mvar used by Network (on setPeers) to communicate with thread 'connect'
+    signal <- newMVar remoteHosts
+    race_ (connect iomgr newBroadcastChannel hydraClient signal) $
       race_ (listen iomgr hydraServer) $ do
         between $
           Network
             { broadcast = atomically . writeTChan bchan
             , getPeers = localHost : remoteHosts
-            , setPeers = \_ -> pure ()
+            , setPeers = putMVar signal
             }
  where
   resolveSockAddr Host{hostname, port} = do
@@ -144,21 +147,37 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       (info : _) -> pure $ addrAddress info
       _ -> error "getAdrrInfo failed.. do proper error handling"
 
-  connect iomgr newBroadcastChannel app = do
+  -- | only thread connects requires a signal.
+  -- | on signal change, it will release all previous allocated resources
+  -- | and reconnect using the new peers signaled.
+  connect iomgr newBroadcastChannel app signal = do
+    -- take the signaled peers, or wait until there is any.
+    peers <- takeMVar signal
+
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     -- Using port number 0 to let the operating system pick a random port
     localAddr <- resolveSockAddr localHost{port = 0}
-    remoteAddrs <- forM remoteHosts resolveSockAddr
-    let sn = socketSnocket iomgr
-    Subscription.ipSubscriptionWorker
-      sn
-      (contramap (WithHost localHost . TraceSubscriptions) tracer)
-      (contramap (WithHost localHost . TraceErrorPolicy) tracer)
-      networkState
-      (subscriptionParams localAddr remoteAddrs)
-      (actualConnect iomgr newBroadcastChannel app)
 
+    remoteAddrs <- forM peers resolveSockAddr
+    let sn = socketSnocket iomgr
+    
+    -- run subscription worker until new signal is received
+    -- race_ will break and release allocated resources once we received a new signal.
+    race_ (readMVar signal)
+      ( Subscription.ipSubscriptionWorker
+          sn
+          (contramap (WithHost localHost . TraceSubscriptions) tracer)
+          (contramap (WithHost localHost . TraceErrorPolicy) tracer)
+          networkState
+          (subscriptionParams localAddr remoteAddrs)
+          (actualConnect iomgr newBroadcastChannel app)
+      )
+
+    -- now we can safetly restart the connection
+    -- because connect will wait until new signal is received.
+    connect iomgr newBroadcastChannel app signal
+    
   subscriptionParams localAddr remoteAddrs =
     SubscriptionParams
       { spLocalAddresses = LocalAddresses (Just localAddr) Nothing Nothing
