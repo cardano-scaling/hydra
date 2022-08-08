@@ -130,17 +130,25 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
   let newBroadcastChannel = atomically $ dupTChan bchan
   -- TODO: Factor this out, there should be only one IOManager per process.
   withIOManager $ \iomgr -> do
-    -- init a signal mvar used by Network (on setPeers) to communicate with thread 'connect'
+    -- init a signal mvar used by Network.setPeers to communicate with thread 'connect'
     signal <- newMVar remoteHosts
+    -- init read signal to avoid blocking on Network.getPeers
+    readSignal <- newMVar remoteHosts
     race_ (connect iomgr newBroadcastChannel hydraClient signal) $
       race_ (listen iomgr hydraServer) $ do
         between $
           Network
             { broadcast = atomically . writeTChan bchan
-            , getPeers = localHost : remoteHosts
-            , setPeers = putMVar signal
+            , getPeers = readMVar readSignal
+            , setPeers = \peers -> do
+                putMVar signal peers
+                modifyMVar readSignal peers
             }
  where
+  modifyMVar signal peers = do
+    _ <- takeMVar signal
+    putMVar signal peers
+
   resolveSockAddr Host{hostname, port} = do
     is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
     case is of

@@ -12,9 +12,9 @@ import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Network (Host (..), Network (getPeers), PortNumber)
+import Hydra.Network (Host (..), Network (..), PortNumber)
 import Hydra.Network.Message (Message(..))
-import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
+import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
@@ -34,9 +34,10 @@ spec = parallel $
           [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
           withOuroborosNetwork tracer (Host lo port1) [Host lo port2] (const @_ @Integer $ pure ()) $ \hn1 ->
             withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \hn2 -> do
-              let peersList = [Host lo port1, Host lo port2]
-              getPeers hn1 `shouldMatchList` peersList
-              getPeers hn2 `shouldMatchList` peersList
+              hn1Peers <- getPeers hn1
+              hn1Peers `shouldMatchList` [Host lo port2]
+              hn2Peers <- getPeers hn2
+              hn2Peers `shouldMatchList` [Host lo port1]
               withAsync (1 `broadcastFrom` hn1) $ \_ ->
                 atomically (readTQueue received) `shouldReturn` 1
 
@@ -49,10 +50,45 @@ spec = parallel $
           withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
             withOuroborosNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 -> do
               withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
-                let peersList = [Host lo port1, Host lo port2, Host lo port3]
-                getPeers hn1 `shouldMatchList` peersList
-                getPeers hn2 `shouldMatchList` peersList
-                getPeers hn3 `shouldMatchList` peersList
+                hn1Peers <- getPeers hn1
+                hn1Peers `shouldMatchList` [Host lo port2, Host lo port3]
+                hn2Peers <- getPeers hn2
+                hn2Peers `shouldMatchList` [Host lo port1, Host lo port3]
+                hn3Peers <- getPeers hn3
+                hn3Peers `shouldMatchList` [Host lo port1, Host lo port2]
+                assertAllNodesBroadcast
+                  [ (port1, hn1, node1received)
+                  , (port2, hn2, node2received)
+                  , (port3, hn3, node3received)
+                  ]
+      
+      it "reeconects with new peers modified peers " $ do
+        node1received <- atomically newTQueue
+        node2received <- atomically newTQueue
+        node3received <- atomically newTQueue
+        showLogsOnFailure $ \tracer -> failAfter 30 $ do
+          [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+          withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2] (atomically . writeTQueue node1received) $ \hn1 ->
+            withOuroborosNetwork tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue node2received) $ \hn2 -> do
+              hn1Peers <- getPeers hn1
+              hn1Peers `shouldMatchList` [Host lo port2]
+              hn2Peers <- getPeers hn2
+              hn2Peers `shouldMatchList` [Host lo port1]
+
+              assertAllNodesBroadcast
+                [ (port1, hn1, node1received)
+                , (port2, hn2, node2received)
+                ]
+
+              setPeers hn1 [Host lo port2, Host lo port3]
+              hn1Peers' <- getPeers hn1
+              hn1Peers' `shouldMatchList` [Host lo port2, Host lo port3]
+
+              setPeers hn2 [Host lo port1, Host lo port3]
+              hn2Peers' <- getPeers hn2
+              hn2Peers' `shouldMatchList` [Host lo port1, Host lo port3]
+              
+              withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
                 assertAllNodesBroadcast
                   [ (port1, hn1, node1received)
                   , (port2, hn2, node2received)

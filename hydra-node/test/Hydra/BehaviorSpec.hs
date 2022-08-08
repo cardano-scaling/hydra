@@ -19,7 +19,6 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
-import Data.List (nub)
 import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
 import Hydra.Cardano.Api (SigningKey)
@@ -472,20 +471,20 @@ simulatedChainAndNetwork :: (MonadSTM m) => m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
   history <- newTVarIO []
   nodes <- newTVarIO []
-  allNodes <- readTVarIO nodes
-  let allNodesPeers = getPeers . hn <$> allNodes
   pure $
     ConnectToChain
       { chainComponent = \node -> do
           atomically $ modifyTVar nodes (node :)
+          signal <- (getPeers . hn $ node) >>= newTVarIO
           pure $
             node
               { oc = Chain{postTx = postTx nodes history}
               , hn =
                   Network
                     { broadcast = broadcast node nodes
-                    , getPeers = peers' node allNodesPeers
-                    , setPeers = \_ -> pure ()
+                    , getPeers = readTVarIO signal
+                    , setPeers = \peers -> do
+                     atomically $ modifyTVar signal (const peers)
                     }
               }
       , history
@@ -506,12 +505,6 @@ simulatedChainAndNetwork = do
     mapM_ (`handleMessage` msg) otherNodes
 
   getNodeId = getField @"party" . env
-
-  peers' node allNodesPeers = allPeers
-   where
-    peer = getPeers . hn $ node
-    otherPeers = nub . mconcat $ allNodesPeers
-    allPeers = nub $ peer <> otherPeers
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
@@ -601,7 +594,7 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
   chainComponent connectToChain $
     HydraNode
       { eq
-      , hn = Network{broadcast = const $ pure (), getPeers = [], setPeers = \_ -> pure ()}
+      , hn = Network{broadcast = const $ pure (), getPeers = pure [], setPeers = \_ -> pure ()}
       , hh
       , oc = Chain (const $ pure ())
       , server =

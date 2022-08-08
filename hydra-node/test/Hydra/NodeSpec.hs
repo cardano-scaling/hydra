@@ -152,7 +152,7 @@ createHydraNode signingKey otherParties events = do
       , hn =
           Network
             { broadcast = const $ pure ()
-            , getPeers = []
+            , getPeers = pure []
             , setPeers = \_ -> pure ()
             }
       , hh
