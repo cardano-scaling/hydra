@@ -42,8 +42,10 @@ import Text.Show (Show (show))
 data Network m msg = Network
   { -- | Send a `msg` to the whole hydra network.
     broadcast :: msg -> m ()
-  , -- | Returns the list of connected peers in the whole hydra network.
-    getPeers :: [Host]
+    -- | Returns the list of connected peers in the hydra network.
+  , getPeers :: [Host]
+    -- | Modify the list of peers in the hydra network,
+    -- causing the network to reinitialize and reconnect to the new list of peers.
   , setPeers :: [Host] -> m ()
   }
 

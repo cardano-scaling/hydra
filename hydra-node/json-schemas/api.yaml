@@ -566,7 +566,7 @@ components:
           peers:
             type: array
             items:
-              $ref: "api.yaml#/components/schemas/Peer"
+              $ref: "#/components/schemas/Peer"
 
     CommandFailed:
       title: CommandFailed
