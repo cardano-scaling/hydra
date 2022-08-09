@@ -190,7 +190,7 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
   traceWith tracer $ ProcessingEffect party e
   case e of
     ClientEffect i -> sendOutput server i
-    NetworkEffect (PeersUpdated peers) -> setPeers hn peers
+    NetworkEffect (PeersUpdated peers) -> setPeers hn . fromList $ peers
     NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent msg)
     OnChainEffect postChainTx ->
       postTx oc postChainTx

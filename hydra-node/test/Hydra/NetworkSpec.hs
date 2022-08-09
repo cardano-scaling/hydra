@@ -61,22 +61,22 @@ spec = parallel $
           withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2] (atomically . writeTQueue node1received) $ \hn1 ->
             withOuroborosNetwork tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue node2received) $ \hn2 -> do
               hn1Peers <- getPeers hn1
-              hn1Peers `shouldMatchList` [Host lo port2]
+              hn1Peers `shouldBe` fromList [Host lo port2]
               hn2Peers <- getPeers hn2
-              hn2Peers `shouldMatchList` [Host lo port1]
+              hn2Peers `shouldBe` fromList [Host lo port1]
 
               assertAllNodesBroadcast
                 [ (port1, hn1, node1received)
                 , (port2, hn2, node2received)
                 ]
 
-              setPeers hn1 [Host lo port2, Host lo port3]
+              setPeers hn1 $ fromList [Host lo port2, Host lo port3]
               hn1Peers' <- getPeers hn1
-              hn1Peers' `shouldMatchList` [Host lo port2, Host lo port3]
+              hn1Peers' `shouldBe` fromList [Host lo port2, Host lo port3]
 
-              setPeers hn2 [Host lo port1, Host lo port3]
+              setPeers hn2 $ fromList [Host lo port1, Host lo port3]
               hn2Peers' <- getPeers hn2
-              hn2Peers' `shouldMatchList` [Host lo port1, Host lo port3]
+              hn2Peers' `shouldBe` fromList [Host lo port1, Host lo port3]
 
               withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
                 assertAllNodesBroadcast

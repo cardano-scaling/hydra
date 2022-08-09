@@ -594,7 +594,7 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
   chainComponent connectToChain $
     HydraNode
       { eq
-      , hn = Network{broadcast = const $ pure (), getPeers = pure [], setPeers = \_ -> pure ()}
+      , hn = Network{broadcast = const $ pure (), getPeers = pure $ fromList [], setPeers = \_ -> pure ()}
       , hh
       , oc = Chain (const $ pure ())
       , server =

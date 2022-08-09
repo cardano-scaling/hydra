@@ -25,8 +25,8 @@ import Control.Monad.Class.MonadAsync (wait)
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
-import Data.List ((\\))
 import Data.Map.Strict as Map (keys)
+import qualified Data.Set as Set
 import Hydra.Logging (Tracer, nullTracer)
 import Hydra.Network (
   Host (..),
@@ -131,9 +131,9 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
   -- TODO: Factor this out, there should be only one IOManager per process.
   withIOManager $ \iomgr -> do
     -- init a signal mvar used by Network.setPeers to communicate with thread 'connect'
-    signal <- newMVar remoteHosts
+    signal <- newMVar $ Set.fromList remoteHosts
     -- init read signal to avoid blocking on Network.getPeers
-    readSignal <- newMVar remoteHosts
+    readSignal <- newMVar $ Set.fromList remoteHosts
     race_ (connect iomgr newBroadcastChannel hydraClient signal) $
       race_ (listen iomgr hydraServer) $ do
         between $
@@ -142,14 +142,11 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
             , getPeers = readMVar readSignal
             , setPeers = \peers -> do
                 currentPeers <- readMVar readSignal
-                unless (currentPeers `hasSameElements` peers) $ do
+                when (currentPeers /= peers) $ do
                   putMVar signal peers
                   modifyMVar readSignal peers
             }
  where
-  hasSameElements :: (Eq a) => [a] -> [a] -> Bool
-  hasSameElements x y = null (x \\ y) && null (y \\ x)
-
   modifyMVar signal peers = do
     _ <- takeMVar signal
     putMVar signal peers
@@ -159,6 +156,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     case is of
       (info : _) -> pure $ addrAddress info
       _ -> error "getAdrrInfo failed.. do proper error handling"
+
   connect iomgr newBroadcastChannel app signal = do
     -- take the signaled peers, or wait until there is any.
     peers <- takeMVar signal
@@ -168,7 +166,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     -- Using port number 0 to let the operating system pick a random port
     localAddr <- resolveSockAddr localHost{port = 0}
 
-    remoteAddrs <- forM peers resolveSockAddr
+    remoteAddrs <- forM (Set.toList peers) resolveSockAddr
     let sn = socketSnocket iomgr
 
     -- run subscription worker until new signal is received
