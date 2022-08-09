@@ -51,9 +51,7 @@ data Network m msg = Network
   }
 
 instance Contravariant (Network m) where
-  contramap f (Network bcast getPeers setPeers) = Network bcast' getPeers setPeers
-   where
-    bcast' = bcast . f
+  contramap f network@Network{broadcast} = network{broadcast = broadcast . f}
 
 -- | Handle to interface for inbound messages.
 type NetworkCallback msg m = msg -> m ()
