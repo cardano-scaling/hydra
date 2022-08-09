@@ -11,7 +11,6 @@ module Hydra.Network.Ouroboros (
 ) where
 
 import Hydra.Prelude
-
 import Codec.CBOR.Term (Term)
 import qualified Codec.CBOR.Term as CBOR
 import Control.Concurrent (newMVar, putMVar, readMVar, takeMVar)
@@ -27,7 +26,6 @@ import Control.Monad.Class.MonadAsync (wait)
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
-import Data.Map.Strict as Map
 import Hydra.Logging (Tracer, nullTracer)
 import Hydra.Network (
   Host (..),
@@ -115,6 +113,8 @@ import Ouroboros.Network.Subscription (
 import qualified Ouroboros.Network.Subscription as Subscription
 import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..), WithIPList (WithIPList))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
+import Data.List ((\\))
+import Data.Map.Strict as Map ( keys )
 
 withOuroborosNetwork ::
   forall msg.
@@ -141,10 +141,15 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
             { broadcast = atomically . writeTChan bchan
             , getPeers = readMVar readSignal
             , setPeers = \peers -> do
-                putMVar signal peers
-                modifyMVar readSignal peers
+                currentPeers <- readMVar signal
+                unless (currentPeers `hasSameElements` peers) $ do
+                  putMVar signal peers
+                  modifyMVar readSignal peers
             }
  where
+  hasSameElements :: (Eq a) => [a] -> [a] -> Bool
+  hasSameElements x y = null (x \\ y) && null (y \\ x)
+
   modifyMVar signal peers = do
     _ <- takeMVar signal
     putMVar signal peers
@@ -169,7 +174,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
 
     remoteAddrs <- forM peers resolveSockAddr
     let sn = socketSnocket iomgr
-    
+
     -- run subscription worker until new signal is received
     -- race_ will break and release allocated resources once we received a new signal.
     race_ (readMVar signal)
@@ -185,7 +190,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     -- now we can safetly restart the connection
     -- because connect will wait until new signal is received.
     connect iomgr newBroadcastChannel app signal
-    
+
   subscriptionParams localAddr remoteAddrs =
     SubscriptionParams
       { spLocalAddresses = LocalAddresses (Just localAddr) Nothing Nothing
