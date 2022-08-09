@@ -141,7 +141,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
             { broadcast = atomically . writeTChan bchan
             , getPeers = readMVar readSignal
             , setPeers = \peers -> do
-                currentPeers <- readMVar signal
+                currentPeers <- readMVar readSignal
                 unless (currentPeers `hasSameElements` peers) $ do
                   putMVar signal peers
                   modifyMVar readSignal peers
