@@ -12,7 +12,7 @@ module Hydra.Network.Ouroboros (
 
 import Codec.CBOR.Term (Term)
 import qualified Codec.CBOR.Term as CBOR
-import Control.Concurrent (newMVar, putMVar, readMVar, takeMVar)
+import Control.Concurrent (modifyMVar_, newMVar, readMVar, takeMVar)
 import Control.Concurrent.STM (
   TChan,
   dupTChan,
@@ -140,17 +140,16 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
           Network
             { broadcast = atomically . writeTChan bchan
             , getPeers = readMVar readSignal
-            , setPeers = \peers -> do
-                currentPeers <- readMVar readSignal
-                when (currentPeers /= peers) $ do
-                  putMVar signal peers
-                  modifyMVar readSignal peers
+            , setPeers = \peers ->
+                modifyMVar_
+                  readSignal
+                  ( \currentPeers -> do
+                      if currentPeers /= peers
+                        then pure peers
+                        else pure currentPeers
+                  )
             }
  where
-  modifyMVar signal peers = do
-    _ <- takeMVar signal
-    putMVar signal peers
-
   resolveSockAddr Host{hostname, port} = do
     is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
     case is of
