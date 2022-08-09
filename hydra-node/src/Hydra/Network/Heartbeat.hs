@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | An implementation of an application-level failure detector.
@@ -110,8 +111,8 @@ updateStateFromOutgoingMessages ::
   TVar m HeartbeatState ->
   Network m (Heartbeat (Message msg)) ->
   Network m (Message msg)
-updateStateFromOutgoingMessages localhost heartbeatState Network{broadcast, getPeers, setPeers} =
-  Network bcast getPeers setPeers
+updateStateFromOutgoingMessages localhost heartbeatState Network{broadcast} =
+  Network bcast (pure []) (\_ -> pure ())
  where
   bcast = \msg -> do
     now <- getMonotonicTime

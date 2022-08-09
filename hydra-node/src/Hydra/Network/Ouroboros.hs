@@ -10,7 +10,6 @@ module Hydra.Network.Ouroboros (
   module Hydra.Network,
 ) where
 
-import Hydra.Prelude
 import Codec.CBOR.Term (Term)
 import qualified Codec.CBOR.Term as CBOR
 import Control.Concurrent (newMVar, putMVar, readMVar, takeMVar)
@@ -26,6 +25,8 @@ import Control.Monad.Class.MonadAsync (wait)
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
+import Data.List ((\\))
+import Data.Map.Strict as Map (keys)
 import Hydra.Logging (Tracer, nullTracer)
 import Hydra.Network (
   Host (..),
@@ -47,6 +48,7 @@ import Hydra.Network.Ouroboros.Type (
   Message (..),
   codecFireForget,
  )
+import Hydra.Prelude
 import Network.Mux.Compat (
   MuxTrace,
   WithMuxBearer (..),
@@ -113,8 +115,6 @@ import Ouroboros.Network.Subscription (
 import qualified Ouroboros.Network.Subscription as Subscription
 import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..), WithIPList (WithIPList))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
-import Data.List ((\\))
-import Data.Map.Strict as Map ( keys )
 
 withOuroborosNetwork ::
   forall msg.
@@ -159,10 +159,6 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     case is of
       (info : _) -> pure $ addrAddress info
       _ -> error "getAdrrInfo failed.. do proper error handling"
-
-  -- | only thread connects requires a signal.
-  -- | on signal change, it will release all previous allocated resources
-  -- | and reconnect using the new peers signaled.
   connect iomgr newBroadcastChannel app signal = do
     -- take the signaled peers, or wait until there is any.
     peers <- takeMVar signal
@@ -177,7 +173,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
 
     -- run subscription worker until new signal is received
     -- race_ will break and release allocated resources once we received a new signal.
-    race_ (readMVar signal)
+    race_
+      (readMVar signal)
       ( Subscription.ipSubscriptionWorker
           sn
           (contramap (WithHost localHost . TraceSubscriptions) tracer)

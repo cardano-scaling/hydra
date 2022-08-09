@@ -17,6 +17,7 @@ import Hydra.Chain (
   OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx, OnContestTx),
   PostChainTx (ContestTx),
  )
+import Hydra.ClientInput (ClientInput (ModifyPeers))
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
@@ -34,15 +35,14 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
-import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx, PeersUpdated))
+import Hydra.Network.Message (Message (AckSn, Connected, PeersUpdated, ReqSn, ReqTx))
 import Hydra.Party (Party (..))
-import Hydra.ServerOutput (ServerOutput (PeerConnected, RolledBack, PeersModified, CommandFailed))
+import Hydra.ServerOutput (ServerOutput (CommandFailed, PeerConnected, PeersModified, RolledBack))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 import Test.QuickCheck (forAll)
 import Test.QuickCheck.Monadic (monadicIO, run)
-import Hydra.ClientInput (ClientInput(ModifyPeers))
 
 spec :: Spec
 spec = do
@@ -62,8 +62,7 @@ spec = do
               }
 
       it "notify user that peers will get modified if head is in idle state" $ do
-        let 
-            host = Host "localhost" 8080
+        let host = Host "localhost" 8080
             clientInput = ModifyPeers [host]
             event = ClientEvent clientInput
             s0 = IdleState

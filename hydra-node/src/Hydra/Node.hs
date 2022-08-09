@@ -35,6 +35,7 @@ import Control.Monad.Class.MonadSTM (
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), deserialiseFromRawBytes)
 import Hydra.Chain (Chain (..), ChainEvent, PostTxError)
+import Hydra.ClientInput (ClientInput)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
   Effect (..),
@@ -52,7 +53,6 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (PeersUpdated))
 import Hydra.Options (Options (..))
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.ClientInput (ClientInput)
 
 -- * Environment Handling
 

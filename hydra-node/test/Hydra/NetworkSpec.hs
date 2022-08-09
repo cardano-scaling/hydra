@@ -13,7 +13,7 @@ import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network (..), PortNumber)
-import Hydra.Network.Message (Message(..))
+import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Network.Ports (randomUnusedTCPPorts)
@@ -33,7 +33,7 @@ spec = parallel $
         showLogsOnFailure $ \tracer -> failAfter 30 $ do
           [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
           withOuroborosNetwork tracer (Host lo port1) [Host lo port2] (const @_ @Integer $ pure ()) $ \hn1 ->
-            withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \hn2 -> do
+            withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \_ -> do
               withAsync (1 `broadcastFrom` hn1) $ \_ ->
                 atomically (readTQueue received) `shouldReturn` 1
 
@@ -51,7 +51,7 @@ spec = parallel $
                   , (port2, hn2, node2received)
                   , (port3, hn3, node3received)
                   ]
-      
+
       it "reeconects with new peers modified peers " $ do
         node1received <- atomically newTQueue
         node2received <- atomically newTQueue
@@ -77,7 +77,7 @@ spec = parallel $
               setPeers hn2 [Host lo port1, Host lo port3]
               hn2Peers' <- getPeers hn2
               hn2Peers' `shouldMatchList` [Host lo port1, Host lo port3]
-              
+
               withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
                 assertAllNodesBroadcast
                   [ (port1, hn1, node1received)

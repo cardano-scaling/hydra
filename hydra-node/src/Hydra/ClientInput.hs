@@ -9,8 +9,7 @@ import Hydra.Ledger (IsTx, UTxOType)
 import Hydra.Network (Host)
 
 data ClientInput tx
-  = 
-  ModifyPeers {peers :: [Host]}
+  = ModifyPeers {peers :: [Host]}
   | Init {contestationPeriod :: ContestationPeriod}
   | Abort
   | Commit {utxo :: UTxOType tx}

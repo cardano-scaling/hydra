@@ -484,7 +484,7 @@ simulatedChainAndNetwork = do
                     { broadcast = broadcast node nodes
                     , getPeers = readTVarIO signal
                     , setPeers = \peers -> do
-                     atomically $ modifyTVar signal (const peers)
+                        atomically $ modifyTVar signal (const peers)
                     }
               }
       , history

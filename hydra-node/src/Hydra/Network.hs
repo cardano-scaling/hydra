@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -42,11 +43,11 @@ import Text.Show (Show (show))
 data Network m msg = Network
   { -- | Send a `msg` to the whole hydra network.
     broadcast :: msg -> m ()
-    -- | Returns the list of connected peers in the hydra network.
-  , getPeers :: m [Host]
-    -- | Modify the list of peers in the hydra network,
+  , -- | Returns the list of connected peers in the hydra network.
+    getPeers :: m [Host]
+  , -- | Modify the list of peers in the hydra network,
     -- causing the network to reinitialize and reconnect to the new list of peers.
-  , setPeers :: [Host] -> m ()
+    setPeers :: [Host] -> m ()
   }
 
 instance Contravariant (Network m) where

@@ -734,10 +734,9 @@ update ::
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   (IdleState, ClientEvent (ModifyPeers peers)) ->
-    OnlyEffects 
-      [
-        ClientEffect $ PeersModified peers
-        , NetworkEffect $ PeersUpdated peers
+    OnlyEffects
+      [ ClientEffect $ PeersModified peers
+      , NetworkEffect $ PeersUpdated peers
       ]
   (IdleState, ClientEvent (Init contestationPeriod)) ->
     onIdleClientInit party otherParties contestationPeriod
