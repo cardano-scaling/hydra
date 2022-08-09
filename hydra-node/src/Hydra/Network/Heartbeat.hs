@@ -111,8 +111,8 @@ updateStateFromOutgoingMessages ::
   TVar m HeartbeatState ->
   Network m (Heartbeat (Message msg)) ->
   Network m (Message msg)
-updateStateFromOutgoingMessages localhost heartbeatState Network{broadcast} =
-  Network bcast (pure []) (\_ -> pure ())
+updateStateFromOutgoingMessages localhost heartbeatState network@Network{broadcast} =
+  network{broadcast = bcast}
  where
   bcast = \msg -> do
     now <- getMonotonicTime
