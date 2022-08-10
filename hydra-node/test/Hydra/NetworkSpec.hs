@@ -52,7 +52,17 @@ spec = parallel $
                   , (port3, hn3, node3received)
                   ]
 
-      it "reeconects with new peers modified peers " $ do
+      prop "can set peers and then get peers back" $ \modifiedPeers -> do
+        nodereceived <- atomically newTQueue
+        showLogsOnFailure $ \tracer -> failAfter 30 $ do
+          [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+          withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2] (atomically . writeTQueue nodereceived) $ \hn -> do
+            getPeers hn `shouldReturn` fromList [Host lo port2]
+            let newPeers = fromList modifiedPeers
+            setPeers hn newPeers
+            getPeers hn `shouldReturn` newPeers
+
+      it "reeconects with new modified peers " $ do
         node1received <- atomically newTQueue
         node2received <- atomically newTQueue
         node3received <- atomically newTQueue
@@ -60,29 +70,25 @@ spec = parallel $
           [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
           withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2] (atomically . writeTQueue node1received) $ \hn1 ->
             withOuroborosNetwork tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue node2received) $ \hn2 -> do
-              hn1Peers <- getPeers hn1
-              hn1Peers `shouldBe` fromList [Host lo port2]
-              hn2Peers <- getPeers hn2
-              hn2Peers `shouldBe` fromList [Host lo port1]
-
               assertAllNodesBroadcast
                 [ (port1, hn1, node1received)
                 , (port2, hn2, node2received)
                 ]
-
+              -- add a peer
               setPeers hn1 . fromList $ [Host lo port2, Host lo port3]
-              hn1Peers' <- getPeers hn1
-              hn1Peers' `shouldBe` fromList [Host lo port2, Host lo port3]
-
               setPeers hn2 . fromList $ [Host lo port1, Host lo port3]
-              hn2Peers' <- getPeers hn2
-              hn2Peers' `shouldBe` fromList [Host lo port1, Host lo port3]
-
               withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
                 assertAllNodesBroadcast
                   [ (port1, hn1, node1received)
                   , (port2, hn2, node2received)
                   , (port3, hn3, node3received)
+                  ]
+                -- remove a peer
+                setPeers hn1 . fromList $ [Host lo port2]
+                setPeers hn2 . fromList $ [Host lo port1]
+                assertAllNodesBroadcast
+                  [ (port1, hn1, node1received)
+                  , (port2, hn2, node2received)
                   ]
 
     describe "Serialisation" $ do
