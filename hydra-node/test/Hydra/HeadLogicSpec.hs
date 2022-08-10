@@ -67,8 +67,11 @@ spec = do
             event = ClientEvent clientInput
             s0 = IdleState
 
-        update env ledger s0 event `hasEffect` ClientEffect (PeersModified [host])
-        update env ledger s0 event `hasEffect` NetworkEffect (PeersUpdated [host])
+        update env ledger s0 event
+          `shouldBe` OnlyEffects
+            [ ClientEffect (PeersModified [host])
+            , NetworkEffect (PeersUpdated [host])
+            ]
 
       it "fail to process modify peers input if not in idle state" $ do
         let clientInput = ModifyPeers []
@@ -76,10 +79,11 @@ spec = do
             s1 = inInitialState threeParties
             s2 = inOpenState threeParties ledger
             s3 = inClosedState threeParties
+            expectedOutcome = OnlyEffects [ClientEffect (CommandFailed clientInput)]
 
-        update env ledger s1 event `hasEffect` ClientEffect (CommandFailed clientInput)
-        update env ledger s2 event `hasEffect` ClientEffect (CommandFailed clientInput)
-        update env ledger s3 event `hasEffect` ClientEffect (CommandFailed clientInput)
+        update env ledger s1 event `shouldBe` expectedOutcome
+        update env ledger s2 event `shouldBe` expectedOutcome
+        update env ledger s3 event `shouldBe` expectedOutcome
 
       it "waits if a requested tx is not (yet) applicable" $ do
         let reqTx = NetworkEvent $ ReqTx alice $ SimpleTx 2 inputs mempty
