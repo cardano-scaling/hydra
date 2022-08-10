@@ -8,6 +8,7 @@ import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSat
 
 import Control.Monad.Class.MonadAsync (forConcurrently_)
 import Control.Monad.Class.MonadSTM (
+  MonadSTM (..),
   modifyTVar,
   modifyTVar',
   newTQueue,
@@ -475,15 +476,14 @@ simulatedChainAndNetwork = do
     ConnectToChain
       { chainComponent = \node -> do
           atomically $ modifyTVar nodes (node :)
-          signal <- (getPeers . hn $ node) >>= newTVarIO
+          peersVar <- newTVarIO mempty
           pure $
             node
               { oc = Chain{postTx = postTx nodes history}
               , hn =
                   Network
                     { broadcast = broadcast node nodes
-                    , modifyPeers = modifyPeers node $ \peers -> do
-                        atomically $ modifyTVar signal (const peers)
+                    , modifyPeers = atomically . stateTVar peersVar
                     }
               }
       , history
@@ -593,7 +593,11 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
   chainComponent connectToChain $
     HydraNode
       { eq
-      , hn = Network{broadcast = const $ pure (), modifyPeers = const . pure . fromList $ []}
+      , hn =
+          Network
+            { broadcast = const $ pure ()
+            , modifyPeers = error "createHydraNode.modifyPeers: unused"
+            }
       , hh
       , oc = Chain (const $ pure ())
       , server =

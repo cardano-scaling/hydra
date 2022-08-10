@@ -17,13 +17,11 @@ spec = parallel $
 
         otherPeer = Host{hostname = "2.3.4.5", port = 1}
 
-        peers' = [localhost, otherPeer]
-
         captureOutgoing msgqueue _cb action =
           action $
             Network
               { broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)
-              , modifyPeers = const . pure . fromList $ peers'
+              , modifyPeers = \_f -> error "modifyPeers: unused"
               }
 
         captureIncoming receivedMessages msg =
@@ -79,7 +77,7 @@ spec = parallel $
 
             let component incoming action =
                   race_
-                    (action (Network noop (const . pure . fromList $ peers')))
+                    (action (Network noop (error "modifyPeers: unused")))
                     (incoming (Ping otherPeer) >> threadDelay 4 >> incoming (Ping otherPeer) >> threadDelay 7)
 
             withHeartbeat localhost component (captureIncoming receivedMessages) $ \_ ->
