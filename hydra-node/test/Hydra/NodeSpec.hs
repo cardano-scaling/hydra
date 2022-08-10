@@ -152,7 +152,7 @@ createHydraNode signingKey otherParties events = do
       , hn =
           Network
             { broadcast = const . pure $ ()
-            , modifyPeers = \f -> pure . fst . f $ mempty
+            , modifyPeers = error "createHydraNode.modifyPeers: unused"
             }
       , hh
       , oc = Chain{postTx = const $ pure ()}
@@ -175,7 +175,7 @@ recordNetwork node = do
         { hn =
             Network
               { broadcast = record
-              , modifyPeers = \f -> pure . fst . f $ mempty
+              , modifyPeers = error "recordNetwork.modifyPeers: unused"
               }
         }
     , query
