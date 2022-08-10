@@ -28,7 +28,7 @@ spec = parallel $
     let lo = "127.0.0.1"
 
     describe "Ouroboros Network" $ do
-      xit "broadcasts messages to single connected peer" $ do
+      it "broadcasts messages to single connected peer" $ do
         received <- atomically newTQueue
         showLogsOnFailure $ \tracer -> failAfter 30 $ do
           [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
@@ -37,7 +37,7 @@ spec = parallel $
               withAsync (1 `broadcastFrom` hn1) $ \_ ->
                 atomically (readTQueue received) `shouldReturn` 1
 
-      xit "broadcasts messages between 3 connected peers" $ do
+      it "broadcasts messages between 3 connected peers" $ do
         node1received <- atomically newTQueue
         node2received <- atomically newTQueue
         node3received <- atomically newTQueue
@@ -86,7 +86,7 @@ spec = parallel $
                   ]
 
     describe "Serialisation" $ do
-      xit "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
+      it "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
       roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
 
 assertAllNodesBroadcast ::

@@ -12,7 +12,6 @@ module Hydra.Network.Ouroboros (
 
 import Codec.CBOR.Term (Term)
 import qualified Codec.CBOR.Term as CBOR
-import Control.Concurrent (newMVar, putMVar, readMVar, takeMVar)
 import Control.Concurrent.STM (
   TChan,
   dupTChan,
@@ -22,6 +21,7 @@ import Control.Concurrent.STM (
  )
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadAsync (wait)
+import Control.Monad.Class.MonadSTM (MonadSTM (..), newTVarIO)
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
@@ -130,39 +130,25 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
   let newBroadcastChannel = atomically $ dupTChan bchan
   -- TODO: Factor this out, there should be only one IOManager per process.
   withIOManager $ \iomgr -> do
-    -- init a signal mvar used by Network.setPeers to communicate with thread 'connect'
-    signal <- newMVar $ Set.fromList remoteHosts
-    -- init read signal to avoid blocking on Network.getPeers
-    readSignal <- newMVar $ Set.fromList remoteHosts
-    race_ (connect iomgr newBroadcastChannel hydraClient signal) $
+    peersVar <- newTVarIO $ Set.fromList remoteHosts
+    race_ (connect iomgr newBroadcastChannel hydraClient peersVar) $
       race_ (listen iomgr hydraServer) $ do
         between $
           Network
             { broadcast = atomically . writeTChan bchan
-            , modifyPeers = \f -> do
-                currentPeers <- readMVar readSignal
-                let (result, newPeers) = f currentPeers
-                if currentPeers /= newPeers
-                  then do
-                    putMVar signal newPeers -- signal to thread 'connect'
-                    modifyMVar readSignal newPeers -- update read signal
-                    pure result
-                  else pure result -- no change
+            , modifyPeers = atomically . stateTVar peersVar
             }
  where
-  modifyMVar signal peers = do
-    _ <- takeMVar signal
-    putMVar signal peers
-
   resolveSockAddr Host{hostname, port} = do
     is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
     case is of
       (info : _) -> pure $ addrAddress info
       _ -> error "getAdrrInfo failed.. do proper error handling"
 
-  connect iomgr newBroadcastChannel app signal = do
-    -- take the signaled peers, or wait until there is any.
-    peers <- takeMVar signal
+  -- connect will automatically restart either
+  -- if the lost of peers is modified or if the subscription worker dies.
+  connect iomgr newBroadcastChannel app peersVar = forever $ do
+    peers <- readTVarIO peersVar
 
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
@@ -172,10 +158,14 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     remoteAddrs <- forM (Set.toList peers) resolveSockAddr
     let sn = socketSnocket iomgr
 
-    -- run subscription worker until new signal is received
-    -- race_ will break and release allocated resources once we received a new signal.
+    -- race_ will break and release allocated resources
+    -- once we received a new list of peers.
     race_
-      (readMVar signal)
+      ( do
+          atomically $ do
+            new <- readTVar peersVar
+            check (new /= peers)
+      )
       ( Subscription.ipSubscriptionWorker
           sn
           (contramap (WithHost localHost . TraceSubscriptions) tracer)
@@ -184,10 +174,6 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
           (subscriptionParams localAddr remoteAddrs)
           (actualConnect iomgr newBroadcastChannel app)
       )
-
-    -- now we can safetly restart the connection
-    -- because connect will wait until new signal is received.
-    connect iomgr newBroadcastChannel app signal
 
   subscriptionParams localAddr remoteAddrs =
     SubscriptionParams
