@@ -10,6 +10,7 @@ import Test.Hydra.Prelude
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
+import Control.Monad.Class.MonadTimer (timeout)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network (..), PortNumber, getPeers, setPeers)
@@ -62,7 +63,7 @@ spec = parallel $
             setPeers hn newPeers
             getPeers hn `shouldReturn` newPeers
 
-      it "reeconects with new modified peers " $ do
+      it "reconects with new modified peers" $ do
         node1received <- atomically newTQueue
         node2received <- atomically newTQueue
         node3received <- atomically newTQueue
@@ -91,6 +92,10 @@ spec = parallel $
                   , (port2, hn2, node2received)
                   ]
 
+                let action = withAsync (1 `broadcastFrom` hn1) $ \_ ->
+                      node3received `shouldEventuallyReceive` 1
+                timeout 3 action `shouldReturn` Nothing
+
     describe "Serialisation" $ do
       it "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
       roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
@@ -109,7 +114,7 @@ assertAllNodesBroadcast networks =
   checkQueues :: IO ()
   checkQueues =
     sequence_ $
-      [ shouldEventuallyReceive receiver myPort (fromIntegral otherPort)
+      [ shouldEventuallyReceive receiver (fromIntegral otherPort)
       | (myPort, _, receiver) <- networks
       , (otherPort, _, _) <- networks
       , otherPort /= myPort
@@ -119,10 +124,10 @@ broadcastFrom :: a -> Network IO a -> IO ()
 broadcastFrom requestTx network =
   forever $ threadDelay 0.1 >> broadcast network requestTx
 
-shouldEventuallyReceive :: TQueue IO Integer -> PortNumber -> Integer -> Expectation
-shouldEventuallyReceive queue numNode value = do
+shouldEventuallyReceive :: TQueue IO Integer -> Integer -> Expectation
+shouldEventuallyReceive queue value = do
   val <- atomically $ readTQueue queue
-  unless (val == value) $ shouldEventuallyReceive queue numNode value
+  unless (val == value) $ shouldEventuallyReceive queue value
 
 prop_canRoundtripCBOREncoding ::
   (ToCBOR a, FromCBOR a, Eq a) => a -> Bool
