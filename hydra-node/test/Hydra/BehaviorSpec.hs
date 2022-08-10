@@ -482,8 +482,7 @@ simulatedChainAndNetwork = do
               , hn =
                   Network
                     { broadcast = broadcast node nodes
-                    , getPeers = readTVarIO signal
-                    , setPeers = \peers -> do
+                    , modifyPeers = modifyPeers node $ \peers -> do
                         atomically $ modifyTVar signal (const peers)
                     }
               }
@@ -594,7 +593,7 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
   chainComponent connectToChain $
     HydraNode
       { eq
-      , hn = Network{broadcast = const $ pure (), getPeers = pure $ fromList [], setPeers = \_ -> pure ()}
+      , hn = Network{broadcast = const $ pure (), modifyPeers = const . pure . fromList $ []}
       , hh
       , oc = Chain (const $ pure ())
       , server =

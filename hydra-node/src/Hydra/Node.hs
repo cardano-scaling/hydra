@@ -49,7 +49,7 @@ import Hydra.HeadLogic (
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (Network (..))
+import Hydra.Network (Network (..), setPeers)
 import Hydra.Network.Message (Message (PeersUpdated))
 import Hydra.Options (Options (..))
 import Hydra.Party (Party (..), deriveParty)

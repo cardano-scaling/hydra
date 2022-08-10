@@ -139,12 +139,15 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
         between $
           Network
             { broadcast = atomically . writeTChan bchan
-            , getPeers = readMVar readSignal
-            , setPeers = \peers -> do
+            , modifyPeers = \f -> do
                 currentPeers <- readMVar readSignal
-                when (currentPeers /= peers) $ do
-                  putMVar signal peers
-                  modifyMVar readSignal peers
+                let (result, newPeers) = f currentPeers
+                if currentPeers /= newPeers
+                  then do
+                    putMVar signal newPeers -- signal to thread 'connect'
+                    modifyMVar readSignal newPeers -- update read signal
+                    pure result
+                  else pure result -- no change
             }
  where
   modifyMVar signal peers = do

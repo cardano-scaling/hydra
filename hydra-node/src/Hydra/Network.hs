@@ -23,6 +23,8 @@ module Hydra.Network (
   readHost,
   PortNumber,
   readPort,
+  getPeers,
+  setPeers,
 
   -- * Utility functions
   close,
@@ -43,12 +45,17 @@ import Text.Show (Show (show))
 data Network m msg = Network
   { -- | Send a `msg` to the whole hydra network.
     broadcast :: msg -> m ()
-  , -- | Returns the list of connected peers in the hydra network.
-    getPeers :: m (Set Host)
-  , -- | Modify the list of peers in the hydra network,
-    -- causing the network to reinitialize and reconnect to the new list of peers.
-    setPeers :: Set Host -> m ()
+  , modifyPeers :: forall a. (Set Host -> (a, Set Host)) -> m a
   }
+
+-- | Returns the list of connected peers in the hydra network.
+getPeers :: Network m msg -> m (Set Host)
+getPeers n = modifyPeers n (\ps -> (ps, ps))
+
+-- | Modify the list of peers in the hydra network,
+-- causing the network to reinitialize and reconnect to the new list of peers.
+setPeers :: Network m msg -> Set Host -> m ()
+setPeers n ps = modifyPeers n (const ((), ps))
 
 instance Contravariant (Network m) where
   contramap f network@Network{broadcast} = network{broadcast = broadcast . f}

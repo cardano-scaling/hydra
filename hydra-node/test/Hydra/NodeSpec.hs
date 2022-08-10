@@ -151,9 +151,8 @@ createHydraNode signingKey otherParties events = do
       { eq
       , hn =
           Network
-            { broadcast = const $ pure ()
-            , getPeers = pure $ fromList []
-            , setPeers = \_ -> pure ()
+            { broadcast = const . pure $ ()
+            , modifyPeers = \f -> pure . fst . f $ mempty
             }
       , hh
       , oc = Chain{postTx = const $ pure ()}
@@ -176,8 +175,7 @@ recordNetwork node = do
         { hn =
             Network
               { broadcast = record
-              , getPeers = getPeers . hn $ node
-              , setPeers = \_ -> pure ()
+              , modifyPeers = \f -> pure . fst . f $ mempty
               }
         }
     , query

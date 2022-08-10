@@ -23,8 +23,7 @@ spec = parallel $
           action $
             Network
               { broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)
-              , getPeers = pure $ fromList peers'
-              , setPeers = \_ -> pure ()
+              , modifyPeers = const . pure . fromList $ peers'
               }
 
         captureIncoming receivedMessages msg =
@@ -80,7 +79,7 @@ spec = parallel $
 
             let component incoming action =
                   race_
-                    (action (Network noop (pure $ fromList peers') (\_ -> pure ())))
+                    (action (Network noop (const . pure . fromList $ peers')))
                     (incoming (Ping otherPeer) >> threadDelay 4 >> incoming (Ping otherPeer) >> threadDelay 7)
 
             withHeartbeat localhost component (captureIncoming receivedMessages) $ \_ ->
