@@ -3,6 +3,9 @@ sidebar_position: 2
 ---
 
 # Installation Instructions
+[//]:{{last-updated-at}}
+[//]:{{author-info}}
+[//]:{{last-translated-at}}
 
 ```mdx-code-block
 import TerminalWindow from '@site/src/components/TerminalWindow';
