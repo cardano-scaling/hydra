@@ -8,7 +8,7 @@ for MD in $DOCUMENTS; do
     echo "updating: $MD"
 
     PLACEHOLDER="{{last-updated-at}}"
-    REPLACEMENT=$(git --no-pager log -1 --pretty=format:'%ad' --date=local $MD)
+    REPLACEMENT=$(git --no-pager log -1 --pretty=format:'%ct' $MD)
     sed -i '' "s/$PLACEHOLDER/$REPLACEMENT/g" $MD
 
     PLACEHOLDER="{{commit-hash}}"
@@ -16,7 +16,7 @@ for MD in $DOCUMENTS; do
     sed -i '' "s/$PLACEHOLDER/$REPLACEMENT/g" $MD
 
     PLACEHOLDER="{{last-translated-at}}"
-    REPLACEMENT=$(git --no-pager log -1 --pretty=format:'%ad' --date=local docs/i18n)
+    REPLACEMENT=$(git --no-pager log -1 --pretty=format:'%ct' docs/i18n)
     sed -i '' "s/$PLACEHOLDER/$REPLACEMENT/g" $MD
 
 done
