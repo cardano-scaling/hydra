@@ -1,0 +1,19 @@
+name: ManualTest
+
+on:
+  workflow_dispatch:
+
+jobs:
+  documentation:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        ref: feat/gh-pages/docs-custom-template/456
+
+    - name: Documention metadata enrichment
+      run: |
+        docs/scripts/document-metadata.sh
