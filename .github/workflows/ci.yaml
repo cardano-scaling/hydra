@@ -221,7 +221,7 @@ jobs:
 
   documentation:
     name: Documentation
-    needs: [haddock-benchmarks]
+    # needs: [haddock-benchmarks]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.3.1
@@ -236,11 +236,11 @@ jobs:
     #     cache: 'yarn'
     #     cache-dependency-path: docs/yarn.lock
 
-    - name: Download generated documentation
-      uses: actions/download-artifact@v3
-      with:
-        name: benchmarks-and-haddocks
-        path: docs
+    # - name: Download generated documentation
+    #   uses: actions/download-artifact@v3
+    #   with:
+    #     name: benchmarks-and-haddocks
+    #     path: docs
 
     - name: Documention metadata enrichment
       run: |
