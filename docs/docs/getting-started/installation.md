@@ -12,7 +12,6 @@ import DocumentMetadata from '@site/src/components/DocumentMetadata';
 ```mdx-code-block
 <DocumentMetadata
     lastUpdatedAt="{{last-updated-at}}"
-    authorInfo="{{author-info}}"
     lastTranslatedAt="{{last-translated-at}}"
 />
 ```
