@@ -6,11 +6,11 @@ sidebar_position: 2
 
 ```mdx-code-block
 import TerminalWindow from '@site/src/components/TerminalWindow';
-import LastUpdatedAt from '@site/src/components/LastUpdatedAt';
+import DocumentMetadata from '@site/src/components/DocumentMetadata';
 ```
 
 ```mdx-code-block
-<LastUpdatedAt 
+<DocumentMetadata
     lastUpdatedAt="{{last-updated-at}}"
     authorInfo="{{author-info}}"
     lastTranslatedAt="{{last-translated-at}}"

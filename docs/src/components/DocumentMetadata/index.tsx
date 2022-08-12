@@ -14,7 +14,7 @@ interface Props {
   lastTranslatedAt?: string;
 };
 
-export default function lastUpdatedAt({
+export default function DocumentMetadata({
   lastUpdatedAt,
   authorInfo,
   lastTranslatedAt
