@@ -8,9 +8,6 @@ interface Props {
   lastTranslatedAt?: string
 }
 
-const isPlaceholder = (date: string): boolean =>
-  date.startsWith("{{") && date.endsWith("}}")
-
 export default function DocumentMetadata({
   lastUpdatedAt,
   relativeTimeSince,
@@ -20,6 +17,9 @@ export default function DocumentMetadata({
 
   const link =
     `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`
+
+  const isPlaceholder = (date: string): boolean =>
+    date.startsWith("{{") && date.endsWith("}}")
 
   const renderLastUpdatedAt = (lastUpdatedAt: string, relativeTimeSince: string) =>
     <i className={styles.info}>
