@@ -6,7 +6,6 @@ sidebar_position: 2
 
 ```mdx-code-block
 import TerminalWindow from '@site/src/components/TerminalWindow';
-import {useChildData} from '@docusaurus/theme-common';
 import LastUpdatedAt from '@site/src/components/LastUpdatedAt';
 ```
 
