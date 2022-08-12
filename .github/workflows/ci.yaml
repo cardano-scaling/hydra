@@ -243,6 +243,7 @@ jobs:
     #     path: docs
 
     - name: Documention metadata enrichment
+      shell: bash
       run: |
         docs/scripts/document-metadata.sh
 
