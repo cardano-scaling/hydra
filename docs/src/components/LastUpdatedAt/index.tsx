@@ -11,7 +11,7 @@ import styles from './styles.module.css';
 interface Props {
   lastUpdatedAt: string;
   authorInfo: string;
-  lastTranslatedAt: string;
+  lastTranslatedAt?: string;
 };
 
 export default function lastUpdatedAt({
@@ -23,7 +23,7 @@ export default function lastUpdatedAt({
     <div className={styles.block}>
       <i className={styles.info}>Last updated at: <b>{lastUpdatedAt}</b></i>
       <i className={styles.info}>Author: <b>{authorInfo}</b></i>
-      <i className={styles.info}>Last translated at: <b>{lastTranslatedAt}</b></i>
+      {lastTranslatedAt && <i className={styles.info}>Last translated at: <b>{lastTranslatedAt}</b></i>}
     </div>
   );
 }
