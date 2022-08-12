@@ -1,6 +1,5 @@
 name: "CI"
 on:
-  workflow_dispatch:
   push:
     branches:
     - master
@@ -10,218 +9,97 @@ on:
     - cron: "0 4 * * *"
 
 jobs:
-  # build-test:
-  #   name: "Build & test"
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     matrix:
-  #       include:
-  #         - package: plutus-cbor
-  #         - package: plutus-merkle-tree
-  #         - package: hydra-tui
-  #         - package: hydra-node
-  #         - package: hydra-cluster
-  #   steps:
-  #   - uses: actions/checkout@v2.3.1
-  #     with:
-  #       repository: input-output-hk/hydra-poc
-  #       token: ${{ secrets.MY_TOKEN || github.token }}
-  #       # On pull_request events, we want to check out the latest commit of the
-  #       # PR, which is different to github.ref (the default, which would point
-  #       # to a "fake merge" commit). On push events, the default is fine as it
-  #       # refers to the pushed commit.
-  #       ref: ${{ github.event.pull_request.head.sha || github.ref }}
-  #       # Also ensure we have all history with all tags
-  #       fetch-depth: 0
+  build-test:
+    name: "Build & test"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - package: plutus-cbor
+          - package: plutus-merkle-tree
+          - package: hydra-tui
+          - package: hydra-node
+          - package: hydra-cluster
+    steps:
+    - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # On pull_request events, we want to check out the latest commit of the
+        # PR, which is different to github.ref (the default, which would point
+        # to a "fake merge" commit). On push events, the default is fine as it
+        # refers to the pushed commit.
+        ref: ${{ github.event.pull_request.head.sha || github.ref }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
 
-  #   - name: Prepare nix
-  #     uses: cachix/install-nix-action@v17
-  #     with:
-  #       extra_nix_config: |
-  #         trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-  #         substituters = https://cache.nixos.org https://cache.iog.io https://iohk.cachix.org
+    - name: Prepare nix
+      uses: cachix/install-nix-action@v17
+      with:
+        extra_nix_config: |
+          trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+          substituters = https://cache.nixos.org https://cache.iog.io https://iohk.cachix.org
 
-  #   - name: Cachix cache of nix derivations
-  #     uses: cachix/cachix-action@v10
-  #     with:
-  #       name: hydra-node
-  #       authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    - name: Cachix cache of nix derivations
+      uses: cachix/cachix-action@v10
+      with:
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-  #   - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
-  #     uses: actions/cache@v2.1.5
-  #     with:
-  #       path: |
-  #         ~/.cabal/packages
-  #         ~/.cabal/store
-  #         dist-newstyle
-  #       key: |
-  #         cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}-${{ matrix.package }}
-  #       restore-keys: |
-  #         cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+    - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      uses: actions/cache@v2.1.5
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}-${{ matrix.package }}
+        restore-keys: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
-  #   - name: Prepare nix-shell
-  #     run: |
-  #       nix-build --arg withoutDevTools true shell.nix
+    - name: Prepare nix-shell
+      run: |
+        nix-build --arg withoutDevTools true shell.nix
 
-  #   - name: Build
-  #     run: |
-  #       nix-shell --pure --arg withoutDevTools true --run 'cabal update'
-  #       nix-shell --pure --arg withoutDevTools true --run 'cabal build ${{ matrix.package }}'
+    - name: Build
+      run: |
+        nix-shell --pure --arg withoutDevTools true --run 'cabal update'
+        nix-shell --pure --arg withoutDevTools true --run 'cabal build ${{ matrix.package }}'
 
-  #   - name: Test
-  #     if: ${{ matrix.package != 'hydra-tui' }}
-  #     run: |
-  #       nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+    - name: Test
+      if: ${{ matrix.package != 'hydra-tui' }}
+      run: |
+        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
-  #   - name: Test (TUI)
-  #     id: test_tui
-  #     if: ${{ matrix.package == 'hydra-tui' }}
-  #     # https://giters.com/gfx/example-github-actions-with-tty
-  #     # The default shell does not allocate a TTY which breaks some tests
-  #     shell: 'script -q -e -c "bash {0}"'
-  #     env:
-  #       TERM: "xterm"
-  #     continue-on-error: true
-  #     run: |
-  #       nix-shell --pure --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+    - name: Test (TUI)
+      id: test_tui
+      if: ${{ matrix.package == 'hydra-tui' }}
+      # https://giters.com/gfx/example-github-actions-with-tty
+      # The default shell does not allocate a TTY which breaks some tests
+      shell: 'script -q -e -c "bash {0}"'
+      env:
+        TERM: "xterm"
+      continue-on-error: true
+      run: |
+        nix-shell --pure --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
-  #   - name: Test (TUI, retry)
-  #     if: steps.test_tui.outcome=='failure'
-  #     shell: 'script -q -e -c "bash {0}"'
-  #     env:
-  #       TERM: "xterm"
-  #     run: |
-  #       nix-shell --pure --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+    - name: Test (TUI, retry)
+      if: steps.test_tui.outcome=='failure'
+      shell: 'script -q -e -c "bash {0}"'
+      env:
+        TERM: "xterm"
+      run: |
+        nix-shell --pure --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
-  #   - name: Upload build & test artifacts
-  #     uses: actions/upload-artifact@v2
-  #     with:
-  #       path: ./**/test-results.xml
+    - name: Upload build & test artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        path: ./**/test-results.xml
 
-  # publish-test-results:
-  #   name: Publish test results
-  #   needs: [build-test]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@v2.3.1
-  #     with:
-  #       repository: input-output-hk/hydra-poc
-  #       token: ${{ secrets.MY_TOKEN || github.token }}
-
-  #   - uses: actions/download-artifact@v3
-
-  #   - name: Publish Unit Test Results
-  #     uses: EnricoMi/publish-unit-test-result-action@v1
-  #     with:
-  #       files: ./**/test-results.xml
-
-  # haddock-benchmarks:
-  #   name: "Haddock & benchmarks"
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     matrix:
-  #       include:
-  #         - bench: tx-cost
-  #           options: '--output-directory $(pwd)/docs/benchmarks'
-  #         - bench: hydra-cluster
-  #           options: '--scaling-factor 1'
-  #   steps:
-  #   - uses: actions/checkout@v2.3.1
-  #     with:
-  #       repository: input-output-hk/hydra-poc
-  #       token: ${{ secrets.MY_TOKEN || github.token }}
-
-  #   - name: Prepare nix
-  #     uses: cachix/install-nix-action@v17
-  #     with:
-  #       extra_nix_config: |
-  #         trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-  #         substituters = https://cache.nixos.org https://cache.iog.io https://iohk.cachix.org
-
-  #   - name: Cachix cache of nix derivations
-  #     uses: cachix/cachix-action@v10
-  #     with:
-  #       name: hydra-node
-  #       authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-
-  #   - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
-  #     uses: actions/cache@v2.1.5
-  #     with:
-  #       path: |
-  #         ~/.cabal/packages
-  #         ~/.cabal/store
-  #         dist-newstyle
-  #       key: |
-  #         cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
-
-  #   - name: Prepare nix-shell
-  #     run: |
-  #       nix-build --pure --arg withoutDevTools true shell.nix
-  #       nix-shell --pure --arg withoutDevTools true --run 'cabal update'
-
-  #   - name: Bench
-  #     run: |
-  #       nix-shell --pure --arg withoutDevTools true --run 'cabal bench ${{ matrix.bench }} --benchmark-options "${{ matrix.options }}"'
-
-  #   - name: Documentation (Haddock)
-  #     run: |
-  #       nix-shell --pure --arg withoutDevTools true --run '.github/workflows/ci-haddock.sh'
-
-  #   - name: Upload build & test artifacts
-  #     uses: actions/upload-artifact@v2
-  #     with:
-  #       name: benchmarks-and-haddocks
-  #       path: ./docs
-
-  # publish-benchmark-results:
-  #   name: Publish benchmark results
-  #   if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-  #   # TODO: this is actually only requires the tx-cost benchmark results
-  #   needs: [haddock-benchmarks]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@v2.3.1
-  #     with:
-  #       repository: input-output-hk/hydra-poc
-  #       token: ${{ secrets.MY_TOKEN || github.token }}
-
-  #   - uses: actions/download-artifact@v3
-  #     with:
-  #       name: benchmarks-and-haddocks
-  #       path: artifact
-
-  #   - run: find artifact
-
-  #   - name: Prepare comment body
-  #     id: comment-body
-  #     run: |
-  #       # Drop first 5 header lines and demote headlines one level
-  #       body="$(cat artifact/benchmarks/transaction-cost.md | sed '1,5d;s/^#/##/')"
-  #       body="${body//'%'/'%25'}"
-  #       body="${body//$'\n'/'%0A'}"
-  #       body="${body//$'\r'/'%0D'}"
-  #       echo "::set-output name=body::$body"
-
-  #   - name: Find Comment
-  #     uses: peter-evans/find-comment@v2
-  #     id: find-comment
-  #     with:
-  #       issue-number: ${{ github.event.pull_request.number }}
-  #       comment-author: 'github-actions[bot]'
-  #       body-includes: Transactions Costs
-
-  #   - name: Create or update comment
-  #     uses: peter-evans/create-or-update-comment@v2
-  #     with:
-  #       comment-id: ${{ steps.find-comment.outputs.comment-id }}
-  #       edit-mode: replace
-  #       issue-number: ${{ github.event.pull_request.number }}
-  #       body: ${{ steps.comment-body.outputs.body }}
-  #       reactions: rocket
-
-  documentation:
-    name: Documentation
-    # needs: [haddock-benchmarks]
+  publish-test-results:
+    name: Publish test results
+    needs: [build-test]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.3.1
@@ -229,38 +107,159 @@ jobs:
         repository: input-output-hk/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
 
-    # - name: Setup Node.js
-    #   uses: actions/setup-node@v3
-    #   with:
-    #     node-version: 16
-    #     cache: 'yarn'
-    #     cache-dependency-path: docs/yarn.lock
+    - uses: actions/download-artifact@v3
 
-    # - name: Download generated documentation
-    #   uses: actions/download-artifact@v3
-    #   with:
-    #     name: benchmarks-and-haddocks
-    #     path: docs
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      with:
+        files: ./**/test-results.xml
+
+  haddock-benchmarks:
+    name: "Haddock & benchmarks"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - bench: tx-cost
+            options: '--output-directory $(pwd)/docs/benchmarks'
+          - bench: hydra-cluster
+            options: '--scaling-factor 1'
+    steps:
+    - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+
+    - name: Prepare nix
+      uses: cachix/install-nix-action@v17
+      with:
+        extra_nix_config: |
+          trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+          substituters = https://cache.nixos.org https://cache.iog.io https://iohk.cachix.org
+
+    - name: Cachix cache of nix derivations
+      uses: cachix/cachix-action@v10
+      with:
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+    - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      uses: actions/cache@v2.1.5
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+
+    - name: Prepare nix-shell
+      run: |
+        nix-build --pure --arg withoutDevTools true shell.nix
+        nix-shell --pure --arg withoutDevTools true --run 'cabal update'
+
+    - name: Bench
+      run: |
+        nix-shell --pure --arg withoutDevTools true --run 'cabal bench ${{ matrix.bench }} --benchmark-options "${{ matrix.options }}"'
+
+    - name: Documentation (Haddock)
+      run: |
+        nix-shell --pure --arg withoutDevTools true --run '.github/workflows/ci-haddock.sh'
+
+    - name: Upload build & test artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: benchmarks-and-haddocks
+        path: ./docs
+
+  publish-benchmark-results:
+    name: Publish benchmark results
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    # TODO: this is actually only requires the tx-cost benchmark results
+    needs: [haddock-benchmarks]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: benchmarks-and-haddocks
+        path: artifact
+
+    - run: find artifact
+
+    - name: Prepare comment body
+      id: comment-body
+      run: |
+        # Drop first 5 header lines and demote headlines one level
+        body="$(cat artifact/benchmarks/transaction-cost.md | sed '1,5d;s/^#/##/')"
+        body="${body//'%'/'%25'}"
+        body="${body//$'\n'/'%0A'}"
+        body="${body//$'\r'/'%0D'}"
+        echo "::set-output name=body::$body"
+
+    - name: Find Comment
+      uses: peter-evans/find-comment@v2
+      id: find-comment
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: Transactions Costs
+
+    - name: Create or update comment
+      uses: peter-evans/create-or-update-comment@v2
+      with:
+        comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        edit-mode: replace
+        issue-number: ${{ github.event.pull_request.number }}
+        body: ${{ steps.comment-body.outputs.body }}
+        reactions: rocket
+
+  documentation:
+    name: Documentation
+    needs: [haddock-benchmarks]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16
+        cache: 'yarn'
+        cache-dependency-path: docs/yarn.lock
+
+    - name: Download generated documentation
+      uses: actions/download-artifact@v3
+      with:
+        name: benchmarks-and-haddocks
+        path: docs
 
     - name: Documention metadata enrichment
       run: |
         docs/scripts/document-metadata.sh
 
-    # - name: Documentation (Docusaurus)
-    #   working-directory: docs
-    #   run: |
-    #     yarn && yarn build
-    #     yarn validate
-    #     mkdir -p public/head-protocol
-    #     mv build/* public/head-protocol
-    #     echo "hydra.family" > public/CNAME
-    #     echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
+    - name: Documentation (Docusaurus)
+      working-directory: docs
+      run: |
+        yarn && yarn build
+        yarn validate
+        mkdir -p public/head-protocol
+        mv build/* public/head-protocol
+        echo "hydra.family" > public/CNAME
+        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
-    # - name: Publish Documentation
-    #   if: github.event_name == 'push'
-    #   uses: peaceiris/actions-gh-pages@v3
-    #   with:
-    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-    #     publish_dir: docs/public
-    #     enable_jekyll: true
-    #     force_orphan: true
+    - name: Publish Documentation
+      if: github.event_name == 'push'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        publish_dir: docs/public
+        enable_jekyll: true
+        force_orphan: true
