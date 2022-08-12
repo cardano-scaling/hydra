@@ -1,17 +1,22 @@
 ---
 sidebar_position: 2
+last_updated_at: 2022-08-06
+last_translated_at: 2022-07-24
 ---
 
 # Installation Instructions
-[//]:{{last-updated-at}}
-[//]:{{author-info}}
-[//]:{{last-translated-at}}
 
 ```mdx-code-block
 import TerminalWindow from '@site/src/components/TerminalWindow';
+import {useChildData} from '@docusaurus/theme-common';
+import LastUpdatedAt from '@site/src/components/LastUpdatedAt';
 ```
 
 > Installation instructions for Hydra nodes. We recommend using Docker and dealing with containers as a quick start.
+
+```mdx-code-block
+<LastUpdatedAt items={useChildData().items}/>
+```
 
 ## Using Docker
 The quickest way to get a hydra-node running is to use our Docker images.
