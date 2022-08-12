@@ -1,0 +1,11 @@
+name: ManualTest
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run a one-line script
+        run: |
+          docs/scripts/document-metadata.sh
