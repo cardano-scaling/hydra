@@ -9,9 +9,6 @@ for MD in $DOCUMENTS; do
 
     PLACEHOLDER="{{last-updated-at}}"
     REPLACEMENT=$(git --no-pager log -1 --pretty=format:'%ad' --date=local $MD)
-    
-    echo $(sed "s/$PLACEHOLDER/$REPLACEMENT/g" $MD)
-
     sed -i "s/$PLACEHOLDER/$REPLACEMENT/g" $MD
     
     PLACEHOLDER="{{relative-time-since}}"
@@ -25,6 +22,5 @@ for MD in $DOCUMENTS; do
     PLACEHOLDER="{{last-translated-at}}"
     REPLACEMENT=$(git --no-pager log -1 --pretty=format:'%ad' --date=local docs/i18n)
     sed -i "s/$PLACEHOLDER/$REPLACEMENT/g" $MD
-
 
 done
