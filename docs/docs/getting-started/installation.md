@@ -12,6 +12,7 @@ import DocumentMetadata from '@site/src/components/DocumentMetadata';
 ```mdx-code-block
 <DocumentMetadata
     lastUpdatedAt="{{last-updated-at}}"
+    commitHash="{{commit-hash}}"
     lastTranslatedAt="{{last-translated-at}}"
 />
 ```
