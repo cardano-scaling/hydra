@@ -244,6 +244,7 @@ jobs:
     - name: Documentation (Docusaurus)
       working-directory: docs
       run: |
+        ./docs/scripts/custom-template.sh
         yarn && yarn build
         yarn validate
         mkdir -p public/head-protocol
