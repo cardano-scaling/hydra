@@ -149,7 +149,7 @@ mkSimpleTx ::
   -- | Sender's signing key.
   SigningKey PaymentKey ->
   Either TxBodyError Tx
-mkSimpleTx (txin, TxOut owner valueIn datum) (recipient, valueOut) sk = do
+mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk = do
   body <- makeTransactionBody bodyContent
   let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
   pure $ makeSignedTransaction witnesses body
@@ -162,11 +162,12 @@ mkSimpleTx (txin, TxOut owner valueIn datum) (recipient, valueOut) sk = do
       }
 
   outs =
-    TxOut @CtxTx recipient valueOut TxOutDatumNone :
+    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone :
       [ TxOut @CtxTx
         owner
         (valueIn <> negateValue valueOut)
         (toTxContext datum)
+        refScript
       | valueOut /= valueIn
       ]
 
@@ -189,6 +190,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
           <> [""]
           <> inputLines
           <> [""]
+          <> referenceInputLines
+          <> [""]
           <> outputLines
           <> [""]
           <> validityLines
@@ -209,9 +212,18 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   inputLines =
     "== INPUTS (" <> show (length (txIns content)) <> ")" :
-    (("- " <>) . prettyTxIn <$> sortBy (compare `on` fst) (txIns content))
+    (("- " <>) . prettyTxIn . fst <$> sortBy (compare `on` fst) (txIns content))
 
-  prettyTxIn (i, _) =
+  referenceInputLines =
+    "== REFERENCE INPUTS (" <> show (length referenceInputs) <> ")" :
+    (("- " <>) . prettyTxIn <$> sort referenceInputs)
+
+  referenceInputs =
+    case txInsReference content of
+      TxInsReferenceNone -> []
+      TxInsReference refInputs -> refInputs
+
+  prettyTxIn i =
     case UTxO.resolve i utxo of
       Nothing -> renderTxIn i
       Just o ->
@@ -417,14 +429,14 @@ genOutput ::
   Gen (TxOut ctx)
 genOutput vk = do
   value <- genValue
-  pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone
+  pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone ReferenceScriptNone
 
 -- | Generate an ada-only 'TxOut' payed to an arbitrary public key.
 genTxOutAdaOnly :: Gen (TxOut ctx)
 genTxOutAdaOnly = do
   vk <- arbitrary
   value <- lovelaceToValue . Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
-  pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone
+  pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone ReferenceScriptNone
 
 -- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
 genTxIn :: Gen TxIn
@@ -491,8 +503,8 @@ genAdaOnlyUTxO = do
 
 adaOnly :: TxOut CtxUTxO -> TxOut CtxUTxO
 adaOnly = \case
-  TxOut addr value datum ->
-    TxOut addr (lovelaceToValue $ selectLovelace value) datum
+  TxOut addr value datum refScript ->
+    TxOut addr (lovelaceToValue $ selectLovelace value) datum refScript
 
 -- | Generate "simplified" UTXO, ie. without some of the complexities required for
 -- backward-compatibility and obscure features.
@@ -508,7 +520,7 @@ genUTxOWithSimplifiedAddresses = simplifyUTxO <$> arbitrary
 simplifyUTxO :: UTxO -> UTxO
 simplifyUTxO = UTxO . Map.fromList . map tweakAddress . filter notByronAddress . UTxO.pairs
  where
-  notByronAddress (_, TxOut addr _ _) = case addr of
+  notByronAddress (_, TxOut addr _ _ _) = case addr of
     ByronAddressInEra{} -> False
     _ -> True
   -- NOTE:
@@ -516,13 +528,13 @@ simplifyUTxO = UTxO . Map.fromList . map tweakAddress . filter notByronAddress .
   --   Ledger team plans to remove them in future versions anyway.
   --
   -- - We fix all network id to testnet.
-  tweakAddress out@(txin, TxOut addr val dat) = case addr of
+  tweakAddress out@(txin, TxOut addr val dat refScript) = case addr of
     ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
       case sr of
         Ledger.StakeRefPtr _ ->
-          (txin, TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat)
+          (txin, TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat refScript)
         _ ->
-          (txin, TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre sr)) val dat)
+          (txin, TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre sr)) val dat refScript)
     _ -> out
 
 shrinkUTxO :: UTxO -> [UTxO]
@@ -530,8 +542,8 @@ shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.pairs (shrinkList shrinkOne)
  where
   shrinkOne :: (TxIn, TxOut CtxUTxO) -> [(TxIn, TxOut CtxUTxO)]
   shrinkOne (i, o) = case o of
-    TxOut addr value datum ->
-      [ (i, TxOut addr value' datum)
+    TxOut addr value datum refScript ->
+      [ (i, TxOut addr value' datum refScript)
       | value' <- shrinkValue value
       ]
 

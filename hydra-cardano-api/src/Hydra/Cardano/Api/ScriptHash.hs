@@ -11,3 +11,8 @@ getPaymentScriptHash = \case
     Just (fromShelleyScriptHash h)
   _ ->
     Nothing
+
+-- | Like 'hashScript', but for a 'ScriptInAnyLang'.
+hashScriptInAnyLang :: ScriptInAnyLang -> ScriptHash
+hashScriptInAnyLang (ScriptInAnyLang _ script) =
+  hashScript script

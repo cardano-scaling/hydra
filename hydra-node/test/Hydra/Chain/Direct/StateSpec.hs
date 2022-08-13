@@ -34,6 +34,7 @@ import Hydra.Cardano.Api (
   txOuts',
   valueSize,
   pattern ByronAddressInEra,
+  pattern ReferenceScriptNone,
   pattern TxOut,
   pattern TxOutDatumNone,
  )
@@ -62,6 +63,7 @@ import Hydra.Chain.Direct.Handlers (
   SomeOnChainHeadStateAt (..),
   chainSyncHandler,
  )
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (
   HasTransition (..),
   HeadStateKind (..),
@@ -87,9 +89,16 @@ import Hydra.Ledger.Cardano (
   genTxIn,
   genValue,
   renderTx,
-  renderTxs,
+  renderTxWithUTxO,
  )
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx', genPointInTime, genPointInTimeBefore, maxTxExecutionUnits, maxTxSize)
+import Hydra.Ledger.Cardano.Evaluate (
+  evaluateTx',
+  genPointInTime,
+  genPointInTimeBefore,
+  maxTxExecutionUnits,
+  maxTxSize,
+  renderRedeemerReportFailures,
+ )
 import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
@@ -187,7 +196,8 @@ spec = parallel $ do
         _ -> property False
 
   describe "abort" $ do
-    propBelowSizeLimit (2 * maxTxSize) forAllAbort
+    propBelowSizeLimit maxTxSize forAllAbort
+    propIsValid forAllAbort
 
     prop "ignore aborts of other heads" $ do
       let twoDistinctHeads = do
@@ -298,13 +308,14 @@ genRollbackPoint blks = do
 -- to observe at least one state transition and different levels of rollback.
 genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadStateAt, [Block])
 genSequenceOfObservableBlocks = do
+  scriptRegistry <- genScriptRegistry
   ctx <- genHydraContext 3
 
   -- NOTE: commits must be generated from each participant POV, and thus, we
   -- need all their respective StIdle to move on.
   let stIdles = flip map (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) ->
         let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
-         in idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p
+         in idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p scriptRegistry
 
   stIdle <- elements stIdles
   blks <- flip execStateT [] $ do
@@ -397,14 +408,12 @@ propIsValid forAllTx =
       case evaluateTx' maxTxExecutionUnits tx lookupUTxO of
         Left basicFailure ->
           property False
-            & counterexample ("Tx: " <> renderTx tx)
-            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
           all isRight (Map.elems redeemerReport)
-            & counterexample ("Tx: " <> renderTx tx)
-            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
-            & counterexample ("Redeemer report: " <> show redeemerReport)
+            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample (toString $ "Redeemer report: " <> renderRedeemerReportFailures redeemerReport)
             & counterexample "Phase-2 validation failed"
 
 --
@@ -505,9 +514,9 @@ forAllAbort ::
   Property
 forAllAbort action = do
   forAll (genHydraContext 3) $ \ctx ->
-    forAllShow (genInitTx ctx) renderTx $ \initTx -> do
-      forAllShow (sublistOf =<< genCommits ctx initTx) renderTxs $ \commits ->
-        forAll (genStIdle ctx) $ \stIdle ->
+    forAll (genStIdle ctx) $ \stIdle ->
+      forAllBlind (genInitTx ctx) $ \initTx -> do
+        forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
           let (_, stInitialized) = executeCommits initTx commits stIdle
            in action stInitialized (abort stInitialized)
                 & classify
@@ -622,7 +631,7 @@ genByronCommit = do
   input <- arbitrary
   addr <- ByronAddressInEra <$> arbitrary
   value <- genValue
-  pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone)
+  pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone ReferenceScriptNone)
 
 genBlockAt :: SlotNo -> [Tx] -> Gen Block
 genBlockAt sl txs = do

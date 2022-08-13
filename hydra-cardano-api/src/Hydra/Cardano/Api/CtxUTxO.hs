@@ -1,7 +1,6 @@
 module Hydra.Cardano.Api.CtxUTxO where
 
 import Hydra.Cardano.Api.Prelude
-import Hydra.Cardano.Api.TxOut (modifyTxOutDatum)
 
 -- | A convenient type-class for transforming types in 'CtxTx' to 'CtxUTxO'.
 --
@@ -17,5 +16,5 @@ instance ToUTxOContext TxOutDatum where
     TxOutDatumInline s sd -> TxOutDatumInline s sd
 
 instance ToUTxOContext TxOut where
-  toUTxOContext =
-    modifyTxOutDatum toUTxOContext
+  toUTxOContext (TxOut addr value dat ref) =
+    TxOut addr value (toUTxOContext dat) ref

@@ -129,7 +129,7 @@ healthyCommitOutput ::
 healthyCommitOutput party committed =
   ( txIn
   ,
-    ( toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatum commitDatum))
+    ( toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatum commitDatum) ReferenceScriptNone)
     , fromPlutusData (toData commitDatum)
     )
   )

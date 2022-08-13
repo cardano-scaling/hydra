@@ -41,6 +41,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
+import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), registryUTxO)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
@@ -85,6 +86,7 @@ data OnChainHeadState (st :: HeadStateKind) = OnChainHeadState
   , ownVerificationKey :: VerificationKey PaymentKey
   , ownParty :: Party
   , stateMachine :: HydraStateMachine st
+  , scriptRegistry :: ScriptRegistry
   }
   deriving (Eq, Show)
 
@@ -127,18 +129,21 @@ deriving instance Eq (HydraStateMachine st)
 getKnownUTxO ::
   OnChainHeadState st ->
   UTxO
-getKnownUTxO OnChainHeadState{stateMachine} =
+getKnownUTxO OnChainHeadState{stateMachine, scriptRegistry} =
   case stateMachine of
     Idle{} ->
-      mempty
+      registryUTxO scriptRegistry
     Initialized{initialThreadOutput = InitialThreadOutput{initialThreadUTxO}, initialInitials, initialCommits} ->
-      UTxO $
-        Map.fromList $
-          take2Of3 initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
+      registryUTxO scriptRegistry <> headUtxo
+     where
+      headUtxo =
+        UTxO $
+          Map.fromList $
+            take2Of3 initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
     Open{openThreadOutput = OpenThreadOutput{openThreadUTxO = (i, o, _)}} ->
-      UTxO.singleton (i, o)
+      registryUTxO scriptRegistry <> UTxO.singleton (i, o)
     Closed{closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}} ->
-      UTxO.singleton (i, o)
+      registryUTxO scriptRegistry <> UTxO.singleton (i, o)
 
 getContestationDeadline :: OnChainHeadState 'StClosed -> POSIXTime
 getContestationDeadline
@@ -223,13 +228,15 @@ idleOnChainHeadState ::
   [VerificationKey PaymentKey] ->
   VerificationKey PaymentKey ->
   Party ->
+  ScriptRegistry ->
   OnChainHeadState 'StIdle
-idleOnChainHeadState networkId peerVerificationKeys ownVerificationKey ownParty =
+idleOnChainHeadState networkId peerVerificationKeys ownVerificationKey ownParty scriptRegistry =
   OnChainHeadState
     { networkId
     , peerVerificationKeys
     , ownVerificationKey
     , ownParty
+    , scriptRegistry
     , stateMachine = Idle
     }
 
@@ -271,20 +278,20 @@ commit utxo st@OnChainHeadState{networkId, ownParty, ownVerificationKey, stateMa
 
   rejectByronAddress :: (TxIn, TxOut CtxUTxO) -> Either (PostTxError Tx) ()
   rejectByronAddress = \case
-    (_, TxOut (ByronAddressInEra addr) _ _) ->
+    (_, TxOut (ByronAddressInEra addr) _ _ _) ->
       Left (UnsupportedLegacyOutput addr)
-    (_, TxOut ShelleyAddressInEra{} _ _) ->
+    (_, TxOut ShelleyAddressInEra{} _ _ _) ->
       Right ()
 
 abort ::
   HasCallStack =>
   OnChainHeadState 'StInitialized ->
   Tx
-abort OnChainHeadState{ownVerificationKey, stateMachine} = do
+abort OnChainHeadState{ownVerificationKey, stateMachine, scriptRegistry} = do
   let InitialThreadOutput{initialThreadUTxO = (i, o, dat)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
-   in case abortTx ownVerificationKey (i, o, dat) (initialHeadTokenScript stateMachine) initials commits of
+   in case abortTx scriptRegistry ownVerificationKey (i, o, dat) (initialHeadTokenScript stateMachine) initials commits of
         Left err ->
           -- FIXME: Exception with MonadThrow?
           error $ show err
@@ -391,7 +398,7 @@ instance HasTransition 'StIdle where
     ]
 
 instance ObserveTx 'StIdle 'StInitialized where
-  observeTx tx OnChainHeadState{networkId, peerVerificationKeys, ownParty, ownVerificationKey} = do
+  observeTx tx OnChainHeadState{networkId, peerVerificationKeys, ownParty, ownVerificationKey, scriptRegistry} = do
     let allVerificationKeys = ownVerificationKey : peerVerificationKeys
     observation <- observeInitTx networkId allVerificationKeys ownParty tx
     let InitObservation
@@ -410,6 +417,7 @@ instance ObserveTx 'StIdle 'StInitialized where
             , ownParty
             , ownVerificationKey
             , peerVerificationKeys
+            , scriptRegistry
             , stateMachine =
                 Initialized
                   { initialThreadOutput = threadOutput
@@ -458,7 +466,7 @@ instance ObserveTx 'StInitialized 'StInitialized where
       } = stateMachine
 
 instance ObserveTx 'StInitialized 'StOpen where
-  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
+  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine, scriptRegistry} = do
     let utxo = getKnownUTxO st
     observation <- observeCollectComTx utxo tx
     let CollectComObservation{threadOutput, headId, utxoHash} = observation
@@ -470,6 +478,7 @@ instance ObserveTx 'StInitialized 'StOpen where
             , peerVerificationKeys
             , ownVerificationKey
             , ownParty
+            , scriptRegistry
             , stateMachine =
                 Open
                   { openThreadOutput = threadOutput
@@ -486,7 +495,7 @@ instance ObserveTx 'StInitialized 'StOpen where
       } = stateMachine
 
 instance ObserveTx 'StInitialized 'StIdle where
-  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty} = do
+  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, scriptRegistry} = do
     let utxo = getKnownUTxO st
     AbortObservation <- observeAbortTx utxo tx
     let event = OnAbortTx
@@ -496,6 +505,7 @@ instance ObserveTx 'StInitialized 'StIdle where
             , peerVerificationKeys
             , ownVerificationKey
             , ownParty
+            , scriptRegistry
             , stateMachine = Idle
             }
     pure (event, st')
@@ -510,7 +520,7 @@ instance HasTransition 'StOpen where
     ]
 
 instance ObserveTx 'StOpen 'StClosed where
-  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
+  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine, scriptRegistry} = do
     let utxo = getKnownUTxO st
     observation <- observeCloseTx utxo tx
     let CloseObservation{threadOutput, headId, snapshotNumber} = observation
@@ -525,6 +535,7 @@ instance ObserveTx 'StOpen 'StClosed where
             , peerVerificationKeys
             , ownVerificationKey
             , ownParty
+            , scriptRegistry
             , stateMachine =
                 Closed
                   { closedThreadOutput = threadOutput
@@ -550,7 +561,7 @@ instance HasTransition 'StClosed where
     ]
 
 instance ObserveTx 'StClosed 'StIdle where
-  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty} = do
+  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, scriptRegistry} = do
     let utxo = getKnownUTxO st
     FanoutObservation <- observeFanoutTx utxo tx
     let event = OnFanoutTx
@@ -560,12 +571,13 @@ instance ObserveTx 'StClosed 'StIdle where
             , peerVerificationKeys
             , ownVerificationKey
             , ownParty
+            , scriptRegistry
             , stateMachine = Idle
             }
     pure (event, st')
 
 instance ObserveTx 'StClosed 'StClosed where
-  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
+  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine, scriptRegistry} = do
     let utxo = getKnownUTxO st
     observation <- observeContestTx utxo tx
     let ContestObservation{contestedThreadOutput, headId, snapshotNumber} = observation
@@ -577,6 +589,7 @@ instance ObserveTx 'StClosed 'StClosed where
             , peerVerificationKeys
             , ownVerificationKey
             , ownParty
+            , scriptRegistry
             , stateMachine =
                 Closed
                   { closedThreadOutput = closedThreadOutput{closedThreadUTxO = contestedThreadOutput}

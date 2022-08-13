@@ -21,6 +21,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId, testSeedInput)
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
   UTxOWithScript,
   abortTx,
@@ -50,15 +51,19 @@ healthyAbortTx =
     UTxO.singleton (healthyHeadInput, toUTxOContext headOutput)
       <> UTxO (Map.fromList (drop3rd <$> healthyInitials))
       <> UTxO (Map.fromList (drop3rd <$> healthyCommits))
+      <> registryUTxO scriptRegistry
 
   tx =
     either (error . show) id $
       abortTx
+        scriptRegistry
         somePartyCardanoVerificationKey
         (healthyHeadInput, toUTxOContext headOutput, headDatum)
         headTokenScript
         (Map.fromList (tripleToPair <$> healthyInitials))
         (Map.fromList (tripleToPair <$> healthyCommits))
+
+  scriptRegistry = genScriptRegistry `generateWith` 42
 
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties
@@ -164,7 +169,7 @@ genAbortMutation (tx, utxo) =
         (input, output, _) <- elements healthyInitials
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
 
-        let TxOut addr value datum = output
+        let value = txOutValue output
             assetNames =
               [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList value, policyId == testPolicyId
               ]
@@ -184,7 +189,7 @@ genAbortMutation (tx, utxo) =
               TxMintValueNone -> error "expected minted value"
               TxMintValue v _ -> valueFromList $ filter (not . ptForAssetName) $ valueToList v
 
-            output' = TxOut addr newValue datum
+            output' = output{txOutValue = newValue}
 
         pure $
           Changes

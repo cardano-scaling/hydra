@@ -76,7 +76,7 @@ genCommitMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateCommitOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- genValue `suchThat` (/= commitOutputValue)
-        pure $ TxOut commitOutputAddress mutatedValue commitOutputDatum
+        pure $ commitTxOut{txOutValue = mutatedValue}
     , SomeMutation MutateCommittedValue <$> do
         mutatedValue <- genValue `suchThat` (/= committedOutputValue)
         let mutatedOutput = modifyTxOutValue (const mutatedValue) committedTxOut
@@ -91,8 +91,9 @@ genCommitMutation (tx, _utxo) =
         pure $ ChangeRequiredSigners [newSigner]
     ]
  where
-  TxOut commitOutputAddress commitOutputValue commitOutputDatum =
-    fromJust $ txOuts' tx !!? 0
+  TxOut{txOutValue = commitOutputValue} = commitTxOut
+
+  commitTxOut = fromJust $ txOuts' tx !!? 0
 
   (committedTxIn, committedTxOut) = healthyCommittedUTxO
 

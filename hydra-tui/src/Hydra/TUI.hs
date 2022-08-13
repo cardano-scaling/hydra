@@ -405,13 +405,13 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
               (lens id seq)
               [(u, show u, decodeUtf8 $ encodePretty u) | u <- nub addresses]
           addresses = getRecipientAddress <$> Map.elems utxo
-          getRecipientAddress (TxOut addr _ _) = addr
+          getRecipientAddress TxOut{txOutAddress = addr} = addr
        in newForm [field] (Prelude.head addresses)
 
     submit s' recipient =
       continue $ s' & dialogStateL .~ amountDialog input recipient
 
-  amountDialog input@(_, TxOut _ v _) recipient =
+  amountDialog input@(_, TxOut{txOutValue = v}) recipient =
     Dialog title form submit
    where
     title = "Choose an amount (max: " <> show limit <> ")"
@@ -567,7 +567,7 @@ draw Client{sk} CardanoClient{networkId} s =
   drawUTxO utxo =
     let byAddress =
           Map.foldrWithKey
-            (\k v@(TxOut addr _ _) -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
+            (\k v@TxOut{txOutAddress = addr} -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
             mempty
             $ UTxO.toMap utxo
      in vBox
@@ -681,7 +681,7 @@ myAvailableUTxO networkId vk s =
   case s ^? headStateL of
     Just Open{utxo = UTxO u'} ->
       let myAddress = mkVkAddress networkId vk
-       in Map.filter (\(TxOut addr _ _) -> addr == myAddress) u'
+       in Map.filter (\TxOut{txOutAddress = addr} -> addr == myAddress) u'
     _ ->
       mempty
 

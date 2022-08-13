@@ -16,6 +16,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters (..))
+import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.ContestationPeriod (ContestationPeriod, fromChain, toChain)
 import qualified Hydra.Contract.Commit as Commit
@@ -29,7 +30,7 @@ import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
-import Hydra.Ledger.Cardano ()
+import Hydra.Ledger.Cardano (addReferenceInputs)
 import Hydra.Ledger.Cardano.Builder (
   addExtraRequiredSigners,
   addInputs,
@@ -114,10 +115,12 @@ initTx networkId cardanoKeys parameters seed =
     [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
 
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
-mkHeadOutput networkId tokenPolicyId =
+mkHeadOutput networkId tokenPolicyId datum =
   TxOut
     (mkScriptAddress @PlutusScriptV2 networkId headScript)
     (headValue <> valueFromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
+    datum
+    ReferenceScriptNone
  where
   headScript = fromPlutusScript Head.validatorScript
 
@@ -133,7 +136,7 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
 mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
-  TxOut initialAddress initialValue initialDatum
+  TxOut initialAddress initialValue initialDatum ReferenceScriptNone
  where
   initialValue =
     headValue <> valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
@@ -175,7 +178,7 @@ commitTx networkId party utxo (initialInput, out, vkh) =
   mCommittedInput =
     fst <$> utxo
   commitOutput =
-    TxOut commitAddress commitValue commitDatum
+    TxOut commitAddress commitValue commitDatum ReferenceScriptNone
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitAddress =
@@ -232,6 +235,7 @@ collectComTx networkId vk initialThreadOutput commits =
       (mkScriptAddress @PlutusScriptV2 networkId headScript)
       (txOutValue initialHeadOutput <> commitValue)
       headDatumAfter
+      ReferenceScriptNone
   headDatumAfter =
     mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash, contestationPeriod = initialContestationPeriod}
 
@@ -426,6 +430,8 @@ data AbortTxError = OverlappingInputs
 -- | Create transaction which aborts a head by spending the Head output and all
 -- other "initial" outputs.
 abortTx ::
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
@@ -439,7 +445,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
+abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
@@ -447,7 +453,8 @@ abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
       unsafeBuildTransaction $
         emptyTxBody
           & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-          & addOutputs commitOutputs
+          & addReferenceInputs [initialScriptRef, commitScriptRef]
+          & addOutputs reimbursedOutputs
           & burnTokens headTokenScript Burn headTokens
           & addExtraRequiredSigners [verificationKeyHash vk]
  where
@@ -475,24 +482,35 @@ abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
   -- state-machine on-chain validator to control the correctness of the
   -- transition.
   mkAbortInitial (initialInput, (_, ScriptDatumForTxIn -> initialDatum)) =
-    (initialInput, mkAbortWitness initialDatum)
-  mkAbortWitness initialDatum =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness initialScript initialDatum initialRedeemer
+    (initialInput, mkAbortInitialWitness initialDatum)
+
+  mkAbortInitialWitness initialDatum =
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference initialScriptRef initialScript initialDatum initialRedeemer
+  initialScriptRef =
+    fst (initialReference scriptRegistry)
   initialScript =
     fromPlutusScript @PlutusScriptV2 Initial.validatorScript
   initialRedeemer =
     toScriptData $ Initial.redeemer Initial.ViaAbort
 
   mkAbortCommit (commitInput, (_, ScriptDatumForTxIn -> commitDatum)) =
-    (commitInput, mkCommitWitness commitDatum)
-  mkCommitWitness commitDatum =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness commitScript commitDatum commitRedeemer
+    (commitInput, mkAbortCommitWitness commitDatum)
+
+  mkAbortCommitWitness commitDatum =
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference commitScriptRef commitScript commitDatum commitRedeemer
+  commitScriptRef =
+    fst (commitReference scriptRegistry)
   commitScript =
     fromPlutusScript @PlutusScriptV2 Commit.validatorScript
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
-  commitOutputs = mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
+  reimbursedOutputs =
+    mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
 
   mkCommitOutput :: ScriptData -> Maybe (TxOut CtxTx)
   mkCommitOutput x =
@@ -560,7 +578,7 @@ observeInitTx networkId cardanoKeys party tx = do
       }
  where
   headOutput = \case
-    (ix, out@(TxOut _ _ (TxOutDatumInTx d))) ->
+    (ix, out@(TxOut _ _ (TxOutDatumInTx d) _)) ->
       (ix,out,toLedgerData d,) <$> fromData (toPlutusData d)
     _ -> Nothing
 
@@ -576,7 +594,7 @@ observeInitTx networkId cardanoKeys party tx = do
       )
       initialOutputs
 
-  isInitial (TxOut addr _ _) = addr == initialAddress
+  isInitial (TxOut addr _ _ _) = addr == initialAddress
 
   initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
 

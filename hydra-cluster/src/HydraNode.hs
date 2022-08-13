@@ -26,9 +26,7 @@ import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
 import CardanoNode (NodeLog)
-import Control.Concurrent.Async (
-  forConcurrently_,
- )
+import Control.Concurrent.Async ( forConcurrently_,)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson (Value (String), object, (.=))
@@ -40,10 +38,10 @@ import qualified Data.Text as T
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Crypto (HydraKey)
 import Hydra.Ledger.Cardano ()
-import Hydra.Logging (Tracer, traceWith)
+import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host))
 import qualified Hydra.Network as Network
-import Hydra.Options (ChainConfig (..), LedgerConfig (..), Options (..), defaultChainConfig, defaultOptions, toArgs)
+import Hydra.Options (ChainConfig (..), LedgerConfig (..), RunOptions (..), defaultChainConfig, toArgs)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -203,9 +201,11 @@ withHydraCluster ::
   -- | NOTE: This decides on the size of the cluster!
   [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
   [SigningKey HydraKey] ->
+  -- | Transaction id at which Hydra scripts should have been published.
+  TxId ->
   (NonEmpty HydraClient -> IO ()) ->
   IO ()
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action = do
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId action = do
   -- We have been bitten by this in the past
   when (clusterSize == 0) $
     error "Cannot run a cluster with 0 number of nodes"
@@ -241,6 +241,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action 
         hydraSKey
         hydraVKeys
         allNodeIds
+        hydraScriptsTxId
         (\c -> startNodes (c : clients) rest)
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
@@ -254,9 +255,11 @@ withHydraNode ::
   SigningKey HydraKey ->
   [VerificationKey HydraKey] ->
   [Int] ->
+  -- | Transaction id at which Hydra scripts should have been published.
+  TxId ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
   withLogFile logFilePath $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let cardanoLedgerGenesisFile = dir </> "genesis.json"
@@ -275,16 +278,20 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
               }
       let p =
             ( hydraNodeProcess $
-                defaultOptions
-                  { nodeId = fromIntegral hydraNodeId
+                RunOptions
+                  { verbosity = Verbose "HydraNode"
+                  , nodeId = fromIntegral hydraNodeId
+                  , host = "127.0.0.1"
                   , port = fromIntegral $ 5000 + hydraNodeId
+                  , peers
+                  , apiHost = "127.0.0.1"
                   , apiPort = fromIntegral $ 4000 + hydraNodeId
                   , monitoringPort = Just $ fromIntegral $ 6000 + hydraNodeId
                   , hydraSigningKey
                   , hydraVerificationKeys
+                  , hydraScriptsTxId
                   , chainConfig
                   , ledgerConfig
-                  , peers
                   }
             )
               { std_out = UseHandle out
@@ -336,7 +343,7 @@ withNewClient HydraClient{hydraNodeId, tracer} =
 newtype CannotStartHydraClient = CannotStartHydraClient Int deriving (Show)
 instance Exception CannotStartHydraClient
 
-hydraNodeProcess :: Options -> CreateProcess
+hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 
 waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()

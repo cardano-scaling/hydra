@@ -130,6 +130,7 @@ library
     , http-conduit
     , hydra-cardano-api
     , hydra-node
+    , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
     , io-classes

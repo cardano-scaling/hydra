@@ -15,7 +15,6 @@ import Hydra.Chain.CardanoClient
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import qualified Hydra.Chain.CardanoClient as CardanoClient
-import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
 -- TODO(SN): DRY with Hydra.Cardano.Api
 
@@ -31,17 +30,6 @@ buildScriptAddress :: Script -> NetworkId -> Address ShelleyAddr
 buildScriptAddress script networkId =
   let hashed = hashScript script
    in makeShelleyAddress networkId (PaymentCredentialByScript hashed) NoStakeAddress
-
-queryStakePools :: NetworkId -> FilePath -> QueryPoint -> IO (Set PoolId)
-queryStakePools networkId socket queryPoint =
-  let query =
-        QueryInEra
-          BabbageEraInCardanoMode
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
-              QueryStakePools
-          )
-   in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
 buildRaw :: [TxIn] -> [TxOut CtxTx] -> Lovelace -> Either TxBodyError TxBody
@@ -68,64 +56,6 @@ buildRaw ins outs fee =
       TxUpdateProposalNone
       TxMintValueNone
       TxScriptValidityNone
-
-build ::
-  NetworkId ->
-  FilePath ->
-  Address ShelleyAddr ->
-  -- | Unspent transaction outputs to spend.
-  UTxO ->
-  -- | Collateral inputs.
-  [TxIn] ->
-  -- | Outputs to create.
-  [TxOut CtxTx] ->
-  IO (Either TxBodyErrorAutoBalance TxBody)
-build networkId socket changeAddress utxoToSpend collateral outs = do
-  pparams <- queryProtocolParameters networkId socket QueryTip
-  systemStart <- querySystemStart networkId socket QueryTip
-  eraHistory <- queryEraHistory networkId socket QueryTip
-  stakePools <- queryStakePools networkId socket QueryTip
-  pure $
-    second balancedTxBody $
-      makeTransactionBodyAutoBalance
-        BabbageEraInCardanoMode
-        systemStart
-        eraHistory
-        pparams
-        stakePools
-        (UTxO.toApi utxoToSpend)
-        (bodyContent pparams)
-        (ShelleyAddressInEra changeAddress)
-        noOverrideWitness
- where
-  bodyContent pparams =
-    TxBodyContent
-      (map mkWitness $ toList $ UTxO.inputSet utxoToSpend)
-      (TxInsCollateral collateral)
-      TxInsReferenceNone
-      outs
-      TxTotalCollateralNone
-      TxReturnCollateralNone
-      dummyFee
-      (TxValidityNoLowerBound, TxValidityNoUpperBound)
-      (TxMetadataInEra (TxMetadata noMetadataMap))
-      (TxAuxScripts [])
-      (TxExtraKeyWitnesses [])
-      (BuildTxWith $ Just pparams)
-      (TxWithdrawals WithdrawalsInBabbageEra [])
-      (TxCertificates CertificatesInBabbageEra [] (BuildTxWith noStakeCredentialWitnesses))
-      TxUpdateProposalNone
-      (TxMintValue noMintedValue (BuildTxWith noPolicyIdToWitnessMap))
-      TxScriptValidityNone
-  noMintedValue = mempty
-  noPolicyIdToWitnessMap = mempty
-  noMetadataMap = mempty
-  noStakeCredentialWitnesses = mempty
-  noOverrideWitness = Nothing
-  dummyFee = TxFeeExplicit (Lovelace 0)
-
-  mkWitness :: TxIn -> (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
-  mkWitness txIn = (txIn, BuildTxWith $ KeyWitness KeyWitnessForSpending)
 
 calculateMinFee :: NetworkId -> TxBody -> Sizes -> ProtocolParameters -> Lovelace
 calculateMinFee networkId body Sizes{inputs, outputs, witnesses} pparams =
@@ -158,22 +88,6 @@ sign signingKey body =
     [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
     body
 
--- | Submit a (signed) transaction to the node.
---
--- Throws 'CardanoClientException' if submission fails.
-submit :: NetworkId -> FilePath -> Tx -> IO ()
-submit networkId socket tx =
-  submitTxToNodeLocal (localNodeConnectInfo networkId socket) (TxInMode tx BabbageEraInCardanoMode) >>= \case
-    SubmitSuccess -> pure ()
-    SubmitFail err -> throwIO $ ClientSubmitException{reason = show err, tx}
-
-data CardanoClientException
-  = ClientQueryException QueryException
-  | ClientSubmitException {reason :: Text, tx :: Tx}
-  deriving (Show)
-
-instance Exception CardanoClientException
-
 -- TODO: This should return a 'UTxO' (from Hydra.Ledger.Cardano)
 waitForPayment ::
   NetworkId ->
@@ -204,7 +118,7 @@ waitForUTxO networkId nodeSocket utxo =
  where
   forEachUTxO :: TxOut CtxUTxO -> IO ()
   forEachUTxO = \case
-    TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ -> do
+    TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ _ -> do
       void $
         waitForPayment
           networkId
@@ -213,21 +127,6 @@ waitForUTxO networkId nodeSocket utxo =
           addr
     txOut ->
       error $ "Unexpected TxOut " <> show txOut
-
-waitForTransaction ::
-  NetworkId ->
-  FilePath ->
-  Tx ->
-  IO UTxO
-waitForTransaction networkId socket tx =
-  go
- where
-  ins = Map.keys (UTxO.toMap $ utxoFromTx tx)
-  go = do
-    utxo <- queryUTxOByTxIn networkId socket QueryTip ins
-    if null utxo
-      then go
-      else pure utxo
 
 mkGenesisTx ::
   NetworkId ->
@@ -262,6 +161,7 @@ mkGenesisTx networkId pparams signingKey initialAmount recipients =
       changeAddr
       (lovelaceToValue $ initialAmount - totalSent - fee)
       TxOutDatumNone
+      ReferenceScriptNone
 
   recipientOutputs =
     flip map recipients $ \(vk, ll) ->
@@ -269,3 +169,4 @@ mkGenesisTx networkId pparams signingKey initialAmount recipients =
         (mkVkAddress networkId vk)
         (lovelaceToValue ll)
         TxOutDatumNone
+        ReferenceScriptNone

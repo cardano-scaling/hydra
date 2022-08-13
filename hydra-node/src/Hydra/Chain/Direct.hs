@@ -47,6 +47,7 @@ import Hydra.Cardano.Api (
   PaymentKey,
   SigningKey,
   Tx,
+  TxId,
   VerificationKey,
   fromConsensusPointHF,
   shelleyBasedEra,
@@ -76,6 +77,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
+import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   SomeOnChainHeadState (..),
   idleOnChainHeadState,
@@ -154,17 +156,20 @@ withDirectChain ::
   [VerificationKey PaymentKey] ->
   -- | Point at which to start following the chain.
   Maybe ChainPoint ->
+  -- | Transaction id at which Hydra scripts should be published.
+  TxId ->
   ChainComponent Tx IO a
-withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point callback action = do
+withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point hydraScriptsTxId callback action = do
   queue <- newTQueueIO
   wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair queryUTxOEtc
   let (vk, _) = keyPair
+  scriptRegistry <- queryScriptRegistry networkId socketPath hydraScriptsTxId
   headState <-
     newTVarIO $
       SomeOnChainHeadStateAt
         { currentOnChainHeadState =
             SomeOnChainHeadState $
-              idleOnChainHeadState networkId (cardanoKeys \\ [vk]) vk party
+              idleOnChainHeadState networkId (cardanoKeys \\ [vk]) vk party scriptRegistry
         , recordedAt = AtStart
         }
   res <-

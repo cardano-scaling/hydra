@@ -7,7 +7,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoClient (submit, waitForTransaction)
+import Hydra.Chain.CardanoClient (submitTransaction, awaitTransaction)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
@@ -30,8 +30,8 @@ import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
-import Hydra.Cluster.Faucet (Marked (Fuel), seedFromFaucet)
-import Hydra.Cluster.Fixture (defaultNetworkId)
+import Hydra.Cluster.Faucet (Marked (Fuel), publishHydraScriptsAs, seedFromFaucet)
+import Hydra.Cluster.Fixture (Actor (Faucet), defaultNetworkId)
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger (txId)
@@ -82,12 +82,11 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
           let parties = Set.fromList (deriveParty <$> hydraKeys)
           withOSStats workDir $
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
-              withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys $ \(leader :| followers) -> do
+              putTextLn "Seeding network"
+              hydraScriptsTxId <- seedNetwork node dataset
+              withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId $ \(leader :| followers) -> do
                 let clients = leader : followers
                 waitForNodesConnected tracer clients
-
-                putTextLn "Seeding network"
-                seedNetwork node dataset
 
                 putTextLn "Initializing Head"
                 let contestationPeriod = 10 :: Natural
@@ -210,16 +209,18 @@ movingAverage confirmations =
               )
    in map average fiveSeconds
 
--- | Distribute 100 ADA fuel and starting funds from faucet for each client in
--- the dataset.
-seedNetwork :: RunningNode -> Dataset -> IO ()
+-- | Distribute 100 ADA fuel, starting funds from faucet for each client in the
+-- dataset, and also publish the hydra scripts. The 'TxId' of the publishing
+-- transaction is returned.
+seedNetwork :: RunningNode -> Dataset -> IO TxId
 seedNetwork node@RunningNode{nodeSocket} Dataset{fundingTransaction, clientDatasets} = do
   fundClients
   forM_ clientDatasets fuelWith100Ada
+  publishHydraScriptsAs node Faucet
  where
   fundClients = do
-    submit defaultNetworkId nodeSocket fundingTransaction
-    void $ waitForTransaction defaultNetworkId nodeSocket fundingTransaction
+    submitTransaction defaultNetworkId nodeSocket fundingTransaction
+    void $ awaitTransaction defaultNetworkId nodeSocket fundingTransaction
 
   fuelWith100Ada ClientDataset{signingKey} = do
     let vk = getVerificationKey signingKey

@@ -52,6 +52,7 @@ import Cardano.Api as X hiding (
   TxExtraKeyWitnesses (..),
   TxFee (..),
   TxInsCollateral (..),
+  TxInsReference (..),
   TxMetadataInEra (..),
   TxMintValue (..),
   TxOut (..),
@@ -106,6 +107,7 @@ import Hydra.Cardano.Api.PlutusScript as Extras
 import Hydra.Cardano.Api.PlutusScriptVersion as Extras
 import Hydra.Cardano.Api.Point as Extras
 import Hydra.Cardano.Api.PolicyId as Extras
+import Hydra.Cardano.Api.ReferenceScript as Extras
 import Hydra.Cardano.Api.ScriptData as Extras
 import Hydra.Cardano.Api.ScriptDataSupportedInEra as Extras
 import Hydra.Cardano.Api.ScriptDatum as Extras
@@ -352,7 +354,7 @@ type TxBodyContent build = Cardano.Api.TxBodyContent build Era
 pattern TxBodyContent ::
   TxIns build ->
   TxInsCollateral ->
-  TxInsReference build Era ->
+  TxInsReference build ->
   [TxOut CtxTx] ->
   TxTotalCollateral Era ->
   TxReturnCollateral CtxTx Era ->
@@ -462,7 +464,26 @@ pattern TxFeeExplicit{txFeeExplicit} <-
 
 -- ** TxIns
 
-type TxIns build = [(TxIn, BuildTxWith build (Cardano.Api.Witness WitCtxTxIn Era))]
+type TxIns buidl = [(TxIn, BuildTxWith buidl (Cardano.Api.Witness WitCtxTxIn Era))]
+
+-- ** TxInsReference
+
+type TxInsReference buidl = Cardano.Api.TxInsReference buidl Era
+{-# COMPLETE TxInsReferenceNone, TxInsReference #-}
+
+pattern TxInsReferenceNone :: TxInsReference buidl
+pattern TxInsReferenceNone <-
+  Cardano.Api.TxInsReferenceNone
+  where
+    TxInsReferenceNone =
+      Cardano.Api.TxInsReferenceNone
+
+pattern TxInsReference :: [TxIn] -> TxInsReference buidl
+pattern TxInsReference{txInsReference'} <-
+  Cardano.Api.TxInsReference _ txInsReference'
+  where
+    TxInsReference =
+      Cardano.Api.TxInsReference Cardano.Api.Shelley.ReferenceTxInsScriptsInlineDatumsInBabbageEra
 
 -- ** TxInsCollateral
 
@@ -529,23 +550,43 @@ pattern TxMintValue{txMintValueInEra, txMintValueScriptWitnesses} <-
 type TxOut ctx = Cardano.Api.TxOut ctx Era
 {-# COMPLETE TxOut #-}
 
--- | TxOut specialized for 'Era', hiding 'ReferenceScript'
--- FIXME: Do not strip off 'ReferenceScript' it's surprising and we will need
--- them eventually
-pattern TxOut :: AddressInEra -> Value -> TxOutDatum ctx -> TxOut ctx
-pattern TxOut{txOutAddress, txOutValue, txOutDatum} <-
+-- | TxOut specialized for 'Era'
+pattern TxOut :: AddressInEra -> Value -> TxOutDatum ctx -> ReferenceScript -> TxOut ctx
+pattern TxOut{txOutAddress, txOutValue, txOutDatum, txOutReferenceScript} <-
   Cardano.Api.TxOut
     txOutAddress
     (TxOutValue MultiAssetInBabbageEra txOutValue)
     txOutDatum
-    _txReferenceScript
+    txOutReferenceScript
   where
-    TxOut addr value datum =
+    TxOut addr value datum ref =
       Cardano.Api.TxOut
         addr
         (TxOutValue MultiAssetInBabbageEra value)
         datum
-        Cardano.Api.Shelley.ReferenceScriptNone
+        ref
+
+-- ** ReferenceScript
+
+type ReferenceScript = Cardano.Api.Shelley.ReferenceScript Era
+{-# COMPLETE ReferenceScript, ReferenceScriptNone #-}
+
+pattern ReferenceScript :: ScriptInAnyLang -> ReferenceScript
+pattern ReferenceScript{referenceScript} <-
+  Cardano.Api.Shelley.ReferenceScript
+    Cardano.Api.Shelley.ReferenceTxInsScriptsInlineDatumsInBabbageEra
+    referenceScript
+  where
+    ReferenceScript =
+      Cardano.Api.Shelley.ReferenceScript
+        Cardano.Api.Shelley.ReferenceTxInsScriptsInlineDatumsInBabbageEra
+
+pattern ReferenceScriptNone :: Cardano.Api.Shelley.ReferenceScript Era
+pattern ReferenceScriptNone <-
+  Cardano.Api.Shelley.ReferenceScriptNone
+  where
+    ReferenceScriptNone =
+      Cardano.Api.Shelley.ReferenceScriptNone
 
 -- ** TxOutDatum
 

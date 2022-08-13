@@ -16,7 +16,7 @@ import TabItem from '@theme/TabItem';
 All commands below are written as if executed from the `demo` folder in the project repository, so make sure to clone the repository and `cd demo` before doing anything.
 :::
 
-# Setting-up The Network
+## Setting-up The Chain
 
 One needs to prepare a `cardano-node` (devnet) and a `hydra-node` "manually". These instructions assume you have both built and in scope for `cabal exec`.
 
@@ -43,6 +43,19 @@ cabal exec cardano-node -- run \
 </TerminalWindow>
 ````
 
+## Seeding The Network
+
+You can use the `seed-devnet.sh` script by passing it the path to a cardano-cli executable to use, instead of having it using the Docker container. For example:
+
+
+```mdx-code-block
+<TerminalWindow>
+./seed-devnet.sh $(which cardano-cli)
+</TerminalWindow>
+```
+
+## Setting-up The Hydra Network
+
 Then, in 3 different terminals, start 3 Hydra nodes from the `demo/` directory:
 
 ````mdx-code-block
@@ -52,13 +65,14 @@ Then, in 3 different terminals, start 3 Hydra nodes from the `demo/` directory:
 <TerminalWindow>
 
 ```
-cabal exec hydra-node -- \
+source .env && cabal exec hydra-node -- \
   --node-id 1 --port 5001 --api-port 4001 --monitoring-port 6001 \
   --peer localhost:5002 \
   --peer localhost:5003 \
   --hydra-signing-key alice.sk \
   --hydra-verification-key bob.vk \
   --hydra-verification-key carol.vk \
+  --hydra-scripts-tx-id $HYDRA_SCRIPTS_TX_ID \
   --cardano-signing-key devnet/credentials/alice.sk \
   --cardano-verification-key devnet/credentials/bob.vk \
   --cardano-verification-key devnet/credentials/carol.vk \
@@ -75,13 +89,14 @@ cabal exec hydra-node -- \
 <TerminalWindow>
 
 ```
-cabal exec hydra-node -- \
+source .env && cabal exec hydra-node -- \
   --node-id 2 --port 5002 --api-port 4002 --monitoring-port 6002 \
   --peer localhost:5001 \
   --peer localhost:5003 \
   --hydra-signing-key bob.sk \
   --hydra-verification-key alice.vk \
   --hydra-verification-key carol.vk \
+  --hydra-scripts-tx-id $HYDRA_SCRIPTS_TX_ID \
   --cardano-signing-key devnet/credentials/bob.sk \
   --cardano-verification-key devnet/credentials/alice.vk \
   --cardano-verification-key devnet/credentials/carol.vk \
@@ -98,13 +113,14 @@ cabal exec hydra-node -- \
 <TerminalWindow>
 
 ```
-cabal exec hydra-node -- \
+source .env && cabal exec hydra-node -- \
   --node-id 3 --port 5003 --api-port 4003 --monitoring-port 6003 \
   --peer localhost:5001 \
   --peer localhost:5002 \
   --hydra-signing-key carol.sk \
   --hydra-verification-key alice.vk \
   --hydra-verification-key bob.vk \
+  --hydra-scripts-tx-id $HYDRA_SCRIPTS_TX_ID \
   --cardano-signing-key devnet/credentials/carol.sk \
   --cardano-verification-key devnet/credentials/alice.vk \
   --cardano-verification-key devnet/credentials/bob.vk \
@@ -123,18 +139,7 @@ cabal exec hydra-node -- \
 
 If things go well, the nodes should start logging once connected to the chain.
 
-# Seeding The Network
-
-You can use the `seed-devnet.sh` script by passing it the path to a cardano-cli executable to use, instead of having it using the Docker container. For example:
-
-
-```mdx-code-block
-<TerminalWindow>
-./seed-devnet.sh $(which cardano-cli)
-</TerminalWindow>
-```
-
-Running The Clients
+## Running The Clients
 Connect to the nodes using hydra-tui. For example, to use Alice's hydra-node and her on-chain credentials:
 
 ````mdx-code-block

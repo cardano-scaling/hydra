@@ -13,11 +13,12 @@ import Cardano.Api.UTxO as UTxO
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
+  addParticipationTokens,
   changeHeadOutputDatum,
   genHash,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), assetNameFromVerificationKey, contestTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import qualified Hydra.Data.Party as OnChain
@@ -68,17 +69,6 @@ healthyContestTx =
           healthyOnChainParties
       , closedContestationDeadline = healthyContestationDeadline
       }
-
-addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
-addParticipationTokens parties (TxOut addr val datum) =
-  TxOut addr val' datum
- where
-  val' =
-    val
-      <> valueFromList
-        [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
-        | cardanoVk <- genForParty genVerificationKey <$> parties
-        ]
 
 healthyContestSnapshot :: Snapshot Tx
 healthyContestSnapshot =

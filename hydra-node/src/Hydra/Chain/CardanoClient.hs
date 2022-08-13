@@ -12,6 +12,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Time (SystemStart)
 import qualified Data.Set as Set
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
+import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 import Test.QuickCheck (oneof)
 
 type NodeSocket = FilePath
@@ -37,6 +38,128 @@ mkCardanoClient networkId nodeSocket =
     { queryUTxOByAddress = queryUTxO networkId nodeSocket QueryTip
     , networkId
     }
+
+-- * Tx Construction / Submission
+
+-- | Construct a simple payment consuming some inputs and producing some
+-- outputs (no certificates or withdrawals involved).
+--
+-- On success, the returned transaction is fully balanced. On error, return
+-- `TxBodyErrorAutoBalance`.
+buildTransaction ::
+  -- | Current network identifier
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  FilePath ->
+  -- | Change address to send
+  AddressInEra ->
+  -- | Unspent transaction outputs to spend.
+  UTxO ->
+  -- | Collateral inputs.
+  [TxIn] ->
+  -- | Outputs to create.
+  [TxOut CtxTx] ->
+  IO (Either TxBodyErrorAutoBalance TxBody)
+buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
+  pparams <- queryProtocolParameters networkId socket QueryTip
+  systemStart <- querySystemStart networkId socket QueryTip
+  eraHistory <- queryEraHistory networkId socket QueryTip
+  stakePools <- queryStakePools networkId socket QueryTip
+  pure $
+    second balancedTxBody $
+      makeTransactionBodyAutoBalance
+        BabbageEraInCardanoMode
+        systemStart
+        eraHistory
+        pparams
+        stakePools
+        (UTxO.toApi utxoToSpend)
+        (bodyContent pparams)
+        changeAddress
+        Nothing
+ where
+  -- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.
+  dummyFeeForBalancing = TxFeeExplicit 0
+
+  bodyContent pparams =
+    TxBodyContent
+      (withWitness <$> toList (UTxO.inputSet utxoToSpend))
+      (TxInsCollateral collateral)
+      TxInsReferenceNone
+      outs
+      TxTotalCollateralNone
+      TxReturnCollateralNone
+      dummyFeeForBalancing
+      (TxValidityNoLowerBound, TxValidityNoUpperBound)
+      TxMetadataNone
+      TxAuxScriptsNone
+      TxExtraKeyWitnessesNone
+      (BuildTxWith $ Just pparams)
+      TxWithdrawalsNone
+      TxCertificatesNone
+      TxUpdateProposalNone
+      TxMintValueNone
+      TxScriptValidityNone
+
+-- | Submit a (signed) transaction to the node.
+--
+-- Throws 'SubmitTransactionException' if submission fails.
+submitTransaction ::
+  -- | Current network discriminant
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  FilePath ->
+  -- | A signed transaction.
+  Tx ->
+  IO ()
+submitTransaction networkId socket tx =
+  submitTxToNodeLocal (localNodeConnectInfo networkId socket) txInMode >>= \case
+    SubmitSuccess ->
+      pure ()
+    SubmitFail (TxValidationEraMismatch e) ->
+      throwIO (SubmitEraMismatch e)
+    SubmitFail e@TxValidationErrorInMode{} ->
+      throwIO (SubmitTxValidationError e)
+ where
+  txInMode =
+    TxInMode tx BabbageEraInCardanoMode
+
+-- | Exceptions that 'can' occur during a transaction submission.
+--
+-- In principle, we can only encounter an 'EraMismatch' at era boundaries, when
+-- we try to submit a "next era" transaction as a "current era" transaction, or
+-- vice-versa.
+-- Similarly, 'TxValidationError' shouldn't occur given that the transaction was
+-- safely constructed through 'buildTransaction'.
+data SubmitTransactionException
+  = SubmitEraMismatch EraMismatch
+  | SubmitTxValidationError (TxValidationErrorInMode CardanoMode)
+  deriving (Show)
+
+instance Exception SubmitTransactionException
+
+-- | Await until the given transaction is visible on-chain. Returns the UTxO
+-- set produced by that transaction.
+--
+-- Note that this function loops forever; hence, one probably wants to couple it
+-- with a surrounding timeout.
+awaitTransaction ::
+  -- | Current network discriminant
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  FilePath ->
+  -- | The transaction to watch / await
+  Tx ->
+  IO UTxO
+awaitTransaction networkId socket tx =
+  go
+ where
+  ins = keys (UTxO.toMap $ utxoFromTx tx)
+  go = do
+    utxo <- queryUTxOByTxIn networkId socket QueryTip ins
+    if null utxo
+      then go
+      else pure utxo
 
 -- * Local state query
 
@@ -138,6 +261,31 @@ queryUTxOWhole networkId socket queryPoint = do
           ShelleyBasedEraBabbage
           (QueryUTxO QueryUTxOWhole)
       )
+
+-- | Query UTxO for the address of given verification key at point.
+--
+-- Throws at least 'QueryException' if query fails.
+queryUTxOFor :: NetworkId -> FilePath -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
+queryUTxOFor networkId nodeSocket queryPoint vk =
+  case mkVkAddress networkId vk of
+    ShelleyAddressInEra addr ->
+      queryUTxO networkId nodeSocket queryPoint [addr]
+    ByronAddressInEra{} ->
+      fail "impossible: mkVkAddress returned Byron address."
+
+-- | Query the current set of registered stake pools.
+--
+-- Throws at least 'QueryException' if query fails.
+queryStakePools :: NetworkId -> FilePath -> QueryPoint -> IO (Set PoolId)
+queryStakePools networkId socket queryPoint =
+  let query =
+        QueryInEra
+          BabbageEraInCardanoMode
+          ( QueryInShelleyBasedEra
+              ShelleyBasedEraBabbage
+              QueryStakePools
+          )
+   in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
 
 -- | Throws at least 'QueryException' if query fails.
 runQuery :: NetworkId -> FilePath -> QueryPoint -> QueryInMode CardanoMode a -> IO a

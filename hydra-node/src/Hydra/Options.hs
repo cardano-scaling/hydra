@@ -1,35 +1,32 @@
 module Hydra.Options (
-  Options (..),
-  ChainConfig (..),
-  LedgerConfig (..),
-  parseHydraOptions,
-  parseHydraOptionsFromString,
-  getParseResult,
+  module Hydra.Options,
   ParserResult (..),
-  toArgs,
-  defaultOptions,
-  defaultLedgerConfig,
-  defaultChainConfig,
 ) where
 
 import Hydra.Prelude
 
+import Control.Arrow (left)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSC
 import Data.IP (IP (IPv4), toIPv4w)
 import qualified Data.Text as T
 import Data.Version (showVersion)
 import Hydra.Cardano.Api (
+  AsType (AsTxId),
   ChainPoint (..),
   NetworkId (..),
   NetworkMagic (..),
   SlotNo (..),
+  TxId,
   UsingRawBytesHex (..),
   deserialiseFromRawBytes,
   deserialiseFromRawBytesBase16,
+  deserialiseFromRawBytesHex,
   proxyToAsType,
   serialiseToRawBytesHexText,
  )
 import qualified Hydra.Contract as Contract
+import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
 import Hydra.Node.Version (gitDescribe)
@@ -38,12 +35,14 @@ import Options.Applicative (
   ParserInfo,
   ParserResult (..),
   auto,
+  command,
   completer,
   defaultPrefs,
+  eitherReader,
   execParserPure,
   flag,
+  footer,
   fullDesc,
-  getParseResult,
   handleParseResult,
   header,
   help,
@@ -56,16 +55,73 @@ import Options.Applicative (
   metavar,
   option,
   progDesc,
+  progDescDoc,
   short,
   strOption,
+  subparser,
   value,
  )
 import Options.Applicative.Builder (str)
+import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
-import Test.QuickCheck.Instances.Natural ()
 
-data Options = Options
+data Command
+  = Run RunOptions
+  | Publish PublishOptions
+  deriving (Show, Eq)
+
+commandParser :: Parser Command
+commandParser =
+  asum
+    [ Run <$> runOptionsParser
+    , Publish <$> publishScriptsParser
+    ]
+ where
+  publishScriptsParser :: Parser PublishOptions
+  publishScriptsParser =
+    subparser $
+      command
+        "publish-scripts"
+        ( info
+            (helper <*> publishOptionsParser)
+            ( fullDesc
+                <> header
+                  "Publish Hydra's Plutus scripts on chain for later reference."
+                <> progDescDoc
+                  ( Just $
+                      vsep
+                        [ " ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ "
+                        , " ┃              ⚠ WARNING ⚠              ┃ "
+                        , " ┣═══════════════════════════════════════┫ "
+                        , " ┃    This costs money. About 50 Ada.    ┃ "
+                        , " ┃ Spent using the provided signing key. ┃ "
+                        , " ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ "
+                        ]
+                  )
+                <> footer
+                  "The command outputs the transaction id (in base16) \
+                  \of the publishing transaction. This transaction id \
+                  \can then be passed onto '--hydra-scripts-tx-id' to \
+                  \start a hydra-node using the referenced scripts."
+            )
+        )
+
+data PublishOptions = PublishOptions
+  { publishNetworkId :: NetworkId
+  , publishNodeSocket :: FilePath
+  , publishSigningKey :: FilePath
+  }
+  deriving (Show, Eq)
+
+publishOptionsParser :: Parser PublishOptions
+publishOptionsParser =
+  PublishOptions
+    <$> networkIdParser
+    <*> nodeSocketParser
+    <*> cardanoSigningKeyFileParser
+
+data RunOptions = RunOptions
   { verbosity :: Verbosity
   , nodeId :: Natural
   , -- NOTE: Why not a 'Host'?
@@ -77,29 +133,13 @@ data Options = Options
   , monitoringPort :: Maybe PortNumber
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
+  , hydraScriptsTxId :: TxId
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   }
   deriving (Eq, Show)
 
-defaultOptions :: Options
-defaultOptions =
-  Options
-    { verbosity = Verbose "HydraNode"
-    , nodeId = 1
-    , host = "127.0.0.1"
-    , port = 5001
-    , peers = []
-    , apiHost = "127.0.0.1"
-    , apiPort = 4001
-    , monitoringPort = Nothing
-    , hydraSigningKey = "hydra.sk"
-    , hydraVerificationKeys = []
-    , chainConfig = defaultChainConfig
-    , ledgerConfig = defaultLedgerConfig
-    }
-
-instance Arbitrary Options where
+instance Arbitrary RunOptions where
   arbitrary = do
     verbosity <- elements [Quiet, Verbose "HydraNode"]
     nodeId <- arbitrary
@@ -111,10 +151,11 @@ instance Arbitrary Options where
     monitoringPort <- arbitrary
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
+    hydraScriptsTxId <- arbitrary
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
     pure $
-      defaultOptions
+      RunOptions
         { verbosity
         , nodeId
         , host
@@ -125,13 +166,14 @@ instance Arbitrary Options where
         , monitoringPort
         , hydraSigningKey
         , hydraVerificationKeys
+        , hydraScriptsTxId
         , chainConfig
         , ledgerConfig
         }
 
-hydraNodeParser :: Parser Options
-hydraNodeParser =
-  Options
+runOptionsParser :: Parser RunOptions
+runOptionsParser =
+  RunOptions
     <$> verbosityParser
     <*> nodeIdParser
     <*> hostParser
@@ -142,6 +184,7 @@ hydraNodeParser =
     <*> optional monitoringPortParser
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
+    <*> hydraScriptsTxIdParser
     <*> chainConfigParser
     <*> ledgerConfigParser
 
@@ -397,10 +440,27 @@ startChainFromParser =
       _ ->
         Nothing
 
-hydraNodeOptions :: ParserInfo Options
-hydraNodeOptions =
+hydraScriptsTxIdParser :: Parser TxId
+hydraScriptsTxIdParser =
+  option
+    (eitherReader $ left show . deserialiseFromRawBytesHex AsTxId . BSC.pack)
+    ( long "hydra-scripts-tx-id"
+        <> metavar "TXID"
+        <> value "0101010101010101010101010101010101010101010101010101010101010101"
+        <> help
+          "The transaction which is expected to have published Hydra scripts as\
+          \reference scripts in its outputs. Note: All scripts need to be in the\
+          \first 10 outputs."
+    )
+
+hydraNodeCommand :: ParserInfo Command
+hydraNodeCommand =
   info
-    (hydraNodeParser <**> helper <**> versionInfo <**> scriptInfo)
+    ( commandParser
+        <**> versionInfo
+        <**> scriptInfo
+        <**> helper
+    )
     ( fullDesc
         <> progDesc "Starts a Hydra Node"
         <> header "hydra-node - A prototype of Hydra Head protocol"
@@ -417,20 +477,20 @@ hydraNodeOptions =
       (long "script-info" <> help "Dump script info as JSON")
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
-parseHydraOptions :: IO Options
-parseHydraOptions = getArgs <&> parseHydraOptionsFromString >>= handleParseResult
+parseHydraCommand :: IO Command
+parseHydraCommand = getArgs <&> parseHydraCommandFromArgs >>= handleParseResult
 
 -- | Pure parsing of `Option` from a list of arguments.
-parseHydraOptionsFromString :: [String] -> ParserResult Options
-parseHydraOptionsFromString = execParserPure defaultPrefs hydraNodeOptions
+parseHydraCommandFromArgs :: [String] -> ParserResult Command
+parseHydraCommandFromArgs = execParserPure defaultPrefs hydraNodeCommand
 
 -- | Convert an 'Options' instance into the corresponding list of command-line arguments.
 --
 -- This is useful in situations where one wants to programatically define 'Options', providing
 -- some measure of type safety, without having to juggle with strings.
-toArgs :: Options -> [String]
+toArgs :: RunOptions -> [String]
 toArgs
-  Options
+  RunOptions
     { verbosity
     , nodeId
     , host
@@ -441,6 +501,7 @@ toArgs
     , monitoringPort
     , hydraSigningKey
     , hydraVerificationKeys
+    , hydraScriptsTxId
     , chainConfig
     , ledgerConfig
     } =
@@ -454,6 +515,7 @@ toArgs
       <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
       <> concatMap toArgPeer peers
       <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
+      <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
       <> argsChainConfig
       <> argsLedgerConfig
    where
@@ -472,10 +534,6 @@ toArgs
          in ["--start-chain-from", show slotNo <> "." <> headerHashBase16]
       Nothing ->
         []
-
-    toArgNetworkId = \case
-      Mainnet -> error "Mainnet not supported"
-      Testnet (NetworkMagic magic) -> show magic
 
     argsChainConfig =
       ["--network-id", toArgNetworkId networkId]
@@ -500,6 +558,11 @@ toArgs
       , cardanoVerificationKeys
       , startChainFrom
       } = chainConfig
+
+toArgNetworkId :: NetworkId -> String
+toArgNetworkId = \case
+  Mainnet -> error "Mainnet not supported"
+  Testnet (NetworkMagic magic) -> show magic
 
 genFilePath :: String -> Gen FilePath
 genFilePath extension = do

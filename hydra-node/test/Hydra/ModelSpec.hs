@@ -129,7 +129,17 @@ assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
     Initial{commits} -> do
       outputs <- run $ lift $ serverOutputs @Tx node
       let expectedCommitted =
-            fmap (\(sk, value) -> TxOut (mkVkAddress testNetworkId (getVerificationKey sk)) value TxOutDatumNone)
+            fmap
+              ( \(sk, value) ->
+                  TxOut
+                    ( mkVkAddress
+                        testNetworkId
+                        (getVerificationKey sk)
+                    )
+                    value
+                    TxOutDatumNone
+                    ReferenceScriptNone
+              )
               <$> commits
       let actualCommitted =
             Map.fromList
@@ -168,7 +178,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
       let actualBalance =
             Map.fromListWith (<>) $
               [ (unwrapAddress addr, value)
-              | (TxOut addr value _) <- Map.elems (UTxO.toMap utxo)
+              | (TxOut addr value _ _) <- Map.elems (UTxO.toMap utxo)
               , valueToLovelace value /= Just 0
               ]
       monitor $

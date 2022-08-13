@@ -15,6 +15,7 @@ import Hydra.Cardano.Api (
   VerificationKey,
  )
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (
   HeadStateKind (..),
   ObserveTx,
@@ -92,7 +93,8 @@ genStIdle ctx@HydraContext{ctxVerificationKeys, ctxNetworkId} = do
   ownParty <- elements (ctxParties ctx)
   ownVerificationKey <- elements ctxVerificationKeys
   let peerVerificationKeys = ctxVerificationKeys \\ [ownVerificationKey]
-  pure $ idleOnChainHeadState ctxNetworkId peerVerificationKeys ownVerificationKey ownParty
+  scriptRegistry <- genScriptRegistry
+  pure $ idleOnChainHeadState ctxNetworkId peerVerificationKeys ownVerificationKey ownParty scriptRegistry
 
 genStInitialized ::
   HydraContext ->
@@ -118,7 +120,8 @@ genCommits ::
 genCommits ctx initTx = do
   forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
     let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
-    let stIdle = idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p
+    scriptRegistry <- genScriptRegistry
+    let stIdle = idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p scriptRegistry
     let (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
     utxo <- genCommit
     pure $ unsafeCommit utxo stInitialized

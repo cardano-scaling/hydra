@@ -14,7 +14,6 @@ import Hydra.Prelude
 import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
-import Cardano.Ledger.Shelley.API (TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (readTVarIO, throwSTM, writeTVar)
@@ -343,9 +342,9 @@ getBabbageTxs = \case
 
 data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
-  | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx LedgerEra)}
-  | PostedTx {postedTxId :: TxId StandardCrypto}
-  | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx LedgerEra)]}
+  | PostingTx {postedTx :: (Ledger.TxId StandardCrypto, ValidatedTx LedgerEra)}
+  | PostedTx {postedTxId :: Ledger.TxId StandardCrypto}
+  | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(Ledger.TxId StandardCrypto, ValidatedTx LedgerEra)]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)

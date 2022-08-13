@@ -26,6 +26,8 @@ services:
     build:
       context: ../
       target: hydra-node
+    profiles:
+      - hydra-node
     volumes:
       - .:/keys:ro
       - ./devnet/credentials:/credentials:ro
@@ -40,6 +42,7 @@ services:
       , "--monitoring-port", "6001"
       , "--peer", "hydra-node-2:5001"
       , "--peer", "hydra-node-3:5001"
+      , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
       , "--hydra-signing-key", "/keys/alice.sk"
       , "--hydra-verification-key", "/keys/bob.vk"
       , "--hydra-verification-key", "/keys/carol.vk"
@@ -61,6 +64,8 @@ services:
     build:
       context: ../
       target: hydra-node
+    profiles:
+      - hydra-node
     volumes:
       - .:/keys:ro
       - ./devnet/credentials:/credentials:ro
@@ -75,6 +80,7 @@ services:
       , "--monitoring-port", "6001"
       , "--peer", "hydra-node-1:5001"
       , "--peer", "hydra-node-3:5001"
+      , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
       , "--hydra-signing-key", "/keys/bob.sk"
       , "--hydra-verification-key", "/keys/alice.vk"
       , "--hydra-verification-key", "/keys/carol.vk"
@@ -96,6 +102,8 @@ services:
     build:
       context: ../
       target: hydra-node
+    profiles:
+      - hydra-node
     volumes:
       - .:/keys:ro
       - ./devnet/credentials:/credentials:ro
@@ -110,6 +118,7 @@ services:
       , "--monitoring-port", "6001"
       , "--peer", "hydra-node-1:5001"
       , "--peer", "hydra-node-2:5001"
+      , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
       , "--hydra-signing-key", "/keys/carol.sk"
       , "--hydra-verification-key", "/keys/alice.vk"
       , "--hydra-verification-key", "/keys/bob.vk"

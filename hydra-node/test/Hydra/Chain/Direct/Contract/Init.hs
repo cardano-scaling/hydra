@@ -15,6 +15,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeMintedValueQuantityFrom,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (HeadStateKind (..), OnChainHeadState, idleOnChainHeadState)
 import Hydra.Chain.Direct.Tx (hydraHeadV1AssetName, initTx)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
@@ -64,7 +65,8 @@ genHealthyIdleSt :: Gen (OnChainHeadState 'StIdle)
 genHealthyIdleSt = do
   party <- elements healthyParties
   let vk = genVerificationKey `genForParty` party
-  pure $ idleOnChainHeadState testNetworkId (healthyCardanoKeys \\ [vk]) vk party
+  scriptRegistry <- genScriptRegistry
+  pure $ idleOnChainHeadState testNetworkId (healthyCardanoKeys \\ [vk]) vk party scriptRegistry
 
 data InitMutation
   = MutateThreadTokenQuantity

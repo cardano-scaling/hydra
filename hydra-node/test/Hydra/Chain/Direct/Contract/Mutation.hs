@@ -143,12 +143,15 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import Hydra.Chain.Direct.Fixture (genForParty, testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.State (SomeOnChainHeadState (..), observeSomeTx, reifyState)
+import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Ledger.Cardano (genKeyPair, genOutput, renderTxWithUTxO)
+import Hydra.Ledger.Cardano (genKeyPair, genOutput, genVerificationKey, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
+import Hydra.Party (Party)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (fromData, toData)
@@ -331,9 +334,9 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     let datum = mkTxOutDatum d'
         datumHash = mkTxOutDatumHash d'
         -- change the lookup UTXO
-        fn o@(TxOut addr value _)
+        fn o@(TxOut addr value _ refScript)
           | isHeadOutput o =
-            TxOut addr value datumHash
+            TxOut addr value datumHash refScript
           | otherwise =
             o
         -- change the datums in the tx
@@ -437,7 +440,7 @@ instance Arbitrary Head.State where
 
 -- | Identify Head script's output.
 isHeadOutput :: TxOut CtxUTxO -> Bool
-isHeadOutput (TxOut addr _ _) = addr == headAddress
+isHeadOutput TxOut{txOutAddress = addr} = addr == headAddress
  where
   headAddress = mkScriptAddress @PlutusScriptV2 Fixture.testNetworkId headScript
   headScript = fromPlutusScript Head.validatorScript
@@ -460,8 +463,8 @@ addDatum datum scriptData =
            in TxBodyScriptData newDats redeemers
 
 changeHeadOutputDatum :: (Head.State -> Head.State) -> TxOut CtxTx -> TxOut CtxTx
-changeHeadOutputDatum fn (TxOut addr value datum) =
-  case datum of
+changeHeadOutputDatum fn txOut =
+  case txOutDatum txOut of
     TxOutDatumNone ->
       error "Unexpected empty head datum"
     (TxOutDatumHash _ha) ->
@@ -471,9 +474,20 @@ changeHeadOutputDatum fn (TxOut addr value datum) =
     (TxOutDatumInTx sd) ->
       case fromData $ toPlutusData sd of
         Just st ->
-          TxOut addr value (mkTxOutDatum $ fn st)
+          txOut{txOutDatum = mkTxOutDatum $ fn st}
         Nothing ->
           error "Invalid data"
+
+addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
+addParticipationTokens parties txOut =
+  txOut{txOutValue = val'}
+ where
+  val' =
+    txOutValue txOut
+      <> valueFromList
+        [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
+        | cardanoVk <- genForParty genVerificationKey <$> parties
+        ]
 
 -- | Ensures the included datums of given 'TxOut's are included in the transactions' 'TxBodyScriptData'.
 ensureDatums :: [TxOut CtxTx] -> TxBodyScriptData -> TxBodyScriptData

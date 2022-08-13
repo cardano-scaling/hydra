@@ -51,13 +51,13 @@ import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Options (Options (..))
+import Hydra.Options (RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
 
 -- * Environment Handling
 
-initEnvironment :: Options -> IO Environment
-initEnvironment Options{hydraSigningKey, hydraVerificationKeys} = do
+initEnvironment :: RunOptions -> IO Environment
+initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys} = do
   sk <- loadSigningKey hydraSigningKey
   otherParties <- mapM loadParty hydraVerificationKeys
   pure $

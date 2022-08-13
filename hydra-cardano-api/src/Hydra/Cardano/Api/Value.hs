@@ -4,12 +4,52 @@ import Hydra.Cardano.Api.Prelude
 
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger
+import Cardano.Ledger.Shelley.API (evaluateMinLovelaceOutput)
+import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
 import Hydra.Cardano.Api.Hash (unsafeScriptHashFromBytes)
+import Hydra.Cardano.Api.MultiAssetSupportedInEra (multiAssetSupportedInEra)
 import Plutus.V1.Ledger.Value (flattenValue)
 import Plutus.V2.Ledger.Api (adaSymbol, adaToken, fromBuiltin, unCurrencySymbol, unTokenName)
 import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- * Extras
+
+-- | Calculate minimum value for a UTxO. Note that cardano-api defines a
+-- 'calculateMinimumUTxO' function but it is flawed (see NOTE below) and has an
+-- unsatisfactory API because it works across multiple era.
+--
+-- This one is specialized to Babbage and therefore, can be pure.
+minUTxOValue ::
+  ProtocolParameters ->
+  TxOut CtxTx Era ->
+  Value
+minUTxOValue pparams (TxOut addr val dat ref) =
+  fromLedgerLovelace $
+    evaluateMinLovelaceOutput
+      (toLedgerPParams ShelleyBasedEraBabbage pparams)
+      (toShelleyTxOut shelleyBasedEra (toUTxOContext out'))
+ where
+  out' =
+    TxOut
+      addr
+      ( TxOutValue
+          (multiAssetSupportedInEra @Era)
+          (txOutValueToValue val <> defaultHighEnoughValue)
+      )
+      dat
+      ref
+
+  -- NOTE: We don't expect the caller to have set any particular value on the
+  -- output, so most likely it is equal to '0' and thus, the minimum calculation
+  -- will be slightly off because once set, the size of the output will change
+  -- and increase the minimum required! So, we evaluate the minimum with an
+  -- already large enough lovelace to acknowledge for the increase in size to
+  -- come.
+  defaultHighEnoughValue =
+    lovelaceToValue $ Lovelace $ toInteger $ maxBound @Word64
+
+  fromLedgerLovelace =
+    lovelaceToValue . fromShelleyLovelace
 
 -- | Count number of assets in a 'Value'.
 valueSize :: Value -> Int

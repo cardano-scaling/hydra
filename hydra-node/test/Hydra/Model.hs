@@ -476,7 +476,7 @@ performCommit party utxo = do
               [ (mkMockTxIn vk ix, txOut)
               | (ix, (sk, val)) <- zip [0 ..] utxo
               , let vk = getVerificationKey sk
-              , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone
+              , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone ReferenceScriptNone
               ]
       party `sendsInput` Input.Commit{Input.utxo = realUtxo}
 
@@ -576,7 +576,7 @@ partyKeys =
     pure $ zip hks cks
 
 isOwned :: CardanoSigningKey -> (TxIn, TxOut ctx) -> Bool
-isOwned sk (_, TxOut (ShelleyAddressInEra (ShelleyAddress _ cre _)) _ _) =
+isOwned sk (_, TxOut{txOutAddress = ShelleyAddressInEra (ShelleyAddress _ cre _)}) =
   case fromShelleyPaymentCredential cre of
     (PaymentCredentialByKey ha) -> verificationKeyHash (getVerificationKey sk) == ha
     _ -> False

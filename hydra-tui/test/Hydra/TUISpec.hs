@@ -28,10 +28,11 @@ import Graphics.Vty (
 import Graphics.Vty.Image (DisplayRegion)
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
+  publishHydraScriptsAs,
   seedFromFaucet_,
  )
 import Hydra.Cluster.Fixture (
-  Actor (Alice),
+  Actor (..),
   aliceSk,
   defaultNetworkId,
  )
@@ -101,11 +102,11 @@ spec = do
         seconds = 1
         minutes = seconds * 60
         hours = minutes * 60
-        days = hours * 24  
+        days = hours * 24
         time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
       renderTime (time :: NominalDiffTime) `shouldBe` "10d 1h 1m 15s"
       renderTime (-time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
-      let 
+      let
         time' = 1 * hours + 1 * minutes + 15 * seconds
       renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
@@ -122,10 +123,11 @@ setupNodeAndTUI action =
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
+        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         chainConfig <- chainConfigFor Alice tmpDir nodeSocket []
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
-        withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
+        withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do
           -- Fuel to pay hydra transactions
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
           -- Some ADA to commit
