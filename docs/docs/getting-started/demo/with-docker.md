@@ -21,7 +21,7 @@ The demo consists of:
 As we use ad-hoc private devnets that start from the genesis block, you need to ensure the devnet configuration is reasonably up to date. If you get `TraceNoLedgerView` errors from the Cardano node, the start times are too far in the past and you should update them by using the `prepare-devnet.sh` script, for example.
 :::
 
-## Setting-up The Network
+## Setting-up The Chain
 
 We'll be using [Docker](https://www.docker.com/get-started) and [compose](https://www.docker.com/get-started) to get the demo running, so make sure you have them in scope or, jump right away to [Running The Demo: Without Docker](/docs/getting-started/demo/without-docker) if you feel like doing it the hard way.
 
@@ -37,7 +37,7 @@ To get started, let's pull the necessary images for services defined in the comp
 
 ```mdx-code-block
 <TerminalWindow>
-docker-compose --profile tui pull
+docker-compose --profile tui --profile hydra-node pull
 </TerminalWindow>
 ```
 
@@ -49,26 +49,68 @@ From there, we can run the `./prepare-devnet.sh` script to create an initial con
 </TerminalWindow>
 ```
 
-That's all for the preliminaries. We can now bring the network up with:
+We can now bring the Cardano node up with:
 
 ```mdx-code-block
 <TerminalWindow>
-docker-compose up -d
+docker-compose up -d cardano-node
 </TerminalWindow>
 ```
 
-For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves.
+For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves. You can verify that the node is up-and-running by checking the logs with `docker-compose logs cardano-node -f`. You should see traces like:
+
+```json
+{
+    "app": [],
+    "at": "2022-08-13T10:00:35.40Z",
+    "data": {
+        "credentials": "Cardano",
+        "val": {
+            "blockHash": "53e24a8b4d40fd424190f891557801951d4528d98419fc9feebe6c1f784d4832",
+            "blockSize": 865,
+            "kind": "TraceAdoptedBlock",
+            "slot": 2074
+        }
+    },
+    "env": "1.35.0:00000",
+    "host": "21861f0c",
+    "loc": null,
+    "msg": "",
+    "ns": [
+        "cardano.node.Forge"
+    ],
+    "pid": "1",
+    "sev": "Info",
+    "thread": "32"
+}
+```
 
 ## Seeding The Network
 
 In the current stage of development, Hydra nodes need a specially crafted set of UTXO to drive the Head protocol ("fuel"), and of course, some UTXO to be committed to the Head.
-The script included `./seed-devnet.sh` uses the `cardano-cli` in the already running `cardano-node` container to give Alice, Bob, and Carol some UTXO entries to commit and some fuel UTXO.
+We include a script `seed-devnet.sh` that uses the `cardano-cli` in the already running `cardano-node` container to give Alice, Bob, and Carol some UTXO entries to commit and some fuel UTXO.
+
+```mdx-code-block
+<TerminalWindow>
+./seed-devnet.sh
+</TerminalWindow>
+```
 
 :::info
-There is nothing special about those transactions, so one could use any other Cardano client to create them. Yet, they must have the following characteristics:
+The seed transactions are just normal transactions, so one could use any other Cardano client to create them. Yet, they must have the following characteristics:
 Must pay outputs to commit to the key used by the Hydra Node's internal wallet, as defined by argument `--cardano-signing-key` of hydra-node executable,
 One of the outputs must include datum hash `a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3`, as this is our "fuel" marker.
 :::
+
+## Setting-up The Hydra Network
+
+Finally, now that the on-chain preparations are ready, we can bring the Hydra network (i.e. all three nodes for Alice, Bob and Carol) up by running:
+
+```mdx-code-block
+<TerminalWindow>
+docker-compose --profile hydra-node up -d
+</TerminalWindow>
+```
 
 ## Running The Clients
 
