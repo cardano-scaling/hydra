@@ -88,13 +88,6 @@ sign signingKey body =
     [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
     body
 
-data CardanoClientException
-  = ClientQueryException QueryException
-  | ClientSubmitException {reason :: Text, tx :: Tx}
-  deriving (Show)
-
-instance Exception CardanoClientException
-
 -- TODO: This should return a 'UTxO' (from Hydra.Ledger.Cardano)
 waitForPayment ::
   NetworkId ->

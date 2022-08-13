@@ -7,7 +7,6 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
-  CardanoClientException,
   QueryPoint (QueryTip),
   buildAddress,
   queryUTxO,
@@ -17,6 +16,7 @@ import CardanoClient (
 import CardanoNode (RunningNode (..))
 import qualified Data.Map as Map
 import Hydra.Chain.CardanoClient (
+  SubmitTransactionException,
   buildTransaction,
   queryUTxOFor,
   submitTransaction,
@@ -51,7 +51,7 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retry isCardanoClientException $ submitSeedTx faucetVk faucetSk
+  retry isSubmitTransactionException $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   submitSeedTx faucetVk faucetSk = do
@@ -82,8 +82,8 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
     Fuel -> TxOutDatumHash markerDatumHash
     Normal -> TxOutDatumNone
 
-  isCardanoClientException :: CardanoClientException -> Bool
-  isCardanoClientException = const True
+  isSubmitTransactionException :: SubmitTransactionException -> Bool
+  isSubmitTransactionException = const True
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
