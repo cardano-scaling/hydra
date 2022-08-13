@@ -101,10 +101,6 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
       TxMintValueNone
       TxScriptValidityNone
 
-  -- TODO: Move to 'Hydra.Cardano.Api'.
-  withWitness :: TxIn -> (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
-  withWitness txIn = (txIn, BuildTxWith $ KeyWitness KeyWitnessForSpending)
-
 -- | Submit a (signed) transaction to the node.
 --
 -- Throws 'SubmitTransactionException' if submission fails.

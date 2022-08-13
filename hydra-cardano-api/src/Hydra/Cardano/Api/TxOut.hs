@@ -18,7 +18,7 @@ import Hydra.Cardano.Api.Network (Network)
 import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInlineDatums, inlineDatumsSupportedInEra)
 import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupportedInEra)
-import Hydra.Cardano.Api.Value (fromPlutusValue)
+import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
 import Ouroboros.Consensus.Util (eitherToMaybe)
 import Plutus.V2.Ledger.Api (OutputDatum (..), fromBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
@@ -29,6 +29,21 @@ txOuts' :: Tx era -> [TxOut CtxTx era]
 txOuts' (getTxBody -> txBody) =
   let TxBody TxBodyContent{txOuts} = txBody
    in txOuts
+
+-- | Automatically balance a given output with the minimum required amount.
+-- Number of assets, presence of datum and/or reference scripts may affect this
+-- minimum value.
+mkTxOutAutoBalance ::
+  ProtocolParameters ->
+  AddressInEra Era ->
+  Value ->
+  TxOutDatum CtxTx Era ->
+  ReferenceScript Era ->
+  TxOut CtxTx Era
+mkTxOutAutoBalance pparams addr val dat ref =
+  let out = TxOut addr (TxOutValue MultiAssetInBabbageEra val) dat ref
+      minValue = minUTxOValue pparams out
+   in modifyTxOutValue (const minValue) out
 
 -- | Alter the address of a 'TxOut' with the given transformation.
 modifyTxOutAddress ::

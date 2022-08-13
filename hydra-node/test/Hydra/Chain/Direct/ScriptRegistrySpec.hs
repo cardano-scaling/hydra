@@ -14,4 +14,4 @@ spec :: Spec
 spec =
   prop "newScriptRegistry (registryUTxO r) === Just r" $
     forAll genScriptRegistry $ \r ->
-      newScriptRegistry (registryUTxO r) === Just r
+      newScriptRegistry (registryUTxO r) === Right r

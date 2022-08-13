@@ -14,6 +14,11 @@ mkTxIn :: Tx era -> Word -> TxIn
 mkTxIn (getTxId . getTxBody -> txId) index =
   TxIn txId (TxIx index)
 
+-- | Attach some verification-key witness to a 'TxIn'.
+withWitness :: TxIn -> (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn Era))
+withWitness txIn =
+  (txIn, BuildTxWith $ KeyWitness KeyWitnessForSpending)
+
 -- | Access inputs of a transaction, as an ordered list.
 txIns' :: Tx era -> [TxIn]
 txIns' (getTxBody -> txBody) =

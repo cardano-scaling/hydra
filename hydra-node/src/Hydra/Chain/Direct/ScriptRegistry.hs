@@ -25,24 +25,29 @@ import Hydra.Cardano.Api (
   examplePlutusScriptAlwaysFails,
   getTxId,
   hashScriptInAnyLang,
-  lovelaceToValue,
   makeShelleyKeyWitness,
   makeSignedTransaction,
   mkScriptAddress,
+  mkScriptRef,
+  mkTxOutAutoBalance,
   mkVkAddress,
   selectLovelace,
   throwErrorAsException,
-  toScriptInAnyLang,
   txOutReferenceScript,
   txOutValue,
-  pattern PlutusScript,
   pattern ReferenceScript,
   pattern ReferenceScriptNone,
-  pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Cardano.Api.PlutusScript (fromPlutusScript)
-import Hydra.Chain.CardanoClient (QueryPoint (..), awaitTransaction, buildTransaction, queryUTxOByTxIn, queryUTxOFor, submitTransaction)
+import Hydra.Chain.CardanoClient (
+  QueryPoint (..),
+  awaitTransaction,
+  buildTransaction,
+  queryProtocolParameters,
+  queryUTxOByTxIn,
+  queryUTxOFor,
+  submitTransaction,
+ )
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Initial as Initial
@@ -55,24 +60,44 @@ data ScriptRegistry = ScriptRegistry
   }
   deriving (Eq, Show)
 
+data NewScriptRegistryException = MissingScript
+  { scriptName :: Text
+  , scriptHash :: ScriptHash
+  , discoveredScripts :: Set ScriptHash
+  }
+  deriving (Eq, Show)
+
+instance Exception NewScriptRegistryException
+
 -- | Create a script registry from a UTxO containing outputs with reference
 -- scripts. This will return 'Nothing' if one or all of the references could not
 -- be found.
-newScriptRegistry :: UTxO -> Maybe ScriptRegistry
+newScriptRegistry :: UTxO -> Either NewScriptRegistryException ScriptRegistry
 newScriptRegistry =
   resolve . Map.foldMapWithKey collect . UTxO.toMap
  where
-  collect :: TxIn -> TxOut CtxUTxO -> Map ScriptHash (TxIn, TxOut CtxUTxO)
+  collect ::
+    TxIn ->
+    TxOut CtxUTxO ->
+    Map ScriptHash (TxIn, TxOut CtxUTxO)
   collect i o =
     case txOutReferenceScript o of
       ReferenceScriptNone -> mempty
       ReferenceScript script -> Map.singleton (hashScriptInAnyLang script) (i, o)
 
-  resolve :: Map ScriptHash (TxIn, TxOut CtxUTxO) -> Maybe ScriptRegistry
+  resolve ::
+    Map ScriptHash (TxIn, TxOut CtxUTxO) ->
+    Either NewScriptRegistryException ScriptRegistry
   resolve m =
     ScriptRegistry
-      <$> lookup initialScriptHash m
-      <*> lookup commitScriptHash m
+      <$> maybe
+        (Left $ MissingScript "νInitial" initialScriptHash (Map.keysSet m))
+        Right
+        (lookup initialScriptHash m)
+      <*> maybe
+        (Left $ MissingScript "νCommit" commitScriptHash (Map.keysSet m))
+        Right
+        (lookup commitScriptHash m)
 
   ScriptInfo
     { initialScriptHash
@@ -93,12 +118,6 @@ registryUTxO scriptRegistry =
     , commitReference
     } = scriptRegistry
 
--- TODO: Give more context to this exception.
-data UnableToConstructRegistry = UnableToConstructRegistry
-  deriving (Show)
-
-instance Exception UnableToConstructRegistry
-
 -- | Query for 'TxIn's in the search for outputs containing all the reference
 -- scripts of the 'ScriptRegistry'.
 --
@@ -107,13 +126,21 @@ instance Exception UnableToConstructRegistry
 --
 -- NOTE: This is limited to an upper bound of 10 to not query too much before
 -- providing an error.
+--
 -- NOTE: If this should change, make sure to update the command line help.
-queryScriptRegistry :: NetworkId -> FilePath -> TxId -> IO ScriptRegistry
+--
+-- Can throw at least 'NewScriptRegistryException' on failure.
+queryScriptRegistry ::
+  (MonadIO m, MonadThrow m) =>
+  NetworkId ->
+  FilePath ->
+  TxId ->
+  m ScriptRegistry
 queryScriptRegistry networkId nodeSocket txId = do
-  utxo <- queryUTxOByTxIn networkId nodeSocket QueryTip candidates
+  utxo <- liftIO $ queryUTxOByTxIn networkId nodeSocket QueryTip candidates
   case newScriptRegistry utxo of
-    Nothing -> throwIO UnableToConstructRegistry
-    Just sr -> pure sr
+    Left e -> throwIO e
+    Right sr -> pure sr
  where
   candidates = [TxIn txId ix | ix <- [TxIx 0 .. TxIx 10]] -- Arbitrary but, high-enough.
 
@@ -136,10 +163,6 @@ genScriptRegistry = do
               }
           )
       }
- where
-  -- TODO: Could be moved to hydra-cardano-api, generic enough.
-  mkScriptRef =
-    ReferenceScript . toScriptInAnyLang . PlutusScript . fromPlutusScript
 
 publishHydraScripts ::
   -- | Expected network discriminant.
@@ -150,18 +173,20 @@ publishHydraScripts ::
   SigningKey PaymentKey ->
   IO TxId
 publishHydraScripts networkId nodeSocket sk = do
+  pparams <- queryProtocolParameters networkId nodeSocket QueryTip
   utxo <- queryUTxOFor networkId nodeSocket QueryTip vk
-  let probablyEnoughLovelace = probablyEnoughLovelaceForCommit + probablyEnoughLovelaceForInitial
+  let outputs = [publishInitial pparams, publishCommit pparams]
+  let totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
       someUTxO =
         maybe mempty UTxO.singleton $
-          UTxO.find (\o -> selectLovelace (txOutValue o) > probablyEnoughLovelace) utxo
+          UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
   buildTransaction
     networkId
     nodeSocket
     changeAddress
     someUTxO
     []
-    [publishInitial, publishCommit]
+    outputs
     >>= \case
       Left e ->
         throwErrorAsException e
@@ -174,28 +199,21 @@ publishHydraScripts networkId nodeSocket sk = do
   vk = getVerificationKey sk
   changeAddress = mkVkAddress networkId vk
 
-  -- TODO: Move to hydra-cardano-api
-  mkScriptRef =
-    ReferenceScript . toScriptInAnyLang . PlutusScript . fromPlutusScript
-
-  publishInitial =
-    TxOut
+  publishInitial pparams =
+    mkTxOutAutoBalance
+      pparams
       unspendableScriptAddress
-      (lovelaceToValue probablyEnoughLovelaceForInitial)
+      mempty
       TxOutDatumNone
       (mkScriptRef Initial.validatorScript)
 
-  publishCommit =
-    TxOut
+  publishCommit pparams =
+    mkTxOutAutoBalance
+      pparams
       unspendableScriptAddress
-      (lovelaceToValue probablyEnoughLovelaceForCommit)
+      mempty
       TxOutDatumNone
       (mkScriptRef Commit.validatorScript)
 
   unspendableScriptAddress =
     mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
-
-  -- This depends on protocol parameters and the size of the script.
-  -- TODO: Calculate this value instead from pparams.
-  probablyEnoughLovelaceForInitial = 23_437_780
-  probablyEnoughLovelaceForCommit = 23_437_780

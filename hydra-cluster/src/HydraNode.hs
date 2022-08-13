@@ -26,9 +26,7 @@ import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
 import CardanoNode (NodeLog)
-import Control.Concurrent.Async (
-  forConcurrently_,
- )
+import Control.Concurrent.Async ( forConcurrently_,)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson (Value (String), object, (.=))
@@ -43,7 +41,7 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host))
 import qualified Hydra.Network as Network
-import Hydra.Options (ChainConfig (..), LedgerConfig (..), Options (..), defaultChainConfig, toArgs)
+import Hydra.Options (ChainConfig (..), LedgerConfig (..), RunOptions (..), defaultChainConfig, toArgs)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -280,7 +278,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
               }
       let p =
             ( hydraNodeProcess $
-                Options
+                RunOptions
                   { verbosity = Verbose "HydraNode"
                   , nodeId = fromIntegral hydraNodeId
                   , host = "127.0.0.1"
@@ -345,7 +343,7 @@ withNewClient HydraClient{hydraNodeId, tracer} =
 newtype CannotStartHydraClient = CannotStartHydraClient Int deriving (Show)
 instance Exception CannotStartHydraClient
 
-hydraNodeProcess :: Options -> CreateProcess
+hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 
 waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()

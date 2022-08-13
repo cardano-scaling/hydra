@@ -37,7 +37,7 @@ import Hydra.Options (
   ChainConfig (..),
   Command (Publish, Run),
   LedgerConfig (..),
-  Options (..),
+  RunOptions (..),
   PublishOptions (..),
   parseHydraCommand,
  )
@@ -53,18 +53,18 @@ main = do
       publish options
  where
   run opts = do
-    let Options{verbosity, monitoringPort} = opts
+    let RunOptions{verbosity, monitoringPort} = opts
     env@Environment{party} <- initEnvironment opts
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
         eq <- createEventQueue
-        let Options{hydraScriptsTxId, chainConfig} = opts
+        let RunOptions{hydraScriptsTxId, chainConfig} = opts
         withChain tracer party (putEvent eq . OnChainEvent) hydraScriptsTxId chainConfig $ \oc -> do
-          let Options{host, port, peers} = opts
+          let RunOptions{host, port, peers} = opts
           withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent) $ \hn -> do
-            let Options{apiHost, apiPort} = opts
+            let RunOptions{apiHost, apiPort} = opts
             withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
-              let Options{ledgerConfig} = opts
+              let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig $ \ledger -> do
                 node <- createHydraNode eq hn ledger oc server env
                 runHydraNode (contramap Node tracer) node
@@ -117,6 +117,6 @@ withChain tracer party callback hydraScriptsTxId config action = do
  where
   DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys, startChainFrom} = config
 
-identifyNode :: Options -> Options
-identifyNode opt@Options{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
+identifyNode :: RunOptions -> RunOptions
+identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt

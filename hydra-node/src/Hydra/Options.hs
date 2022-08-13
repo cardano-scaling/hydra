@@ -67,7 +67,7 @@ import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
 
 data Command
-  = Run Options
+  = Run RunOptions
   | Publish PublishOptions
   deriving (Show, Eq)
 
@@ -121,8 +121,7 @@ publishOptionsParser =
     <*> nodeSocketParser
     <*> cardanoSigningKeyFileParser
 
--- TODO: Rename to RunOptions for consistency
-data Options = Options
+data RunOptions = RunOptions
   { verbosity :: Verbosity
   , nodeId :: Natural
   , -- NOTE: Why not a 'Host'?
@@ -140,7 +139,7 @@ data Options = Options
   }
   deriving (Eq, Show)
 
-instance Arbitrary Options where
+instance Arbitrary RunOptions where
   arbitrary = do
     verbosity <- elements [Quiet, Verbose "HydraNode"]
     nodeId <- arbitrary
@@ -156,7 +155,7 @@ instance Arbitrary Options where
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
     pure $
-      Options
+      RunOptions
         { verbosity
         , nodeId
         , host
@@ -172,9 +171,9 @@ instance Arbitrary Options where
         , ledgerConfig
         }
 
-runOptionsParser :: Parser Options
+runOptionsParser :: Parser RunOptions
 runOptionsParser =
-  Options
+  RunOptions
     <$> verbosityParser
     <*> nodeIdParser
     <*> hostParser
@@ -489,9 +488,9 @@ parseHydraCommandFromArgs = execParserPure defaultPrefs hydraNodeCommand
 --
 -- This is useful in situations where one wants to programatically define 'Options', providing
 -- some measure of type safety, without having to juggle with strings.
-toArgs :: Options -> [String]
+toArgs :: RunOptions -> [String]
 toArgs
-  Options
+  RunOptions
     { verbosity
     , nodeId
     , host
