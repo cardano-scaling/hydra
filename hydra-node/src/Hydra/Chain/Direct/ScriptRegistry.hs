@@ -179,8 +179,13 @@ publishHydraScripts ::
 publishHydraScripts networkId nodeSocket sk = do
   pparams <- queryProtocolParameters networkId nodeSocket QueryTip
   utxo <- queryUTxOFor networkId nodeSocket QueryTip vk
-  let outputs = [publishInitial pparams, publishCommit pparams]
-  let totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
+  let outputs =
+        mkScriptTxOut pparams
+          <$> [ Initial.validatorScript
+              , Commit.validatorScript
+              , Head.validatorScript
+              ]
+      totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
       someUTxO =
         maybe mempty UTxO.singleton $
           UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
@@ -201,23 +206,16 @@ publishHydraScripts networkId nodeSocket sk = do
         return $ getTxId body
  where
   vk = getVerificationKey sk
+
   changeAddress = mkVkAddress networkId vk
 
-  publishInitial pparams =
+  mkScriptTxOut pparams script =
     mkTxOutAutoBalance
       pparams
       unspendableScriptAddress
       mempty
       TxOutDatumNone
-      (mkScriptRef Initial.validatorScript)
-
-  publishCommit pparams =
-    mkTxOutAutoBalance
-      pparams
-      unspendableScriptAddress
-      mempty
-      TxOutDatumNone
-      (mkScriptRef Commit.validatorScript)
+      (mkScriptRef script)
 
   unspendableScriptAddress =
     mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
