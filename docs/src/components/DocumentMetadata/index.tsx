@@ -16,7 +16,7 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
   const lastTranslatedAt: string | undefined = metadatas['lastTranslatedAt']
 
   const link =
-    `https://github.com/input-output-hk/hydra-poc/commit/${metadata?.commitHash}`
+    `https://github.com/input-output-hk/hydra-poc/commit/${metadata.commitHash}`
 
   const renderLastUpdatedAt = (lastUpdatedAt: string, relativeTimeSince: string) =>
     <i className={styles.info}>
@@ -46,7 +46,7 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
       {hasMetadata &&
         renderCommitHash(commitHash)
       }
-      {lastTranslatedAt && hasMetadata &&
+      {lastTranslatedAt &&
         renderLastTranslatedAt(lastTranslatedAt)
       }
     </div >
