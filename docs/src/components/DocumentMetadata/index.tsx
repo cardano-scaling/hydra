@@ -13,10 +13,9 @@ interface Metadata {
 export default function DocumentMetadata({ }: Props): JSX.Element {
   const path = new URL(window.location.href).pathname.replace('/head-protocol/', '')
   const metadata: Metadata = metadatas[path]
+  const { lastUpdatedAt, relativeTimeSince, commitHash } = metadata
   const lastTranslatedAt: string | undefined = metadatas['lastTranslatedAt']
-
-  const link =
-    `https://github.com/input-output-hk/hydra-poc/commit/${metadata.commitHash}`
+  const link = `https://github.com/input-output-hk/hydra-poc/commit/${metadata.commitHash}`
 
   const renderLastUpdatedAt = (lastUpdatedAt: string, relativeTimeSince: string) =>
     <i className={styles.info}>
@@ -30,8 +29,6 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
 
   const renderLastTranslatedAt = (lastTranslatedAt: string) =>
     <i className={styles.info}>Last translated at: <b>{lastTranslatedAt}</b></i>
-
-  const { lastUpdatedAt, relativeTimeSince, commitHash } = metadata
 
   const hasMetadata = !(metadata === undefined)
 
