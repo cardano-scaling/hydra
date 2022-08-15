@@ -51,7 +51,7 @@ import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..), setPeers)
 import Hydra.Network.Message (Message (PeersUpdated))
-import Hydra.Options (Options (..))
+import Hydra.Options (RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
 
 -- * Environment Handling
