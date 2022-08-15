@@ -10,39 +10,19 @@ interface Metadata {
   commitHash: string
 }
 
-export default function DocumentMetadata({ }: Props): JSX.Element {
-  const [documentPath, setDocumentPath] = useState('placeholder')
+interface TimeObject {
+  unit: string
+  value: number
+}
 
-  useEffect(() => {
-    if (window) {
-      const path = new URL(window.location.href).pathname.replace('/head-protocol/', '')
-      setDocumentPath(path)
-    }
-  }, [])
-
-  const renderLastUpdatedAt = (lastUpdatedAt: string, relativeTimeSince: string) =>
-    <i className={styles.info}>
-      Last updated at: <b>{lastUpdatedAt}</b>
-      (<b>{relativeTimeSince}</b> since last change)
-    </i>
-
-  const renderCommitHash = (commitHash: string, link: string) =>
-    <i className={styles.info}>
-      Last commit hash: <a href={link}><b>{commitHash}</b></a>
-    </i>
-
-  const getRelativeMillisTimeSince = (lastUpdatedAt: string, lastTranslatedAt: string) => {
+const Utils = {
+  getRelativeMillisTimeSince: (lastUpdatedAt: string, lastTranslatedAt: string) => {
     const docLastUpdatedAt = new Date(lastUpdatedAt).getTime()
     const docLastTranslatedAt = new Date(lastTranslatedAt).getTime()
     const relativeTimeSince = docLastTranslatedAt - docLastUpdatedAt
     return relativeTimeSince
   }
-
-  interface TimeObject {
-    unit: string
-    value: number
-  }
-  const getRelativeTimeSince = (relativeTime: number): TimeObject => {
+  , getRelativeTimeSince: (relativeTime: number): TimeObject => {
     const units = ['seconds', 'minutes', 'hours', 'days']
     const divisors = [1000, 1000 * 60, 1000 * 60 * 60, 1000 * 60 * 60 * 24]
     const zip = (a: any, b: any) => a.map((k: any, i: any) => [k, b[i]])
@@ -58,56 +38,88 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
       return (obj.value >= 0 && obj.value <= acc.value) ? obj : acc
     }, relativeTimes[0])
   }
+  , getTimeObject: (defaultMetadata: Metadata, lastTranslatedAt: string): TimeObject => {
+    const relativeMillisTimeSince =
+      Utils.getRelativeMillisTimeSince(defaultMetadata.lastUpdatedAt, lastTranslatedAt)
+    const relativeTimeSince =
+      Utils.getRelativeTimeSince(relativeMillisTimeSince)
+    return relativeTimeSince;
+  }
+}
 
-  const renderLastTranslatedAt = (documentPath: string, lastTranslatedAt: string) => {
+const Display = {
+  renderLastUpdatedAt: (lastUpdatedAt: string, relativeTimeSince: string) =>
+    <i className={styles.info}>
+      Last updated at: <b>{lastUpdatedAt}</b>
+      (<b>{relativeTimeSince}</b> since last change)
+    </i>
+  , renderCommitHash: (commitHash: string, link: string) =>
+    <i className={styles.info}>
+      Last commit hash: <a href={link}><b>{commitHash}</b></a>
+    </i>
+  , renderLastTranslatedAt: (documentPath: string, lastTranslatedAt: string) => {
     const languages = ['fr', 'ja'] //@TODO move to config
     const [language, ...englishPath] = documentPath.split("/")
 
-    if (languages.includes(language)) {
-      const defaultMetadata: Metadata = metadatas[englishPath.join("/")]
-      const hasDefaultMetadata = !(defaultMetadata === undefined)
-
-      if (hasDefaultMetadata) {
-        const relativeMillisTimeSince =
-          getRelativeMillisTimeSince(defaultMetadata.lastUpdatedAt, lastTranslatedAt)
-
-        if (relativeMillisTimeSince > 0) {
-          const relativeTimeSince =
-            getRelativeTimeSince(relativeMillisTimeSince)
-
-          return <i className={styles.info}>
-            Last translated at: <b>{lastTranslatedAt}</b>
-            (⚠️ Warning: <b>{relativeTimeSince.value}</b> {relativeTimeSince.unit} behind default language)
-          </i>
-        }
-      }
+    if (!languages.includes(language)) {
       return <div className={styles.block}></div>
     }
+
+    const defaultMetadata: Metadata = metadatas[englishPath.join("/")]
+
+    if (defaultMetadata === undefined) {
+      return <div className={styles.block}></div>
+    }
+
+    const timeObject = Utils.getTimeObject(defaultMetadata, lastTranslatedAt)
+
+    if (timeObject.value === 0) {
+      return <div className={styles.block}></div>
+    }
+
+    return <i className={styles.info}>
+      Last translated at: <b>{lastTranslatedAt}</b>
+      (⚠️ Warning: <b>{timeObject.value}</b> {timeObject.unit} behind default language)
+    </i>
   }
+}
 
-  if (!(documentPath === 'placeholder')) {
-    const metadata: Metadata = metadatas[documentPath]
-    const { lastUpdatedAt, relativeTimeSince, commitHash } = metadata
-    const link = `https://github.com/input-output-hk/hydra-poc/commit/${metadata.commitHash}`
+export default function DocumentMetadata({ }: Props): JSX.Element {
+  const [documentPath, setDocumentPath] = useState('placeholder')
 
-    const hasMetadata = !(metadata === undefined)
-    return (
-      <div className={styles.block}>
-        {hasMetadata &&
-          renderLastUpdatedAt(
-            lastUpdatedAt,
-            relativeTimeSince
-          )
-        }
-        {hasMetadata &&
-          renderCommitHash(commitHash, link)
-        }
-        {hasMetadata &&
-          renderLastTranslatedAt(documentPath, lastUpdatedAt)
-        }
-      </div >
-    )
-  } else {
+  useEffect(() => {
+    if (window) {
+      const path = new URL(window.location.href).pathname.replace('/head-protocol/', '')
+      setDocumentPath(path)
+    }
+  }, [])
+
+  if (documentPath === 'placeholder') {
     return <div className={styles.block}></div>
   }
+
+  const metadata: Metadata = metadatas[documentPath]
+
+  if (metadata === undefined) {
+    return <div className={styles.block}></div>
+  }
+
+  const { lastUpdatedAt, relativeTimeSince, commitHash } = metadata
+  const link = `https://github.com/input-output-hk/hydra-poc/commit/${metadata.commitHash}`
+
+  return <div className={styles.block}>
+    {
+      Display.renderLastUpdatedAt(
+        lastUpdatedAt,
+        relativeTimeSince
+      )
+    }
+    {
+      Display.renderCommitHash(commitHash, link)
+    }
+    {
+      Display.renderLastTranslatedAt(documentPath, lastUpdatedAt)
+    }
+  </div >
+
 }
