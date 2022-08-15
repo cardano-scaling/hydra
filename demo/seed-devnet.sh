@@ -8,12 +8,18 @@ MARKER_DATUM_HASH="a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e75
 SCRIPT_DIR=$(realpath $(dirname $(realpath $0)))
 NETWORK_ID=42
 
-CCLI_PATH=
+CCLI_CMD=
 DEVNET_DIR=/data
 if [[ -n ${1} ]] && $(${1} version > /dev/null); then
-    CCLI_PATH=${1}
-    echo >&2 "Using provided cardano-cli"
+    CCLI_CMD=${1}
+    echo >&2 "Using provided cardano-cli command: ${1}"
     DEVNET_DIR=${SCRIPT_DIR}/devnet
+fi
+
+HYDRA_NODE_CMD=
+if [[ -n ${2} ]] && $(${2} --version > /dev/null); then
+    HYDRA_NODE_CMD=${2}
+    echo >&2 "Using provided hydra-node command: ${2}"
 fi
 
 # Invoke cardano-cli in running cardano-node container or via provided cardano-cli
@@ -21,10 +27,23 @@ function ccli() {
   ccli_ ${@} --testnet-magic ${NETWORK_ID}
 }
 function ccli_() {
-  if [[ -x ${CCLI_PATH} ]]; then
-      cardano-cli ${@}
+  if [[ -x ${CCLI_CMD} ]]; then
+      ${CCLI_CMD} ${@}
   else
       docker-compose exec cardano-node cardano-cli ${@}
+  fi
+}
+
+# Invoke hydra-node in a container or via provided executable
+function hnode() {
+  if [[ -n ${HYDRA_NODE_CMD} ]]; then
+      ${HYDRA_NODE_CMD} ${@}
+  else
+      docker run --rm \
+        -v ${PWD}:${PWD} \
+        -w ${PWD} \
+        -u ${UID} \
+        ghcr.io/input-output-hk/hydra-node -- ${@}
   fi
 }
 
@@ -72,14 +91,10 @@ function seedFaucet() {
 
 function publishReferenceScripts() {
   echo >&2 "Publishing reference scripts ('νInitial' & 'νCommit')..."
-  echo $(docker run --rm \
-    -v ${PWD}/devnet/credentials:/credentials:ro \
-    -v ${PWD}/devnet/ipc:/ipc \
-    ghcr.io/input-output-hk/hydra-node -- \
-    publish-scripts \
+  hnode publish-scripts \
     --network-id ${NETWORK_ID} \
-    --node-socket /ipc/node.socket \
-    --cardano-signing-key /credentials/faucet.sk)
+    --node-socket devnet/ipc/node.socket \
+    --cardano-signing-key devnet/credentials/faucet.sk
 }
 
 seedFaucet "alice" 1000000000 # 1000 Ada to commit
