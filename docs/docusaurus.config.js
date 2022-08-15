@@ -209,7 +209,13 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} <strong>Input Output</strong> <br/> <small>Built with Docusaurus</small>`,
+        copyright:
+          `
+          Copyright © ${new Date().getFullYear()} 
+              <strong>Input Output</strong><br/>
+              <small>Built with Docusaurus</small><br/>
+              <small><SiteMetadata /></small>
+          `
       },
       prism: {
         theme: lightCodeTheme,

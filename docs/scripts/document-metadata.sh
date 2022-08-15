@@ -5,22 +5,13 @@ DOCS_DIR="docs/*.md"
 DOCUMENTS=$(git ls-files $DOCS_DIR)
 
 for MD in $DOCUMENTS; do
-    echo "updating: $MD"
+    echo "enriching: $MD"
 
-    PLACEHOLDER="{{last-updated-at}}"
-    REPLACEMENT=$(git --no-pager log -1 --pretty=format:'%ad' --date=local $MD)
-    sed -i "s/$PLACEHOLDER/$REPLACEMENT/g" $MD
-    
-    PLACEHOLDER="{{relative-time-since}}"
-    REPLACEMENT=$(git --no-pager log -1 --pretty=format:'%cr' $MD)
-    sed -i "s/$PLACEHOLDER/$REPLACEMENT/g" $MD
-
-    PLACEHOLDER="{{commit-hash}}"
-    REPLACEMENT=$(git --no-pager log -1 --pretty=format:'%h' $MD)
-    sed -i "s/$PLACEHOLDER/$REPLACEMENT/g" $MD
-
-    PLACEHOLDER="{{last-translated-at}}"
-    REPLACEMENT=$(git --no-pager log -1 --pretty=format:'%ad' --date=local docs/i18n)
-    sed -i "s/$PLACEHOLDER/$REPLACEMENT/g" $MD
+    PLACEHOLDER="<DocumentMetadata />"
+    sed -i "s|$PLACEHOLDER|<DocumentMetadata path=\"$MD\" />|g" $MD
 
 done
+
+PLACEHOLDER="<SiteMetadata />"
+REPLACEMENT=$(git --no-pager log -1 --pretty=format:'%ad' --date=local docs)
+sed -i "s|$PLACEHOLDER|$REPLACEMENT|g" 'docs/docusaurus.config.js'

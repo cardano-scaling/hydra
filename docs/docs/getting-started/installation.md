@@ -10,12 +10,7 @@ import DocumentMetadata from '@site/src/components/DocumentMetadata';
 ```
 
 ```mdx-code-block
-<DocumentMetadata
-    lastUpdatedAt="{{last-updated-at}}"
-    relativeTimeSince="{{relative-time-since}}"
-    commitHash="{{commit-hash}}"
-    lastTranslatedAt="{{last-translated-at}}"
-/>
+<DocumentMetadata />
 ```
 
 > Installation instructions for Hydra nodes. We recommend using Docker and dealing with containers as a quick start.
