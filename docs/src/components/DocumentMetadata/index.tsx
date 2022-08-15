@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import styles from './styles.module.css'
+import metadataJsonFile from '@site/static/metadata.json'
 
-interface Props {
-  path?: string
-}
+interface Props { }
 
 interface Metadata {
   lastUpdatedAt: string
@@ -12,14 +11,9 @@ interface Metadata {
   lastTranslatedAt?: string
 }
 
-export default function DocumentMetadata({ path }: Props): JSX.Element {
-
-  const defaultMetadata: Metadata = {
-    lastUpdatedAt: "{{last-updated-at}}",
-    relativeTimeSince: "{{relative-time-since}}",
-    commitHash: "{{commit-hash}}",
-    lastTranslatedAt: "{{last-translated-at}}"
-  }
+export default function DocumentMetadata({ }: Props): JSX.Element {
+  const path = new URL(window.location.href).pathname.replace('/head-protocol/', '')
+  const defaultMetadata: Metadata = metadataJsonFile[path]
 
   const baseDocumentApiURL =
     'https://api.github.com/repos/input-output-hk/hydra-poc/commits/master?path='

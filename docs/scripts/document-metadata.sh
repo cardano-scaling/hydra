@@ -6,9 +6,7 @@ DOCUMENTS=$(git ls-files $DOCS_DIR)
 
 for MD in $DOCUMENTS; do
     echo "enriching: $MD"
-
-    PLACEHOLDER="<DocumentMetadata />"
-    sed -i "s|$PLACEHOLDER|<DocumentMetadata path=\"$MD\" />|g" $MD
+    
 
 done
 
