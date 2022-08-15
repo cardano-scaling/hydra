@@ -506,13 +506,17 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
       unsafeBuildTransaction $
         emptyTxBody
           & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-          & addReferenceInputs [initialScriptRef, commitScriptRef]
+          & addReferenceInputs [initialScriptRef, commitScriptRef, headScriptRef]
           & addOutputs reimbursedOutputs
           & burnTokens headTokenScript Burn headTokens
           & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headWitness =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+  headScriptRef =
+    fst (headReference scriptRegistry)
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
   headRedeemer =
