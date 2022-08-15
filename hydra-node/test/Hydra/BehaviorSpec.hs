@@ -20,6 +20,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
+import qualified Data.Set as Set
 import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
 import Hydra.Cardano.Api (SigningKey)
@@ -50,7 +51,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, noNetwork)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
@@ -474,17 +475,12 @@ simulatedChainAndNetwork = do
   nodes <- newTVarIO []
   pure $
     ConnectToChain
-      { chainComponent = \node -> do
+      { chainComponent = \node@HydraNode{hn} -> do
           atomically $ modifyTVar nodes (node :)
-          peersVar <- newTVarIO mempty
           pure $
             node
               { oc = Chain{postTx = postTx nodes history}
-              , hn =
-                  Network
-                    { broadcast = broadcast node nodes
-                    , modifyPeers = atomically . stateTVar peersVar
-                    }
+              , hn = hn{broadcast = broadcast node nodes}
               }
       , history
       }
@@ -593,11 +589,7 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
   chainComponent connectToChain $
     HydraNode
       { eq
-      , hn =
-          Network
-            { broadcast = const $ pure ()
-            , modifyPeers = error "createHydraNode.modifyPeers: unused"
-            }
+      , hn = noNetwork
       , hh
       , oc = Chain (const $ pure ())
       , server =

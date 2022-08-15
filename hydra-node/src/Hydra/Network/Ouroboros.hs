@@ -161,10 +161,9 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     -- race_ will break and release allocated resources
     -- once we received a new list of peers.
     race_
-      ( do
-          atomically $ do
-            new <- readTVar peersVar
-            check (new /= peers)
+      ( atomically $ do
+          new <- readTVar peersVar
+          check (new /= peers)
       )
       ( Subscription.ipSubscriptionWorker
           sn

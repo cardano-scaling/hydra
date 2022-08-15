@@ -39,7 +39,7 @@ import Hydra.Node (
 import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (PostTxOnChainFailed))
 import Hydra.Snapshot (Snapshot (..))
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, noNetwork)
 
 spec :: Spec
 spec = parallel $ do
@@ -149,11 +149,7 @@ createHydraNode signingKey otherParties events = do
   pure $
     HydraNode
       { eq
-      , hn =
-          Network
-            { broadcast = const . pure $ ()
-            , modifyPeers = error "createHydraNode.modifyPeers: unused"
-            }
+      , hn = noNetwork
       , hh
       , oc = Chain{postTx = const $ pure ()}
       , server = Server{sendOutput = const $ pure ()}
@@ -172,11 +168,7 @@ recordNetwork node = do
   (record, query) <- messageRecorder
   pure
     ( node
-        { hn =
-            Network
-              { broadcast = record
-              , modifyPeers = error "recordNetwork.modifyPeers: unused"
-              }
+        { hn = noNetwork{broadcast = record}
         }
     , query
     )
