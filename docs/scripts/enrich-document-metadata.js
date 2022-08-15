@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
-const fs = require('fs');
+const util = require('util')
+const exec = util.promisify(require('child_process').exec)
+const fs = require('fs')
 
 const sysCall = async (cmd) => exec(cmd).then(dirs => dirs.stdout)
 
@@ -17,14 +17,27 @@ const Utils = {
         sysCall(`git --no-pager log -1 --pretty=format:'%cr' ${doc}`)
     , getCommitHash: async (doc) =>
         sysCall(`git --no-pager log -1 --pretty=format:'%h' ${doc}`)
-    , getLastTranslatedAt: async () =>
-        sysCall(`git --no-pager log -1 --pretty=format:'%ad' --date=local i18n`)
+    , pathToLocation: (path) => {
+        const basePath = path.replace('.md', '')
+            .replace('i18n/', '')
+            .replace('/current/', '/')
+            .replace('/index', '')
+
+        // @TODO rename to docusaurus-plugin-content-docs-docs
+        if (path.includes('docusaurus-plugin-content-docs-')) {
+            return basePath.replace('docusaurus-plugin-content-docs-', '')
+        } else {
+            return basePath.replace('docusaurus-plugin-content-', '')
+        }
+    }
     , getDocumentMetadata: async (doc) => {
+        console.log("Processing: ", doc)
         const lastUpdatedAt = await Utils.getLastUpdatedAt(doc)
         const relativeTimeSince = await Utils.getRelativeTimeSince(doc)
         const commitHash = await Utils.getCommitHash(doc)
+        const docKey = Utils.pathToLocation(doc)
         return {
-            [doc.replace('.md', '')]: {
+            [docKey]: {
                 lastUpdatedAt,
                 relativeTimeSince,
                 commitHash
@@ -34,8 +47,8 @@ const Utils = {
 }
 
 async function main() {
-    const docsRegex = "docs/*.md"
-    const docs = await Utils.getDirectories(docsRegex);
+    const docsRegex = "*.md"
+    const docs = await Utils.getDirectories(docsRegex)
 
     let metadatas = {}
 
@@ -43,9 +56,6 @@ async function main() {
         const metadata = await Utils.getDocumentMetadata(doc)
         metadatas = { ...metadatas, ...metadata }
     }
-
-    const lastTranslatedAt = await Utils.getLastTranslatedAt()
-    metadatas = { ...metadatas, ...{ lastTranslatedAt } }
 
     const metadatasPath = "static/metadatas.json"
     fs.writeFile(
@@ -55,4 +65,4 @@ async function main() {
     )
 }
 
-main();
+main()

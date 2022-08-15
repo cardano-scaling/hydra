@@ -6,6 +6,11 @@ sidebar_position: 2
 
 ```mdx-code-block
 import TerminalWindow from '@site/src/components/TerminalWindow';
+import DocumentMetadata from '@site/src/components/DocumentMetadata';
+```
+
+```mdx-code-block
+<DocumentMetadata />
 ```
 
 > Hydraノードのインストール手順です。クイックスタートとしてDockerを使用し、コンテナを扱うことをお勧めします。
