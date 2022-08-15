@@ -10,21 +10,20 @@ changes.
 
 ## [0.7.0] - UNRELEASED
 
-#### Added
-
-- The user manual is now also available in japanese thanks to @btbf! :jp:
-
-#### Changed
-
 - **BREAKING** Switch to `BabbageEra` and `PlutusV2`
   + `hydra-cardano-api` now uses `Era = BabbageEra` and constructs `PlutusV2` scripts
   + `hydra-plutus` scripts now use the `serialiseData` builtin to CBOR encode data on-chain
   + `hydra-node` now expects `BabbageEra` blocks and produces `BabbageEra` transactions
   + `hydra-cluster` now spins up a stake pool instead of a BFT node (not possible in `Praos` anymore)
 
-#### Fixed
+- **BREAKING** Use reference inputs and reference scripts in `abort` transaction.
+  + Need to provide a `--hydra-scripts-tx-id` to the `hydra-node` containing the current (`--script-info`) Hydra scripts.
+  + Added the `publish-scripts` sub-command to `hydra-node` to publish the current Hydra scripts.
 
-- Head contract check UTxO hash upon closing the head [#338](https://github.com/input-output-hk/hydra-poc/pull/338). This prevents closing the head with arbitrary UTxO.
+- The user manual is now also available in japanese thanks to @btbf! :jp:
+
+- Head contract check UTxO hash upon closing the head [#3rr38](https://github.com/input-output-hk/hydra-poc/pull/338). This prevents closing the head with arbitrary UTxO.
+
 - Remaining contestation period displayed in `hydra-tui` [#437](https://github.com/input-output-hk/hydra-poc/pull/437). Previously it was displaying 'total whole values' instead of 'relative whole values'.
 
 
