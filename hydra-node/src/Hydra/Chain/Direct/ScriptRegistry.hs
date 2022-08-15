@@ -134,11 +134,12 @@ newScriptRegistry =
 --     newScriptRegistry (registryUTxO r) === Just r
 registryUTxO :: ScriptRegistry -> UTxO
 registryUTxO scriptRegistry =
-  UTxO.fromPairs [initialReference, commitReference]
+  UTxO.fromPairs [initialReference, commitReference, headReference]
  where
   ScriptRegistry
     { initialReference
     , commitReference
+    , headReference
     } = scriptRegistry
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
