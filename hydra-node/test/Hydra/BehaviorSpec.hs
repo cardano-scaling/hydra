@@ -20,7 +20,6 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
-import qualified Data.Set as Set
 import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
 import Hydra.Cardano.Api (SigningKey)

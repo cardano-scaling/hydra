@@ -59,9 +59,8 @@ spec = parallel $
           [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
           withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2] (atomically . writeTQueue nodereceived) $ \hn -> do
             getPeers hn `shouldReturn` fromList [Host lo port2]
-            let newPeers = fromList modifiedPeers
-            setPeers hn newPeers
-            getPeers hn `shouldReturn` newPeers
+            setPeers hn modifiedPeers
+            getPeers hn `shouldReturn` modifiedPeers
 
       it "reconects with new modified peers" $ do
         node1received <- atomically newTQueue
@@ -92,9 +91,10 @@ spec = parallel $
                   , (port2, hn2, node2received)
                   ]
 
-                let action = withAsync (1 `broadcastFrom` hn1) $ \_ ->
-                      node3received `shouldEventuallyReceive` 1
-                timeout 3 action `shouldReturn` Nothing
+                let node3DoesNotReceiveAnything =
+                      const $ timeout 3 (atomically (readTQueue node3received)) `shouldReturn` Nothing
+
+                withAsync (1 `broadcastFrom` hn1) node3DoesNotReceiveAnything
 
     describe "Serialisation" $ do
       it "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
