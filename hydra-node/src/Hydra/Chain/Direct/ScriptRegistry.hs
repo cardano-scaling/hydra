@@ -62,6 +62,26 @@ data ScriptRegistry = ScriptRegistry
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
+genScriptRegistry :: Gen ScriptRegistry
+genScriptRegistry = do
+  txId <- arbitrary
+  txOut <- genTxOutAdaOnly
+  pure $
+    ScriptRegistry
+      { initialReference =
+          ( TxIn txId (TxIx 0)
+          , txOut{txOutReferenceScript = mkScriptRef Initial.validatorScript}
+          )
+      , commitReference =
+          ( TxIn txId (TxIx 1)
+          , txOut{txOutReferenceScript = mkScriptRef Commit.validatorScript}
+          )
+      , headReference =
+          ( TxIn txId (TxIx 2)
+          , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
+          )
+      }
+
 data NewScriptRegistryException = MissingScript
   { scriptName :: Text
   , scriptHash :: ScriptHash
@@ -146,26 +166,6 @@ queryScriptRegistry networkId nodeSocket txId = do
     Right sr -> pure sr
  where
   candidates = [TxIn txId ix | ix <- [TxIx 0 .. TxIx 10]] -- Arbitrary but, high-enough.
-
-genScriptRegistry :: Gen ScriptRegistry
-genScriptRegistry = do
-  txId <- arbitrary
-  txOut <- genTxOutAdaOnly
-  pure $
-    ScriptRegistry
-      { initialReference =
-          ( TxIn txId (TxIx 0)
-          , txOut{txOutReferenceScript = mkScriptRef Initial.validatorScript}
-          )
-      , commitReference =
-          ( TxIn txId (TxIx 1)
-          , txOut{txOutReferenceScript = mkScriptRef Commit.validatorScript}
-          )
-      , headReference =
-          ( TxIn txId (TxIx 2)
-          , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
-          )
-      }
 
 publishHydraScripts ::
   -- | Expected network discriminant.
