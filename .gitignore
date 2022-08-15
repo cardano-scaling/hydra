@@ -30,3 +30,7 @@ test-results.xml
 
 # Getting started / demo instructions
 /demo/devnet/
+
+# Testnet setups
+testnet/logs/
+vasil-testnet/logs/
