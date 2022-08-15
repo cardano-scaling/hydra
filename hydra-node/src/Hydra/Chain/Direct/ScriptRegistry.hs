@@ -50,6 +50,7 @@ import Hydra.Chain.CardanoClient (
  )
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import qualified Hydra.Contract.Commit as Commit
+import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genTxOutAdaOnly)
 
@@ -57,6 +58,7 @@ import Hydra.Ledger.Cardano (genTxOutAdaOnly)
 data ScriptRegistry = ScriptRegistry
   { initialReference :: (TxIn, TxOut CtxUTxO)
   , commitReference :: (TxIn, TxOut CtxUTxO)
+  , headReference :: (TxIn, TxOut CtxUTxO)
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -88,20 +90,21 @@ newScriptRegistry =
   resolve ::
     Map ScriptHash (TxIn, TxOut CtxUTxO) ->
     Either NewScriptRegistryException ScriptRegistry
-  resolve m =
-    ScriptRegistry
-      <$> maybe
-        (Left $ MissingScript "νInitial" initialScriptHash (Map.keysSet m))
-        Right
-        (lookup initialScriptHash m)
-      <*> maybe
-        (Left $ MissingScript "νCommit" commitScriptHash (Map.keysSet m))
-        Right
-        (lookup commitScriptHash m)
+  resolve m = do
+    initialReference <- lookupScriptHash "νInitial" initialScriptHash m
+    commitReference <- lookupScriptHash "νCommit" commitScriptHash m
+    headReference <- lookupScriptHash "νHead" headScriptHash m
+    pure $ ScriptRegistry{initialReference, commitReference, headReference}
+
+  lookupScriptHash name sh m =
+    case lookup sh m of
+      Nothing -> Left $ MissingScript name sh (Map.keysSet m)
+      Just s -> Right s
 
   ScriptInfo
     { initialScriptHash
     , commitScriptHash
+    , headScriptHash
     } = scriptInfo
 
 -- | Get the UTxO that corresponds to a script registry.
@@ -152,15 +155,15 @@ genScriptRegistry = do
     ScriptRegistry
       { initialReference =
           ( TxIn txId (TxIx 0)
-          , txOut
-              { txOutReferenceScript = mkScriptRef Initial.validatorScript
-              }
+          , txOut{txOutReferenceScript = mkScriptRef Initial.validatorScript}
           )
       , commitReference =
           ( TxIn txId (TxIx 1)
-          , txOut
-              { txOutReferenceScript = mkScriptRef Commit.validatorScript
-              }
+          , txOut{txOutReferenceScript = mkScriptRef Commit.validatorScript}
+          )
+      , headReference =
+          ( TxIn txId (TxIx 2)
+          , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
           )
       }
 
