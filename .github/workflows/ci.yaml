@@ -241,23 +241,18 @@ jobs:
     #     name: benchmarks-and-haddocks
     #     path: docs
 
+    - name: Download dependencies
+      working-directory: docs
+      run: yarn
+
     - name: Documention metadata enrichment
       working-directory: docs
-      run: |
-        ls static
-        yarn && scripts/document-metadata.sh
-        ls static
-
-    - name: Debugging Step
-      working-directory: docs
-      run: |
-        ls scripts
-        ls static
+      run: scripts/document-metadata.sh
 
     - name: Documentation (Docusaurus)
       working-directory: docs
       run: |
-        yarn && scripts/document-metadata.sh && yarn build
+        yarn build
         yarn validate
         mkdir -p public/head-protocol
         mv build/* public/head-protocol
