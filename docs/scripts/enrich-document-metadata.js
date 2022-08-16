@@ -3,14 +3,21 @@
 const util = require('util')
 const exec = util.promisify(require('child_process').exec)
 const fs = require('fs')
+const glob = require("glob")
 
 const sysCall = async (cmd) => exec(cmd).then(dirs => dirs.stdout)
 
 const Utils = {
-    getDirectories: async (docsDir) =>
-        sysCall(`git ls-files ${docsDir}`)
-            .then(dirs => dirs.trim()
-                .split('\n'))
+    getItems: async (path, options) => {
+        return new Promise((resolve, reject) => {
+            glob(path, options, (err, res) => {
+                if (err) {
+                    reject(err)
+                }
+                resolve(res)
+            })
+        })
+    }
     , getLastUpdatedAt: async (doc) =>
         sysCall(`git --no-pager log -1 --pretty=format:'%ad' --date=local ${doc}`)
     , getRelativeTimeSince: async (doc) =>
@@ -47,8 +54,10 @@ const Utils = {
 }
 
 async function main() {
-    const docsRegex = "**/*.md"
-    const docs = await Utils.getDirectories(docsRegex)
+
+    const docs = await Utils.getItems("**/*.md", {
+        "ignore": ['**/node_modules/**']
+    })
 
     let metadatas = {}
 

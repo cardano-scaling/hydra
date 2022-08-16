@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import styles from './styles.module.css'
-import metadatas from '@site/static/metadatas.json' // import metadatas from '/static/metadatas.json'
+import metadatas from '@site/static/metadatas.json'
 
 interface Props { }
 
@@ -10,11 +10,6 @@ interface Metadata {
   commitHash: string
 }
 
-interface TimeObject {
-  unit: string
-  value: number
-}
-
 const Utils = {
   getRelativeMillisTimeSince: (lastUpdatedAt: string, lastTranslatedAt: string) => {
     const docLastUpdatedAt = new Date(lastUpdatedAt).getTime()
@@ -22,21 +17,28 @@ const Utils = {
     const relativeTimeSince = docLastTranslatedAt - docLastUpdatedAt
     return relativeTimeSince
   }
-  , getTimeObject: (relativeTime: number): TimeObject => {
-    const units = ['seconds', 'minutes', 'hours', 'days']
-    const divisors = [1000, 1000 * 60, 1000 * 60 * 60, 1000 * 60 * 60 * 24]
-    const zip = (a: any, b: any) => a.map((k: any, i: any) => [k, b[i]])
+  , getTimeObject: (relativeTime: number) => {
+    const relativeUnits = [
+      { unit: 'seconds', divisor: 1000 },
+      { unit: 'minutes', divisor: 1000 * 60 },
+      { unit: 'hours', divisor: 1000 * 60 * 60 },
+      { unit: 'days', divisor: 1000 * 60 * 60 * 24 }
+    ]
 
-    const relativeTimes = zip(units, divisors)
-      .map((pair: any) => {
-        const [unit, divisor] = pair
+    const relativeTimes = relativeUnits
+      .map(({ unit, divisor }) => {
         const value = Math.floor(relativeTime / divisor)
         return { value, unit }
       })
 
-    return relativeTimes.reduce((acc: TimeObject, obj: TimeObject) => {
-      return (obj.value >= 0 && obj.value <= acc.value) ? obj : acc
-    }, relativeTimes[0])
+    return relativeTimes.reduce((acc, obj) => {
+      return (
+        // discard when relative time of translated >= default language
+        obj.value <= 0 &&
+        // we are interested to find the maximum negative relative time in the list
+        obj.value >= acc.value
+      ) ? obj : acc
+    })
   }
 }
 
@@ -54,22 +56,26 @@ const Display = {
     const languages = ['fr', 'ja'] //@TODO move to config
     const [language, ...englishPath] = documentPath.split("/")
 
+    // do not display `last translated at` on default language
     if (!languages.includes(language)) {
       return <></>
     }
 
     const defaultMetadata: Metadata = metadatas[englishPath.join("/")]
 
+    // do not display `last translated at` for those who have not a default language reference
     if (defaultMetadata === undefined) {
       return <></>
     }
 
     const relativeMillisTimeSince =
       Utils.getRelativeMillisTimeSince(defaultMetadata.lastUpdatedAt, lastTranslatedAt)
+
     const timeObject =
       Utils.getTimeObject(relativeMillisTimeSince)
 
-    if (timeObject.value === 0) {
+    // dont display warning on translated pages when up to date or above
+    if (timeObject.value >= 0) {
       return <></>
     }
 
@@ -90,12 +96,15 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
     }
   }, [])
 
+  // do not display metadata if page cannot access its location from the window.location.href
+  // this is the case when the page is not rendered in the browser, like during `yarn build`
   if (documentPath == 'placeholder') {
     return <></>
   }
 
   const metadata: Metadata = metadatas[documentPath]
 
+  // do not display metadata if not found in metadatas.json
   if (metadata === undefined) {
     return <></>
   }
@@ -117,5 +126,4 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
       Display.renderLastTranslatedAt(documentPath, lastUpdatedAt)
     }
   </div >
-
 }
