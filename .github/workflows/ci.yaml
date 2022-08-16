@@ -248,7 +248,7 @@ jobs:
     - name: Debugging Step
       working-directory: docs
       run: |
-        ls scripts
+        ls static
 
     - name: Documentation (Docusaurus)
       working-directory: docs
