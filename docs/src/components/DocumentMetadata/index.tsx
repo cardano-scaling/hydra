@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import styles from './styles.module.css'
-import metadatas from '/static/metadatas.json'
+import metadatas from '@site/static/metadatas.json' // import metadatas from '/static/metadatas.json'
 
 interface Props { }
 

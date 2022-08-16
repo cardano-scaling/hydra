@@ -242,17 +242,22 @@ jobs:
     #     path: docs
 
     - name: Documention metadata enrichment
+      working-directory: docs
       run: |
-        docs/scripts/document-metadata.sh
+        ls static
+        scripts/document-metadata.sh
+        ls static
 
     - name: Debugging Step
       working-directory: docs
       run: |
+        ls script
         ls static
 
     - name: Documentation (Docusaurus)
       working-directory: docs
       run: |
+        scripts/document-metadata.sh
         yarn && yarn build
         yarn validate
         mkdir -p public/head-protocol
