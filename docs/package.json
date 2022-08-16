@@ -24,6 +24,7 @@
     "@mdx-js/react": "^1.6.22",
     "asyncapi-validator": "^3.1.1",
     "clsx": "^1.1.1",
+    "glob": "^8.0.3",
     "prism-react-renderer": "^1.2.1",
     "react": "^17.0.1",
     "react-dom": "^17.0.1"
