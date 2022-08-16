@@ -51,27 +51,25 @@ const Utils = {
             }
         }
     }
+    , mergeMetadatas: (metadatas) =>
+        metadatas.reduce((obj, item) => {
+            for (const key in item) {
+                obj[key] = item[key]
+            }
+            return obj
+        }, {})
 }
 
 async function main() {
 
-    const docs = await Utils.getItems("**/*.md", {
-        "ignore": ['**/node_modules/**']
-    })
-
-    let metadatas = {}
-
-    for (const doc of docs) {
-        const metadata = await Utils.getDocumentMetadata(doc)
-        metadatas = { ...metadatas, ...metadata }
-    }
-
-    const metadatasPath = "static/metadatas.json"
-    fs.writeFile(
-        metadatasPath,
-        JSON.stringify(metadatas, null, 2),
-        err => { if (err) return console.log(err) }
-    )
+    Utils.getItems("**/*.md", { "ignore": ['**/node_modules/**'] })
+        .then(docs => {
+            const metadatas = docs.map(doc => Utils.getDocumentMetadata(doc))
+            Promise
+                .all(metadatas)
+                .then(metadatas => Utils.mergeMetadatas(metadatas))
+                .then(json => fs.writeFileSync("static/metadatas.json", JSON.stringify(json, null, 2)))
+        })
 }
 
 main()
