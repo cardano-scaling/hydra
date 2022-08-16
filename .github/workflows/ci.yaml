@@ -245,7 +245,7 @@ jobs:
       working-directory: docs
       run: |
         ls static
-        scripts/document-metadata.sh
+        yarn && scripts/document-metadata.sh
         ls static
 
     - name: Debugging Step
@@ -257,8 +257,7 @@ jobs:
     - name: Documentation (Docusaurus)
       working-directory: docs
       run: |
-        scripts/document-metadata.sh
-        yarn && yarn build
+        yarn && scripts/document-metadata.sh && yarn build
         yarn validate
         mkdir -p public/head-protocol
         mv build/* public/head-protocol
