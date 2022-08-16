@@ -30,7 +30,7 @@ First, let's prepare and start an ad-hoc, single `cardano-node` devnet using our
 ```
 ./prepare-devnet.sh
 cd devnet
-cabal exec cardano-node -- run \
+cardano-node -- run \
   --config cardano-node.json \
   --topology topology.json \
   --database-path db \
@@ -45,12 +45,13 @@ cabal exec cardano-node -- run \
 
 ## Seeding The Network
 
-You can use the `seed-devnet.sh` script by passing it the path to a cardano-cli executable to use, instead of having it using the Docker container. For example:
+You can use the `seed-devnet.sh` script by passing it the path/command to a cardano-cli and hydra-node executable to use, instead of having it using the Docker container. For example:
 
 
 ```mdx-code-block
 <TerminalWindow>
-./seed-devnet.sh $(which cardano-cli)
+export CARDANO_NODE_SOCKET_PATH=devnet/ipc/node.socket
+./seed-devnet.sh $(which cardano-cli) "cabal exec hydra-node --"
 </TerminalWindow>
 ```
 
