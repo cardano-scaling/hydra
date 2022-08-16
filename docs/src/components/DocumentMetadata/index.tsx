@@ -22,7 +22,7 @@ const Utils = {
     const relativeTimeSince = docLastTranslatedAt - docLastUpdatedAt
     return relativeTimeSince
   }
-  , getRelativeTimeSince: (relativeTime: number): TimeObject => {
+  , getTimeObject: (relativeTime: number): TimeObject => {
     const units = ['seconds', 'minutes', 'hours', 'days']
     const divisors = [1000, 1000 * 60, 1000 * 60 * 60, 1000 * 60 * 60 * 24]
     const zip = (a: any, b: any) => a.map((k: any, i: any) => [k, b[i]])
@@ -37,13 +37,6 @@ const Utils = {
     return relativeTimes.reduce((acc: TimeObject, obj: TimeObject) => {
       return (obj.value >= 0 && obj.value <= acc.value) ? obj : acc
     }, relativeTimes[0])
-  }
-  , getTimeObject: (defaultMetadata: Metadata, lastTranslatedAt: string): TimeObject => {
-    const relativeMillisTimeSince =
-      Utils.getRelativeMillisTimeSince(defaultMetadata.lastUpdatedAt, lastTranslatedAt)
-    const relativeTimeSince =
-      Utils.getRelativeTimeSince(relativeMillisTimeSince)
-    return relativeTimeSince;
   }
 }
 
@@ -62,19 +55,22 @@ const Display = {
     const [language, ...englishPath] = documentPath.split("/")
 
     if (!languages.includes(language)) {
-      return <div className={styles.block}></div>
+      return <></>
     }
 
     const defaultMetadata: Metadata = metadatas[englishPath.join("/")]
 
     if (defaultMetadata === undefined) {
-      return <div className={styles.block}></div>
+      return <></>
     }
 
-    const timeObject = Utils.getTimeObject(defaultMetadata, lastTranslatedAt)
+    const relativeMillisTimeSince =
+      Utils.getRelativeMillisTimeSince(defaultMetadata.lastUpdatedAt, lastTranslatedAt)
+    const timeObject =
+      Utils.getTimeObject(relativeMillisTimeSince)
 
     if (timeObject.value === 0) {
-      return <div className={styles.block}></div>
+      return <></>
     }
 
     return <i className={styles.info}>
@@ -94,14 +90,14 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
     }
   }, [])
 
-  if (documentPath === 'placeholder') {
-    return <div className={styles.block}></div>
+  if (documentPath == 'placeholder') {
+    return <></>
   }
 
   const metadata: Metadata = metadatas[documentPath]
 
   if (metadata === undefined) {
-    return <div className={styles.block}></div>
+    return <></>
   }
 
   const { lastUpdatedAt, relativeTimeSince, commitHash } = metadata
