@@ -8,7 +8,7 @@
     "validate:inputs": "./validate-api.js publish '/' '../hydra-node/golden/ReasonablySized (ClientInput (Tx BabbageEra)).json'",
     "validate:outputs": "./validate-api.js subscribe '/' '../hydra-node/golden/ReasonablySized (ServerOutput (Tx BabbageEra)).json'",
     "validate": "yarn validate:inputs && yarn validate:outputs",
-    "build": "docusaurus build",
+    "build": "yarn enrich-document-metadata && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",

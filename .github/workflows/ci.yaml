@@ -241,18 +241,10 @@ jobs:
         name: benchmarks-and-haddocks
         path: docs
 
-    - name: Download dependencies
-      working-directory: docs
-      run: yarn
-
-    - name: Documention metadata enrichment
-      working-directory: docs
-      run: scripts/document-metadata.sh
-
     - name: Documentation (Docusaurus)
       working-directory: docs
       run: |
-        yarn build
+        yarn && yarn build
         yarn validate
         mkdir -p public/head-protocol
         mv build/* public/head-protocol
