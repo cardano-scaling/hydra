@@ -220,7 +220,7 @@ jobs:
 
   documentation:
     name: Documentation
-    needs: [haddock-benchmarks]
+    # needs: [haddock-benchmarks]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.3.1
