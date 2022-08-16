@@ -2,6 +2,7 @@ import Hydra.Prelude hiding (catch)
 
 import Data.ByteString (hPut)
 import Data.Fixed (Centi)
+import Hydra.Cardano.Api (Lovelace (Lovelace))
 import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
 import Options.Applicative (
   Parser,
@@ -71,26 +72,26 @@ main =
 
 writeTransactionCostMarkdown :: Handle -> IO ()
 writeTransactionCostMarkdown hdl = do
-  initC <- costOfInit
-  commitC <- costOfCommit
-  collectComC <- costOfCollectCom
-  closeC <- costOfClose
-  contestC <- costOfContest
+  -- initC <- costOfInit
+  -- commitC <- costOfCommit
+  -- collectComC <- costOfCollectCom
+  -- closeC <- costOfClose
+  -- contestC <- costOfContest
   abortC <- costOfAbort
-  fanoutC <- costOfFanOut
+  -- fanoutC <- costOfFanOut
   hPut hdl $
     encodeUtf8 $
       unlines $
         pageHeader
           <> intersperse
             ""
-            [ initC
-            , commitC
-            , collectComC
-            , closeC
-            , contestC
-            , abortC
-            , fanoutC
+            -- [ initC
+            -- , commitC
+            -- , collectComC
+            -- , closeC
+            -- , contestC
+            [ abortC
+            -- , fanoutC
             ]
 
 -- NOTE: Github Actions CI depends on the number of header lines, see
@@ -242,11 +243,11 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
     unlines $
       [ "## Cost of Abort Transaction"
       , ""
-      , "| Parties | Tx size | % max Mem | % max CPU |"
-      , "| :------ | ------: | --------: | --------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU | Min fee |"
+      , "| :------ | ------: | --------: | --------: | ------: |"
       ]
         <> fmap
-          ( \(numParties, txSize, mem, cpu) ->
+          ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
               "| " <> show numParties
                 <> "| "
                 <> show txSize
@@ -254,7 +255,9 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
-                <> " |"
+                <> " | "
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
+                <> "ADA |"
           )
           stats
 

@@ -16,14 +16,16 @@ import Hydra.Prelude hiding (label)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
-import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (..), Prices (..))
+import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (..), Prices (..), txscriptfee)
 import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
 import Cardano.Ledger.Babbage.PParams (PParams' (..))
 import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
+import Cardano.Ledger.Coin (Coin (Coin))
+import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize), SlotNo (SlotNo))
 import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength (getSlotLength), SystemStart (SystemStart), mkSlotLength, toRelativeTime)
-import Data.Bits (shift)
+import qualified Data.ByteString as BS
 import Data.Default (def)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -37,16 +39,21 @@ import Hydra.Cardano.Api (
   EraInMode (BabbageEraInCardanoMode),
   ExecutionUnits (..),
   IsShelleyBasedEra (shelleyBasedEra),
+  Lovelace,
   ProtocolParameters (protocolParamMaxTxExUnits, protocolParamMaxTxSize),
   ScriptExecutionError (ScriptErrorMissingScript),
   ScriptWitnessIndex,
+  SerialiseAsCBOR (serialiseToCBOR),
   StandardCrypto,
   TransactionValidityError,
   Tx,
   UTxO,
   evaluateTransactionExecutionUnits,
+  fromLedgerCoin,
   fromLedgerPParams,
   getTxBody,
+  shelleyBasedEra,
+  toLedgerExUnits,
   toLedgerPParams,
  )
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
@@ -108,6 +115,27 @@ renderEvaluationReportFailures reportMap =
  where
   failures = lefts $ foldMap (: []) reportMap
 
+-- | Estimate minimum fee for given transaction and evaluated redeemers. Instead
+-- of using the budgets from the transaction (which might are usually set to 0
+-- until balancing), this directly computes the fee from transaction size and
+-- the units of the 'EvaluationReport'. Note that this function only provides a
+-- rough estimate using this modules' 'pparams' and likely under-estimates cost
+-- as we have no witnesses on this 'Tx'.
+estimateMinFee ::
+  Tx ->
+  EvaluationReport ->
+  Lovelace
+estimateMinFee tx evaluationReport =
+  fromLedgerCoin $
+    txSize <×> a <+> b
+      <+> txscriptfee (_prices pp) allExunits
+ where
+  txSize = BS.length $ serialiseToCBOR tx
+  a = Coin . fromIntegral $ _minfeeA pp
+  b = Coin . fromIntegral $ _minfeeB pp
+  pp = toLedgerPParams (shelleyBasedEra @Era) pparams
+  allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport
+
 renderScriptExecutionError :: ScriptExecutionError -> Text
 renderScriptExecutionError = \case
   ScriptErrorMissingScript missingRdmrPtr _ ->
@@ -117,7 +145,7 @@ renderScriptExecutionError = \case
 
 -- * Fixtures
 
--- | Current mainchain cost parameters.
+-- | Current mainchain protocol parameters.
 pparams :: ProtocolParameters
 pparams =
   fromLedgerPParams (shelleyBasedEra @Era) $
@@ -132,7 +160,9 @@ pparams =
       , _maxTxExUnits = ExUnits 14_000_000 10_000_000_000
       , _maxBlockExUnits = ExUnits 56_000_000 40_000_000_000
       , _protocolVersion = ProtVer 7 0
-      , _maxTxSize = 1 `shift` 14 -- 16kB
+      , _maxTxSize = 16384
+      , _minfeeA = 44
+      , _minfeeB = 155381
       , _prices =
           Prices
             { prMem = fromJust $ boundRational $ 721 % 10000000

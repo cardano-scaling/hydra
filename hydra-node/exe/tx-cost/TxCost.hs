@@ -10,6 +10,7 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   ExecutionUnits (..),
+  Lovelace,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   Tx,
@@ -49,6 +50,7 @@ import Hydra.Ledger.Cardano (
   genUTxOAdaOnlyOfSize,
  )
 import Hydra.Ledger.Cardano.Evaluate (
+  estimateMinFee,
   evaluateTx,
   genPointInTime,
   genPointInTimeBefore,
@@ -70,7 +72,7 @@ computeInitCost = do
   compute numParties = do
     (tx, knownUtxo) <- generate $ genInitTx' numParties
     case checkSizeAndEvaluate tx knownUtxo of
-      Just (txSize, memUnit, cpuUnit) ->
+      Just (txSize, memUnit, cpuUnit, _) ->
         pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
       Nothing ->
         pure Nothing
@@ -96,7 +98,7 @@ computeCommitCost = do
       Left _ -> pure Nothing
       Right tx ->
         case checkSizeAndEvaluate tx (utxo <> knownUtxo) of
-          Just (txSize, memUnit, cpuUnit) ->
+          Just (txSize, memUnit, cpuUnit, _) ->
             pure $ Just (NumUTxO $ length utxo, txSize, memUnit, cpuUnit)
           Nothing ->
             pure Nothing
@@ -115,7 +117,7 @@ computeCollectComCost =
     (st, tx) <- generate $ genCollectComTx numParties
     let utxo = getKnownUTxO st
     case checkSizeAndEvaluate tx utxo of
-      Just (txSize, memUnit, cpuUnit) ->
+      Just (txSize, memUnit, cpuUnit, _) ->
         pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
       Nothing ->
         pure Nothing
@@ -138,7 +140,7 @@ computeCloseCost = do
     (st, tx, _sn) <- generate $ genCloseTx numParties
     let utxo = getKnownUTxO st
     case checkSizeAndEvaluate tx utxo of
-      Just (txSize, memUnit, cpuUnit) ->
+      Just (txSize, memUnit, cpuUnit, _) ->
         pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
       Nothing ->
         pure Nothing
@@ -153,7 +155,7 @@ computeContestCost = do
     (st, tx) <- generate $ genContestTx numParties
     let utxo = getKnownUTxO st
     case checkSizeAndEvaluate tx utxo of
-      Just (txSize, memUnit, cpuUnit) ->
+      Just (txSize, memUnit, cpuUnit, _) ->
         pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
       Nothing ->
         pure Nothing
@@ -166,7 +168,7 @@ computeContestCost = do
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     pure (stClosed, contest snapshot pointInTime stClosed)
 
-computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
+computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeAbortCost =
   -- NOTE: We can't even close with one party right now, so no point in
   -- determining interesting values
@@ -175,8 +177,8 @@ computeAbortCost =
   compute numParties = do
     (tx, knownUtxo) <- generate $ genAbortTx numParties
     case checkSizeAndEvaluate tx knownUtxo of
-      Just (txSize, memUnit, cpuUnit) ->
-        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
+      Just (txSize, memUnit, cpuUnit, minFee) -> do
+        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
@@ -197,7 +199,7 @@ computeFanOutCost = do
   compute numElems = do
     (utxo, tx) <- generate $ genFanoutTx 3 numElems
     case checkSizeAndEvaluate tx utxo of
-      Just (txSize, memUnit, cpuUnit) ->
+      Just (txSize, memUnit, cpuUnit, _) ->
         pure $ Just (NumUTxO numElems, txSize, memUnit, cpuUnit)
       Nothing ->
         pure Nothing
@@ -229,7 +231,7 @@ newtype MemUnit = MemUnit Natural
 newtype CpuUnit = CpuUnit Natural
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
 
-checkSizeAndEvaluate :: Tx -> UTxO -> Maybe (TxSize, MemUnit, CpuUnit)
+checkSizeAndEvaluate :: Tx -> UTxO -> Maybe (TxSize, MemUnit, CpuUnit, Lovelace)
 checkSizeAndEvaluate tx knownUTxO = do
   guard $ txSize < maxTxSize
   case evaluateTx tx knownUTxO of
@@ -240,7 +242,8 @@ checkSizeAndEvaluate tx knownUTxO = do
       let totalCpu = sum $ executionSteps <$> rights results
       guard $ totalMemory <= maxMem
       guard $ totalCpu <= maxCpu
-      Just (TxSize txSize, MemUnit totalMemory, CpuUnit totalCpu)
+      let minFee = estimateMinFee tx report
+      Just (TxSize txSize, MemUnit totalMemory, CpuUnit totalCpu, minFee)
     _ -> Nothing
  where
   txSize = fromIntegral $ LBS.length $ serialize tx
