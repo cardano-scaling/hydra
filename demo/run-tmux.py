@@ -1,97 +1,168 @@
 import libtmux
-from collections import namedtuple
 import os
 import subprocess
+import sys
 import time
-import yaml
-
-# generic tmux bootstraper
-
-PaneCfg = namedtuple('PaneCfg', ['cmd', 'await_cmd'])
-
-WindowCfg = namedtuple('WindowCfg', ['name', 'panes'])
-
-SetupCfg = namedtuple('SetupCfg', ['root', 'cmds'])
-
-BootstraperCfg = namedtuple(
-    'BootstraperCfg',
-    ['session_name', 'setup', 'windows']
-)
 
 
-def load_config(config):
-    session_name = config['session_name']
-    setup = SetupCfg(**config['setup'])
-    windows = []
-    for name, window in config['windows'].items():
-        panes = []
-        for pane in window:
-            cmd = ' '.join(pane['cmd'])
-            panes.append(PaneCfg(cmd, pane.get('await_cmd', 'sleep 0')))
-        windows.append(WindowCfg(name, panes))
-    return BootstraperCfg(session_name, setup, windows)
+if not os.path.exists('demo'):
+    raise Exception(
+        'Plase navigate to the root directory of the hydra-poc project'
+    )
+
+os.chdir('demo')
+
+server = libtmux.Server()
+
+SESSION_NAME = 'hydra-demo'
+session = server.find_where({'session_name': SESSION_NAME})
 
 
-def setup_window(session, window_cfg, window=None):
-    if window_cfg.panes:
-        if window is None:
-            window = session.new_window(
-                window_name=window_cfg.name,
-                attach=False
-            )
+def send_cmd(pane, cmd):
+    pane.send_keys(cmd)
+    time.sleep(1)
+    pane.enter()
 
-        [pane] = window.list_panes()
-        pane_cfg = window_cfg.panes[0]
-        pane.send_keys(pane_cfg.cmd)
-        time.sleep(1)
-        pane.enter()
-        subprocess.run(pane_cfg.await_cmd, check=True, shell=True)
 
-        for pane_cfg in window_cfg.panes[1:]:
-            pane = window.split_window(vertical=True)
-            pane.send_keys(pane_cfg.cmd)
-            # Please don't ask me why we need to `sleep`
-            # before we can perform working `enter`...
+if not session:
+    session = server.new_session(session_name=SESSION_NAME)
+
+    subprocess.run('[ -d devnet ] || ./prepare-devnet.sh', shell=True)
+
+    # Let's improve bootstraper experience by live loading
+    # pieces of the tmux session. We do this by forking out
+    # the bootstrapping process.
+    if os.fork() <= 0:
+        [cardano_node_window] = session.list_windows()
+        cardano_node_window.rename_window('cardano-node')
+        [cardano_node_pane] = cardano_node_window.list_panes()
+
+        send_cmd(cardano_node_pane, ' '.join([
+            'cardano-node', 'run',
+            '--config', 'devnet/cardano-node.json',
+            '--topology', 'devnet/topology.json',
+            '--database-path', 'devnet/db',
+            '--socket-path', 'devnet/ipc/node.socket',
+            '--shelley-operational-certificate', 'devnet/opcert.cert',
+            '--shelley-kes-key', 'devnet/kes.skey',
+            '--shelley-vrf-key', 'devnet/vrf.skey'
+        ]))
+        time.sleep(2)
+        hydra_node_pane_seed = cardano_node_window.split_window(
+            vertical=True)
+        send_cmd(
+            hydra_node_pane_seed,
+            'export CARDANO_NODE_SOCKET_PATH="devnet/ipc/node.socket"')
+        if os.path.exists('.env'):
+            os.unlink('.env')
+        send_cmd(
+            hydra_node_pane_seed,
+            './seed-devnet.sh $(which cardano-cli) $(which hydra-node)')
+        while True:
+            if os.path.exists('.env'):
+                break
             time.sleep(1)
-            pane.enter()
-            subprocess.run(pane_cfg.await_cmd, check=True, shell=True)
-    return window
 
+        hydra_nodes_window = session.new_window(
+            window_name='hydra-nodes', attach=False)
 
-def bootstrap(bootstraper_cfg):
-    server = libtmux.Server()
-    os.chdir(bootstraper_cfg.setup.root)
-    for cmd in bootstraper_cfg.setup.cmds:
-        subprocess.run(cmd, shell=True)
+        [hydra_node_pane_alice] = hydra_nodes_window.list_panes()
+        send_cmd(hydra_node_pane_alice, ' '.join([
+            'source .env', '&&',
+            'hydra-node',
+            '--node-id', '1',
+            '--port', '5001',
+            '--api-port', '4001',
+            '--monitoring-port', '6001',
+            '--peer', '127.0.0.1:5002',
+            '--peer', '127.0.0.1:5003',
+            '--hydra-signing-key', 'alice.sk',
+            '--hydra-verification-key', 'bob.vk',
+            '--hydra-verification-key', 'carol.vk',
+            '--hydra-scripts-tx-id',  '$HYDRA_SCRIPTS_TX_ID',
+            '--cardano-signing-key', 'devnet/credentials/alice.sk',
+            '--cardano-verification-key', 'devnet/credentials/bob.vk',
+            '--cardano-verification-key', 'devnet/credentials/carol.vk',
+            '--ledger-genesis', 'devnet/genesis-shelley.json',
+            '--ledger-protocol-parameters', 'devnet/protocol-parameters.json',
+            '--network-id', '42',
+            '--node-socket', 'devnet/ipc/node.socket',
+            ]))
+        hydra_node_pane_bob = hydra_nodes_window.split_window(vertical=True)
+        send_cmd(hydra_node_pane_bob, ' '.join([
+            'source .env', '&&',
+            'hydra-node',
+            '--node-id', '2',
+            '--port', '5002',
+            '--api-port', '4002',
+            '--monitoring-port', '6002',
+            '--peer', '127.0.0.1:5001',
+            '--peer', '127.0.0.1:5003',
+            '--hydra-signing-key', 'bob.sk',
+            '--hydra-verification-key', './alice.vk',
+            '--hydra-verification-key', './carol.vk',
+            '--hydra-scripts-tx-id',  '$HYDRA_SCRIPTS_TX_ID',
+            '--cardano-signing-key', 'devnet/credentials/bob.sk',
+            '--cardano-verification-key', 'devnet/credentials/alice.vk',
+            '--cardano-verification-key', 'devnet/credentials/carol.vk',
+            '--ledger-genesis', 'devnet/genesis-shelley.json',
+            '--ledger-protocol-parameters', 'devnet/protocol-parameters.json',
+            '--network-id', '42',
+            '--node-socket', 'devnet/ipc/node.socket',
+            ]))
+        hydra_node_pane_carol = hydra_nodes_window.split_window(vertical=True)
+        send_cmd(hydra_node_pane_carol, ' '.join([
+            'source .env', '&&',
+            'hydra-node',
+            '--node-id', '3',
+            '--port', '5003',
+            '--api-port', '4003',
+            '--monitoring-port', '6003',
+            '--peer', '127.0.0.1:5001',
+            '--peer', '127.0.0.1:5002',
+            '--hydra-signing-key', 'carol.sk',
+            '--hydra-verification-key', './alice.vk',
+            '--hydra-verification-key', './bob.vk',
+            '--hydra-scripts-tx-id',  '$HYDRA_SCRIPTS_TX_ID',
+            '--cardano-signing-key', 'devnet/credentials/carol.sk',
+            '--cardano-verification-key', 'devnet/credentials/alice.vk',
+            '--cardano-verification-key', 'devnet/credentials/bob.vk',
+            '--ledger-genesis', 'devnet/genesis-shelley.json',
+            '--ledger-protocol-parameters', 'devnet/protocol-parameters.json',
+            '--network-id', '42',
+            '--node-socket', 'devnet/ipc/node.socket',
+            ]))
+        time.sleep(2)
 
-    session = server.find_where({'session_name': bootstraper_cfg.session_name})
-    child = False
-    if not session:
-        session = server.new_session(session_name=bootstraper_cfg.session_name)
-        time.sleep(1)
-        pid = os.fork()
-        if pid <= 0:
-            child = True
-            if len(bootstraper_cfg.windows) > 1:
-                window_cfg = bootstraper_cfg.windows[0]
-                [window] = session.list_windows()
-                setup_window(session, window_cfg, window=window)
-            for window_cfg in bootstraper_cfg.windows[1:]:
-                setup_window(session, window_cfg)
+        hydra_tuis_window = session.new_window(
+            window_name='hydra-tuis', attach=False)
 
-    if not child:
-        server.attach_session(bootstraper_cfg.session_name)
+        [hydra_tui_pane_alice] = hydra_tuis_window.list_panes()
+        send_cmd(hydra_tui_pane_alice, ' '.join([
+             'hydra-tui',
+             '--connect', '0.0.0.0:4001',
+             '--cardano-signing-key', 'devnet/credentials/alice.sk',
+             '--network-id', '42',
+             '--node-socket', 'devnet/ipc/node.socket',
+            ]))
 
+        hydra_tui_pane_bob = hydra_tuis_window.split_window(vertical=True)
+        send_cmd(hydra_tui_pane_bob, ' '.join([
+            'hydra-tui',
+            '--connect', '0.0.0.0:4002',
+            '--cardano-signing-key', 'devnet/credentials/bob.sk',
+            '--network-id', '42',
+            '--node-socket', 'devnet/ipc/node.socket',
+            ]))
 
-if __name__ == '__main__':
-    # Default `hydra-demo` specific behaviour
-    if not os.path.exists('demo'):
-        raise Exception(
-            'Plase navigate to the root directory of the hydra-poc project'
-        )
-    # TODO: parse args and fallback
-    with open("./demo/run-tmux.yaml", 'r') as stream:
-        config = yaml.safe_load(stream)
-    bootsraper_cfg = load_config(config)
+        hydra_tui_pane_carol = hydra_tuis_window.split_window(vertical=True)
+        send_cmd(hydra_tui_pane_carol, ' '.join([
+            'hydra-tui',
+            '--connect', '0.0.0.0:4003',
+            '--cardano-signing-key', 'devnet/credentials/carol.sk',
+            '--network-id', '42',
+            '--node-socket', 'devnet/ipc/node.socket',
+            ]))
+        sys.exit(0)
 
-    bootstrap(bootsraper_cfg)
+server.attach_session(SESSION_NAME)
