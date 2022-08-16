@@ -47,7 +47,7 @@ const Utils = {
 }
 
 async function main() {
-    const docsRegex = "*.md"
+    const docsRegex = "**/*.md"
     const docs = await Utils.getDirectories(docsRegex)
 
     let metadatas = {}
