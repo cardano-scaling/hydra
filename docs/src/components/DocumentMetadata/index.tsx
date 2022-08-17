@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import styles from './styles.module.css'
-import metadatas from '@site/static/metadatas.json'
+import metadatas from '@site/static/docs-metadata.json'
+import moment from 'moment'
 
 interface Props { }
 
@@ -8,38 +9,6 @@ interface Metadata {
   lastUpdatedAt: string
   relativeTimeSince: string
   commitHash: string
-}
-
-const Utils = {
-  getRelativeMillisTimeSince: (lastUpdatedAt: string, lastTranslatedAt: string) => {
-    const docLastUpdatedAt = new Date(lastUpdatedAt).getTime()
-    const docLastTranslatedAt = new Date(lastTranslatedAt).getTime()
-    const relativeTimeSince = docLastTranslatedAt - docLastUpdatedAt
-    return relativeTimeSince
-  }
-  , getTimeObject: (relativeTime: number) => {
-    const relativeUnits = [
-      { unit: 'seconds', divisor: 1000 },
-      { unit: 'minutes', divisor: 1000 * 60 },
-      { unit: 'hours', divisor: 1000 * 60 * 60 },
-      { unit: 'days', divisor: 1000 * 60 * 60 * 24 }
-    ]
-
-    const relativeTimes = relativeUnits
-      .map(({ unit, divisor }) => {
-        const value = Math.floor(relativeTime / divisor)
-        return { value, unit }
-      })
-
-    return relativeTimes.reduce((acc, obj) => {
-      return (
-        // discard when relative time of translated >= default language
-        obj.value <= 0 &&
-        // we are interested to find the maximum negative relative time in the list
-        obj.value >= acc.value
-      ) ? obj : acc
-    })
-  }
 }
 
 const Display = {
@@ -68,20 +37,20 @@ const Display = {
       return <></>
     }
 
-    const relativeMillisTimeSince =
-      Utils.getRelativeMillisTimeSince(defaultMetadata.lastUpdatedAt, lastTranslatedAt)
 
-    const timeObject =
-      Utils.getTimeObject(relativeMillisTimeSince)
+    const translationChangedAt = moment(lastTranslatedAt)
+    const sourceChangedAt = moment(defaultMetadata.lastUpdatedAt)
+    const relativeTimeSince = translationChangedAt.from(sourceChangedAt, true)
+    const diff = translationChangedAt.diff(sourceChangedAt)
 
     // dont display warning on translated pages when up to date or above
-    if (timeObject.value >= 0) {
+    if (diff >= 0) {
       return <></>
     }
 
     return <i className={styles.info}>
       Last translated at: <b>{lastTranslatedAt}</b>
-      (⚠️ Warning: <b>{timeObject.value}</b> {timeObject.unit} behind default language)
+      (⚠️ Warning: <b>{relativeTimeSince}</b> behind default language)
     </i>
   }
 }

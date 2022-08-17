@@ -70,7 +70,7 @@ async function main() {
             Promise
                 .all(metadatas)
                 .then(Utils.mergeJsons)
-                .then(Utils.writeJsonToFile("static/metadatas.json"))
+                .then(Utils.writeJsonToFile("static/docs-metadata.json"))
         })
 }
 
