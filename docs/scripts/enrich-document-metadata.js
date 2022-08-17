@@ -36,24 +36,36 @@ const Utils = {
             return basePath.replace('docusaurus-plugin-content-', '')
         }
     }
-    , getMetadatasJson: async (doc) => {
+    , getDocsMetadataJson: async (doc) => {
         console.log("Processing: ", doc)
         const lastUpdatedAt = await Utils.getLastUpdatedAt(doc)
         const relativeTimeSince = await Utils.getRelativeTimeSince(doc)
         const commitHash = await Utils.getCommitHash(doc)
+
         const docKey = Utils.pathToLocation(doc)
+        const [head, ...tail] = docKey.split("/")
+        const supportedLanguages = ['fr', 'ja'] //@TODO move to config
+        const isSupportedLanguage = (language) => supportedLanguages.includes(language)
+        const key = isSupportedLanguage(head) ? tail.join('/') : docKey
+        const subKey = isSupportedLanguage(head) ? head : "source"
+
         return {
-            [docKey]: {
+            [key]: {
                 lastUpdatedAt,
                 relativeTimeSince,
-                commitHash
+                commitHash,
+                subKey
             }
         }
     }
-    , mergeJsons: (jsons) =>
+    , mergeDocsMetadataJson: (jsons) =>
         jsons.reduce((obj, item) => {
             for (const key in item) {
-                obj[key] = item[key]
+                if (obj[key] === undefined) {
+                    obj[key] = {}
+                }
+                const { lastUpdatedAt, relativeTimeSince, commitHash, subKey } = item[key]
+                obj[key][subKey] = { lastUpdatedAt, relativeTimeSince, commitHash }
             }
             return obj
         }, {})
@@ -66,10 +78,10 @@ async function main() {
 
     Utils.getItems("**/*.md", { "ignore": ['**/node_modules/**'] })
         .then(docs => {
-            const metadatas = docs.map(Utils.getMetadatasJson)
+            const docsMetadata = docs.map(Utils.getDocsMetadataJson)
             Promise
-                .all(metadatas)
-                .then(Utils.mergeJsons)
+                .all(docsMetadata)
+                .then(Utils.mergeDocsMetadataJson)
                 .then(Utils.writeJsonToFile("static/docs-metadata.json"))
         })
 }

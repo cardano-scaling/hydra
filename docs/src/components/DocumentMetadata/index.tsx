@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import styles from './styles.module.css'
-import metadatas from '@site/static/docs-metadata.json'
+import docsMetadataJson from '@site/static/docs-metadata.json'
 import moment from 'moment'
 
 interface Props { }
@@ -21,25 +21,9 @@ const Display = {
     <i className={styles.info}>
       Last commit hash: <a href={link}><b>{commitHash}</b></a>
     </i>
-  , renderLastTranslatedAt: (documentPath: string, lastTranslatedAt: string) => {
-    const languages = ['fr', 'ja'] //@TODO move to config
-    const [language, ...englishPath] = documentPath.split("/")
-
-    // do not display `last translated at` on default language
-    if (!languages.includes(language)) {
-      return <></>
-    }
-
-    const defaultMetadata: Metadata = metadatas[englishPath.join("/")]
-
-    // do not display `last translated at` for those who have not a default language reference
-    if (defaultMetadata === undefined) {
-      return <></>
-    }
-
-
-    const translationChangedAt = moment(lastTranslatedAt)
-    const sourceChangedAt = moment(defaultMetadata.lastUpdatedAt)
+  , renderLastTranslatedAt: (sourceMetadata: Metadata, lastTranslatedAt: string) => {
+    const translationChangedAt = moment(new Date(lastTranslatedAt), true)
+    const sourceChangedAt = moment(new Date(sourceMetadata.lastUpdatedAt), true)
     const relativeTimeSince = translationChangedAt.from(sourceChangedAt, true)
     const diff = translationChangedAt.diff(sourceChangedAt)
 
@@ -71,15 +55,34 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
     return <></>
   }
 
-  const metadata: Metadata = metadatas[documentPath]
+  const [maybeLanguage, ...restPath] = documentPath.split("/")
+  const supportedLanguages = ['fr', 'ja'] //@TODO move to config
+  const isTranslatedLanguage = supportedLanguages.includes(maybeLanguage)
 
-  // do not display metadata if not found in metadatas.json
+  const path = isTranslatedLanguage ? restPath.join("/") : documentPath
+
+  // do not display if document path is not found in docs-metadata.json
+  if (docsMetadataJson[path] === undefined) {
+    return <></>
+  }
+
+  const documentMetadata = docsMetadataJson[path]
+  const sourceMetadata = documentMetadata["source"]
+
+  // do not display if metadata for source language is not found in docs-metadata.json
+  if (sourceMetadata === undefined) {
+    return <></>
+  }
+
+  const metadata: Metadata = isTranslatedLanguage ? documentMetadata[maybeLanguage] : sourceMetadata
+
+  // do not display if metadata for translated language is not found in docs-metadata.json
   if (metadata === undefined) {
     return <></>
   }
 
   const { lastUpdatedAt, relativeTimeSince, commitHash } = metadata
-  const link = `https://github.com/input-output-hk/hydra-poc/commit/${metadata.commitHash}`
+  const link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`
 
   return <div className={styles.block}>
     {
@@ -92,7 +95,8 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
       Display.renderCommitHash(commitHash, link)
     }
     {
-      Display.renderLastTranslatedAt(documentPath, lastUpdatedAt)
+      isTranslatedLanguage &&
+      Display.renderLastTranslatedAt(sourceMetadata, lastUpdatedAt)
     }
   </div >
 }
