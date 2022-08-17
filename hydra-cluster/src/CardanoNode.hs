@@ -27,7 +27,7 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Util (readConfigFile)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import System.Exit (ExitCode (..))
-import System.FilePath ((</>))
+import System.FilePath (takeDirectory, (</>))
 import System.Posix (ownerReadMode, setFileMode)
 import System.Process (
   CreateProcess (..),
@@ -210,19 +210,18 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
     let magic = shelleyGenesis ^?! key "networkMagic" . _Number
     pure $ Api.Testnet (Api.NetworkMagic $ truncate magic)
 
-  copyKnownNetworkFiles = do
-    createDirectoryIfMissing True $ workDir </> "cardano-node"
-    readConfigFile (knownNetworkPath </> "cardano-node" </> "config.json")
-      >>= writeFileBS (workDir </> "cardano-node" </> "config.json")
-    readConfigFile (knownNetworkPath </> "cardano-node" </> "topology.json")
-      >>= writeFileBS (workDir </> "cardano-node" </> "topology.json")
-    createDirectoryIfMissing True $ workDir </> "genesis"
-    readConfigFile (knownNetworkPath </> "genesis" </> "byron.json")
-      >>= writeFileBS (workDir </> "genesis" </> "byron.json")
-    readConfigFile (knownNetworkPath </> "genesis" </> "shelley.json")
-      >>= writeFileBS (workDir </> "genesis" </> "shelley.json")
-    readConfigFile (knownNetworkPath </> "genesis" </> "alonzo.json")
-      >>= writeFileBS (workDir </> "genesis" </> "alonzo.json")
+  copyKnownNetworkFiles =
+    forM_
+      [ "cardano-node" </> "config.json"
+      , "cardano-node" </> "topology.json"
+      , "genesis" </> "byron.json"
+      , "genesis" </> "shelley.json"
+      , "genesis" </> "alonzo.json"
+      ]
+      $ \fn -> unlessM (doesFileExist $ workDir </> fn) $ do
+        createDirectoryIfMissing True $ workDir </> takeDirectory fn
+        readConfigFile (knownNetworkPath </> fn)
+          >>= writeFileBS (workDir </> fn)
 
   -- Folder name in config/cardano-configurations/network
   knownNetworkName = case knownNetwork of
