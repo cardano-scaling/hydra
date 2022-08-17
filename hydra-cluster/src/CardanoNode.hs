@@ -23,7 +23,6 @@ import qualified Hydra.Cardano.Api as Api
 import Hydra.Cluster.Fixture (
   KnownNetwork (Preproduction, Preview, Testnet, VasilDevnet),
   defaultNetworkId,
-  knownNetworkId,
  )
 import Hydra.Cluster.Util (readConfigFile)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
@@ -189,7 +188,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   networkId <- readNetworkId
   copyKnownNetworkFiles
   withCardanoNode tracer networkId workDir args $ \node -> do
-    waitForFullySynchronized tracer knownNetwork node
+    waitForFullySynchronized tracer node
     traceWith tracer MsgNodeIsReady
     action node
  where
@@ -239,15 +238,12 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
 -- while!
 waitForFullySynchronized ::
   Tracer IO NodeLog ->
-  KnownNetwork ->
   RunningNode ->
   IO ()
-waitForFullySynchronized tracer knownNetwork RunningNode{nodeSocket} = do
+waitForFullySynchronized tracer RunningNode{nodeSocket, networkId} = do
   systemStart <- querySystemStart networkId nodeSocket QueryTip
   check systemStart
  where
-  networkId = knownNetworkId knownNetwork
-
   check systemStart = do
     targetTime <- toRelativeTime systemStart <$> getCurrentTime
     eraHistory <- queryEraHistory networkId nodeSocket QueryTip
