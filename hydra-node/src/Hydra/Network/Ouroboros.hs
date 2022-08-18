@@ -1,7 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
 
-import Hydra.Prelude
-
 -- | Ouroboros-based implementation of 'Hydra.Network' interface.
 -- This implements a dumb 'FireForget' protocol and maintains one connection to each peer.
 -- Contrary to other protocols implemented in Ouroboros, this is a push-based protocol.
@@ -11,6 +9,8 @@ module Hydra.Network.Ouroboros (
   TraceOuroborosNetwork,
   module Hydra.Network,
 ) where
+
+import Hydra.Prelude
 
 import Codec.CBOR.Term (Term)
 import qualified Codec.CBOR.Term as CBOR
