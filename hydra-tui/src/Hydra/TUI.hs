@@ -12,7 +12,7 @@ import Brick
 import Hydra.Cardano.Api
 
 import Brick.BChan (newBChan, writeBChan)
-import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, focusedFormInputAttr, formState, handleFormEvent, invalidFields, invalidFormInputAttr, newForm, radioField, renderForm)
+import Brick.Forms (Form, FormFieldState, checkboxField, editField, editShowableFieldWithValidate, focusedFormInputAttr, formState, handleFormEvent, invalidFields, invalidFormInputAttr, newForm, radioField, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import qualified Cardano.Api.UTxO as UTxO
@@ -43,7 +43,7 @@ import Hydra.ClientInput (ClientInput (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
-import Hydra.Network (Host (..))
+import Hydra.Network (Host (..), PortNumber (..))
 import Hydra.Party (Party (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
@@ -51,6 +51,7 @@ import Hydra.TUI.Options (Options (..))
 import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
+import Prelude (read)
 import qualified Prelude
 
 -- TODO(SN): hardcoded contestation period used by the tui
@@ -200,6 +201,8 @@ handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
                   continue s
             | c `elem` ['n', 'N'] ->
               handleNewTxEvent client cardanoClient s
+            | c `elem` ['m', 'M'] ->
+              handleModifyPeersEvent client s
             | otherwise ->
               continue s
       _ -> continue s
@@ -335,6 +338,25 @@ handleDialogEvent (title, form, submit) s = \case
   e -> do
     form' <- handleFormEvent (VtyEvent e) form
     continue $ s & dialogStateL .~ Dialog title form' submit
+
+handleModifyPeersEvent ::
+  Client Tx IO ->
+  State ->
+  EventM n (Next State)
+handleModifyPeersEvent Client{sendInput} s =
+  continue $ s & dialogStateL .~ modifyPeersDialog
+ where
+  modifyPeersDialog = Dialog title form submit
+  title = "Modify peers"
+  form = newForm peersTextBoxField s
+  submit s' s'' =
+    case s' of
+      Disconnected{} ->
+        continue $ s' & dialogStateL .~ NoDialog
+      Connected{peers} -> do
+        liftIO (sendInput $ ModifyPeers (s'' ^. peersL))
+        liftIO (putStrLn "PEPE")
+        continue $ s'' & dialogStateL .~ NoDialog
 
 handleCommitEvent ::
   Client Tx IO ->
@@ -499,6 +521,7 @@ draw Client{sk} CardanoClient{networkId} s =
             withCommands
               [drawHeadState]
               [ "[I]nit"
+              , "[M]odify peers"
               , "[Q]uit"
               ]
           Just Initializing{remainingParties, utxo} ->
@@ -639,6 +662,42 @@ instance Ord AddressInEra where
 --
 -- Forms additional widgets
 --
+
+peersTextBoxField ::
+  forall e n.
+  n ~ Name =>
+  [State -> FormFieldState State e n]
+peersTextBoxField =
+  [ editField
+      peersLens -- Lens' s a
+      fieldName -- n
+      Nothing -- Maybe Int
+      serializer -- (a -> Text)
+      validation -- ([Text] -> Maybe a)
+      rendering -- ([Text] -> Widget n)
+      augmentation -- (Widget n -> Widget n) s
+  ]
+ where
+  peersLens :: Lens' State [Host]
+  peersLens = lens (^. peersL) (\s h -> s & peersL .~ h)
+  fieldName :: Name
+  fieldName = "editField@"
+  serializer :: [Host] -> Text
+  serializer peers =
+    let serialiseHost (Host hostname port) = hostname <> ":" <> show port
+     in Text.intercalate "," $ serialiseHost <$> peers
+  validation :: [Text] -> Maybe [Host]
+  validation texts =
+    let hosts = parseText <$> texts
+     in Just hosts
+   where
+    parseText text =
+      let (hostname : port : _) = Text.split (== ':') text
+       in Host hostname (read (Text.unpack port) :: PortNumber)
+  rendering :: [Text] -> Widget Name
+  rendering = txt . Text.unlines
+  augmentation :: Widget Name -> Widget Name
+  augmentation = id
 
 -- A helper for creating multiple form fields from a UTXO set.
 utxoCheckboxField ::
