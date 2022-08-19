@@ -12,7 +12,7 @@ import Brick
 import Hydra.Cardano.Api
 
 import Brick.BChan (newBChan, writeBChan)
-import Brick.Forms (Form, FormFieldState, checkboxField, editField, editShowableFieldWithValidate, focusedFormInputAttr, formState, handleFormEvent, invalidFields, invalidFormInputAttr, newForm, radioField, renderForm)
+import Brick.Forms (Form, FormFieldState, checkboxField, editField, editShowableFieldWithValidate, editTextField, focusedFormInputAttr, formState, handleFormEvent, invalidFields, invalidFormInputAttr, newForm, radioField, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import qualified Cardano.Api.UTxO as UTxO
@@ -345,14 +345,14 @@ addPeerDialog client@Client{sendInput} s =
   Dialog title form submit
  where
   title = "Add new peer"
-  form = newForm addPeersTextBoxField []
   hosts = s ^. peersL
+  form = newForm (addPeersTextBoxField hosts) []
   submit s' newPeers =
     case s' of
       Disconnected{} ->
         continue $ s' & dialogStateL .~ NoDialog
       Connected{} -> do
-        liftIO (sendInput $ ModifyPeers (hosts <> newPeers)) -- @TODO remove dupplicate
+        liftIO (sendInput $ ModifyPeers (nub $ hosts <> newPeers))
         continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
 
 removePeerDialog :: Client Tx IO -> State -> DialogState
@@ -716,47 +716,31 @@ peersActionRadioField =
     , (RemovePeer, "removePeer@", "Remove peer")
     ]
 
-addPeersTextBoxField :: forall e n. n ~ Name => [[Host] -> FormFieldState [Host] e n]
-addPeersTextBoxField =
-  [ editField
-      peersLens
-      fieldName
-      (Just 1)
-      serializer
-      validation
-      rendering
-      augmentation
-  ]
- where
-  peersLens :: Lens' [Host] [Host]
-  peersLens =
-    lens (const []) (\_ new -> new)
-  fieldName = "editField@" <> "peers"
-  parseHostText hostText =
-    case Text.split (== ':') hostText of
-      [hostname, port] ->
-        Host hostname <$> readMaybe (Text.unpack port)
-      _ -> Nothing
-  serializer peers =
-    fromMaybe "" (safeLast $ serializeHost <$> peers)
-  validation :: [Text] -> Maybe [Host]
-  validation [] = Nothing
-  validation input =
-    let maybeHost = (safeHead . reverse $ input)
-     in fmap (: []) (maybeHost >>= parseHostText)
-  rendering = txt . Text.unlines
-  augmentation = id
-
-safeLast :: [a] -> Maybe a
-safeLast [] = Nothing
-safeLast xs = safeHead . reverse $ xs
-
-safeHead :: [a] -> Maybe a
-safeHead [] = Nothing
-safeHead (x : _) = Just x
-
 serializeHost :: Host -> Text
 serializeHost (Host hostname port) = hostname <> ":" <> show port
+
+addPeersTextBoxField :: forall e n. n ~ Name => [Host] -> [[Host] -> FormFieldState [Host] e n]
+addPeersTextBoxField current =
+  [ editTextField
+      peersLens
+      ("editField@" <> "peers")
+      (Just 1)
+  ]
+ where
+  peersLens :: Lens' [Host] Text
+  peersLens =
+    lens (const "") setter
+   where
+    setter :: [Host] -> Text -> [Host]
+    setter _ input =
+      case parseHostText input of
+        Nothing -> []
+        Just h -> current <> [h]
+    parseHostText hostText =
+      case Text.split (== ':') hostText of
+        [hostname, port] ->
+          Host hostname <$> readMaybe (Text.unpack port)
+        _ -> Nothing
 
 removePeersCheckBoxField :: forall e n. n ~ Name => [Host] -> [[Host] -> FormFieldState [Host] e n]
 removePeersCheckBoxField hosts =
