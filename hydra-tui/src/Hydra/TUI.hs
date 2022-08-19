@@ -687,12 +687,15 @@ peersTextBoxField =
      in Text.intercalate "," $ serialiseHost <$> peers
   validation :: [Text] -> Maybe [Host]
   validation texts =
-    let hosts = parseText <$> texts
-     in Just hosts
+    sequence $ parseText <$> texts
    where
     parseText text =
-      let (hostname : port : _) = Text.split (== ':') text
-       in Host hostname (read (Text.unpack port) :: PortNumber)
+      let splitted = Text.split (== ':') text
+       in case splitted of
+            [hostname, port] ->
+              Just $ Host hostname (read (Text.unpack port) :: PortNumber)
+            _ ->
+              Nothing
   rendering :: [Text] -> Widget Name
   rendering = txt . Text.unlines
   augmentation :: Widget Name -> Widget Name
