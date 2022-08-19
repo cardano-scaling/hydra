@@ -236,7 +236,7 @@ handleAppEvent s = \case
     s & meL ?~ me
   Update (PeersModified peers) ->
     s & info ("Modified the list of peers in the network with: " <> show peers)
-  -- & peersL .~ peers -- TODO(SN): maybe this is the right way to do it
+      & peersL .~ peers -- TODO(SN): maybe this is the right way to do it
   Update (PeerConnected p) ->
     s & peersL %~ \cp -> nub $ cp <> [p]
   Update (PeerDisconnected p) ->
@@ -345,53 +345,30 @@ addPeerDialog client@Client{sendInput} s =
   Dialog title form submit
  where
   title = "Add new peer"
-  form = newForm addPeersTextBoxField s
-  submit s' s'' =
+  form = newForm addPeersTextBoxField []
+  hosts = s ^. peersL
+  submit s' newPeers =
     case s' of
       Disconnected{} ->
         continue $ s' & dialogStateL .~ NoDialog
       Connected{} -> do
-        let oldPeers = s' ^. peersL
-            newPeers = s'' ^. peersL
-        liftIO (sendInput $ ModifyPeers newPeers)
-        liftIO
-          ( putStrLn $
-              "adding peers:"
-                <> "[from]{"
-                <> show oldPeers
-                <> "}[to]{"
-                <> show newPeers
-                <> "}"
-          )
-        liftIO (threadDelay 5)
-        continue $ s'' & dialogStateL .~ modifyPeersBuilderDialog client
+        liftIO (sendInput $ ModifyPeers (hosts <> newPeers)) -- @TODO remove dupplicate
+        continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
 
 removePeerDialog :: Client Tx IO -> State -> DialogState
 removePeerDialog client@Client{sendInput} s =
   Dialog title form submit
  where
   title = "Remove a peer from list"
+  form = newForm (removePeersCheckBoxField hosts) hosts
   hosts = s ^. peersL
-  form = newForm (removePeersCheckBoxField hosts) s
-  submit s' s'' =
+  submit s' removed =
     case s' of
       Disconnected{} ->
         continue $ s' & dialogStateL .~ NoDialog
       Connected{} -> do
-        let oldPeers = s' ^. peersL
-            newPeers = s'' ^. peersL
-        liftIO (sendInput $ ModifyPeers newPeers)
-        liftIO
-          ( putStrLn $
-              "removing peers:"
-                <> "[from]{"
-                <> show oldPeers
-                <> "}[to]{"
-                <> show newPeers
-                <> "}"
-          )
-        liftIO (threadDelay 5)
-        continue $ s'' & dialogStateL .~ modifyPeersBuilderDialog client
+        liftIO (sendInput $ ModifyPeers (hosts \\ removed))
+        continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
 
 modifyPeersBuilderDialog :: Client Tx IO -> DialogState
 modifyPeersBuilderDialog client = Dialog title form submit
@@ -739,7 +716,7 @@ peersActionRadioField =
     , (RemovePeer, "removePeer@", "Remove peer")
     ]
 
-addPeersTextBoxField :: forall e n. n ~ Name => [State -> FormFieldState State e n]
+addPeersTextBoxField :: forall e n. n ~ Name => [[Host] -> FormFieldState [Host] e n]
 addPeersTextBoxField =
   [ editField
       peersLens
@@ -751,15 +728,9 @@ addPeersTextBoxField =
       augmentation
   ]
  where
-  peersLens :: Lens' State [Host]
+  peersLens :: Lens' [Host] [Host]
   peersLens =
-    lens
-      (const [])
-      ( \s hs ->
-          let current = s ^. peersL
-              newHosts = Set.toList . Set.fromList $ hs <> current
-           in s & peersL .~ newHosts
-      )
+    lens (const []) (\_ new -> new)
   fieldName = "editField@" <> "peers"
   parseHostText hostText =
     case Text.split (== ':') hostText of
@@ -787,27 +758,21 @@ safeHead (x : _) = Just x
 serializeHost :: Host -> Text
 serializeHost (Host hostname port) = hostname <> ":" <> show port
 
-removePeersCheckBoxField :: forall e n. n ~ Name => [Host] -> [State -> FormFieldState State e n]
+removePeersCheckBoxField :: forall e n. n ~ Name => [Host] -> [[Host] -> FormFieldState [Host] e n]
 removePeersCheckBoxField hosts =
   [ checkboxField
     (checkboxLens h)
-    (name h)
+    ("checkboxField@" <> show h)
     (serializeHost h)
   | h <- hosts
   ]
  where
-  checkboxLens :: Host -> Lens' State Bool
+  checkboxLens :: Host -> Lens' [Host] Bool
   checkboxLens h =
-    lens
-      ( \s ->
-          let hs = s ^. peersL
-           in if h `elem` hs then True else False
-      )
-      ( \s b ->
-          let hs = s ^. peersL
-           in if b then s & peersL .~ hs \\ [h] else s
-      )
-  name h = "checkboxField@" <> show h
+    lens getter setter
+   where
+    getter hs = h `elem` hs
+    setter hs b = if b then hs \\ [h] else hs
 
 -- A helper for creating multiple form fields from a UTXO set.
 utxoCheckboxField ::
