@@ -12,13 +12,12 @@ import Brick
 import Hydra.Cardano.Api
 
 import Brick.BChan (newBChan, writeBChan)
-import Brick.Forms (Form, FormFieldState, checkboxField, editField, editShowableFieldWithValidate, editTextField, focusedFormInputAttr, formState, handleFormEvent, invalidFields, invalidFormInputAttr, newForm, radioField, renderForm)
+import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, editTextField, focusedFormInputAttr, formState, handleFormEvent, invalidFields, invalidFormInputAttr, newForm, radioField, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import qualified Cardano.Api.UTxO as UTxO
 import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
 import qualified Data.Text as Text
 import Data.Time (defaultTimeLocale, formatTime)
 import Data.Time.Format (FormatTime)
@@ -340,57 +339,6 @@ handleDialogEvent (title, form, submit) s = \case
     form' <- handleFormEvent (VtyEvent e) form
     continue $ s & dialogStateL .~ Dialog title form' submit
 
-addPeerDialog :: Client Tx IO -> State -> DialogState
-addPeerDialog client@Client{sendInput} s =
-  Dialog title form submit
- where
-  title = "Add new peer"
-  hosts = s ^. peersL
-  form = newForm (addPeersTextBoxField hosts) []
-  submit s' newPeers =
-    case s' of
-      Disconnected{} ->
-        continue $ s' & dialogStateL .~ NoDialog
-      Connected{} -> do
-        liftIO (sendInput $ ModifyPeers (nub $ hosts <> newPeers))
-        continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
-
-removePeerDialog :: Client Tx IO -> State -> DialogState
-removePeerDialog client@Client{sendInput} s =
-  Dialog title form submit
- where
-  title = "Remove a peer from list"
-  form = newForm (removePeersCheckBoxField hosts) hosts
-  hosts = s ^. peersL
-  submit s' removed =
-    case s' of
-      Disconnected{} ->
-        continue $ s' & dialogStateL .~ NoDialog
-      Connected{} -> do
-        liftIO (sendInput $ ModifyPeers (hosts \\ removed))
-        continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
-
-modifyPeersBuilderDialog :: Client Tx IO -> DialogState
-modifyPeersBuilderDialog client = Dialog title form submit
- where
-  title = "Select Action"
-  form = newForm [peersActionRadioField] NoAction
-  submit s' peerAction =
-    case peerAction of
-      AddPeer -> do
-        continue $ s' & dialogStateL .~ addPeerDialog client s'
-      RemovePeer -> do
-        continue $ s' & dialogStateL .~ removePeerDialog client s'
-      NoAction -> do
-        continue $ s' & dialogStateL .~ NoDialog
-
-handleModifyPeersEvent ::
-  Client Tx IO ->
-  State ->
-  EventM n (Next State)
-handleModifyPeersEvent client s =
-  continue $ s & dialogStateL .~ modifyPeersBuilderDialog client
-
 handleCommitEvent ::
   Client Tx IO ->
   CardanoClient ->
@@ -486,6 +434,57 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
         Right tx -> do
           liftIO (sendInput (NewTx tx))
           continue $ s' & dialogStateL .~ NoDialog
+
+addPeerDialog :: Client Tx IO -> State -> DialogState
+addPeerDialog client@Client{sendInput} s =
+  Dialog title form submit
+ where
+  title = "Add new peer"
+  hosts = s ^. peersL
+  form = newForm (addPeersTextBoxField hosts) []
+  submit s' newPeers =
+    case s' of
+      Disconnected{} ->
+        continue $ s' & dialogStateL .~ NoDialog
+      Connected{} -> do
+        liftIO (sendInput $ ModifyPeers (nub $ hosts <> newPeers))
+        continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
+
+removePeerDialog :: Client Tx IO -> State -> DialogState
+removePeerDialog client@Client{sendInput} s =
+  Dialog title form submit
+ where
+  title = "Remove a peer from list"
+  form = newForm (removePeersCheckBoxField hosts) hosts
+  hosts = s ^. peersL
+  submit s' unselecteds =
+    case s' of
+      Disconnected{} ->
+        continue $ s' & dialogStateL .~ NoDialog
+      Connected{} -> do
+        liftIO (sendInput $ ModifyPeers unselecteds)
+        continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
+
+modifyPeersBuilderDialog :: Client Tx IO -> DialogState
+modifyPeersBuilderDialog client = Dialog title form submit
+ where
+  title = "Select Action"
+  form = newForm [peersActionRadioField] NoAction
+  submit s' peerAction =
+    case peerAction of
+      AddPeer -> do
+        continue $ s' & dialogStateL .~ addPeerDialog client s'
+      RemovePeer -> do
+        continue $ s' & dialogStateL .~ removePeerDialog client s'
+      NoAction -> do
+        continue $ s' & dialogStateL .~ NoDialog
+
+handleModifyPeersEvent ::
+  Client Tx IO ->
+  State ->
+  EventM n (Next State)
+handleModifyPeersEvent client s =
+  continue $ s & dialogStateL .~ modifyPeersBuilderDialog client
 
 --
 -- View
@@ -702,14 +701,14 @@ data PeersAction
   deriving (Eq, Show)
 
 peersActionRadioField ::
-  forall e n.
-  n ~ Name =>
-  PeersAction ->
-  FormFieldState PeersAction e n
+  forall s e n.
+  (n ~ Name, s ~ PeersAction) =>
+  s ->
+  FormFieldState s e n
 peersActionRadioField =
   radioField peersActionLens options
  where
-  peersActionLens :: Lens' PeersAction PeersAction
+  peersActionLens :: Lens' s s
   peersActionLens = lens id (\_ a -> a)
   options =
     [ (AddPeer, "addPeer@", "Add peer")
@@ -719,7 +718,8 @@ peersActionRadioField =
 serializeHost :: Host -> Text
 serializeHost (Host hostname port) = hostname <> ":" <> show port
 
-addPeersTextBoxField :: forall e n. n ~ Name => [Host] -> [[Host] -> FormFieldState [Host] e n]
+addPeersTextBoxField ::
+  forall s e n. (n ~ Name, s ~ [Host]) => s -> [s -> FormFieldState s e n]
 addPeersTextBoxField current =
   [ editTextField
       peersLens
@@ -727,11 +727,11 @@ addPeersTextBoxField current =
       (Just 1)
   ]
  where
-  peersLens :: Lens' [Host] Text
+  peersLens :: Lens' s Text
   peersLens =
     lens (const "") setter
    where
-    setter :: [Host] -> Text -> [Host]
+    setter :: s -> Text -> s
     setter _ input =
       case parseHostText input of
         Nothing -> []
@@ -742,7 +742,8 @@ addPeersTextBoxField current =
           Host hostname <$> readMaybe (Text.unpack port)
         _ -> Nothing
 
-removePeersCheckBoxField :: forall e n. n ~ Name => [Host] -> [[Host] -> FormFieldState [Host] e n]
+removePeersCheckBoxField ::
+  forall s e n. (n ~ Name, s ~ [Host]) => s -> [s -> FormFieldState s e n]
 removePeersCheckBoxField hosts =
   [ checkboxField
     (checkboxLens h)
@@ -751,12 +752,14 @@ removePeersCheckBoxField hosts =
   | h <- hosts
   ]
  where
-  checkboxLens :: Host -> Lens' [Host] Bool
+  checkboxLens :: Host -> Lens' s Bool
   checkboxLens h =
     lens getter setter
    where
-    getter hs = h `elem` hs
-    setter hs b = if b then hs \\ [h] else hs
+    getter _ = False
+    -- if element is selected, remove from unselected
+    -- otherwise set return only selected values
+    setter unselected b = if b then unselected \\ [h] else hosts \\ unselected
 
 -- A helper for creating multiple form fields from a UTXO set.
 utxoCheckboxField ::
