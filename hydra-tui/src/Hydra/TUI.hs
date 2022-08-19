@@ -353,7 +353,7 @@ handleModifyPeersEvent Client{sendInput} s =
     case s' of
       Disconnected{} ->
         continue $ s' & dialogStateL .~ NoDialog
-      Connected{peers} -> do
+      Connected{} -> do
         liftIO (sendInput $ ModifyPeers (s'' ^. peersL))
         continue $ s'' & dialogStateL .~ NoDialog
 
@@ -681,21 +681,16 @@ peersTextBoxField =
   peersLens = lens (^. peersL) (\s h -> s & peersL .~ h)
   fieldName :: Name
   fieldName = "editField@"
+  serializeHost :: Host -> Text
+  serializeHost (Host hostname port) = hostname <> ":" <> show port
   serializer :: [Host] -> Text
-  serializer peers =
-    let serialiseHost (Host hostname port) = hostname <> ":" <> show port
-     in Text.intercalate "," $ serialiseHost <$> peers
+  serializer peers = Text.intercalate "," $ serializeHost <$> peers
+  parseText :: Text -> Maybe Host
+  parseText t =
+    let (hostname, port) = Text.breakOn ":" t
+     in Host hostname <$> readMaybe (Text.unpack port)
   validation :: [Text] -> Maybe [Host]
-  validation texts =
-    sequence $ parseText <$> texts
-   where
-    parseText text =
-      let splitted = Text.split (== ':') text
-       in case splitted of
-            [hostname, port] ->
-              Just $ Host hostname (read (Text.unpack port) :: PortNumber)
-            _ ->
-              Nothing
+  validation = sequence . fmap parseText
   rendering :: [Text] -> Widget Name
   rendering = txt . Text.unlines
   augmentation :: Widget Name -> Widget Name
