@@ -1,13 +1,15 @@
 {-# LANGUAGE TypeApplications #-}
 
--- | Simplified interface to phase-2 validation of transaction, eg. evaluation of Plutus scripts.
+-- | Simplified interface to phase-2 validation of transactions, eg. evaluation
+-- of Plutus scripts.
 --
--- The `evaluateTx` function simplifies the call to underlying Plutus providing execution report
--- using pre-canned `PParams`. This should only be used for /testing/ or /benchmarking/ purpose
--- as the real evaluation parameters are set when the Hydra node starts.
+-- The `evaluateTx` function simplifies the call to ledger and plutus providing
+-- an 'EvaluationReport' using pre-canned `ProtocolParameters`. This should only
+-- be used for /testing/ or /benchmarking/ purpose as the real evaluation
+-- parameters are set when the Hydra node starts.
 --
--- __NOTE__: The reason this module is here instead of part of `test/` directory is to be used
--- in @tx-cost@ executable.
+-- __NOTE__: The reason this module is here instead of part of `test/` directory
+-- is to be used in @tx-cost@ executable.
 module Hydra.Ledger.Cardano.Evaluate where
 
 import Hydra.Prelude hiding (label)
@@ -15,9 +17,7 @@ import Hydra.Prelude hiding (label)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (..), Prices (..))
-import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure (MissingScript))
 import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import Cardano.Ledger.Babbage.PParams (PParams' (..))
 import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
@@ -38,7 +38,7 @@ import Hydra.Cardano.Api (
   ExecutionUnits (..),
   IsShelleyBasedEra (shelleyBasedEra),
   ProtocolParameters (protocolParamMaxTxExUnits, protocolParamMaxTxSize),
-  ScriptExecutionError,
+  ScriptExecutionError (ScriptErrorMissingScript),
   ScriptWitnessIndex,
   StandardCrypto,
   TransactionValidityError,
@@ -63,20 +63,6 @@ import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import Test.QuickCheck (choose)
-
-type RedeemerReport =
-  (Map RdmrPtr (Either (TransactionScriptFailure StandardCrypto) ExUnits))
-
-renderRedeemerReportFailures :: RedeemerReport -> Text
-renderRedeemerReportFailures reportMap =
-  unlines $ renderTransactionScriptFailure <$> failures
- where
-  failures = lefts $ foldMap (: []) reportMap
-
-renderTransactionScriptFailure :: TransactionScriptFailure c -> Text
-renderTransactionScriptFailure = \case
-  MissingScript missingRdmrPtr _ -> "Missing script of redeemer pointer " <> show missingRdmrPtr
-  f -> show f
 
 -- | Thin wrapper around 'evaluateTransactionExecutionUnits', which uses
 -- fixtures for system start, era history and protocol parameters. See
@@ -112,6 +98,22 @@ evaluateTx' maxUnits tx utxo =
   txBody = getTxBody tx
 
   pparams' = pparams{protocolParamMaxTxExUnits = Just maxUnits}
+
+type EvaluationReport =
+  (Map ScriptWitnessIndex (Either ScriptExecutionError ExecutionUnits))
+
+renderEvaluationReportFailures :: EvaluationReport -> Text
+renderEvaluationReportFailures reportMap =
+  unlines $ renderScriptExecutionError <$> failures
+ where
+  failures = lefts $ foldMap (: []) reportMap
+
+renderScriptExecutionError :: ScriptExecutionError -> Text
+renderScriptExecutionError = \case
+  ScriptErrorMissingScript missingRdmrPtr _ ->
+    "Missing script of redeemer pointer " <> show missingRdmrPtr
+  f ->
+    show f
 
 -- * Fixtures
 
