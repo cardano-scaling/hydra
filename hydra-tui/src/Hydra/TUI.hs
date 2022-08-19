@@ -439,45 +439,35 @@ addPeerDialog :: Client Tx IO -> State -> DialogState
 addPeerDialog client@Client{sendInput} s =
   Dialog title form submit
  where
-  title = "Add new peer"
   hosts = s ^. peersL
-  form = newForm (addPeersTextBoxField hosts) []
-  submit s' newPeers =
-    case s' of
-      Disconnected{} ->
-        continue $ s' & dialogStateL .~ NoDialog
-      Connected{} -> do
-        liftIO (sendInput $ ModifyPeers (nub $ hosts <> newPeers))
-        continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
+  title = "Add new peer"
+  form = newForm addPeersTextBoxField Nothing
+  submit s' maybeHost = do
+    liftIO (sendInput $ ModifyPeers (nub $ hosts <> maybeToList maybeHost))
+    continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
 
 removePeerDialog :: Client Tx IO -> State -> DialogState
 removePeerDialog client@Client{sendInput} s =
   Dialog title form submit
  where
-  title = "Remove a peer from list"
-  form = newForm (removePeersCheckBoxField hosts) hosts
   hosts = s ^. peersL
-  submit s' unselecteds =
-    case s' of
-      Disconnected{} ->
-        continue $ s' & dialogStateL .~ NoDialog
-      Connected{} -> do
-        liftIO (sendInput $ ModifyPeers unselecteds)
-        continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
+  title = "Remove peers from list"
+  form = newForm (removePeersCheckBoxField hosts) hosts
+  submit s' unselecteds = do
+    liftIO (sendInput $ ModifyPeers unselecteds)
+    continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
 
 modifyPeersBuilderDialog :: Client Tx IO -> DialogState
 modifyPeersBuilderDialog client = Dialog title form submit
  where
   title = "Select Action"
-  form = newForm [peersActionRadioField] NoAction
+  form = newForm [peersActionRadioField] AddPeer
   submit s' peerAction =
     case peerAction of
       AddPeer -> do
         continue $ s' & dialogStateL .~ addPeerDialog client s'
       RemovePeer -> do
         continue $ s' & dialogStateL .~ removePeerDialog client s'
-      NoAction -> do
-        continue $ s' & dialogStateL .~ NoDialog
 
 handleModifyPeersEvent ::
   Client Tx IO ->
@@ -695,8 +685,7 @@ instance Ord AddressInEra where
 -- Forms additional widgets
 --
 data PeersAction
-  = NoAction
-  | AddPeer
+  = AddPeer
   | RemovePeer
   deriving (Eq, Show)
 
@@ -719,8 +708,8 @@ serializeHost :: Host -> Text
 serializeHost (Host hostname port) = hostname <> ":" <> show port
 
 addPeersTextBoxField ::
-  forall s e n. (n ~ Name, s ~ [Host]) => s -> [s -> FormFieldState s e n]
-addPeersTextBoxField current =
+  forall s e n. (n ~ Name, s ~ Maybe Host) => [s -> FormFieldState s e n]
+addPeersTextBoxField =
   [ editTextField
       peersLens
       ("editField@" <> "peers")
@@ -732,10 +721,7 @@ addPeersTextBoxField current =
     lens (const "") setter
    where
     setter :: s -> Text -> s
-    setter _ input =
-      case parseHostText input of
-        Nothing -> []
-        Just h -> current <> [h]
+    setter _ input = parseHostText input
     parseHostText hostText =
       case Text.split (== ':') hostText of
         [hostname, port] ->
