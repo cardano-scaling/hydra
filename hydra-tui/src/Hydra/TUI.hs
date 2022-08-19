@@ -663,7 +663,7 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawPeers = case s of
     Disconnected{} -> emptyWidget
-    Connected{peers} -> vBox $! str "Connected peers:" : map drawShow peers
+    Connected{peers} -> vBox $ str "Connected peers:" : map drawShow peers
 
   drawHex :: SerialiseAsRawBytes a => a -> Widget n
   drawHex = txt . (" - " <>) . serialiseToRawBytesHexText
