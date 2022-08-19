@@ -235,7 +235,7 @@ handleAppEvent s = \case
     s & meL ?~ me
   Update (PeersModified peers) ->
     s & info ("Modified the list of peers in the network with: " <> show peers)
-      & peersL .~ peers -- TODO(SN): maybe this is the right way to do it
+      & peersL .~ peers
   Update (PeerConnected p) ->
     s & peersL %~ \cp -> nub $ cp <> [p]
   Update (PeerDisconnected p) ->
@@ -663,7 +663,7 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawPeers = case s of
     Disconnected{} -> emptyWidget
-    Connected{peers} -> vBox $! str "Connected peers:" : map drawShow peers
+    Connected{peers} -> vBox $ str "Connected peers:" : map drawShow peers
 
   drawHex :: SerialiseAsRawBytes a => a -> Widget n
   drawHex = txt . (" - " <>) . serialiseToRawBytesHexText
