@@ -355,7 +355,6 @@ handleModifyPeersEvent Client{sendInput} s =
         continue $ s' & dialogStateL .~ NoDialog
       Connected{peers} -> do
         liftIO (sendInput $ ModifyPeers (s'' ^. peersL))
-        liftIO (putStrLn "PEPE")
         continue $ s'' & dialogStateL .~ NoDialog
 
 handleCommitEvent ::
