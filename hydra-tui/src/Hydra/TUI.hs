@@ -679,21 +679,14 @@ peersTextBoxField =
  where
   peersLens :: Lens' State [Host]
   peersLens = lens (^. peersL) (\s h -> s & peersL .~ h)
-  fieldName :: Name
   fieldName = "editField@"
-  serializeHost :: Host -> Text
   serializeHost (Host hostname port) = hostname <> ":" <> show port
-  serializer :: [Host] -> Text
   serializer peers = Text.intercalate "," $ serializeHost <$> peers
-  parseText :: Text -> Maybe Host
-  parseText t =
-    let (hostname, port) = Text.breakOn ":" t
+  parseHostText hostText =
+    let (hostname, port) = Text.breakOn ":" hostText
      in Host hostname <$> readMaybe (Text.unpack port)
-  validation :: [Text] -> Maybe [Host]
-  validation = sequence . fmap parseText
-  rendering :: [Text] -> Widget Name
+  validation = sequence . fmap parseHostText
   rendering = txt . Text.unlines
-  augmentation :: Widget Name -> Widget Name
   augmentation = id
 
 -- A helper for creating multiple form fields from a UTXO set.
