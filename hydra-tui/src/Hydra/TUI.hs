@@ -668,13 +668,13 @@ peersTextBoxField ::
   [State -> FormFieldState State e n]
 peersTextBoxField =
   [ editField
-      peersLens -- Lens' s a
-      fieldName -- n
-      Nothing -- Maybe Int
-      serializer -- (a -> Text)
-      validation -- ([Text] -> Maybe a)
-      rendering -- ([Text] -> Widget n)
-      augmentation -- (Widget n -> Widget n) s
+      peersLens
+      fieldName
+      Nothing
+      serializer
+      validation
+      rendering
+      augmentation
   ]
  where
   peersLens :: Lens' State [Host]
