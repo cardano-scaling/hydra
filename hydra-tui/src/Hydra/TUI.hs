@@ -68,6 +68,7 @@ data State
       { me :: Maybe Party -- TODO(SN): we could make a nicer type if ClientConnected is only emited of 'Hydra.Client' upon receiving a 'Greeting'
       , nodeHost :: Host
       , peers :: [Host]
+      , peersStatus :: Map Host Bool
       , headState :: HeadState
       , dialogState :: DialogState
       , feedback :: Maybe UserFeedback
@@ -109,6 +110,7 @@ makeLensesFor
   [ ("me", "meL")
   , ("nodeHost", "nodeHostL")
   , ("peers", "peersL")
+  , ("peersStatus", "peersStatusL")
   , ("headState", "headStateL")
   , ("clientState", "clientStateL")
   , ("dialogState", "dialogStateL")
@@ -225,6 +227,7 @@ handleAppEvent s = \case
       { nodeHost = s ^. nodeHostL
       , me = Nothing
       , peers = []
+      , peersStatus = Map.empty
       , headState = Idle
       , dialogState = NoDialog
       , feedback = Nothing
@@ -234,12 +237,21 @@ handleAppEvent s = \case
   Update Greetings{me} ->
     s & meL ?~ me
   Update (PeersModified peers) ->
-    s & info ("Modified the list of peers in the network with: " <> show peers)
-      & peersL .~ peers
+    let peersStatus = s ^. peersStatusL
+        peersStatus' = Map.fromList $ map (,False) peers
+        peersStatus'' = Map.unionWith (const id) peersStatus peersStatus'
+        peersStatus''' = Map.fromList . filter (\(p, _) -> p `elem` peers) $ Map.toList peersStatus''
+     in s & info ("Modified the list of peers in the network with: " <> show peers)
+          & peersL .~ peers
+          & peersStatusL .~ peersStatus'''
   Update (PeerConnected p) ->
-    s & peersL %~ \cp -> nub $ cp <> [p]
+    s & info ("Peer connected: " <> show p)
+      & (peersL %~ \cp -> nub $ cp <> [p])
+      & (peersStatusL %~ Map.insert p True)
   Update (PeerDisconnected p) ->
-    s & peersL %~ \cp -> cp \\ [p]
+    s & info ("Peer disconnected: " <> show p)
+      & (peersL %~ \cp -> cp \\ [p])
+      & (peersStatusL %~ Map.insert p False) -- TODO: remove if no longer connected
   Update CommandFailed{clientInput} -> do
     s & report Error ("Invalid command: " <> show clientInput)
   Update ReadyToCommit{parties} ->
@@ -663,7 +675,11 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawPeers = case s of
     Disconnected{} -> emptyWidget
-    Connected{peers} -> vBox $ str "Connected peers:" : map drawShow peers
+    Connected{} ->
+      vBox $ str "Connected peers:" : map drawShow peerStatusMap
+   where
+      toColor b = if b then "\128994" else "\128308"
+      peerStatusMap = swap . second toColor <$> Map.toList (peersStatus s)
 
   drawHex :: SerialiseAsRawBytes a => a -> Widget n
   drawHex = txt . (" - " <>) . serialiseToRawBytesHexText
