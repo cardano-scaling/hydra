@@ -13,7 +13,7 @@ import Cardano.Ledger.Babbage.TxBody (TxBody (..), outputs', pattern TxOut)
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (Value)
+import Cardano.Ledger.Core (PParams, Value)
 import Cardano.Ledger.Era (fromTxSeq)
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Serialization (mkSized)
@@ -25,13 +25,17 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
+  Era,
   LedgerEra,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
+  ShelleyLedgerEra,
   StandardCrypto,
   VerificationKey,
   fromConsensusPointHF,
   fromLedgerTx,
+  shelleyBasedEra,
+  toLedgerPParams,
   toLedgerTxIn,
   toLedgerUTxO,
   verificationKeyHash,
@@ -113,7 +117,7 @@ setupQuery vk = do
   queryFn mv point _addr = do
     putMVar mv point
     utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
-    pure (utxo, pparams, systemStart, epochInfo)
+    pure (utxo, ledgerPParams, systemStart, epochInfo)
 
   assertQueryPoint mv point =
     takeMVar mv `shouldReturn` point
@@ -123,7 +127,7 @@ mockQueryOneUtxo vk _point addr = do
   let Api.ShelleyAddress _ cred _ = addr
   fromShelleyPaymentCredential cred `shouldBe` PaymentCredentialByKey (verificationKeyHash vk)
   utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
-  pure (utxo, pparams, systemStart, epochInfo)
+  pure (utxo, ledgerPParams, systemStart, epochInfo)
 
 --
 -- Generators
@@ -188,7 +192,7 @@ prop_balanceTransaction =
   forAllBlind (reasonablySized genValidatedTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
       forAllBlind genMarkedUTxO $ \walletUTxO ->
-        case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO tx of
+        case coverFee_ ledgerPParams systemStart epochInfo lookupUTxO walletUTxO tx of
           Left err ->
             property False
               & counterexample ("Error: " <> show err)
@@ -220,7 +224,7 @@ prop_removeUsedInputs =
         prop' txUTxO (txUTxO <> extraUTxO) tx
  where
   prop' txUTxO walletUTxO tx =
-    case coverFee_ pparams systemStart epochInfo mempty walletUTxO tx of
+    case coverFee_ ledgerPParams systemStart epochInfo mempty walletUTxO tx of
       Left err ->
         property False & counterexample ("Error: " <> show err)
       Right (utxo', _) ->
@@ -228,6 +232,9 @@ prop_removeUsedInputs =
           & counterexample ("Remaining UTXO: " <> show utxo')
           & counterexample ("Tx UTxO: " <> show txUTxO)
           & counterexample ("Wallet UTXO: " <> show walletUTxO)
+
+ledgerPParams :: PParams (ShelleyLedgerEra Era)
+ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
 
 --
 -- Generators

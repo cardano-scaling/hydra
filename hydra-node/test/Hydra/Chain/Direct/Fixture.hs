@@ -1,9 +1,12 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.Fixture (
   module Hydra.Chain.Direct.Fixture,
   pparams,
+  systemStart,
+  epochInfo,
 ) where
 
 import Hydra.Prelude
@@ -12,24 +15,24 @@ import Cardano.Crypto.Hash (hashToBytes)
 import Cardano.Ledger.BaseTypes (TxIx (TxIx))
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
-import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
-import Cardano.Slotting.Slot (EpochSize (EpochSize))
-import Cardano.Slotting.Time (SlotLength, SystemStart (SystemStart), mkSlotLength)
 import qualified Cardano.Slotting.Time as Slotting
 import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
+  Era,
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PolicyId,
   SlotNo (..),
   TxIn,
+  shelleyBasedEra,
+  toLedgerPParams,
   verificationKeyHash,
  )
 import Hydra.Chain.Direct.Tx (headPolicyId)
 import Hydra.Crypto (Hash (HydraKeyHash))
-import Hydra.Ledger.Cardano.Evaluate (pparams)
+import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)
 import Hydra.Party (Party (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.Cardano.Ledger.Generic.ModelState (accountStateZero)
@@ -63,25 +66,12 @@ testPolicyId = headPolicyId testSeedInput
 testSeedInput :: TxIn
 testSeedInput = generateWith arbitrary 42
 
--- REVIEW(SN): taken from 'testGlobals'
-epochInfo :: Monad m => EpochInfo m
-epochInfo = fixedEpochInfo epochSize slotLength
-
-systemStart :: SystemStart
-systemStart = SystemStart $ posixSecondsToUTCTime 0
-
-epochSize :: EpochSize
-epochSize = EpochSize 100
-
-slotLength :: SlotLength
-slotLength = mkSlotLength 1
-
 defaultLedgerEnv :: Ledger.LedgerEnv LedgerEra
 defaultLedgerEnv =
   Ledger.LedgerEnv
     { Ledger.ledgerSlotNo = SlotNo 1
     , Ledger.ledgerIx = TxIx 0
-    , Ledger.ledgerPp = pparams
+    , Ledger.ledgerPp = toLedgerPParams (shelleyBasedEra @Era) pparams
     , Ledger.ledgerAccount = accountStateZero
     }
 

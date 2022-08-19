@@ -13,8 +13,7 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import Cardano.Ledger.Babbage.PParams (PParams)
 import Data.List (intersectBy)
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -41,7 +40,7 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
   renderTx,
  )
-import Hydra.Ledger.Cardano.Evaluate (RedeemerReport, evaluateTx, maxTxExecutionUnits)
+import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, evaluateTx, maxTxExecutionUnits)
 import Hydra.Party (Party, partyToChain)
 import Plutus.V2.Ledger.Api (toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -101,7 +100,7 @@ spec =
                         conjoin
                           [ withinTxExecutionBudget redeemerReport
                           , length commitsUTxO + 1 == length (rights $ Map.elems redeemerReport)
-                              & counterexample (prettyRedeemerReport redeemerReport)
+                              & counterexample (prettyEvaluationReport redeemerReport)
                               & counterexample ("Tx: " <> renderTx tx)
                           ]
 
@@ -170,7 +169,7 @@ spec =
                             Left err ->
                               property False & counterexample ("AbortTx construction failed: " <> show err)
                             Right (toLedgerTx -> txAbort) ->
-                              case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO txAbort of
+                              case coverFee_ ledgerPParams systemStart epochInfo lookupUTxO walletUTxO txAbort of
                                 Left err ->
                                   True
                                     & label
@@ -182,7 +181,7 @@ spec =
                                           ErrScriptExecutionFailed{} -> "Script(s) execution failed"
                                       )
                                 Right (_, fromLedgerTx -> txAbortWithFees) ->
-                                  let actualExecutionCost = totalExecutionCost pparams txAbortWithFees
+                                  let actualExecutionCost = totalExecutionCost ledgerPParams txAbortWithFees
                                       fee = txFee' txAbortWithFees
                                    in actualExecutionCost > Lovelace 0 && fee > actualExecutionCost
                                         & label "Ok"
@@ -195,25 +194,32 @@ spec =
                         & counterexample "Failed to construct and observe init tx."
                         & counterexample (renderTx tx)
 
-withinTxExecutionBudget :: RedeemerReport -> Property
-withinTxExecutionBudget redeemers =
-  ( mem <= maxMem
-      && cpu <= maxCpu
+ledgerPParams :: PParams LedgerEra
+ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
+
+withinTxExecutionBudget :: EvaluationReport -> Property
+withinTxExecutionBudget report =
+  ( totalMem <= maxMem
+      && totalCpu <= maxCpu
   )
     & counterexample
       ( "Ex. Cost Limits exceeded, mem: "
-          <> show mem
+          <> show totalMem
           <> "/"
           <> show maxMem
           <> ", cpu: "
-          <> show cpu
+          <> show totalCpu
           <> "/"
           <> show maxCpu
       )
  where
-  ExecutionUnits{executionSteps = cpu, executionMemory = mem} = fromLedgerExUnits $ mconcat $ rights $ Map.elems redeemers
-  maxMem = executionMemory maxTxExecutionUnits
-  maxCpu = executionSteps maxTxExecutionUnits
+  budgets = rights $ Map.elems report
+  totalMem = sum $ executionMemory <$> budgets
+  totalCpu = sum $ executionSteps <$> budgets
+  ExecutionUnits
+    { executionMemory = maxMem
+    , executionSteps = maxCpu
+    } = maxTxExecutionUnits
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
@@ -257,38 +263,14 @@ generateCommitUTxOs parties = do
     commitScript = fromPlutusScript Commit.validatorScript
     commitDatum = mkCommitDatum party Head.validatorHash utxo
 
-prettyRedeemerReport :: RedeemerReport -> String
-prettyRedeemerReport (Map.toList -> xs) =
+prettyEvaluationReport :: EvaluationReport -> String
+prettyEvaluationReport (Map.toList -> xs) =
   "Script Evaluation(s):\n" <> intercalate "\n" (prettyKeyValue <$> xs)
  where
   prettyKeyValue (ptr, result) =
     toString ("  - " <> show ptr <> ": " <> prettyResult result)
   prettyResult =
     either (T.replace "\n" " " . show) show
-
-successfulRedeemersSpending :: RedeemerReport -> [Ledger.RdmrPtr]
-successfulRedeemersSpending =
-  Map.foldrWithKey onlySuccessfulSpending []
- where
-  onlySuccessfulSpending ptr = \case
-    Left{} -> identity
-    Right{} ->
-      case ptr of
-        Ledger.RdmrPtr Ledger.Spend _ -> (ptr :)
-        Ledger.RdmrPtr _ _ -> identity
-
-successfulRedeemersMinting ::
-  RedeemerReport ->
-  [Ledger.RdmrPtr]
-successfulRedeemersMinting =
-  Map.foldrWithKey onlySuccessfulMinting []
- where
-  onlySuccessfulMinting ptr = \case
-    Left{} -> identity
-    Right{} ->
-      case ptr of
-        Ledger.RdmrPtr Ledger.Mint _ -> (ptr :)
-        Ledger.RdmrPtr _ _ -> identity
 
 genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [UTxOWithScript])
 genAbortableOutputs parties =
