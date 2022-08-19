@@ -443,7 +443,7 @@ addPeerDialog client@Client{sendInput} s =
   title = "Add new peer"
   form = newForm addPeersTextBoxField Nothing
   submit s' maybeHost = do
-    liftIO (sendInput $ ModifyPeers (nub $ hosts <> maybeToList maybeHost))
+    liftIO (sendInput $ ModifyPeers (sort . nub $ hosts <> maybeToList maybeHost))
     continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
 
 removePeerDialog :: Client Tx IO -> State -> DialogState
@@ -454,7 +454,7 @@ removePeerDialog client@Client{sendInput} s =
   title = "Remove peers from list"
   form = newForm (removePeersCheckBoxField hosts) hosts
   submit s' unselecteds = do
-    liftIO (sendInput $ ModifyPeers unselecteds)
+    liftIO (sendInput $ ModifyPeers (sort unselecteds))
     continue $ s' & dialogStateL .~ modifyPeersBuilderDialog client
 
 modifyPeersBuilderDialog :: Client Tx IO -> DialogState
@@ -663,7 +663,7 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawPeers = case s of
     Disconnected{} -> emptyWidget
-    Connected{peers} -> vBox $ str "Connected peers:" : map drawShow peers
+    Connected{peers} -> vBox $! str "Connected peers:" : map drawShow peers
 
   drawHex :: SerialiseAsRawBytes a => a -> Widget n
   drawHex = txt . (" - " <>) . serialiseToRawBytesHexText
