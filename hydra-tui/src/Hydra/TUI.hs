@@ -43,7 +43,7 @@ import Hydra.ClientInput (ClientInput (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
-import Hydra.Network (Host (..), PortNumber (..))
+import Hydra.Network (Host (..))
 import Hydra.Party (Party (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
@@ -51,7 +51,6 @@ import Hydra.TUI.Options (Options (..))
 import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
-import Prelude (read)
 import qualified Prelude
 
 -- TODO(SN): hardcoded contestation period used by the tui
@@ -679,12 +678,14 @@ peersTextBoxField =
  where
   peersLens :: Lens' State [Host]
   peersLens = lens (^. peersL) (\s h -> s & peersL .~ h)
-  fieldName = "editField@"
+  fieldName = "editField@" <> "peers"
   serializeHost (Host hostname port) = hostname <> ":" <> show port
   serializer peers = Text.intercalate "," $ serializeHost <$> peers
   parseHostText hostText =
-    let (hostname, port) = Text.breakOn ":" hostText
-     in Host hostname <$> readMaybe (Text.unpack port)
+    case Text.split (== ':') hostText of
+      [hostname, port] ->
+        Host hostname <$> readMaybe (Text.unpack port)
+      _ -> Nothing
   validation = sequence . fmap parseHostText
   rendering = txt . Text.unlines
   augmentation = id
