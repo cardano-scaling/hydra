@@ -379,9 +379,9 @@ collect ::
   Tx
 collect ctx st = do
   let commits = Map.fromList $ fmap tripleToPair initialCommits
-   in collectComTx networkId ownVerificationKey initialThreadOutput commits headId
+   in collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput commits headId
  where
-  ChainContext{networkId, ownVerificationKey} = ctx
+  ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
   InitialState
     { initialThreadOutput

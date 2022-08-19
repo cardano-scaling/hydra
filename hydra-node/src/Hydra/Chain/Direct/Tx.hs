@@ -225,6 +225,8 @@ mkCommitDatum party headValidatorHash utxo headId =
 -- i.e. driving the Head script state.
 collectComTx ::
   NetworkId ->
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
@@ -235,10 +237,11 @@ collectComTx ::
   -- | Head id
   HeadId ->
   Tx
-collectComTx networkId vk initialThreadOutput commits headId =
+collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
+      & addReferenceInputs [commitScriptRef, headScriptRef]
       & addOutputs [headOutput]
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
@@ -247,14 +250,14 @@ collectComTx networkId vk initialThreadOutput commits headId =
       (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
     , initialParties
     , initialContestationPeriod
-    } =
-      initialThreadOutput
+    } = initialThreadOutput
   headWitness =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
-  headScript =
-    fromPlutusScript @PlutusScriptV2 Head.validatorScript
-  headRedeemer =
-    toScriptData Head.CollectCom
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScriptRef = fst (headReference scriptRegistry)
+  headRedeemer = toScriptData Head.CollectCom
   headOutput =
     TxOut
       (mkScriptAddress @PlutusScriptV2 networkId headScript)
@@ -284,7 +287,11 @@ collectComTx networkId vk initialThreadOutput commits headId =
     , mkCommitWitness commitDatum
     )
   mkCommitWitness (ScriptDatumForTxIn -> commitDatum) =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness commitScript commitDatum commitRedeemer
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference commitScriptRef commitScript commitDatum commitRedeemer
+  commitScriptRef =
+    fst (commitReference scriptRegistry)
   commitValue =
     mconcat $ txOutValue . fst <$> Map.elems commits
   commitScript =
