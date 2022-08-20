@@ -237,13 +237,19 @@ handleAppEvent s = \case
   Update Greetings{me} ->
     s & meL ?~ me
   Update (PeersModified peers) ->
-    let peersStatus = s ^. peersStatusL
-        peersStatus' = Map.fromList $ map (,False) peers
-        peersStatus'' = Map.unionWith (const id) peersStatus peersStatus'
-        peersStatus''' = Map.fromList . filter (\(p, _) -> p `elem` peers) $ Map.toList peersStatus''
+    let peersStatus =
+          s ^. peersStatusL
+        missingStatus =
+          Map.fromList . map (,False) . filter (\p -> not $ p `elem` Map.keys peersStatus) $ peers
+        currentStatus =
+          Map.fromList . filter (\(h, _) -> h `elem` peers) $ Map.toList peersStatus
+        peersStatus' =
+          Map.unionWith (const id) missingStatus currentStatus
+        peersStatus'' =
+          Map.fromList . filter (\(p, _) -> p `elem` peers) $ Map.toList peersStatus'
      in s & info ("Modified the list of peers in the network with: " <> show peers)
           & peersL .~ peers
-          & peersStatusL .~ peersStatus'''
+          & peersStatusL .~ peersStatus''
   Update (PeerConnected p) ->
     s & info ("Peer connected: " <> show p)
       & (peersL %~ \cp -> nub $ cp <> [p])
@@ -675,17 +681,19 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawPeers = case s of
     Disconnected{} -> emptyWidget
-    Connected{} ->
-      vBox $ str "Connected peers:" : map drawShow peerStatusMap
+    Connected{peersStatus} ->
+      vBox $ str "Connected peers:" : widget (Map.toList peersStatus)
    where
-      toColor b = if b then "\128994" else "\128308"
-      peerStatusMap = swap . second toColor <$> Map.toList (peersStatus s)
+    widget :: [(Host, Bool)] -> [Widget Name]
+    widget pairs = toWidget <$> pairs
+     where
+      toWidget (host, connected) =
+        if connected
+          then withAttr positive (str " [online] ") <+> str (show host)
+          else withAttr negative (str "[offline] ") <+> str (show host)
 
   drawHex :: SerialiseAsRawBytes a => a -> Widget n
   drawHex = txt . (" - " <>) . serialiseToRawBytesHexText
-
-  drawShow :: forall a n. Show a => a -> Widget n
-  drawShow = txt . (" - " <>) . show
 
 renderTime :: (Ord t, Num t, FormatTime t) => t -> String
 renderTime r
