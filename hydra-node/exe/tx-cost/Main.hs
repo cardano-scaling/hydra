@@ -1,6 +1,7 @@
 import Hydra.Prelude hiding (catch)
 
 import Data.ByteString (hPut)
+import Data.Fixed (Centi)
 import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
 import Options.Applicative (
   Parser,
@@ -134,9 +135,9 @@ costOfInit = markdownInitCost <$> computeInitCost
                 <> "| "
                 <> show txSize
                 <> " | "
-                <> show (100 * fromIntegral mem / maxMem)
+                <> show (mem `percentOf` maxMem)
                 <> " | "
-                <> show (100 * fromIntegral cpu / maxCpu)
+                <> show (cpu `percentOf` maxCpu)
                 <> " |"
           )
           stats
@@ -158,9 +159,9 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
                 <> "| "
                 <> show txSize
                 <> " | "
-                <> show (100 * fromIntegral mem / maxMem)
+                <> show (mem `percentOf` maxMem)
                 <> " | "
-                <> show (100 * fromIntegral cpu / maxCpu)
+                <> show (cpu `percentOf` maxCpu)
                 <> " |"
           )
           stats
@@ -181,9 +182,9 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
                 <> "| "
                 <> show txSize
                 <> " | "
-                <> show (100 * fromIntegral mem / maxMem)
+                <> show (mem `percentOf` maxMem)
                 <> " | "
-                <> show (100 * fromIntegral cpu / maxCpu)
+                <> show (cpu `percentOf` maxCpu)
                 <> " |"
           )
           stats
@@ -204,9 +205,9 @@ costOfClose = markdownClose <$> computeCloseCost
                 <> "| "
                 <> show txSize
                 <> " | "
-                <> show (100 * fromIntegral mem / maxMem)
+                <> show (mem `percentOf` maxMem)
                 <> " | "
-                <> show (100 * fromIntegral cpu / maxCpu)
+                <> show (cpu `percentOf` maxCpu)
                 <> " |"
           )
           stats
@@ -227,9 +228,9 @@ costOfContest = markdownContest <$> computeContestCost
                 <> "| "
                 <> show txSize
                 <> " | "
-                <> show (100 * fromIntegral mem / maxMem)
+                <> show (mem `percentOf` maxMem)
                 <> " | "
-                <> show (100 * fromIntegral cpu / maxCpu)
+                <> show (cpu `percentOf` maxCpu)
                 <> " |"
           )
           stats
@@ -250,9 +251,9 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
                 <> "| "
                 <> show txSize
                 <> " | "
-                <> show (100 * fromIntegral mem / maxMem)
+                <> show (mem `percentOf` maxMem)
                 <> " | "
-                <> show (100 * fromIntegral cpu / maxCpu)
+                <> show (cpu `percentOf` maxCpu)
                 <> " |"
           )
           stats
@@ -274,9 +275,13 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
                 <> "| "
                 <> show txSize
                 <> " | "
-                <> show (100 * fromIntegral mem / maxMem)
+                <> show (mem `percentOf` maxMem)
                 <> " | "
-                <> show (100 * fromIntegral cpu / maxCpu)
+                <> show (cpu `percentOf` maxCpu)
                 <> " |"
           )
           stats
+
+percentOf :: (Real a, Real b) => a -> b -> Centi
+part `percentOf` total =
+  100 * realToFrac part / realToFrac total

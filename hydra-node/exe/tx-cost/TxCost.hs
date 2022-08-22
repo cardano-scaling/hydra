@@ -6,10 +6,10 @@ import Hydra.Prelude hiding (catch)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
+  ExecutionUnits (..),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   Tx,
@@ -236,10 +236,11 @@ checkSizeAndEvaluate tx knownUTxO = do
     (Right report) -> do
       let results = Map.elems report
       guard $ all isRight results
-      let (Ledger.ExUnits mem cpu) = mconcat $ rights results
-      guard $ fromIntegral mem <= maxMem
-      guard $ fromIntegral cpu <= maxCpu
-      Just (TxSize txSize, MemUnit mem, CpuUnit cpu)
+      let totalMemory = sum $ executionMemory <$> rights results
+      let totalCpu = sum $ executionSteps <$> rights results
+      guard $ totalMemory <= maxMem
+      guard $ totalCpu <= maxCpu
+      Just (TxSize txSize, MemUnit totalMemory, CpuUnit totalCpu)
     _ -> Nothing
  where
   txSize = fromIntegral $ LBS.length $ serialize tx

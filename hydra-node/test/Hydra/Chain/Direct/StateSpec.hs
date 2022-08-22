@@ -97,7 +97,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   genPointInTimeBefore,
   maxTxExecutionUnits,
   maxTxSize,
-  renderRedeemerReportFailures,
+  renderEvaluationReportFailures,
  )
 import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
 import Ouroboros.Consensus.Block (Point, blockPoint)
@@ -406,14 +406,14 @@ propIsValid forAllTx =
     forAllTx $ \st tx -> do
       let lookupUTxO = getKnownUTxO st
       case evaluateTx' maxTxExecutionUnits tx lookupUTxO of
-        Left basicFailure ->
+        Left validityError ->
           property False
             & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
-            & counterexample ("Phase-1 validation failed: " <> show basicFailure)
-        Right redeemerReport ->
-          all isRight (Map.elems redeemerReport)
+            & counterexample ("Evaluation failed: " <> show validityError)
+        Right evaluationReport ->
+          all isRight (Map.elems evaluationReport)
             & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
-            & counterexample (toString $ "Redeemer report: " <> renderRedeemerReportFailures redeemerReport)
+            & counterexample (toString $ "Failures: " <> renderEvaluationReportFailures evaluationReport)
             & counterexample "Phase-2 validation failed"
 
 --
