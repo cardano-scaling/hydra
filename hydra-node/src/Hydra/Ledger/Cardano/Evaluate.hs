@@ -165,8 +165,8 @@ pparams =
       , _minfeeB = 155381
       , _prices =
           Prices
-            { prMem = fromJust $ boundRational $ 721 % 10000000
-            , prSteps = fromJust $ boundRational $ 577 % 10000
+            { prSteps = fromJust $ boundRational $ 721 % 10000000
+            , prMem = fromJust $ boundRational $ 577 % 10000
             }
       }
 
