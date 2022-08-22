@@ -17,7 +17,7 @@ Proposed
 * Cardano is our layer 1 and its consensus layer separates time into discrete steps, where each step is called a `Slot`. The network is expected to evolve strictly monotonically on this time scale and so slot numbers (`SlotNo`) are always increasing.
 
 * The Cardano mainnet has a block scheduled every 20 seconds, although it may take longer.
-  - This is because it has `f = 0.02` and slot length is one second.
+  - This is because `slotLength = 1.0` and every 20th slot is "active" with `f = 0.05`.
   - The consensus protocol requires `k` blocks to be produced within `3k/f` slots, where `k = 2160` on mainnet.
 
 * Transactions on Cardano may have a validity range with a lower and upper bound given as `SlotNo`.
@@ -35,7 +35,7 @@ Proposed
   - Trying to convert wall-clock time to slots of the Head protocol deadline led to `PastHorizonException` (when using very low security parameter `k`)
   - Trying to `fanout` after the deadline, but before another block has been seen by the L1 ledger led to `OutsideValidityIntervalUTxO`.
   
-* The second problem scenarion and solution ideas are roughly visible on this whiteboard:
+* The second problem scenario and solution ideas are roughly visible on this whiteboard:
 
 ![](img/020-timing-fanout.jpg)
 
@@ -60,4 +60,4 @@ Proposed
 
 * We get a first, rough notion of time for free in our L2 and can support "timed transactions" with same resolution as the L1.
   - Tracking time in the state makes it trivial to provide it to the ledger when we `applyTransaction`.
-  - Of course we could extend the fidelity of this feature using the system clock for "dead reckoning" between blocks.
+  - Of course we could extend the fidelity of this feature using the system clock for "dead reckoning" between blocks. The conversion of wall clock to slot could even be configurable using an L2 `slotLength` analogous to L1 (although we might not want/need this).
