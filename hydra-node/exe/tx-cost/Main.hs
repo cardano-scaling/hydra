@@ -72,26 +72,26 @@ main =
 
 writeTransactionCostMarkdown :: Handle -> IO ()
 writeTransactionCostMarkdown hdl = do
-  -- initC <- costOfInit
-  -- commitC <- costOfCommit
-  -- collectComC <- costOfCollectCom
-  -- closeC <- costOfClose
-  -- contestC <- costOfContest
+  initC <- costOfInit
+  commitC <- costOfCommit
+  collectComC <- costOfCollectCom
+  closeC <- costOfClose
+  contestC <- costOfContest
   abortC <- costOfAbort
-  -- fanoutC <- costOfFanOut
+  fanoutC <- costOfFanOut
   hPut hdl $
     encodeUtf8 $
       unlines $
         pageHeader
           <> intersperse
             ""
-            -- [ initC
-            -- , commitC
-            -- , collectComC
-            -- , closeC
-            -- , contestC
-            [ abortC
-            -- , fanoutC
+            [ initC
+            , commitC
+            , collectComC
+            , closeC
+            , contestC
+            , abortC
+            , fanoutC
             ]
 
 -- NOTE: Github Actions CI depends on the number of header lines, see
@@ -127,11 +127,11 @@ costOfInit = markdownInitCost <$> computeInitCost
     unlines $
       [ "## Cost of Init Transaction"
       , ""
-      , "| Parties | Tx size | % max Mem | % max CPU |"
-      , "| :------ | ------: | --------: | --------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :------ | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numParties, txSize, mem, cpu) ->
+          ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
               "| " <> show numParties
                 <> "| "
                 <> show txSize
@@ -139,6 +139,8 @@ costOfInit = markdownInitCost <$> computeInitCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
+                <> " |"
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
           stats
@@ -151,11 +153,11 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
       [ "## Cost of Commit Transaction"
       , " Currently only one UTxO per commit allowed (this is about to change soon)"
       , ""
-      , "| UTxO | Tx size | % max Mem | % max CPU |"
-      , "| :--- | ------: | --------: | --------: |"
+      , "| UTxO | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :--- | ------: | --------: | --------: | --------: |"
       ]
         <> map
-          ( \(ulen, txSize, mem, cpu) ->
+          ( \(ulen, txSize, mem, cpu, Lovelace minFee) ->
               "| " <> show ulen
                 <> "| "
                 <> show txSize
@@ -163,6 +165,8 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
+                <> " |"
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
           stats
@@ -174,11 +178,11 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
     unlines $
       [ "## Cost of CollectCom Transaction"
       , ""
-      , "| Parties | Tx size | % max Mem | % max CPU |"
-      , "| :------ | ------: | --------: | --------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :------ | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numParties, txSize, mem, cpu) ->
+          ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
               "| " <> show numParties
                 <> "| "
                 <> show txSize
@@ -186,6 +190,8 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
+                <> " |"
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
           stats
@@ -197,11 +203,11 @@ costOfClose = markdownClose <$> computeCloseCost
     unlines $
       [ "## Cost of Close Transaction"
       , ""
-      , "| Parties | Tx size | % max Mem | % max CPU |"
-      , "| :------ | ------: | --------: | --------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :------ | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numParties, txSize, mem, cpu) ->
+          ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
               "| " <> show numParties
                 <> "| "
                 <> show txSize
@@ -209,6 +215,8 @@ costOfClose = markdownClose <$> computeCloseCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
+                <> " |"
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
           stats
@@ -220,11 +228,11 @@ costOfContest = markdownContest <$> computeContestCost
     unlines $
       [ "## Cost of Contest Transaction"
       , ""
-      , "| Parties | Tx size | % max Mem | % max CPU |"
-      , "| :------ | ------: | --------: | --------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :------ | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numParties, txSize, mem, cpu) ->
+          ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
               "| " <> show numParties
                 <> "| "
                 <> show txSize
@@ -232,6 +240,8 @@ costOfContest = markdownContest <$> computeContestCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
+                <> " |"
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
           stats
@@ -243,8 +253,8 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
     unlines $
       [ "## Cost of Abort Transaction"
       , ""
-      , "| Parties | Tx size | % max Mem | % max CPU | Min fee |"
-      , "| :------ | ------: | --------: | --------: | ------: |"
+      , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :------ | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
           ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
@@ -257,7 +267,7 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
                 <> show (cpu `percentOf` maxCpu)
                 <> " | "
                 <> show (realToFrac minFee / 1_000_000 :: Centi)
-                <> "ADA |"
+                <> " |"
           )
           stats
 
@@ -269,11 +279,11 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
       [ "## Cost of FanOut Transaction"
       , " Involves spending head output and burning head tokens. Uses ada-only UTxO for better comparability."
       , ""
-      , "| UTxO  | Tx size | % max Mem | % max CPU |"
-      , "| :---- | ------: | --------: | --------: |"
+      , "| UTxO  | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :---- | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numElems, txSize, mem, cpu) ->
+          ( \(numElems, txSize, mem, cpu, Lovelace minFee) ->
               "| " <> show numElems
                 <> "| "
                 <> show txSize
@@ -281,6 +291,8 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
+                <> " |"
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
           stats
