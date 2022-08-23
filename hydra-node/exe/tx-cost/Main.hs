@@ -252,6 +252,7 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
   markdownAbortCost stats =
     unlines $
       [ "## Cost of Abort Transaction"
+      , "Some variation because of random mixture of still initial and already committed outputs."
       , ""
       , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :------ | ------: | --------: | --------: | --------: |"
@@ -277,7 +278,7 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
   markdownFanOutCost stats =
     unlines $
       [ "## Cost of FanOut Transaction"
-      , " Involves spending head output and burning head tokens. Uses ada-only UTxO for better comparability."
+      , "Involves spending head output and burning head tokens. Uses ada-only UTxO for better comparability."
       , ""
       , "| UTxO  | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :---- | ------: | --------: | --------: | --------: |"
