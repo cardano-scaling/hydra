@@ -98,12 +98,12 @@ seedFromFaucet_ ::
 seedFromFaucet_ node vk ll marked =
   void $ seedFromFaucet node vk ll marked
 
--- | Publish Hydra scripts as scripts outputs for later referencing them.
+-- | Publish current Hydra scripts as scripts outputs for later referencing them.
 --
--- The given key is used to pay for fees in required transactions, it is
--- expected to have funds.
+-- The key of the given Actor is used to pay for fees in required transactions,
+-- it is expected to have sufficient funds.
 publishHydraScriptsAs :: RunningNode -> Actor -> IO TxId
-publishHydraScriptsAs RunningNode{nodeSocket, networkId} actor = do
+publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
   publishHydraScripts networkId nodeSocket sk
 

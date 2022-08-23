@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NumericUnderscores #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module HydraNode (
   HydraClient (..),
@@ -26,7 +26,7 @@ import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
 import CardanoNode (NodeLog)
-import Control.Concurrent.Async ( forConcurrently_,)
+import Control.Concurrent.Async (forConcurrently_)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson (Value (String), object, (.=))
@@ -188,6 +188,7 @@ data EndToEndLog
   | StartingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
   | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, fuelUTxO :: UTxO}
   | RemainingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
+  | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can

@@ -1,8 +1,0 @@
-# Cardano node state
-db/
-
-# Secrets
-credentials/
-
-# Fetched from network
-protocol-parameters.json

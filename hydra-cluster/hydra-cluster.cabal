@@ -13,6 +13,16 @@ license-files:
 
 extra-source-files: README.md
 data-files:
+  config/cardano-configurations/network/preprod/cardano-node/config.json
+  config/cardano-configurations/network/preprod/cardano-node/topology.json
+  config/cardano-configurations/network/preprod/genesis/alonzo.json
+  config/cardano-configurations/network/preprod/genesis/byron.json
+  config/cardano-configurations/network/preprod/genesis/shelley.json
+  config/cardano-configurations/network/preview/cardano-node/config.json
+  config/cardano-configurations/network/preview/cardano-node/topology.json
+  config/cardano-configurations/network/preview/genesis/alonzo.json
+  config/cardano-configurations/network/preview/genesis/byron.json
+  config/cardano-configurations/network/preview/genesis/shelley.json
   config/cardano-configurations/network/testnet/cardano-node/config.json
   config/cardano-configurations/network/testnet/cardano-node/topology.json
   config/cardano-configurations/network/testnet/genesis/alonzo.json

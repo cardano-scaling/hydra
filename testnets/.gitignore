@@ -1,0 +1,7 @@
+credentials/
+
+**/db/
+**/logs/
+
+**/*.sk
+**/*.vk

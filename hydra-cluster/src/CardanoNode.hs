@@ -20,11 +20,14 @@ import Data.Fixed (Centi)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), NetworkId, PaymentKey, SigningKey, VerificationKey, generateSigningKey, getProgress, getVerificationKey)
 import qualified Hydra.Cardano.Api as Api
-import Hydra.Cluster.Fixture (KnownNetwork (Testnet, VasilTestnet), defaultNetworkId, knownNetworkId)
+import Hydra.Cluster.Fixture (
+  KnownNetwork (Preproduction, Preview, Testnet, VasilDevnet),
+  defaultNetworkId,
+ )
 import Hydra.Cluster.Util (readConfigFile)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import System.Exit (ExitCode (..))
-import System.FilePath ((</>))
+import System.FilePath (takeDirectory, (</>))
 import System.Posix (ownerReadMode, setFileMode)
 import System.Process (
   CreateProcess (..),
@@ -185,7 +188,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   networkId <- readNetworkId
   copyKnownNetworkFiles
   withCardanoNode tracer networkId workDir args $ \node -> do
-    waitForFullySynchronized tracer knownNetwork node
+    waitForFullySynchronized tracer node
     traceWith tracer MsgNodeIsReady
     action node
  where
@@ -207,24 +210,25 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
     let magic = shelleyGenesis ^?! key "networkMagic" . _Number
     pure $ Api.Testnet (Api.NetworkMagic $ truncate magic)
 
-  copyKnownNetworkFiles = do
-    createDirectoryIfMissing True $ workDir </> "cardano-node"
-    readConfigFile (knownNetworkPath </> "cardano-node" </> "config.json")
-      >>= writeFileBS (workDir </> "cardano-node" </> "config.json")
-    readConfigFile (knownNetworkPath </> "cardano-node" </> "topology.json")
-      >>= writeFileBS (workDir </> "cardano-node" </> "topology.json")
-    createDirectoryIfMissing True $ workDir </> "genesis"
-    readConfigFile (knownNetworkPath </> "genesis" </> "byron.json")
-      >>= writeFileBS (workDir </> "genesis" </> "byron.json")
-    readConfigFile (knownNetworkPath </> "genesis" </> "shelley.json")
-      >>= writeFileBS (workDir </> "genesis" </> "shelley.json")
-    readConfigFile (knownNetworkPath </> "genesis" </> "alonzo.json")
-      >>= writeFileBS (workDir </> "genesis" </> "alonzo.json")
+  copyKnownNetworkFiles =
+    forM_
+      [ "cardano-node" </> "config.json"
+      , "cardano-node" </> "topology.json"
+      , "genesis" </> "byron.json"
+      , "genesis" </> "shelley.json"
+      , "genesis" </> "alonzo.json"
+      ]
+      $ \fn -> unlessM (doesFileExist $ workDir </> fn) $ do
+        createDirectoryIfMissing True $ workDir </> takeDirectory fn
+        readConfigFile (knownNetworkPath </> fn)
+          >>= writeFileBS (workDir </> fn)
 
   -- Folder name in config/cardano-configurations/network
   knownNetworkName = case knownNetwork of
     Testnet -> "testnet"
-    VasilTestnet -> "vasil-dev"
+    VasilDevnet -> "vasil-dev"
+    Preview -> "preview"
+    Preproduction -> "preprod"
 
   knownNetworkPath =
     "cardano-configurations" </> "network" </> knownNetworkName
@@ -233,15 +237,12 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
 -- while!
 waitForFullySynchronized ::
   Tracer IO NodeLog ->
-  KnownNetwork ->
   RunningNode ->
   IO ()
-waitForFullySynchronized tracer knownNetwork RunningNode{nodeSocket} = do
+waitForFullySynchronized tracer RunningNode{nodeSocket, networkId} = do
   systemStart <- querySystemStart networkId nodeSocket QueryTip
   check systemStart
  where
-  networkId = knownNetworkId knownNetwork
-
   check systemStart = do
     targetTime <- toRelativeTime systemStart <$> getCurrentTime
     eraHistory <- queryEraHistory networkId nodeSocket QueryTip

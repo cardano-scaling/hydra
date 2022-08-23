@@ -34,6 +34,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} = do
     chainConfigFor Alice workDir nodeSocket []
       <&> \config -> config{networkId, startChainFrom = Just tip}
   hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+  traceWith tracer $ PublishedHydraScriptsAt{hydraScriptsTxId}
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     let contestationPeriod = 1 :: Natural
