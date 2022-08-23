@@ -7,34 +7,45 @@ interface Props { }
 
 interface Metadata {
   lastUpdatedAt: string
-  relativeTimeSince: string
   commitHash: string
 }
 
 const Display = {
-  renderLastUpdatedAt: (lastUpdatedAt: string, relativeTimeSince: string) =>
-    <i className={styles.info}>
+  calculateRelativeTimeSince: (dateFrom: Date, dateTo: Date) => {
+    const from = moment(dateFrom, true)
+    const to = moment(dateTo, true)
+    const value = from.from(to, true)
+    const millisecondsDiff = from.diff(to)
+    return { value, millisecondsDiff };
+  }
+  , renderLastUpdatedAt: (lastUpdatedAt: string) => {
+    const timeSince =
+      Display.calculateRelativeTimeSince(new Date(lastUpdatedAt), new Date)
+
+    return <i className={styles.info}>
       Last updated at: <b>{lastUpdatedAt}</b>
-      (<b>{relativeTimeSince}</b> since last change)
+      (<b>{timeSince.value}</b> since last change)
     </i>
+  }
   , renderCommitHash: (commitHash: string, link: string) =>
     <i className={styles.info}>
       Last commit hash: <a href={link}><b>{commitHash}</b></a>
     </i>
   , renderLastTranslatedAt: (sourceMetadata: Metadata, lastTranslatedAt: string) => {
-    const translationChangedAt = moment(new Date(lastTranslatedAt), true)
-    const sourceChangedAt = moment(new Date(sourceMetadata.lastUpdatedAt), true)
-    const relativeTimeSince = translationChangedAt.from(sourceChangedAt, true)
-    const diff = translationChangedAt.diff(sourceChangedAt)
+    const timeSince =
+      Display.calculateRelativeTimeSince(
+        new Date(sourceMetadata.lastUpdatedAt),
+        new Date(lastTranslatedAt)
+      )
 
     // dont display warning on translated pages when up to date or above
-    if (diff >= 0) {
+    if (timeSince.millisecondsDiff >= 0) {
       return <></>
     }
 
     return <i className={styles.info}>
       Last translated at: <b>{lastTranslatedAt}</b>
-      (⚠️ Warning: <b>{relativeTimeSince}</b> behind default language)
+      (⚠️ Warning: <b>{timeSince.value}</b> behind default language)
     </i>
   }
 }
@@ -81,14 +92,14 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
     return <></>
   }
 
-  const { lastUpdatedAt, relativeTimeSince, commitHash } = metadata
+  const { lastUpdatedAt, commitHash } = metadata
+
   const link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`
 
   return <div className={styles.block}>
     {
       Display.renderLastUpdatedAt(
-        lastUpdatedAt,
-        relativeTimeSince
+        lastUpdatedAt
       )
     }
     {

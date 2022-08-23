@@ -18,11 +18,9 @@ const Utils = {
         })
     }
     , getLastUpdatedAt: async (doc) =>
-        Utils.sysCall(`git --no-pager log -1 --pretty=format:'%ad' --date=local ${doc}`)
-    , getRelativeTimeSince: async (doc) =>
-        Utils.sysCall(`git --no-pager log -1 --pretty=format:'%cr' ${doc}`)
+        Utils.sysCall(`git --no-pager log -1 --pretty=format:'%aI' ${doc}`)
     , getCommitHash: async (doc) =>
-        Utils.sysCall(`git --no-pager log -1 --pretty=format:'%h' ${doc}`)
+        Utils.sysCall(`git --no-pager log -1 --pretty=format:'%H' ${doc}`)
     , pathToLocation: (path) => {
         const basePath = path.replace('.md', '')
             .replace('i18n/', '')
@@ -39,7 +37,6 @@ const Utils = {
     , getDocsMetadataJson: async (doc) => {
         console.log("Processing: ", doc)
         const lastUpdatedAt = await Utils.getLastUpdatedAt(doc)
-        const relativeTimeSince = await Utils.getRelativeTimeSince(doc)
         const commitHash = await Utils.getCommitHash(doc)
 
         const docKey = Utils.pathToLocation(doc)
@@ -52,7 +49,6 @@ const Utils = {
         return {
             [key]: {
                 lastUpdatedAt,
-                relativeTimeSince,
                 commitHash,
                 subKey
             }
@@ -64,8 +60,8 @@ const Utils = {
                 if (obj[key] === undefined) {
                     obj[key] = {}
                 }
-                const { lastUpdatedAt, relativeTimeSince, commitHash, subKey } = item[key]
-                obj[key][subKey] = { lastUpdatedAt, relativeTimeSince, commitHash }
+                const { lastUpdatedAt, commitHash, subKey } = item[key]
+                obj[key][subKey] = { lastUpdatedAt, commitHash }
             }
             return obj
         }, {})
