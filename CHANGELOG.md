@@ -8,24 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.7.0] - UNRELEASED
+## [0.7.0] - 2022-08-23
 
-- **BREAKING** Switch to `BabbageEra` and `PlutusV2`
-  + `hydra-cardano-api` now uses `Era = BabbageEra` and constructs `PlutusV2` scripts
-  + `hydra-plutus` scripts now use the `serialiseData` builtin to CBOR encode data on-chain
-  + `hydra-node` now expects `BabbageEra` blocks and produces `BabbageEra` transactions
-  + `hydra-cluster` now spins up a stake pool instead of a BFT node (not possible in `Praos` anymore)
+- **BREAKING** Switch to `BabbageEra` and `PlutusV2`.
+  + `hydra-cardano-api` now uses `Era = BabbageEra` and constructs `PlutusV2` scripts.
+  + `hydra-plutus` scripts now use the `serialiseData` builtin to CBOR encode data on-chain.
+  + `hydra-node` now expects `BabbageEra` blocks and produces `BabbageEra` transactions.
+  + `hydra-cluster` now spins up a stake pool instead of a BFT node (not possible in `Praos` anymore).
+  + As a consequence, the Hydra scripts in `hydra-plutus` have now different script hashes.
 
 - **BREAKING** Use reference inputs and reference scripts in `abort` transaction.
   + Need to provide a `--hydra-scripts-tx-id` to the `hydra-node` containing the current (`--script-info`) Hydra scripts.
   + Added the `publish-scripts` sub-command to `hydra-node` to publish the current Hydra scripts.
 
-- The user manual is now also available in japanese thanks to @btbf! :jp:
+- Added a `hydra-cluster` executable, which runs a single scenario against a known network (smoke test) [#430](https://github.com/input-output-hk/hydra-poc/pull/430) [#423](https://github.com/input-output-hk/hydra-poc/pull/430).
 
-- Head contract check UTxO hash upon closing the head [#3rr38](https://github.com/input-output-hk/hydra-poc/pull/338). This prevents closing the head with arbitrary UTxO.
+- Use deadline when posting a `fanoutTx` instead of the current slot [#441](https://github.com/input-output-hk/hydra-poc/pull/441).
 
-- Remaining contestation period displayed in `hydra-tui` [#437](https://github.com/input-output-hk/hydra-poc/pull/437). Previously it was displaying 'total whole values' instead of 'relative whole values'.
+- The user manual is now also available in Japanese thanks to @btbf! :jp:
 
+- Fixed display of remaining contestation period in `hydra-tui` [#437](https://github.com/input-output-hk/hydra-poc/pull/437).
 
 ## [0.6.0] - 2022-06-22
 
