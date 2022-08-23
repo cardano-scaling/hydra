@@ -139,7 +139,7 @@ costOfInit = markdownInitCost <$> computeInitCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
-                <> " |"
+                <> " | "
                 <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
@@ -165,7 +165,7 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
-                <> " |"
+                <> " | "
                 <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
@@ -190,7 +190,7 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
-                <> " |"
+                <> " | "
                 <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
@@ -215,7 +215,7 @@ costOfClose = markdownClose <$> computeCloseCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
-                <> " |"
+                <> " | "
                 <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
@@ -240,7 +240,7 @@ costOfContest = markdownContest <$> computeContestCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
-                <> " |"
+                <> " | "
                 <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
@@ -292,7 +292,7 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
                 <> show (mem `percentOf` maxMem)
                 <> " | "
                 <> show (cpu `percentOf` maxCpu)
-                <> " |"
+                <> " | "
                 <> show (realToFrac minFee / 1_000_000 :: Centi)
                 <> " |"
           )
