@@ -3,6 +3,7 @@
 
 const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
+const docsMetadataJson = require('./static/docs-metadata.json');
 
 const customFields = {
   apiSpecDir: '../hydra-node/json-schemas',
@@ -214,7 +215,7 @@ const config = {
           Copyright © ${new Date().getFullYear()} 
               <strong>Input Output</strong><br/>
               <small>Built with Docusaurus</small><br/>
-              <small><SiteMetadata /></small>
+              <small>Last time updated: ${docsMetadataJson.site.lastUpdatedAt}</small>
           `
       },
       prism: {

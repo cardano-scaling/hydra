@@ -67,6 +67,16 @@ const Utils = {
         }, {})
     , writeJsonToFile: (file) => (json) => {
         fs.writeFileSync(file, JSON.stringify(json, null, 2))
+    },
+    enrichWithSiteMetadata: async (json) => {
+        console.log("Processing site metadata")
+        const lastUpdatedAt = await Utils.getLastUpdatedAt('docs')
+        return {
+            "site": {
+                lastUpdatedAt
+            },
+            ...json
+        };
     }
 }
 
@@ -78,6 +88,7 @@ async function main() {
             Promise
                 .all(docsMetadata)
                 .then(Utils.mergeDocsMetadataJson)
+                .then(Utils.enrichWithSiteMetadata)
                 .then(Utils.writeJsonToFile("static/docs-metadata.json"))
         })
 }
