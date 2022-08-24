@@ -20,12 +20,12 @@ interface TranslatedMetadata {
 const renderMetadata = ({ lastUpdatedAt, commitHash }: Metadata) => {
   let link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`
   return (
-    <div>
+    <p>
       Last updated:&nbsp;
       <a href={link}>
         {moment(lastUpdatedAt).fromNow()}
       </a>
-    </div>
+    </p>
   )
 }
 
