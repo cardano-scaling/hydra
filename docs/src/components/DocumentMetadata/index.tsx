@@ -17,15 +17,17 @@ interface TranslatedMetadata {
   commitHash: string
 }
 
+const style = { marginTop: '1em' }
+
 const renderMetadata = ({ lastUpdatedAt, commitHash }: Metadata) => {
   let link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`
   return (
-    <p>
+    <div style={style}>
       Last updated:&nbsp;
       <a href={link}>
         {moment(lastUpdatedAt).fromNow()}
       </a>
-    </p>
+    </div>
   )
 }
 
@@ -40,13 +42,13 @@ const renderTranslatedMetadata = ({
   const maybeRenderWarning = outdated &&
     (<b>(⚠️ Warning:&nbsp; {moment.duration(diffMs).humanize()} behind default language)</b>)
   return (
-    <p>
+    <div style={style}>
       Translation updated:&nbsp;
       <a href={link}>
         {moment(translationUpdatedAt).fromNow()}
         {maybeRenderWarning}
       </a>
-    </p>
+    </div>
   )
 }
 

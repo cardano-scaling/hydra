@@ -39,7 +39,14 @@ const Utils = {
         const lastUpdatedAt = await Utils.getLastUpdatedAt(doc)
         const commitHash = await Utils.getCommitHash(doc)
 
-        const docKey = Utils.pathToLocation(doc)
+        const keyFromDocumentPath = (docPath) => {
+            if (docPath.includes('adr'))
+                return 'adr/' + parseInt(docPath.split('_')[1].split('-')[0]).toString()
+            return docPath
+        };
+
+        const docPath = Utils.pathToLocation(doc)
+        const docKey = keyFromDocumentPath(docPath)
         const [head, ...tail] = docKey.split("/")
         const supportedLanguages = ['fr', 'ja'] //@TODO move to config
         const isSupportedLanguage = (language) => supportedLanguages.includes(language)
@@ -82,7 +89,7 @@ const Utils = {
 
 async function main() {
 
-    Utils.getItems("**/*.md", { "ignore": ['**/node_modules/**', 'README.md', 'adr/*'] })
+    Utils.getItems("**/*.md", { "ignore": ['**/node_modules/**', 'README.md'] })
         .then(docs => {
             const docsMetadata = docs.map(Utils.getDocsMetadataJson)
             Promise

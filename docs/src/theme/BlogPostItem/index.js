@@ -1,11 +1,11 @@
 import React from 'react';
-import EditThisPage from '@theme-original/EditThisPage';
+import BlogPostItem from '@theme-original/BlogPostItem';
 import DocumentMetadata from '@site/src/components/DocumentMetadata';
 
-export default function EditThisPageWrapper(props) {
+export default function BlogPostItemWrapper(props) {
   return (
     <>
-      <EditThisPage {...props} />
+      <BlogPostItem {...props} />
       <DocumentMetadata />
     </>
   );
