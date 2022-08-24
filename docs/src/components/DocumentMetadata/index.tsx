@@ -10,6 +10,13 @@ interface Metadata {
   commitHash: string
 }
 
+const renderMetadata = ({lastUpdatedAt, commitHash} : Metadata) => {
+  let link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`;
+  return <div>
+    Last updated: <a href={link}><b>{moment(lastUpdatedAt).fromNow()}</b></a>
+  </div>
+}
+
 const Display = {
   calculateRelativeTimeSince: (dateFrom: Date, dateTo: Date) => {
     const from = moment(dateFrom, true)
@@ -27,12 +34,6 @@ const Display = {
       (<b>{timeSince.value}</b> since last change)
     </i>
   }
-  , renderCommitHash: (commitHash: string) => {
-      let link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`;
-      return <i className={styles.info}>
-        Last commit hash: <a href={link}><b>{commitHash}</b></a>
-      </i>
-    }
   , renderLastTranslatedAt: (sourceMetadata: Metadata, lastTranslatedAt: string) => {
     const timeSince =
       Display.calculateRelativeTimeSince(
@@ -98,10 +99,7 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
 
   return <div className={styles.block}>
     {
-      Display.renderLastUpdatedAt(lastUpdatedAt)
-    }
-    {
-      Display.renderCommitHash(commitHash)
+      renderMetadata(metadata)
     }
     {
       isTranslatedLanguage &&
