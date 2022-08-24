@@ -20,10 +20,12 @@ import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   Era,
+  ExecutionUnitPrices (ExecutionUnitPrices),
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PolicyId,
+  ProtocolParameters (..),
   SlotNo (..),
   TxIn,
   shelleyBasedEra,
@@ -32,6 +34,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain.Direct.Tx (headPolicyId)
 import Hydra.Crypto (Hash (HydraKeyHash))
+import Hydra.Ledger.Cardano.Configuration (newLedgerEnv)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)
 import Hydra.Party (Party (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -66,14 +69,18 @@ testPolicyId = headPolicyId testSeedInput
 testSeedInput :: TxIn
 testSeedInput = generateWith arbitrary 42
 
+-- | Default environment for the L2 ledger using the fixed L1 'pparams' with
+-- zeroed fees and prices. NOTE: This is using still a constant SlotNo = 1.
 defaultLedgerEnv :: Ledger.LedgerEnv LedgerEra
 defaultLedgerEnv =
-  Ledger.LedgerEnv
-    { Ledger.ledgerSlotNo = SlotNo 1
-    , Ledger.ledgerIx = TxIx 0
-    , Ledger.ledgerPp = toLedgerPParams (shelleyBasedEra @Era) pparams
-    , Ledger.ledgerAccount = accountStateZero
-    }
+  newLedgerEnv pparams'
+ where
+  pparams' =
+    pparams
+      { protocolParamPrices = Just $ ExecutionUnitPrices 0 0
+      , protocolParamTxFeePerByte = 0
+      , protocolParamTxFeeFixed = 0
+      }
 
 defaultGlobals :: Ledger.Globals
 defaultGlobals =
