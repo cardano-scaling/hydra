@@ -2,6 +2,8 @@ import React from "react"
 import docsMetadataJson from "@site/static/docs-metadata.json"
 import moment from "moment"
 import useIsBrowser from '@docusaurus/useIsBrowser'
+import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+
 
 interface Props { }
 
@@ -50,17 +52,22 @@ const renderTranslatedMetadata = ({
 }
 
 export default function DocumentMetadata({ }: Props): JSX.Element {
+  const context = useDocusaurusContext();
+
   const isBrowser = useIsBrowser()
 
   if (!isBrowser) {
     return <></>
   }
 
-  const documentPath = new URL(window.location.href).pathname.replace("/head-protocol/", "")
+  const baseUrl = context.siteConfig.baseUrl
+  const documentPath = new URL(window.location.href).pathname.replace(baseUrl, "")
 
   const [maybeLanguage, ...restPath] = documentPath.split("/")
-  const supportedLanguages = ["fr", "ja"] //@TODO move to config
-  const isTranslatedLanguage = supportedLanguages.includes(maybeLanguage)
+
+  const defaultLocale = context.i18n.defaultLocale
+  const currentLocale = context.i18n.currentLocale
+  const isTranslatedLanguage = defaultLocale !== currentLocale
 
   const path = isTranslatedLanguage ? restPath.join("/") : documentPath
 
@@ -78,7 +85,7 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
   }
 
   const metadata: Metadata = isTranslatedLanguage
-    ? documentMetadata[maybeLanguage]
+    ? documentMetadata[currentLocale]
     : sourceMetadata
 
   // do not display if metadata for translated language is not found in docs-metadata.json
