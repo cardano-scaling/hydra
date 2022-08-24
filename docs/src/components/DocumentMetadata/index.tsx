@@ -60,15 +60,12 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
   }
 
   const baseUrl = context.siteConfig.baseUrl
-  const documentPath = new URL(window.location.href).pathname.replace(baseUrl, "")
-
-  const [_, ...restPath] = documentPath.split("/")
+  const pathname = new URL(window.location.href).pathname
+  const path = pathname.replace(baseUrl, "").replace(/\/$/, '')
 
   const defaultLocale = context.i18n.defaultLocale
   const currentLocale = context.i18n.currentLocale
   const isTranslatedLanguage = defaultLocale !== currentLocale
-  const translatedDocumentPath = restPath.join("/")
-  const path = isTranslatedLanguage ? translatedDocumentPath : documentPath
 
   // do not display if document path is not found in docs-metadata.json
   if (docsMetadataJson[path] === undefined) {
