@@ -10,10 +10,23 @@ interface Metadata {
   commitHash: string
 }
 
+interface TranslatedMetadata {
+  sourceUpdatedAt: string
+  translationUpdatedAt: string
+  commitHash: string
+}
+
 const renderMetadata = ({lastUpdatedAt, commitHash} : Metadata) => {
   let link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`;
   return <div>
     Last updated: <a href={link}><b>{moment(lastUpdatedAt).fromNow()}</b></a>
+  </div>
+}
+
+const renderTranslatedMetadata = ({sourceUpdatedAt, translationUpdatedAt, commitHash} : TranslatedMetadata) => {
+  let link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`;
+  return <div>
+    Translation updated at: <a href={link}><b>{moment(translationUpdatedAt).fromNow()}</b></a>
   </div>
 }
 
@@ -95,15 +108,14 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
     return <></>
   }
 
-  const { lastUpdatedAt, commitHash } = metadata
-
-  return <div className={styles.block}>
-    {
-      renderMetadata(metadata)
+  if (isTranslatedLanguage) {
+    const translatedMetadata = {
+      sourceUpdatedAt: sourceMetadata.lastUpdatedAt,
+      translationUpdatedAt: documentMetadata[maybeLanguage].lastUpdatedAt,
+      commitHash: documentMetadata[maybeLanguage].commitHash
     }
-    {
-      isTranslatedLanguage &&
-      Display.renderLastTranslatedAt(sourceMetadata, lastUpdatedAt)
-    }
-  </div >
+    return renderTranslatedMetadata(translatedMetadata)
+  } else {
+    return renderMetadata(metadata)
+  }
 }
