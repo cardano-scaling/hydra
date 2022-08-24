@@ -4,7 +4,6 @@ import moment from "moment"
 import useIsBrowser from '@docusaurus/useIsBrowser'
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
-
 interface Props { }
 
 interface Metadata {
@@ -63,13 +62,13 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
   const baseUrl = context.siteConfig.baseUrl
   const documentPath = new URL(window.location.href).pathname.replace(baseUrl, "")
 
-  const [maybeLanguage, ...restPath] = documentPath.split("/")
+  const [_, ...restPath] = documentPath.split("/")
 
   const defaultLocale = context.i18n.defaultLocale
   const currentLocale = context.i18n.currentLocale
   const isTranslatedLanguage = defaultLocale !== currentLocale
-
-  const path = isTranslatedLanguage ? restPath.join("/") : documentPath
+  const translatedDocumentPath = restPath.join("/")
+  const path = isTranslatedLanguage ? translatedDocumentPath : documentPath
 
   // do not display if document path is not found in docs-metadata.json
   if (docsMetadataJson[path] === undefined) {
@@ -96,8 +95,8 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
   if (isTranslatedLanguage) {
     const translatedMetadata = {
       sourceUpdatedAt: sourceMetadata.lastUpdatedAt,
-      translationUpdatedAt: documentMetadata[maybeLanguage].lastUpdatedAt,
-      commitHash: documentMetadata[maybeLanguage].commitHash,
+      translationUpdatedAt: documentMetadata[currentLocale].lastUpdatedAt,
+      commitHash: documentMetadata[currentLocale].commitHash,
     }
     return renderTranslatedMetadata(translatedMetadata)
   } else {
