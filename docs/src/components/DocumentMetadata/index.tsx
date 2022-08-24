@@ -16,53 +16,31 @@ interface TranslatedMetadata {
   commitHash: string
 }
 
-const renderMetadata = ({lastUpdatedAt, commitHash} : Metadata) => {
+const renderMetadata = ({ lastUpdatedAt, commitHash }: Metadata) => {
   let link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`;
   return <div>
     Last updated: <a href={link}><b>{moment(lastUpdatedAt).fromNow()}</b></a>
   </div>
 }
 
-const renderTranslatedMetadata = ({sourceUpdatedAt, translationUpdatedAt, commitHash} : TranslatedMetadata) => {
+const renderTranslatedMetadata = ({ sourceUpdatedAt, translationUpdatedAt, commitHash }: TranslatedMetadata) => {
   let link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`;
-  return <div>
-    Translation updated at: <a href={link}><b>{moment(translationUpdatedAt).fromNow()}</b></a>
-  </div>
-}
+  const diff = moment(translationUpdatedAt).diff(sourceUpdatedAt)
 
-const Display = {
-  calculateRelativeTimeSince: (dateFrom: Date, dateTo: Date) => {
-    const from = moment(dateFrom, true)
-    const to = moment(dateTo, true)
-    const value = from.from(to, true)
-    const millisecondsDiff = from.diff(to)
-    return { value, millisecondsDiff };
+  // dont display warning on translated pages when up to date or above
+  if (diff >= 0) {
+    return <div>
+      Translation updated at: <a href={link}><b>{moment(translationUpdatedAt).fromNow()}</b></a><br />
+      Translation ahead source: <b>{moment(sourceUpdatedAt).from(translationUpdatedAt)}</b>
+      (⚠️ Warning: <b>{diff}</b> ahead default language)
+    </div>
   }
-  , renderLastUpdatedAt: (lastUpdatedAt: string) => {
-    const timeSince =
-      Display.calculateRelativeTimeSince(new Date(lastUpdatedAt), new Date)
-
-    return <i className={styles.info}>
-      Last updated at: <b>{lastUpdatedAt}</b>
-      (<b>{timeSince.value}</b> since last change)
-    </i>
-  }
-  , renderLastTranslatedAt: (sourceMetadata: Metadata, lastTranslatedAt: string) => {
-    const timeSince =
-      Display.calculateRelativeTimeSince(
-        new Date(sourceMetadata.lastUpdatedAt),
-        new Date(lastTranslatedAt)
-      )
-
-    // dont display warning on translated pages when up to date or above
-    if (timeSince.millisecondsDiff >= 0) {
-      return <></>
-    }
-
-    return <i className={styles.info}>
-      Last translated at: <b>{lastTranslatedAt}</b>
-      (⚠️ Warning: <b>{timeSince.value}</b> behind default language)
-    </i>
+  else {
+    return <div>
+      Translation updated at: <a href={link}><b>{moment(translationUpdatedAt).fromNow()}</b></a><br />
+      Translation behind source: <b>{moment(sourceUpdatedAt).from(translationUpdatedAt)}</b>
+      (⚠️ Warning: <b>{diff}</b> behind default language)
+    </div>
   }
 }
 
@@ -72,7 +50,7 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
   useEffect(() => {
     if (window) {
       const path = new URL(window.location.href).pathname.replace('/head-protocol/', '')
-      setDocumentPath(path)
+      setDocumentPath('fr/' + path)
     }
   }, [])
 
