@@ -70,7 +70,7 @@ export default function DocumentMetadata({}: Props): JSX.Element {
         "/head-protocol/",
         ""
       );
-      setDocumentPath("fr/" + path);
+      setDocumentPath(path);
     }
   }, []);
 
