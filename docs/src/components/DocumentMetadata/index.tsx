@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import styles from "./styles.module.css";
 import docsMetadataJson from "@site/static/docs-metadata.json";
 import moment from "moment";
 
@@ -20,9 +19,9 @@ const renderMetadata = ({ lastUpdatedAt, commitHash }: Metadata) => {
   let link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`;
   return (
     <div>
-      Last updated:{" "}
+      Last updated:&nbsp;
       <a href={link}>
-        <b>{moment(lastUpdatedAt).fromNow()}</b>
+        {moment(lastUpdatedAt).fromNow()}
       </a>
     </div>
   );
@@ -34,31 +33,18 @@ const renderTranslatedMetadata = ({
   commitHash,
 }: TranslatedMetadata) => {
   let link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`;
-  const diffMs = moment(translationUpdatedAt).diff(sourceUpdatedAt);
-
-  // dont display warning on translated pages when up to date or above
-  if (diffMs >= 0) {
-    return (
-      <div>
-        Translation updated:
-        <a href={link}>
-          <b>{moment(translationUpdatedAt).fromNow()}</b>
-        </a>
-        <br />
-      </div>
-    );
-  } else {
-    return (
-      <div>
-        Translation updated:
-        <a href={link}>
-          <b>{moment(translationUpdatedAt).fromNow()}</b> (⚠️ Warning:{" "}
-          <b>{moment.duration(diffMs).humanize()}</b> behind default language)
-        </a>
-        <br />
-      </div>
-    );
-  }
+  const outdated = moment(translationUpdatedAt).diff(sourceUpdatedAt) < 0;
+  const maybeRenderWarning = outdated &&
+    (<b>(⚠️ Warning:&nbsp; {moment.duration(diffMs).humanize()} behind default language)</b>);
+  return (
+    <p>
+      Translation updated:&nbsp;
+      <a href={link}>
+        {moment(translationUpdatedAt).fromNow()}
+        {maybeRenderWarning}
+      </a>
+    </p>
+  );
 };
 
 export default function DocumentMetadata({}: Props): JSX.Element {
@@ -70,7 +56,7 @@ export default function DocumentMetadata({}: Props): JSX.Element {
         "/head-protocol/",
         ""
       );
-      setDocumentPath(path);
+      setDocumentPath("fr/" + path);
     }
   }, []);
 
