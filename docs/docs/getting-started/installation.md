@@ -6,11 +6,6 @@ sidebar_position: 2
 
 ```mdx-code-block
 import TerminalWindow from '@site/src/components/TerminalWindow';
-import DocumentMetadata from '@site/src/components/DocumentMetadata';
-```
-
-```mdx-code-block
-<DocumentMetadata />
 ```
 
 > Installation instructions for Hydra nodes. We recommend using Docker and dealing with containers as a quick start.
