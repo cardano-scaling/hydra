@@ -21,34 +21,34 @@ const Utils = {
         Utils.sysCall(`git --no-pager log -1 --pretty=format:'%aI' ${doc}`)
     , getCommitHash: async (doc) =>
         Utils.sysCall(`git --no-pager log -1 --pretty=format:'%H' ${doc}`)
-    , pathToLocation: (path) => {
-        const basePath = path.replace('.md', '')
+    , docPathToKey: (docPath) => {
+        const basePath = docPath.replace('.md', '')
             .replace('i18n/', '')
             .replace('/current/', '/')
             .replace('/index', '')
 
         // @TODO rename to docusaurus-plugin-content-docs-docs
-        if (path.includes('docusaurus-plugin-content-docs-')) {
-            return basePath.replace('docusaurus-plugin-content-docs-', '')
-        } else {
-            return basePath.replace('docusaurus-plugin-content-', '')
-        }
+        const documentPath = basePath.includes('docusaurus-plugin-content-docs-') ?
+            basePath.replace('docusaurus-plugin-content-docs-', '') :
+            basePath.replace('docusaurus-plugin-content-', '')
+
+        if (documentPath.includes('adr'))
+            return 'adr/' + parseInt(documentPath.split('_')[1].split('-')[0]).toString()
+        return documentPath
     }
-    , getDocsMetadataJson: async (doc) => {
-        console.log("Processing: ", doc)
-        const lastUpdatedAt = await Utils.getLastUpdatedAt(doc)
-        const commitHash = await Utils.getCommitHash(doc)
+    , getSupportedLanguages: async () => {
+        const dirs = await Utils.sysCall('ls i18n/')
+        return dirs.trim().split('\n')
+    }
+    , getDocsMetadataJson: async (docPath) => {
+        console.log("Processing: ", docPath)
 
-        const keyFromDocumentPath = (docPath) => {
-            if (docPath.includes('adr'))
-                return 'adr/' + parseInt(docPath.split('_')[1].split('-')[0]).toString()
-            return docPath
-        };
+        const lastUpdatedAt = await Utils.getLastUpdatedAt(docPath)
+        const commitHash = await Utils.getCommitHash(docPath)
+        const supportedLanguages = await Utils.getSupportedLanguages()
 
-        const docPath = Utils.pathToLocation(doc)
-        const docKey = keyFromDocumentPath(docPath)
+        const docKey = Utils.docPathToKey(docPath)
         const [head, ...tail] = docKey.split("/")
-        const supportedLanguages = ['fr', 'ja'] //@TODO move to config
         const isSupportedLanguage = (language) => supportedLanguages.includes(language)
         const key = isSupportedLanguage(head) ? tail.join('/') : docKey
         const subKey = isSupportedLanguage(head) ? head : "source"
