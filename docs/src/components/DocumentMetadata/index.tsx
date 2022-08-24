@@ -62,7 +62,6 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
   const baseUrl = context.siteConfig.baseUrl
   const pathname = new URL(window.location.href).pathname
   const path = pathname.replace(baseUrl, "").replace(/\/$/, '')
-
   const defaultLocale = context.i18n.defaultLocale
   const currentLocale = context.i18n.currentLocale
   const isTranslatedLanguage = defaultLocale !== currentLocale
