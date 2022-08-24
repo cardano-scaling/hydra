@@ -42,6 +42,7 @@
   },
   "devDependencies": {
     "glob": "^8.0.3",
-    "moment": "^2.29.4"
+    "moment": "^2.29.4",
+    "prettier": "2.7.1"
   }
 }
