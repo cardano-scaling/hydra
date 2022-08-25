@@ -14,51 +14,57 @@ import TabItem from '@theme/TabItem';
 
 ## Preparation
 
-All commands below are written as if executed from the `demo` folder in the project repository, so make sure to clone the repository and `cd demo` before doing anything.
-
 Also, make sure that you have a `cardano-node`, `hydra-node` and `hydra-tui` executable in your scope. You can either
 
- - use `nix-shell -A demo` or
+ - use `nix-shell demo` or
  - `cabal build` and `cabal exec` them (do not forget the `--` before passing further arguments).
 
 :::info Tip for tmux users
 In the `demo` nix-shell, there is a `run-hydra-demo` script which starts a new `tmux` session with multiple windows and panes executing all the commands below!
 :::
 
+All further commands are written as if executed from the `demo` folder in the project repository, so make sure to `cd demo` before continuing.
+
+:::info Tip for nix-direnv users
+Allowing the `demo/.envrc` will get ensure you have the nix shell environment available whenever you are in the `demo/` directory. To use this, opt-in via `direnv allow` after `cd demo`.
+:::
+
 ## Setting-up The Chain
 
 First, let's prepare and start an ad-hoc, single `cardano-node` devnet using our configuration. Note that this will create a `devnet` directory in your current working directory:
 
-````mdx-code-block
 <TerminalWindow>
 
 ```
 ./prepare-devnet.sh
 cd devnet
-cardano-node -- run \
+cardano-node run \
   --config cardano-node.json \
   --topology topology.json \
   --database-path db \
-  --socket-path ipc/node.socket \
+  --socket-path node.socket \
   --shelley-operational-certificate opcert.cert \
   --shelley-kes-key kes.skey \
   --shelley-vrf-key vrf.skey
 ```
 
 </TerminalWindow>
-````
 
 ## Seeding The Network
 
 You can use the `seed-devnet.sh` script by passing it the path/command to a cardano-cli and hydra-node executable to use, instead of having it using the Docker container. For example:
 
 
-```mdx-code-block
 <TerminalWindow>
-export CARDANO_NODE_SOCKET_PATH=devnet/node.socket
-./seed-devnet.sh $(which cardano-cli) "cabal exec hydra-node --"
-</TerminalWindow>
+
 ```
+export CARDANO_NODE_SOCKET_PATH=devnet/node.socket
+./seed-devnet.sh $(which cardano-cli) $(which hydra-node)
+```
+
+</TerminalWindow>
+
+Note, should you want to use `cabal`, pass the invocation for example like this `"cabal exec hydra-node --"`.
 
 ## Setting-up The Hydra Network
 
@@ -71,7 +77,7 @@ Then, in 3 different terminals, start 3 Hydra nodes from the `demo/` directory:
 <TerminalWindow>
 
 ```
-source .env && cabal exec hydra-node -- \
+source .env && hydra-node \
   --node-id 1 --port 5001 --api-port 4001 --monitoring-port 6001 \
   --peer localhost:5002 \
   --peer localhost:5003 \
@@ -95,7 +101,7 @@ source .env && cabal exec hydra-node -- \
 <TerminalWindow>
 
 ```
-source .env && cabal exec hydra-node -- \
+source .env && hydra-node \
   --node-id 2 --port 5002 --api-port 4002 --monitoring-port 6002 \
   --peer localhost:5001 \
   --peer localhost:5003 \
@@ -119,7 +125,7 @@ source .env && cabal exec hydra-node -- \
 <TerminalWindow>
 
 ```
-source .env && cabal exec hydra-node -- \
+source .env && hydra-node \
   --node-id 3 --port 5003 --api-port 4003 --monitoring-port 6003 \
   --peer localhost:5001 \
   --peer localhost:5002 \

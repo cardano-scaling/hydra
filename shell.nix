@@ -8,20 +8,7 @@
 }:
 let
   project = import ./default.nix { };
-
-  inherit (project) pkgs hsPkgs compiler;
-
-  # Add cardano-node & cardano-cli for our shell environment.
-  # This is stable as it doesn't mix dependencies with this code-base; the
-  # fetched binaries are the "standard" builds that people test. This should be
-  # fast as it mostly fetches Hydra (CI) caches without building much.
-  cardano-node = import
-    (pkgs.fetchgit {
-      url = "https://github.com/input-output-hk/cardano-node";
-      rev = "1.35.3-testnetonly";
-      sha256 = "0vg5775z683wf421asxjm7g2b6yxmgprpylhs9ryb035id83slp2";
-    })
-    { };
+  inherit (project) compiler pkgs hsPkgs cardano-node;
 
   libs = [
     pkgs.glibcLocales
@@ -128,26 +115,6 @@ let
     STACK_IN_NIX_SHELL = "true";
   };
 
-  # If you want to modify `Python` code add `libtmux` and pyyaml to the `demoShell`
-  # then enter it and then run `Python` module directly so you have
-  # fast devel cycle.
-  run-hydra-demo = pkgs.writers.writePython3Bin
-    "run-hydra-demo"
-    { libraries = with pkgs.python3Packages; [libtmux pyyaml]; }
-    (builtins.readFile ./demo/run-tmux.py);
-
-  # A shell which provides env for the demo application
-  demoShell = pkgs.mkShell {
-    name = "hydra-demo-shell";
-    buildInputs = [
-      cardano-node.cardano-node
-      cardano-node.cardano-cli
-      hsPkgs.hydra-node.components.exes.hydra-node
-      hsPkgs.hydra-tui.components.exes.hydra-tui
-      run-hydra-demo
-    ];
-  };
-
   # A shell which does provide hydra-node and hydra-cluster executables.
   exeShell = pkgs.mkShell {
     name = "hydra-node-exe-shell";
@@ -162,6 +129,5 @@ let
 in
 haskellNixShell // {
   cabalOnly = cabalShell;
-  demo = demoShell;
   exes = exeShell;
 }

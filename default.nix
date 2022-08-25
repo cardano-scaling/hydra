@@ -23,6 +23,7 @@ let
         # needed for cardano-crypto-class which uses a patched libsodium
         ++ iohkNix.overlays.crypto;
   });
+
   hsPkgs = pkgs.haskell-nix.project {
     src = pkgs.haskell-nix.haskellLib.cleanGit {
       name = "hydra-poc";
@@ -40,7 +41,19 @@ let
       packages.cardano-crypto-praos.components.library.pkgconfig = pkgs.lib.mkForce [ [ pkgs.libsodium-vrf ] ];
     }];
   };
+
+  # Add cardano-node & cardano-cli for our shell environments.
+  # This is stable as it doesn't mix dependencies with this code-base; the
+  # fetched binaries are the "standard" builds that people test. This should be
+  # fast as it mostly fetches Hydra (CI) caches without building much.
+  cardano-node = import
+    (pkgs.fetchgit {
+      url = "https://github.com/input-output-hk/cardano-node";
+      rev = "1.35.3-testnetonly";
+      sha256 = "0vg5775z683wf421asxjm7g2b6yxmgprpylhs9ryb035id83slp2";
+    })
+    { };
 in
 {
-  inherit pkgs hsPkgs compiler;
+  inherit compiler pkgs hsPkgs cardano-node;
 }
