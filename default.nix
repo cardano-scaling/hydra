@@ -4,15 +4,16 @@
 
 , haskellNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/haskell.nix/archive/a500d951fbf198c9ec0710b7dc9d16328341fbfa.tar.gz")
+      "https://github.com/input-output-hk/haskell.nix/archive/28dbf2f4bd32a4fbd1a2e9de45d02ad977b062d9.tar.gz")
     { }
 
 , iohkNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/iohk-nix/archive/9a604d01bd4420ab7f396f14d1947fbe2ce7db8b.tar.gz")
+      "https://github.com/input-output-hk/iohk-nix/archive/5e667b374153327c7bdfdbfab8ef19b1f27d4aac.tar.gz")
     { }
 
-, nixpkgsSrc ? haskellNix.sources.nixpkgs-unstable
+  # nixpkgs-unstable as also used by cardano-node, cardano-ledger et al
+, nixpkgsSrc ? builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/1882c6b7368fd284ad01b0a5b5601ef136321292.tar.gz"
 }:
 let
   pkgs = import nixpkgsSrc (haskellNix.nixpkgsArgs // {
