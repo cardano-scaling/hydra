@@ -21,43 +21,36 @@ const Utils = {
         Utils.sysCall(`git --no-pager log -1 --pretty=format:'%aI' ${doc}`)
     , getCommitHash: async (doc) =>
         Utils.sysCall(`git --no-pager log -1 --pretty=format:'%H' ${doc}`)
-    , docPathToKey: (docPath) => {
-        const basePath = docPath.replace('.md', '')
-            .replace('i18n/', '')
-            .replace('/current/', '/')
-            .replace('/index', '')
-
-        // @TODO rename to docusaurus-plugin-content-docs-docs
-        const documentPath = basePath.includes('docusaurus-plugin-content-docs-') ?
-            basePath.replace('docusaurus-plugin-content-docs-', '') :
-            basePath.replace('docusaurus-plugin-content-', '')
-
-        if (documentPath.includes('adr'))
-            return 'adr/' + parseInt(documentPath.split('_')[1].split('-')[0]).toString()
-        return documentPath
-    }
-    , getSupportedLanguages: async () => {
-        const dirs = await Utils.sysCall('ls i18n/')
-        return dirs.trim().split('\n')
-    }
     , getDocsMetadataJson: async (docPath) => {
         console.log("Processing: ", docPath)
 
         const lastUpdatedAt = await Utils.getLastUpdatedAt(docPath)
         const commitHash = await Utils.getCommitHash(docPath)
-        const supportedLanguages = await Utils.getSupportedLanguages()
 
-        const docKey = Utils.docPathToKey(docPath)
-        const [head, ...tail] = docKey.split("/")
-        const isSupportedLanguage = (language) => supportedLanguages.includes(language)
-        const key = isSupportedLanguage(head) ? tail.join('/') : docKey
-        const subKey = isSupportedLanguage(head) ? head : "source"
+        let lang = "source"
+        let docKey = docPath
+        const parts = docPath.split("/")
+        if (parts[0] == "i18n") {
+            lang = parts[1]
+            docKey = parts[2] == 'docusaurus-plugin-content-docs'
+                ? 'docs/'
+                : parts[2].replace('docusaurus-plugin-content-', '')
+            // parts[3] is the version - we don't need it
+            docKey = docKey + parts.slice(4).join("/")
+        }
+        docKey = docKey.replace('.md', '').replace('/index', '')
+
+        // NOTE: This assumes the file name include the adr number and that this
+        // is consistent with the slug used for serving the page later
+        if (docKey.includes('adr')) {
+            docKey = 'adr/' + parseInt(docKey.split('_')[1].split('-')[0]).toString()
+        }
 
         return {
-            [key]: {
+            [docKey]: {
                 lastUpdatedAt,
                 commitHash,
-                subKey
+                lang
             }
         }
     }
@@ -67,8 +60,8 @@ const Utils = {
                 if (obj[key] === undefined) {
                     obj[key] = {}
                 }
-                const { lastUpdatedAt, commitHash, subKey } = item[key]
-                obj[key][subKey] = { lastUpdatedAt, commitHash }
+                const { lastUpdatedAt, commitHash, lang } = item[key]
+                obj[key][lang] = { lastUpdatedAt, commitHash }
             }
             return obj
         }, {})
