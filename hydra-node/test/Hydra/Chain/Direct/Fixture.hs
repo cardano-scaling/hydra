@@ -12,24 +12,19 @@ module Hydra.Chain.Direct.Fixture (
 import Hydra.Prelude
 
 import Cardano.Crypto.Hash (hashToBytes)
-import Cardano.Ledger.BaseTypes (TxIx (TxIx))
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import qualified Cardano.Slotting.Time as Slotting
 import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
-  Era,
   ExecutionUnitPrices (ExecutionUnitPrices),
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PolicyId,
   ProtocolParameters (..),
-  SlotNo (..),
   TxIn,
-  shelleyBasedEra,
-  toLedgerPParams,
   verificationKeyHash,
  )
 import Hydra.Chain.Direct.Tx (headPolicyId)
@@ -38,7 +33,6 @@ import Hydra.Ledger.Cardano.Configuration (newLedgerEnv)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)
 import Hydra.Party (Party (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.Cardano.Ledger.Generic.ModelState (accountStateZero)
 
 -- * Party / key utilities
 
