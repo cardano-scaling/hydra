@@ -17,7 +17,7 @@ interface TranslatedMetadata {
   commitHash: string
 }
 
-const style = { marginTop: '1em' }
+const style = { marginBottom: '1em' }
 
 const renderMetadata = ({ lastUpdatedAt, commitHash }: Metadata) => {
   let link = `https://github.com/input-output-hk/hydra-poc/commit/${commitHash}`
