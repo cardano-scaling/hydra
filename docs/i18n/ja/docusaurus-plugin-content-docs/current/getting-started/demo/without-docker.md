@@ -12,21 +12,21 @@ import TabItem from '@theme/TabItem';
 
 > Dockerコンテナなしで、実行ファイルとスクリプトでデモを実行します。
 
-## Preparation
+## 準備
 
-Also, make sure that you have a `cardano-node`, `hydra-node` and `hydra-tui` executable in your scope. You can either
+スコープに「cardano-node」、「hydra-node」、および「hydra-tui」実行可能ファイルがあることを確認してください。 次のいずれかを実行できます
 
- - use `nix-shell demo` or
- - `cabal build` and `cabal exec` them (do not forget the `--` before passing further arguments).
+ - `nix-shell demo` を使用するか、
+ - `cabal build` と `cabal exec` を実行します (さらに引数を渡す前に `--` を忘れないでください)。
 
-:::info Tip for tmux users
-In the `demo` nix-shell, there is a `run-hydra-demo` script which starts a new `tmux` session with multiple windows and panes executing all the commands below!
+:::info tmux ユーザー向けのヒント
+`demo` nix-shell には、以下のすべてのコマンドを実行する複数のウィンドウとペインで新しい `tmux` セッションを開始する `run-hydra-demo` スクリプトがあります!
 :::
 
-All further commands are written as if executed from the `demo` folder in the project repository, so make sure to `cd demo` before continuing.
+以降のすべてのコマンドは、プロジェクト リポジトリの `demo` フォルダから実行されるかのように記述されるため、続行する前に必ず `cd demo` を実行してください。
 
-:::info Tip for nix-direnv users
-Allowing the `demo/.envrc` will get ensure you have the nix shell environment available whenever you are in the `demo/` directory. To use this, opt-in via `direnv allow` after `cd demo`.
+:::info nix-direnv ユーザー向けのヒント
+`demo/.envrc` を許可すると、`demo/` ディレクトリにいるときはいつでも nix シェル環境を利用できるようになります。 これを使用するには、`cd demo` の後に `direnv allow` でオプトインします。
 :::
 
 ## ネットワークの設定

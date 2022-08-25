@@ -14,7 +14,7 @@ import TabItem from '@theme/TabItem';
 
 ## Preparation
 
-Also, make sure that you have a `cardano-node`, `hydra-node` and `hydra-tui` executable in your scope. You can either
+Make sure that you have a `cardano-node`, `hydra-node` and `hydra-tui` executable in your scope. You can either
 
  - use `nix-shell demo` or
  - `cabal build` and `cabal exec` them (do not forget the `--` before passing further arguments).
