@@ -41,7 +41,7 @@ let
     # Automagically format .cabal files
     pkgs.haskellPackages.cabal-fmt
     # Handy to interact with the hydra-node via websockets
-    pkgs.ws
+    pkgs.websocat
     # Like 'jq' to manipulate JSON, but work for YAML
     pkgs.yq
     # For docs/ (i.e. Docusaurus, Node.js & React)
