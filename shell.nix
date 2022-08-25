@@ -127,6 +127,13 @@ let
     GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
     STACK_IN_NIX_SHELL = "true";
   };
+  # If you want to modify `Python` code add `libtmux` and pyyaml to the `demoShell`
+  # then enter it and then run `Python` module directly so you have
+  # fast devel cycle.
+  run-hydra-demo = pkgs.writers.writePython3Bin
+    "run-hydra-demo"
+    { libraries = with pkgs.python3Packages; [libtmux pyyaml]; }
+    (builtins.readFile ./demo/run-tmux.py);
 
   # A shell which provides env for the demo application
   demoShell = pkgs.mkShell {
@@ -136,6 +143,7 @@ let
       cardano-node.cardano-cli
       hsPkgs.hydra-node.components.exes.hydra-node
       hsPkgs.hydra-tui.components.exes.hydra-tui
+      run-hydra-demo
     ];
   };
 
