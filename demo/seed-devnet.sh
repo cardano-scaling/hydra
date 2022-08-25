@@ -41,7 +41,9 @@ function hnode() {
   if [[ -n ${HYDRA_NODE_CMD} ]]; then
       ${HYDRA_NODE_CMD} ${@}
   else
-      docker-compose exec hydra-node -- ${@}
+      docker run --rm -it \
+        -v ${SCRIPT_DIR}/devnet:/devnet \
+        ghcr.io/input-output-hk/hydra-node -- ${@}
   fi
 }
 
