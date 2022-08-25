@@ -67,9 +67,9 @@ export default function DocItemFooter(props) {
     <footer
       className={clsx(ThemeClassNames.docs.docFooter, 'docusaurus-mt-lg')}>
       {canDisplayTagsRow && <TagsRow tags={tags} />}
-      // NOTE: This is our only modification to this "ejected" component
+      {/* NOTE: This is our only modification to this "ejected" component */}
       <DocumentMetadata />
-      // End of our modifications
+      {/* End of our modifications */}
       {canDisplayEditMetaRow && (
         <EditMetaRow
           editUrl={editUrl}
