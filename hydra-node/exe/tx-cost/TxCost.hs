@@ -10,6 +10,7 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   ExecutionUnits (..),
+  Lovelace,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   Tx,
@@ -49,6 +50,7 @@ import Hydra.Ledger.Cardano (
   genUTxOAdaOnlyOfSize,
  )
 import Hydra.Ledger.Cardano.Evaluate (
+  estimateMinFee,
   evaluateTx,
   genPointInTime,
   genPointInTimeBefore,
@@ -61,7 +63,7 @@ import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
 import Test.QuickCheck (generate, sublistOf)
 
-computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
+computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeInitCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 11]
@@ -70,8 +72,8 @@ computeInitCost = do
   compute numParties = do
     (tx, knownUtxo) <- generate $ genInitTx' numParties
     case checkSizeAndEvaluate tx knownUtxo of
-      Just (txSize, memUnit, cpuUnit) ->
-        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
+      Just (txSize, memUnit, cpuUnit, minFee) ->
+        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
@@ -83,7 +85,7 @@ computeInitCost = do
     let utxo = UTxO.singleton (seedInput, seedOutput)
     pure (initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle, utxo)
 
-computeCommitCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
+computeCommitCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCommitCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [500, 499 .. 101]
@@ -96,8 +98,8 @@ computeCommitCost = do
       Left _ -> pure Nothing
       Right tx ->
         case checkSizeAndEvaluate tx (utxo <> knownUtxo) of
-          Just (txSize, memUnit, cpuUnit) ->
-            pure $ Just (NumUTxO $ length utxo, txSize, memUnit, cpuUnit)
+          Just (txSize, memUnit, cpuUnit, minFee) ->
+            pure $ Just (NumUTxO $ length utxo, txSize, memUnit, cpuUnit, minFee)
           Nothing ->
             pure Nothing
 
@@ -107,7 +109,7 @@ computeCommitCost = do
     stInitialized <- genStInitialized ctx
     pure (commit utxo stInitialized, getKnownUTxO stInitialized)
 
-computeCollectComCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
+computeCollectComCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCollectComCost =
   catMaybes <$> mapM compute [1 .. 100]
  where
@@ -115,8 +117,8 @@ computeCollectComCost =
     (st, tx) <- generate $ genCollectComTx numParties
     let utxo = getKnownUTxO st
     case checkSizeAndEvaluate tx utxo of
-      Just (txSize, memUnit, cpuUnit) ->
-        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
+      Just (txSize, memUnit, cpuUnit, minFee) ->
+        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
@@ -128,7 +130,7 @@ computeCollectComCost =
     let (_, stInitialized) = executeCommits initTx commits stIdle
     pure (stInitialized, collect stInitialized)
 
-computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
+computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCloseCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 31]
@@ -138,12 +140,12 @@ computeCloseCost = do
     (st, tx, _sn) <- generate $ genCloseTx numParties
     let utxo = getKnownUTxO st
     case checkSizeAndEvaluate tx utxo of
-      Just (txSize, memUnit, cpuUnit) ->
-        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
+      Just (txSize, memUnit, cpuUnit, minFee) ->
+        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
-computeContestCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
+computeContestCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeContestCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 31]
@@ -153,8 +155,8 @@ computeContestCost = do
     (st, tx) <- generate $ genContestTx numParties
     let utxo = getKnownUTxO st
     case checkSizeAndEvaluate tx utxo of
-      Just (txSize, memUnit, cpuUnit) ->
-        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
+      Just (txSize, memUnit, cpuUnit, minFee) ->
+        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
@@ -166,7 +168,7 @@ computeContestCost = do
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     pure (stClosed, contest snapshot pointInTime stClosed)
 
-computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
+computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeAbortCost =
   -- NOTE: We can't even close with one party right now, so no point in
   -- determining interesting values
@@ -175,8 +177,8 @@ computeAbortCost =
   compute numParties = do
     (tx, knownUtxo) <- generate $ genAbortTx numParties
     case checkSizeAndEvaluate tx knownUtxo of
-      Just (txSize, memUnit, cpuUnit) ->
-        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit)
+      Just (txSize, memUnit, cpuUnit, minFee) -> do
+        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
@@ -188,7 +190,7 @@ computeAbortCost =
     let (_, stInitialized) = executeCommits initTx commits stIdle
     pure (abort stInitialized, getKnownUTxO stInitialized)
 
-computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
+computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 51]
@@ -197,8 +199,8 @@ computeFanOutCost = do
   compute numElems = do
     (utxo, tx) <- generate $ genFanoutTx 3 numElems
     case checkSizeAndEvaluate tx utxo of
-      Just (txSize, memUnit, cpuUnit) ->
-        pure $ Just (NumUTxO numElems, txSize, memUnit, cpuUnit)
+      Just (txSize, memUnit, cpuUnit, minFee) ->
+        pure $ Just (NumUTxO numElems, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
@@ -229,7 +231,7 @@ newtype MemUnit = MemUnit Natural
 newtype CpuUnit = CpuUnit Natural
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
 
-checkSizeAndEvaluate :: Tx -> UTxO -> Maybe (TxSize, MemUnit, CpuUnit)
+checkSizeAndEvaluate :: Tx -> UTxO -> Maybe (TxSize, MemUnit, CpuUnit, Lovelace)
 checkSizeAndEvaluate tx knownUTxO = do
   guard $ txSize < maxTxSize
   case evaluateTx tx knownUTxO of
@@ -240,7 +242,8 @@ checkSizeAndEvaluate tx knownUTxO = do
       let totalCpu = sum $ executionSteps <$> rights results
       guard $ totalMemory <= maxMem
       guard $ totalCpu <= maxCpu
-      Just (TxSize txSize, MemUnit totalMemory, CpuUnit totalCpu)
+      let minFee = estimateMinFee tx report
+      Just (TxSize txSize, MemUnit totalMemory, CpuUnit totalCpu, minFee)
     _ -> Nothing
  where
   txSize = fromIntegral $ LBS.length $ serialize tx
