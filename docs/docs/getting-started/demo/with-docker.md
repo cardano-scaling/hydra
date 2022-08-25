@@ -17,8 +17,8 @@ The demo consists of:
 - a Prometheus server to gather metrics;
 - ad-hoc terminal user interface clients to interact with the individual Hydra nodes;
 
-:::caution Caution!
-As we use ad-hoc private devnets that start from the genesis block, you need to ensure the devnet configuration is reasonably up to date. If you get `TraceNoLedgerView` errors from the Cardano node, the start times are too far in the past and you should update them by using the `prepare-devnet.sh` script, for example.
+:::info Shortcut
+For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves. 
 :::
 
 ## Setting-up The Chain
@@ -57,33 +57,11 @@ docker-compose up -d cardano-node
 </TerminalWindow>
 ```
 
-For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves. You can verify that the node is up-and-running by checking the logs with `docker-compose logs cardano-node -f`. You should see traces like:
+:::caution Caution!
+As we use ad-hoc private devnets that start from the genesis block, you need to ensure the devnet configuration is reasonably up to date. If you get `TraceNoLedgerView` errors from the Cardano node, the start times are too far in the past and you should update them by using the `prepare-devnet.sh` script, for example.
+:::
 
-```json
-{
-    "app": [],
-    "at": "2022-08-13T10:00:35.40Z",
-    "data": {
-        "credentials": "Cardano",
-        "val": {
-            "blockHash": "53e24a8b4d40fd424190f891557801951d4528d98419fc9feebe6c1f784d4832",
-            "blockSize": 865,
-            "kind": "TraceAdoptedBlock",
-            "slot": 2074
-        }
-    },
-    "env": "1.35.0:00000",
-    "host": "21861f0c",
-    "loc": null,
-    "msg": "",
-    "ns": [
-        "cardano.node.Forge"
-    ],
-    "pid": "1",
-    "sev": "Info",
-    "thread": "32"
-}
-```
+You can verify that the node is up-and-running by checking the logs with `docker-compose logs cardano-node -f`. You should see traces containing `TraceAdoptedBlock`, which means that the devnet is producing blocks .. nice!
 
 ## Seeding The Network
 
