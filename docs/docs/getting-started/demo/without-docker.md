@@ -12,15 +12,20 @@ import TabItem from '@theme/TabItem';
 
 > Running the demo without Docker containers, but with plain executables and scripts.
 
-:::info Context
+## Preparation
+
 All commands below are written as if executed from the `demo` folder in the project repository, so make sure to clone the repository and `cd demo` before doing anything.
+
+Also, make sure that you have a `cardano-node`, `hydra-node` and `hydra-tui` executable in your scope. You can either
+
+ - use `nix-shell -A demo` or
+ - `cabal build` and `cabal exec` them (do not forget the `--` before passing further arguments).
+
+:::info Tip for tmux users
+In the `demo` nix-shell, there is a `run-hydra-demo` script which starts a new `tmux` session with multiple windows and panes executing all the commands below!
 :::
 
 ## Setting-up The Chain
-
-One needs to prepare a `cardano-node` (devnet) and a `hydra-node` "manually". These instructions assume you have both built and in scope for `cabal exec`.
-
-Alternatively you can use a minimal `nix-shell` prepared for this purpose - `nix-shell -A demo`. If you use this method please skip `cabal exec` part and its `--` switch which is present after every commmand.
 
 First, let's prepare and start an ad-hoc, single `cardano-node` devnet using our configuration. Note that this will create a `devnet` directory in your current working directory:
 
@@ -50,7 +55,7 @@ You can use the `seed-devnet.sh` script by passing it the path/command to a card
 
 ```mdx-code-block
 <TerminalWindow>
-export CARDANO_NODE_SOCKET_PATH=devnet/ipc/node.socket
+export CARDANO_NODE_SOCKET_PATH=devnet/node.socket
 ./seed-devnet.sh $(which cardano-cli) "cabal exec hydra-node --"
 </TerminalWindow>
 ```
@@ -80,7 +85,7 @@ source .env && cabal exec hydra-node -- \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --network-id 42 \
-  --node-socket devnet/ipc/node.socket
+  --node-socket devnet/node.socket
 ```
 
 </TerminalWindow>
@@ -104,7 +109,7 @@ source .env && cabal exec hydra-node -- \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --network-id 42 \
-  --node-socket devnet/ipc/node.socket
+  --node-socket devnet/node.socket
 ```
 
 </TerminalWindow>
@@ -128,7 +133,7 @@ source .env && cabal exec hydra-node -- \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --network-id 42 \
-  --node-socket devnet/ipc/node.socket
+  --node-socket devnet/node.socket
 ```
 
 </TerminalWindow>
@@ -151,7 +156,7 @@ cabal exec hydra-tui -- \
   --connect 0.0.0.0:4001 \
   --cardano-signing-key devnet/credentials/alice.sk \
   --network-id 42 \
-  --node-socket devnet/ipc/node.socket
+  --node-socket devnet/node.socket
 ```
 
 </TerminalWindow>
