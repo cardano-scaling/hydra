@@ -1,12 +1,12 @@
 import React from 'react';
-import EditThisPage from '@theme-original/EditThisPage';
+import DocItemFooter from '@theme-original/DocItemFooter';
 import DocumentMetadata from '@site/src/components/DocumentMetadata';
 
-export default function EditThisPageWrapper(props) {
+export default function DocItemFooterWrapper(props) {
   return (
     <>
-      <EditThisPage {...props} />
       <DocumentMetadata />
+      <DocItemFooter {...props} />
     </>
   );
 }
