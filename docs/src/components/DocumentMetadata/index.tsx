@@ -75,29 +75,21 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
 
   const documentMetadata = docsMetadataJson[path]
   const sourceMetadata = documentMetadata["source"]
+  const translatedPageMetadata = documentMetadata[currentLocale]
 
   // do not display if metadata for source language is not found in docs-metadata.json
   if (sourceMetadata === undefined) {
     return <></>
   }
 
-  const metadata: Metadata = isTranslatedLanguage
-    ? documentMetadata[currentLocale]
-    : sourceMetadata
-
-  // do not display if metadata for translated language is not found in docs-metadata.json
-  if (metadata === undefined) {
-    return <></>
-  }
-
-  if (isTranslatedLanguage) {
+  if (isTranslatedLanguage && translatedPageMetadata) {
     const translatedMetadata = {
       sourceUpdatedAt: sourceMetadata.lastUpdatedAt,
-      translationUpdatedAt: documentMetadata[currentLocale].lastUpdatedAt,
-      commitHash: documentMetadata[currentLocale].commitHash,
+      translationUpdatedAt: translatedPageMetadata.lastUpdatedAt,
+      commitHash: translatedPageMetadata.commitHash,
     }
     return renderTranslatedMetadata(translatedMetadata)
   } else {
-    return renderMetadata(metadata)
+    return renderMetadata(sourceMetadata)
   }
 }
