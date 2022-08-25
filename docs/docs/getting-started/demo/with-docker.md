@@ -8,22 +8,11 @@ sidebar_position: 2
 import TerminalWindow from '@site/src/components/TerminalWindow';
 ```
 
-> Our standard demo setup for demonstrating the Hydra Head protocol.
-
-The demo consists of:
-
-- a cluster of three Hydra nodes, directly connected to each other, each having access to one of three Hydra credentials `alice`, `bob`, or `carol`;
-- a single Cardano node producing blocks used as a local devnet;
-- a Prometheus server to gather metrics;
-- ad-hoc terminal user interface clients to interact with the individual Hydra nodes;
+We'll be using [Docker](https://www.docker.com/get-started) and [compose](https://www.docker.com/get-started) to get the demo running, so make sure you have them in scope or, jump right away to [Running The Demo: Without Docker](/docs/getting-started/demo/without-docker) if you feel like doing it the hard way.
 
 :::info Shortcut
 For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves. 
 :::
-
-## Setting-up The Chain
-
-We'll be using [Docker](https://www.docker.com/get-started) and [compose](https://www.docker.com/get-started) to get the demo running, so make sure you have them in scope or, jump right away to [Running The Demo: Without Docker](/docs/getting-started/demo/without-docker) if you feel like doing it the hard way.
 
 :::info Context
 All commands below are written as if executed from the `demo` folder in the project repository, so make sure to clone the repository and `cd demo` before doing anything else.
@@ -32,6 +21,8 @@ All commands below are written as if executed from the `demo` folder in the proj
 :::warning OS Compatibility
 These instructions have been tested only on Linux environments (Ubuntu, NixOS). If you're on Windows or Mac OS X, you might need to adapt to use [Volumes](https://docs.docker.com/storage/volumes/).
 :::
+
+## Setting-up The Chain
 
 To get started, let's pull the necessary images for services defined in the compose file:
 

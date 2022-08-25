@@ -4,6 +4,15 @@ sidebar_position: 1
 
 # Demo
 
+> Our standard demo setup for demonstrating the Hydra Head protocol.
+
+The demo consists of:
+
+- a cluster of three Hydra nodes, directly connected to each other, each having access to one of three Hydra credentials `alice`, `bob`, or `carol`;
+- a single Cardano node producing blocks used as a local devnet;
+- a Prometheus server to gather metrics;
+- ad-hoc terminal user interface clients to interact with the individual Hydra nodes;
+
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';
 import {useCurrentSidebarCategory} from '@docusaurus/theme-common';
