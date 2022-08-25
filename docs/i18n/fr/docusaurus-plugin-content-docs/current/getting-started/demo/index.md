@@ -4,6 +4,15 @@ sidebar_position: 1
 
 # Démo
 
+> Ce document détaille les étapes nécessaires pour faire tourner une Hydra Head dans un environment de démo, avec Docker.
+
+La démo comprend:
+
+- un cluster de trois noeuds Hydra, connectés point-à-point, et ayant chacun une identité (`alice`, `bob`, `carol`) associée à une paire de clés publique/privée;
+- Un noeud Cardano, en mode BFT, produisant des blocs et formant a lui seul un réseau Cardano pour le développement local&nbsp;;
+- un serveur Prometheus pour des métriques&nbsp;;
+- une interface utilisateur dans le terminal pour se connecter et opérer chaque noeud Hydra. 
+
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';
 import {useCurrentSidebarCategory} from '@docusaurus/theme-common';
