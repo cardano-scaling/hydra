@@ -3,6 +3,7 @@
 
 const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
+const docsMetadataJson = require('./static/docs-metadata.json');
 
 const customFields = {
   apiSpecDir: '../hydra-node/json-schemas',
@@ -42,7 +43,10 @@ const config = {
       'classic',
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
-        docs: { editUrl },
+        docs: {
+          editUrl,
+          editLocalizedFiles: true
+        },
         blog: {
           path: 'adr',
           routeBasePath: '/adr',
@@ -67,7 +71,8 @@ const config = {
         id: 'core-concepts',
         path: 'core-concepts',
         routeBasePath: 'core-concepts',
-        editUrl
+        editUrl,
+        editLocalizedFiles: true
       })
     ],
     [
@@ -77,7 +82,8 @@ const config = {
         id: 'use-cases',
         path: 'use-cases',
         routeBasePath: 'use-cases',
-        editUrl
+        editUrl,
+        editLocalizedFiles: true
       })
     ],
     [
@@ -87,7 +93,8 @@ const config = {
         id: 'topologies',
         path: 'topologies',
         routeBasePath: 'topologies',
-        editUrl
+        editUrl,
+        editLocalizedFiles: true
       }),
     ],
     [
@@ -97,7 +104,8 @@ const config = {
         id: 'benchmarks',
         path: 'benchmarks',
         routeBasePath: 'benchmarks',
-        editUrl
+        editUrl,
+        editLocalizedFiles: true
       }),
     ],
   ],
@@ -209,7 +217,13 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} <strong>Input Output</strong> <br/> <small>Built with Docusaurus</small>`,
+        copyright:
+          `
+          Copyright © ${new Date().getFullYear()} 
+              <strong>Input Output</strong><br/>
+              <small>Built with Docusaurus</small><br/>
+              <small>Last time updated: ${docsMetadataJson.site.lastUpdatedAt}</small>
+          `
       },
       prism: {
         theme: lightCodeTheme,

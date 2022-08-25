@@ -59,6 +59,7 @@ let
     pkgs.yq
     # For docs/ (i.e. Docusaurus, Node.js & React)
     pkgs.yarn
+    pkgs.nodejs
     # To interact with cardano-node and testing out things
     cardano-node.cardano-cli
   ];
