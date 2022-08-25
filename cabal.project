@@ -257,3 +257,5 @@ source-repository-package
   location: https://github.com/input-output-hk/quickcheck-dynamic
   tag: 1.0.0
   --sha256: 13kcgs9rkpr3c8bxa3gzfinh9syxprq9m9k9rd9pfzicqa97gvy4
+  subdir:
+    quickcheck-dynamic
