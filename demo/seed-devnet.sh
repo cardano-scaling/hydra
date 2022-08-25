@@ -9,7 +9,7 @@ SCRIPT_DIR=$(realpath $(dirname $(realpath $0)))
 NETWORK_ID=42
 
 CCLI_CMD=
-DEVNET_DIR=/data
+DEVNET_DIR=/devnet
 if [[ -n ${1} ]] && $(${1} version > /dev/null); then
     CCLI_CMD=${1}
     echo >&2 "Using provided cardano-cli command: ${1}"
@@ -39,11 +39,7 @@ function hnode() {
   if [[ -n ${HYDRA_NODE_CMD} ]]; then
       ${HYDRA_NODE_CMD} ${@}
   else
-      docker run --rm \
-        -v ${PWD}:${PWD} \
-        -w ${PWD} \
-        -u ${UID} \
-        ghcr.io/input-output-hk/hydra-node -- ${@}
+      docker-compose exec hydra-node -- ${@}
   fi
 }
 
@@ -93,7 +89,7 @@ function publishReferenceScripts() {
   echo >&2 "Publishing reference scripts ('νInitial' & 'νCommit')..."
   hnode publish-scripts \
     --network-id ${NETWORK_ID} \
-    --node-socket devnet/ipc/node.socket \
+    --node-socket ${DEVNET_DIR}/node.socket \
     --cardano-signing-key devnet/credentials/faucet.sk
 }
 
