@@ -40,7 +40,7 @@ Ensuite, vous pouvez exécuter le script `./prepare-devnet.sh` pour créer les f
 </TerminalWindow>
 ```
 
-C'est tout. Il est maintenant possible de démarrer le _cluster_ via:
+C'est tout. Il est maintenant possible de démarrer le cardano node via:
 
 ```mdx-code-block
 <TerminalWindow>
@@ -69,9 +69,9 @@ Les transactions générées par seed-devnet.sh n'ont rien de particulier, ce so
 - Un UTxO ne contenant que des Ada et avec le datum hash suivant: `a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3` (ce datum identifie les UTxOs réservés au "carburant").
 :::
 
-## Setting-up The Hydra Network
+## Démarrage des nœuds Hydra
 
-Finally, now that the on-chain preparations are ready, we can bring the Hydra network (i.e. all three nodes for Alice, Bob and Carol) up by running:
+Enfin, maintenant que les préparations en chaîne sont prêtes, nous pouvons mettre en place le réseau Hydra (c'est-à-dire les trois nœuds pour Alice, Bob et Carol) en exécutant:
 
 ```mdx-code-block
 <TerminalWindow>

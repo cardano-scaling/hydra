@@ -71,7 +71,7 @@ Must pay outputs to commit to the key used by the Hydra Node's internal wallet, 
 One of the outputs must include datum hash `a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3`, as this is our "fuel" marker.
 :::
 
-## Setting-up The Hydra Network
+## Starting Hydra Nodes
 
 Finally, now that the on-chain preparations are ready, we can bring the Hydra network (i.e. all three nodes for Alice, Bob and Carol) up by running:
 

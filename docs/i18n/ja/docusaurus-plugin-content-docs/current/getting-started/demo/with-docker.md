@@ -52,7 +52,7 @@ docker-compose up -d cardano-node
 genesisブロックから始まるアドホックなプライベート開発ネットを使用するため、開発ネットの設定が最新であることを都度確認する必要があります。 Cardano ノードから `TraceNoLedgerView` エラーが発生した場合、開始時刻が過去になっているため、 `prepare-devnet.sh` スクリプトを使って更新する必要があります。
 :::
 
-You can verify that the node is up-and-running by checking the logs with `docker-compose logs cardano-node -f`. You should see traces containing `TraceAdoptedBlock`, which means that the devnet is producing blocks .. nice!
+`docker-compose logs cardano-node -f` を使用してログをチェックすることで、ノードが稼働中であることを確認できます。 `TraceAdoptedBlock`を含むトレースが表示されるはずです。これは、devnet がブロックを生成していることを意味します。
 
 ## ネットワークの構築
 
@@ -71,9 +71,9 @@ hydra-node実行ファイルの引数 `--cardano-signing-key` で定義された
 Outputの1つは、データムハッシュ `a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3` を含む必要があります。これは「燃料」マーカーであるからです。
 :::
 
-## Setting-up The Hydra Network
+## Hydra ノードの開始
 
-Finally, now that the on-chain preparations are ready, we can bring the Hydra network (i.e. all three nodes for Alice, Bob and Carol) up by running:
+最後に、オンチェーンの準備が整ったので、次のコマンドを実行して Hydra ネットワーク (つまり、アリス、ボブ、キャロルの 3 つのノードすべて) を立ち上げることができます。
 
 ```mdx-code-block
 <TerminalWindow>
