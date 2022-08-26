@@ -482,7 +482,7 @@ waitUntilMatch nodes predicate =
 -- | Wait for an output matching the predicate and extracting some value. This
 -- will loop forever until a match has been found.
 waitMatch ::
-  (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
+  (MonadThrow m) =>
   TestHydraNode tx m ->
   (ServerOutput tx -> Maybe a) ->
   m a

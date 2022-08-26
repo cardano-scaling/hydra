@@ -43,6 +43,7 @@ import Hydra.BehaviorSpec (
   waitUntil,
   waitUntilMatch,
  )
+import qualified Hydra.Cardano.Api as Cardano.Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
@@ -197,7 +198,7 @@ applyTx utxo Payment{from, to, value} =
 
 instance DynLogicModel WorldState
 
-type ActualCommitted = UTxOType Payment
+type ActualCommitted = UTxOType Cardano.Api.Tx
 
 -- | Basic instantiation of `StateModel` for our `WorldState` state.
 instance StateModel WorldState where
@@ -429,7 +430,7 @@ performCommit ::
   Party ->
   [(SigningKey PaymentKey, Value)] ->
   StateT (Nodes m) m ActualCommitted
-performCommit party utxo = do
+performCommit party paymentUTxO = do
   nodes <- gets nodes
   case Map.lookup party nodes of
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
@@ -438,16 +439,17 @@ performCommit party utxo = do
       let realUtxo =
             UTxO.fromPairs $
               [ (mkMockTxIn vk ix, txOut)
-              | (ix, (sk, val)) <- zip [0 ..] utxo
+              | (ix, (sk, val)) <- zip [0 ..] paymentUTxO
               , let vk = getVerificationKey sk
               , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone ReferenceScriptNone
               ]
       party `sendsInput` Input.Commit{Input.utxo = realUtxo}
-      -- TODO: WIP
-      res <- waitMatch actorNode $ \case
-        Committed{party = cp, utxo} | cp == party -> Just utxo
-        _ -> Nothing
-      pure mempty
+      lift $
+        waitMatch actorNode $ \case
+          Committed{party = cp, utxo = committedUTxO}
+            | cp == party ->
+              Just committedUTxO
+          _ -> Nothing
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
