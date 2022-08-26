@@ -196,16 +196,19 @@ applyTx utxo Payment{from, to, value} =
 
 instance DynLogicModel WorldState
 
+type ActualCommitted = UTxOType Payment
+
 -- | Basic instantiation of `StateModel` for our `WorldState` state.
 instance StateModel WorldState where
   data Action WorldState a where
     -- | Creation of the world.
     Seed :: {seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]} -> Action WorldState ()
-    -- | All other actions are simply `ClientInput` from some `Party`.
-    Init :: {party :: Party, contestationPeriod :: ContestationPeriod} -> Action WorldState ()
-    Commit :: {party :: Party, utxo :: UTxOType Payment} -> Action WorldState ()
-    Abort :: {party :: Party} -> Action WorldState ()
-    NewTx :: {party :: Party, transaction :: Payment} -> Action WorldState ()
+    -- NOTE: No records possible here as we would duplicate 'Party' fields with
+    -- different return values.
+    Init :: Party -> ContestationPeriod -> Action WorldState ()
+    Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
+    Abort :: Party -> Action WorldState ()
+    NewTx :: Party -> Payment -> Action WorldState ()
     -- | Temporary action to cut the sequence of actions.
     -- TODO: Implement proper Close sequence
     Stop :: Action WorldState ()
@@ -238,30 +241,32 @@ instance StateModel WorldState where
     genInit = do
       contestationPeriod <- arbitrary
       key <- fst <$> elements hydraParties
-      pure $ Some Init{party = deriveParty key, contestationPeriod}
+      let party = deriveParty key
+      pure . Some $ Init party contestationPeriod
 
     genCommit pending = do
       party <- elements $ toList pending
       let (_, sk) = fromJust $ find ((== party) . deriveParty . fst) hydraParties
       value <- genAdaValue
       let utxo = [(sk, value)]
-      pure $ Some Commit{party, utxo}
+      pure . Some $ Commit party utxo
 
     genAbort = do
       (key, _) <- elements hydraParties
-      pure $ Some Abort{party = deriveParty key}
+      let party = deriveParty key
+      pure . Some $ Abort party
 
-    genNewTx = genPayment st >>= \(party, transaction) -> pure $ Some $ NewTx{party, transaction}
+    genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
   precondition WorldState{hydraState = Idle{}} Init{} =
     True
-  precondition WorldState{hydraState = hydraState@Initial{}} Commit{party} =
+  precondition WorldState{hydraState = hydraState@Initial{}} (Commit party _) =
     isPendingCommitFrom party hydraState
   precondition WorldState{hydraState = Initial{}} Abort{} =
     True
-  precondition WorldState{hydraState = Open{offChainState}} NewTx{transaction = tx} =
+  precondition WorldState{hydraState = Open{offChainState}} (NewTx _ tx) =
     case List.lookup (from tx) (confirmedUTxO offChainState) of
       Just v -> v == value tx
       Nothing -> False
@@ -280,7 +285,7 @@ instance StateModel WorldState where
         idleParties = map (deriveParty . fst) seedKeys
         cardanoKeys = map (getVerificationKey . snd) seedKeys
       --
-      Init{contestationPeriod} ->
+      Init _ contestationPeriod ->
         WorldState{hydraParties, hydraState = mkInitialState hydraState}
        where
         mkInitialState = \case
@@ -296,7 +301,7 @@ instance StateModel WorldState where
               }
           _ -> error "unexpected state"
       --
-      Commit{party, utxo} ->
+      Commit party utxo ->
         WorldState{hydraParties, hydraState = updateWithCommit hydraState}
        where
         updateWithCommit = \case
@@ -332,7 +337,7 @@ instance StateModel WorldState where
             committedUTxO = mconcat $ Map.elems commits
           _ -> Final mempty
       --
-      NewTx{transaction = tx} ->
+      (NewTx _ tx) ->
         WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
        where
         updateWithNewTx = \case
@@ -375,13 +380,13 @@ runModel = RunModel{perform = perform}
     case command of
       Seed{seedKeys} ->
         seedWorld seedKeys
-      Commit{party, utxo} ->
+      Commit party utxo ->
         performCommit party utxo
-      NewTx{party, transaction} ->
+      NewTx party transaction ->
         performNewTx st party transaction
-      Init{party, contestationPeriod} ->
+      Init party contestationPeriod ->
         party `sendsInput` Input.Init{contestationPeriod}
-      Abort{party} -> do
+      Abort party -> do
         party `sendsInput` Input.Abort
       Stop -> pure ()
 
@@ -422,7 +427,7 @@ performCommit ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
   Party ->
   [(SigningKey PaymentKey, Value)] ->
-  StateT (Nodes m) m ()
+  StateT (Nodes m) m ActualCommitted
 performCommit party utxo = do
   nodes <- gets nodes
   case Map.lookup party nodes of
@@ -437,6 +442,8 @@ performCommit party utxo = do
               , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone ReferenceScriptNone
               ]
       party `sendsInput` Input.Commit{Input.utxo = realUtxo}
+      -- TODO: WIP
+      pure mempty
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
