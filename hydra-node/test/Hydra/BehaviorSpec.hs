@@ -479,6 +479,20 @@ waitUntilMatch nodes predicate =
 
   veryLong = 31557600000 -- 1000 years
 
+-- | Wait for an output matching the predicate and extracting some value. This
+-- will loop forever until a match has been found.
+waitMatch ::
+  (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
+  TestHydraNode tx m ->
+  (ServerOutput tx -> Maybe a) ->
+  m a
+waitMatch node predicate =
+  go
+ where
+  go = do
+    next <- waitForNext node
+    maybe go pure (predicate next)
+
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
   { send :: ClientInput tx -> m ()

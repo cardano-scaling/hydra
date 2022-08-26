@@ -41,6 +41,7 @@ import Hydra.BehaviorSpec (
   createHydraNode,
   createTestHydraNode,
   simulatedChainAndNetwork,
+  waitMatch,
   waitUntil,
   waitUntilMatch,
  )
@@ -51,12 +52,14 @@ import Hydra.ClientInput (ClientInput)
 import qualified Hydra.ClientInput as Input
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (Committed, PendingCommits)
+import Hydra.HeadLogic (Committed (..), PendingCommits)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genAdaValue, genKeyPair, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Node (HydraNodeLog, runHydraNode)
 import Hydra.Party (Party, deriveParty)
+import Hydra.ServerOutput (ServerOutput (Committed, GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
+import qualified Hydra.ServerOutput as Output
 import qualified Hydra.Snapshot as Snapshot
 import Test.QuickCheck (elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
@@ -443,6 +446,9 @@ performCommit party utxo = do
               ]
       party `sendsInput` Input.Commit{Input.utxo = realUtxo}
       -- TODO: WIP
+      res <- waitMatch actorNode $ \case
+        Committed{party = cp, utxo} | cp == party -> Just utxo
+        _ -> Nothing
       pure mempty
 
 performNewTx ::
