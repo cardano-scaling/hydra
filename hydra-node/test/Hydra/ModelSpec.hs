@@ -63,9 +63,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (after)
 
--- This is completely safe
-import Unsafe.Coerce (unsafeCoerce)
-
 import qualified Cardano.Api.UTxO as UTxO
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
 import Data.Map ((!))
@@ -88,15 +85,14 @@ import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, runActions, stateAfter, pattern Actions)
 import Test.Util (printTrace, traceInIOSim)
-import qualified Prelude
 
 spec :: Spec
 spec = do
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
   prop "implementation respects model" $ forAll arbitrary prop_checkModel
 
-prop_generateTraces :: AnyActions -> Property
-prop_generateTraces (AnyActions actions) =
+prop_generateTraces :: Actions WorldState -> Property
+prop_generateTraces actions =
   let st = stateAfter actions
    in case actions of
         Actions [] -> property True
@@ -104,8 +100,8 @@ prop_generateTraces (AnyActions actions) =
           hydraState st /= Start
             & counterexample ("state: " <> show st)
 
-prop_checkModel :: AnyActions -> Property
-prop_checkModel (AnyActions actions) =
+prop_checkModel :: Actions WorldState -> Property
+prop_checkModel actions =
   within 2000000 $
     property $
       runIOSimProp $
@@ -230,20 +226,6 @@ runIOSimProp p = do
       pure $ counterexample (show ex) $ logsOnError $ property False
     Left ex ->
       pure $ counterexample (show ex) $ logsOnError $ property False
-
-newtype AnyActions = AnyActions {unAnyActions :: forall s. Actions (WorldState (IOSim s))}
-
-instance Show AnyActions where
-  show (AnyActions acts) = Prelude.show (acts @())
-
-instance Arbitrary AnyActions where
-  arbitrary = do
-    Capture eval <- capture
-    return (AnyActions (eval arbitrary))
-
-  shrink (AnyActions actions) = case actions of
-    Actions [] -> []
-    acts -> [AnyActions (unsafeCoerce act) | act <- shrink acts]
 
 unwrapAddress :: AddressInEra -> Text
 unwrapAddress = \case
