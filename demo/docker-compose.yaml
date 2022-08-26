@@ -83,8 +83,8 @@ services:
       , "--cardano-signing-key", "/devnet/credentials/bob.sk"
       , "--cardano-verification-key", "/devnet/credentials/alice.vk"
       , "--cardano-verification-key", "/devnet/credentials/carol.vk"
-      , "--ledger-genesis", "/devnet/config/genesis-shelley.json"
-      , "--ledger-protocol-parameters", "/devnet/config/protocol-parameters.json"
+      , "--ledger-genesis", "/devnet/genesis-shelley.json"
+      , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
       , "--network-id", "42"
       , "--node-socket", "/devnet/node.socket"
       ]
@@ -119,8 +119,8 @@ services:
       , "--cardano-signing-key", "/devnet/credentials/carol.sk"
       , "--cardano-verification-key", "/devnet/credentials/alice.vk"
       , "--cardano-verification-key", "/devnet/credentials/bob.vk"
-      , "--ledger-genesis", "/devnet/config/genesis-shelley.json"
-      , "--ledger-protocol-parameters", "/devnet/config/protocol-parameters.json"
+      , "--ledger-genesis", "/devnet/genesis-shelley.json"
+      , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
       , "--network-id", "42"
       , "--node-socket", "/devnet/node.socket"
       ]
