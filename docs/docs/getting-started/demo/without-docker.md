@@ -20,7 +20,7 @@ Make sure that you have a `cardano-node`, `hydra-node` and `hydra-tui` executabl
  - `cabal build` and `cabal exec` them (do not forget the `--` before passing further arguments).
 
 :::info Tip for tmux users
-In the `demo` nix-shell, there is a `run-hydra-demo` script which starts a new `tmux` session with multiple windows and panes executing all the commands below!
+In the `demo` nix-shell, there is a `run-tmux` script which starts a new `tmux` session with multiple windows and panes executing all the commands below!
 :::
 
 All further commands are written as if executed from the `demo` folder in the project repository, so make sure to `cd demo` before continuing.
