@@ -369,9 +369,12 @@ instance StateModel WorldState where
       | postcondition s action l result = id
       | otherwise =
         counterexample "postcondition failed"
-          -- TODO: . counterexample ("Result: " <> show result)
           . counterexample ("Action: " <> show action)
           . counterexample ("State: " <> show s)
+          . case (action, result) of
+            (Commit{}, res) ->
+              counterexample ("Result: " <> show res)
+            (_, _) -> id
 
     decorateTransitions =
       case (hydraState s, hydraState s') of
@@ -471,7 +474,7 @@ performCommit party paymentUTxO = do
                 Just committedUTxO
             _ -> Nothing
       -- TODO:  WIP
-      pure undefined observedUTxO
+      pure $ undefined observedUTxO
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
