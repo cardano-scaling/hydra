@@ -27,4 +27,4 @@ docker run --rm ghcr.io/input-output-hk/hydra-node --help
 
 ## Building from source
 
-While using docker is the recommended way to _use_ Hydra, you can also build the `hydra-node` from source. We do recommend using [nix](https://nixos.org/download.html) for this though and the instructions can be found in our [Contributing Guidelines](../CONTRIBUTING.md).
+While using docker is the recommended way to _use_ Hydra, you can also build the `hydra-node` from source. We do recommend using [nix](https://nixos.org/download.html) for this though and the instructions can be found in our [Contributing Guidelines](https://github.com/input-output-hk/hydra-poc/blob/master/CONTRIBUTING.md).

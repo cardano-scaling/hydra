@@ -26,4 +26,4 @@ docker run --rm ghcr.io/input-output-hk/hydra-node --help
 
 ## ソースからの構築
 
-docker を使用することが Hydra を _use_ するための推奨される方法ですが、ソースから `hydra-node` をビルドすることもできます。 ただし、これには [nix](https://nixos.org/download.html) を使用することをお勧めします。手順については、[寄稿ガイドライン](../CONTRIBUTING.md) を参照してください。
+docker を使用することが Hydra を _use_ するための推奨される方法ですが、ソースから `hydra-node` をビルドすることもできます。 ただし、これには [nix](https://nixos.org/download.html) を使用することをお勧めします。手順については、[寄稿ガイドライン](https://github.com/input-output-hk/hydra-poc/blob/master/CONTRIBUTING.md) を参照してください。
