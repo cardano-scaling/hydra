@@ -45,7 +45,6 @@ import Hydra.BehaviorSpec (
   waitUntil,
   waitUntilMatch,
  )
-import qualified Hydra.Cardano.Api as Cardano.Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
@@ -53,7 +52,7 @@ import Hydra.ClientInput (ClientInput)
 import qualified Hydra.ClientInput as Input
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (Committed (..), PendingCommits)
+import Hydra.HeadLogic (Committed (), PendingCommits)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genAdaValue, genKeyPair, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer)
@@ -62,7 +61,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (Committed, GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
 import qualified Hydra.ServerOutput as Output
 import qualified Hydra.Snapshot as Snapshot
-import Test.QuickCheck (counterexample, elements, frequency, quickCheck, resize, sized, suchThat, tabulate, vectorOf)
+import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), LookUp, RunModel (..), StateModel (..), Var)
 import qualified Prelude
@@ -200,7 +199,7 @@ applyTx utxo Payment{from, to, value} =
 
 instance DynLogicModel WorldState
 
-type ActualCommitted = UTxOType Cardano.Api.Tx
+type ActualCommitted = UTxOType Payment
 
 -- | Basic instantiation of `StateModel` for our `WorldState` state.
 instance StateModel WorldState where
@@ -357,7 +356,8 @@ instance StateModel WorldState where
           _ -> error "unexpected state"
 
   postcondition :: WorldState -> Action WorldState a -> LookUp -> a -> Bool
-  postcondition st (Commit party utxo) _ actualCommitted = False
+  postcondition _st (Commit _party expectedCommitted) _ actualCommitted =
+    expectedCommitted == actualCommitted
   postcondition _ _ _ _ = True
 
   monitoring (s, s') action l result =
@@ -455,20 +455,23 @@ performCommit party paymentUTxO = do
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
     Just actorNode -> do
       lift $ waitUntil [actorNode] $ ReadyToCommit (Set.fromList $ Map.keys nodes)
-      let realUtxo =
+      let realUTxO =
             UTxO.fromPairs $
               [ (mkMockTxIn vk ix, txOut)
               | (ix, (sk, val)) <- zip [0 ..] paymentUTxO
               , let vk = getVerificationKey sk
               , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone ReferenceScriptNone
               ]
-      party `sendsInput` Input.Commit{Input.utxo = realUtxo}
-      lift $
-        waitMatch actorNode $ \case
-          Committed{party = cp, utxo = committedUTxO}
-            | cp == party ->
-              Just committedUTxO
-          _ -> Nothing
+      party `sendsInput` Input.Commit{Input.utxo = realUTxO}
+      observedUTxO <-
+        lift $
+          waitMatch actorNode $ \case
+            Committed{party = cp, utxo = committedUTxO}
+              | cp == party ->
+                Just committedUTxO
+            _ -> Nothing
+      -- TODO:  WIP
+      pure undefined observedUTxO
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
