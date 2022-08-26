@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -33,6 +34,8 @@ import Data.Map ((!))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
+import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
+import qualified Hydra.API.ServerOutput as Output
 import Hydra.BehaviorSpec (
   TestHydraNode (..),
   createHydraNode,
@@ -44,8 +47,9 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.API.ClientInput (ClientInput (NewTx))
-import qualified Hydra.API.ClientInput as Input
+import Hydra.ClientInput (ClientInput)
+import qualified Hydra.ClientInput as Input
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (Committed, PendingCommits)
 import Hydra.Ledger (IsTx (..))
@@ -53,8 +57,6 @@ import Hydra.Ledger.Cardano (cardanoLedger, genAdaValue, genKeyPair, genSigningK
 import Hydra.Logging (Tracer)
 import Hydra.Node (HydraNodeLog, runHydraNode)
 import Hydra.Party (Party, deriveParty)
-import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
-import qualified Hydra.API.ServerOutput as Output
 import qualified Hydra.Snapshot as Snapshot
 import Test.QuickCheck (elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
@@ -200,17 +202,13 @@ instance StateModel WorldState where
     -- | Creation of the world.
     Seed :: {seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]} -> Action WorldState ()
     -- | All other actions are simply `ClientInput` from some `Party`.
-    -- TODO: Provide distinct actions with specific return types that
-    -- would make it easier to verify concrete behaviour.
-    Command :: {party :: Party, command :: ClientInput Payment} -> Action WorldState ()
+    Init :: {party :: Party, contestationPeriod :: ContestationPeriod} -> Action WorldState ()
+    Commit :: {party :: Party, utxo :: UTxOType Payment} -> Action WorldState ()
+    Abort :: {party :: Party} -> Action WorldState ()
+    NewTx :: {party :: Party, transaction :: Payment} -> Action WorldState ()
     -- | Temporary action to cut the sequence of actions.
     -- TODO: Implement proper Close sequence
     Stop :: Action WorldState ()
-
-  actionName :: Action WorldState a -> String
-  actionName Command{command} = unsafeConstructorName command
-  actionName Seed{} = "Seed"
-  actionName Stop = "Stop"
 
   initialState =
     WorldState
@@ -238,33 +236,32 @@ instance StateModel WorldState where
     genSeed = Some . Seed <$> resize 7 partyKeys
 
     genInit = do
-      initContestationPeriod <- arbitrary
+      contestationPeriod <- arbitrary
       key <- fst <$> elements hydraParties
-      let command = Input.Init{Input.contestationPeriod = initContestationPeriod}
-      pure $ Some Command{party = deriveParty key, command}
+      pure $ Some Init{party = deriveParty key, contestationPeriod}
 
     genCommit pending = do
       party <- elements $ toList pending
       let (_, sk) = fromJust $ find ((== party) . deriveParty . fst) hydraParties
       value <- genAdaValue
-      let command = Input.Commit{Input.utxo = [(sk, value)]}
-      pure $ Some Command{party, command}
+      let utxo = [(sk, value)]
+      pure $ Some Commit{party, utxo}
 
     genAbort = do
       (key, _) <- elements hydraParties
-      pure $ Some Command{party = deriveParty key, command = Input.Abort}
+      pure $ Some Abort{party = deriveParty key}
 
-    genNewTx = genPayment st >>= \(party, payment) -> pure $ Some $ Command{party, command = NewTx payment}
+    genNewTx = genPayment st >>= \(party, transaction) -> pure $ Some $ NewTx{party, transaction}
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
-  precondition WorldState{hydraState = Idle{}} Command{command = Input.Init{}} =
+  precondition WorldState{hydraState = Idle{}} Init{} =
     True
-  precondition WorldState{hydraState = hydraState@Initial{}} Command{party, command = Input.Commit{}} =
+  precondition WorldState{hydraState = hydraState@Initial{}} Commit{party} =
     isPendingCommitFrom party hydraState
-  precondition WorldState{hydraState = Initial{}} Command{command = Input.Abort{}} =
+  precondition WorldState{hydraState = Initial{}} Abort{} =
     True
-  precondition WorldState{hydraState = Open{offChainState}} Command{command = Input.NewTx{Input.transaction = tx}} =
+  precondition WorldState{hydraState = Open{offChainState}} NewTx{transaction = tx} =
     case List.lookup (from tx) (confirmedUTxO offChainState) of
       Just v -> v == value tx
       Nothing -> False
@@ -283,7 +280,7 @@ instance StateModel WorldState where
         idleParties = map (deriveParty . fst) seedKeys
         cardanoKeys = map (getVerificationKey . snd) seedKeys
       --
-      Command{command = Input.Init{Input.contestationPeriod}} ->
+      Init{contestationPeriod} ->
         WorldState{hydraParties, hydraState = mkInitialState hydraState}
        where
         mkInitialState = \case
@@ -299,7 +296,7 @@ instance StateModel WorldState where
               }
           _ -> error "unexpected state"
       --
-      Command{party, command = Input.Commit{Input.utxo}} ->
+      Commit{party, utxo} ->
         WorldState{hydraParties, hydraState = updateWithCommit hydraState}
        where
         updateWithCommit = \case
@@ -326,7 +323,7 @@ instance StateModel WorldState where
                     }
           _ -> error "unexpected state"
       --
-      Command{command = Input.Abort} ->
+      Abort{} ->
         WorldState{hydraParties, hydraState = updateWithAbort hydraState}
        where
         updateWithAbort = \case
@@ -335,7 +332,7 @@ instance StateModel WorldState where
             committedUTxO = mconcat $ Map.elems commits
           _ -> Final mempty
       --
-      Command{command = Input.NewTx{Input.transaction = tx}} ->
+      NewTx{transaction = tx} ->
         WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
        where
         updateWithNewTx = \case
@@ -349,7 +346,6 @@ instance StateModel WorldState where
                     }
               }
           _ -> error "unexpected state"
-      _ -> error "not implemented"
 
   monitoring (s, s') _action _lookup _return =
     case (hydraState s, hydraState s') of
@@ -375,26 +371,19 @@ runModel = RunModel{perform = perform}
     Action WorldState a ->
     LookUp ->
     StateT (Nodes m) m a
-  perform _ Seed{seedKeys} _ = seedWorld seedKeys
-  perform _ Stop _ = pure ()
-  perform st Command{party, command} _ = do
+  perform st command _ = do
     case command of
-      Input.Commit{Input.utxo = utxo} ->
+      Seed{seedKeys} ->
+        seedWorld seedKeys
+      Commit{party, utxo} ->
         performCommit party utxo
-      Input.NewTx{Input.transaction = tx} ->
-        performNewTx st party tx
-      Input.Init{Input.contestationPeriod = p} ->
-        party `sendsInput` Input.Init{Input.contestationPeriod = p}
-      Input.Abort -> do
+      NewTx{party, transaction} ->
+        performNewTx st party transaction
+      Init{party, contestationPeriod} ->
+        party `sendsInput` Input.Init{contestationPeriod}
+      Abort{party} -> do
         party `sendsInput` Input.Abort
-      Input.GetUTxO -> do
-        party `sendsInput` Input.GetUTxO
-      Input.Close -> do
-        party `sendsInput` Input.Close
-      Input.Contest -> do
-        party `sendsInput` Input.Contest
-      Input.Fanout -> do
-        party `sendsInput` Input.Fanout
+      Stop -> pure ()
 
 sendsInput :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 sendsInput party command = do
