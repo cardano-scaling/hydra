@@ -360,14 +360,18 @@ instance StateModel WorldState where
   postcondition st (Commit party utxo) _ actualCommitted = False
   postcondition _ _ _ _ = True
 
-  monitoring (s, s') action l ret =
+  monitoring (s, s') action l result =
     decoratePostconditionFailure
       . decorateTransitions
    where
     -- REVIEW: This should be part of the quickcheck-dynamic runActions
     decoratePostconditionFailure
-      | postcondition s action l ret = id
-      | otherwise = counterexample ("postcondition failed on action: " <> show action)
+      | postcondition s action l result = id
+      | otherwise =
+        counterexample "postcondition failed"
+          -- TODO: . counterexample ("Result: " <> show result)
+          . counterexample ("Action: " <> show action)
+          . counterexample ("State: " <> show s)
 
     decorateTransitions =
       case (hydraState s, hydraState s') of
