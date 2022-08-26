@@ -9,7 +9,7 @@ sidebar_position: 1
 La démo comprend:
 
 - un cluster de trois noeuds Hydra, connectés point-à-point, et ayant chacun une identité (`alice`, `bob`, `carol`) associée à une paire de clés publique/privée;
-- Un noeud Cardano, en mode BFT, produisant des blocs et formant a lui seul un réseau Cardano pour le développement local&nbsp;;
+- un noeud Cardano, en mode BFT, produisant des blocs et formant a lui seul un réseau Cardano pour le développement local&nbsp;;
 - un serveur Prometheus pour des métriques&nbsp;;
 - une interface utilisateur dans le terminal pour se connecter et opérer chaque noeud Hydra. 
 

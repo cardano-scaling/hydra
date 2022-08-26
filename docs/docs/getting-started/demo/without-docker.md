@@ -26,7 +26,7 @@ In the `demo` nix-shell, there is a `run-hydra-demo` script which starts a new `
 All further commands are written as if executed from the `demo` folder in the project repository, so make sure to `cd demo` before continuing.
 
 :::info Tip for nix-direnv users
-Allowing the `demo/.envrc` will get ensure you have the nix shell environment available whenever you are in the `demo/` directory. To use this, opt-in via `direnv allow` after `cd demo`.
+Allowing the `demo/.envrc` will ensure you have the nix shell environment available whenever you are in the `demo/` directory. To use this, opt-in via `direnv allow` after `cd demo`.
 :::
 
 ## Setting-up The Chain
