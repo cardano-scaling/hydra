@@ -114,7 +114,7 @@ data OffChainState = OffChainState
 -- | State maintained by the model.
 -- This state is parameterised by the underlying `Monad m` in which `Action`s will
 -- be `perform`ed. See its `StateModel` instance for a detailed explanation.
-data WorldState (m :: Type -> Type) = WorldState
+data WorldState = WorldState
   { -- |List of parties identified by both signing keys required to run protocol.
     -- This list must not contain any duplicated key.
     hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
@@ -192,49 +192,22 @@ applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
   (to, value) : List.delete (from, value) utxo
 
-instance
-  ( MonadSTM m
-  , MonadDelay m
-  , MonadAsync m
-  , MonadCatch m
-  , MonadTime m
-  , MonadTimer m
-  , MonadFork m
-  ) =>
-  DynLogicModel (WorldState m)
+instance DynLogicModel WorldState
 
--- | Basic instantiaion of `StateModel` for our `WorldState m` state.
---
--- The reason why we pack `m` here is technical: What we would like is to have
--- @type ActionMonad WorldState = IOSim s@ but this is not possible because of the
--- existentially quantified `s`. We have tried to use a `newtype`-based wrapper
--- but this extremely cumbersome as it basically requires instantiating all the
--- <io-classes https://github.com/input-output-hk/io-sim/tree/main/io-classes/src/Control/Monad/Class> types /again/.
--- By making it a parameter we can leave the choice of concrete instantiation to the
--- call-site (eg. property runner).
---
--- However, this turns our state essentially not `Typeable` in general which poses
--- some difficulties when working with `DynamicLogic` expressions.
-instance StateModel (WorldState m) where
-  data Action (WorldState m) a where
+-- | Basic instantiation of `StateModel` for our `WorldState` state.
+instance StateModel WorldState where
+  data Action WorldState a where
     -- | Creation of the world.
-    Seed ::
-      { seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]
-      } ->
-      Action (WorldState m) ()
+    Seed :: {seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]} -> Action WorldState ()
     -- | All other actions are simply `ClientInput` from some `Party`.
     -- TODO: Provide distinct actions with specific return types that
     -- would make it easier to verify concrete behaviour.
-    Command ::
-      { party :: Party
-      , command :: ClientInput Payment
-      } ->
-      Action (WorldState m) ()
+    Command :: {party :: Party, command :: ClientInput Payment} -> Action WorldState ()
     -- | Temporary action to cut the sequence of actions.
     -- TODO: Implement proper Close sequence
-    Stop :: Action (WorldState m) ()
+    Stop :: Action WorldState ()
 
-  actionName :: Action (WorldState m) a -> String
+  actionName :: Action WorldState a -> String
   actionName Command{command} = unsafeConstructorName command
   actionName Seed{} = "Seed"
   actionName Stop = "Stop"
@@ -245,7 +218,7 @@ instance StateModel (WorldState m) where
       , hydraState = Start
       }
 
-  arbitraryAction :: WorldState m -> Gen (Any (Action (WorldState m)))
+  arbitraryAction :: WorldState -> Gen (Any (Action WorldState))
   arbitraryAction st@WorldState{hydraParties, hydraState} =
     case hydraState of
       Start -> genSeed
@@ -300,7 +273,7 @@ instance StateModel (WorldState m) where
   precondition _ _ =
     False
 
-  nextState :: WorldState m -> Action (WorldState m) a -> Var a -> WorldState m
+  nextState :: WorldState -> Action WorldState a -> Var a -> WorldState
   nextState s@WorldState{hydraParties, hydraState} a _ =
     case a of
       Stop -> s{hydraState = Final empty}
@@ -382,14 +355,14 @@ instance StateModel (WorldState m) where
     case (hydraState s, hydraState s') of
       (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
 
-deriving instance Show (Action (WorldState m) a)
-deriving instance Eq (Action (WorldState m) a)
+deriving instance Show (Action WorldState a)
+deriving instance Eq (Action WorldState a)
 
 -- * Running the model
 
 runModel ::
   (MonadAsync m, MonadCatch m, MonadTimer m) =>
-  RunModel (WorldState m) (StateT (Nodes m) m)
+  RunModel WorldState (StateT (Nodes m) m)
 runModel = RunModel{perform = perform}
  where
   perform ::
@@ -398,8 +371,8 @@ runModel = RunModel{perform = perform}
     , MonadCatch m
     , MonadTimer m
     ) =>
-    WorldState m ->
-    Action (WorldState m) a ->
+    WorldState ->
+    Action WorldState a ->
     LookUp ->
     StateT (Nodes m) m a
   perform _ Seed{seedKeys} _ = seedWorld seedKeys
@@ -478,7 +451,7 @@ performCommit party utxo = do
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
-  WorldState m ->
+  WorldState ->
   Party ->
   Payment ->
   StateT (Nodes m) m ()
@@ -548,7 +521,7 @@ performNewTx st party tx = do
 
 --
 
-genPayment :: WorldState m -> Gen (Party, Payment)
+genPayment :: WorldState -> Gen (Party, Payment)
 genPayment WorldState{hydraParties, hydraState} =
   case hydraState of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
