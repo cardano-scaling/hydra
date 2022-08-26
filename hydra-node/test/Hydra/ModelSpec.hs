@@ -79,6 +79,7 @@ import Hydra.Model (
   Nodes (Nodes, nodes),
   OffChainState (..),
   WorldState (..),
+  runModel,
  )
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.API.ServerOutput (ServerOutput (..))

@@ -58,7 +58,7 @@ import qualified Hydra.API.ServerOutput as Output
 import qualified Hydra.Snapshot as Snapshot
 import Test.QuickCheck (elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
-import Test.QuickCheck.StateModel (Any (..), LookUp, StateModel (..), Var)
+import Test.QuickCheck.StateModel (Any (..), LookUp, RunModel (..), StateModel (..), Var)
 import qualified Prelude
 
 -- | Global state of the Head protocol.
@@ -215,17 +215,7 @@ instance
 --
 -- However, this turns our state essentially not `Typeable` in general which poses
 -- some difficulties when working with `DynamicLogic` expressions.
-instance
-  ( MonadSTM m
-  , MonadDelay m
-  , MonadAsync m
-  , MonadCatch m
-  , MonadTime m
-  , MonadTimer m
-  , MonadFork m
-  ) =>
-  StateModel (WorldState m)
-  where
+instance StateModel (WorldState m) where
   data Action (WorldState m) a where
     -- | Creation of the world.
     Seed ::
@@ -243,11 +233,6 @@ instance
     -- | Temporary action to cut the sequence of actions.
     -- TODO: Implement proper Close sequence
     Stop :: Action (WorldState m) ()
-
-  -- The monad in which we `perform` actions.
-  -- NOTE: We are using a `State` monad in order to be able to retrieve a handle
-  -- to the `Node` and send it messages.
-  type ActionMonad (WorldState m) = StateT (Nodes m) m
 
   actionName :: Action (WorldState m) a -> String
   actionName Command{command} = unsafeConstructorName command
@@ -393,7 +378,30 @@ instance
           _ -> error "unexpected state"
       _ -> error "not implemented"
 
-  perform :: WorldState m -> Action (WorldState m) a -> LookUp -> StateT (Nodes m) m a
+  monitoring (s, s') _action _lookup _return =
+    case (hydraState s, hydraState s') of
+      (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
+
+deriving instance Show (Action (WorldState m) a)
+deriving instance Eq (Action (WorldState m) a)
+
+-- * Running the model
+
+runModel ::
+  (MonadAsync m, MonadCatch m, MonadTimer m) =>
+  RunModel (WorldState m) (StateT (Nodes m) m)
+runModel = RunModel{perform = perform}
+ where
+  perform ::
+    ( MonadDelay m
+    , MonadAsync m
+    , MonadCatch m
+    , MonadTimer m
+    ) =>
+    WorldState m ->
+    Action (WorldState m) a ->
+    LookUp ->
+    StateT (Nodes m) m a
   perform _ Seed{seedKeys} _ = seedWorld seedKeys
   perform _ Stop _ = pure ()
   perform st Command{party, command} _ = do
@@ -415,19 +423,6 @@ instance
       Input.Fanout -> do
         party `sendsInput` Input.Fanout
 
-  monitoring (s, s') _action _lookup _return =
-    case (hydraState s, hydraState s') of
-      (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
-
-deriving instance Show (Action (WorldState m) a)
-deriving instance Eq (Action (WorldState m) a)
-
---
-
--- * Perform Helpers
-
---
-
 sendsInput :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 sendsInput party command = do
   nodes <- gets nodes
@@ -442,7 +437,7 @@ seedWorld ::
   , MonadTime m
   ) =>
   [(SigningKey HydraKey, b)] ->
-  ActionMonad (WorldState m) ()
+  StateT (Nodes m) m ()
 seedWorld seedKeys = do
   let parties = map (deriveParty . fst) seedKeys
   tr <- gets logger
