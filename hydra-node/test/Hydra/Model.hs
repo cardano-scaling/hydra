@@ -62,7 +62,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (Committed, GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
 import qualified Hydra.ServerOutput as Output
 import qualified Hydra.Snapshot as Snapshot
-import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
+import Test.QuickCheck (counterexample, elements, frequency, quickCheck, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), LookUp, RunModel (..), StateModel (..), Var)
 import qualified Prelude
@@ -360,11 +360,18 @@ instance StateModel WorldState where
   postcondition st (Commit party utxo) _ actualCommitted = False
   postcondition _ _ _ _ = True
 
-  monitoring (s, s') action _lookup ret =
-    case (hydraState s, hydraState s') of
-      (st, st') -> counterexample showAction . tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
+  monitoring (s, s') action l ret =
+    decoratePostconditionFailure
+      . decorateTransitions
    where
-    showAction = "action: " <> show action
+    -- REVIEW: This should be part of the quickcheck-dynamic runActions
+    decoratePostconditionFailure
+      | postcondition s action l ret = id
+      | otherwise = counterexample ("postcondition failed on action: " <> show action)
+
+    decorateTransitions =
+      case (hydraState s, hydraState s') of
+        (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
 
 deriving instance Show (Action WorldState a)
 deriving instance Eq (Action WorldState a)
