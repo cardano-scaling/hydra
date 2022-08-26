@@ -62,7 +62,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.ServerOutput (ServerOutput (Committed, GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
 import qualified Hydra.ServerOutput as Output
 import qualified Hydra.Snapshot as Snapshot
-import Test.QuickCheck (elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
+import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), LookUp, RunModel (..), StateModel (..), Var)
 import qualified Prelude
@@ -356,9 +356,15 @@ instance StateModel WorldState where
               }
           _ -> error "unexpected state"
 
-  monitoring (s, s') _action _lookup _return =
+  postcondition :: WorldState -> Action WorldState a -> LookUp -> a -> Bool
+  postcondition st (Commit party utxo) _ actualCommitted = False
+  postcondition _ _ _ _ = True
+
+  monitoring (s, s') action _lookup ret =
     case (hydraState s, hydraState s') of
-      (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
+      (st, st') -> counterexample showAction . tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
+   where
+    showAction = "action: " <> show action
 
 deriving instance Show (Action WorldState a)
 deriving instance Eq (Action WorldState a)
