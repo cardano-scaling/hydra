@@ -12,13 +12,24 @@ import TabItem from '@theme/TabItem';
 
 > Dockerコンテナなしで、実行ファイルとスクリプトでデモを実行します。
 
-:::info Context
-以下のコマンドはすべて、プロジェクトリポジトリの `demo` フォルダから実行されるものとして書かれています。したがって、何かをする前にリポジトリをクローンして `cd demo` を実行して該当ディレクトリにポインターを合わせてください。
+## 準備
+
+スコープに「cardano-node」、「hydra-node」、および「hydra-tui」実行可能ファイルがあることを確認してください。 次のいずれかを実行できます
+
+ - `nix-shell demo` を使用するか、
+ - `cabal build` と `cabal exec` を実行します (さらに引数を渡す前に `--` を忘れないでください)。
+
+:::info tmux ユーザー向けのヒント
+`demo` nix-shell には、以下のすべてのコマンドを実行する複数のウィンドウとペインで新しい `tmux` セッションを開始する `run-hydra-demo` スクリプトがあります!
+:::
+
+以降のすべてのコマンドは、プロジェクト リポジトリの `demo` フォルダから実行されるかのように記述されるため、続行する前に必ず `cd demo` を実行してください。
+
+:::info nix-direnv ユーザー向けのヒント
+`demo/.envrc` を許可すると、`demo/` ディレクトリにいるときはいつでも nix シェル環境を利用できるようになります。 これを使用するには、`cd demo` の後に `direnv allow` でオプトインします。
 :::
 
 ## ネットワークの設定
-
-手動で `cardano-node` (開発ネット) と `hydra-node` を用意する必要があります。この手順では、`cabal exec` をビルドし、スコープ内にあることを前提としています。
 
 まず、単一の `cardano-node` 開発ネット を用意し、この設定を使って起動します。カレントディレクトリに `devnet` ディレクトリが作成されることに注意してください。
 
@@ -33,14 +44,32 @@ cabal exec cardano-node -- run \
   --config cardano-node.json \
   --topology topology.json \
   --database-path db \
-  --socket-path ipc/node.socket \
-  --shelley-operational-certificate credentials/stake-pool-1/opcert.cert \
-  --shelley-kes-key credentials/stake-pool-1/kes.skey \
-  --shelley-vrf-key credentials/stake-pool-1/vrf.skey
+  --socket-path node.socket \
+  --shelley-operational-certificate opcert.cert \
+  --shelley-kes-key kes.skey \
+  --shelley-vrf-key vrf.skey
 ```
 
 </TerminalWindow>
 ````
+
+## Seeding The Network
+
+You can use the `seed-devnet.sh` script by passing it the path/command to a cardano-cli and hydra-node executable to use, instead of having it using the Docker container. For example:
+
+
+<TerminalWindow>
+
+```
+export CARDANO_NODE_SOCKET_PATH=devnet/node.socket
+./seed-devnet.sh $(which cardano-cli) $(which hydra-node)"
+```
+
+</TerminalWindow>
+
+Note, should you want to use `cabal`, pass the invocation for example like this `"cabal exec hydra-node --"`.
+
+## Setting-up The Hydra Network
 
 次に、3つの異なる端末で、`demo/` ディレクトリから3つの Hydra ノードを起動します。
 
@@ -51,7 +80,7 @@ cabal exec cardano-node -- run \
 <TerminalWindow>
 
 ```
-cabal exec hydra-node -- \
+source .env && hydra-node \
   --node-id 1 --port 5001 --api-port 4001 --monitoring-port 6001 \
   --peer localhost:5002 \
   --peer localhost:5003 \
@@ -64,7 +93,7 @@ cabal exec hydra-node -- \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --network-id 42 \
-  --node-socket devnet/ipc/node.socket
+  --node-socket devnet/node.socket
 ```
 
 </TerminalWindow>
@@ -74,7 +103,7 @@ cabal exec hydra-node -- \
 <TerminalWindow>
 
 ```
-cabal exec hydra-node -- \
+source .env && hydra-node \
   --node-id 2 --port 5002 --api-port 4002 --monitoring-port 6002 \
   --peer localhost:5001 \
   --peer localhost:5003 \
@@ -87,7 +116,7 @@ cabal exec hydra-node -- \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --network-id 42 \
-  --node-socket devnet/ipc/node.socket
+  --node-socket devnet/node.socket
 ```
 
 </TerminalWindow>
@@ -97,7 +126,7 @@ cabal exec hydra-node -- \
 <TerminalWindow>
 
 ```
-cabal exec hydra-node -- \
+source .env && hydra-node \
   --node-id 3 --port 5003 --api-port 4003 --monitoring-port 6003 \
   --peer localhost:5001 \
   --peer localhost:5002 \
@@ -110,7 +139,7 @@ cabal exec hydra-node -- \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --network-id 42 \
-  --node-socket devnet/ipc/node.socket
+  --node-socket devnet/node.socket
 ```
 
 </TerminalWindow>
@@ -144,7 +173,7 @@ cabal exec hydra-tui -- \
   --connect 0.0.0.0:4001 \
   --cardano-signing-key devnet/credentials/alice.sk \
   --network-id 42 \
-  --node-socket devnet/ipc/node.socket
+  --node-socket devnet/node.socket
 ```
 
 </TerminalWindow>

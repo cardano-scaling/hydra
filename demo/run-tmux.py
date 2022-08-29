@@ -42,7 +42,7 @@ if not session:
             '--config', 'devnet/cardano-node.json',
             '--topology', 'devnet/topology.json',
             '--database-path', 'devnet/db',
-            '--socket-path', 'devnet/ipc/node.socket',
+            '--socket-path', 'devnet/node.socket',
             '--shelley-operational-certificate', 'devnet/opcert.cert',
             '--shelley-kes-key', 'devnet/kes.skey',
             '--shelley-vrf-key', 'devnet/vrf.skey'
@@ -52,7 +52,7 @@ if not session:
             vertical=True)
         send_cmd(
             hydra_node_pane_seed,
-            'export CARDANO_NODE_SOCKET_PATH="devnet/ipc/node.socket"')
+            'export CARDANO_NODE_SOCKET_PATH="devnet/node.socket"')
         if os.path.exists('.env'):
             os.unlink('.env')
         send_cmd(
@@ -86,7 +86,7 @@ if not session:
             '--ledger-genesis', 'devnet/genesis-shelley.json',
             '--ledger-protocol-parameters', 'devnet/protocol-parameters.json',
             '--network-id', '42',
-            '--node-socket', 'devnet/ipc/node.socket',
+            '--node-socket', 'devnet/node.socket',
             ]))
         hydra_node_pane_bob = hydra_nodes_window.split_window(vertical=True)
         send_cmd(hydra_node_pane_bob, ' '.join([
@@ -108,7 +108,7 @@ if not session:
             '--ledger-genesis', 'devnet/genesis-shelley.json',
             '--ledger-protocol-parameters', 'devnet/protocol-parameters.json',
             '--network-id', '42',
-            '--node-socket', 'devnet/ipc/node.socket',
+            '--node-socket', 'devnet/node.socket',
             ]))
         hydra_node_pane_carol = hydra_nodes_window.split_window(vertical=True)
         send_cmd(hydra_node_pane_carol, ' '.join([
@@ -130,7 +130,7 @@ if not session:
             '--ledger-genesis', 'devnet/genesis-shelley.json',
             '--ledger-protocol-parameters', 'devnet/protocol-parameters.json',
             '--network-id', '42',
-            '--node-socket', 'devnet/ipc/node.socket',
+            '--node-socket', 'devnet/node.socket',
             ]))
         time.sleep(2)
 
@@ -143,7 +143,7 @@ if not session:
              '--connect', '0.0.0.0:4001',
              '--cardano-signing-key', 'devnet/credentials/alice.sk',
              '--network-id', '42',
-             '--node-socket', 'devnet/ipc/node.socket',
+             '--node-socket', 'devnet/node.socket',
             ]))
 
         hydra_tui_pane_bob = hydra_tuis_window.split_window(vertical=True)
@@ -152,7 +152,7 @@ if not session:
             '--connect', '0.0.0.0:4002',
             '--cardano-signing-key', 'devnet/credentials/bob.sk',
             '--network-id', '42',
-            '--node-socket', 'devnet/ipc/node.socket',
+            '--node-socket', 'devnet/node.socket',
             ]))
 
         hydra_tui_pane_carol = hydra_tuis_window.split_window(vertical=True)
@@ -161,7 +161,7 @@ if not session:
             '--connect', '0.0.0.0:4003',
             '--cardano-signing-key', 'devnet/credentials/carol.sk',
             '--network-id', '42',
-            '--node-socket', 'devnet/ipc/node.socket',
+            '--node-socket', 'devnet/node.socket',
             ]))
         sys.exit(0)
 
