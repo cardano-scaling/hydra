@@ -49,8 +49,8 @@ let
   cardano-node = import
     (pkgs.fetchgit {
       url = "https://github.com/input-output-hk/cardano-node";
-      rev = "1.35.3-testnetonly";
-      sha256 = "0vg5775z683wf421asxjm7g2b6yxmgprpylhs9ryb035id83slp2";
+      rev = "1.35.3";
+      sha256 = "020fwimsm24yblr1fmnwx240wj8r3x715p89cpjgnnd8axwf32p0";
     })
     { };
 in
