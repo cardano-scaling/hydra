@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Squash all fuel utxo of a signing key into a single output and mark it as fuel.
+# Squash all utxo of a signing key into a single output and mark it as fuel.
 set -e
 
 function usage() {
@@ -31,7 +31,7 @@ utxo=$(cardano-cli query utxo \
     --cardano-mode --epoch-slots 21600 \
     --testnet-magic ${magic} \
     --address ${addr} \
-    --out-file /dev/stdout | jq ". | select(.[].datumhash == \"${fuelMarker}\")")
+    --out-file /dev/stdout)
 inputs=($(echo ${utxo} | jq -r '. | keys | @sh' | tr -d "'"))
 totalLovelace=$(echo ${utxo} | jq -r 'reduce .[] as $item (0; . + $item.value.lovelace)')
 
