@@ -384,7 +384,7 @@ txSubmissionClient tracer queue =
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
     (tx, response) <- atomically $ readTQueue queue
-    traceWith tracer (PostingTx (getTxId tx, tx))
+    traceWith tracer (PostingTx (getTxId tx))
     pure $
       SendMsgSubmitTx
         (GenTxBabbage . mkShelleyTx $ tx)
