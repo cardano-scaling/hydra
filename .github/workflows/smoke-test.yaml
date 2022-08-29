@@ -13,6 +13,10 @@ on:
         - preview
         - preprod
 
+      hydra-scripts-tx-id:
+        description: "TxId of already published scripts (leave empty to publish)"
+        required: false
+
 jobs:
   smoke-test:
     name: "Smoke test on ${{inputs.network}}"
@@ -49,7 +53,11 @@ jobs:
 
     - name: Run hydra-cluster 
       run: |
-        nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --state-directory state-${{inputs.network}}"
+        if [ -n "${{inputs.hydra-scripts-tx-id}}" ]; then
+          nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}} --state-directory state-${{inputs.network}}"
+        else
+          nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --publish-scripts --state-directory state-${{inputs.network}}"
+        fi
 
     - name: Archive logs
       if: always()
