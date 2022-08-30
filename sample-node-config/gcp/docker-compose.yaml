@@ -3,24 +3,24 @@ version: "3.9"
 services:
   cardano-node:
     image: inputoutput/cardano-node:latest
+    restart: always
     logging:
       driver: "json-file"
       options:
         max-size: "100m"
         max-file: "5"
     volumes:
-      - ./cardano-configurations/network/testnet:/config
-      - ./testnet/node.db:/db
-      - ./ipc:/ipc
+      - ./devnet:/devnet
     environment:
-      - CARDANO_SOCKET_PATH=/ipc/node.socket # used by cardano-node
-      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket # used by cardano-cli
+      - CARDANO_SOCKET_PATH=/devnet/node.socket # used by cardano-node
+      - CARDANO_NODE_SOCKET_PATH=/devnet/node.socket # used by cardano-cli
     command:
       [ "run"
-      , "--config", "/config/cardano-node/config.json"
-      , "--topology", "/config/cardano-node/topology.json"
-      , "--database-path", "/db"
+      , "--config", "/devnet/cardano-node.json"
+      , "--topology", "/devnet/topology.json"
+      , "--database-path", "/devnet/db"
       ]
+
 
   hydra-node:
     image: ghcr.io/input-output-hk/hydra-node:latest
@@ -31,24 +31,22 @@ services:
         max-size: "100m"
         max-file: "5"
     volumes:
-      - .:/credentials:ro
-      - ./ipc:/ipc
-      - ./genesis-shelley.json:/genesis-shelley.json
-      - ./protocol-parameters.json:/protocol-parameters.json
+      - .:/keys:ro
+      - ./devnet:/devnet
     ports:
       - "4001:4001"
-      - "5001:5001"
     command:
       [ "--node-id", "1"
       , "--api-host", "0.0.0.0"
-      , "--host", "0.0.0.0"
+      , "--host", "172.16.238.10"
       , "--monitoring-port", "6001"
-      , "--hydra-signing-key", "/credentials/arnaud-hydra.sk"
-      , "--cardano-signing-key", "/credentials/arnaud.sk"
-      , "--ledger-genesis", "/genesis-shelley.json"
-      , "--ledger-protocol-parameters", "/protocol-parameters.json"
-      , "--network-id", "${NETWORK_MAGIC:-42}"
-      , "--node-socket", "/ipc/node.socket"
+      , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
+      , "--hydra-signing-key", "/keys/arnaud-hydra.sk"
+      , "--cardano-signing-key", "/keys/arnaud.sk"
+      , "--ledger-genesis", "/devnet/genesis-shelley.json"
+      , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
+      , "--network-id", "${NETWORK_MAGIC}"
+      , "--node-socket", "/devnet/node.socket"
       ]
 
   prometheus:
@@ -61,9 +59,9 @@ services:
     volumes:
     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
-  promtail:
-    image: grafana/promtail:1.4.1
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers
-      - ./promtail-config.yml:/etc/promtail/promtail-config.yml
-    command: -config.file=/etc/promtail/promtail-config.yml
+  # promtail:
+  #   image: grafana/promtail:1.4.1
+  #   volumes:
+  #     - /var/lib/docker/containers:/var/lib/docker/containers
+  #     - ./promtail-config.yml:/etc/promtail/promtail-config.yml
+  #   command: -config.file=/etc/promtail/promtail-config.yml
