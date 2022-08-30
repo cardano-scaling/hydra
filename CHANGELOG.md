@@ -10,6 +10,11 @@ changes.
 
 ## [0.8.0] - UNRELEASED
 
+- **BREAKING** Changed logs to improve legibility and trace on-chain posting errors
+  + Strip on-chain transactions logging to just TxId
+  + Rename `Processing` -> `Begin` and `Processed` -> `End`
+  + Added `PostingFailed` log entry
+
 - The `hydra-cluster` does require `--publish-scripts` or `--hydra-scripts-tx-id` now as it may be provided with pre-published hydra scripts.
 
 ## [0.7.0] - 2022-08-23

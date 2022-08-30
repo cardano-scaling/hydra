@@ -206,35 +206,49 @@ definitions:
           $ref: "api.yaml#/components/schemas/PostChainTx"
     - title: PostingTx
       description: >-
-        A transaction with given content is about to be submitted on-chain.
+        A transaction with given id is about to be submitted on-chain.
       type: object
       additionalProperties: false
       required:
         - tag
-        - postedTx
+        - txId
       properties:
         tag:
           type: string
           enum: ["PostingTx"]
-        postedTx:
-          type: array
-          prefixItems:
-            - $ref: "api.yaml#/components/schemas/TxId"
-            - $ref: "api.yaml#/components/schemas/Transaction"
+        txId:
+          $ref: "api.yaml#/components/schemas/TxId"
     - title: PostedTx
       description: >-
-        A transaction with given Id has been successfully submitted to the chain.
+        A transaction with given id has been successfully submitted to the chain.
       type: object
       additionalProperties: false
       required:
         - tag
-        - postedTxId
+        - txId
       properties:
         tag:
           type: string
           enum: ["PostedTx"]
-        postedTxId:
+        txId:
           $ref: "api.yaml#/components/schemas/TxId"
+    - title: PostingFailed
+      description: >-
+        Submitting the transaction to the node failed
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - tx
+        - reason
+      properties:
+        tag:
+          type: string
+          enum: ["PostingFailed"]
+        tx:
+          $ref: "api.yaml#/components/schemas/Transaction"
+        reason:
+          $ref: "api.yaml#/components/schemas/PostTxError"
     - title: ReceivedTxs
       description: >-
         Some transactions relevant to the Head logic have been observed on-chain, provide both the
@@ -373,7 +387,7 @@ definitions:
           <<: { "$ref": "#/definitions/LogicError" }
           description: >-
             Structured description of the cause of the error.
-    - title: ProcessingEvent
+    - title: BeginEvent
       description: >-
         Head has started processing an event drawn from some pool or queue of
         events to process.
@@ -386,14 +400,14 @@ definitions:
       properties:
         tag:
           type: string
-          enum: [ "ProcessingEvent" ]
+          enum: [ "BeginEvent" ]
         by:
           <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-
             The Party emitting the log entry.
         event:
           <<: { "$ref": "#/definitions/Event" }
-    - title: ProcessedEvent
+    - title: EndEvent
       description: >-
         Head has succesfully finished processing an event.
       type: object
@@ -405,14 +419,14 @@ definitions:
       properties:
         tag:
           type: string
-          enum: [ "ProcessedEvent" ]
+          enum: [ "EndEvent" ]
         by:
           <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-
             The Party emitting the log entry.
         event:
           $ref: "#/definitions/Event"
-    - title: ProcessingEffect
+    - title: BeginEffect
       description: >-
         Head has started processing an effect produced by some transition in the
         protocol.
@@ -425,16 +439,17 @@ definitions:
       properties:
         tag:
           type: string
-          enum: [ "ProcessingEffect" ]
+          enum: [ "BeginEffect" ]
         by:
           <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-
             The Party emitting the log entry.
         effect:
           $ref: "#/definitions/Effect"
-    - title: ProcessedEffect
+    - title: EndEffect
       description: >-
-        Head has finished processing an effect produced by some transition in the protocol.
+        Head has finished processing an effect produced by some transition in
+        the protocol.
       type: object
       additionalProperties: false
       required:
@@ -444,7 +459,7 @@ definitions:
       properties:
         tag:
           type: string
-          enum: [ "ProcessedEffect" ]
+          enum: [ "EndEffect" ]
         by:
           <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-

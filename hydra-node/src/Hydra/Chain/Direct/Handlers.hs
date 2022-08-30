@@ -218,7 +218,7 @@ chainSyncHandler tracer callback headState =
       traceWith tracer $
         ReceivedTxs
           { onChainTxs
-          , receivedTxs = map (\tx -> (getTxId tx, tx)) receivedTxs
+          , receivedTxs = map getTxId receivedTxs
           }
     mapM_ (callback . Observation) onChainTxs
 
@@ -342,9 +342,10 @@ getBabbageTxs = \case
 
 data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
-  | PostingTx {postedTx :: (Ledger.TxId StandardCrypto, ValidatedTx LedgerEra)}
-  | PostedTx {postedTxId :: Ledger.TxId StandardCrypto}
-  | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(Ledger.TxId StandardCrypto, ValidatedTx LedgerEra)]}
+  | PostingTx {txId :: Ledger.TxId StandardCrypto}
+  | PostedTx {txId :: Ledger.TxId StandardCrypto}
+  | PostingFailed {tx :: ValidatedTx LedgerEra, reason :: PostTxError Tx}
+  | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [Ledger.TxId StandardCrypto]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)

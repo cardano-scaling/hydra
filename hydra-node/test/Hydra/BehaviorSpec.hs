@@ -377,9 +377,9 @@ spec = parallel $ do
             logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
         logs
-          `shouldContain` [ProcessingEvent alice $ ClientEvent $ Init testContestationPeriod]
+          `shouldContain` [BeginEvent alice $ ClientEvent $ Init testContestationPeriod]
         logs
-          `shouldContain` [ProcessedEvent alice $ ClientEvent $ Init testContestationPeriod]
+          `shouldContain` [EndEvent alice $ ClientEvent $ Init testContestationPeriod]
 
       it "traces handling of effects" $ do
         let result = runSimTrace $ do
@@ -391,8 +391,8 @@ spec = parallel $ do
 
             logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-        logs `shouldContain` [ProcessingEffect alice (ClientEffect $ ReadyToCommit $ fromList [alice])]
-        logs `shouldContain` [ProcessedEffect alice (ClientEffect $ ReadyToCommit $ fromList [alice])]
+        logs `shouldContain` [BeginEffect alice (ClientEffect $ ReadyToCommit $ fromList [alice])]
+        logs `shouldContain` [EndEffect alice (ClientEffect $ ReadyToCommit $ fromList [alice])]
 
       roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 

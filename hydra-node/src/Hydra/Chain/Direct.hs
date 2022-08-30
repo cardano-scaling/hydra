@@ -384,7 +384,7 @@ txSubmissionClient tracer queue =
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
     (tx, response) <- atomically $ readTQueue queue
-    traceWith tracer (PostingTx (getTxId tx, tx))
+    traceWith tracer (PostingTx (getTxId tx))
     pure $
       SendMsgSubmitTx
         (GenTxBabbage . mkShelleyTx $ tx)
@@ -393,8 +393,10 @@ txSubmissionClient tracer queue =
               traceWith tracer (PostedTx (getTxId tx))
               atomically (putTMVar response Nothing)
               clientStIdle
-            SubmitFail reason -> do
-              atomically (putTMVar response (Just $ onFail reason))
+            SubmitFail err -> do
+              let reason = onFail err
+              traceWith tracer PostingFailed{tx, reason}
+              atomically (putTMVar response (Just reason))
               clientStIdle
         )
 
