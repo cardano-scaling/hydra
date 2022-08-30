@@ -78,6 +78,36 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Plutus.V2.Ledger.Api (POSIXTime)
 import qualified Text.Show
 
+-- | Read-only chain-specific data.
+data ChainContext = ChainContext
+  { networkId :: NetworkId
+  , peerVerificationKeys :: [VerificationKey PaymentKey]
+  , ownVerificationKey :: VerificationKey PaymentKey
+  , ownParty :: Party
+  , scriptRegistry :: ScriptRegistry
+  }
+
+data InitialState = InitialState
+  { initialThreadOutput :: InitialThreadOutput
+  , initialInitials :: [UTxOWithScript]
+  , initialCommits :: [UTxOWithScript]
+  , initialHeadId :: HeadId
+  , initialHeadTokenScript :: PlutusScript
+  }
+
+data OpenState = OpenState
+  { openThreadOutput :: OpenThreadOutput
+  , openHeadId :: HeadId
+  , openHeadTokenScript :: PlutusScript
+  , openUtxoHash :: ByteString
+  }
+
+data ClosedState = ClosedState
+  { closedThreadOutput :: ClosedThreadOutput
+  , closedHeadId :: HeadId
+  , closedHeadTokenScript :: PlutusScript
+  }
+
 -- | An opaque on-chain head state, which records information and events
 -- happening on the layer-1 for a given Hydra head.
 data OnChainHeadState (st :: HeadStateKind) = OnChainHeadState
@@ -291,7 +321,7 @@ abort OnChainHeadState{ownVerificationKey, stateMachine, scriptRegistry} = do
   let InitialThreadOutput{initialThreadUTxO = (i, o, dat)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
-   in case abortTx scriptRegistry ownVerificationKey (i, o, dat) (initialHeadTokenScript stateMachine) initials commits of
+   in case abortTx scriptRegistry ownVerificationKey (i, o, dat) initialHeadTokenScript initials commits of
         Left err ->
           -- FIXME: Exception with MonadThrow?
           error $ show err
@@ -302,6 +332,7 @@ abort OnChainHeadState{ownVerificationKey, stateMachine, scriptRegistry} = do
     { initialThreadOutput
     , initialInitials
     , initialCommits
+    , initialHeadTokenScript
     } = stateMachine
 
 collect ::
