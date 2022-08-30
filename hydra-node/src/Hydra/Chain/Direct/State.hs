@@ -8,7 +8,7 @@ import Hydra.Prelude hiding (init)
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
-import Data.Typeable (typeRep)
+import Data.Typeable (cast, typeRep)
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), genScriptRegistry)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -131,7 +131,7 @@ getContestationDeadline
 data SomeOnChainHeadState where
   SomeOnChainHeadState ::
     forall st.
-    (Show st, HasTransitions st, HasKnownUTxO st) =>
+    (Typeable st, Show st, HasTransitions st, HasKnownUTxO st) =>
     st ->
     SomeOnChainHeadState
 
@@ -152,6 +152,10 @@ instance Show SomeOnChainHeadState where
 --         st == st'
 --       _ ->
 --         False
+
+-- | Access the actual head state in the existential given it is of type 'st'.
+castHeadState :: Typeable st => SomeOnChainHeadState -> Maybe st
+castHeadState (SomeOnChainHeadState x) = cast x
 
 -- * Constructing transactions
 

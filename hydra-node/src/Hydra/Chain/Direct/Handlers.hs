@@ -39,9 +39,12 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct.State (
   ChainContext,
+  ClosedState (ClosedState),
+  InitialState (InitialState),
+  OpenState (OpenState),
   SomeOnChainHeadState (..),
-  TokHeadState (..),
   abort,
+  castHeadState,
   close,
   collect,
   commit,
@@ -50,8 +53,6 @@ import Hydra.Chain.Direct.State (
   getContestationDeadline,
   getKnownUTxO,
   initialize,
-  observeSomeTx,
-  reifyState,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block, SomePoint (..))
@@ -233,8 +234,8 @@ chainSyncHandler tracer callback headState =
             }
         -- FIXME: The right thing to do is probably to decouple the observation from the
         -- transformation into an `OnChainTx`
-        let event = case (onChainTx, reifyState nextState) of
-              (OnCloseTx{snapshotNumber}, TkClosed) ->
+        let event = case (onChainTx, castHeadState nextState) of
+              (OnCloseTx{snapshotNumber}, ClosedState{}) ->
                 let remainingTimeWithBuffer = 1 + diffUTCTime (posixToUTCTime $ getContestationDeadline nextState) now
                  in OnCloseTx{snapshotNumber, remainingContestationPeriod = remainingTimeWithBuffer}
               _ -> onChainTx
@@ -276,21 +277,27 @@ fromPostChainTx ::
   STM m Tx
 fromPostChainTx ctx timeHandle wallet someHeadState tx = do
   pointInTime <- throwLeft currentPointInTime
-  SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
-  case (tx, reifyState st) of
-    (InitTx params, TkIdle) -> do
+  cst <- currentOnChainHeadState <$> readTVar someHeadState
+  case tx of
+    InitTx params -> do
       getFuelUTxO wallet >>= \case
         Just (fromLedgerTxIn -> seedInput, _) -> do
           pure $ initialize ctx params seedInput
         Nothing ->
           throwIO (NoSeedInput @Tx)
-    (AbortTx{}, TkInitialized) -> do
-      pure (abort st)
+    AbortTx{} -> do
+      case castHeadState cst of
+        Nothing -> InvalidStateToPost tx -- TODO: dry
+        Just st@InitialState{} -> pure $ abort ctx st
+
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
-    (CommitTx{committed}, TkInitialized) -> do
-      either throwIO pure (commit committed st)
+    CommitTx{committed} -> do
+      case castHeadState cst of
+        Nothing -> InvalidStateToPost tx -- TODO: dry
+        Just st@InitialState{} -> either throwIO pure (commit ctx st committed)
+
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from
@@ -298,22 +305,31 @@ fromPostChainTx ctx timeHandle wallet someHeadState tx = do
     --
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
-    (CollectComTx{}, TkInitialized) -> do
-      pure (collect st)
-    (CloseTx{confirmedSnapshot}, TkOpen) -> do
-      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (close confirmedSnapshot shifted st)
-    (ContestTx{confirmedSnapshot}, TkClosed) -> do
-      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (contest confirmedSnapshot shifted st)
-    (FanoutTx{utxo}, TkClosed) -> do
-      -- NOTE: It's a bit weird that we inspect the state here, but handling
-      -- errors around while we want the possibly failing "time -> slot"
-      -- conversion to be done here is not prettier.
-      deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
-      pure (fanout utxo deadlineSlot st)
-    (_, _) ->
-      throwIO $ InvalidStateToPost tx
+    CollectComTx{} -> do
+      case castHeadState cst of
+        Nothing -> InvalidStateToPost tx -- TODO: dry
+        Just st@InitialState{} -> pure $ collect ctx st
+    CloseTx{confirmedSnapshot} -> do
+      case castHeadState cst of
+        Nothing -> InvalidStateToPost tx -- TODO: dry
+        Just st@OpenState{} -> do
+          shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+          pure (close ctx st confirmedSnapshot shifted)
+    ContestTx{confirmedSnapshot} -> do
+      case castHeadState cst of
+        Nothing -> InvalidStateToPost tx -- TODO: dry
+        Just st@ClosedState{} -> do
+          shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+          pure (contest ctx st confirmedSnapshot shifted)
+    FanoutTx{utxo} -> do
+      case castHeadState cst of
+        Nothing -> InvalidStateToPost tx -- TODO: dry
+        Just st@ClosedState{} -> do
+          -- NOTE: It's a bit weird that we inspect the state here, but handling
+          -- errors around while we want the possibly failing "time -> slot"
+          -- conversion to be done here is not prettier.
+          deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
+          pure (fanout st utxo deadlineSlot)
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure
