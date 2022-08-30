@@ -11,9 +11,9 @@ import Control.Lens ((^?))
 import Data.Aeson (object, (.=))
 import Data.Aeson.Lens (key, _Number)
 import qualified Data.Set as Set
-import Hydra.Cardano.Api (Lovelace, selectLovelace)
-import Hydra.Cluster.Faucet (Marked (Fuel), publishHydraScriptsAs, queryMarkedUTxO, seedFromFaucet)
-import Hydra.Cluster.Fixture (Actor (Alice, Faucet), actorName, alice, aliceSk)
+import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
+import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet)
+import Hydra.Cluster.Fixture (Actor (Alice), actorName, alice, aliceSk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (Tx)
@@ -25,16 +25,15 @@ singlePartyHeadFullLifeCycle ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
+  TxId ->
   IO ()
-singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} = do
+singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScriptsTxId = do
   refuelIfNeeded tracer node Alice 100_000_000
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket []
       <&> \config -> config{networkId, startChainFrom = Just tip}
-  hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-  traceWith tracer $ PublishedHydraScriptsAt{hydraScriptsTxId}
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     let contestationPeriod = 1 :: Natural

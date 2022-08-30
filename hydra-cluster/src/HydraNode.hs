@@ -189,6 +189,7 @@ data EndToEndLog
   | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, fuelUTxO :: UTxO}
   | RemainingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
   | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
+  | UsingHydraScriptsAt {hydraScriptsTxId :: TxId}
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can

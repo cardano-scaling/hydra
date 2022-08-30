@@ -3,10 +3,12 @@ module Main where
 import Hydra.Prelude
 
 import CardanoNode (withCardanoNodeOnKnownNetwork)
-import Hydra.Cluster.Options (Options (..), parseOptions)
+import Hydra.Cluster.Faucet (publishHydraScriptsAs)
+import Hydra.Cluster.Fixture (Actor (Faucet))
+import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), parseOptions)
 import Hydra.Cluster.Scenarios (singlePartyHeadFullLifeCycle)
-import Hydra.Logging (Verbosity (Verbose), withTracer)
-import HydraNode (EndToEndLog (FromCardanoNode))
+import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer)
+import HydraNode (EndToEndLog (..))
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 import Test.Hydra.Prelude (withTempDir)
 
@@ -18,14 +20,25 @@ run :: Options -> IO ()
 run options =
   withTracer (Verbose "hydra-cluster") $ \tracer -> do
     withStateDirectory $ \workDir ->
-      withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir knownNetwork $
-        singlePartyHeadFullLifeCycle tracer workDir
+      withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir knownNetwork $ \node -> do
+        publishOrReuseHydraScripts tracer node
+          >>= singlePartyHeadFullLifeCycle tracer workDir node
  where
-  Options{knownNetwork, stateDirectory} = options
+  Options{knownNetwork, stateDirectory, publishHydraScripts} = options
 
   withStateDirectory action = case stateDirectory of
     Nothing -> withTempDir ("hydra-cluster-" <> show knownNetwork) action
     Just sd -> action sd
+
+  publishOrReuseHydraScripts tracer node =
+    case publishHydraScripts of
+      Publish -> do
+        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+        traceWith tracer $ PublishedHydraScriptsAt{hydraScriptsTxId}
+        pure hydraScriptsTxId
+      Reuse hydraScriptsTxId -> do
+        traceWith tracer $ UsingHydraScriptsAt{hydraScriptsTxId}
+        pure hydraScriptsTxId
 
 hydraClusterOptions :: ParserInfo Options
 hydraClusterOptions =

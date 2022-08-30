@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.8.0] - UNRELEASED
+
+- The `hydra-cluster` does require `--publish-scripts` or `--hydra-scripts-tx-id` now as it may be provided with pre-published hydra scripts.
+
 ## [0.7.0] - 2022-08-23
 
 - **BREAKING** Switch to `BabbageEra` and `PlutusV2`.
