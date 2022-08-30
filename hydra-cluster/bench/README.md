@@ -10,7 +10,7 @@ Those log files can be used to harvest some more data about the run and produce 
 Computes the number of transactions / snapshot processed:
 
 ```
-cat log.1 | grep ReqSn | grep NetworkEvent | grep ProcessedEvent | jq -r '[.timestamp, (.message.event.message.transactions| length)] | @csv' | tr -d \" > snapshot-length.csv
+cat log.1 | grep ReqSn | grep NetworkEvent | grep EndEvent | jq -r '[.timestamp, (.message.event.message.transactions| length)] | @csv' | tr -d \" > snapshot-length.csv
 ```
 
 ### ReqSn processing time
@@ -20,8 +20,8 @@ Computes the processing time of each `ReqSn` event:
 First produce a CSV file containing the start/stop time for each snapshot:
 
 ```
-$ cat log.1 | grep ReqSn | grep NetworkEvent | grep 'ProcessingEvent' | jq -r '[.message.event.message.snapshotNumber, .timestamp] | @csv' | tr -d \" > snapshot-processing.csv
-$ cat log.1 | grep ReqSn | grep NetworkEvent | grep 'ProcessedEvent' | jq -r '[.message.event.message.snapshotNumber, .timestamp] | @csv' | tr -d \" > snapshot-processed.csv
+$ cat log.1 | grep ReqSn | grep NetworkEvent | grep 'BeginEvent' | jq -r '[.message.event.message.snapshotNumber, .timestamp] | @csv' | tr -d \" > snapshot-processing.csv
+$ cat log.1 | grep ReqSn | grep NetworkEvent | grep 'EndEvent' | jq -r '[.message.event.message.snapshotNumber, .timestamp] | @csv' | tr -d \" > snapshot-processed.csv
 $ join -t ',' snapshot-processing.csv snapshot-processed.csv > snapshot-time.csv
 ```
 
@@ -47,8 +47,8 @@ An interesting piece of information one can extract from the logs is how long do
 
 The following script extracts the `processing-` and `processed-` times for each snapshot number, one file per _party_ (assuming there were 6 nodes hence 6 log files produced):
 ```
-$ for i in {1..6}; do cat log.1 | grep AckSn | grep NetworkEvent | grep ProcessingEvent | jq -r "select (.message.event.message.party == $i) | [.message.event.message.snapshotNumber, .timestamp] | @csv" | tr -d \" > processing-ack-$i.csv ; done
-$ for i in {1..6}; do cat log.1 | grep AckSn | grep NetworkEvent | grep ProcessedEvent | jq -r "select (.message.event.message.party == $i) | [.message.event.message.snapshotNumber, .timestamp] | @csv" | tr -d \" > processed-ack-$i.csv ; done
+$ for i in {1..6}; do cat log.1 | grep AckSn | grep NetworkEvent | grep BeginEvent | jq -r "select (.message.event.message.party == $i) | [.message.event.message.snapshotNumber, .timestamp] | @csv" | tr -d \" > processing-ack-$i.csv ; done
+$ for i in {1..6}; do cat log.1 | grep AckSn | grep NetworkEvent | grep EndEvent | jq -r "select (.message.event.message.party == $i) | [.message.event.message.snapshotNumber, .timestamp] | @csv" | tr -d \" > processed-ack-$i.csv ; done
 join -t ',' processing-ack-1.csv processing-ack-2.csv | join -t ',' - processing-ack-3.csv
 ```
 
@@ -101,7 +101,7 @@ This one a is a bit involved as it requires both extracting information from the
 
 * Extract timestamp for each transction in the `confirmedTransactions` field of a snapshot confirmed message but turns out it's pretty simple:
   ```
-  $ cat log.1 | grep ProcessedEffect | grep SnapshotConfirmed | jq -cr '{ts:.timestamp, txs: .message.effect.serverOutput.snapshot.confirmedTransactions[]}' | jq -cr '[.txs, .ts]' > tx-confirmed-time.json
+  $ cat log.1 | grep EndEffect | grep SnapshotConfirmed | jq -cr '{ts:.timestamp, txs: .message.effect.serverOutput.snapshot.confirmedTransactions[]}' | jq -cr '[.txs, .ts]' > tx-confirmed-time.json
   ```
 * Generate a UTXO size growth per transaction id (see [this haskell script](./utxo-size.hs))
   ```

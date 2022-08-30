@@ -394,6 +394,7 @@ txSubmissionClient tracer queue =
               atomically (putTMVar response Nothing)
               clientStIdle
             SubmitFail reason -> do
+              -- @TODO add tracer for failure
               atomically (putTMVar response (Just $ onFail reason))
               clientStIdle
         )

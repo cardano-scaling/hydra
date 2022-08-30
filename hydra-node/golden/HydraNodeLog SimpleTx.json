@@ -14,7 +14,7 @@
                 },
                 "tag": "NetworkEvent"
             },
-            "tag": "ProcessingEvent"
+            "tag": "BeginEvent"
         },
         {
             "by": {
@@ -51,7 +51,7 @@
                 },
                 "tag": "ClientEffect"
             },
-            "tag": "ProcessedEffect"
+            "tag": "EndEffect"
         },
         {
             "by": {
@@ -315,7 +315,7 @@
                 },
                 "tag": "NetworkEffect"
             },
-            "tag": "ProcessedEffect"
+            "tag": "EndEffect"
         }
     ],
     "seed": 1847820252

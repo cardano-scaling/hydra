@@ -11,19 +11,19 @@ filterLog entry = do
   guard (entry ^? key "message" . key "tag" == Just "Node")
   node <- entry ^? key "message" . key "node"
   result <- case node ^? key "tag" of
-    Just "ProcessingEvent" -> do
+    Just "BeginEvent" -> do
       case (node ^? networkMessage . key "tag") <|> (node ^? clientEvent . key "tag") of
         Just "ReqTx" -> processReqTx node
         Just "NewTx" -> replaceTransactionWithTxId node clientEvent
         Just "ReqSn" -> replaceTransactionsWithTxIds node networkMessage
         _ -> pure node
-    Just "ProcessedEvent" -> do
+    Just "EndEvent" -> do
       case (node ^? networkMessage . key "tag") <|> (node ^? clientEvent . key "tag") of
         Just "ReqTx" -> processReqTx node
         Just "NewTx" -> replaceTransactionWithTxId node clientEvent
         Just "ReqSn" -> replaceTransactionsWithTxIds node networkMessage
         _ -> pure node
-    Just "ProcessingEffect" -> do
+    Just "BeginEffect" -> do
       case node ^? clientEffect . key "tag" <|> node ^? networkEffect . key "tag" of
         Just "SnapshotConfirmed" -> processSnapshotConfirmed node
         Just "Committed" -> replaceUtxoWithNull node
@@ -33,7 +33,7 @@ filterLog entry = do
         Just "ReqTx" -> replaceTransactionWithTxId node networkEffect
         Just "ReqSn" -> replaceTransactionsWithTxIds node networkEffect
         _ -> pure node
-    Just "ProcessedEffect" -> do
+    Just "EndEffect" -> do
       case node ^? clientEffect . key "tag" <|> node ^? networkEffect . key "tag" of
         Just "SnapshotConfirmed" -> processSnapshotConfirmed node
         Just "Committed" -> replaceUtxoWithNull node

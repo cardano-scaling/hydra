@@ -373,7 +373,7 @@ definitions:
           <<: { "$ref": "#/definitions/LogicError" }
           description: >-
             Structured description of the cause of the error.
-    - title: ProcessingEvent
+    - title: BeginEvent
       description: >-
         Head has started processing an event drawn from some pool or queue of
         events to process.
@@ -386,14 +386,14 @@ definitions:
       properties:
         tag:
           type: string
-          enum: [ "ProcessingEvent" ]
+          enum: [ "BeginEvent" ]
         by:
           <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-
             The Party emitting the log entry.
         event:
           <<: { "$ref": "#/definitions/Event" }
-    - title: ProcessedEvent
+    - title: EndEvent
       description: >-
         Head has succesfully finished processing an event.
       type: object
@@ -405,14 +405,14 @@ definitions:
       properties:
         tag:
           type: string
-          enum: [ "ProcessedEvent" ]
+          enum: [ "EndEvent" ]
         by:
           <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-
             The Party emitting the log entry.
         event:
           $ref: "#/definitions/Event"
-    - title: ProcessingEffect
+    - title: BeginEffect
       description: >-
         Head has started processing an effect produced by some transition in the
         protocol.
@@ -425,14 +425,14 @@ definitions:
       properties:
         tag:
           type: string
-          enum: [ "ProcessingEffect" ]
+          enum: [ "BeginEffect" ]
         by:
           <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-
             The Party emitting the log entry.
         effect:
           $ref: "#/definitions/Effect"
-    - title: ProcessedEffect
+    - title: EndEffect
       description: >-
         Head has finished processing an effect produced by some transition in the protocol.
       type: object
@@ -444,7 +444,7 @@ definitions:
       properties:
         tag:
           type: string
-          enum: [ "ProcessedEffect" ]
+          enum: [ "EndEffect" ]
         by:
           <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-

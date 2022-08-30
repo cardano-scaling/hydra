@@ -25,7 +25,7 @@ import Hydra.Ledger (IsTx (TxIdType), txId)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx))
-import Hydra.Node (HydraNodeLog (ProcessedEffect, ProcessedEvent, ProcessingEvent))
+import Hydra.Node (HydraNodeLog (BeginEvent, EndEffect, EndEvent))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (confirmed))
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
@@ -89,7 +89,7 @@ monitor ::
   HydraLog tx net ->
   m ()
 monitor transactionsMap metricsMap = \case
-  (Node (ProcessingEvent _ (NetworkEvent (ReqTx _ tx)))) -> do
+  (Node (BeginEvent _ (NetworkEvent (ReqTx _ tx)))) -> do
     t <- getMonotonicTime
     -- NOTE: If a requested transaction never gets confirmed, it might stick
     -- forever in the transactions map which could lead to unbounded growth and
@@ -97,7 +97,7 @@ monitor transactionsMap metricsMap = \case
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
     tick "hydra_head_requested_tx"
-  (Node (ProcessedEffect _ (ClientEffect (SnapshotConfirmed snapshot _)))) -> do
+  (Node (EndEffect _ (ClientEffect (SnapshotConfirmed snapshot _)))) -> do
     t <- getMonotonicTime
     forM_ (confirmed snapshot) $ \tx -> do
       let tid = txId tx
@@ -108,7 +108,7 @@ monitor transactionsMap metricsMap = \case
           histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
         Nothing -> pure ()
     tickN "hydra_head_confirmed_tx" (length $ confirmed snapshot)
-  (Node (ProcessedEvent _ _)) ->
+  (Node (EndEvent _ _)) ->
     tick "hydra_head_events"
   _ -> pure ()
  where
