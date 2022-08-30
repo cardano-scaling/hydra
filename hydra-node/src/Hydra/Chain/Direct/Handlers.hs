@@ -342,8 +342,8 @@ getBabbageTxs = \case
 
 data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
-  | PostingTx {postedTx :: Ledger.TxId StandardCrypto}
-  | PostedTx {postedTxId :: Ledger.TxId StandardCrypto}
+  | PostingTx {txId :: Ledger.TxId StandardCrypto}
+  | PostedTx {txId :: Ledger.TxId StandardCrypto}
   | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [Ledger.TxId StandardCrypto]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog

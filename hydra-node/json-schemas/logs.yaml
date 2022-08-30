@@ -206,34 +206,31 @@ definitions:
           $ref: "api.yaml#/components/schemas/PostChainTx"
     - title: PostingTx
       description: >-
-        A transaction with given content is about to be submitted on-chain.
+        A transaction with given id is about to be submitted on-chain.
       type: object
       additionalProperties: false
       required:
         - tag
-        - postedTx
+        - txId
       properties:
         tag:
           type: string
           enum: ["PostingTx"]
-        postedTx:
-          type: array
-          prefixItems:
-            - $ref: "api.yaml#/components/schemas/TxId"
-            - $ref: "api.yaml#/components/schemas/Transaction"
+        txId:
+          $ref: "api.yaml#/components/schemas/TxId"
     - title: PostedTx
       description: >-
-        A transaction with given Id has been successfully submitted to the chain.
+        A transaction with given id has been successfully submitted to the chain.
       type: object
       additionalProperties: false
       required:
         - tag
-        - postedTxId
+        - txId
       properties:
         tag:
           type: string
           enum: ["PostedTx"]
-        postedTxId:
+        txId:
           $ref: "api.yaml#/components/schemas/TxId"
     - title: ReceivedTxs
       description: >-
@@ -434,7 +431,8 @@ definitions:
           $ref: "#/definitions/Effect"
     - title: EndEffect
       description: >-
-        Head has finished processing an effect produced by some transition in the protocol.
+        Head has finished processing an effect produced by some transition in
+        the protocol.
       type: object
       additionalProperties: false
       required:
