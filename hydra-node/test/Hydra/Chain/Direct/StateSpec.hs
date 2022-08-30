@@ -68,6 +68,7 @@ import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (peerVerificationKeys),
   HasTransition (..),
+  HasUTxO (getUTxO),
   HeadStateKind (..),
   HeadStateKindVal (..),
   ObserveTx (..),
@@ -405,13 +406,13 @@ propBelowSizeLimit txSizeLimit forAllTx =
 
 -- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionValidates?
 propIsValid ::
-  forall st.
-  ((OnChainHeadState st -> Tx -> Property) -> Property) ->
+  HasUTxO a =>
+  ((a -> Tx -> Property) -> Property) ->
   SpecWith ()
 propIsValid forAllTx =
   prop "validates within maxTxExecutionUnits" $
     forAllTx $ \st tx -> do
-      let lookupUTxO = getKnownUTxO st
+      let lookupUTxO = getUTxO st
       case evaluateTx' maxTxExecutionUnits tx lookupUTxO of
         Left validityError ->
           property False

@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Direct.State (
+  HasUTxO (..),
   ChainContext (..),
   genChainContext,
 
@@ -84,6 +85,12 @@ import Plutus.V2.Ledger.Api (POSIXTime)
 import Test.QuickCheck (choose, sized)
 import qualified Text.Show
 
+-- | A class for accessing the 'UTxO' set in a type.
+class HasUTxO a where
+  getUTxO :: a -> UTxO
+
+-- * States
+
 -- | Read-only chain-specific data. This is different to 'HydraContext' as it
 -- only provide contains data known to single peer.
 data ChainContext = ChainContext
@@ -94,6 +101,9 @@ data ChainContext = ChainContext
   , scriptRegistry :: ScriptRegistry
   }
   deriving (Show, Eq)
+
+instance HasUTxO ChainContext where
+  getUTxO = mempty
 
 instance Arbitrary ChainContext where
   arbitrary = sized $ \n -> choose (0, n) >>= genChainContext
