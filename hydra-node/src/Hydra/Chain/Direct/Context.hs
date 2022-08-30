@@ -94,7 +94,7 @@ genHydraContextFor n = do
 -- 'ctxVerificationKeys' and 'ctxHydraSigningKeys'.
 pickChainContext :: HydraContext -> Gen ChainContext
 pickChainContext ctx = do
-  ourIndex <- choose (0, length ctxHydraSigningKeys)
+  ourIndex <- choose (0, length ctxHydraSigningKeys - 1)
   let ownVerificationKey = ctxVerificationKeys !! ourIndex
       ownParty = deriveParty $ ctxHydraSigningKeys !! ourIndex
   scriptRegistry <- genScriptRegistry
