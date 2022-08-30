@@ -21,10 +21,8 @@ import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   LedgerEra,
-  PaymentKey,
   SlotNo,
   Tx,
-  VerificationKey,
   fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
@@ -40,6 +38,7 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
+  ChainContext,
   SomeOnChainHeadState (..),
   TokHeadState (..),
   abort,
@@ -90,31 +89,29 @@ type SubmitTx m = ValidatedTx LedgerEra -> m ()
 mkChain ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
+  ChainContext ->
   m TimeHandle ->
-  [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle cardanoKeys wallet headState submitTx =
+mkChain tracer ctx queryTimeHandle wallet headState submitTx =
   Chain
     { postTx = \tx -> do
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
         vtx <-
           atomically
-            ( -- FIXME (MB): 'cardanoKeys' should really not be here. They
-              -- are only required for the init transaction and ought to
-              -- come from the _client_ and be part of the init request
-              -- altogether. This goes in the direction of 'dynamic
-              -- heads' where participants aren't known upfront but
-              -- provided via the API. Ultimately, an init request from
-              -- a client would contain all the details needed to
-              -- establish connection to the other peers and to
-              -- bootstrap the init transaction.
-              -- For now, we bear with it and keep the static keys in
-              -- context.
-              fromPostChainTx timeHandle cardanoKeys wallet headState tx
+            ( -- FIXME (MB): 'cardanoKeys' should really not be here (its in
+              -- ChainContext). They are only required for the init transaction
+              -- and ought to come from the _client_ and be part of the init
+              -- request altogether. This goes in the direction of 'dynamic
+              -- heads' where participants aren't known upfront but provided via
+              -- the API. Ultimately, an init request from a client would
+              -- contain all the details needed to establish connection to the
+              -- other peers and to bootstrap the init transaction. For now, we
+              -- bear with it and keep the static keys in context.
+              fromPostChainTx ctx timeHandle wallet headState tx
                 >>= finalizeTx wallet headState . toLedgerTx
             )
         submitTx vtx
@@ -271,20 +268,20 @@ closeGraceTime = 100
 
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
+  ChainContext ->
   TimeHandle ->
-  [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx timeHandle cardanoKeys wallet someHeadState tx = do
+fromPostChainTx ctx timeHandle wallet someHeadState tx = do
   pointInTime <- throwLeft currentPointInTime
   SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
       getFuelUTxO wallet >>= \case
         Just (fromLedgerTxIn -> seedInput, _) -> do
-          pure $ initialize params cardanoKeys seedInput st
+          pure $ initialize ctx params seedInput
         Nothing ->
           throwIO (NoSeedInput @Tx)
     (AbortTx{}, TkInitialized) -> do

@@ -79,6 +79,7 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
+  ChainContext (..),
   SomeOnChainHeadState (..),
   idleOnChainHeadState,
  )
@@ -172,6 +173,15 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
               idleOnChainHeadState networkId (cardanoKeys \\ [vk]) vk party scriptRegistry
         , recordedAt = AtStart
         }
+
+  let chainContext =
+        ChainContext
+          { networkId
+          , peerVerificationKeys = cardanoKeys \\ [vk]
+          , ownVerificationKey = vk
+          , ownParty = party
+          , scriptRegistry
+          }
   res <-
     race
       ( do
@@ -183,6 +193,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
           action $
             mkChain
               tracer
+              chainContext
               (queryTimeHandle networkId socketPath)
               cardanoKeys
               wallet

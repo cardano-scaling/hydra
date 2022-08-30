@@ -95,7 +95,7 @@ headValue = lovelaceToValue (Lovelace 2_000_000)
 -- which will be used as unique parameter for minting NFTs.
 initTx ::
   NetworkId ->
-  -- | Participant's cardano public keys.
+  -- | All participants cardano keys.
   [VerificationKey PaymentKey] ->
   HeadParameters ->
   TxIn ->

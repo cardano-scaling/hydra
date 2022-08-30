@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Direct.State (
+  ChainContext (..),
+
   -- * OnChainHeadState
   OnChainHeadState,
   HeadStateKind (..),
@@ -27,6 +29,7 @@ module Hydra.Chain.Direct.State (
 
   -- ** Observing transitions
   observeSomeTx,
+  observeInit,
 
   -- *** Internal API
   ObserveTx (..),
@@ -36,7 +39,7 @@ module Hydra.Chain.Direct.State (
 ) where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude
+import Hydra.Prelude hiding (init)
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
@@ -86,6 +89,7 @@ data ChainContext = ChainContext
   , ownParty :: Party
   , scriptRegistry :: ScriptRegistry
   }
+  deriving (Show, Eq)
 
 data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput
@@ -94,6 +98,7 @@ data InitialState = InitialState
   , initialHeadId :: HeadId
   , initialHeadTokenScript :: PlutusScript
   }
+  deriving (Show, Eq)
 
 data OpenState = OpenState
   { openThreadOutput :: OpenThreadOutput
@@ -101,12 +106,14 @@ data OpenState = OpenState
   , openHeadTokenScript :: PlutusScript
   , openUtxoHash :: ByteString
   }
+  deriving (Show, Eq)
 
 data ClosedState = ClosedState
   { closedThreadOutput :: ClosedThreadOutput
   , closedHeadId :: HeadId
   , closedHeadTokenScript :: PlutusScript
   }
+  deriving (Show, Eq)
 
 -- | An opaque on-chain head state, which records information and events
 -- happening on the layer-1 for a given Hydra head.
@@ -272,16 +279,23 @@ idleOnChainHeadState networkId peerVerificationKeys ownVerificationKey ownParty 
 
 -- Constructing Transitions
 
--- | Initialize a head from an 'StIdle' state. This does not change the state
--- but produces a transaction which, if observed, does apply the transition.
+-- | A thin wrapper around 'initTx'. The seed input will determine the head identifier.
 initialize ::
+  ChainContext ->
   HeadParameters ->
-  [VerificationKey PaymentKey] ->
+  -- | Seed input.
   TxIn ->
-  OnChainHeadState 'StIdle ->
   Tx
-initialize params cardanoKeys seedInput OnChainHeadState{networkId} = do
-  initTx networkId cardanoKeys params seedInput
+initialize ctx =
+  initTx networkId allVerificationKeys
+ where
+  allVerificationKeys = ownVerificationKey : peerVerificationKeys
+
+  ChainContext
+    { networkId
+    , ownVerificationKey
+    , peerVerificationKeys
+    } = ctx
 
 commit ::
   UTxO ->
@@ -459,6 +473,35 @@ instance ObserveTx 'StIdle 'StInitialized where
                   }
             }
     pure (event, st')
+
+observeInit ::
+  ChainContext ->
+  Tx ->
+  Maybe (OnChainTx Tx, InitialState)
+observeInit ctx tx = do
+  observation <- observeInitTx networkId allVerificationKeys ownParty tx
+  pure (toEvent observation, toState observation)
+ where
+  toEvent InitObservation{contestationPeriod, parties} =
+    OnInitTx{contestationPeriod, parties}
+
+  toState InitObservation{threadOutput, initials, commits, headId, headTokenScript} =
+    InitialState
+      { initialThreadOutput = threadOutput
+      , initialInitials = initials
+      , initialCommits = commits
+      , initialHeadId = headId
+      , initialHeadTokenScript = headTokenScript
+      }
+
+  allVerificationKeys = ownVerificationKey : peerVerificationKeys
+
+  ChainContext
+    { networkId
+    , ownVerificationKey
+    , peerVerificationKeys
+    , ownParty
+    } = ctx
 
 --
 -- StInitialized

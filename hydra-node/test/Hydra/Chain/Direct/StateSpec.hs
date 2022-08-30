@@ -57,6 +57,7 @@ import Hydra.Chain.Direct.Context (
   unsafeCommit,
   unsafeObserveTx,
  )
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   RecordedAt (..),
@@ -80,7 +81,9 @@ import Hydra.Chain.Direct.State (
   getContestationDeadline,
   getKnownUTxO,
   idleOnChainHeadState,
+  init,
   initialize,
+  observeInit,
   observeSomeTx,
  )
 import Hydra.Chain.Direct.Util (Block)
@@ -154,6 +157,10 @@ spec = parallel $ do
           isJust (observeSomeTx tx (SomeOnChainHeadState st))
 
   describe "init" $ do
+    prop "new interface" $ \headParameters vks seedTxIn ->
+      let tx = initialize testNetworkId headParameters vks seedTxIn
+       in isJust $ observeInit tx
+
     prop "is not observed if not invited" $
       forAll2 (genHydraContext 3) (genHydraContext 3) $ \(ctxA, ctxB) ->
         null (ctxParties ctxA `intersect` ctxParties ctxB)
