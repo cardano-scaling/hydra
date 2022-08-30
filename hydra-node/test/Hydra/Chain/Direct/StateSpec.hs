@@ -66,6 +66,7 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (
+  ChainContext (peerVerificationKeys),
   HasTransition (..),
   HeadStateKind (..),
   HeadStateKindVal (..),
@@ -78,10 +79,10 @@ import Hydra.Chain.Direct.State (
   collect,
   commit,
   contest,
+  genChainContext,
   getContestationDeadline,
   getKnownUTxO,
   idleOnChainHeadState,
-  init,
   initialize,
   observeInit,
   observeSomeTx,
@@ -387,9 +388,8 @@ stAtGenesis currentOnChainHeadState =
 --
 
 propBelowSizeLimit ::
-  forall st.
   Natural ->
-  ((OnChainHeadState st -> Tx -> Property) -> Property) ->
+  ((a -> Tx -> Property) -> Property) ->
   SpecWith ()
 propBelowSizeLimit txSizeLimit forAllTx =
   prop ("transaction size is below " <> showKB txSizeLimit) $
@@ -471,19 +471,19 @@ forAllSt action =
 
 forAllInit ::
   (Testable property) =>
-  (OnChainHeadState 'StIdle -> Tx -> property) ->
+  (ChainContext -> Tx -> property) ->
   Property
 forAllInit action =
-  forAll (genHydraContext 3) $ \ctx ->
-    forAll (genStIdle ctx) $ \stIdle ->
+  forAll (genChainContext 3) $ \ctx ->
+    forAll arbitrary $ \params -> do
       forAll genTxIn $ \seedInput -> do
-        let tx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
-         in action stIdle tx
+        let tx = initialize ctx params seedInput
+         in action ctx tx
               & classify
-                (length (ctxParties ctx) == 1)
+                (length (peerVerificationKeys ctx) == 0)
                 "1 party"
               & classify
-                (length (ctxParties ctx) > 1)
+                (length (peerVerificationKeys ctx) > 0)
                 "2+ parties"
 
 forAllCommit ::

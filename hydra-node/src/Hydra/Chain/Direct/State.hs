@@ -3,6 +3,7 @@
 
 module Hydra.Chain.Direct.State (
   ChainContext (..),
+  genChainContext,
 
   -- * OnChainHeadState
   OnChainHeadState,
@@ -44,7 +45,7 @@ import Hydra.Prelude hiding (init)
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
-import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), registryUTxO)
+import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
@@ -76,9 +77,11 @@ import Hydra.Chain.Direct.Tx (
   ownInitial,
  )
 import Hydra.Ledger (IsTx (hashUTxO))
+import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Plutus.V2.Ledger.Api (POSIXTime)
+import Test.QuickCheck (choose, sized)
 import qualified Text.Show
 
 -- | Read-only chain-specific data. This is different to 'HydraContext' as it
@@ -91,6 +94,26 @@ data ChainContext = ChainContext
   , scriptRegistry :: ScriptRegistry
   }
   deriving (Show, Eq)
+
+instance Arbitrary ChainContext where
+  arbitrary = sized $ \n -> choose (0, n) >>= genChainContext
+
+-- | Generate a 'HydraContext' for a given number of parties.
+genChainContext :: Int -> Gen ChainContext
+genChainContext n = do
+  networkId <- Testnet . NetworkMagic <$> arbitrary
+  peerVerificationKeys <- replicateM n genVerificationKey
+  ownVerificationKey <- genVerificationKey
+  ownParty <- arbitrary
+  scriptRegistry <- genScriptRegistry
+  pure
+    ChainContext
+      { networkId
+      , peerVerificationKeys
+      , ownVerificationKey
+      , ownParty
+      , scriptRegistry
+      }
 
 data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput
