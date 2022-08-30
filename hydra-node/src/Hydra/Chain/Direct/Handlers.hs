@@ -344,6 +344,7 @@ data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {txId :: Ledger.TxId StandardCrypto}
   | PostedTx {txId :: Ledger.TxId StandardCrypto}
+  | PostingFailed {tx :: ValidatedTx LedgerEra, reason :: PostTxError Tx}
   | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [Ledger.TxId StandardCrypto]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog

@@ -393,9 +393,10 @@ txSubmissionClient tracer queue =
               traceWith tracer (PostedTx (getTxId tx))
               atomically (putTMVar response Nothing)
               clientStIdle
-            SubmitFail reason -> do
-              -- @TODO add tracer for failure
-              atomically (putTMVar response (Just $ onFail reason))
+            SubmitFail err -> do
+              let reason = onFail err
+              traceWith tracer (PostingFailed{tx, reason})
+              atomically (putTMVar response (Just reason))
               clientStIdle
         )
 
