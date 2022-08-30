@@ -41,7 +41,6 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (ChainEvent (..), OnChainTx (OnCloseTx, remainingContestationPeriod), PostTxError (..), snapshotNumber)
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
-  ctxHeadParameters,
   ctxParties,
   executeCommits,
   genCloseTx,
@@ -54,10 +53,10 @@ import Hydra.Chain.Direct.Context (
   genStIdle,
   genStInitialized,
   genStOpen,
+  pickChainContext,
   unsafeCommit,
   unsafeObserveTx,
  )
-import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   RecordedAt (..),
@@ -315,18 +314,19 @@ genSequenceOfObservableBlocks = do
   scriptRegistry <- genScriptRegistry
   ctx <- genHydraContext 3
 
+  -- TODO: commit will take a ChainContext instead of stIdle
   -- NOTE: commits must be generated from each participant POV, and thus, we
   -- need all their respective StIdle to move on.
   let stIdles = flip map (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) ->
         let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
          in idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p scriptRegistry
 
-  stIdle <- elements stIdles
+  cctx <- pickChainContext ctx
   blks <- flip execStateT [] $ do
-    initTx <- stepInit ctx stIdle
+    initTx <- stepInit cctx
     void $ stepCommits ctx initTx stIdles
 
-  pure (stAtGenesis (SomeOnChainHeadState stIdle), reverse blks)
+  pure (stAtGenesis (error "TODO: existential SomeOnChainHeadState stIdle"), reverse blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
   nextSlot = do
@@ -341,12 +341,10 @@ genSequenceOfObservableBlocks = do
     modify' (blk :)
 
   stepInit ::
-    HydraContext ->
-    OnChainHeadState StIdle ->
+    ChainContext ->
     StateT [Block] Gen Tx
-  stepInit ctx stIdle = do
-    txIn <- lift genTxIn
-    let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) txIn stIdle
+  stepInit ctx = do
+    initTx <- lift $ initialize ctx <$> arbitrary <*> genTxIn
     initTx <$ putNextBlock initTx
 
   stepCommits ::

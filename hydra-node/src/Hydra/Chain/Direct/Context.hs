@@ -89,11 +89,11 @@ genHydraContextFor n = do
       , ctxContestationPeriod
       }
 
--- | Derive and generate a peer-specific ChainContext from a HydraContext. NOTE:
--- This assumes that 'HydraContext' has same length 'ctxVerificationKeys' and
--- 'ctxHydraSigningKeys'.
-genChainContext :: HydraContext -> Gen ChainContext
-genChainContext ctx = do
+-- | Pick one of the participants and derive the peer-specific ChainContext from
+-- a HydraContext. NOTE: This assumes that 'HydraContext' has same length
+-- 'ctxVerificationKeys' and 'ctxHydraSigningKeys'.
+pickChainContext :: HydraContext -> Gen ChainContext
+pickChainContext ctx = do
   ourIndex <- choose (0, length ctxHydraSigningKeys)
   let ownVerificationKey = ctxVerificationKeys !! ourIndex
       ownParty = deriveParty $ ctxHydraSigningKeys !! ourIndex
@@ -129,7 +129,7 @@ genStInitialized ::
 genStInitialized ctx = do
   stIdle <- genStIdle ctx
   seedInput <- genTxIn
-  cctx <- genChainContext ctx
+  cctx <- pickChainContext ctx
   let initTx = initialize cctx (ctxHeadParameters ctx) seedInput
   pure $ snd $ unsafeObserveTx @_ @ 'StInitialized initTx stIdle
 
@@ -137,7 +137,7 @@ genInitTx ::
   HydraContext ->
   Gen Tx
 genInitTx ctx = do
-  cctx <- genChainContext ctx
+  cctx <- pickChainContext ctx
   initialize cctx (ctxHeadParameters ctx) <$> genTxIn
 
 genCommits ::
