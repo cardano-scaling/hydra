@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Direct.State (
-  HasUTxO (..),
+  HasKnownUTxO (..),
   ChainContext (..),
   genChainContext,
   allVerificationKeys,
@@ -11,7 +11,6 @@ module Hydra.Chain.Direct.State (
   OnChainHeadState,
   HeadStateKind (..),
   HeadStateKindVal (..),
-  getKnownUTxO,
 
   -- ** Working with opaque states
   SomeOnChainHeadState (..),
@@ -86,9 +85,9 @@ import Plutus.V2.Ledger.Api (POSIXTime)
 import Test.QuickCheck (choose, sized)
 import qualified Text.Show
 
--- | A class for accessing the 'UTxO' set in a type.
-class HasUTxO a where
-  getUTxO :: a -> UTxO
+-- | A class for accessing the known 'UTxO' set in a type.
+class HasKnownUTxO a where
+  getKnownUTxO :: a -> UTxO
 
 -- * States
 
@@ -103,8 +102,8 @@ data ChainContext = ChainContext
   }
   deriving (Show, Eq)
 
-instance HasUTxO ChainContext where
-  getUTxO = mempty
+instance HasKnownUTxO ChainContext where
+  getKnownUTxO = mempty -- TODO: registryUTxO scriptRegistry
 
 instance Arbitrary ChainContext where
   arbitrary = sized $ \n -> choose (0, n) >>= genChainContext
@@ -205,24 +204,31 @@ data HydraStateMachine (st :: HeadStateKind) where
 deriving instance Show (HydraStateMachine st)
 deriving instance Eq (HydraStateMachine st)
 
-getKnownUTxO ::
-  OnChainHeadState st ->
-  UTxO
-getKnownUTxO OnChainHeadState{stateMachine, scriptRegistry} =
-  case stateMachine of
-    Idle{} ->
-      registryUTxO scriptRegistry
-    Initialized{initialThreadOutput = InitialThreadOutput{initialThreadUTxO}, initialInitials, initialCommits} ->
-      registryUTxO scriptRegistry <> headUtxo
-     where
-      headUtxo =
-        UTxO $
-          Map.fromList $
-            take2Of3 initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
-    Open{openThreadOutput = OpenThreadOutput{openThreadUTxO = (i, o, _)}} ->
-      registryUTxO scriptRegistry <> UTxO.singleton (i, o)
-    Closed{closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}} ->
-      registryUTxO scriptRegistry <> UTxO.singleton (i, o)
+instance HasKnownUTxO (OnChainHeadState 'StIdle) where
+  getKnownUTxO OnChainHeadState{scriptRegistry} =
+    registryUTxO scriptRegistry
+
+instance HasKnownUTxO (OnChainHeadState 'StInitialized) where
+  getKnownUTxO OnChainHeadState{stateMachine, scriptRegistry} =
+    registryUTxO scriptRegistry <> headUtxo
+   where
+    Initialized{initialThreadOutput = InitialThreadOutput{initialThreadUTxO}, initialInitials, initialCommits} = stateMachine
+    headUtxo =
+      UTxO $
+        Map.fromList $
+          take2Of3 initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
+
+instance HasKnownUTxO (OnChainHeadState 'StOpen) where
+  getKnownUTxO OnChainHeadState{stateMachine, scriptRegistry} =
+    registryUTxO scriptRegistry <> UTxO.singleton (i, o)
+   where
+    Open{openThreadOutput = OpenThreadOutput{openThreadUTxO = (i, o, _)}} = stateMachine
+
+instance HasKnownUTxO (OnChainHeadState 'StClosed) where
+  getKnownUTxO OnChainHeadState{stateMachine, scriptRegistry} =
+    registryUTxO scriptRegistry <> UTxO.singleton (i, o)
+   where
+    Closed{closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}} = stateMachine
 
 getContestationDeadline :: OnChainHeadState 'StClosed -> POSIXTime
 getContestationDeadline
@@ -236,7 +242,7 @@ getContestationDeadline
 data SomeOnChainHeadState where
   SomeOnChainHeadState ::
     forall st.
-    (HasTransition st) =>
+    (HasTransition st, HasKnownUTxO (OnChainHeadState st)) =>
     OnChainHeadState st ->
     SomeOnChainHeadState
 
@@ -722,7 +728,7 @@ observeSomeTx tx (SomeOnChainHeadState (st :: OnChainHeadState st)) =
  where
   observeSome ::
     forall st'.
-    (ObserveTx st st', HasTransition st') =>
+    (ObserveTx st st', HasTransition st', HasKnownUTxO (OnChainHeadState st')) =>
     Proxy st' ->
     Maybe (OnChainTx Tx, SomeOnChainHeadState)
   observeSome _ =
@@ -739,6 +745,7 @@ data TransitionFrom st where
     , HasTransition st'
     , HeadStateKindVal st
     , HeadStateKindVal st'
+    , HasKnownUTxO (OnChainHeadState st')
     ) =>
     Proxy st' ->
     TransitionFrom st
