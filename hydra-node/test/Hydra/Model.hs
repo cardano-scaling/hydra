@@ -369,10 +369,7 @@ instance StateModel WorldState where
         counterexample "postcondition failed"
           . counterexample ("Action: " <> show action)
           . counterexample ("State: " <> show s)
-          . case (action, result) of
-            (Commit{}, res) ->
-              counterexample ("Result: " <> show res)
-            (_, _) -> id
+          . counterexample ("Result: " <> show result)
 
     decorateTransitions =
       case (hydraState s, hydraState s') of
