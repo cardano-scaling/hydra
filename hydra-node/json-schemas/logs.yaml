@@ -232,6 +232,23 @@ definitions:
           enum: ["PostedTx"]
         txId:
           $ref: "api.yaml#/components/schemas/TxId"
+    - title: PostingFailed
+      description: >-
+        Submitting the transaction to the node failed
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - tx
+        - reason
+      properties:
+        tag:
+          type: string
+          enum: ["PostingFailed"]
+        tx:
+          $ref: "api.yaml#/components/schemas/Transaction"
+        reason:
+          $ref: "api.yaml#/components/schemas/PostTxError"
     - title: ReceivedTxs
       description: >-
         Some transactions relevant to the Head logic have been observed on-chain, provide both the
