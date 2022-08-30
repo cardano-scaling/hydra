@@ -4,7 +4,7 @@ module Hydra.Chain.Direct.Context where
 
 import Hydra.Prelude
 
-import Data.List ((\\))
+import Data.List ((!!), (\\))
 import Hydra.Cardano.Api (
   NetworkId (..),
   NetworkMagic (..),
@@ -17,6 +17,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (
+  ChainContext (..),
   HeadStateKind (..),
   ObserveTx,
   OnChainHeadState,
@@ -36,6 +37,8 @@ import Hydra.Ledger.Cardano.Evaluate (genPointInTime, slotNoFromPOSIXTime)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
 import Test.QuickCheck (choose, elements, frequency, vector)
+
+-- TODO: Move this to test code as it assumes global knowledge (ctxHydraSigningKeys)
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -86,6 +89,30 @@ genHydraContextFor n = do
       , ctxContestationPeriod
       }
 
+-- | Derive and generate a peer-specific ChainContext from a HydraContext. NOTE:
+-- This assumes that 'HydraContext' has same length 'ctxVerificationKeys' and
+-- 'ctxHydraSigningKeys'.
+genChainContext :: HydraContext -> Gen ChainContext
+genChainContext ctx = do
+  ourIndex <- choose (0, length ctxHydraSigningKeys)
+  let ownVerificationKey = ctxVerificationKeys !! ourIndex
+      ownParty = deriveParty $ ctxHydraSigningKeys !! ourIndex
+  scriptRegistry <- genScriptRegistry
+  pure $
+    ChainContext
+      { networkId = ctxNetworkId
+      , peerVerificationKeys = ctxVerificationKeys \\ [ownVerificationKey]
+      , ownVerificationKey
+      , ownParty
+      , scriptRegistry
+      }
+ where
+  HydraContext
+    { ctxVerificationKeys
+    , ctxHydraSigningKeys
+    , ctxNetworkId
+    } = ctx
+
 genStIdle ::
   HydraContext ->
   Gen (OnChainHeadState 'StIdle)
@@ -102,16 +129,16 @@ genStInitialized ::
 genStInitialized ctx = do
   stIdle <- genStIdle ctx
   seedInput <- genTxIn
-  let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
+  cctx <- genChainContext ctx
+  let initTx = initialize cctx (ctxHeadParameters ctx) seedInput
   pure $ snd $ unsafeObserveTx @_ @ 'StInitialized initTx stIdle
 
 genInitTx ::
   HydraContext ->
   Gen Tx
-genInitTx ctx =
-  initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx)
-    <$> genTxIn
-    <*> genStIdle ctx
+genInitTx ctx = do
+  cctx <- genChainContext ctx
+  initialize cctx (ctxHeadParameters ctx) <$> genTxIn
 
 genCommits ::
   HydraContext ->

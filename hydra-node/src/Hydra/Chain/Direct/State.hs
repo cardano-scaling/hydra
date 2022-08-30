@@ -81,7 +81,8 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Plutus.V2.Ledger.Api (POSIXTime)
 import qualified Text.Show
 
--- | Read-only chain-specific data.
+-- | Read-only chain-specific data. This is different to 'HydraContext' as it
+-- only provide contains data known to single peer.
 data ChainContext = ChainContext
   { networkId :: NetworkId
   , peerVerificationKeys :: [VerificationKey PaymentKey]

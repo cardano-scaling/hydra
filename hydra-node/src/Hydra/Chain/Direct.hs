@@ -195,7 +195,6 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
               tracer
               chainContext
               (queryTimeHandle networkId socketPath)
-              cardanoKeys
               wallet
               headState
               (submitTx queue)
