@@ -76,6 +76,7 @@ import Hydra.Chain.Direct.State (
   SomeOnChainHeadState (..),
   TransitionFrom (..),
   abort,
+  allVerificationKeys,
   close,
   collect,
   commit,
@@ -159,23 +160,17 @@ spec = parallel $ do
           isJust (observeSomeTx tx (SomeOnChainHeadState st))
 
   describe "init" $ do
-    prop "new interface" $ \headParameters vks seedTxIn ->
-      let tx = initialize testNetworkId headParameters vks seedTxIn
-       in isJust $ observeInit tx
+    prop "new interface" $ \ctx headParameters seedTxIn ->
+      let tx = initialize ctx headParameters seedTxIn
+       in isJust $ observeInit ctx tx
 
     prop "is not observed if not invited" $
-      forAll2 (genHydraContext 3) (genHydraContext 3) $ \(ctxA, ctxB) ->
-        null (ctxParties ctxA `intersect` ctxParties ctxB)
-          ==> forAll2 (genStIdle ctxA) (genStIdle ctxB)
-          $ \(stIdleA, stIdleB) ->
-            forAll genTxIn $ \seedInput ->
-              let tx =
-                    initialize
-                      (ctxHeadParameters ctxA)
-                      (ctxVerificationKeys ctxA)
-                      seedInput
-                      stIdleA
-               in isNothing (observeTx @_ @StInitialized tx stIdleB)
+      forAll genTxIn $ \seedInput ->
+        forAll arbitrary $ \params ->
+          forAll2 (genChainContext 3) (genChainContext 3) $ \(ctxA, ctxB) ->
+            null (allVerificationKeys ctxA `intersect` allVerificationKeys ctxB)
+              ==> let tx = initialize ctxA params seedInput
+                   in isNothing $ observeInit ctxB tx
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit

@@ -5,6 +5,7 @@ module Hydra.Chain.Direct.State (
   HasUTxO (..),
   ChainContext (..),
   genChainContext,
+  allVerificationKeys,
 
   -- * OnChainHeadState
   OnChainHeadState,
@@ -125,6 +126,11 @@ genChainContext n = do
       , scriptRegistry
       }
 
+-- | Get all cardano verification kesy known in the chain context.
+allVerificationKeys :: ChainContext -> [VerificationKey PaymentKey]
+allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
+  ownVerificationKey : peerVerificationKeys
+
 data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput
   , initialInitials :: [UTxOWithScript]
@@ -148,6 +154,8 @@ data ClosedState = ClosedState
   , closedHeadTokenScript :: PlutusScript
   }
   deriving (Show, Eq)
+
+-- * Old state type
 
 -- | An opaque on-chain head state, which records information and events
 -- happening on the layer-1 for a given Hydra head.
@@ -321,15 +329,9 @@ initialize ::
   TxIn ->
   Tx
 initialize ctx =
-  initTx networkId allVerificationKeys
+  initTx networkId (allVerificationKeys ctx)
  where
-  allVerificationKeys = ownVerificationKey : peerVerificationKeys
-
-  ChainContext
-    { networkId
-    , ownVerificationKey
-    , peerVerificationKeys
-    } = ctx
+  ChainContext{networkId} = ctx
 
 commit ::
   UTxO ->
@@ -513,7 +515,7 @@ observeInit ::
   Tx ->
   Maybe (OnChainTx Tx, InitialState)
 observeInit ctx tx = do
-  observation <- observeInitTx networkId allVerificationKeys ownParty tx
+  observation <- observeInitTx networkId (allVerificationKeys ctx) ownParty tx
   pure (toEvent observation, toState observation)
  where
   toEvent InitObservation{contestationPeriod, parties} =
@@ -528,12 +530,8 @@ observeInit ctx tx = do
       , initialHeadTokenScript = headTokenScript
       }
 
-  allVerificationKeys = ownVerificationKey : peerVerificationKeys
-
   ChainContext
     { networkId
-    , ownVerificationKey
-    , peerVerificationKeys
     , ownParty
     } = ctx
 
