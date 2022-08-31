@@ -24,6 +24,7 @@ module Hydra.Model where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
+import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Monad.Class.MonadAsync (async)
@@ -469,7 +470,11 @@ performCommit party paymentUTxO = do
                 Just committedUTxO
             _ -> Nothing
       -- TODO:  WIP
-      pure $ undefined observedUTxO
+      let (sk : _) = [sk | (sk, _) <- paymentUTxO]
+      pure $ fromUtxo sk observedUTxO
+
+fromUtxo :: CardanoSigningKey -> UTxO -> [(CardanoSigningKey, Value)]
+fromUtxo csk utxo = (csk,) . txOutValue . snd <$> pairs utxo
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
