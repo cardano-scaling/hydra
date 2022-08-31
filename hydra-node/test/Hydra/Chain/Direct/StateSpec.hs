@@ -178,8 +178,8 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllCommit
 
     prop "consumes all inputs that are committed" $
-      forAllCommit $ \InitialState{ctx} tx ->
-        case observeInit ctx tx of
+      forAllCommit $ \st tx ->
+        case observeCommit st tx of
           Just (_, st') ->
             let knownInputs = UTxO.inputSet (getKnownUTxO st')
              in knownInputs `Set.disjoint` txInputSet tx
