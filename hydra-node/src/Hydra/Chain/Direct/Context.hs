@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Chain.Direct.Context where
 
 import Hydra.Prelude
@@ -145,7 +143,7 @@ genCommits ctx initTx = do
     cctx <- pickChainContext ctx
     let (_, stInitial) = fromJust $ observeInit cctx initTx
     utxo <- genCommit
-    pure $ unsafeCommit cctx stInitial utxo
+    pure $ unsafeCommit stInitial utxo
 
 genCommit :: Gen UTxO
 genCommit =
@@ -160,8 +158,7 @@ genCloseTx numParties = do
   (u0, stOpen) <- genStOpen ctx
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
   pointInTime <- genPointInTime
-  cctx <- pickChainContext ctx
-  pure (stOpen, close cctx stOpen snapshot pointInTime, snapshot)
+  pure (stOpen, close stOpen snapshot pointInTime, snapshot)
 
 genFanoutTx :: Int -> Int -> Gen (ClosedState, Tx)
 genFanoutTx numParties numOutputs = do
@@ -179,8 +176,8 @@ genStOpen ctx = do
   commits <- genCommits ctx initTx
   cctx <- pickChainContext ctx
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx initTx commits
-  let collectComTx = collect cctx stInitial
-  pure (fold committed, snd . fromJust $ observeCollect cctx stInitial collectComTx)
+  let collectComTx = collect stInitial
+  pure (fold committed, snd . fromJust $ observeCollect stInitial collectComTx)
 
 genStClosed ::
   HydraContext ->
@@ -201,9 +198,8 @@ genStClosed ctx utxo = do
           , utxo
           )
   pointInTime <- genPointInTime
-  cctx <- pickChainContext ctx
-  let closeTx = close cctx stOpen snapshot pointInTime
-  pure (sn, toFanout, snd . fromJust $ observeClose cctx stOpen closeTx)
+  let closeTx = close stOpen snapshot pointInTime
+  pure (sn, toFanout, snd . fromJust $ observeClose stOpen closeTx)
 
 --
 -- Here be dragons
@@ -228,12 +224,11 @@ genStClosed ctx utxo = do
 
 unsafeCommit ::
   HasCallStack =>
-  ChainContext ->
   InitialState ->
   UTxO ->
   Tx
-unsafeCommit ctx st u =
-  either (error . show) id $ commit ctx st u
+unsafeCommit st u =
+  either (error . show) id $ commit st u
 
 unsafeObserveInitAndCommits ::
   ChainContext ->
@@ -247,7 +242,7 @@ unsafeObserveInitAndCommits ctx initTx commits =
   (utxo, stInitial') = flip runState stInitial $ do
     forM commits $ \commitTx -> do
       st <- get
-      let (event, st') = fromJust $ observeCommit ctx st commitTx
+      let (event, st') = fromJust $ observeCommit st commitTx
       put st'
       pure $ case event of
         OnCommitTx{committed} -> committed

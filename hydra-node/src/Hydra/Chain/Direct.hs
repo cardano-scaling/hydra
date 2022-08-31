@@ -80,7 +80,7 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  IdleState (IdleState),
+  IdleState (IdleState, ctx),
   SomeOnChainHeadState (..),
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
@@ -165,13 +165,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
   wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair queryUTxOEtc
   let (vk, _) = keyPair
   scriptRegistry <- queryScriptRegistry networkId socketPath hydraScriptsTxId
-  headState <-
-    newTVarIO $
-      SomeOnChainHeadStateAt
-        { currentOnChainHeadState = SomeOnChainHeadState IdleState
-        , recordedAt = AtStart
-        }
-  let chainContext =
+  let ctx =
         ChainContext
           { networkId
           , peerVerificationKeys = cardanoKeys \\ [vk]
@@ -179,6 +173,12 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
           , ownParty = party
           , scriptRegistry
           }
+  headState <-
+    newTVarIO $
+      SomeOnChainHeadStateAt
+        { currentOnChainHeadState = SomeOnChainHeadState IdleState{ctx}
+        , recordedAt = AtStart
+        }
   res <-
     race
       ( do
@@ -190,7 +190,6 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
           action $
             mkChain
               tracer
-              chainContext
               (queryTimeHandle networkId socketPath)
               wallet
               headState

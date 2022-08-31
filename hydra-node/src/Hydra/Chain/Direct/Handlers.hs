@@ -38,8 +38,8 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
-  ChainContext,
   ClosedState (ClosedState),
+  IdleState (IdleState, ctx),
   InitialState (InitialState),
   OpenState (OpenState),
   SomeOnChainHeadState (..),
@@ -91,13 +91,12 @@ type SubmitTx m = ValidatedTx LedgerEra -> m ()
 mkChain ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
-  ChainContext ->
   m TimeHandle ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer ctx queryTimeHandle wallet headState submitTx =
+mkChain tracer queryTimeHandle wallet headState submitTx =
   Chain
     { postTx = \tx -> do
         traceWith tracer $ ToPost{toPost = tx}
@@ -113,7 +112,7 @@ mkChain tracer ctx queryTimeHandle wallet headState submitTx =
               -- contain all the details needed to establish connection to the
               -- other peers and to bootstrap the init transaction. For now, we
               -- bear with it and keep the static keys in context.
-              fromPostChainTx ctx timeHandle wallet headState tx
+              fromPostChainTx timeHandle wallet headState tx
                 >>= finalizeTx wallet headState . toLedgerTx
             )
         submitTx vtx
@@ -270,33 +269,35 @@ closeGraceTime = 100
 
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
-  ChainContext ->
   TimeHandle ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx ctx timeHandle wallet someHeadState tx = do
+fromPostChainTx timeHandle wallet someHeadState tx = do
   pointInTime <- throwLeft currentPointInTime
   cst <- currentOnChainHeadState <$> readTVar someHeadState
   case tx of
     InitTx params ->
-      getFuelUTxO wallet >>= \case
-        Just (fromLedgerTxIn -> seedInput, _) -> do
-          pure $ initialize ctx params seedInput
-        Nothing ->
-          throwIO (NoSeedInput @Tx)
+      case castHeadState cst of
+        Nothing -> throwIO $ InvalidStateToPost tx -- TODO: dry
+        Just IdleState{ctx} ->
+          getFuelUTxO wallet >>= \case
+            Just (fromLedgerTxIn -> seedInput, _) -> do
+              pure $ initialize ctx params seedInput
+            Nothing ->
+              throwIO (NoSeedInput @Tx)
     AbortTx{} ->
       case castHeadState cst of
         Nothing -> throwIO $ InvalidStateToPost tx -- TODO: dry
-        Just st@InitialState{} -> pure $ abort ctx st
+        Just st@InitialState{} -> pure $ abort st
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
     CommitTx{committed} ->
       case castHeadState cst of
         Nothing -> throwIO $ InvalidStateToPost tx -- TODO: dry
-        Just st@InitialState{} -> either throwIO pure (commit ctx st committed)
+        Just st@InitialState{} -> either throwIO pure (commit st committed)
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from
@@ -307,19 +308,19 @@ fromPostChainTx ctx timeHandle wallet someHeadState tx = do
     CollectComTx{} ->
       case castHeadState cst of
         Nothing -> throwIO $ InvalidStateToPost tx -- TODO: dry
-        Just st@InitialState{} -> pure $ collect ctx st
+        Just st@InitialState{} -> pure $ collect st
     CloseTx{confirmedSnapshot} ->
       case castHeadState cst of
         Nothing -> throwIO $ InvalidStateToPost tx -- TODO: dry
         Just st@OpenState{} -> do
           shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-          pure (close ctx st confirmedSnapshot shifted)
+          pure (close st confirmedSnapshot shifted)
     ContestTx{confirmedSnapshot} ->
       case castHeadState cst of
         Nothing -> throwIO $ InvalidStateToPost tx -- TODO: dry
         Just st@ClosedState{} -> do
           shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-          pure (contest ctx st confirmedSnapshot shifted)
+          pure (contest st confirmedSnapshot shifted)
     FanoutTx{utxo} ->
       case castHeadState cst of
         Nothing -> throwIO $ InvalidStateToPost tx -- TODO: dry

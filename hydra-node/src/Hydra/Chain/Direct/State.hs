@@ -84,14 +84,15 @@ allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
 
 -- | The idle state does not contain any head-specific information and exists to
 -- be used as a starting and terminal state.
-data IdleState = IdleState
+newtype IdleState = IdleState {ctx :: ChainContext}
   deriving (Show, Eq)
 
 instance HasKnownUTxO IdleState where
   getKnownUTxO = mempty -- TODO
 
 data InitialState = InitialState
-  { initialThreadOutput :: InitialThreadOutput
+  { ctx :: ChainContext
+  , initialThreadOutput :: InitialThreadOutput
   , initialInitials :: [UTxOWithScript]
   , initialCommits :: [UTxOWithScript]
   , initialHeadId :: HeadId
@@ -103,7 +104,8 @@ instance HasKnownUTxO InitialState where
   getKnownUTxO = mempty -- TODO
 
 data OpenState = OpenState
-  { openThreadOutput :: OpenThreadOutput
+  { ctx :: ChainContext
+  , openThreadOutput :: OpenThreadOutput
   , openHeadId :: HeadId
   , openHeadTokenScript :: PlutusScript
   , openUtxoHash :: ByteString
@@ -114,7 +116,8 @@ instance HasKnownUTxO OpenState where
   getKnownUTxO = mempty -- TODO
 
 data ClosedState = ClosedState
-  { closedThreadOutput :: ClosedThreadOutput
+  { ctx :: ChainContext
+  , closedThreadOutput :: ClosedThreadOutput
   , closedHeadId :: HeadId
   , closedHeadTokenScript :: PlutusScript
   }
@@ -167,11 +170,10 @@ initialize ctx =
   ChainContext{networkId} = ctx
 
 commit ::
-  ChainContext ->
   InitialState ->
   UTxO ->
   Either (PostTxError Tx) Tx
-commit ctx st utxo = do
+commit st utxo = do
   case ownInitial initialHeadTokenScript ownVerificationKey initialInitials of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
@@ -185,9 +187,11 @@ commit ctx st utxo = do
         _ ->
           Left (MoreThanOneUTxOCommitted @Tx)
  where
-  ChainContext{networkId, ownParty, ownVerificationKey} = ctx
-
-  InitialState{initialInitials, initialHeadTokenScript} = st
+  InitialState
+    { ctx = ChainContext{networkId, ownParty, ownVerificationKey}
+    , initialInitials
+    , initialHeadTokenScript
+    } = st
 
   rejectByronAddress :: (TxIn, TxOut CtxUTxO) -> Either (PostTxError Tx) ()
   rejectByronAddress = \case
@@ -198,10 +202,9 @@ commit ctx st utxo = do
 
 abort ::
   HasCallStack =>
-  ChainContext ->
   InitialState ->
   Tx
-abort ctx st = do
+abort st = do
   let InitialThreadOutput{initialThreadUTxO = (i, o, dat)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
@@ -212,37 +215,33 @@ abort ctx st = do
         Right tx ->
           tx
  where
-  ChainContext{ownVerificationKey, scriptRegistry} = ctx
-
   InitialState
-    { initialThreadOutput
+    { ctx = ChainContext{ownVerificationKey, scriptRegistry}
+    , initialThreadOutput
     , initialInitials
     , initialCommits
     , initialHeadTokenScript
     } = st
 
 collect ::
-  ChainContext ->
   InitialState ->
   Tx
-collect ctx st = do
+collect st = do
   let commits = Map.fromList $ fmap tripleToPair initialCommits
    in collectComTx networkId ownVerificationKey initialThreadOutput commits
  where
-  ChainContext{networkId, ownVerificationKey} = ctx
-
   InitialState
-    { initialThreadOutput
+    { ctx = ChainContext{networkId, ownVerificationKey}
+    , initialThreadOutput
     , initialCommits
     } = st
 
 close ::
-  ChainContext ->
   OpenState ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
   Tx
-close ctx st confirmedSnapshot pointInTime =
+close st confirmedSnapshot pointInTime =
   closeTx ownVerificationKey closingSnapshot pointInTime openThreadOutput
  where
   closingSnapshot = case confirmedSnapshot of
@@ -256,17 +255,18 @@ close ctx st confirmedSnapshot pointInTime =
         , signatures
         }
 
-  ChainContext{ownVerificationKey} = ctx
-
-  OpenState{openThreadOutput, openUtxoHash} = st
+  OpenState
+    { ctx = ChainContext{ownVerificationKey}
+    , openThreadOutput
+    , openUtxoHash
+    } = st
 
 contest ::
-  ChainContext ->
   ClosedState ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
   Tx
-contest ctx st confirmedSnapshot pointInTime = do
+contest st confirmedSnapshot pointInTime = do
   contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput
  where
   (sn, sigs) =
@@ -274,9 +274,10 @@ contest ctx st confirmedSnapshot pointInTime = do
       ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
       InitialSnapshot{snapshot} -> (snapshot, mempty)
 
-  ChainContext{ownVerificationKey} = ctx
-
-  ClosedState{closedThreadOutput} = st
+  ClosedState
+    { ctx = ChainContext{ownVerificationKey}
+    , closedThreadOutput
+    } = st
 
 -- | Construct a fanout transaction based on the 'ClosedState' and known 'UTxO'
 -- set to fan out.
@@ -299,7 +300,6 @@ fanout st utxo deadlineSlotNo = do
 -- transaction.
 class ObserveTx st st' where
   observeTx ::
-    ChainContext ->
     st ->
     Tx ->
     Maybe (OnChainTx Tx, st')
@@ -339,7 +339,7 @@ instance HasTransitions IdleState where
     [TransitionTo "init" (Proxy @InitialState)]
 
 instance ObserveTx IdleState InitialState where
-  observeTx ctx IdleState tx = observeInit ctx tx
+  observeTx IdleState{ctx} = observeInit ctx
 
 observeInit ::
   ChainContext ->
@@ -354,7 +354,8 @@ observeInit ctx tx = do
 
   toState InitObservation{threadOutput, initials, commits, headId, headTokenScript} =
     InitialState
-      { initialThreadOutput = threadOutput
+      { ctx
+      , initialThreadOutput = threadOutput
       , initialInitials = initials
       , initialCommits = commits
       , initialHeadId = headId
@@ -375,7 +376,6 @@ instance HasTransitions InitialState where
   -- ]
 
 observeCommit ::
-  ChainContext ->
   InitialState ->
   Tx ->
   Maybe (OnChainTx Tx, InitialState)
@@ -407,7 +407,6 @@ observeCommit = error "TODO observeCommit"
 --       } = stateMachine
 
 observeCollect ::
-  ChainContext ->
   InitialState ->
   Tx ->
   Maybe (OnChainTx Tx, OpenState)
@@ -468,7 +467,6 @@ instance HasTransitions OpenState where
   -- ]
 
 observeClose ::
-  ChainContext ->
   OpenState ->
   Tx ->
   Maybe (OnChainTx Tx, ClosedState)
