@@ -6,6 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Data.List ((\\))
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -14,6 +15,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeMintedValueQuantityFrom,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
+import Hydra.Chain.Direct.State (ChainContext (..), IdleState (IdleState))
 import Hydra.Chain.Direct.Tx (hydraHeadV1AssetName, initTx)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Party (Party)
@@ -57,6 +60,21 @@ healthyCardanoKeys =
 healthyLookupUTxO :: UTxO
 healthyLookupUTxO =
   generateWith (genOneUTxOFor (Prelude.head healthyCardanoKeys)) 42
+
+genHealthyIdleState :: Gen IdleState
+genHealthyIdleState = do
+  party <- elements healthyParties
+  let vk = genVerificationKey `genForParty` party
+  scriptRegistry <- genScriptRegistry
+  pure $
+    IdleState
+      ChainContext
+        { networkId = testNetworkId
+        , peerVerificationKeys = healthyCardanoKeys \\ [vk]
+        , ownVerificationKey = vk
+        , ownParty = party
+        , scriptRegistry
+        }
 
 data InitMutation
   = MutateThreadTokenQuantity
