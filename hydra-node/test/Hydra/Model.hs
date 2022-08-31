@@ -472,13 +472,13 @@ performCommit parties party paymentUTxO = do
               | cp == party ->
                 Just committedUTxO
             _ -> Nothing
-      pure $ fromUtxo parties observedUTxO
-
-fromUtxo :: [CardanoSigningKey] -> UTxO -> [(CardanoSigningKey, Value)]
-fromUtxo knownParties utxo = findSigningKey . (txOutAddress &&& txOutValue) . snd <$> pairs utxo
+      pure $ fromUtxo observedUTxO
  where
+  fromUtxo :: UTxO -> [(CardanoSigningKey, Value)]
+  fromUtxo utxo = findSigningKey . (txOutAddress &&& txOutValue) . snd <$> pairs utxo
+
   knownAddresses :: [(AddressInEra, CardanoSigningKey)]
-  knownAddresses = zip (makeAddressFromSigningKey <$> knownParties) knownParties
+  knownAddresses = zip (makeAddressFromSigningKey <$> parties) parties
 
   findSigningKey :: (AddressInEra, Value) -> (CardanoSigningKey, Value)
   findSigningKey (addr, value) =
@@ -486,8 +486,8 @@ fromUtxo knownParties utxo = findSigningKey . (txOutAddress &&& txOutValue) . sn
       Nothing -> error $ "cannot invert address:  " <> show addr
       Just sk -> (sk, value)
 
-makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
-makeAddressFromSigningKey = mkVkAddress testNetworkId . getVerificationKey
+  makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
+  makeAddressFromSigningKey = mkVkAddress testNetworkId . getVerificationKey
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
