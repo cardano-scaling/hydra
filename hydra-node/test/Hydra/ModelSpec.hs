@@ -80,7 +80,7 @@ import Hydra.Model (
  )
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
-import Test.QuickCheck (Property, counterexample, forAll, property, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, forAll, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (DL, forAllDL_)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
@@ -95,7 +95,12 @@ spec = do
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
-  forAllDL_ conflictFreeLiveness (_runIOSimProp . monadic' . runActions runIt)
+  forAllDL_ conflictFreeLiveness prop_Foo
+
+prop_Foo actions = property $
+  runIOSimProp $ do
+    _ <- runActions runIt actions
+    assert True
 
 runIt :: forall s. RunModel WorldState (StateT (Nodes (IOSim s)) (IOSim s))
 runIt = runModel
@@ -205,10 +210,10 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
 --
 
 -- | Specialised runner similar to <runSTGen https://hackage.haskell.org/package/QuickCheck-2.14.2/docs/src/Test.QuickCheck.Monadic.html#runSTGen>.
-runIOSimProp :: (forall s. Gen (StateT (Nodes (IOSim s)) (IOSim s) Property)) -> Gen Property
+runIOSimProp :: Testable a => (forall s. PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) a) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  let tr = runSimTrace $ evalStateT (eval p) (Nodes mempty traceInIOSim)
+  let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty traceInIOSim)
       traceDump = printTrace (Proxy :: Proxy Tx) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
   case traceResult False tr of
