@@ -20,6 +20,7 @@ import Hydra.Chain.Direct.Tx (
   CollectComObservation (..),
   CommitObservation (..),
   ContestObservation (..),
+  FanoutObservation (FanoutObservation),
   InitObservation (..),
   InitialThreadOutput (..),
   OpenThreadOutput (..),
@@ -36,6 +37,7 @@ import Hydra.Chain.Direct.Tx (
   observeCollectComTx,
   observeCommitTx,
   observeContestTx,
+  observeFanoutTx,
   observeInitTx,
   ownInitial,
  )
@@ -483,9 +485,9 @@ instance ObserveTx InitialState IdleState where
 --
 
 instance HasTransitions OpenState where
-  transitions _ = [] -- TODO:
-  -- [ TransitionTo "close" (Proxy @ClosedState)
-  -- ]
+  transitions _ =
+    [ TransitionTo "close" (Proxy @ClosedState)
+    ]
 
 observeClose ::
   OpenState ->
@@ -546,50 +548,16 @@ observeContest st tx = do
     , closedThreadOutput
     } = st
 
--- instance ObserveTx 'StClosed 'StIdle where
---   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, scriptRegistry} = do
---     let utxo = getKnownUTxO st
---     FanoutObservation <- observeFanoutTx utxo tx
---     let event = OnFanoutTx
---     let st' =
---           OnChainHeadState
---             { networkId
---             , peerVerificationKeys
---             , ownVerificationKey
---             , ownParty
---             , scriptRegistry
---             , stateMachine = Idle
---             }
---     pure (event, st')
-
--- instance ObserveTx 'StClosed 'StClosed where
---   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine, scriptRegistry} = do
---     let utxo = getKnownUTxO st
---     observation <- observeContestTx utxo tx
---     let ContestObservation{contestedThreadOutput, headId, snapshotNumber} = observation
---     guard (headId == closedHeadId)
---     let event = OnContestTx{snapshotNumber}
---     let st' =
---           OnChainHeadState
---             { networkId
---             , peerVerificationKeys
---             , ownVerificationKey
---             , ownParty
---             , scriptRegistry
---             , stateMachine =
---                 Closed
---                   { closedThreadOutput = closedThreadOutput{closedThreadUTxO = contestedThreadOutput}
---                   , closedHeadId
---                   , closedHeadTokenScript
---                   }
---             }
---     pure (event, st')
---    where
---     Closed
---       { closedHeadId
---       , closedHeadTokenScript
---       , closedThreadOutput
---       } = stateMachine
+observeFanout ::
+  ClosedState ->
+  Tx ->
+  Maybe (OnChainTx Tx, IdleState)
+observeFanout st tx = do
+  let utxo = getKnownUTxO st
+  FanoutObservation <- observeFanoutTx utxo tx
+  pure (OnFanoutTx, IdleState{ctx})
+ where
+  ClosedState{ctx} = st
 
 -- | A convenient way to apply transition to 'SomeOnChainHeadState' without
 -- known the starting or ending state. This function does enumerate and try all

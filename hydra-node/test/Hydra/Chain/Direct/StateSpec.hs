@@ -35,7 +35,13 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Chain (ChainEvent (..), HeadParameters, OnChainTx (OnCloseTx, remainingContestationPeriod), PostTxError (..), snapshotNumber)
+import Hydra.Chain (
+  ChainEvent (..),
+  HeadParameters,
+  OnChainTx (OnCloseTx, remainingContestationPeriod),
+  PostTxError (..),
+  snapshotNumber,
+ )
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
   ctxHeadParameters,
