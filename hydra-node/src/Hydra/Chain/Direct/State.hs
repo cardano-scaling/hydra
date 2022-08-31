@@ -374,6 +374,13 @@ instance HasTransitions InitialState where
   -- , TransitionTo "abort" (Proxy @IdleState)
   -- ]
 
+observeCommit ::
+  ChainContext ->
+  InitialState ->
+  Tx ->
+  Maybe (OnChainTx Tx, InitialState)
+observeCommit = error "TODO observeCommit"
+
 -- instance ObserveTx 'StInitialized 'StInitialized where
 --   observeTx tx st@OnChainHeadState{networkId, stateMachine} = do
 --     let initials = fst3 <$> initialInitials
@@ -398,6 +405,13 @@ instance HasTransitions InitialState where
 --       { initialCommits
 --       , initialInitials
 --       } = stateMachine
+
+observeCollect ::
+  ChainContext ->
+  InitialState ->
+  Tx ->
+  Maybe (OnChainTx Tx, OpenState)
+observeCollect = error "TODO observeCollect"
 
 -- instance ObserveTx 'StInitialized 'StOpen where
 --   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine, scriptRegistry} = do
@@ -452,6 +466,13 @@ instance HasTransitions OpenState where
   transitions _ = [] -- TODO:
   -- [ TransitionTo "close" (Proxy @ClosedState)
   -- ]
+
+observeClose ::
+  ChainContext ->
+  OpenState ->
+  Tx ->
+  Maybe (OnChainTx Tx, ClosedState)
+observeClose = error "TODO observeClose"
 
 -- instance ObserveTx 'StOpen 'StClosed where
 --   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine, scriptRegistry} = do
