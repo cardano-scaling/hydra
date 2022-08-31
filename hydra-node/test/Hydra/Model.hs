@@ -214,6 +214,10 @@ instance StateModel WorldState where
     -- | Temporary action to cut the sequence of actions.
     -- TODO: Implement proper Close sequence
     Stop :: Action WorldState ()
+    -- TODO: implement
+    Wait :: Int -> Action WorldState ()
+    -- | Observe some transaction has been confirmed at all nodes
+    ObserveConfirmedTx :: Payment -> Action WorldState ()
 
   initialState =
     WorldState
