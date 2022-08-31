@@ -6,7 +6,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Data.List ((\\))
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -15,8 +14,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeMintedValueQuantityFrom,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
-import Hydra.Chain.Direct.State (HeadStateKind (..), OnChainHeadState, idleOnChainHeadState)
 import Hydra.Chain.Direct.Tx (hydraHeadV1AssetName, initTx)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Party (Party)
@@ -61,13 +58,6 @@ healthyLookupUTxO :: UTxO
 healthyLookupUTxO =
   generateWith (genOneUTxOFor (Prelude.head healthyCardanoKeys)) 42
 
-genHealthyIdleSt :: Gen (OnChainHeadState 'StIdle)
-genHealthyIdleSt = do
-  party <- elements healthyParties
-  let vk = genVerificationKey `genForParty` party
-  scriptRegistry <- genScriptRegistry
-  pure $ idleOnChainHeadState testNetworkId (healthyCardanoKeys \\ [vk]) vk party scriptRegistry
-
 data InitMutation
   = MutateThreadTokenQuantity
   | MutateAddAnotherPT
@@ -96,6 +86,9 @@ genInitMutation (tx, _utxo) =
     , SomeMutation MutateDropSeedInput <$> do
         pure $ RemoveInput healthySeedInput
     ]
+
+-- REVIEW: This is odd and should not be needed? If we can remove this, then we
+-- could simplify the machinery and drop propMutationOffChain
 
 -- These are mutations we expect to be valid from an on-chain standpoint, yet
 -- invalid for the off-chain observation. There's mainly only the `init`

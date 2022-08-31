@@ -91,7 +91,7 @@ spec = parallel $ do
     prop "does not survive random adversarial mutations (on-chain)" $
       propMutationOnChain healthyInitTx genInitMutation
     prop "does not survive random adversarial mutations (off-chain)" $
-      propMutationOffChain healthyInitTx genObserveInitMutation (SomeOnChainHeadState <$> genHealthyIdleSt)
+      propMutationOffChain healthyInitTx genObserveInitMutation (SomeOnChainHeadState IdleState)
 
   describe "Abort" $ do
     prop "is healthy" $

@@ -143,9 +143,10 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import Data.Typeable (typeOf)
 import Hydra.Chain.Direct.Fixture (genForParty, testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.State (SomeOnChainHeadState (..), observeSomeTx, reifyState)
+import Hydra.Chain.Direct.State (SomeOnChainHeadState (..), observeSomeTx)
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -247,7 +248,7 @@ propTransactionIsNotObserved (tx, _) st =
     Just (onChainTx, SomeOnChainHeadState st') ->
       property False
         & counterexample ("Observed tx: " <> strawmanGetConstr onChainTx)
-        & counterexample ("New head state: " <> show (reifyState st'))
+        & counterexample ("New head state: " <> show (typeOf st'))
  where
   strawmanGetConstr = toString . Prelude.head . words . show
 
