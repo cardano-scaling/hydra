@@ -162,14 +162,8 @@ spec = parallel $ do
             & counterexample "observeSomeTx returned Nothing"
 
   describe "init" $ do
-    prop "new interface" $ \seedTxIn ->
-      forAllBlind (genHydraContext 3) $ \ctx ->
-        forAllBlind (pickChainContext ctx) $ \cctx ->
-          let params = ctxHeadParameters ctx
-              tx = initialize cctx params seedTxIn
-           in property (isJust $ observeInit cctx tx)
-                & counterexample ("tx: " <> renderTx tx)
-                & counterexample ("params: " <> show params)
+    propBelowSizeLimit maxTxSize forAllInit
+    -- propIsValid forAllInit XXX: not possible because it spends an "outside" UTxO
 
     prop "is not observed if not invited" $
       forAll2 (genHydraContext 3) (genHydraContext 3) $ \(ctxA, ctxB) ->
@@ -182,6 +176,7 @@ spec = parallel $ do
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
+    -- propIsValid forAllCommit XXX: not possible because it spends an "outside" UTxO
 
     prop "consumes all inputs that are committed" $
       forAllCommit $ \st tx ->
