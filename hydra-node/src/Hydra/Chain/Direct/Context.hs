@@ -208,23 +208,6 @@ genStClosed ctx utxo = do
 -- Here be dragons
 --
 
--- REVIEW: see whether we need this ported or not?
--- unsafeObserveTx ::
---   forall st st'.
---   (ObserveTx st st', HasCallStack) =>
---   Tx ->
---   OnChainHeadState st ->
---   (OnChainTx Tx, OnChainHeadState st')
--- unsafeObserveTx tx st =
---   fromMaybe (error hopefullyInformativeMessage) (observeTx @st @st' tx st)
---  where
---   hopefullyInformativeMessage =
---     "unsafeObserveTx:"
---       <> "\n  From:\n    "
---       <> show st
---       <> "\n  Via:\n    "
---       <> renderTx tx
-
 unsafeCommit ::
   HasCallStack =>
   InitialState ->
