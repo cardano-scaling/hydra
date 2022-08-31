@@ -398,11 +398,11 @@ observeInit ctx tx = do
 -- ** InitialState transitions
 
 instance HasTransitions InitialState where
-  transitions _ = [] -- TODO
-  -- [ TransitionTo "commit" (Proxy @InitialState)
-  -- , TransitionTo "collect" (Proxy @OpenState)
-  -- , TransitionTo "abort" (Proxy @IdleState)
-  -- ]
+  transitions _ =
+    [ TransitionTo "commit" (Proxy @InitialState)
+    , TransitionTo "collect" (Proxy @OpenState)
+    , TransitionTo "abort" (Proxy @IdleState)
+    ]
 
 observeCommit ::
   InitialState ->

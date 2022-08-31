@@ -152,6 +152,7 @@ spec = parallel $ do
       checkCoverage $
         forAllSt $ \st tx ->
           isJust (observeSomeTx tx (SomeOnChainHeadState st))
+            & counterexample "observeSomeTx returned Nothing"
 
   describe "init" $ do
     prop "new interface" $ \seedTxIn ->
