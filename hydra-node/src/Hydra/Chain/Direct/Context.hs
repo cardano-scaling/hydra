@@ -122,11 +122,10 @@ pickChainContext :: HydraContext -> Gen ChainContext
 pickChainContext ctx =
   deriveChainContexts ctx >>= elements
 
--- TODO: rename
-genStInitialized ::
+genStInitial ::
   HydraContext ->
   Gen InitialState
-genStInitialized ctx = do
+genStInitial ctx = do
   seedInput <- genTxIn
   cctx <- pickChainContext ctx
   let initTx = initialize cctx (ctxHeadParameters ctx) seedInput

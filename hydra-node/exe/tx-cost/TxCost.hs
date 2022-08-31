@@ -28,7 +28,7 @@ import Hydra.Chain.Direct.Context (
   genInitTx,
   genStClosed,
   genStIdle,
-  genStInitialized,
+  genStInitial,
   genStOpen,
   unsafeObserveTx,
  )
@@ -106,7 +106,7 @@ computeCommitCost = do
   genCommitTx utxo = do
     -- NOTE: number of parties is irrelevant for commit tx
     ctx <- genHydraContextFor 1
-    stInitialized <- genStInitialized ctx
+    stInitialized <- genStInitial ctx
     pure (commit utxo stInitialized, getKnownUTxO stInitialized)
 
 computeCollectComCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]

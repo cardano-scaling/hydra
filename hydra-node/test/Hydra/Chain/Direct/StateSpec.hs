@@ -54,7 +54,7 @@ import Hydra.Chain.Direct.Context (
   genHydraContext,
   genHydraContextFor,
   genInitTx,
-  genStInitialized,
+  genStInitial,
   genStOpen,
   pickChainContext,
   unsafeCommit,
@@ -130,6 +130,7 @@ import Test.QuickCheck (
   classify,
   conjoin,
   counterexample,
+  discard,
   elements,
   forAll,
   forAllBlind,
@@ -212,9 +213,10 @@ spec = parallel $ do
 
     prop "ignore aborts of other heads" $ do
       let twoDistinctHeads = do
-            ctx <- genHydraContext 1
-            st1 <- genStInitialized ctx
-            st2 <- genStInitialized ctx -- TODO: ensure they are distinct
+            ctx <- genHydraContext 3
+            st1@InitialState{initialHeadId = h1} <- genStInitial ctx
+            st2@InitialState{initialHeadId = h2} <- genStInitial ctx
+            when (h1 == h2) discard
             pure (st1, st2)
       forAll twoDistinctHeads $ \(stHead1, stHead2) ->
         let observedIn1 = observeAbort stHead1 (abort stHead1)
@@ -501,7 +503,7 @@ forAllCommit ::
   Property
 forAllCommit action = do
   forAll (genHydraContext 3) $ \ctx ->
-    forAll (genStInitialized ctx) $ \stInitial ->
+    forAll (genStInitial ctx) $ \stInitial ->
       forAllShow genCommit renderUTxO $ \utxo ->
         let tx = unsafeCommit stInitial utxo
          in action stInitial tx
@@ -518,7 +520,7 @@ forAllNonEmptyByronCommit ::
   Property
 forAllNonEmptyByronCommit action = do
   forAll (genHydraContext 3) $ \ctx ->
-    forAll (genStInitialized ctx) $ \stInitial ->
+    forAll (genStInitial ctx) $ \stInitial ->
       forAllShow genByronCommit renderUTxO $ \utxo ->
         case commit stInitial utxo of
           Right{} -> property False
