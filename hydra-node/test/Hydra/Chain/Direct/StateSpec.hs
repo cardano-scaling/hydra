@@ -38,6 +38,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (ChainEvent (..), OnChainTx (OnCloseTx, remainingContestationPeriod), PostTxError (..), snapshotNumber)
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
+  ctxHeadParameters,
   ctxParties,
   genCloseTx,
   genCommit,
@@ -108,7 +109,7 @@ import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Consensus.Cardano.Generators ()
-import Test.Hspec (fdescribe, shouldBe)
+import Test.Hspec (shouldBe)
 import Test.Hydra.Prelude (
   Spec,
   SpecWith,
@@ -156,9 +157,14 @@ spec = parallel $ do
           isJust (observeSomeTx tx (SomeOnChainHeadState st))
 
   describe "init" $ do
-    prop "new interface" $ \ctx headParameters seedTxIn ->
-      let tx = initialize ctx headParameters seedTxIn
-       in isJust $ observeInit ctx tx
+    prop "new interface" $ \seedTxIn ->
+      forAllBlind (genHydraContext 3) $ \ctx ->
+        forAllBlind (pickChainContext ctx) $ \cctx ->
+          let params = ctxHeadParameters ctx
+              tx = initialize cctx params seedTxIn
+           in property (isJust $ observeInit cctx tx)
+                & counterexample ("tx: " <> renderTx tx)
+                & counterexample ("params: " <> show params)
 
     prop "is not observed if not invited" $
       forAll genTxIn $ \seedInput ->
