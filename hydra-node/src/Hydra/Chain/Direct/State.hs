@@ -10,7 +10,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Data.Typeable (cast, eqT, typeRep, type (:~:) (Refl))
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
-import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), genScriptRegistry)
+import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (AbortObservation),
@@ -62,9 +62,6 @@ data ChainContext = ChainContext
   }
   deriving (Show, Eq)
 
-instance HasKnownUTxO ChainContext where
-  getKnownUTxO = mempty -- TODO: registryUTxO scriptRegistry
-
 instance Arbitrary ChainContext where
   arbitrary = sized $ \n -> choose (0, n) >>= genChainContext
 
@@ -96,7 +93,8 @@ newtype IdleState = IdleState {ctx :: ChainContext}
   deriving (Show, Eq)
 
 instance HasKnownUTxO IdleState where
-  getKnownUTxO = mempty -- TODO
+  getKnownUTxO IdleState{ctx = ChainContext{scriptRegistry}} =
+    registryUTxO scriptRegistry
 
 data InitialState = InitialState
   { ctx :: ChainContext
@@ -109,7 +107,20 @@ data InitialState = InitialState
   deriving (Show, Eq)
 
 instance HasKnownUTxO InitialState where
-  getKnownUTxO = mempty -- TODO
+  getKnownUTxO st =
+    registryUTxO scriptRegistry <> headUtxo
+   where
+    headUtxo =
+      UTxO $
+        Map.fromList $
+          take2Of3 initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
+
+    InitialState
+      { ctx = ChainContext{scriptRegistry}
+      , initialThreadOutput = InitialThreadOutput{initialThreadUTxO}
+      , initialInitials
+      , initialCommits
+      } = st
 
 data OpenState = OpenState
   { ctx :: ChainContext
@@ -121,7 +132,13 @@ data OpenState = OpenState
   deriving (Show, Eq)
 
 instance HasKnownUTxO OpenState where
-  getKnownUTxO = mempty -- TODO
+  getKnownUTxO st =
+    registryUTxO scriptRegistry <> UTxO.singleton (i, o)
+   where
+    OpenState
+      { ctx = ChainContext{scriptRegistry}
+      , openThreadOutput = OpenThreadOutput{openThreadUTxO = (i, o, _)}
+      } = st
 
 data ClosedState = ClosedState
   { ctx :: ChainContext
@@ -132,7 +149,13 @@ data ClosedState = ClosedState
   deriving (Show, Eq)
 
 instance HasKnownUTxO ClosedState where
-  getKnownUTxO = mempty -- TODO
+  getKnownUTxO st =
+    registryUTxO scriptRegistry <> UTxO.singleton (i, o)
+   where
+    ClosedState
+      { ctx = ChainContext{scriptRegistry}
+      , closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}
+      } = st
 
 getContestationDeadline :: ClosedState -> POSIXTime
 getContestationDeadline
