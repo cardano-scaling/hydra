@@ -162,8 +162,6 @@ getContestationDeadline
   ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
     closedContestationDeadline
 
--- Working with opaque states
-
 -- | An existential wrapping /some/ on-chain head state into a value that carry
 -- information about the state except that it 'HasTransitions' and
 -- 'HasKnownUTxO'.
@@ -189,7 +187,8 @@ castHeadState (SomeOnChainHeadState x) = cast x
 
 -- * Constructing transactions
 
--- | A thin wrapper around 'initTx'. The seed input will determine the head identifier.
+-- | Construct an init transaction given some general 'ChainContext', the
+-- 'HeadParameters' and a seed 'TxIn' which will be spent.
 initialize ::
   ChainContext ->
   HeadParameters ->
@@ -201,6 +200,9 @@ initialize ctx =
  where
   ChainContext{networkId} = ctx
 
+-- | Construct a commit transaction based on the 'InitialState'. This does look
+-- for "our initial output" to spend and check the given 'UTxO' to be
+-- compatible. Hence, this function does fail if already committed.
 commit ::
   InitialState ->
   UTxO ->
@@ -248,6 +250,8 @@ commit st utxo = do
     (_, TxOut ShelleyAddressInEra{} _ _ _) ->
       Right ()
 
+-- | Construct a collect transaction based on the 'InitialState'. This will
+-- reimburse all the already committed outputs.
 abort ::
   HasCallStack =>
   InitialState ->
@@ -271,6 +275,8 @@ abort st = do
     , initialHeadTokenScript
     } = st
 
+-- | Construct a collect transaction based on the 'InitialState'. This will know
+-- collect all the committed outputs.
 collect ::
   InitialState ->
   Tx
@@ -284,6 +290,9 @@ collect st = do
     , initialCommits
     } = st
 
+-- | Construct a close transaction based on the 'OpenState' and a confirmed
+-- snapshot. The given 'PointInTime' will be used as an upper validity bound and
+-- will define the start of the contestation period.
 close ::
   OpenState ->
   ConfirmedSnapshot Tx ->
@@ -309,6 +318,9 @@ close st confirmedSnapshot pointInTime =
     , openUtxoHash
     } = st
 
+-- | Construct a contest transaction based on the 'ClosedState' and a confirmed
+-- snapshot. The given 'PointInTime' will be used as an upper validity bound and
+-- needs to be before the deadline.
 contest ::
   ClosedState ->
   ConfirmedSnapshot Tx ->
@@ -327,8 +339,8 @@ contest st confirmedSnapshot pointInTime = do
     , closedThreadOutput
     } = st
 
--- | Construct a fanout transaction based on the 'ClosedState' and known 'UTxO'
--- set to fan out.
+-- | Construct a fanout transaction based on the 'ClosedState' and off-chain
+-- agreed 'UTxO' set to fan out.
 fanout ::
   ClosedState ->
   UTxO ->
@@ -386,9 +398,6 @@ instance HasTransitions IdleState where
   transitions _ =
     [TransitionTo "init" (Proxy @InitialState)]
 
-instance ObserveTx IdleState InitialState where
-  observeTx IdleState{ctx} = observeInit ctx
-
 observeInit ::
   ChainContext ->
   Tx ->
@@ -414,6 +423,10 @@ observeInit ctx tx = do
     { networkId
     , ownParty
     } = ctx
+
+instance ObserveTx IdleState InitialState where
+  observeTx IdleState{ctx} = observeInit ctx
+
 -- ** InitialState transitions
 
 instance HasTransitions InitialState where
@@ -497,9 +510,7 @@ observeAbort st tx = do
 instance ObserveTx InitialState IdleState where
   observeTx = observeAbort
 
---
--- StOpen
---
+-- ** OpenState transitions
 
 instance HasTransitions OpenState where
   transitions _ =
@@ -537,9 +548,7 @@ observeClose st tx = do
 instance ObserveTx OpenState ClosedState where
   observeTx = observeClose
 
---
--- StClosed
---
+-- ** ClosedState transitions
 
 instance HasTransitions ClosedState where
   transitions _ =
@@ -582,9 +591,12 @@ observeFanout st tx = do
 instance ObserveTx ClosedState IdleState where
   observeTx = observeFanout
 
--- | A convenient way to apply transition to 'SomeOnChainHeadState' without
--- known the starting or ending state. This function does enumerate and try all
--- 'transitions' of some given starting state.
+-- * Observe any transition
+
+-- | Observe a transition without knowing the starting or ending state. This
+-- function does enumerate and try all 'transitions' of some given
+-- 'SomeOnChainHeadState'. To do that, this function uses the 'HasTransitions'
+-- and 'ObserveTx' type classes.
 observeSomeTx ::
   Tx ->
   SomeOnChainHeadState ->
@@ -600,9 +612,7 @@ observeSomeTx tx (SomeOnChainHeadState (st :: st)) =
   observeSome _ =
     second SomeOnChainHeadState <$> observeTx @st @st' st tx
 
---
--- Helpers
---
+-- * Helpers
 
 fst3 :: (a, b, c) -> a
 fst3 (a, _b, _c) = a

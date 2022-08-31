@@ -327,8 +327,8 @@ fromPostChainTx timeHandle wallet someHeadState tx = do
         Nothing -> throwIO $ InvalidStateToPost tx -- TODO: dry
         Just st@ClosedState{} -> do
           -- NOTE: It's a bit weird that we inspect the state here, but handling
-          -- errors around while we want the possibly failing "time -> slot"
-          -- conversion to be done here is not prettier.
+          -- errors of the possibly failing "time -> slot" conversion is better
+          -- done here.
           deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
           pure (fanout st utxo deadlineSlot)
  where
