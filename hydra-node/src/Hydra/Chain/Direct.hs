@@ -80,7 +80,7 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  IdleState (IdleState, ctx),
+  IdleState (..),
   SomeOnChainHeadState (..),
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)

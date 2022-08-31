@@ -138,7 +138,7 @@ getContestationDeadline
 data SomeOnChainHeadState where
   SomeOnChainHeadState ::
     forall st.
-    (Eq st, Typeable st, Show st, HasTransitions st, HasKnownUTxO st) =>
+    (Eq st, Typeable st, Show st, HasKnownUTxO st) =>
     st ->
     SomeOnChainHeadState
 
@@ -440,6 +440,12 @@ observeCollect = error "TODO observeCollect"
 --       { initialHeadId
 --       , initialHeadTokenScript
 --       } = stateMachine
+
+observeAbort ::
+  InitialState ->
+  Tx ->
+  Maybe (OnChainTx Tx, IdleState)
+observeAbort = error "TODO observeAbort"
 
 -- instance ObserveTx 'StInitialized 'StIdle where
 --   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, scriptRegistry} = do
