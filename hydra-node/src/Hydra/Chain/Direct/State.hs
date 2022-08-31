@@ -85,6 +85,10 @@ allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
 -- | The idle state does not contain any head-specific information and exists to
 -- be used as a starting and terminal state.
 data IdleState = IdleState
+  deriving (Show, Eq)
+
+instance HasKnownUTxO IdleState where
+  getKnownUTxO = mempty -- TODO
 
 data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput
@@ -537,10 +541,12 @@ instance HasTransitions ClosedState where
 
 -- | A convenient way to apply transition to 'SomeOnChainHeadState' without
 -- bothering about the internal details.
--- observeSomeTx ::
---   Tx ->
---   SomeOnChainHeadState ->
---   Maybe (OnChainTx Tx, SomeOnChainHeadState)
+observeSomeTx ::
+  Tx ->
+  SomeOnChainHeadState ->
+  Maybe (OnChainTx Tx, SomeOnChainHeadState)
+observeSomeTx = error "TODO: enumerate transitions - do we even need this?"
+
 -- observeSomeTx tx (SomeOnChainHeadState (st :: OnChainHeadState st)) =
 --   asum $ (\(Proxy :: Proxy st') -> observeSome) <$> transitions (Proxy @st)
 --  where
