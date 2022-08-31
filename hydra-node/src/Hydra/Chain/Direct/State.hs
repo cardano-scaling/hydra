@@ -13,8 +13,12 @@ import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), genScriptRegistry)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
+  AbortObservation (AbortObservation),
+  CloseObservation (..),
   ClosedThreadOutput (..),
   ClosingSnapshot (..),
+  CollectComObservation (..),
+  CommitObservation (..),
   InitObservation (..),
   InitialThreadOutput (..),
   OpenThreadOutput (..),
@@ -26,6 +30,10 @@ import Hydra.Chain.Direct.Tx (
   contestTx,
   fanoutTx,
   initTx,
+  observeAbortTx,
+  observeCloseTx,
+  observeCollectComTx,
+  observeCommitTx,
   observeInitTx,
   ownInitial,
  )
@@ -379,98 +387,75 @@ observeCommit ::
   InitialState ->
   Tx ->
   Maybe (OnChainTx Tx, InitialState)
-observeCommit = error "TODO observeCommit"
+observeCommit st tx = do
+  let initials = fst3 <$> initialInitials
+  observation <- observeCommitTx networkId initials tx
+  let CommitObservation{commitOutput, party, committed} = observation
+  let event = OnCommitTx{party, committed}
+  let st' =
+        st
+          { initialInitials =
+              -- NOTE: A commit tx has been observed and thus we can
+              -- remove all it's inputs from our tracked initials
+              filter ((`notElem` txIns' tx) . fst3) initialInitials
+          , initialCommits =
+              commitOutput : initialCommits
+          }
+  pure (event, st')
+ where
+  InitialState
+    { ctx = ChainContext{networkId}
+    , initialCommits
+    , initialInitials
+    } = st
 
 instance ObserveTx InitialState InitialState where
   observeTx = observeCommit
-
--- instance ObserveTx 'StInitialized 'StInitialized where
---   observeTx tx st@OnChainHeadState{networkId, stateMachine} = do
---     let initials = fst3 <$> initialInitials
---     observation <- observeCommitTx networkId initials tx
---     let CommitObservation{commitOutput, party, committed} = observation
---     let event = OnCommitTx{party, committed}
---     let st' =
---           st
---             { stateMachine =
---                 stateMachine
---                   { initialInitials =
---                       -- NOTE: A commit tx has been observed and thus we can
---                       -- remove all it's inputs from our tracked initials
---                       filter ((`notElem` txIns' tx) . fst3) initialInitials
---                   , initialCommits =
---                       commitOutput : initialCommits
---                   }
---             }
---     pure (event, st')
---    where
---     Initialized
---       { initialCommits
---       , initialInitials
---       } = stateMachine
 
 observeCollect ::
   InitialState ->
   Tx ->
   Maybe (OnChainTx Tx, OpenState)
-observeCollect = error "TODO observeCollect"
+observeCollect st tx = do
+  let utxo = getKnownUTxO st
+  observation <- observeCollectComTx utxo tx
+  let CollectComObservation{threadOutput, headId, utxoHash} = observation
+  guard (headId == initialHeadId)
+  let event = OnCollectComTx
+  let st' =
+        OpenState
+          { ctx
+          , openThreadOutput = threadOutput
+          , openHeadId = initialHeadId
+          , openHeadTokenScript = initialHeadTokenScript
+          , openUtxoHash = utxoHash
+          }
+  pure (event, st')
+ where
+  InitialState
+    { ctx
+    , initialHeadId
+    , initialHeadTokenScript
+    } = st
 
 instance ObserveTx InitialState OpenState where
   observeTx = observeCollect
-
--- instance ObserveTx 'StInitialized 'StOpen where
---   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine, scriptRegistry} = do
---     let utxo = getKnownUTxO st
---     observation <- observeCollectComTx utxo tx
---     let CollectComObservation{threadOutput, headId, utxoHash} = observation
---     guard (headId == initialHeadId)
---     let event = OnCollectComTx
---     let st' =
---           OnChainHeadState
---             { networkId
---             , peerVerificationKeys
---             , ownVerificationKey
---             , ownParty
---             , scriptRegistry
---             , stateMachine =
---                 Open
---                   { openThreadOutput = threadOutput
---                   , openHeadId = initialHeadId
---                   , openHeadTokenScript = initialHeadTokenScript
---                   , openUtxoHash = utxoHash
---                   }
---             }
---     pure (event, st')
---    where
---     Initialized
---       { initialHeadId
---       , initialHeadTokenScript
---       } = stateMachine
 
 observeAbort ::
   InitialState ->
   Tx ->
   Maybe (OnChainTx Tx, IdleState)
-observeAbort = error "TODO observeAbort"
+observeAbort st tx = do
+  let utxo = getKnownUTxO st
+  AbortObservation <- observeAbortTx utxo tx
+  let event = OnAbortTx
+  let st' = IdleState{ctx}
+  pure (event, st')
+ where
+  InitialState{ctx} = st
 
 instance ObserveTx InitialState IdleState where
   observeTx = observeAbort
-
--- instance ObserveTx 'StInitialized 'StIdle where
---   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, scriptRegistry} = do
---     let utxo = getKnownUTxO st
---     AbortObservation <- observeAbortTx utxo tx
---     let event = OnAbortTx
---     let st' =
---           OnChainHeadState
---             { networkId
---             , peerVerificationKeys
---             , ownVerificationKey
---             , ownParty
---             , scriptRegistry
---             , stateMachine = Idle
---             }
---     pure (event, st')
 
 --
 -- StOpen
@@ -485,41 +470,32 @@ observeClose ::
   OpenState ->
   Tx ->
   Maybe (OnChainTx Tx, ClosedState)
-observeClose = error "TODO observeClose"
+observeClose st tx = do
+  let utxo = getKnownUTxO st
+  observation <- observeCloseTx utxo tx
+  let CloseObservation{threadOutput, headId, snapshotNumber} = observation
+  guard (headId == openHeadId)
+  -- FIXME: The 0 here is a wart. We are in a pure function so we cannot easily compute with
+  -- time. We tried passing the current time from the caller but given the current machinery
+  -- around `observeSomeTx` this is actually not straightforward and quite ugly.
+  let event = OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
+  let st' =
+        ClosedState
+          { ctx
+          , closedThreadOutput = threadOutput
+          , closedHeadId = headId
+          , closedHeadTokenScript = openHeadTokenScript
+          }
+  pure (event, st')
+ where
+  OpenState
+    { ctx
+    , openHeadId
+    , openHeadTokenScript
+    } = st
 
 instance ObserveTx OpenState ClosedState where
   observeTx = observeClose
-
--- instance ObserveTx 'StOpen 'StClosed where
---   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine, scriptRegistry} = do
---     let utxo = getKnownUTxO st
---     observation <- observeCloseTx utxo tx
---     let CloseObservation{threadOutput, headId, snapshotNumber} = observation
---     guard (headId == openHeadId)
---     -- FIXME: The 0 here is a wart. We are in a pure function so we cannot easily compute with
---     -- time. We tried passing the current time from the caller but given the current machinery
---     -- around `observeSomeTx` this is actually not straightforward and quite ugly.
---     let event = OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
---     let st' =
---           OnChainHeadState
---             { networkId
---             , peerVerificationKeys
---             , ownVerificationKey
---             , ownParty
---             , scriptRegistry
---             , stateMachine =
---                 Closed
---                   { closedThreadOutput = threadOutput
---                   , closedHeadId = headId
---                   , closedHeadTokenScript = openHeadTokenScript
---                   }
---             }
---     pure (event, st')
---    where
---     Open
---       { openHeadId
---       , openHeadTokenScript
---       } = stateMachine
 
 --
 -- StClosed
@@ -577,7 +553,8 @@ instance HasTransitions ClosedState where
 --       } = stateMachine
 
 -- | A convenient way to apply transition to 'SomeOnChainHeadState' without
--- bothering about the internal details.
+-- known the starting or ending state. This function does enumerate and try all
+-- 'transitions' of some given starting state.
 observeSomeTx ::
   Tx ->
   SomeOnChainHeadState ->
