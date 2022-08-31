@@ -403,7 +403,7 @@ runModel = RunModel{perform = perform}
       Seed{seedKeys} ->
         seedWorld seedKeys
       Commit party utxo ->
-        performCommit party utxo
+        performCommit (snd <$> hydraParties st) party utxo
       NewTx party transaction ->
         performNewTx st party transaction
       Init party contestationPeriod ->
@@ -447,10 +447,11 @@ seedWorld seedKeys = do
 
 performCommit ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
+  [CardanoSigningKey] ->
   Party ->
   [(SigningKey PaymentKey, Value)] ->
   StateT (Nodes m) m ActualCommitted
-performCommit party paymentUTxO = do
+performCommit parties party paymentUTxO = do
   nodes <- gets nodes
   case Map.lookup party nodes of
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
@@ -471,12 +472,22 @@ performCommit party paymentUTxO = do
               | cp == party ->
                 Just committedUTxO
             _ -> Nothing
-      -- TODO:  WIP
-      let (sk : _) = [sk | (sk, _) <- paymentUTxO]
-      pure $ fromUtxo sk observedUTxO
+      pure $ fromUtxo parties observedUTxO
 
-fromUtxo :: CardanoSigningKey -> UTxO -> [(CardanoSigningKey, Value)]
-fromUtxo csk utxo = (csk,) . txOutValue . snd <$> pairs utxo
+fromUtxo :: [CardanoSigningKey] -> UTxO -> [(CardanoSigningKey, Value)]
+fromUtxo knownParties utxo = findSigningKey . (txOutAddress &&& txOutValue) . snd <$> pairs utxo
+ where
+  knownAddresses :: [(AddressInEra, CardanoSigningKey)]
+  knownAddresses = zip (makeAddressFromSigningKey <$> knownParties) knownParties
+
+  findSigningKey :: (AddressInEra, Value) -> (CardanoSigningKey, Value)
+  findSigningKey (addr, value) =
+    case List.lookup addr knownAddresses of
+      Nothing -> error $ "cannot invert address:  " <> show addr
+      Just sk -> (sk, value)
+
+makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
+makeAddressFromSigningKey = mkVkAddress testNetworkId . getVerificationKey
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
