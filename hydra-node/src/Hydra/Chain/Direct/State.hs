@@ -525,10 +525,10 @@ instance ObserveTx OpenState ClosedState where
 --
 
 instance HasTransitions ClosedState where
-  transitions _ = [] -- TODO
-  -- [ TransitionTo "contest" (Proxy @ClosedState)
-  -- , TransitionTo "fanout" (Proxy @IdleState)
-  -- ]
+  transitions _ =
+    [ TransitionTo "contest" (Proxy @ClosedState)
+    , TransitionTo "fanout" (Proxy @IdleState)
+    ]
 
 observeContest ::
   ClosedState ->
@@ -548,6 +548,9 @@ observeContest st tx = do
     , closedThreadOutput
     } = st
 
+instance ObserveTx ClosedState ClosedState where
+  observeTx = observeContest
+
 observeFanout ::
   ClosedState ->
   Tx ->
@@ -558,6 +561,9 @@ observeFanout st tx = do
   pure (OnFanoutTx, IdleState{ctx})
  where
   ClosedState{ctx} = st
+
+instance ObserveTx ClosedState IdleState where
+  observeTx = observeFanout
 
 -- | A convenient way to apply transition to 'SomeOnChainHeadState' without
 -- known the starting or ending state. This function does enumerate and try all

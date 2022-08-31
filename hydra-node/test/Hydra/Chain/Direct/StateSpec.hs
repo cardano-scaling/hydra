@@ -464,14 +464,14 @@ forAllSt action =
           ( forAllClose action
           , Transition @OpenState (TransitionTo "close" (Proxy @ClosedState))
           )
-          -- ,
-          --   ( forAllContest action
-          --   , Transition @ClosedState (TransitionTo "contest" (Proxy @ClosedState))
-          --   )
-          -- ,
-          --   ( forAllFanout action
-          --   , Transition @ClosedState (TransitionTo "fanout" (Proxy @IdleState))
-          --   )
+        ,
+          ( forAllContest action
+          , Transition @ClosedState (TransitionTo "contest" (Proxy @ClosedState))
+          )
+        ,
+          ( forAllFanout action
+          , Transition @ClosedState (TransitionTo "fanout" (Proxy @IdleState))
+          )
         ]
     )
     $ \(p, lbl) ->
