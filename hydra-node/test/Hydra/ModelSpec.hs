@@ -81,15 +81,47 @@ import Hydra.Model (
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
 import Test.QuickCheck (Property, counterexample, forAll, property, withMaxSuccess, within)
+import Test.QuickCheck.DynamicLogic (DL, forAllDL_)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
-import Test.QuickCheck.StateModel (Actions, runActions, stateAfter, pattern Actions)
+import Test.QuickCheck.StateModel (Actions, RunModel, runActions, stateAfter, pattern Actions)
 import Test.Util (printTrace, traceInIOSim)
 
 spec :: Spec
 spec = do
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
   prop "implementation respects model" $ forAll arbitrary prop_checkModel
+  prop "check conflict-free liveness" prop_checkConflictFreeLiveness
+
+prop_checkConflictFreeLiveness :: Property
+prop_checkConflictFreeLiveness =
+  forAllDL_ conflictFreeLiveness (_runIOSimProp . monadic' . runActions runIt)
+
+runIt :: forall s. RunModel WorldState (StateT (Nodes (IOSim s)) (IOSim s))
+runIt = runModel
+
+conflictFreeLiveness :: DL WorldState ()
+conflictFreeLiveness = undefined
+
+-- conflictFreeLiveness = do
+--   anyActions
+--   st <- getModelState
+--   (party, payment) <- forAllQ (withGenQ (genPayment st) (const []))
+--   let newTx = Command{party, command = NewTx payment}
+--   action newTx
+--   anyActions 10
+--   action (Wait 10)
+--   action (ObserveConfirmedTx payment)
+--  where
+--   -- afterAny
+--   --   ( \st ->
+--   --       forAllQ (withGenQ (genPayment st) (const [])) $ \(party, payment) ->
+--   --         let newTx = Command{party, command = NewTx payment}
+--   --          in after newTx (eventually (after (ObserveConfirmedTx payment) done)
+--   --   )
+
+--   txConfirmed = done
+--   eventually = after (Wait 10)
 
 prop_generateTraces :: Actions WorldState -> Property
 prop_generateTraces actions =
