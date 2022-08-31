@@ -355,7 +355,7 @@ instance Show (TransitionFrom st) where
       [ show (typeRep (Proxy @st))
       , " -> "
       , show (typeRep proxy)
-      , ": " <> name
+      , " : " <> name
       ]
 
 instance Eq (TransitionFrom st) where

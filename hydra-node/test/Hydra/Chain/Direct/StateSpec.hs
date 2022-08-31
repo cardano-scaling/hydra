@@ -80,7 +80,6 @@ import Hydra.Chain.Direct.State (
   getContestationDeadline,
   getKnownUTxO,
   initialize,
-  networkId,
   observeAbort,
   observeClose,
   observeCommit,
@@ -469,14 +468,16 @@ forAllSt action =
           --   )
         ]
     )
-    (\(p, lbl) -> genericCoverTable [lbl] p)
+    $ \(p, lbl) ->
+      genericCoverTable [lbl] p
+        & counterexample ("Transition: " <> show lbl)
 
 forAllInit ::
   (Testable property) =>
   (IdleState -> Tx -> property) ->
   Property
 forAllInit action =
-  forAll (genChainContext 3) $ \ctx ->
+  forAllBlind (genChainContext 3) $ \ctx ->
     forAll arbitrary $ \params -> do
       forAll genTxIn $ \seedInput -> do
         let tx = initialize ctx params seedInput
@@ -702,7 +703,7 @@ showRollbackInfo (rollbackDepth, rollbackPoint) =
       ]
 
 showStateRecordedAt :: SomeOnChainHeadStateAt -> Text
-showStateRecordedAt SomeOnChainHeadStateAt{recordedAt} =
+showStateRecordedAt SomeOnChainHeadStateAt{recordedAt, currentOnChainHeadState} =
   case recordedAt of
-    AtStart -> "Start"
-    AtPoint pt _ -> show pt
+    AtStart -> "AtStart " <> show currentOnChainHeadState
+    AtPoint pt _ -> "AtPoint " <> show pt <> " " <> show currentOnChainHeadState
