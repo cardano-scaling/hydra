@@ -19,6 +19,7 @@ import Hydra.Chain.Direct.Tx (
   ClosingSnapshot (..),
   CollectComObservation (..),
   CommitObservation (..),
+  ContestObservation (..),
   InitObservation (..),
   InitialThreadOutput (..),
   OpenThreadOutput (..),
@@ -34,6 +35,7 @@ import Hydra.Chain.Direct.Tx (
   observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
+  observeContestTx,
   observeInitTx,
   ownInitial,
  )
@@ -529,6 +531,24 @@ instance HasTransitions ClosedState where
   -- [ TransitionTo "contest" (Proxy @ClosedState)
   -- , TransitionTo "fanout" (Proxy @IdleState)
   -- ]
+
+observeContest ::
+  ClosedState ->
+  Tx ->
+  Maybe (OnChainTx Tx, ClosedState)
+observeContest st tx = do
+  let utxo = getKnownUTxO st
+  observation <- observeContestTx utxo tx
+  let ContestObservation{contestedThreadOutput, headId, snapshotNumber} = observation
+  guard (headId == closedHeadId)
+  let event = OnContestTx{snapshotNumber}
+  let st' = st{closedThreadOutput = closedThreadOutput{closedThreadUTxO = contestedThreadOutput}}
+  pure (event, st')
+ where
+  ClosedState
+    { closedHeadId
+    , closedThreadOutput
+    } = st
 
 -- instance ObserveTx 'StClosed 'StIdle where
 --   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, scriptRegistry} = do
