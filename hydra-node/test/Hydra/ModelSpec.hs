@@ -1,7 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -73,15 +72,18 @@ import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Model (
+  Action (ObserveConfirmedTx, Wait),
   GlobalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
+  Payment,
   WorldState (..),
   runModel,
  )
+import qualified Hydra.Model as Model
 import Hydra.Party (Party (..), deriveParty)
-import Test.QuickCheck (Property, counterexample, forAll, property, withMaxSuccess, within)
-import Test.QuickCheck.DynamicLogic (DL, forAllDL_)
+import Test.QuickCheck (Property, Testable, counterexample, forAll, property, withMaxSuccess, within)
+import Test.QuickCheck.DynamicLogic (DL, action, anyActions, anyActions_, forAllDL_, forAllQ, getModelStateDL, withGenQ)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, RunModel, runActions, stateAfter, pattern Actions)
@@ -95,9 +97,10 @@ spec = do
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
-  forAllDL_ conflictFreeLiveness prop_Foo
+  forAllDL_ conflictFreeLiveness prop_HydraModel
 
-prop_Foo actions = property $
+prop_HydraModel :: Actions WorldState -> Property
+prop_HydraModel actions = property $
   runIOSimProp $ do
     _ <- runActions runIt actions
     assert True
@@ -105,28 +108,26 @@ prop_Foo actions = property $
 runIt :: forall s. RunModel WorldState (StateT (Nodes (IOSim s)) (IOSim s))
 runIt = runModel
 
+-- • Conflict-Free Liveness (Head):
+-- In presence of a network adversary, a conflict-free execution satisfies the following condition:
+-- For any transaction tx input via (new,tx), tx ∈ T i∈[n] Ci eventually holds.
+--
+-- TODO: make the network adversarial => make the model runner interleave/delay network messages
 conflictFreeLiveness :: DL WorldState ()
-conflictFreeLiveness = undefined
+conflictFreeLiveness = do
+  anyActions_
+  st <- getModelStateDL
+  (party, payment) <- forAllQ (withGenQ (genPayment st) (const []))
+  let newTx = Model.NewTx party payment
+  action newTx
+  anyActions 10
+  eventually
+  action (ObserveConfirmedTx payment)
+ where
+  eventually = action (Wait 10)
 
--- conflictFreeLiveness = do
---   anyActions
---   st <- getModelState
---   (party, payment) <- forAllQ (withGenQ (genPayment st) (const []))
---   let newTx = Command{party, command = NewTx payment}
---   action newTx
---   anyActions 10
---   action (Wait 10)
---   action (ObserveConfirmedTx payment)
---  where
---   -- afterAny
---   --   ( \st ->
---   --       forAllQ (withGenQ (genPayment st) (const [])) $ \(party, payment) ->
---   --         let newTx = Command{party, command = NewTx payment}
---   --          in after newTx (eventually (after (ObserveConfirmedTx payment) done)
---   --   )
-
---   txConfirmed = done
---   eventually = after (Wait 10)
+genPayment :: WorldState -> Gen (Party, Payment)
+genPayment = error "not implemented"
 
 prop_generateTraces :: Actions WorldState -> Property
 prop_generateTraces actions =
