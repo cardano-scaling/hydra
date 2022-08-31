@@ -31,6 +31,7 @@ import Hydra.Chain.Direct.Tx (
   commitTx,
   contestTx,
   fanoutTx,
+  headTokensFromValue,
   initTx,
   observeAbortTx,
   observeCloseTx,
@@ -39,7 +40,6 @@ import Hydra.Chain.Direct.Tx (
   observeContestTx,
   observeFanoutTx,
   observeInitTx,
-  ownInitial,
  )
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genVerificationKey)
@@ -82,7 +82,7 @@ instance Arbitrary ChainContext where
         , scriptRegistry
         }
 
--- | Get all cardano verification kesy known in the chain context.
+-- | Get all cardano verification keys available in the chain context.
 allVerificationKeys :: ChainContext -> [VerificationKey PaymentKey]
 allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
   ownVerificationKey : peerVerificationKeys
@@ -165,7 +165,8 @@ getContestationDeadline
 -- Working with opaque states
 
 -- | An existential wrapping /some/ on-chain head state into a value that carry
--- no type-level information about the state except that is 'HasTransitions' and 'HasKnownUTxO'.
+-- information about the state except that it 'HasTransitions' and
+-- 'HasKnownUTxO'.
 data SomeOnChainHeadState where
   SomeOnChainHeadState ::
     forall st.
@@ -205,7 +206,7 @@ commit ::
   UTxO ->
   Either (PostTxError Tx) Tx
 commit st utxo = do
-  case ownInitial initialHeadTokenScript ownVerificationKey initialInitials of
+  case ownInitial of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
     Just initial ->
@@ -223,6 +224,22 @@ commit st utxo = do
     , initialInitials
     , initialHeadTokenScript
     } = st
+
+  ownInitial :: Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
+  ownInitial =
+    foldl' go Nothing initialInitials
+   where
+    go (Just x) _ = Just x
+    go Nothing (i, out, _) = do
+      let vkh = verificationKeyHash ownVerificationKey
+      guard $ hasMatchingPT vkh (txOutValue out)
+      pure (i, out, vkh)
+
+  hasMatchingPT :: Hash PaymentKey -> Value -> Bool
+  hasMatchingPT vkh val =
+    case headTokensFromValue initialHeadTokenScript val of
+      [(AssetName bs, 1)] -> bs == serialiseToRawBytes vkh
+      _ -> False
 
   rejectByronAddress :: (TxIn, TxOut CtxUTxO) -> Either (PostTxError Tx) ()
   rejectByronAddress = \case

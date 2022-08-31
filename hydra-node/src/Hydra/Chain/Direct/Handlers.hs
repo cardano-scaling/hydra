@@ -103,15 +103,16 @@ mkChain tracer queryTimeHandle wallet headState submitTx =
         timeHandle <- queryTimeHandle
         vtx <-
           atomically
-            ( -- FIXME (MB): 'cardanoKeys' should really not be here (its in
-              -- ChainContext). They are only required for the init transaction
-              -- and ought to come from the _client_ and be part of the init
-              -- request altogether. This goes in the direction of 'dynamic
-              -- heads' where participants aren't known upfront but provided via
-              -- the API. Ultimately, an init request from a client would
-              -- contain all the details needed to establish connection to the
-              -- other peers and to bootstrap the init transaction. For now, we
-              -- bear with it and keep the static keys in context.
+            ( -- FIXME (MB): cardano keys should really not be here (as this
+              -- point they are in the 'headState' stored in the 'ChainContext')
+              -- . They are only required for the init transaction and ought to
+              -- come from the _client_ and be part of the init request
+              -- altogether. This goes in the direction of 'dynamic heads' where
+              -- participants aren't known upfront but provided via the API.
+              -- Ultimately, an init request from a client would contain all the
+              -- details needed to establish connection to the other peers and
+              -- to bootstrap the init transaction. For now, we bear with it and
+              -- keep the static keys in context.
               fromPostChainTx timeHandle wallet headState tx
                 >>= finalizeTx wallet headState . toLedgerTx
             )
