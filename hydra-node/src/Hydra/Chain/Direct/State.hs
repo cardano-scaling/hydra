@@ -8,7 +8,7 @@ import Hydra.Prelude hiding (init)
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
-import Data.Typeable (cast, typeRep)
+import Data.Typeable (cast, eqT, typeRep, type (:~:) (Refl))
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), genScriptRegistry)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -131,27 +131,18 @@ getContestationDeadline
 data SomeOnChainHeadState where
   SomeOnChainHeadState ::
     forall st.
-    (Typeable st, Show st, HasTransitions st, HasKnownUTxO st) =>
+    (Eq st, Typeable st, Show st, HasTransitions st, HasKnownUTxO st) =>
     st ->
     SomeOnChainHeadState
 
 instance Show SomeOnChainHeadState where
   show (SomeOnChainHeadState st) = show st
 
--- TODO: Use Typable for equality
--- instance Eq SomeOnChainHeadState where
---   (SomeOnChainHeadState st) == (SomeOnChainHeadState st') =
---     case (reifyState st, reifyState st') of
---       (TkIdle, TkIdle) ->
---         st == st'
---       (TkInitialized, TkInitialized) ->
---         st == st'
---       (TkOpen, TkOpen) ->
---         st == st'
---       (TkClosed, TkClosed) ->
---         st == st'
---       _ ->
---         False
+instance Eq SomeOnChainHeadState where
+  (SomeOnChainHeadState (st :: a)) == (SomeOnChainHeadState (st' :: b)) =
+    case eqT @a @b of
+      Just Refl -> st == st'
+      Nothing -> False
 
 -- | Access the actual head state in the existential given it is of type 'st'.
 castHeadState :: Typeable st => SomeOnChainHeadState -> Maybe st
