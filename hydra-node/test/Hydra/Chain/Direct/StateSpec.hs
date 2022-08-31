@@ -35,11 +35,12 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Chain (ChainEvent (..), OnChainTx (OnCloseTx, remainingContestationPeriod), PostTxError (..), snapshotNumber)
+import Hydra.Chain (ChainEvent (..), HeadParameters, OnChainTx (OnCloseTx, remainingContestationPeriod), PostTxError (..), snapshotNumber)
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
   ctxHeadParameters,
   ctxParties,
+  deriveChainContexts,
   genCloseTx,
   genCommit,
   genCommits,
@@ -318,9 +319,9 @@ genSequenceOfObservableBlocks = do
   -- need all their respective ChainContext to move on.
   allContexts <- deriveChainContexts ctx
   -- Pick a peer context which will perform the init
-  let cctx = Prelude.head allContexts
+  cctx <- elements allContexts
   blks <- flip execStateT [] $ do
-    initTx <- stepInit cctx
+    initTx <- stepInit cctx (ctxHeadParameters ctx)
     void $ stepCommits initTx (map IdleState allContexts)
 
   pure (stAtGenesis (SomeOnChainHeadState IdleState{ctx = cctx}), reverse blks)
@@ -339,9 +340,10 @@ genSequenceOfObservableBlocks = do
 
   stepInit ::
     ChainContext ->
+    HeadParameters ->
     StateT [Block] Gen Tx
-  stepInit ctx = do
-    initTx <- lift $ initialize ctx <$> arbitrary <*> genTxIn
+  stepInit ctx params = do
+    initTx <- lift $ initialize ctx params <$> genTxIn
     initTx <$ putNextBlock initTx
 
   stepCommits ::
