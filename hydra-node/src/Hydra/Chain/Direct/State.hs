@@ -138,7 +138,7 @@ getContestationDeadline
 data SomeOnChainHeadState where
   SomeOnChainHeadState ::
     forall st.
-    (Eq st, Typeable st, Show st, HasKnownUTxO st) =>
+    (Eq st, Typeable st, Show st, HasKnownUTxO st, HasTransitions st) =>
     st ->
     SomeOnChainHeadState
 
@@ -307,13 +307,13 @@ class ObserveTx st st' where
 -- | A convenient class to declare all possible transitions from a given
 -- starting state 'st'.
 class HasTransitions st where
-  transitions :: Proxy st -> [TransitionFrom st]
+  transitions :: proxy st -> [TransitionFrom st]
 
 -- | An existential to be used in 'HasTransitions'.
 data TransitionFrom st where
   TransitionTo ::
     forall st st'.
-    (Typeable st, Typeable st', ObserveTx st st') =>
+    (Typeable st, Typeable st', ObserveTx st st', Eq st', Show st', HasKnownUTxO st', HasTransitions st') =>
     String ->
     Proxy st' ->
     TransitionFrom st
@@ -381,6 +381,9 @@ observeCommit ::
   Maybe (OnChainTx Tx, InitialState)
 observeCommit = error "TODO observeCommit"
 
+instance ObserveTx InitialState InitialState where
+  observeTx = observeCommit
+
 -- instance ObserveTx 'StInitialized 'StInitialized where
 --   observeTx tx st@OnChainHeadState{networkId, stateMachine} = do
 --     let initials = fst3 <$> initialInitials
@@ -411,6 +414,9 @@ observeCollect ::
   Tx ->
   Maybe (OnChainTx Tx, OpenState)
 observeCollect = error "TODO observeCollect"
+
+instance ObserveTx InitialState OpenState where
+  observeTx = observeCollect
 
 -- instance ObserveTx 'StInitialized 'StOpen where
 --   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine, scriptRegistry} = do
@@ -447,6 +453,9 @@ observeAbort ::
   Maybe (OnChainTx Tx, IdleState)
 observeAbort = error "TODO observeAbort"
 
+instance ObserveTx InitialState IdleState where
+  observeTx = observeAbort
+
 -- instance ObserveTx 'StInitialized 'StIdle where
 --   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, scriptRegistry} = do
 --     let utxo = getKnownUTxO st
@@ -477,6 +486,9 @@ observeClose ::
   Tx ->
   Maybe (OnChainTx Tx, ClosedState)
 observeClose = error "TODO observeClose"
+
+instance ObserveTx OpenState ClosedState where
+  observeTx = observeClose
 
 -- instance ObserveTx 'StOpen 'StClosed where
 --   observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine, scriptRegistry} = do
@@ -570,18 +582,16 @@ observeSomeTx ::
   Tx ->
   SomeOnChainHeadState ->
   Maybe (OnChainTx Tx, SomeOnChainHeadState)
-observeSomeTx = error "TODO: enumerate transitions - do we even need this?"
-
--- observeSomeTx tx (SomeOnChainHeadState (st :: OnChainHeadState st)) =
---   asum $ (\(Proxy :: Proxy st') -> observeSome) <$> transitions (Proxy @st)
---  where
---   observeSome ::
---     forall st st'.
---     (ObserveTx st st', HasTransitions st', HasKnownUTxO st') =>
---     Proxy st' ->
---     Maybe (OnChainTx Tx, SomeOnChainHeadState)
---   observeSome _ =
---     second SomeOnChainHeadState <$> observeTx @st @st' tx st
+observeSomeTx tx (SomeOnChainHeadState (st :: st)) =
+  asum $ (\(TransitionTo _ p) -> observeSome p) <$> transitions (Proxy :: Proxy st)
+ where
+  observeSome ::
+    forall st'.
+    (ObserveTx st st', Typeable st', Eq st', Show st', HasTransitions st', HasKnownUTxO st') =>
+    Proxy st' ->
+    Maybe (OnChainTx Tx, SomeOnChainHeadState)
+  observeSome _ =
+    second SomeOnChainHeadState <$> observeTx @st @st' st tx
 
 --
 -- Helpers

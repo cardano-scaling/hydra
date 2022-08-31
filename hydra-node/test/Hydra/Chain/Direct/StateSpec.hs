@@ -1,10 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
--- Fourmolu chokes on type-applications of promoted constructors (e.g.
--- @'StInitialized) and is unable to format properly after that. Hence this
--- option to allow using unticked constructor and save Fourmolu from dying.
-{-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
 
 module Hydra.Chain.Direct.StateSpec where
 
@@ -17,11 +13,12 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import qualified Data.ByteString.Lazy as LBS
-import Data.List (intersect, (\\))
+import Data.List (elemIndex, intersect, (!!), (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import Data.Typeable (eqT)
 import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
@@ -66,10 +63,12 @@ import Hydra.Chain.Direct.State (
   ChainContext (..),
   ClosedState,
   HasKnownUTxO (getKnownUTxO),
+  HasTransitions (transitions),
   IdleState (..),
   InitialState (..),
   OpenState,
   SomeOnChainHeadState (..),
+  TransitionFrom (TransitionTo),
   abort,
   allVerificationKeys,
   close,
@@ -104,17 +103,18 @@ import Hydra.Ledger.Cardano.Evaluate (
   renderEvaluationReportFailures,
  )
 import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
-import Ouroboros.Consensus.Block (Point, blockPoint)
+import Ouroboros.Consensus.Block (Point, blockPoint, type (:~:) (Refl))
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Consensus.Cardano.Generators ()
-import Test.Hspec (shouldBe)
+import Test.Hspec (fdescribe, shouldBe)
 import Test.Hydra.Prelude (
   Spec,
   SpecWith,
   describe,
   forAll2,
+  genericCoverTable,
   parallel,
   prop,
  )
@@ -126,6 +126,7 @@ import Test.QuickCheck (
   classify,
   conjoin,
   counterexample,
+  elements,
   forAll,
   forAllBlind,
   forAllShow,
@@ -424,59 +425,68 @@ propIsValid forAllTx =
 -- QuickCheck Extras
 --
 
--- XXX: This is very fancy, but does not prevent us of not aligning forAll
--- generators with Transition labels. Ideally we would would use the actual
--- states/transactions or observed states/transactions for labeling.
+-- XXX: This does not prevent us of not aligning forAll generators with
+-- Transition labels. Ideally we would would use the actual states/transactions
+-- or observed states/transactions for labeling.
 forAllSt ::
   (Testable property) =>
-  (forall a. (Typeable a, Eq a, Show a, HasKnownUTxO a) => a -> Tx -> property) ->
+  ( forall from.
+    ( Typeable from
+    , Eq from
+    , Show from
+    , HasKnownUTxO from
+    , HasTransitions from
+    ) =>
+    from ->
+    Tx ->
+    property
+  ) ->
   Property
-forAllSt action = error "TODO: forAllSt"
-
--- forAllBlind
---   ( elements
---       [
---         ( forAllInit action
---         , Transition @ 'StIdle (TransitionTo (Proxy @ 'StInitialized))
---         )
---       ,
---         ( forAllCommit action
---         , Transition @ 'StInitialized (TransitionTo (Proxy @ 'StInitialized))
---         )
---       ,
---         ( forAllAbort action
---         , Transition @ 'StInitialized (TransitionTo (Proxy @ 'StIdle))
---         )
---       ,
---         ( forAllCollectCom action
---         , Transition @ 'StInitialized (TransitionTo (Proxy @ 'StOpen))
---         )
---       ,
---         ( forAllClose action
---         , Transition @ 'StOpen (TransitionTo (Proxy @ 'StClosed))
---         )
---       ,
---         ( forAllContest action
---         , Transition @ 'StClosed (TransitionTo (Proxy @ 'StClosed))
---         )
---       ,
---         ( forAllFanout action
---         , Transition @ 'StClosed (TransitionTo (Proxy @ 'StIdle))
---         )
---       ]
---   )
---   (\(p, lbl) -> genericCoverTable [lbl] p)
+forAllSt action =
+  forAllBlind
+    ( elements
+        [
+          ( forAllInit action
+          , Transition @IdleState (TransitionTo "init" (Proxy @InitialState))
+          )
+        ,
+          ( forAllCommit action
+          , Transition @InitialState (TransitionTo "commit" (Proxy @InitialState))
+          )
+        ,
+          ( forAllAbort action
+          , Transition @InitialState (TransitionTo "abort" (Proxy @IdleState))
+          )
+        ,
+          ( forAllCollectCom action
+          , Transition @InitialState (TransitionTo "collect" (Proxy @OpenState))
+          )
+        ,
+          ( forAllClose action
+          , Transition @OpenState (TransitionTo "close" (Proxy @ClosedState))
+          )
+          -- ,
+          --   ( forAllContest action
+          --   , Transition @ClosedState (TransitionTo "contest" (Proxy @ClosedState))
+          --   )
+          -- ,
+          --   ( forAllFanout action
+          --   , Transition @ClosedState (TransitionTo "fanout" (Proxy @IdleState))
+          --   )
+        ]
+    )
+    (\(p, lbl) -> genericCoverTable [lbl] p)
 
 forAllInit ::
   (Testable property) =>
-  (ChainContext -> Tx -> property) ->
+  (IdleState -> Tx -> property) ->
   Property
 forAllInit action =
   forAll (genChainContext 3) $ \ctx ->
     forAll arbitrary $ \params -> do
       forAll genTxIn $ \seedInput -> do
         let tx = initialize ctx params seedInput
-         in action ctx tx
+         in action IdleState{ctx} tx
               & classify
                 (length (peerVerificationKeys ctx) == 0)
                 "1 party"
@@ -651,41 +661,39 @@ genBlockAt sl txs = do
 --
 -- Wrapping Transition for easy labelling
 --
+allTransitions :: [Transition]
+allTransitions =
+  mconcat
+    [ Transition <$> transitions (Proxy @IdleState)
+    , Transition <$> transitions (Proxy @InitialState)
+    , Transition <$> transitions (Proxy @OpenState)
+    , Transition <$> transitions (Proxy @ClosedState)
+    ]
 
--- TODO: Update label type
--- allTransitions :: [Transition]
--- allTransitions =
---   mconcat
---     [ Transition <$> transitions (Proxy @ 'StIdle)
---     , Transition <$> transitions (Proxy @ 'StInitialized)
---     , Transition <$> transitions (Proxy @ 'StOpen)
---     , Transition <$> transitions (Proxy @ 'StClosed)
---     ]
+data Transition where
+  Transition ::
+    forall from.
+    Typeable from =>
+    TransitionFrom from ->
+    Transition
+deriving instance Typeable Transition
 
--- data Transition where
---   Transition ::
---     forall (st :: HeadStateKind).
---     (HeadStateKindVal st, Typeable st) =>
---     TransitionFrom st ->
---     Transition
--- deriving instance Typeable Transition
+instance Show Transition where
+  show (Transition t) = show t
 
--- instance Show Transition where
---   show (Transition t) = show t
+instance Eq Transition where
+  (Transition (from :: a)) == (Transition (from' :: b)) =
+    case eqT @a @b of
+      Just Refl -> from == from'
+      Nothing -> False
 
--- instance Eq Transition where
---   (Transition from) == (Transition from') =
---     case testEquality (typeOf from) (typeOf from') of
---       Just Refl -> from == from'
---       Nothing -> False
+instance Enum Transition where
+  toEnum = (!!) allTransitions
+  fromEnum = fromJust . (`elemIndex` allTransitions)
 
--- instance Enum Transition where
---   toEnum = (!!) allTransitions
---   fromEnum = fromJust . (`elemIndex` allTransitions)
-
--- instance Bounded Transition where
---   minBound = Prelude.head allTransitions
---   maxBound = Prelude.last allTransitions
+instance Bounded Transition where
+  minBound = Prelude.head allTransitions
+  maxBound = Prelude.last allTransitions
 
 --
 -- Prettifier
