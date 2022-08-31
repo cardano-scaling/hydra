@@ -117,50 +117,10 @@ prop_checkModel actions =
           nodes <- run $ gets nodes
           assert (parties == Map.keysSet nodes)
           forM_ parties $ \p -> do
-            assertNodeSeesAndReportsAllExpectedCommits hydraState nodes p
             assertBalancesInOpenHeadAreConsistent hydraState nodes p
  where
   waitForADay :: MonadDelay m => m ()
   waitForADay = threadDelay $ 60 * 60 * 24
-
-assertNodeSeesAndReportsAllExpectedCommits ::
-  GlobalState ->
-  Map Party (TestHydraNode Tx (IOSim s)) ->
-  Party ->
-  PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) ()
-assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
-  let node = nodes ! p
-  case world of
-    Initial{commits} -> do
-      outputs <- run $ lift $ serverOutputs @Tx node
-      let expectedCommitted =
-            fmap
-              ( \(sk, value) ->
-                  TxOut
-                    ( mkVkAddress
-                        testNetworkId
-                        (getVerificationKey sk)
-                    )
-                    value
-                    TxOutDatumNone
-                    ReferenceScriptNone
-              )
-              <$> commits
-      let actualCommitted =
-            Map.fromList
-              [ (party, Map.elems (UTxO.toMap utxo))
-              | Committed{party = party, utxo = utxo} <- outputs
-              ]
-      monitor $
-        counterexample $
-          toString $
-            unlines
-              [ "Actual committed: (" <> show p <> ") " <> show actualCommitted
-              , "Expected committed: (" <> show p <> ") " <> show expectedCommitted
-              ]
-      assert (actualCommitted == expectedCommitted)
-    _ -> do
-      pure ()
 
 assertBalancesInOpenHeadAreConsistent ::
   GlobalState ->
