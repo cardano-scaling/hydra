@@ -44,7 +44,7 @@ import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Plutus.V2.Ledger.Api (POSIXTime)
-import Test.QuickCheck (choose, sized)
+import Test.QuickCheck (sized)
 import qualified Text.Show
 
 -- | A class for accessing the known 'UTxO' set in a type.
@@ -65,24 +65,20 @@ data ChainContext = ChainContext
   deriving (Show, Eq)
 
 instance Arbitrary ChainContext where
-  arbitrary = sized $ \n -> choose (0, n) >>= genChainContext
-
--- | Generate a 'HydraContext' for a given number of parties.
-genChainContext :: Int -> Gen ChainContext
-genChainContext n = do
-  networkId <- Testnet . NetworkMagic <$> arbitrary
-  peerVerificationKeys <- replicateM n genVerificationKey
-  ownVerificationKey <- genVerificationKey
-  ownParty <- arbitrary
-  scriptRegistry <- genScriptRegistry
-  pure
-    ChainContext
-      { networkId
-      , peerVerificationKeys
-      , ownVerificationKey
-      , ownParty
-      , scriptRegistry
-      }
+  arbitrary = sized $ \n -> do
+    networkId <- Testnet . NetworkMagic <$> arbitrary
+    peerVerificationKeys <- replicateM n genVerificationKey
+    ownVerificationKey <- genVerificationKey
+    ownParty <- arbitrary
+    scriptRegistry <- genScriptRegistry
+    pure
+      ChainContext
+        { networkId
+        , peerVerificationKeys
+        , ownVerificationKey
+        , ownParty
+        , scriptRegistry
+        }
 
 -- | Get all cardano verification kesy known in the chain context.
 allVerificationKeys :: ChainContext -> [VerificationKey PaymentKey]

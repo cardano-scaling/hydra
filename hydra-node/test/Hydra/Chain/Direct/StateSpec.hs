@@ -71,12 +71,10 @@ import Hydra.Chain.Direct.State (
   SomeOnChainHeadState (..),
   TransitionFrom (TransitionTo),
   abort,
-  allVerificationKeys,
   close,
   collect,
   commit,
   contest,
-  genChainContext,
   getContestationDeadline,
   getKnownUTxO,
   initialize,
@@ -166,12 +164,13 @@ spec = parallel $ do
                 & counterexample ("params: " <> show params)
 
     prop "is not observed if not invited" $
-      forAll genTxIn $ \seedInput ->
-        forAll arbitrary $ \params ->
-          forAll2 (genChainContext 3) (genChainContext 3) $ \(ctxA, ctxB) ->
-            null (allVerificationKeys ctxA `intersect` allVerificationKeys ctxB)
-              ==> let tx = initialize ctxA params seedInput
-                   in isNothing $ observeInit ctxB tx
+      forAll2 (genHydraContext 3) (genHydraContext 3) $ \(ctxA, ctxB) ->
+        null (ctxParties ctxA `intersect` ctxParties ctxB)
+          ==> forAll2 (pickChainContext ctxA) (pickChainContext ctxB)
+          $ \(cctxA, cctxB) ->
+            forAll genTxIn $ \seedInput ->
+              let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
+               in isNothing (observeInit cctxB tx)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
@@ -477,16 +476,16 @@ forAllInit ::
   (IdleState -> Tx -> property) ->
   Property
 forAllInit action =
-  forAllBlind (genChainContext 3) $ \ctx ->
-    forAll arbitrary $ \params -> do
+  forAllBlind (genHydraContext 3) $ \ctx ->
+    forAll (pickChainContext ctx) $ \cctx -> do
       forAll genTxIn $ \seedInput -> do
-        let tx = initialize ctx params seedInput
-         in action IdleState{ctx} tx
+        let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+         in action (IdleState cctx) tx
               & classify
-                (length (peerVerificationKeys ctx) == 0)
+                (length (peerVerificationKeys cctx) == 0)
                 "1 party"
               & classify
-                (length (peerVerificationKeys ctx) > 0)
+                (length (peerVerificationKeys cctx) > 0)
                 "2+ parties"
 
 forAllCommit ::
