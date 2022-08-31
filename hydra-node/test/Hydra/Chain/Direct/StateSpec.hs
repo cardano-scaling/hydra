@@ -59,7 +59,6 @@ import Hydra.Chain.Direct.Handlers (
   SomeOnChainHeadStateAt (..),
   chainSyncHandler,
  )
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ClosedState,
@@ -314,28 +313,15 @@ genRollbackPoint blks = do
 -- to observe at least one state transition and different levels of rollback.
 genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadStateAt, [Block])
 genSequenceOfObservableBlocks = do
-  scriptRegistry <- genScriptRegistry
   ctx <- genHydraContext 3
-
   -- NOTE: commits must be generated from each participant POV, and thus, we
-  -- need all their respective StIdle to move on.
-  let idleStates = flip map (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) ->
-        let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
-         in IdleState
-              { ctx =
-                  ChainContext
-                    { networkId = ctxNetworkId ctx
-                    , peerVerificationKeys
-                    , ownVerificationKey = vk
-                    , ownParty = p
-                    , scriptRegistry
-                    }
-              }
+  -- need all their respective ChainContext to move on.
+  allContexts <- deriveChainContexts ctx
   -- Pick a peer context which will perform the init
-  cctx <- pickChainContext ctx
+  let cctx = Prelude.head allContexts
   blks <- flip execStateT [] $ do
     initTx <- stepInit cctx
-    void $ stepCommits initTx idleStates
+    void $ stepCommits initTx (map IdleState allContexts)
 
   pure (stAtGenesis (SomeOnChainHeadState IdleState{ctx = cctx}), reverse blks)
  where
