@@ -2,7 +2,7 @@ module Hydra.Chain.Direct.Context where
 
 import Hydra.Prelude
 
-import Data.List ((!!), (\\))
+import Data.List ((\\))
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   NetworkId (..),
@@ -37,7 +37,7 @@ import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVe
 import Hydra.Ledger.Cardano.Evaluate (genPointInTime, slotNoFromPOSIXTime)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
-import Test.QuickCheck (choose, frequency, vector)
+import Test.QuickCheck (choose, elements, frequency, vector)
 
 -- TODO: Move this to test code as it assumes global knowledge
 -- (ctxHydraSigningKeys). Also all of these functions are "unsafe" and fail on
@@ -92,29 +92,35 @@ genHydraContextFor n = do
       , ctxContestationPeriod
       }
 
--- | Pick one of the participants and derive the peer-specific ChainContext from
--- a HydraContext. NOTE: This assumes that 'HydraContext' has same length
--- 'ctxVerificationKeys' and 'ctxHydraSigningKeys'.
-pickChainContext :: HydraContext -> Gen ChainContext
-pickChainContext ctx = do
-  ourIndex <- choose (0, length ctxHydraSigningKeys - 1)
-  let ownVerificationKey = ctxVerificationKeys !! ourIndex
-      ownParty = deriveParty $ ctxHydraSigningKeys !! ourIndex
+-- | Get all peer-specific 'ChainContext's from a 'HydraContext'. NOTE: This
+-- assumes that 'HydraContext' has same length 'ctxVerificationKeys' and
+-- 'ctxHydraSigningKeys'.
+deriveChainContexts :: HydraContext -> Gen [ChainContext]
+deriveChainContexts ctx = do
   scriptRegistry <- genScriptRegistry
   pure $
-    ChainContext
-      { networkId = ctxNetworkId
-      , peerVerificationKeys = ctxVerificationKeys \\ [ownVerificationKey]
-      , ownVerificationKey
-      , ownParty
-      , scriptRegistry
-      }
+    flip map (zip ctxVerificationKeys allParties) $ \(vk, p) ->
+      ChainContext
+        { networkId = ctxNetworkId
+        , peerVerificationKeys = ctxVerificationKeys \\ [vk]
+        , ownVerificationKey = vk
+        , ownParty = p
+        , scriptRegistry
+        }
  where
+  allParties = ctxParties ctx
+
   HydraContext
     { ctxVerificationKeys
-    , ctxHydraSigningKeys
     , ctxNetworkId
     } = ctx
+
+-- | Pick one of the participants and derive the peer-specific 'ChainContext'
+-- from a 'HydraContext'. NOTE: This assumes that 'HydraContext' has same length
+-- 'ctxVerificationKeys' and 'ctxHydraSigningKeys'.
+pickChainContext :: HydraContext -> Gen ChainContext
+pickChainContext ctx =
+  deriveChainContexts ctx >>= elements
 
 -- TODO: rename
 genStInitialized ::
@@ -138,12 +144,10 @@ genCommits ::
   Tx ->
   Gen [Tx]
 genCommits ctx initTx = do
-  forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
-    -- TODO: not pick at random, but a specific party
-    cctx <- pickChainContext ctx
+  allChainContexts <- deriveChainContexts ctx
+  forM allChainContexts $ \cctx -> do
     let (_, stInitial) = fromJust $ observeInit cctx initTx
-    utxo <- genCommit
-    pure $ unsafeCommit stInitial utxo
+    unsafeCommit stInitial <$> genCommit
 
 genCommit :: Gen UTxO
 genCommit =
