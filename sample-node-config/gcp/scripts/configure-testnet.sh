@@ -15,8 +15,13 @@ git clone https://github.com/input-output-hk/cardano-configurations
 
 export NETWORK_MAGIC=$(jq .networkMagic cardano-configurations/network/preview/genesis/shelley.json)
 
-ln -s cardano-configurations/network/preview/ devnet
+# this is manually hardcoded from https://github.com/input-output-hk/hydra-poc/releases/tag/0.7.0
+# perhaps there would be a way to look those up in the Chain?
+export HYDRA_SCRIPTS_TX_ID=bde2ca1f404200e78202ec37979174df9941e96fd35c05b3680d79465853a246
 
+ln -s cardano-configurations/network/preview devnet
+
+# Mithril stuff
 docker pull ghcr.io/input-output-hk/mithril-client:latest
 SNAPSHOT=$(curl -s https://aggregator.api.mithril.network/aggregator/snapshots | jq -r .[0].digest)
 
@@ -26,11 +31,12 @@ mithril_client () {
 
 echo "Restoring snapshot $SNAPSHOT"
 mithril_client show $SNAPSHOT
-
 mithril_client download $SNAPSHOT
-
 mithril_client restore $SNAPSHOT
-
 
 # run docker
 docker-compose up -d
+
+# create marker utxo
+chmod +x ./fuel-testnet.sh
+./fuel-testnet.sh devnet arnaud.sk 10000000

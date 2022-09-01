@@ -10,14 +10,16 @@ services:
         max-size: "100m"
         max-file: "5"
     volumes:
+      - .:/data
       - ./devnet:/devnet
+    working_dir: /data
     environment:
       - CARDANO_SOCKET_PATH=/devnet/node.socket # used by cardano-node
       - CARDANO_NODE_SOCKET_PATH=/devnet/node.socket # used by cardano-cli
     command:
       [ "run"
-      , "--config", "/devnet/cardano-node.json"
-      , "--topology", "/devnet/topology.json"
+      , "--config", "/devnet/cardano-node/config.json"
+      , "--topology", "/devnet/cardano-node/topology.json"
       , "--database-path", "/devnet/db"
       ]
 
@@ -31,23 +33,38 @@ services:
         max-size: "100m"
         max-file: "5"
     volumes:
-      - .:/keys:ro
+      - .:/data:ro
       - ./devnet:/devnet
     ports:
       - "4001:4001"
+      - "5001:5001"
     command:
       [ "--node-id", "1"
       , "--api-host", "0.0.0.0"
-      , "--host", "172.16.238.10"
+      , "--host", "0.0.0.0"
       , "--monitoring-port", "6001"
       , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
-      , "--hydra-signing-key", "/keys/arnaud-hydra.sk"
-      , "--cardano-signing-key", "/keys/arnaud.sk"
-      , "--ledger-genesis", "/devnet/genesis-shelley.json"
-      , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
+      , "--hydra-signing-key", "/data/arnaud-hydra.sk"
+      , "--cardano-signing-key", "/data/arnaud.sk"
+      , "--ledger-genesis", "/data/genesis-shelley.json"
+      , "--ledger-protocol-parameters", "/data/protocol-parameters.json"
       , "--network-id", "${NETWORK_MAGIC}"
       , "--node-socket", "/devnet/node.socket"
       ]
+
+  hydra-tui:
+    image: ghcr.io/input-output-hk/hydra-tui:latest
+    profiles:
+      - tui
+    command:
+      [ "--connect", "hydra-node:4001"
+      , "--node-socket", "/devnet/node.socket"
+      , "--network-id", "${NETWORK_MAGIC}"
+      , "--cardano-signing-key", "/data/arnaud.sk"
+      ]
+    volumes:
+      - .:/data:ro
+      - ./devnet:/devnet
 
   prometheus:
     image: prom/prometheus:latest
