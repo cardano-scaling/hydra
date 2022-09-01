@@ -162,6 +162,30 @@ getContestationDeadline
   ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
     closedContestationDeadline
 
+-- | An enumeration of all possible chain states. This can be kept around in
+-- memory.
+data ChainState
+  = Idle IdleState
+  | Initial InitialState
+  | Open OpenState
+  | Closed ClosedState
+
+genChainState :: Gen ChainState
+genChainState = undefined
+
+genChainStateWithTx :: Gen (ChainState, Tx)
+genChainStateWithTx = undefined
+
+observeAllTx :: Tx -> ChainState -> Maybe (OnChainTx Tx, ChainState)
+observeAllTx tx = \case
+  Idle IdleState{ctx} ->
+    second Initial <$> observeInit ctx tx
+  Initial st ->
+    second Initial <$> observeCommit st tx
+      <|> second Idle <$> observeAbort st tx
+      <|> second Open <$> observeCollect st tx
+  _ -> error "TODO"
+
 -- | An existential wrapping /some/ on-chain head state into a value that carry
 -- information about the state except that it 'HasTransitions' and
 -- 'HasKnownUTxO'.
