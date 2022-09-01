@@ -367,7 +367,7 @@ class ObserveTx st st' where
 -- | A convenient class to declare all possible transitions from a given
 -- starting state 'st'.
 class HasTransitions st where
-  transitions :: proxy st -> [TransitionFrom st]
+  transitions :: [TransitionFrom st]
 
 -- | An existential to be used in 'HasTransitions'.
 data TransitionFrom st where
@@ -395,8 +395,7 @@ instance Eq (TransitionFrom st) where
 -- ** IdleState transitions
 
 instance HasTransitions IdleState where
-  transitions _ =
-    [TransitionTo "init" (Proxy @InitialState)]
+  transitions = [TransitionTo "init" (Proxy @InitialState)]
 
 observeInit ::
   ChainContext ->
@@ -430,7 +429,7 @@ instance ObserveTx IdleState InitialState where
 -- ** InitialState transitions
 
 instance HasTransitions InitialState where
-  transitions _ =
+  transitions =
     [ TransitionTo "commit" (Proxy @InitialState)
     , TransitionTo "collect" (Proxy @OpenState)
     , TransitionTo "abort" (Proxy @IdleState)
@@ -513,7 +512,7 @@ instance ObserveTx InitialState IdleState where
 -- ** OpenState transitions
 
 instance HasTransitions OpenState where
-  transitions _ =
+  transitions =
     [ TransitionTo "close" (Proxy @ClosedState)
     ]
 
@@ -551,7 +550,7 @@ instance ObserveTx OpenState ClosedState where
 -- ** ClosedState transitions
 
 instance HasTransitions ClosedState where
-  transitions _ =
+  transitions =
     [ TransitionTo "contest" (Proxy @ClosedState)
     , TransitionTo "fanout" (Proxy @IdleState)
     ]
@@ -602,7 +601,7 @@ observeSomeTx ::
   SomeOnChainHeadState ->
   Maybe (OnChainTx Tx, SomeOnChainHeadState)
 observeSomeTx tx (SomeOnChainHeadState (st :: st)) =
-  asum $ (\(TransitionTo _ p) -> observeSome p) <$> transitions (Proxy :: Proxy st)
+  asum $ (\(TransitionTo _ p) -> observeSome p) <$> transitions @st
  where
   observeSome ::
     forall st'.

@@ -662,10 +662,10 @@ genBlockAt sl txs = do
 allTransitions :: [Transition]
 allTransitions =
   mconcat
-    [ Transition <$> transitions (Proxy @IdleState)
-    , Transition <$> transitions (Proxy @InitialState)
-    , Transition <$> transitions (Proxy @OpenState)
-    , Transition <$> transitions (Proxy @ClosedState)
+    [ Transition <$> transitions @IdleState
+    , Transition <$> transitions @InitialState
+    , Transition <$> transitions @OpenState
+    , Transition <$> transitions @ClosedState
     ]
 
 data Transition where
