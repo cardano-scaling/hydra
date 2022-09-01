@@ -75,7 +75,6 @@ import Hydra.Chain.Direct.State (
   IdleState (..),
   InitialState (..),
   OpenState,
-  SomeOnChainHeadState (..),
   TransitionFrom (TransitionTo),
   abort,
   close,
@@ -91,7 +90,6 @@ import Hydra.Chain.Direct.State (
   observeClose,
   observeCommit,
   observeInit,
-  observeSomeTx,
  )
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.ContestationPeriod (toNominalDiffTime)
@@ -159,10 +157,10 @@ spec :: Spec
 spec = parallel $ do
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $
-      checkCoverage $
-        forAllSt $ \st tx ->
-          isJust (observeSomeTx tx (SomeOnChainHeadState st))
-            & counterexample "observeSomeTx returned Nothing"
+      checkCoverage $ -- TODO: use genericCoverTable on some transition type
+        forAll genChainStateWithTx $ \(st, tx) ->
+          isJust (observeAllTx tx st)
+            & counterexample "observeAllTx returned Nothing"
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
@@ -424,6 +422,7 @@ propIsValid forAllTx =
 -- QuickCheck Extras
 --
 
+-- TODO: unused
 -- XXX: This does not prevent us of not aligning forAll generators with
 -- Transition labels. Ideally we would would use the actual states/transactions
 -- or observed states/transactions for labeling.
