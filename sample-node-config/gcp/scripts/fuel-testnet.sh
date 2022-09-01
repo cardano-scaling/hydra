@@ -21,11 +21,19 @@ amount=${3}
 [ -n "${amount}" ] || (echo "Missing argument: amoung of LOVELACE" && usage)
 
 magic=$(cat ${testnetDir}/db/protocolMagicId)
-export CARDANO_NODE_SOCKET_PATH="${testnetDir}/node.socket"
+export  CARDANO_NODE_SOCKET_PATH="${testnetDir}/node.socket"
+
+
+echo "Wait for socket to appear ${CARDANO_NODE_SOCKET_PATH}"
+
+while ! [[ -s "${CARDANO_NODE_SOCKET_PATH}" ]]; do
+  echo -n '.'
+  sleep 1
+done
 
 # Invoke cardano-cli in running cardano-node container or via provided cardano-cli
 function ccli() {
-   ccli_ ${@} --testnet-magic ${magic}
+   ccli_ ${@}
 }
 
 function ccli_() {
@@ -41,10 +49,11 @@ if [[ ! -f "${vk}" ]]; then
   ccli key verification-key --signing-key-file ${sk} --verification-key-file ${vk}
 fi
 
-addr=$(ccli address build --payment-verification-key-file $vk)
+addr=$(ccli address build --payment-verification-key-file $vk --testnet-magic ${magic})
 
 utxo=$(ccli query utxo \
     --cardano-mode --epoch-slots 21600 \
+    --testnet-magic ${magic} \
     --address ${addr} \
     --out-file /dev/stdout)
 totalLovelace=$(echo ${utxo} | jq -r 'reduce .[] as $item (0; . + $item.value.lovelace)')
@@ -56,32 +65,24 @@ fuelAmount=$(echo ${entries} | jq ".value.value.lovelace - ${amount}")
 
 tx=$(mktemp)
 ccli transaction build \
-    --babbage-era \
-    --cardano-mode --epoch-slots 21600 \
-    --script-valid \
-    --tx-in ${input} \
-    --tx-out ${addr}+${fuelAmount} \
-    --tx-out-datum-hash "a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3" \
-    --change-address ${addr} \
-    --out-file ${tx}
+     --testnet-magic ${magic} \
+     --babbage-era \
+     --cardano-mode --epoch-slots 21600 \
+     --script-valid \
+     --tx-in ${input} \
+     --tx-out ${addr}+${fuelAmount} \
+     --tx-out-datum-hash "a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3" \
+     --change-address ${addr} \
+     --out-file ${tx}
 
 ccli transaction sign \
-    --tx-body-file ${tx} \
-    --signing-key-file $sk \
-    --out-file ${tx}.signed
+     --testnet-magic ${magic} \
+     --tx-body-file ${tx} \
+     --signing-key-file $sk \
+     --out-file ${tx}.signed
 
-echo "-----------------------------------------------"
-echo "Prepared transaction in ${tx}.signed, for details use:"
-echo "cardano-cli transaction view --tx-file ${tx}.signed"
-
-echo "-----------------------------------------------"
-read -p "Submit transaction now? Y/n" -n 1 -r
-echo
-echo "-----------------------------------------------"
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    ccli transaction submit \
-        --cardano-mode \
-        --epoch-slots 21600 \
-        --tx-file ${tx}.signed
-    rm ${tx}.signed
-fi
+ccli transaction submit \
+    --cardano-mode \
+    --epoch-slots 21600 \
+    --testnet-magic ${magic} \
+    --tx-file ${tx}.signed

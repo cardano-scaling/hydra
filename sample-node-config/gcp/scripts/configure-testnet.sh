@@ -34,9 +34,10 @@ mithril_client show $SNAPSHOT
 mithril_client download $SNAPSHOT
 mithril_client restore $SNAPSHOT
 
+# TODO: set env variable containing path to restored DB
 # run docker
 docker-compose up -d
 
 # create marker utxo
 chmod +x ./fuel-testnet.sh
-./fuel-testnet.sh devnet arnaud.sk 10000000
+exec ./fuel-testnet.sh devnet arnaud.sk 10000000
