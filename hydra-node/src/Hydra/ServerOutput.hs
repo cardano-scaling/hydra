@@ -17,7 +17,7 @@ data ServerOutput tx
   | ReadyToCommit {parties :: Set Party}
   | Committed {party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {utxo :: UTxOType tx}
-  | HeadIsClosed {snapshotNumber :: SnapshotNumber, remainingContestationPeriod :: NominalDiffTime}
+  | HeadIsClosed {snapshotNumber :: SnapshotNumber, contestationDeadline :: UTCTime}
   | HeadIsContested {snapshotNumber :: SnapshotNumber}
   | ReadyToFanout
   | HeadIsAborted {utxo :: UTxOType tx}

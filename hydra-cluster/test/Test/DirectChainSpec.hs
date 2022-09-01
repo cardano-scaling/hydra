@@ -224,15 +224,17 @@ spec = around showLogsOnFailure $ do
                 , signatures = aggregate [sign aliceSk snapshot]
                 }
 
-            fanoutDelay <-
+            deadline <-
               alicesCallback `shouldSatisfyInTime` \case
-                Observation OnCloseTx{snapshotNumber, remainingContestationPeriod} ->
-                  -- FIXME(SN): should assert contestationDeadline > current
-                  Just (snapshotNumber == 1, remainingContestationPeriod)
+                Observation OnCloseTx{snapshotNumber, contestationDeadline} ->
+                  Just (snapshotNumber == 1, contestationDeadline)
                 _ ->
                   Nothing
+            now <- getCurrentTime
+            unless (contestationDeadline > now) $
+              failure $ "contestationDeadline in the past: " <> (show contestationDeadline) <> ", now: " <> (show now)
 
-            threadDelay (toEnum (fromEnum fanoutDelay))
+            delayUntil deadline
             postTx $
               FanoutTx
                 { utxo = someUTxO
@@ -327,3 +329,8 @@ shouldSatisfyInTime mvar f =
 
 isIntersectionNotFoundException :: IntersectionNotFoundException -> Bool
 isIntersectionNotFoundException _ = True
+
+delayUntil :: (MonadDelay m, MonadTime m) => UTCTime -> m ()
+delayUntil target = do
+  now <- getCurrentTime
+  threadDelay $ diffUTCTime target now

@@ -46,10 +46,11 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
       output "HeadIsOpen" ["utxo" .= object mempty]
     -- Close head
     send n1 $ input "Close" []
-    remainingSeconds <- waitMatch 600 n1 $ \v -> do
+    deadline <- waitMatch 600 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
-      v ^? key "remainingContestationPeriod" . _Number
+      v ^? key "contestationDeadline" . _Number
     -- Expect to see readyToFanout within 10 seconds after deadline
+    remainingTime <- getCurrentTime >>= diffUTCTime (posixSecondsToUTCTime deadline)
     waitFor tracer (truncate $ remainingSeconds + 10) [n1] $
       output "ReadyToFanout" []
     -- FIXME: Ideally the 'ReadyToFanout' is only sent when it's really ready,

@@ -333,6 +333,7 @@ spec = parallel $ do
               openHead n1 n2
               send n1 Close
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
+              -- TODO: this will likely fail without simulating block chain time
               waitUntil [n1, n2] ReadyToFanout
               send n1 Fanout
               send n2 Fanout
@@ -355,8 +356,9 @@ spec = parallel $ do
                 _ -> False
 
               -- Have n1 & n2 observe a close with not the latest snapshot
-              chainEvent n1 (Observation (OnCloseTx 0 42))
-              chainEvent n2 (Observation (OnCloseTx 0 42))
+              let deadline = arbitrary `generateWith` 42
+              chainEvent n1 (Observation (OnCloseTx 0 deadline))
+              chainEvent n2 (Observation (OnCloseTx 0 deadline))
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> snapshotNumber == 0
@@ -467,7 +469,7 @@ data ConnectToChain tx m = ConnectToChain
 -- patch" a 'HydraNode' such that it is connected. This is necessary, to get to
 -- know all nodes which use this function and simulate network and chain
 -- messages being sent around.
-simulatedChainAndNetwork :: (MonadSTM m) => m (ConnectToChain tx m)
+simulatedChainAndNetwork :: (MonadSTM m, MonadTime m) => m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
   history <- newTVarIO []
   nodes <- newTVarIO []
@@ -490,7 +492,8 @@ simulatedChainAndNetwork = do
     case res of
       Nothing -> pure ()
       Just ns -> do
-        mapM_ (`handleChainTx` toOnChainTx tx) ns
+        now <- getCurrentTime
+        mapM_ (`handleChainTx` toOnChainTx now tx) ns
 
   broadcast node nodes msg = do
     allNodes <- readTVarIO nodes
@@ -502,8 +505,8 @@ simulatedChainAndNetwork = do
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
 -- announces hard-coded contestationDeadlines.
-toOnChainTx :: PostChainTx tx -> ChainEvent tx
-toOnChainTx =
+toOnChainTx :: UTCTime -> PostChainTx tx -> ChainEvent tx
+toOnChainTx now =
   Observation . \case
     InitTx HeadParameters{contestationPeriod, parties} ->
       OnInitTx{contestationPeriod, parties}
@@ -516,7 +519,7 @@ toOnChainTx =
     (CloseTx confirmedSnapshot) ->
       OnCloseTx
         { snapshotNumber = number (getSnapshot confirmedSnapshot)
-        , remainingContestationPeriod = toNominalDiffTime testContestationPeriod
+        , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
         }
     ContestTx{confirmedSnapshot} ->
       OnContestTx

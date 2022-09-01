@@ -37,9 +37,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   ChainEvent (..),
   HeadParameters,
-  OnChainTx (OnCloseTx, remainingContestationPeriod),
   PostTxError (..),
-  snapshotNumber,
  )
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
@@ -245,10 +243,6 @@ spec = parallel $ do
         let callback = \case
               Rollback{} ->
                 fail "rolled back but expected roll forward."
-              Observation OnCloseTx{snapshotNumber} ->
-                -- FIXME: Special case for `OnCloseTx` because we don't directly observe the remaining contestation period,
-                -- it's the result of a computation that involves current time
-                fst <$> observeSomeTx tx st `shouldBe` Just OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
               Observation onChainTx ->
                 fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
         forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do

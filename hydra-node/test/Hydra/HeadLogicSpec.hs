@@ -19,18 +19,7 @@ import Hydra.Chain (
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
-import Hydra.HeadLogic (
-  CoordinatedHeadState (..),
-  Effect (..),
-  Environment (..),
-  Event (..),
-  HeadState (..),
-  LogicError (..),
-  Outcome (..),
-  SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
-  WaitReason (..),
-  update,
- )
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), Environment (..), Event (..), HeadState (..), LogicError (..), Outcome (..), SeenSnapshot (NoSeenSnapshot, SeenSnapshot), WaitReason (..), update)
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
@@ -216,9 +205,10 @@ spec = do
         let s2 = update env ledger s1 invalidEvent
         s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
-      it "any node should post FanoutTx when observing on-chain CloseTx" $ do
+      it "notify user when passing the contestation deadline" $ do
         let s0 = inOpenState threeParties ledger
-            closeTx = OnChainEvent $ Observation $ OnCloseTx 0 42
+            deadline = error "TODO: use a proper time and simulate blockchain time progress past it"
+            closeTx = OnChainEvent $ Observation $ OnCloseTx 0 deadline
 
         let shouldPostFanout =
               Delay
@@ -228,7 +218,7 @@ spec = do
                     _ ->
                       error "inOpenState: not OpenState?"
                 , reason =
-                    WaitOnContestationPeriod
+                    WaitOnContestationDeadline
                 , event =
                     ShouldPostFanout
                 }
@@ -252,7 +242,8 @@ spec = do
                   , confirmedSnapshot = latestConfirmedSnapshot
                   , seenSnapshot = NoSeenSnapshot
                   }
-            closeTxEvent = OnChainEvent $ Observation $ OnCloseTx 0 42
+            deadline = arbitrary `generateWith` 42
+            closeTxEvent = OnChainEvent $ Observation $ OnCloseTx 0 deadline
             contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
             s1 = update env ledger s0 closeTxEvent
         s1 `hasEffect` contestTxEffect

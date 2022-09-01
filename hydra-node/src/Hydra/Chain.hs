@@ -88,9 +88,7 @@ data OnChainTx tx
   | OnCollectComTx
   | OnCloseTx
       { snapshotNumber :: SnapshotNumber
-      , -- | The remaining contestation period in wall clock time calculated
-        -- from the actual upper bound of the close transaction observed.
-        remainingContestationPeriod :: NominalDiffTime
+      , contestationDeadline :: UTCTime
       }
   | OnContestTx {snapshotNumber :: SnapshotNumber}
   | OnFanoutTx

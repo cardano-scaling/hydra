@@ -13,6 +13,7 @@ import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), genScriptRegistry
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (AbortObservation),
+  AbortTxError (OverlappingInputs),
   CloseObservation (..),
   ClosedThreadOutput (..),
   ClosingSnapshot (..),
@@ -40,6 +41,7 @@ import Hydra.Chain.Direct.Tx (
   observeFanoutTx,
   observeInitTx,
  )
+import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party)
@@ -186,6 +188,7 @@ instance HasKnownUTxO ClosedState where
       } = st
 
 -- | Access the contestation deadline in a 'ClosedState'.
+-- TODO: This is only used in test code now
 getContestationDeadline :: ClosedState -> POSIXTime
 getContestationDeadline
   ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
@@ -267,9 +270,11 @@ abort st = do
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
    in case abortTx scriptRegistry ownVerificationKey (i, o, dat) initialHeadTokenScript initials commits of
-        Left err ->
-          -- FIXME: Exception with MonadThrow?
-          error $ show err
+        Left OverlappingInputs ->
+          -- FIXME: This is a "should not happen" error. We should try to fix
+          -- the arguments of abortTx to make it impossible of having
+          -- "overlapping" inputs. But, how exactly?
+          error $ show OverlappingInputs
         Right tx ->
           tx
  where
@@ -492,10 +497,12 @@ observeClose st tx = do
   observation <- observeCloseTx utxo tx
   let CloseObservation{threadOutput, headId, snapshotNumber} = observation
   guard (headId == openHeadId)
-  -- FIXME: The 0 here is a wart. We are in a pure function so we cannot easily compute with
-  -- time. We tried passing the current time from the caller but given the current machinery
-  -- around `observeSomeTx` this is actually not straightforward and quite ugly.
-  let event = OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
+  let ClosedThreadOutput{closedContestationDeadline} = threadOutput
+  let event =
+        OnCloseTx
+          { snapshotNumber
+          , contestationDeadline = posixToUTCTime closedContestationDeadline
+          }
   let st' =
         ClosedState
           { ctx

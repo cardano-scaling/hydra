@@ -439,6 +439,7 @@ seedWorld ::
   ( MonadDelay m
   , MonadAsync m
   , MonadCatch m
+  , MonadTime m
   ) =>
   [(SigningKey HydraKey, b)] ->
   ActionMonad (WorldState m) ()

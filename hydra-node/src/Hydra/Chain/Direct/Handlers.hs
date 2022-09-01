@@ -39,7 +39,6 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
-  ClosedState (ClosedState),
   IdleState (IdleState, ctx),
   abort,
   close,
@@ -61,7 +60,6 @@ import Hydra.Chain.Direct.Wallet (
   getFuelUTxO,
   getTxId,
  )
-import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
@@ -183,7 +181,7 @@ data ChainSyncHandler m = ChainSyncHandler
 -- actual interactions with the chain.
 chainSyncHandler ::
   forall m.
-  (MonadSTM m, MonadTime m) =>
+  MonadSTM m =>
   -- | Tracer for logging
   Tracer m DirectChainLog ->
   -- | Chain callback
@@ -208,8 +206,7 @@ chainSyncHandler tracer callback headState =
   onRollForward :: Block -> m ()
   onRollForward blk = do
     let receivedTxs = toList $ getBabbageTxs blk
-    now <- getCurrentTime
-    onChainTxs <- reverse <$> atomically (foldM (withNextTx now (blockPoint blk)) [] receivedTxs)
+    onChainTxs <- reverse <$> atomically (foldM (withNextTx (blockPoint blk)) [] receivedTxs)
     unless (null receivedTxs) $
       traceWith tracer $
         ReceivedTxs
@@ -218,25 +215,16 @@ chainSyncHandler tracer callback headState =
           }
     mapM_ (callback . Observation) onChainTxs
 
-  -- NOTE: We pass 'now' or current time because we need it for observing passing of time in the
-  -- contestation phase.
-  withNextTx :: UTCTime -> Point Block -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
-  withNextTx now point observed (fromLedgerTx -> tx) = do
+  withNextTx :: Point Block -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
+  withNextTx point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
     case observeSomeTx tx (currentChainState st) of
-      Just (onChainTx, st') -> do
+      Just (event, st') -> do
         writeTVar headState $
           ChainStateAt
             { currentChainState = st'
             , recordedAt = AtPoint (fromConsensusPointHF point) st
             }
-        -- FIXME: The right thing to do is probably to decouple the observation from the
-        -- transformation into an `OnChainTx`
-        let event = case (onChainTx, st') of
-              (OnCloseTx{snapshotNumber}, Closed closedSt@ClosedState{}) ->
-                let remainingTimeWithBuffer = 1 + diffUTCTime (posixToUTCTime $ getContestationDeadline closedSt) now
-                 in OnCloseTx{snapshotNumber, remainingContestationPeriod = remainingTimeWithBuffer}
-              _ -> onChainTx
         pure $ event : observed
       Nothing ->
         pure observed
@@ -305,6 +293,7 @@ fromPostChainTx timeHandle wallet someHeadState tx = do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (contest st confirmedSnapshot shifted)
     (FanoutTx{utxo}, Closed st) -> do
+      -- TODO: The 'FanoutTx' should contain the deadline in UTCTime
       -- NOTE: It's a bit weird that we inspect the state here, but handling
       -- errors of the possibly failing "time -> slot" conversion is better
       -- done here.

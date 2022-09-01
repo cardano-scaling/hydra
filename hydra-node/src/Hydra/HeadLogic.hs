@@ -212,7 +212,7 @@ data WaitReason
   = WaitOnNotApplicableTx {validationError :: ValidationError}
   | WaitOnSnapshotNumber {waitingFor :: SnapshotNumber}
   | WaitOnSeenSnapshot
-  | WaitOnContestationPeriod
+  | WaitOnContestationDeadline
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -630,14 +630,14 @@ onOpenChainCloseTx ::
   -- | The offchain coordinated head state
   CoordinatedHeadState tx ->
   SnapshotNumber ->
-  NominalDiffTime ->
+  UTCTime ->
   Outcome tx
 onOpenChainCloseTx
   parameters
   previousRecoverableState
   coordinatedHeadState
   closedSnapshotNumber
-  remainingContestationPeriod =
+  contestationDeadline =
     -- TODO(2): In principle here, we want to:
     --
     --   a) Warn the user about a close tx outside of an open state
@@ -659,12 +659,12 @@ onOpenChainCloseTx
     headIsClosed =
       HeadIsClosed
         { snapshotNumber = closedSnapshotNumber
-        , remainingContestationPeriod
+        , contestationDeadline
         }
     scheduledPostFanout =
       Delay
-        { delay = remainingContestationPeriod
-        , reason = WaitOnContestationPeriod
+        { delay = error "TODO: remove Delay instead"
+        , reason = WaitOnContestationDeadline
         , event = ShouldPostFanout
         }
     onChainEffectCondition =
@@ -785,9 +785,9 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     ) ->
       onOpenNetworkAckSn parties otherParty parameters previousRecoverableState snapshotSignature headState sn
   ( prev@OpenState{parameters, coordinatedHeadState}
-    , OnChainEvent (Observation OnCloseTx{snapshotNumber = closedSnapshotNumber, remainingContestationPeriod})
+    , OnChainEvent (Observation OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline})
     ) ->
-      onOpenChainCloseTx parameters prev coordinatedHeadState closedSnapshotNumber remainingContestationPeriod
+      onOpenChainCloseTx parameters prev coordinatedHeadState closedSnapshotNumber contestationDeadline
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
     onClosedChainContestTx confirmedSnapshot snapshotNumber
   (ClosedState{}, ShouldPostFanout) ->
