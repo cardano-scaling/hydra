@@ -171,6 +171,14 @@ data ChainState
   | Closed ClosedState
   deriving (Eq, Show)
 
+instance HasKnownUTxO ChainState where
+  getKnownUTxO :: ChainState -> UTxO
+  getKnownUTxO = \case
+    Idle st -> getKnownUTxO st
+    Initial st -> getKnownUTxO st
+    Open st -> getKnownUTxO st
+    Closed st -> getKnownUTxO st
+
 genChainState :: Gen ChainState
 genChainState = undefined
 

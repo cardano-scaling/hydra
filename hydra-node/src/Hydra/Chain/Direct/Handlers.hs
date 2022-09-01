@@ -128,7 +128,7 @@ finalizeTx ::
   STM m (ValidatedTx LedgerEra)
 finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
   someSt <- currentOnChainHeadState <$> readTVar headState
-  let headUTxO = (\(SomeOnChainHeadState st) -> getKnownUTxO st) someSt
+  let headUTxO = getKnownUTxO someSt
   walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
     Left ErrUnknownInput{input} -> do
