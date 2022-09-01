@@ -179,21 +179,13 @@ instance HasKnownUTxO ChainState where
     Open st -> getKnownUTxO st
     Closed st -> getKnownUTxO st
 
+-- TODO: basically Arbitrary ChainState, ensure it covers all cases
 genChainState :: Gen ChainState
 genChainState = undefined
 
+-- TODO: an alternative to forAllSt
 genChainStateWithTx :: Gen (ChainState, Tx)
 genChainStateWithTx = undefined
-
-observeAllTx :: Tx -> ChainState -> Maybe (OnChainTx Tx, ChainState)
-observeAllTx tx = \case
-  Idle IdleState{ctx} ->
-    second Initial <$> observeInit ctx tx
-  Initial st ->
-    second Initial <$> observeCommit st tx
-      <|> second Idle <$> observeAbort st tx
-      <|> second Open <$> observeCollect st tx
-  _ -> error "TODO"
 
 -- | An existential wrapping /some/ on-chain head state into a value that carry
 -- information about the state except that it 'HasTransitions' and
@@ -624,6 +616,16 @@ instance ObserveTx ClosedState IdleState where
   observeTx = observeFanout
 
 -- * Observe any transition
+
+observeAllTx :: Tx -> ChainState -> Maybe (OnChainTx Tx, ChainState)
+observeAllTx tx = \case
+  Idle IdleState{ctx} ->
+    second Initial <$> observeInit ctx tx
+  Initial st ->
+    second Initial <$> observeCommit st tx
+      <|> second Idle <$> observeAbort st tx
+      <|> second Open <$> observeCollect st tx
+  _ -> error "TODO"
 
 -- | Observe a transition without knowing the starting or ending state. This
 -- function does enumerate and try all 'transitions' of some given

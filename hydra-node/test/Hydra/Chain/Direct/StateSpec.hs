@@ -68,7 +68,7 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ChainState,
+  ChainState (Idle),
   ClosedState,
   HasKnownUTxO (getKnownUTxO),
   HasTransitions (transitions),
@@ -82,10 +82,12 @@ import Hydra.Chain.Direct.State (
   collect,
   commit,
   contest,
+  genChainStateWithTx,
   getContestationDeadline,
   getKnownUTxO,
   initialize,
   observeAbort,
+  observeAllTx,
   observeClose,
   observeCommit,
   observeInit,
@@ -240,16 +242,16 @@ spec = parallel $ do
 
   describe "ChainSyncHandler" $ do
     prop "yields observed transactions rolling forward" $ do
-      forAllSt $ \(SomeOnChainHeadState -> st) tx -> do
+      forAll genChainStateWithTx $ \(st, tx) -> do
         let callback = \case
               Rollback{} ->
                 fail "rolled back but expected roll forward."
               Observation OnCloseTx{snapshotNumber} ->
                 -- FIXME: Special case for `OnCloseTx` because we don't directly observe the remaining contestation period,
                 -- it's the result of a computation that involves current time
-                fst <$> observeSomeTx tx st `shouldBe` Just OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
+                fst <$> observeAllTx tx st `shouldBe` Just OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
               Observation onChainTx ->
-                fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
+                fst <$> observeAllTx tx st `shouldBe` Just onChainTx
         forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
           headState <- run $ newTVarIO $ stAtGenesis st
           let handler = chainSyncHandler nullTracer callback headState
