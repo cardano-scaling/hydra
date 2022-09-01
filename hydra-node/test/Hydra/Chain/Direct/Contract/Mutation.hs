@@ -146,7 +146,7 @@ import qualified Data.Set as Set
 import Data.Typeable (typeOf)
 import Hydra.Chain.Direct.Fixture (genForParty, testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.State (SomeOnChainHeadState (..), observeSomeTx)
+import Hydra.Chain.Direct.State (ChainState (..), observeAllTx)
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -192,7 +192,7 @@ propMutationOnChain (tx, utxo) genMutation =
 propMutationOffChain ::
   (Tx, UTxO) ->
   ((Tx, UTxO) -> Gen SomeMutation) ->
-  Gen SomeOnChainHeadState ->
+  Gen ChainState ->
   Property
 propMutationOffChain (tx, utxo) genMutation genSt =
   forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
@@ -240,12 +240,12 @@ propTransactionValidates (tx, lookupUTxO) =
 
 -- | A 'Property' checking some (on-chain valid) (transaction, UTxO) is not
 -- properly observe given a configuration.
-propTransactionIsNotObserved :: (Tx, UTxO) -> SomeOnChainHeadState -> Property
+propTransactionIsNotObserved :: (Tx, UTxO) -> ChainState -> Property
 propTransactionIsNotObserved (tx, _) st =
-  case observeSomeTx tx st of
+  case observeAllTx tx st of
     Nothing ->
       property True
-    Just (onChainTx, SomeOnChainHeadState st') ->
+    Just (onChainTx, st') ->
       property False
         & counterexample ("Observed tx: " <> strawmanGetConstr onChainTx)
         & counterexample ("New head state: " <> show (typeOf st'))
