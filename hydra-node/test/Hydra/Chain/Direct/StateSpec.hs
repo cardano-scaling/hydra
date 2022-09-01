@@ -61,13 +61,14 @@ import Hydra.Chain.Direct.Context (
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.Handlers (
+  ChainStateAt (..),
   ChainSyncHandler (..),
   RecordedAt (..),
-  SomeOnChainHeadStateAt (..),
   chainSyncHandler,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
+  ChainState,
   ClosedState,
   HasKnownUTxO (getKnownUTxO),
   HasTransitions (transitions),
@@ -280,7 +281,7 @@ spec = parallel $ do
             st'' <- run $ mapM_ (onRollForward handler) toReplay *> readTVarIO headState
             assert (st' == st'')
 
-withCounterExample :: [Block] -> TVar IO SomeOnChainHeadStateAt -> IO a -> PropertyM IO a
+withCounterExample :: [Block] -> TVar IO ChainStateAt -> IO a -> PropertyM IO a
 withCounterExample blks headState step = do
   stBefore <- run $ readTVarIO headState
   a <- run step
@@ -290,8 +291,8 @@ withCounterExample blks headState step = do
       counterexample $
         toString $
           unlines
-            [ "Head state at (before rollback): " <> showStateRecordedAt stBefore
-            , "Head state at (after rollback):  " <> showStateRecordedAt stAfter
+            [ "Head state at (before rollback): " <> showChainStateAt stBefore
+            , "Head state at (after rollback):  " <> showChainStateAt stAfter
             , "Block sequence: \n"
                 <> unlines
                   ( fmap
@@ -314,7 +315,7 @@ genRollbackPoint blks = do
 -- Note that this does not generate the entire spectrum of observable
 -- transactions in Hydra, but only init and commits, which is already sufficient
 -- to observe at least one state transition and different levels of rollback.
-genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadStateAt, [Block])
+genSequenceOfObservableBlocks :: Gen (ChainStateAt, [Block])
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext 3
   -- NOTE: commits must be generated from each participant POV, and thus, we
@@ -326,7 +327,7 @@ genSequenceOfObservableBlocks = do
     initTx <- stepInit cctx (ctxHeadParameters ctx)
     void $ stepCommits initTx (map IdleState allContexts)
 
-  pure (stAtGenesis (SomeOnChainHeadState IdleState{ctx = cctx}), reverse blks)
+  pure (stAtGenesis (Idle IdleState{ctx = cctx}), reverse blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
   nextSlot = do
@@ -370,10 +371,10 @@ genSequenceOfObservableBlocks = do
     putNextBlock commitTx
     pure $ snd $ fromJust $ observeCommit stInitial commitTx
 
-stAtGenesis :: SomeOnChainHeadState -> SomeOnChainHeadStateAt
-stAtGenesis currentOnChainHeadState =
-  SomeOnChainHeadStateAt
-    { currentOnChainHeadState
+stAtGenesis :: ChainState -> ChainStateAt
+stAtGenesis currentChainState =
+  ChainStateAt
+    { currentChainState
     , recordedAt = AtStart
     }
 
@@ -705,8 +706,8 @@ showRollbackInfo (rollbackDepth, rollbackPoint) =
       , "Rollback point: " <> show rollbackPoint
       ]
 
-showStateRecordedAt :: SomeOnChainHeadStateAt -> Text
-showStateRecordedAt SomeOnChainHeadStateAt{recordedAt, currentOnChainHeadState} =
+showChainStateAt :: ChainStateAt -> Text
+showChainStateAt ChainStateAt{recordedAt, currentChainState} =
   case recordedAt of
-    AtStart -> "AtStart " <> show currentOnChainHeadState
-    AtPoint pt _ -> "AtPoint " <> show pt <> " " <> show currentOnChainHeadState
+    AtStart -> "AtStart " <> show currentChainState
+    AtPoint pt _ -> "AtPoint " <> show pt <> " " <> show currentChainState

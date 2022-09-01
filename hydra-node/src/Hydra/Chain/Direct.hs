@@ -68,10 +68,10 @@ import Hydra.Chain.CardanoClient (
   queryUTxO,
  )
 import Hydra.Chain.Direct.Handlers (
+  ChainStateAt (..),
   ChainSyncHandler,
   DirectChainLog (..),
   RecordedAt (..),
-  SomeOnChainHeadStateAt (..),
   chainSyncHandler,
   mkChain,
   onRollBackward,
@@ -175,8 +175,8 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
           }
   headState <-
     newTVarIO $
-      SomeOnChainHeadStateAt
-        { currentOnChainHeadState = Idle IdleState{ctx}
+      ChainStateAt
+        { currentChainState = Idle IdleState{ctx}
         , recordedAt = AtStart
         }
   res <-

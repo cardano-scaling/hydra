@@ -41,9 +41,7 @@ import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
   ClosedState (ClosedState),
   IdleState (IdleState, ctx),
-  SomeOnChainHeadState (..),
   abort,
-  castHeadState,
   close,
   collect,
   commit,
@@ -53,7 +51,6 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialize,
   observeAllTx,
-  observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block, SomePoint (..))
@@ -93,7 +90,7 @@ mkChain ::
   Tracer m DirectChainLog ->
   m TimeHandle ->
   TinyWallet m ->
-  TVar m SomeOnChainHeadStateAt ->
+  TVar m ChainStateAt ->
   SubmitTx m ->
   Chain Tx m
 mkChain tracer queryTimeHandle wallet headState submitTx =
@@ -123,11 +120,11 @@ mkChain tracer queryTimeHandle wallet headState submitTx =
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
-  TVar m SomeOnChainHeadStateAt ->
+  TVar m ChainStateAt ->
   ValidatedTx LedgerEra ->
   STM m (ValidatedTx LedgerEra)
 finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
-  someSt <- currentOnChainHeadState <$> readTVar headState
+  someSt <- currentChainState <$> readTVar headState
   let headUTxO = getKnownUTxO someSt
   walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
@@ -159,8 +156,8 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
 -- pointing to the previous chain state; This allows to easily rewind the state
 -- to a point in the past when rolling backward due to a change of chain fork by
 -- our local cardano-node.
-data SomeOnChainHeadStateAt = SomeOnChainHeadStateAt
-  { currentOnChainHeadState :: ChainState
+data ChainStateAt = ChainStateAt
+  { currentChainState :: ChainState
   , recordedAt :: RecordedAt
   }
   deriving (Eq, Show)
@@ -169,7 +166,7 @@ data SomeOnChainHeadStateAt = SomeOnChainHeadStateAt
 -- simply exist out of any chain events (e.g. the 'Idle' state).
 data RecordedAt
   = AtStart
-  | AtPoint ChainPoint SomeOnChainHeadStateAt
+  | AtPoint ChainPoint ChainStateAt
   deriving (Eq, Show)
 
 -- | A /handler/ that takes care of following the chain.
@@ -192,7 +189,7 @@ chainSyncHandler ::
   -- | Chain callback
   (ChainEvent Tx -> m ()) ->
   -- | On-chain head-state.
-  TVar m SomeOnChainHeadStateAt ->
+  TVar m ChainStateAt ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
 chainSyncHandler tracer callback headState =
@@ -226,11 +223,11 @@ chainSyncHandler tracer callback headState =
   withNextTx :: UTCTime -> Point Block -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
   withNextTx now point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
-    case observeAllTx tx (currentOnChainHeadState st) of
+    case observeAllTx tx (currentChainState st) of
       Just (onChainTx, st') -> do
         writeTVar headState $
-          SomeOnChainHeadStateAt
-            { currentOnChainHeadState = st'
+          ChainStateAt
+            { currentChainState = st'
             , recordedAt = AtPoint (fromConsensusPointHF point) st
             }
         -- FIXME: The right thing to do is probably to decouple the observation from the
@@ -251,7 +248,7 @@ chainSyncHandler tracer callback headState =
 -- that needs to be discarded given some rollback 'chainPoint'. This depth is used
 -- in 'Hydra.HeadLogic.rollback' to discard corresponding off-chain state. Consequently
 -- the two states /must/ be kept in sync in order for rollbacks to be handled properly.
-rollback :: ChainPoint -> SomeOnChainHeadStateAt -> (SomeOnChainHeadStateAt, Word)
+rollback :: ChainPoint -> ChainStateAt -> (ChainStateAt, Word)
 rollback chainPoint = backward 0
  where
   backward n st =
@@ -272,12 +269,12 @@ fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
   TinyWallet m ->
-  TVar m SomeOnChainHeadStateAt ->
+  TVar m ChainStateAt ->
   PostChainTx Tx ->
   STM m Tx
 fromPostChainTx timeHandle wallet someHeadState tx = do
   pointInTime <- throwLeft currentPointInTime
-  cst <- currentOnChainHeadState <$> readTVar someHeadState
+  cst <- currentChainState <$> readTVar someHeadState
   case (tx, cst) of
     (InitTx params, Idle IdleState{ctx}) ->
       getFuelUTxO wallet >>= \case
