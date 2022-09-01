@@ -539,7 +539,10 @@ observeAllTx tx = \case
     second Initial <$> observeCommit st tx
       <|> second Idle <$> observeAbort st tx
       <|> second Open <$> observeCollect st tx
-  _ -> error "TODO"
+  Open st -> second Closed <$> observeClose st tx
+  Closed st ->
+    second Closed <$> observeContest st tx
+      <|> second Idle <$> observeFanout st tx
 
 -- * Helpers
 

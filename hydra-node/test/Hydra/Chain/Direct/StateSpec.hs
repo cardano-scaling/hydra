@@ -67,8 +67,8 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ChainState (Idle, Initial),
-  ChainTransition (Collect, Commit, Init),
+  ChainState (Closed, Idle, Initial, Open),
+  ChainTransition (Close, Collect, Commit, Contest, Fanout, Init),
   ClosedState,
   HasKnownUTxO (getKnownUTxO),
   IdleState (..),
@@ -88,6 +88,7 @@ import Hydra.Chain.Direct.State (
   observeCommit,
   observeInit,
  )
+import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
@@ -121,6 +122,7 @@ import Test.Hydra.Prelude (
   prop,
  )
 import Test.QuickCheck (
+  Positive (Positive),
   Property,
   Testable (property),
   checkCoverage,
@@ -427,35 +429,48 @@ genChainStateWithTx =
     [ genInitWithState
     , genCommitWithState
     , genCollectWithState
-    -- TODO genCloseWithState
-    -- TODO genContestWithState
-    -- TODO genFanoutWithState
+    , genCloseWithState
+    , genContestWithState
+    , genFanoutWithState
     ]
+ where
+  genInitWithState :: Gen (ChainState, Tx, ChainTransition)
+  genInitWithState = do
+    ctx <- genHydraContext 3
+    cctx <- pickChainContext ctx
+    seedInput <- genTxIn
+    let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+    pure (Idle $ IdleState cctx, tx, Init)
 
-genInitWithState :: Gen (ChainState, Tx, ChainTransition)
-genInitWithState = do
-  ctx <- genHydraContext 3
-  cctx <- pickChainContext ctx
-  seedInput <- genTxIn
-  let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-  pure (Idle $ IdleState cctx, tx, Init)
+  genCommitWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCommitWithState = do
+    ctx <- genHydraContext 3
+    stInitial <- genStInitial ctx
+    utxo <- genCommit
+    let tx = unsafeCommit stInitial utxo
+    pure (Initial stInitial, tx, Commit)
 
-genCommitWithState :: Gen (ChainState, Tx, ChainTransition)
-genCommitWithState = do
-  ctx <- genHydraContext 3
-  stInitial <- genStInitial ctx
-  utxo <- genCommit
-  let tx = unsafeCommit stInitial utxo
-  pure (Initial stInitial, tx, Commit)
+  genCollectWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCollectWithState = do
+    (_, st, tx) <- genCollectComTx
+    pure (Initial st, tx, Collect)
 
-genCollectWithState :: Gen (ChainState, Tx, ChainTransition)
-genCollectWithState = do
-  ctx <- genHydraContextFor 3
-  initTx <- genInitTx ctx
-  commits <- genCommits ctx initTx
-  cctx <- pickChainContext ctx
-  let (_, stInitial) = unsafeObserveInitAndCommits cctx initTx commits
-  pure (Initial stInitial, collect stInitial, Collect)
+  genCloseWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCloseWithState = do
+    (st, tx, _) <- genCloseTx 3
+    pure (Open st, tx, Close)
+
+  genContestWithState :: Gen (ChainState, Tx, ChainTransition)
+  genContestWithState = do
+    (_, _, st, tx) <- genContestTx
+    pure (Closed st, tx, Contest)
+
+  genFanoutWithState :: Gen (ChainState, Tx, ChainTransition)
+  genFanoutWithState = do
+    Positive numParties <- arbitrary
+    Positive numOutputs <- arbitrary
+    (st, tx) <- genFanoutTx numParties numOutputs
+    pure (Closed st, tx, Fanout)
 
 -- TODO: These forAllXX functions are hard to use and understand. Maybe simple
 -- 'Gen' or functions in 'PropertyM' are better combinable?
@@ -535,14 +550,15 @@ forAllCollectCom action =
   forAllBlind genCollectComTx $ \(committedUTxO, stInitialized, tx) ->
     action stInitialized tx
       & counterexample ("Committed UTxO: " <> show committedUTxO)
- where
-  genCollectComTx = do
-    ctx <- genHydraContextFor 3
-    initTx <- genInitTx ctx
-    commits <- genCommits ctx initTx
-    cctx <- pickChainContext ctx
-    let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (committedUTxO, stInitialized, collect stInitialized)
+
+genCollectComTx :: Gen ([UTxO], InitialState, Tx)
+genCollectComTx = do
+  ctx <- genHydraContextFor 3
+  initTx <- genInitTx ctx
+  commits <- genCommits ctx initTx
+  cctx <- pickChainContext ctx
+  let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+  pure (committedUTxO, stInitialized, collect stInitialized)
 
 forAllClose ::
   (Testable property) =>
@@ -588,17 +604,24 @@ forAllContest action =
   oneMonth = oneDay * 30
   oneYear = oneDay * 365
 
-  genContestTx = do
-    ctx <- genHydraContextFor 3
-    (u0, stOpen) <- genStOpen ctx
-    confirmed <- genConfirmedSnapshot 0 u0 []
-    closePointInTime <- genPointInTime
-    let closeTx = close stOpen confirmed closePointInTime
-    let stClosed = snd $ fromJust $ observeClose stOpen closeTx
-    utxo <- arbitrary
-    contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
-    contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (ctx, closePointInTime, stClosed, contest stClosed contestSnapshot contestPointInTime)
+genContestTx ::
+  Gen
+    ( HydraContext
+    , PointInTime
+    , ClosedState
+    , Tx
+    )
+genContestTx = do
+  ctx <- genHydraContextFor 3
+  (u0, stOpen) <- genStOpen ctx
+  confirmed <- genConfirmedSnapshot 0 u0 []
+  closePointInTime <- genPointInTime
+  let closeTx = close stOpen confirmed closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen closeTx
+  utxo <- arbitrary
+  contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
+  contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+  pure (ctx, closePointInTime, stClosed, contest stClosed contestSnapshot contestPointInTime)
 
 forAllFanout ::
   (Testable property) =>
