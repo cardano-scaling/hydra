@@ -169,6 +169,7 @@ data ChainState
   | Initial InitialState
   | Open OpenState
   | Closed ClosedState
+  deriving (Eq, Show)
 
 genChainState :: Gen ChainState
 genChainState = undefined

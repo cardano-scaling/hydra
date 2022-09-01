@@ -80,8 +80,8 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
+  ChainState (Idle),
   IdleState (..),
-  SomeOnChainHeadState (..),
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Util (
@@ -176,7 +176,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
   headState <-
     newTVarIO $
       SomeOnChainHeadStateAt
-        { currentOnChainHeadState = SomeOnChainHeadState IdleState{ctx}
+        { currentOnChainHeadState = Idle IdleState{ctx}
         , recordedAt = AtStart
         }
   res <-
