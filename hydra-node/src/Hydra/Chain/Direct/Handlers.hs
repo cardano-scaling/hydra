@@ -38,7 +38,7 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
-  ChainState (Closed, Idle, Initial),
+  ChainState (Closed, Idle, Initial, Open),
   ClosedState (ClosedState),
   IdleState (IdleState, ctx),
   SomeOnChainHeadState (..),
@@ -290,32 +290,29 @@ fromPostChainTx timeHandle wallet someHeadState tx = do
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
-    -- CommitTx{committed} ->
-    --   assertState cst >>= \st -> either throwIO pure (commit st committed)
-    -- -- TODO: We do not rely on the utxo from the collect com tx here because the
-    -- -- chain head-state is already tracking UTXO entries locked by commit scripts,
-    -- -- and thus, can re-construct the committed UTXO for the collectComTx from
-    -- -- the commits' datums.
-    -- --
-    -- -- Perhaps we do want however to perform some kind of sanity check to ensure
-    -- -- that both states are consistent.
-    -- CollectComTx{} ->
-    --   assertState cst <&> collect
-    -- CloseTx{confirmedSnapshot} ->
-    --   assertState cst >>= \st -> do
-    --     shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-    --     pure (close st confirmedSnapshot shifted)
-    -- ContestTx{confirmedSnapshot} ->
-    --   assertState cst >>= \st -> do
-    --     shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-    --     pure (contest st confirmedSnapshot shifted)
-    -- FanoutTx{utxo} ->
-    --   assertState cst >>= \st -> do
-    --     -- NOTE: It's a bit weird that we inspect the state here, but handling
-    --     -- errors of the possibly failing "time -> slot" conversion is better
-    --     -- done here.
-    --     deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
-    --     pure (fanout st utxo deadlineSlot)
+    (CommitTx{committed}, Initial st) ->
+      either throwIO pure (commit st committed)
+    -- TODO: We do not rely on the utxo from the collect com tx here because the
+    -- chain head-state is already tracking UTXO entries locked by commit scripts,
+    -- and thus, can re-construct the committed UTXO for the collectComTx from
+    -- the commits' datums.
+    --
+    -- Perhaps we do want however to perform some kind of sanity check to ensure
+    -- that both states are consistent.
+    (CollectComTx{}, Initial st) ->
+      pure $ collect st
+    (CloseTx{confirmedSnapshot}, Open st) -> do
+      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+      pure (close st confirmedSnapshot shifted)
+    (ContestTx{confirmedSnapshot}, Closed st) -> do
+      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+      pure (contest st confirmedSnapshot shifted)
+    (FanoutTx{utxo}, Closed st) -> do
+      -- NOTE: It's a bit weird that we inspect the state here, but handling
+      -- errors of the possibly failing "time -> slot" conversion is better
+      -- done here.
+      deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
+      pure (fanout st utxo deadlineSlot)
     (_, _) -> throwIO $ InvalidStateToPost tx
  where
   -- XXX: Might want a dedicated exception type here
