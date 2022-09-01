@@ -67,8 +67,8 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ChainState (Idle),
-  ChainTransition (Init),
+  ChainState (Idle, Initial),
+  ChainTransition (Collect, Commit, Init),
   ClosedState,
   HasKnownUTxO (getKnownUTxO),
   IdleState (..),
@@ -425,21 +425,37 @@ genChainStateWithTx :: Gen (ChainState, Tx, ChainTransition)
 genChainStateWithTx =
   oneof
     [ genInitWithState
-    -- TODO genCommitWithState
-    -- TODO genCollectWithState
+    , genCommitWithState
+    , genCollectWithState
     -- TODO genCloseWithState
     -- TODO genContestWithState
     -- TODO genFanoutWithState
     ]
- where
-  genInitWithState = do
-    ctx <- genHydraContext 3
-    cctx <- pickChainContext ctx
-    seedInput <- genTxIn
-    let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-    pure (Idle $ IdleState cctx, tx, Init)
 
-  genCommitWithState = undefined
+genInitWithState :: Gen (ChainState, Tx, ChainTransition)
+genInitWithState = do
+  ctx <- genHydraContext 3
+  cctx <- pickChainContext ctx
+  seedInput <- genTxIn
+  let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+  pure (Idle $ IdleState cctx, tx, Init)
+
+genCommitWithState :: Gen (ChainState, Tx, ChainTransition)
+genCommitWithState = do
+  ctx <- genHydraContext 3
+  stInitial <- genStInitial ctx
+  utxo <- genCommit
+  let tx = unsafeCommit stInitial utxo
+  pure (Initial stInitial, tx, Commit)
+
+genCollectWithState :: Gen (ChainState, Tx, ChainTransition)
+genCollectWithState = do
+  ctx <- genHydraContextFor 3
+  initTx <- genInitTx ctx
+  commits <- genCommits ctx initTx
+  cctx <- pickChainContext ctx
+  let (_, stInitial) = unsafeObserveInitAndCommits cctx initTx commits
+  pure (Initial stInitial, collect stInitial, Collect)
 
 -- TODO: These forAllXX functions are hard to use and understand. Maybe simple
 -- 'Gen' or functions in 'PropertyM' are better combinable?
