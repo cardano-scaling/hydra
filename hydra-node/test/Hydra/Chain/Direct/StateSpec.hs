@@ -13,12 +13,11 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import qualified Data.ByteString.Lazy as LBS
-import Data.List (elemIndex, intersect, (!!), (\\))
+import Data.List (intersect, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Data.Typeable (eqT)
 import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
@@ -69,19 +68,17 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (Idle),
+  ChainTransition (Init),
   ClosedState,
   HasKnownUTxO (getKnownUTxO),
-  HasTransitions (transitions),
   IdleState (..),
   InitialState (..),
   OpenState,
-  TransitionFrom (TransitionTo),
   abort,
   close,
   collect,
   commit,
   contest,
-  genChainStateWithTx,
   getContestationDeadline,
   getKnownUTxO,
   initialize,
@@ -108,7 +105,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   renderEvaluationReportFailures,
  )
 import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
-import Ouroboros.Consensus.Block (Point, blockPoint, type (:~:) (Refl))
+import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
@@ -137,6 +134,7 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShow,
   label,
+  oneof,
   sized,
   sublistOf,
   tabulate,
@@ -157,10 +155,11 @@ spec :: Spec
 spec = parallel $ do
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $
-      checkCoverage $ -- TODO: use genericCoverTable on some transition type
-        forAll genChainStateWithTx $ \(st, tx) ->
-          isJust (observeAllTx tx st)
-            & counterexample "observeAllTx returned Nothing"
+      checkCoverage $
+        forAll genChainStateWithTx $ \(st, tx, transition) ->
+          genericCoverTable [transition] $
+            isJust (observeAllTx tx st)
+              & counterexample "observeAllTx returned Nothing"
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
@@ -240,7 +239,7 @@ spec = parallel $ do
 
   describe "ChainSyncHandler" $ do
     prop "yields observed transactions rolling forward" $ do
-      forAll genChainStateWithTx $ \(st, tx) -> do
+      forAll genChainStateWithTx $ \(st, tx, _) -> do
         let callback = \case
               Rollback{} ->
                 fail "rolled back but expected roll forward."
@@ -422,60 +421,28 @@ propIsValid forAllTx =
 -- QuickCheck Extras
 --
 
--- TODO: unused
--- XXX: This does not prevent us of not aligning forAll generators with
--- Transition labels. Ideally we would would use the actual states/transactions
--- or observed states/transactions for labeling.
-forAllSt ::
-  (Testable property) =>
-  ( forall from.
-    ( Typeable from
-    , Eq from
-    , Show from
-    , HasKnownUTxO from
-    , HasTransitions from
-    ) =>
-    from ->
-    Tx ->
-    property
-  ) ->
-  Property
-forAllSt action =
-  forAllBlind
-    ( elements
-        [
-          ( forAllInit action
-          , Transition @IdleState (TransitionTo "init" (Proxy @InitialState))
-          )
-        ,
-          ( forAllCommit action
-          , Transition @InitialState (TransitionTo "commit" (Proxy @InitialState))
-          )
-        ,
-          ( forAllAbort action
-          , Transition @InitialState (TransitionTo "abort" (Proxy @IdleState))
-          )
-        ,
-          ( forAllCollectCom action
-          , Transition @InitialState (TransitionTo "collect" (Proxy @OpenState))
-          )
-        ,
-          ( forAllClose action
-          , Transition @OpenState (TransitionTo "close" (Proxy @ClosedState))
-          )
-        ,
-          ( forAllContest action
-          , Transition @ClosedState (TransitionTo "contest" (Proxy @ClosedState))
-          )
-        ,
-          ( forAllFanout action
-          , Transition @ClosedState (TransitionTo "fanout" (Proxy @IdleState))
-          )
-        ]
-    )
-    $ \(p, lbl) ->
-      genericCoverTable [lbl] p
-        & counterexample ("Transition: " <> show lbl)
+genChainStateWithTx :: Gen (ChainState, Tx, ChainTransition)
+genChainStateWithTx =
+  oneof
+    [ genInitWithState
+    -- TODO genCommitWithState
+    -- TODO genCollectWithState
+    -- TODO genCloseWithState
+    -- TODO genContestWithState
+    -- TODO genFanoutWithState
+    ]
+ where
+  genInitWithState = do
+    ctx <- genHydraContext 3
+    cctx <- pickChainContext ctx
+    seedInput <- genTxIn
+    let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+    pure (Idle $ IdleState cctx, tx, Init)
+
+  genCommitWithState = undefined
+
+-- TODO: These forAllXX functions are hard to use and understand. Maybe simple
+-- 'Gen' or functions in 'PropertyM' are better combinable?
 
 forAllInit ::
   (Testable property) =>
@@ -657,43 +624,6 @@ genBlockAt sl txs = do
   adjustSlot (Praos.Header body sig) =
     let body' = body{Praos.hbSlotNo = sl}
      in Praos.Header body' sig
-
---
--- Wrapping Transition for easy labelling
---
-allTransitions :: [Transition]
-allTransitions =
-  mconcat
-    [ Transition <$> transitions @IdleState
-    , Transition <$> transitions @InitialState
-    , Transition <$> transitions @OpenState
-    , Transition <$> transitions @ClosedState
-    ]
-
-data Transition where
-  Transition ::
-    forall from.
-    Typeable from =>
-    TransitionFrom from ->
-    Transition
-deriving instance Typeable Transition
-
-instance Show Transition where
-  show (Transition t) = show t
-
-instance Eq Transition where
-  (Transition (from :: a)) == (Transition (from' :: b)) =
-    case eqT @a @b of
-      Just Refl -> from == from'
-      Nothing -> False
-
-instance Enum Transition where
-  toEnum = (!!) allTransitions
-  fromEnum = fromJust . (`elemIndex` allTransitions)
-
-instance Bounded Transition where
-  minBound = Prelude.head allTransitions
-  maxBound = Prelude.last allTransitions
 
 --
 -- Prettifier

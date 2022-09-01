@@ -179,13 +179,15 @@ instance HasKnownUTxO ChainState where
     Open st -> getKnownUTxO st
     Closed st -> getKnownUTxO st
 
--- TODO: basically Arbitrary ChainState, ensure it covers all cases
-genChainState :: Gen ChainState
-genChainState = undefined
-
--- TODO: an alternative to forAllSt
-genChainStateWithTx :: Gen (ChainState, Tx)
-genChainStateWithTx = undefined
+-- | An enumeration of all transitions. Can be used as labels for checking coverage.
+data ChainTransition
+  = Init
+  | Commit
+  | Collect
+  | Close
+  | Contest
+  | Fanout
+  deriving (Eq, Show, Enum, Bounded)
 
 -- | An existential wrapping /some/ on-chain head state into a value that carry
 -- information about the state except that it 'HasTransitions' and
