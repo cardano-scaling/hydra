@@ -50,7 +50,7 @@ import Hydra.Chain.Direct.State (
   getContestationDeadline,
   getKnownUTxO,
   initialize,
-  observeAllTx,
+  observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block, SomePoint (..))
@@ -223,7 +223,7 @@ chainSyncHandler tracer callback headState =
   withNextTx :: UTCTime -> Point Block -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
   withNextTx now point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
-    case observeAllTx tx (currentChainState st) of
+    case observeSomeTx tx (currentChainState st) of
       Just (onChainTx, st') -> do
         writeTVar headState $
           ChainStateAt

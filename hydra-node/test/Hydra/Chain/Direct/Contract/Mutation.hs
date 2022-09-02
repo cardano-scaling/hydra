@@ -146,7 +146,7 @@ import qualified Data.Set as Set
 import Data.Typeable (typeOf)
 import Hydra.Chain.Direct.Fixture (genForParty, testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.State (ChainState (..), observeAllTx)
+import Hydra.Chain.Direct.State (ChainState (..), observeSomeTx)
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -242,7 +242,7 @@ propTransactionValidates (tx, lookupUTxO) =
 -- properly observe given a configuration.
 propTransactionIsNotObserved :: (Tx, UTxO) -> ChainState -> Property
 propTransactionIsNotObserved (tx, _) st =
-  case observeAllTx tx st of
+  case observeSomeTx tx st of
     Nothing ->
       property True
     Just (onChainTx, st') ->

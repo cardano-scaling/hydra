@@ -359,6 +359,22 @@ fanout st utxo deadlineSlotNo = do
 
 -- * Observing Transitions
 
+-- | Observe a transition without knowing the starting or ending state. This
+-- function should try to observe all relevant transitions given some
+-- 'ChainState'.
+observeSomeTx :: Tx -> ChainState -> Maybe (OnChainTx Tx, ChainState)
+observeSomeTx tx = \case
+  Idle IdleState{ctx} ->
+    second Initial <$> observeInit ctx tx
+  Initial st ->
+    second Initial <$> observeCommit st tx
+      <|> second Idle <$> observeAbort st tx
+      <|> second Open <$> observeCollect st tx
+  Open st -> second Closed <$> observeClose st tx
+  Closed st ->
+    second Closed <$> observeContest st tx
+      <|> second Idle <$> observeFanout st tx
+
 -- ** IdleState transitions
 
 -- | Observe an init transition using a 'InitialState' and 'observeInitTx'.
@@ -525,24 +541,6 @@ observeFanout st tx = do
   pure (OnFanoutTx, IdleState{ctx})
  where
   ClosedState{ctx} = st
-
--- * Observe any transition
-
--- | Observe a transition without knowing the starting or ending state. This
--- function should try to observe all relevant transitions given some
--- 'ChainState'.
-observeAllTx :: Tx -> ChainState -> Maybe (OnChainTx Tx, ChainState)
-observeAllTx tx = \case
-  Idle IdleState{ctx} ->
-    second Initial <$> observeInit ctx tx
-  Initial st ->
-    second Initial <$> observeCommit st tx
-      <|> second Idle <$> observeAbort st tx
-      <|> second Open <$> observeCollect st tx
-  Open st -> second Closed <$> observeClose st tx
-  Closed st ->
-    second Closed <$> observeContest st tx
-      <|> second Idle <$> observeFanout st tx
 
 -- * Helpers
 

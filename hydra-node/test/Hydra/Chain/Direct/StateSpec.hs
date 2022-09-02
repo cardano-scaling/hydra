@@ -83,10 +83,10 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialize,
   observeAbort,
-  observeAllTx,
   observeClose,
   observeCommit,
   observeInit,
+  observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Util (Block)
@@ -160,8 +160,8 @@ spec = parallel $ do
       checkCoverage $
         forAll genChainStateWithTx $ \(st, tx, transition) ->
           genericCoverTable [transition] $
-            isJust (observeAllTx tx st)
-              & counterexample "observeAllTx returned Nothing"
+            isJust (observeSomeTx tx st)
+              & counterexample "observeSomeTx returned Nothing"
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
@@ -248,9 +248,9 @@ spec = parallel $ do
               Observation OnCloseTx{snapshotNumber} ->
                 -- FIXME: Special case for `OnCloseTx` because we don't directly observe the remaining contestation period,
                 -- it's the result of a computation that involves current time
-                fst <$> observeAllTx tx st `shouldBe` Just OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
+                fst <$> observeSomeTx tx st `shouldBe` Just OnCloseTx{snapshotNumber, remainingContestationPeriod = 0}
               Observation onChainTx ->
-                fst <$> observeAllTx tx st `shouldBe` Just onChainTx
+                fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
         forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
           headState <- run $ newTVarIO $ stAtGenesis st
           let handler = chainSyncHandler nullTracer callback headState
