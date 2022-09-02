@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
 module Main where
 
 import Hydra.Prelude
@@ -6,10 +8,10 @@ import Crypto.Random (getRandomBytes)
 import qualified Data.ByteString as BS
 import Hydra.Cardano.Api (
   SigningKey,
-  TxId,
   getVerificationKey,
   serialiseToRawBytes,
  )
+import Hydra.Chain.Direct.Util (markerDatumHash)
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Options.Applicative (
   Parser,
@@ -20,43 +22,50 @@ import Options.Applicative (
   header,
   help,
   helper,
+  hsubparser,
   info,
-  infoOption,
   long,
   metavar,
   progDesc,
   strOption,
-  subparser,
   value,
  )
 import System.FilePath ((<.>))
 
-newtype Options = GenerateKeyPair {outputFile :: FilePath}
+data Options
+  = GenerateKeyPair {outputFile :: FilePath}
+  | OutputMarkerHash
 
-outputFileParser :: Parser Options
+outputFileParser :: Parser FilePath
 outputFileParser =
-  GenerateKeyPair
-    <$> strOption
-      ( long "output-file"
-          <> metavar "FILE"
-          <> value "hydra-key"
-          <> help "Basename of files to generate key-pair into. Signing key will be suffixed '.sk' and verification key '.vk'"
-      )
+  strOption
+    ( long "output-file"
+        <> metavar "FILE"
+        <> value "hydra-key"
+        <> help "Basename of files to generate key-pair into. Signing key will be suffixed '.sk' and verification key '.vk'"
+    )
 
-optionsParser :: Parser Options
-optionsParser =
-  subparser $
-    command
-      "gen-hydra-key"
-      ( info
-          (helper <*> outputFileParser)
-          (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
-      )
+commandsParser :: Parser Options
+commandsParser =
+  hsubparser
+    ( command
+        "gen-hydra-key"
+        ( info
+            (helper <*> (GenerateKeyPair <$> outputFileParser))
+            (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
+        )
+        <> command
+          "marker-hash"
+          ( info
+              (pure OutputMarkerHash)
+              (progDesc "Output the hex-encoded hash of the marker datum used for fuel.")
+          )
+    )
 
 toolsOptions :: ParserInfo Options
 toolsOptions =
   info
-    ( optionsParser
+    ( commandsParser
         <**> helper
     )
     ( fullDesc
@@ -72,3 +81,4 @@ main = do
       sk :: SigningKey HydraKey <- generateSigningKey <$> getRandomBytes 16
       BS.writeFile (outputFile <.> "sk") (serialiseToRawBytes sk)
       BS.writeFile (outputFile <.> "vk") (serialiseToRawBytes $ getVerificationKey sk)
+    OutputMarkerHash -> print markerDatumHash
