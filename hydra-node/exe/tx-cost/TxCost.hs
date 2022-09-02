@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module TxCost where
 
 import Hydra.Prelude hiding (catch)
@@ -8,6 +6,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
+import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   ExecutionUnits (..),
   Lovelace,
@@ -17,23 +16,20 @@ import Hydra.Cardano.Api (
   UTxO,
  )
 import Hydra.Chain.Direct.Context (
-  HydraContext (ctxVerificationKeys),
   ctxHeadParameters,
   ctxHydraSigningKeys,
-  executeCommits,
   genCloseTx,
   genCommits,
   genHydraContext,
   genHydraContextFor,
   genInitTx,
   genStClosed,
-  genStIdle,
-  genStInitialized,
+  genStInitial,
   genStOpen,
-  unsafeObserveTx,
+  pickChainContext,
+  unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.State (
-  HeadStateKind (StClosed),
   abort,
   close,
   collect,
@@ -43,6 +39,7 @@ import Hydra.Chain.Direct.State (
   getContestationDeadline,
   getKnownUTxO,
   initialize,
+  observeClose,
  )
 import Hydra.Ledger.Cardano (
   genOutput,
@@ -79,11 +76,11 @@ computeInitCost = do
 
   genInitTx' numParties = do
     ctx <- genHydraContextFor numParties
-    stIdle <- genStIdle ctx
+    cctx <- pickChainContext ctx
     seedInput <- genTxIn
     seedOutput <- genOutput =<< arbitrary
     let utxo = UTxO.singleton (seedInput, seedOutput)
-    pure (initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle, utxo)
+    pure (initialize cctx (ctxHeadParameters ctx) seedInput, utxo)
 
 computeCommitCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCommitCost = do
@@ -106,8 +103,8 @@ computeCommitCost = do
   genCommitTx utxo = do
     -- NOTE: number of parties is irrelevant for commit tx
     ctx <- genHydraContextFor 1
-    stInitialized <- genStInitialized ctx
-    pure (commit utxo stInitialized, getKnownUTxO stInitialized)
+    stInitial <- genStInitial ctx
+    pure (commit stInitial utxo, getKnownUTxO stInitial)
 
 computeCollectComCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCollectComCost =
@@ -124,10 +121,10 @@ computeCollectComCost =
 
   genCollectComTx numParties = do
     ctx <- genHydraContextFor numParties
+    cctx <- pickChainContext ctx
     initTx <- genInitTx ctx
     commits <- genCommits ctx initTx
-    stIdle <- genStIdle ctx
-    let (_, stInitialized) = executeCommits initTx commits stIdle
+    let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     pure (stInitialized, collect stInitialized)
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
@@ -166,7 +163,7 @@ computeContestCost = do
     (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
     snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (stClosed, contest snapshot pointInTime stClosed)
+    pure (stClosed, contest stClosed snapshot pointInTime)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeAbortCost =
@@ -186,8 +183,8 @@ computeAbortCost =
     ctx <- genHydraContextFor numParties
     initTx <- genInitTx ctx
     commits <- sublistOf =<< genCommits ctx initTx
-    stIdle <- genStIdle ctx
-    let (_, stInitialized) = executeCommits initTx commits stIdle
+    cctx <- pickChainContext ctx
+    let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     pure (abort stInitialized, getKnownUTxO stInitialized)
 
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
@@ -211,10 +208,10 @@ computeFanOutCost = do
     (_committed, stOpen) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
     closePoint <- genPointInTime
-    let closeTx = close snapshot closePoint stOpen
-    let stClosed = snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
+    let closeTx = close stOpen snapshot closePoint
+    let stClosed = snd . fromJust $ observeClose stOpen closeTx
     let deadlineSlotNo = slotNoFromPOSIXTime (getContestationDeadline stClosed)
-    pure (getKnownUTxO stClosed, fanout utxo deadlineSlotNo stClosed)
+    pure (getKnownUTxO stClosed, fanout stClosed utxo deadlineSlotNo)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)

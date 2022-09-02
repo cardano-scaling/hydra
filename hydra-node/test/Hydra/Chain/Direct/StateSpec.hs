@@ -1,9 +1,6 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
--- Fourmolu chokes on type-applications of promoted constructors (e.g.
--- @'StInitialized) and is unable to format properly after that. Hence this
--- option to allow using unticked constructor and save Fourmolu from dying.
-{-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
 
 module Hydra.Chain.Direct.StateSpec where
 
@@ -21,7 +18,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Data.Type.Equality (testEquality, (:~:) (..))
+import Data.Typeable (eqT)
 import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
@@ -38,12 +35,18 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Chain (ChainEvent (..), OnChainTx (OnCloseTx, remainingContestationPeriod), PostTxError (..), snapshotNumber)
+import Hydra.Chain (
+  ChainEvent (..),
+  HeadParameters,
+  OnChainTx (OnCloseTx, remainingContestationPeriod),
+  PostTxError (..),
+  snapshotNumber,
+ )
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
   ctxHeadParameters,
   ctxParties,
-  executeCommits,
+  deriveChainContexts,
   genCloseTx,
   genCommit,
   genCommits,
@@ -51,11 +54,11 @@ import Hydra.Chain.Direct.Context (
   genHydraContext,
   genHydraContextFor,
   genInitTx,
-  genStIdle,
-  genStInitialized,
+  genStInitial,
   genStOpen,
+  pickChainContext,
   unsafeCommit,
-  unsafeObserveTx,
+  unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -63,15 +66,16 @@ import Hydra.Chain.Direct.Handlers (
   SomeOnChainHeadStateAt (..),
   chainSyncHandler,
  )
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (
-  HasTransition (..),
-  HeadStateKind (..),
-  HeadStateKindVal (..),
-  ObserveTx (..),
-  OnChainHeadState,
+  ChainContext (..),
+  ClosedState,
+  HasKnownUTxO (getKnownUTxO),
+  HasTransitions (transitions),
+  IdleState (..),
+  InitialState (..),
+  OpenState,
   SomeOnChainHeadState (..),
-  TransitionFrom (..),
+  TransitionFrom (TransitionTo),
   abort,
   close,
   collect,
@@ -79,8 +83,11 @@ import Hydra.Chain.Direct.State (
   contest,
   getContestationDeadline,
   getKnownUTxO,
-  idleOnChainHeadState,
   initialize,
+  observeAbort,
+  observeClose,
+  observeCommit,
+  observeInit,
   observeSomeTx,
  )
 import Hydra.Chain.Direct.Util (Block)
@@ -100,7 +107,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   renderEvaluationReportFailures,
  )
 import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
-import Ouroboros.Consensus.Block (Point, blockPoint)
+import Ouroboros.Consensus.Block (Point, blockPoint, type (:~:) (Refl))
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
@@ -123,6 +130,7 @@ import Test.QuickCheck (
   classify,
   conjoin,
   counterexample,
+  discard,
   elements,
   forAll,
   forAllBlind,
@@ -142,7 +150,6 @@ import Test.QuickCheck.Monadic (
   monitor,
   run,
  )
-import Type.Reflection (typeOf)
 import qualified Prelude
 
 spec :: Spec
@@ -152,28 +159,28 @@ spec = parallel $ do
       checkCoverage $
         forAllSt $ \st tx ->
           isJust (observeSomeTx tx (SomeOnChainHeadState st))
+            & counterexample "observeSomeTx returned Nothing"
 
   describe "init" $ do
+    propBelowSizeLimit maxTxSize forAllInit
+    -- propIsValid forAllInit XXX: not possible because it spends an "outside" UTxO
+
     prop "is not observed if not invited" $
       forAll2 (genHydraContext 3) (genHydraContext 3) $ \(ctxA, ctxB) ->
         null (ctxParties ctxA `intersect` ctxParties ctxB)
-          ==> forAll2 (genStIdle ctxA) (genStIdle ctxB)
-          $ \(stIdleA, stIdleB) ->
+          ==> forAll2 (pickChainContext ctxA) (pickChainContext ctxB)
+          $ \(cctxA, cctxB) ->
             forAll genTxIn $ \seedInput ->
-              let tx =
-                    initialize
-                      (ctxHeadParameters ctxA)
-                      (ctxVerificationKeys ctxA)
-                      seedInput
-                      stIdleA
-               in isNothing (observeTx @_ @StInitialized tx stIdleB)
+              let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
+               in isNothing (observeInit cctxB tx)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
+    -- propIsValid forAllCommit XXX: not possible because it spends an "outside" UTxO
 
     prop "consumes all inputs that are committed" $
       forAllCommit $ \st tx ->
-        case observeTx @_ @StInitialized tx st of
+        case observeCommit st tx of
           Just (_, st') ->
             let knownInputs = UTxO.inputSet (getKnownUTxO st')
              in knownInputs `Set.disjoint` txInputSet tx
@@ -182,9 +189,9 @@ spec = parallel $ do
 
     prop "can only be applied / observed once" $
       forAllCommit $ \st tx ->
-        case observeTx @_ @StInitialized tx st of
+        case observeCommit st tx of
           Just (_, st') ->
-            case observeTx @_ @StInitialized tx st' of
+            case observeCommit st' tx of
               Just{} -> False
               Nothing -> True
           Nothing ->
@@ -201,13 +208,14 @@ spec = parallel $ do
 
     prop "ignore aborts of other heads" $ do
       let twoDistinctHeads = do
-            ctx <- genHydraContext 1
-            st1 <- genStInitialized ctx
-            st2 <- genStInitialized ctx -- TODO: ensure they are distinct
+            ctx <- genHydraContext 3
+            st1@InitialState{initialHeadId = h1} <- genStInitial ctx
+            st2@InitialState{initialHeadId = h2} <- genStInitial ctx
+            when (h1 == h2) discard
             pure (st1, st2)
       forAll twoDistinctHeads $ \(stHead1, stHead2) ->
-        let observedIn1 = observeTx @StInitialized @StIdle (abort stHead1) stHead1
-            observedIn2 = observeTx @StInitialized @StIdle (abort stHead1) stHead2
+        let observedIn1 = observeAbort stHead1 (abort stHead1)
+            observedIn2 = observeAbort stHead2 (abort stHead1)
          in conjoin
               [ observedIn1 =/= Nothing
               , observedIn2 === Nothing
@@ -308,21 +316,17 @@ genRollbackPoint blks = do
 -- to observe at least one state transition and different levels of rollback.
 genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadStateAt, [Block])
 genSequenceOfObservableBlocks = do
-  scriptRegistry <- genScriptRegistry
   ctx <- genHydraContext 3
-
   -- NOTE: commits must be generated from each participant POV, and thus, we
-  -- need all their respective StIdle to move on.
-  let stIdles = flip map (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) ->
-        let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
-         in idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p scriptRegistry
-
-  stIdle <- elements stIdles
+  -- need all their respective ChainContext to move on.
+  allContexts <- deriveChainContexts ctx
+  -- Pick a peer context which will perform the init
+  cctx <- elements allContexts
   blks <- flip execStateT [] $ do
-    initTx <- stepInit ctx stIdle
-    void $ stepCommits ctx initTx stIdles
+    initTx <- stepInit cctx (ctxHeadParameters ctx)
+    void $ stepCommits initTx (map IdleState allContexts)
 
-  pure (stAtGenesis (SomeOnChainHeadState stIdle), reverse blks)
+  pure (stAtGenesis (SomeOnChainHeadState IdleState{ctx = cctx}), reverse blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
   nextSlot = do
@@ -337,36 +341,34 @@ genSequenceOfObservableBlocks = do
     modify' (blk :)
 
   stepInit ::
-    HydraContext ->
-    OnChainHeadState StIdle ->
+    ChainContext ->
+    HeadParameters ->
     StateT [Block] Gen Tx
-  stepInit ctx stIdle = do
-    txIn <- lift genTxIn
-    let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) txIn stIdle
+  stepInit ctx params = do
+    initTx <- lift $ initialize ctx params <$> genTxIn
     initTx <$ putNextBlock initTx
 
   stepCommits ::
-    HydraContext ->
     Tx ->
-    [OnChainHeadState 'StIdle] ->
-    StateT [Block] Gen [OnChainHeadState 'StInitialized]
-  stepCommits ctx initTx = \case
+    [IdleState] ->
+    StateT [Block] Gen [InitialState]
+  stepCommits initTx = \case
     [] ->
       pure []
     stIdle : rest -> do
       stInitialized <- stepCommit initTx stIdle
-      (stInitialized :) <$> stepCommits ctx initTx rest
+      (stInitialized :) <$> stepCommits initTx rest
 
   stepCommit ::
     Tx ->
-    OnChainHeadState 'StIdle ->
-    StateT [Block] Gen (OnChainHeadState 'StInitialized)
-  stepCommit initTx stIdle = do
-    let (_, stInitialized) = unsafeObserveTx @_ @StInitialized initTx stIdle
+    IdleState ->
+    StateT [Block] Gen InitialState
+  stepCommit initTx IdleState{ctx} = do
+    let (_, stInitial) = fromJust $ observeInit ctx initTx
     utxo <- lift genCommit
-    let commitTx = unsafeCommit utxo stInitialized
+    let commitTx = unsafeCommit stInitial utxo
     putNextBlock commitTx
-    pure $ snd $ unsafeObserveTx @_ @StInitialized commitTx stInitialized
+    pure $ snd $ fromJust $ observeCommit stInitial commitTx
 
 stAtGenesis :: SomeOnChainHeadState -> SomeOnChainHeadStateAt
 stAtGenesis currentOnChainHeadState =
@@ -380,9 +382,8 @@ stAtGenesis currentOnChainHeadState =
 --
 
 propBelowSizeLimit ::
-  forall st.
   Natural ->
-  ((OnChainHeadState st -> Tx -> Property) -> Property) ->
+  ((a -> Tx -> Property) -> Property) ->
   SpecWith ()
 propBelowSizeLimit txSizeLimit forAllTx =
   prop ("transaction size is below " <> showKB txSizeLimit) $
@@ -398,8 +399,8 @@ propBelowSizeLimit txSizeLimit forAllTx =
 
 -- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionValidates?
 propIsValid ::
-  forall st.
-  ((OnChainHeadState st -> Tx -> Property) -> Property) ->
+  HasKnownUTxO a =>
+  ((a -> Tx -> Property) -> Property) ->
   SpecWith ()
 propIsValid forAllTx =
   prop "validates within maxTxExecutionUnits" $
@@ -420,75 +421,87 @@ propIsValid forAllTx =
 -- QuickCheck Extras
 --
 
--- XXX: This is very fancy, but does not prevent us of not aligning forAll
--- generators with Transition labels. Ideally we would would use the actual
--- states/transactions or observed states/transactions for labeling.
+-- XXX: This does not prevent us of not aligning forAll generators with
+-- Transition labels. Ideally we would would use the actual states/transactions
+-- or observed states/transactions for labeling.
 forAllSt ::
   (Testable property) =>
-  (forall st. (HasTransition st) => OnChainHeadState st -> Tx -> property) ->
+  ( forall from.
+    ( Typeable from
+    , Eq from
+    , Show from
+    , HasKnownUTxO from
+    , HasTransitions from
+    ) =>
+    from ->
+    Tx ->
+    property
+  ) ->
   Property
 forAllSt action =
   forAllBlind
     ( elements
         [
           ( forAllInit action
-          , Transition @ 'StIdle (TransitionTo (Proxy @ 'StInitialized))
+          , Transition @IdleState (TransitionTo "init" (Proxy @InitialState))
           )
         ,
           ( forAllCommit action
-          , Transition @ 'StInitialized (TransitionTo (Proxy @ 'StInitialized))
+          , Transition @InitialState (TransitionTo "commit" (Proxy @InitialState))
           )
         ,
           ( forAllAbort action
-          , Transition @ 'StInitialized (TransitionTo (Proxy @ 'StIdle))
+          , Transition @InitialState (TransitionTo "abort" (Proxy @IdleState))
           )
         ,
           ( forAllCollectCom action
-          , Transition @ 'StInitialized (TransitionTo (Proxy @ 'StOpen))
+          , Transition @InitialState (TransitionTo "collect" (Proxy @OpenState))
           )
         ,
           ( forAllClose action
-          , Transition @ 'StOpen (TransitionTo (Proxy @ 'StClosed))
+          , Transition @OpenState (TransitionTo "close" (Proxy @ClosedState))
           )
         ,
           ( forAllContest action
-          , Transition @ 'StClosed (TransitionTo (Proxy @ 'StClosed))
+          , Transition @ClosedState (TransitionTo "contest" (Proxy @ClosedState))
           )
         ,
           ( forAllFanout action
-          , Transition @ 'StClosed (TransitionTo (Proxy @ 'StIdle))
+          , Transition @ClosedState (TransitionTo "fanout" (Proxy @IdleState))
           )
         ]
     )
-    (\(p, lbl) -> genericCoverTable [lbl] p)
+    $ \(p, lbl) ->
+      genericCoverTable [lbl] p
+        & counterexample ("Transition: " <> show lbl)
 
 forAllInit ::
   (Testable property) =>
-  (OnChainHeadState 'StIdle -> Tx -> property) ->
+  (IdleState -> Tx -> property) ->
   Property
 forAllInit action =
-  forAll (genHydraContext 3) $ \ctx ->
-    forAll (genStIdle ctx) $ \stIdle ->
+  forAllBlind (genHydraContext 3) $ \ctx ->
+    forAll (pickChainContext ctx) $ \cctx -> do
       forAll genTxIn $ \seedInput -> do
-        let tx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
-         in action stIdle tx
+        let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+         in action (IdleState cctx) tx
               & classify
-                (length (ctxParties ctx) == 1)
+                (length (peerVerificationKeys cctx) == 0)
                 "1 party"
               & classify
-                (length (ctxParties ctx) > 1)
+                (length (peerVerificationKeys cctx) > 0)
                 "2+ parties"
 
 forAllCommit ::
   (Testable property) =>
-  (OnChainHeadState 'StInitialized -> Tx -> property) ->
+  (InitialState -> Tx -> property) ->
   Property
 forAllCommit action = do
   forAll (genHydraContext 3) $ \ctx ->
-    forAll (genStInitialized ctx) $ \stInitialized ->
+    forAll (genStInitial ctx) $ \stInitial ->
       forAllShow genCommit renderUTxO $ \utxo ->
-        let tx = unsafeCommit utxo stInitialized
-         in action stInitialized tx
+        let tx = unsafeCommit stInitial utxo
+         in action stInitial tx
               & classify
                 (null utxo)
                 "Empty commit"
@@ -502,22 +515,22 @@ forAllNonEmptyByronCommit ::
   Property
 forAllNonEmptyByronCommit action = do
   forAll (genHydraContext 3) $ \ctx ->
-    forAll (genStInitialized ctx) $ \stInitialized ->
+    forAll (genStInitial ctx) $ \stInitial ->
       forAllShow genByronCommit renderUTxO $ \utxo ->
-        case commit utxo stInitialized of
+        case commit stInitial utxo of
           Right{} -> property False
           Left e -> action e
 
 forAllAbort ::
   (Testable property) =>
-  (OnChainHeadState 'StInitialized -> Tx -> property) ->
+  (InitialState -> Tx -> property) ->
   Property
 forAllAbort action = do
   forAll (genHydraContext 3) $ \ctx ->
-    forAll (genStIdle ctx) $ \stIdle ->
+    forAll (pickChainContext ctx) $ \cctx ->
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
-          let (_, stInitialized) = executeCommits initTx commits stIdle
+          let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
            in action stInitialized (abort stInitialized)
                 & classify
                   (null commits)
@@ -531,7 +544,7 @@ forAllAbort action = do
 
 forAllCollectCom ::
   (Testable property) =>
-  (OnChainHeadState 'StInitialized -> Tx -> property) ->
+  (InitialState -> Tx -> property) ->
   Property
 forAllCollectCom action =
   forAllBlind genCollectComTx $ \(committedUTxO, stInitialized, tx) ->
@@ -542,13 +555,13 @@ forAllCollectCom action =
     ctx <- genHydraContextFor 3
     initTx <- genInitTx ctx
     commits <- genCommits ctx initTx
-    stIdle <- genStIdle ctx
-    let (committedUTxO, stInitialized) = executeCommits initTx commits stIdle
+    cctx <- pickChainContext ctx
+    let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     pure (committedUTxO, stInitialized, collect stInitialized)
 
 forAllClose ::
   (Testable property) =>
-  (OnChainHeadState 'StOpen -> Tx -> property) ->
+  (OpenState -> Tx -> property) ->
   Property
 forAllClose action = do
   -- FIXME: we should not hardcode number of parties but generate it within bounds
@@ -558,7 +571,7 @@ forAllClose action = do
 
 forAllContest ::
   (Testable property) =>
-  (OnChainHeadState 'StClosed -> Tx -> property) ->
+  (ClosedState -> Tx -> property) ->
   Property
 forAllContest action =
   forAllBlind genContestTx $ \(HydraContext{ctxContestationPeriod}, closePointInTime, stClosed, tx) ->
@@ -595,16 +608,16 @@ forAllContest action =
     (u0, stOpen) <- genStOpen ctx
     confirmed <- genConfirmedSnapshot 0 u0 []
     closePointInTime <- genPointInTime
-    let closeTx = close confirmed closePointInTime stOpen
-    let stClosed = snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
+    let closeTx = close stOpen confirmed closePointInTime
+    let stClosed = snd $ fromJust $ observeClose stOpen closeTx
     utxo <- arbitrary
     contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
     contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (ctx, closePointInTime, stClosed, contest contestSnapshot contestPointInTime stClosed)
+    pure (ctx, closePointInTime, stClosed, contest stClosed contestSnapshot contestPointInTime)
 
 forAllFanout ::
   (Testable property) =>
-  (OnChainHeadState 'StClosed -> Tx -> property) ->
+  (ClosedState -> Tx -> property) ->
   Property
 forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
@@ -646,21 +659,20 @@ genBlockAt sl txs = do
 --
 -- Wrapping Transition for easy labelling
 --
-
 allTransitions :: [Transition]
 allTransitions =
   mconcat
-    [ Transition <$> transitions (Proxy @ 'StIdle)
-    , Transition <$> transitions (Proxy @ 'StInitialized)
-    , Transition <$> transitions (Proxy @ 'StOpen)
-    , Transition <$> transitions (Proxy @ 'StClosed)
+    [ Transition <$> transitions @IdleState
+    , Transition <$> transitions @InitialState
+    , Transition <$> transitions @OpenState
+    , Transition <$> transitions @ClosedState
     ]
 
 data Transition where
   Transition ::
-    forall (st :: HeadStateKind).
-    (HeadStateKindVal st, Typeable st) =>
-    TransitionFrom st ->
+    forall from.
+    Typeable from =>
+    TransitionFrom from ->
     Transition
 deriving instance Typeable Transition
 
@@ -668,8 +680,8 @@ instance Show Transition where
   show (Transition t) = show t
 
 instance Eq Transition where
-  (Transition from) == (Transition from') =
-    case testEquality (typeOf from) (typeOf from') of
+  (Transition (from :: a)) == (Transition (from' :: b)) =
+    case eqT @a @b of
       Just Refl -> from == from'
       Nothing -> False
 
@@ -694,7 +706,7 @@ showRollbackInfo (rollbackDepth, rollbackPoint) =
       ]
 
 showStateRecordedAt :: SomeOnChainHeadStateAt -> Text
-showStateRecordedAt SomeOnChainHeadStateAt{recordedAt} =
+showStateRecordedAt SomeOnChainHeadStateAt{recordedAt, currentOnChainHeadState} =
   case recordedAt of
-    AtStart -> "Start"
-    AtPoint pt _ -> show pt
+    AtStart -> "AtStart " <> show currentOnChainHeadState
+    AtPoint pt _ -> "AtPoint " <> show pt <> " " <> show currentOnChainHeadState

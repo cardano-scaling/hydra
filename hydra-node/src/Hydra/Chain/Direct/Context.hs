@@ -1,10 +1,9 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Chain.Direct.Context where
 
 import Hydra.Prelude
 
 import Data.List ((\\))
+import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   NetworkId (..),
   NetworkMagic (..),
@@ -17,25 +16,32 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (
-  HeadStateKind (..),
-  ObserveTx,
-  OnChainHeadState,
+  ChainContext (..),
+  ClosedState,
+  InitialState,
+  OpenState,
   close,
   collect,
   commit,
   fanout,
   getContestationDeadline,
-  idleOnChainHeadState,
   initialize,
-  observeTx,
+  observeClose,
+  observeCollect,
+  observeCommit,
+  observeInit,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, generateSigningKey)
-import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey, renderTx)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTime, slotNoFromPOSIXTime)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
 import Test.QuickCheck (choose, elements, frequency, vector)
+
+-- TODO: Move this to test code as it assumes global knowledge
+-- (ctxHydraSigningKeys). Also all of these functions are "unsafe" and fail on
+-- not matching assumptions
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -86,45 +92,61 @@ genHydraContextFor n = do
       , ctxContestationPeriod
       }
 
-genStIdle ::
-  HydraContext ->
-  Gen (OnChainHeadState 'StIdle)
-genStIdle ctx@HydraContext{ctxVerificationKeys, ctxNetworkId} = do
-  ownParty <- elements (ctxParties ctx)
-  ownVerificationKey <- elements ctxVerificationKeys
-  let peerVerificationKeys = ctxVerificationKeys \\ [ownVerificationKey]
+-- | Get all peer-specific 'ChainContext's from a 'HydraContext'. NOTE: This
+-- assumes that 'HydraContext' has same length 'ctxVerificationKeys' and
+-- 'ctxHydraSigningKeys'.
+deriveChainContexts :: HydraContext -> Gen [ChainContext]
+deriveChainContexts ctx = do
   scriptRegistry <- genScriptRegistry
-  pure $ idleOnChainHeadState ctxNetworkId peerVerificationKeys ownVerificationKey ownParty scriptRegistry
+  pure $
+    flip map (zip ctxVerificationKeys allParties) $ \(vk, p) ->
+      ChainContext
+        { networkId = ctxNetworkId
+        , peerVerificationKeys = ctxVerificationKeys \\ [vk]
+        , ownVerificationKey = vk
+        , ownParty = p
+        , scriptRegistry
+        }
+ where
+  allParties = ctxParties ctx
 
-genStInitialized ::
+  HydraContext
+    { ctxVerificationKeys
+    , ctxNetworkId
+    } = ctx
+
+-- | Pick one of the participants and derive the peer-specific 'ChainContext'
+-- from a 'HydraContext'. NOTE: This assumes that 'HydraContext' has same length
+-- 'ctxVerificationKeys' and 'ctxHydraSigningKeys'.
+pickChainContext :: HydraContext -> Gen ChainContext
+pickChainContext ctx =
+  deriveChainContexts ctx >>= elements
+
+genStInitial ::
   HydraContext ->
-  Gen (OnChainHeadState 'StInitialized)
-genStInitialized ctx = do
-  stIdle <- genStIdle ctx
+  Gen InitialState
+genStInitial ctx = do
   seedInput <- genTxIn
-  let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
-  pure $ snd $ unsafeObserveTx @_ @ 'StInitialized initTx stIdle
+  cctx <- pickChainContext ctx
+  let initTx = initialize cctx (ctxHeadParameters ctx) seedInput
+  pure . snd . fromJust $ observeInit cctx initTx
 
 genInitTx ::
   HydraContext ->
   Gen Tx
-genInitTx ctx =
-  initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx)
-    <$> genTxIn
-    <*> genStIdle ctx
+genInitTx ctx = do
+  cctx <- pickChainContext ctx
+  initialize cctx (ctxHeadParameters ctx) <$> genTxIn
 
 genCommits ::
   HydraContext ->
   Tx ->
   Gen [Tx]
 genCommits ctx initTx = do
-  forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
-    let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
-    scriptRegistry <- genScriptRegistry
-    let stIdle = idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p scriptRegistry
-    let (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
-    utxo <- genCommit
-    pure $ unsafeCommit utxo stInitialized
+  allChainContexts <- deriveChainContexts ctx
+  forM allChainContexts $ \cctx -> do
+    let (_, stInitial) = fromJust $ observeInit cctx initTx
+    unsafeCommit stInitial <$> genCommit
 
 genCommit :: Gen UTxO
 genCommit =
@@ -133,36 +155,37 @@ genCommit =
     , (10, genVerificationKey >>= genOneUTxOFor)
     ]
 
-genCloseTx :: Int -> Gen (OnChainHeadState 'StOpen, Tx, ConfirmedSnapshot Tx)
+genCloseTx :: Int -> Gen (OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen) <- genStOpen ctx
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
   pointInTime <- genPointInTime
-  pure (stOpen, close snapshot pointInTime stOpen, snapshot)
+  pure (stOpen, close stOpen snapshot pointInTime, snapshot)
 
-genFanoutTx :: Int -> Int -> Gen (OnChainHeadState 'StClosed, Tx)
+genFanoutTx :: Int -> Int -> Gen (ClosedState, Tx)
 genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
   utxo <- genUTxOAdaOnlyOfSize numOutputs
   (_, toFanout, stClosed) <- genStClosed ctx utxo
   let deadlineSlotNo = slotNoFromPOSIXTime (getContestationDeadline stClosed)
-  pure (stClosed, fanout toFanout deadlineSlotNo stClosed)
+  pure (stClosed, fanout stClosed toFanout deadlineSlotNo)
 
 genStOpen ::
   HydraContext ->
-  Gen (UTxO, OnChainHeadState 'StOpen)
+  Gen (UTxO, OpenState)
 genStOpen ctx = do
   initTx <- genInitTx ctx
   commits <- genCommits ctx initTx
-  (committed, stInitialized) <- executeCommits initTx commits <$> genStIdle ctx
-  let collectComTx = collect stInitialized
-  pure (fold committed, snd $ unsafeObserveTx @_ @ 'StOpen collectComTx stInitialized)
+  cctx <- pickChainContext ctx
+  let (committed, stInitial) = unsafeObserveInitAndCommits cctx initTx commits
+  let collectComTx = collect stInitial
+  pure (fold committed, snd . fromJust $ observeCollect stInitial collectComTx)
 
 genStClosed ::
   HydraContext ->
   UTxO ->
-  Gen (SnapshotNumber, UTxO, OnChainHeadState 'StClosed)
+  Gen (SnapshotNumber, UTxO, ClosedState)
 genStClosed ctx utxo = do
   (u0, stOpen) <- genStOpen ctx
   confirmed <- arbitrary
@@ -178,50 +201,34 @@ genStClosed ctx utxo = do
           , utxo
           )
   pointInTime <- genPointInTime
-  let closeTx = close snapshot pointInTime stOpen
-  pure (sn, toFanout, snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen)
+  let closeTx = close stOpen snapshot pointInTime
+  pure (sn, toFanout, snd . fromJust $ observeClose stOpen closeTx)
 
 --
 -- Here be dragons
 --
 
-unsafeObserveTx ::
-  forall st st'.
-  (ObserveTx st st', HasCallStack) =>
-  Tx ->
-  OnChainHeadState st ->
-  (OnChainTx Tx, OnChainHeadState st')
-unsafeObserveTx tx st =
-  fromMaybe (error hopefullyInformativeMessage) (observeTx @st @st' tx st)
- where
-  hopefullyInformativeMessage =
-    "unsafeObserveTx:"
-      <> "\n  From:\n    "
-      <> show st
-      <> "\n  Via:\n    "
-      <> renderTx tx
-
 unsafeCommit ::
   HasCallStack =>
+  InitialState ->
   UTxO ->
-  OnChainHeadState 'StInitialized ->
   Tx
-unsafeCommit u =
-  either (error . show) id . commit u
+unsafeCommit st u =
+  either (error . show) id $ commit st u
 
-executeCommits ::
+unsafeObserveInitAndCommits ::
+  ChainContext ->
   Tx ->
   [Tx] ->
-  OnChainHeadState 'StIdle ->
-  ([UTxO], OnChainHeadState 'StInitialized)
-executeCommits initTx commits stIdle =
-  (utxo, stInitialized')
+  ([UTxO], InitialState)
+unsafeObserveInitAndCommits ctx initTx commits =
+  (utxo, stInitial')
  where
-  (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
-  (utxo, stInitialized') = flip runState stInitialized $ do
+  (_, stInitial) = fromJust $ observeInit ctx initTx
+  (utxo, stInitial') = flip runState stInitial $ do
     forM commits $ \commitTx -> do
       st <- get
-      let (event, st') = unsafeObserveTx @_ @ 'StInitialized commitTx st
+      let (event, st') = fromJust $ observeCommit st commitTx
       put st'
       pure $ case event of
         OnCommitTx{committed} -> committed

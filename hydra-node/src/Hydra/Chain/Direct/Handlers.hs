@@ -21,10 +21,8 @@ import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   LedgerEra,
-  PaymentKey,
   SlotNo,
   Tx,
-  VerificationKey,
   fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
@@ -40,9 +38,11 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
+  ClosedState (ClosedState),
+  IdleState (IdleState, ctx),
   SomeOnChainHeadState (..),
-  TokHeadState (..),
   abort,
+  castHeadState,
   close,
   collect,
   commit,
@@ -52,7 +52,6 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialize,
   observeSomeTx,
-  reifyState,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block, SomePoint (..))
@@ -91,30 +90,28 @@ mkChain ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
   m TimeHandle ->
-  [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle cardanoKeys wallet headState submitTx =
+mkChain tracer queryTimeHandle wallet headState submitTx =
   Chain
     { postTx = \tx -> do
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
         vtx <-
           atomically
-            ( -- FIXME (MB): 'cardanoKeys' should really not be here. They
-              -- are only required for the init transaction and ought to
+            ( -- FIXME (MB): cardano keys should really not be here (as this
+              -- point they are in the 'headState' stored in the 'ChainContext')
+              -- . They are only required for the init transaction and ought to
               -- come from the _client_ and be part of the init request
-              -- altogether. This goes in the direction of 'dynamic
-              -- heads' where participants aren't known upfront but
-              -- provided via the API. Ultimately, an init request from
-              -- a client would contain all the details needed to
-              -- establish connection to the other peers and to
-              -- bootstrap the init transaction.
-              -- For now, we bear with it and keep the static keys in
-              -- context.
-              fromPostChainTx timeHandle cardanoKeys wallet headState tx
+              -- altogether. This goes in the direction of 'dynamic heads' where
+              -- participants aren't known upfront but provided via the API.
+              -- Ultimately, an init request from a client would contain all the
+              -- details needed to establish connection to the other peers and
+              -- to bootstrap the init transaction. For now, we bear with it and
+              -- keep the static keys in context.
+              fromPostChainTx timeHandle wallet headState tx
                 >>= finalizeTx wallet headState . toLedgerTx
             )
         submitTx vtx
@@ -228,7 +225,7 @@ chainSyncHandler tracer callback headState =
   withNextTx now point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
     case observeSomeTx tx (currentOnChainHeadState st) of
-      Just (onChainTx, st'@(SomeOnChainHeadState nextState)) -> do
+      Just (onChainTx, st') -> do
         writeTVar headState $
           SomeOnChainHeadStateAt
             { currentOnChainHeadState = st'
@@ -236,9 +233,9 @@ chainSyncHandler tracer callback headState =
             }
         -- FIXME: The right thing to do is probably to decouple the observation from the
         -- transformation into an `OnChainTx`
-        let event = case (onChainTx, reifyState nextState) of
-              (OnCloseTx{snapshotNumber}, TkClosed) ->
-                let remainingTimeWithBuffer = 1 + diffUTCTime (posixToUTCTime $ getContestationDeadline nextState) now
+        let event = case (onChainTx, castHeadState st') of
+              (OnCloseTx{snapshotNumber}, Just closedSt@ClosedState{}) ->
+                let remainingTimeWithBuffer = 1 + diffUTCTime (posixToUTCTime $ getContestationDeadline closedSt) now
                  in OnCloseTx{snapshotNumber, remainingContestationPeriod = remainingTimeWithBuffer}
               _ -> onChainTx
         pure $ event : observed
@@ -272,28 +269,28 @@ closeGraceTime = 100
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
-  [VerificationKey PaymentKey] ->
   TinyWallet m ->
   TVar m SomeOnChainHeadStateAt ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx timeHandle cardanoKeys wallet someHeadState tx = do
+fromPostChainTx timeHandle wallet someHeadState tx = do
   pointInTime <- throwLeft currentPointInTime
-  SomeOnChainHeadState st <- currentOnChainHeadState <$> readTVar someHeadState
-  case (tx, reifyState st) of
-    (InitTx params, TkIdle) -> do
-      getFuelUTxO wallet >>= \case
-        Just (fromLedgerTxIn -> seedInput, _) -> do
-          pure $ initialize params cardanoKeys seedInput st
-        Nothing ->
-          throwIO (NoSeedInput @Tx)
-    (AbortTx{}, TkInitialized) -> do
-      pure (abort st)
+  cst <- currentOnChainHeadState <$> readTVar someHeadState
+  case tx of
+    InitTx params ->
+      assertState cst >>= \IdleState{ctx} ->
+        getFuelUTxO wallet >>= \case
+          Just (fromLedgerTxIn -> seedInput, _) -> do
+            pure $ initialize ctx params seedInput
+          Nothing ->
+            throwIO (NoSeedInput @Tx)
+    AbortTx{} ->
+      assertState cst <&> abort
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
-    (CommitTx{committed}, TkInitialized) -> do
-      either throwIO pure (commit committed st)
+    CommitTx{committed} ->
+      assertState cst >>= \st -> either throwIO pure (commit st committed)
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from
@@ -301,27 +298,34 @@ fromPostChainTx timeHandle cardanoKeys wallet someHeadState tx = do
     --
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
-    (CollectComTx{}, TkInitialized) -> do
-      pure (collect st)
-    (CloseTx{confirmedSnapshot}, TkOpen) -> do
-      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (close confirmedSnapshot shifted st)
-    (ContestTx{confirmedSnapshot}, TkClosed) -> do
-      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (contest confirmedSnapshot shifted st)
-    (FanoutTx{utxo}, TkClosed) -> do
-      -- NOTE: It's a bit weird that we inspect the state here, but handling
-      -- errors around while we want the possibly failing "time -> slot"
-      -- conversion to be done here is not prettier.
-      deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
-      pure (fanout utxo deadlineSlot st)
-    (_, _) ->
-      throwIO $ InvalidStateToPost tx
+    CollectComTx{} ->
+      assertState cst <&> collect
+    CloseTx{confirmedSnapshot} ->
+      assertState cst >>= \st -> do
+        shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+        pure (close st confirmedSnapshot shifted)
+    ContestTx{confirmedSnapshot} ->
+      assertState cst >>= \st -> do
+        shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+        pure (contest st confirmedSnapshot shifted)
+    FanoutTx{utxo} ->
+      assertState cst >>= \st -> do
+        -- NOTE: It's a bit weird that we inspect the state here, but handling
+        -- errors of the possibly failing "time -> slot" conversion is better
+        -- done here.
+        deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
+        pure (fanout st utxo deadlineSlot)
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure
 
   TimeHandle{currentPointInTime, adjustPointInTime, slotFromPOSIXTime} = timeHandle
+
+  assertState :: (Typeable a, MonadThrow m) => SomeOnChainHeadState -> m a
+  assertState st =
+    case castHeadState st of
+      Nothing -> throwIO $ InvalidStateToPost tx
+      Just x -> pure x
 
 --
 -- Helpers
