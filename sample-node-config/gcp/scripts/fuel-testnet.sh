@@ -20,16 +20,15 @@ sk=${2}
 amount=${3}
 [ -n "${amount}" ] || (echo "Missing argument: amoung of LOVELACE" && usage)
 
-magic=$(cat ${testnetDir}/db/protocolMagicId)
 export  CARDANO_NODE_SOCKET_PATH="${testnetDir}/node.socket"
-
-
 echo "Wait for socket to appear ${CARDANO_NODE_SOCKET_PATH}"
 
-while ! [[ -s "${CARDANO_NODE_SOCKET_PATH}" ]]; do
+while ! [[ -S "${CARDANO_NODE_SOCKET_PATH}" ]]; do
   echo -n '.'
   sleep 1
 done
+
+magic=$(cat ${testnetDir}/db/protocolMagicId)
 
 # Invoke cardano-cli in running cardano-node container or via provided cardano-cli
 function ccli() {
@@ -57,7 +56,22 @@ utxo=$(ccli query utxo \
     --address ${addr} \
     --out-file /dev/stdout)
 totalLovelace=$(echo ${utxo} | jq -r 'reduce .[] as $item (0; . + $item.value.lovelace)')
-[ ${totalLovelace} -eq 0 ] && echo "Error: insufficient funds" && exit 1
+countdown=30
+
+echo "Waiting for funds to appear at address ${addr}"
+
+while [[ ${totalLovelace} -eq 0 ]] && [[ ${countdown} -gt 0 ]]; do
+  sleep 5
+  utxo=$(ccli query utxo \
+              --cardano-mode --epoch-slots 21600 \
+              --testnet-magic ${magic} \
+              --address ${addr} \
+              --out-file /dev/stdout)
+  totalLovelace=$(echo ${utxo} | jq -r 'reduce .[] as $item (0; . + $item.value.lovelace)')
+  countdown=$((countdown - 1))
+done
+
+[[ ${countdown} -eq 0 ]] && echo "Error: insufficient funds" && exit 1
 
 entries=$(echo ${utxo} | jq "to_entries|sort_by(.value.value.lovelace)|last")
 input=$(echo ${entries} | jq '.key' | tr -d '"')
