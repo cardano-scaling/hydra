@@ -66,6 +66,20 @@ services:
       - .:/data:ro
       - ./devnet:/devnet
 
+  hydraw:
+    image: ghcr.io/input-output-hk/hydraw:latest
+    profiles:
+      - hydraw
+    entrypoint:
+      [ "hydraw" ]
+    environment:
+      - HYDRA_SIGNING_KEY=/data/arnaud.sk
+      - HYDRA_API_HOST=hydra-node:4001
+    volumes:
+      - .:/data:ro
+    ports:
+      - "8000:1337"
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
