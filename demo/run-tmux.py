@@ -7,7 +7,7 @@ import time
 
 if not os.path.exists('demo'):
     raise Exception(
-        'Plase navigate to the root directory of the hydra-poc project'
+        'Please navigate to the root directory of the hydra-poc project'
     )
 
 os.chdir('demo')
