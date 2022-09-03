@@ -36,7 +36,7 @@ mithril_client restore $SNAPSHOT
 
 # TODO: set env variable containing path to restored DB
 # run docker
-docker-compose up -d
+docker-compose --profile hydraw up -d
 
 # create marker utxo
 chmod +x ./fuel-testnet.sh

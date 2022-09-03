@@ -4,7 +4,7 @@ resource "google_compute_firewall" "hydra-node-network-fw" {
 
   allow {
     protocol = "tcp"
-    ports    = ["22", "5001", "4001"]
+    ports    = ["22", "5001", "4001", "80", "443"]
   }
 
   source_ranges = ["0.0.0.0/0"]

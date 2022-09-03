@@ -78,7 +78,7 @@ services:
     volumes:
       - .:/data:ro
     ports:
-      - "8000:1337"
+      - "80:1337"
 
   prometheus:
     image: prom/prometheus:latest
