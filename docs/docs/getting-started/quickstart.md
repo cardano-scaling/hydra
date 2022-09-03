@@ -50,7 +50,7 @@ There are however plans to make the configuration more user-friendly and configu
 
 ### Cardano Keys
 
-The previous section describes the various options and elements needed to setup a Hydra node. In this section, we'll show how to obtain some of those elements. First, let's start with the Cardano keys (`--cardano-signing-key` and `--cardano-verification-key`). 
+The previous section describes the various options and elements needed to setup a Hydra node. In this section, we'll show how to obtain some of those elements. First, let's start with the Cardano keys (`--cardano-signing-key` and `--cardano-verification-key`).
 
 In a head, every participant is authenticated by two sets of keys, one key pair is a plain Ed25519 public/private key pair quite common on Cardano already. Such a key pair can be generated using the `cardano-cli` as follows:
 
@@ -66,7 +66,17 @@ From there, each participant is expected to share their verification key with ot
 
 The second set of keys are the so-called Hydra keys, which are used for multi-signing snapshots within a Head. While in the long-run, those keys will be key pairs used within MuSig2 aggregated multi-signature scheme. At present however, the aggregated multisig cryptography is [yet to be implemented](https://github.com/input-output-hk/hydra-poc/issues/193) and the Hydra nodes are a naiive, but secure multi-signature scheme based on Ed25519 keys.
 
-These are similar to cardano keys, but shall not be mixed up and thus we use a different, more basic on-disk representation basically directly consisting of the key material (while Cardano keys usually are stored CBOR-encoded in text envelopes). We provide demo key pairs as `alice.{vk,sk}`, `bob.{vk,sk}` and `carol.{vk,sk}` in our [demo folder](https://github.com/input-output-hk/hydra-poc/tree/master/demo). Currently, participants are expected to pick one of those and in a similar fashion to Cardano keys, share the verification key with their peers and use the signing key for them. (TODO: we should provide an easy way to generate new ones using some system entropy)
+These are similar to cardano keys, but shall not be mixed up and thus we use a different, more basic on-disk representation basically directly consisting of the key material (while Cardano keys usually are stored CBOR-encoded in text envelopes). We provide demo key pairs as `alice.{vk,sk}`, `bob.{vk,sk}` and `carol.{vk,sk}` in our [demo folder](https://github.com/input-output-hk/hydra-poc/tree/master/demo).
+
+Alternatively, unique keys can be generated usign `hydra-tools`, a command-line utility that's provided as part of Hydra:
+
+```mdx-code-block
+<TerminalWindow>
+hydra-tools gen-hydra-key --output-file my-key
+</TerminalWindow>
+```
+
+This will create two files, `my-key.sk` and `my-key.vk` containing Hydra keys suitable for use inside a head.
 
 ### Reference Scripts
 
@@ -84,15 +94,15 @@ On success, this commands outputs a transaction id ready to be used. The provide
 
 At the core of a Hydra head, there's a ledger. At the moment, Hydra is wired only to Cardano and assumes a ledger configuration similar to the one used on the layer 1. This translates as two command-line options `--ledger-genesis` and `--ledger-protocol-parameters`. The former defines the (Shelley!) genesis rules and more specifically, the **global**, non-updatable protocol parameters required by the ledger. The latter defines the updatable protocol parameters such as fees or transaction sizes. They use the same format as the one used by the cardano-cli (e.g. `cardano-cli query protocol-parameters`'s output).
 
-We provide existing files in [hydra-cluster/config](https://github.com/input-output-hk/hydra-poc/blob/master/hydra-cluster/config) which can be used as basis. In particular, the protocol parameters are defined to nullify costs inside a head. Apart from that, they are the direct copy the current mainnet parameters. An interesting point about the Hydra's ledger is that, while it re-uses the same rules and code as the layer 1 (a.k.a. isomorphic), parameters may also be altered to slightly differ from the layer 1. This is the case for fees, but could also be done for script maximum execution budget for instance. However, not all parameters are safe to alter! Changing parameters that control the maximum size of a value (carrying native assets), or the minimum Ada value for a UTxO may render a head "unclosable"! A good rule thumb is that anything that applies strictly to transactions (fees, execution units, max tx size...) is safe to change. But anything that could be reflected in the UTxO is not.  
+We provide existing files in [hydra-cluster/config](https://github.com/input-output-hk/hydra-poc/blob/master/hydra-cluster/config) which can be used as basis. In particular, the protocol parameters are defined to nullify costs inside a head. Apart from that, they are the direct copy the current mainnet parameters. An interesting point about the Hydra's ledger is that, while it re-uses the same rules and code as the layer 1 (a.k.a. isomorphic), parameters may also be altered to slightly differ from the layer 1. This is the case for fees, but could also be done for script maximum execution budget for instance. However, not all parameters are safe to alter! Changing parameters that control the maximum size of a value (carrying native assets), or the minimum Ada value for a UTxO may render a head "unclosable"! A good rule thumb is that anything that applies strictly to transactions (fees, execution units, max tx size...) is safe to change. But anything that could be reflected in the UTxO is not.
 
 :::info About Protocol Parameters
-Note that there's a bit of overlap between the two files since most protocol parameters are first and foremost genesis parameters. Moreover, many of those parameters are actually irrelevant in the context of Hydra (for example, there's no treasury or stake pool inside a head; consequently, parameters configuring the reward incentive or delegation rules are pointless and unused). 
+Note that there's a bit of overlap between the two files since most protocol parameters are first and foremost genesis parameters. Moreover, many of those parameters are actually irrelevant in the context of Hydra (for example, there's no treasury or stake pool inside a head; consequently, parameters configuring the reward incentive or delegation rules are pointless and unused).
 :::
 
 ### Fuel
 
-Finally, one last bit necessary to get Hydra nodes all working regards their _internal wallet_. Indeed, Hydra-nodes currently come with a rudimentary wallet which they use for fueling transactions driving the Head lifecycle (Init, Commit, Close, Fanout...). Since those transactions happen on the layer 1, they cost money! 
+Finally, one last bit necessary to get Hydra nodes all working regards their _internal wallet_. Indeed, Hydra-nodes currently come with a rudimentary wallet which they use for fueling transactions driving the Head lifecycle (Init, Commit, Close, Fanout...). Since those transactions happen on the layer 1, they cost money!
 
 For now, this is managed internally by the Hydra's wallet, but it needs some help. The Cardano keys provided to the node are expected to hold funds. More specifically, at least one UTxO entry, marked with a specific datum hash:
 
@@ -100,10 +110,19 @@ For now, this is managed internally by the Hydra's wallet, but it needs some hel
 a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3
 ```
 
-Conveniently (at least, as much as it can possibly be right now), we provide a [create-marker-utxo.sh](https://github.com/input-output-hk/hydra-poc/blob/master/sample-node-config/gcp/scripts/create-marker-utxo.sh) script that uses the cardano-cli to convert a normal UTxO into a marked fuel UTxO. Note that the marker is necessary because, the Cardano keys are expected to hold funds necessary for commits as well, however unmarked. 
+Conveniently (at least, as much as it can possibly be right now), we provide a [create-marker-utxo.sh](https://github.com/input-output-hk/hydra-poc/blob/master/sample-node-config/gcp/scripts/create-marker-utxo.sh) script that uses the cardano-cli to convert a normal UTxO into a marked fuel UTxO. Note that the marker is necessary because, the Cardano keys are expected to hold funds necessary for commits as well, however unmarked.
+
+For easy scripting purpose, `hydra-tools` provide a dedicated command to output the current marker datum hash:
+
+```mdx-code-block
+<TerminalWindow>
+hydra-tools marker-hash
+> "a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3"
+</TerminalWindow>
+```
 
 :::info About commits
-In the long-run, we'll [move commits outside of the Hydra node](https://github.com/input-output-hk/hydra-poc/issues/215) to be done by external wallets (likely through wallets following the [CIP-0030](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0030) standard). 
+In the long-run, we'll [move commits outside of the Hydra node](https://github.com/input-output-hk/hydra-poc/issues/215) to be done by external wallets (likely through wallets following the [CIP-0030](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0030) standard).
 :::
 
 ## Example Setup
