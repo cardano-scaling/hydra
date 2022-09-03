@@ -39,6 +39,7 @@ paintPixel signingKeyPath cnx pixel = do
       case mkPaintTx (txIn, txOut) (myAddress, txOutValue txOut) sk pixel of
         Left err -> error $ "failed to build pixel transaction " <> show err
         Right tx -> sendTextData cnx $ Aeson.encode $ NewTx tx
+    Right other -> error $ "Unexpected server answer:  " <> decodeUtf8 msg
  where
   networkId = Testnet unusedNetworkMagic
   unusedNetworkMagic = NetworkMagic 42
