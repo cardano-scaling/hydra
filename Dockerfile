@@ -16,9 +16,11 @@ COPY . .
 
 RUN nix-build -A hydra-node -o hydra-node-result release.nix > hydra-node.drv
 RUN nix-build -A hydra-tui -o hydra-tui-result release.nix > hydra-tui.drv
+RUN nix-build -A hydraw -o hydraw-result release.nix > hydraw.drv
 
 RUN nix-store --export $(nix-store -qR $(cat hydra-node.drv)) > hydra-node.closure
 RUN nix-store --export $(nix-store -qR $(cat hydra-tui.drv)) > hydra-tui.closure
+RUN nix-store --export $(nix-store -qR $(cat hydraw.drv)) > hydraw.closure
 
 # ------------------------------------------------------------------- HYDRA-NODE
 
@@ -41,5 +43,22 @@ COPY --from=build /build/hydra-tui.closure hydra-tui.closure
 
 RUN nix-store --import < hydra-tui.closure && nix-env -i $(cat hydra-tui.drv)
 
+
 STOPSIGNAL SIGINT
 ENTRYPOINT ["hydra-tui"]
+
+# ------------------------------------------------------------------- HYDRAW
+
+FROM nixos/nix:2.3.11 as hydraw
+
+COPY --from=build /build/hydraw.drv hydraw.drv
+COPY --from=build /build/hydraw.closure hydraw.closure
+COPY --from=build /build/hydraw/index.html index.html
+COPY --from=build /build/hydraw/bundle.js bundle.js
+COPY --from=build /build/hydraw/style.css style.css
+COPY --from=build /build/hydraw/logo.png logo.png
+
+RUN nix-store --import < hydraw.closure && nix-env -i $(cat hydraw.drv)
+
+STOPSIGNAL SIGINT
+ENTRYPOINT ["hydraw"]
