@@ -68,7 +68,7 @@ The second set of keys are the so-called Hydra keys, which are used for multi-si
 
 These are similar to cardano keys, but shall not be mixed up and thus we use a different, more basic on-disk representation basically directly consisting of the key material (while Cardano keys usually are stored CBOR-encoded in text envelopes). We provide demo key pairs as `alice.{vk,sk}`, `bob.{vk,sk}` and `carol.{vk,sk}` in our [demo folder](https://github.com/input-output-hk/hydra-poc/tree/master/demo).
 
-Alternatively, unique keys can be generated usign `hydra-tools`, a command-line utility that's provided as part of Hydra:
+Alternatively, unique keys can be generated using `hydra-tools`, a command-line utility that's provided as part of Hydra:
 
 ```mdx-code-block
 <TerminalWindow>
