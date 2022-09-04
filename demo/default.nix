@@ -1,6 +1,23 @@
 # A shell setup providing build tools and utilities for the demo
 let
   project = import ../default.nix { };
+  nix-thunk = import ./dep/nix-thunk { inherit (project) pkgs; };
+
+  deps = nix-thunk.mapSubdirectories nix-thunk.thunkSource ./dep;
+
+  pythonPackages = pkgs.python3Packages;
+
+  libtmux = pythonPackages.buildPythonPackage {
+    pname = "libtmux";
+    version = "0.15.0a1";
+    format = "pyproject";
+
+    src = deps.libtmux;
+
+    nativeBuildInputs = [
+      pythonPackages.poetry-core
+    ];
+  };
 
   inherit (project) compiler pkgs hsPkgs cardano-node;
 
@@ -9,7 +26,7 @@ let
   # have fast devel cycle.
   run-tmux = pkgs.writers.writePython3Bin
     "run-tmux"
-    { libraries = with pkgs.python3Packages; [libtmux pyyaml]; }
+    { libraries = [ libtmux pythonPackages.pyyaml ]; }
     (builtins.readFile ./run-tmux.py);
 in
 pkgs.mkShell {
