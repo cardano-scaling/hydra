@@ -17,6 +17,10 @@ changes.
 
 - The `hydra-cluster` does require `--publish-scripts` or `--hydra-scripts-tx-id` now as it may be provided with pre-published hydra scripts.
 
+- Added a `hydra-tools` executable, which provides basic commands to help working with Hydra Heads:
+  + Generate a pair of Hydra keys
+  + Output the marker datum hash
+
 ## [0.7.0] - 2022-08-23
 
 - **BREAKING** Switch to `BabbageEra` and `PlutusV2`.
