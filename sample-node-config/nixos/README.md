@@ -48,3 +48,18 @@ Lastly, the `hydra-node` requires some `protocol-parameters.json` to configure t
 ``` sh
 ssh example "CARDANO_NODE_SOCKET_PATH=/data/cardano-node/node.socket cardano-cli query protocol-parameters --testnet-magic 2 > /data/hydra-node/protocol-parameters.json"
 ```
+
+## Attach the tui
+
+For this, we do not need a service definition, but can simply use `docker` via SSH:
+
+``` sh
+ssh -t example docker run --rm -it \
+  -v /data:/data \
+  --network host \
+  ghcr.io/input-output-hk/hydra-tui:0.7.0 \
+  --connect 0.0.0.0:4001 \
+  --node-socket /data/cardano-node/node.socket \
+  --network-id 2 \
+  --cardano-signing-key /data/hydra-node/credentials/sebastian.cardano.sk
+```
