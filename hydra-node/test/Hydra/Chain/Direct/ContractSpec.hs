@@ -31,7 +31,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   propMutationOnChain,
   propTransactionValidates,
  )
-import Hydra.Chain.Direct.State (SomeOnChainHeadState (..))
+import Hydra.Chain.Direct.State (ChainState (Idle))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Head (
   verifyPartySignature,
@@ -91,7 +91,7 @@ spec = parallel $ do
     prop "does not survive random adversarial mutations (on-chain)" $
       propMutationOnChain healthyInitTx genInitMutation
     prop "does not survive random adversarial mutations (off-chain)" $
-      propMutationOffChain healthyInitTx genObserveInitMutation (SomeOnChainHeadState <$> genHealthyIdleState)
+      propMutationOffChain healthyInitTx genObserveInitMutation (Idle <$> genHealthyIdleState)
 
   describe "Abort" $ do
     prop "is healthy" $

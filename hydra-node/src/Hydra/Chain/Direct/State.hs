@@ -8,7 +8,6 @@ import Hydra.Prelude hiding (init)
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
-import Data.Typeable (cast, eqT, typeRep, type (:~:) (Refl))
 import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -47,13 +46,42 @@ import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Plutus.V2.Ledger.Api (POSIXTime)
 import Test.QuickCheck (sized)
-import qualified Text.Show
 
--- | A class for accessing the known 'UTxO' set in a type.
+-- | A class for accessing the known 'UTxO' set in a type. This is useful to get
+-- all the relevant UTxO for resolving transaction inputs.
 class HasKnownUTxO a where
   getKnownUTxO :: a -> UTxO
 
--- * States
+-- * States & transitions
+
+-- | A definition of all transitions between 'ChainState's. Enumerable and
+-- bounded to be used as labels for checking coverage.
+data ChainTransition
+  = Init
+  | Commit
+  | Collect
+  | Close
+  | Contest
+  | Fanout
+  deriving (Eq, Show, Enum, Bounded)
+
+-- | An enumeration of all possible on-chain states of a Hydra Head, where each
+-- case stores the relevant information to construct & observe transactions to
+-- other states.
+data ChainState
+  = Idle IdleState
+  | Initial InitialState
+  | Open OpenState
+  | Closed ClosedState
+  deriving (Eq, Show)
+
+instance HasKnownUTxO ChainState where
+  getKnownUTxO :: ChainState -> UTxO
+  getKnownUTxO = \case
+    Idle st -> getKnownUTxO st
+    Initial st -> getKnownUTxO st
+    Open st -> getKnownUTxO st
+    Closed st -> getKnownUTxO st
 
 -- | Read-only chain-specific data. This is different to 'HydraContext' as it
 -- only provide contains data known to single peer.
@@ -157,33 +185,11 @@ instance HasKnownUTxO ClosedState where
       , closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}
       } = st
 
+-- | Access the contestation deadline in a 'ClosedState'.
 getContestationDeadline :: ClosedState -> POSIXTime
 getContestationDeadline
   ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
     closedContestationDeadline
-
--- | An existential wrapping /some/ on-chain head state into a value that carry
--- information about the state except that it 'HasTransitions' and
--- 'HasKnownUTxO'.
-data SomeOnChainHeadState where
-  SomeOnChainHeadState ::
-    forall st.
-    (Eq st, Typeable st, Show st, HasKnownUTxO st, HasTransitions st) =>
-    st ->
-    SomeOnChainHeadState
-
-instance Show SomeOnChainHeadState where
-  show (SomeOnChainHeadState st) = show st
-
-instance Eq SomeOnChainHeadState where
-  (SomeOnChainHeadState (st :: a)) == (SomeOnChainHeadState (st' :: b)) =
-    case eqT @a @b of
-      Just Refl -> st == st'
-      Nothing -> False
-
--- | Access the actual head state in the existential given it is of type 'st'.
-castHeadState :: Typeable st => SomeOnChainHeadState -> Maybe st
-castHeadState (SomeOnChainHeadState x) = cast x
 
 -- * Constructing transactions
 
@@ -356,47 +362,25 @@ fanout st utxo deadlineSlotNo = do
 
 -- * Observing Transitions
 
--- | A class for observing a transition from a state to another given the right
--- transaction.
-class ObserveTx st st' where
-  observeTx ::
-    st ->
-    Tx ->
-    Maybe (OnChainTx Tx, st')
-
--- | A convenient class to declare all possible transitions from a given
--- starting state 'st'.
-class HasTransitions st where
-  transitions :: [TransitionFrom st]
-
--- | An existential to be used in 'HasTransitions'.
-data TransitionFrom st where
-  TransitionTo ::
-    forall st st'.
-    (Typeable st, Typeable st', ObserveTx st st', Eq st', Show st', HasKnownUTxO st', HasTransitions st') =>
-    String ->
-    Proxy st' ->
-    TransitionFrom st
-
-instance Show (TransitionFrom st) where
-  show (TransitionTo name proxy) =
-    mconcat
-      [ show (typeRep (Proxy @st))
-      , " -> "
-      , show (typeRep proxy)
-      , " : " <> name
-      ]
-
-instance Eq (TransitionFrom st) where
-  (TransitionTo name proxy) == (TransitionTo name' proxy') =
-    name == name'
-      && typeRep proxy == typeRep proxy'
+-- | Observe a transition without knowing the starting or ending state. This
+-- function should try to observe all relevant transitions given some
+-- 'ChainState'.
+observeSomeTx :: Tx -> ChainState -> Maybe (OnChainTx Tx, ChainState)
+observeSomeTx tx = \case
+  Idle IdleState{ctx} ->
+    second Initial <$> observeInit ctx tx
+  Initial st ->
+    second Initial <$> observeCommit st tx
+      <|> second Idle <$> observeAbort st tx
+      <|> second Open <$> observeCollect st tx
+  Open st -> second Closed <$> observeClose st tx
+  Closed st ->
+    second Closed <$> observeContest st tx
+      <|> second Idle <$> observeFanout st tx
 
 -- ** IdleState transitions
 
-instance HasTransitions IdleState where
-  transitions = [TransitionTo "init" (Proxy @InitialState)]
-
+-- | Observe an init transition using a 'InitialState' and 'observeInitTx'.
 observeInit ::
   ChainContext ->
   Tx ->
@@ -423,18 +407,9 @@ observeInit ctx tx = do
     , ownParty
     } = ctx
 
-instance ObserveTx IdleState InitialState where
-  observeTx IdleState{ctx} = observeInit ctx
-
 -- ** InitialState transitions
 
-instance HasTransitions InitialState where
-  transitions =
-    [ TransitionTo "commit" (Proxy @InitialState)
-    , TransitionTo "collect" (Proxy @OpenState)
-    , TransitionTo "abort" (Proxy @IdleState)
-    ]
-
+-- | Observe an commit transition using a 'InitialState' and 'observeCommitTx'.
 observeCommit ::
   InitialState ->
   Tx ->
@@ -461,9 +436,8 @@ observeCommit st tx = do
     , initialInitials
     } = st
 
-instance ObserveTx InitialState InitialState where
-  observeTx = observeCommit
-
+-- | Observe an collect transition using a 'InitialState' and 'observeCollectComTx'.
+-- This function checks the head id and ignores if not relevant.
 observeCollect ::
   InitialState ->
   Tx ->
@@ -490,9 +464,8 @@ observeCollect st tx = do
     , initialHeadTokenScript
     } = st
 
-instance ObserveTx InitialState OpenState where
-  observeTx = observeCollect
-
+-- | Observe an abort transition using a 'InitialState' and 'observeAbortTx'.
+-- This function checks the head id and ignores if not relevant.
 observeAbort ::
   InitialState ->
   Tx ->
@@ -506,16 +479,10 @@ observeAbort st tx = do
  where
   InitialState{ctx} = st
 
-instance ObserveTx InitialState IdleState where
-  observeTx = observeAbort
-
 -- ** OpenState transitions
 
-instance HasTransitions OpenState where
-  transitions =
-    [ TransitionTo "close" (Proxy @ClosedState)
-    ]
-
+-- | Observe a close transition using a 'OpenState' and 'observeCloseTx'.
+-- This function checks the head id and ignores if not relevant.
 observeClose ::
   OpenState ->
   Tx ->
@@ -544,17 +511,10 @@ observeClose st tx = do
     , openHeadTokenScript
     } = st
 
-instance ObserveTx OpenState ClosedState where
-  observeTx = observeClose
-
 -- ** ClosedState transitions
 
-instance HasTransitions ClosedState where
-  transitions =
-    [ TransitionTo "contest" (Proxy @ClosedState)
-    , TransitionTo "fanout" (Proxy @IdleState)
-    ]
-
+-- | Observe a fanout transition using a 'ClosedState' and 'observeContestTx'.
+-- This function checks the head id and ignores if not relevant.
 observeContest ::
   ClosedState ->
   Tx ->
@@ -573,9 +533,7 @@ observeContest st tx = do
     , closedThreadOutput
     } = st
 
-instance ObserveTx ClosedState ClosedState where
-  observeTx = observeContest
-
+-- | Observe a fanout transition using a 'ClosedState' and 'observeFanoutTx'.
 observeFanout ::
   ClosedState ->
   Tx ->
@@ -586,30 +544,6 @@ observeFanout st tx = do
   pure (OnFanoutTx, IdleState{ctx})
  where
   ClosedState{ctx} = st
-
-instance ObserveTx ClosedState IdleState where
-  observeTx = observeFanout
-
--- * Observe any transition
-
--- | Observe a transition without knowing the starting or ending state. This
--- function does enumerate and try all 'transitions' of some given
--- 'SomeOnChainHeadState'. To do that, this function uses the 'HasTransitions'
--- and 'ObserveTx' type classes.
-observeSomeTx ::
-  Tx ->
-  SomeOnChainHeadState ->
-  Maybe (OnChainTx Tx, SomeOnChainHeadState)
-observeSomeTx tx (SomeOnChainHeadState (st :: st)) =
-  asum $ (\(TransitionTo _ p) -> observeSome p) <$> transitions @st
- where
-  observeSome ::
-    forall st'.
-    (ObserveTx st st', Typeable st', Eq st', Show st', HasTransitions st', HasKnownUTxO st') =>
-    Proxy st' ->
-    Maybe (OnChainTx Tx, SomeOnChainHeadState)
-  observeSome _ =
-    second SomeOnChainHeadState <$> observeTx @st @st' st tx
 
 -- * Helpers
 

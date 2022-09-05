@@ -38,11 +38,10 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
+  ChainState (Closed, Idle, Initial, Open),
   ClosedState (ClosedState),
   IdleState (IdleState, ctx),
-  SomeOnChainHeadState (..),
   abort,
-  castHeadState,
   close,
   collect,
   commit,
@@ -91,7 +90,7 @@ mkChain ::
   Tracer m DirectChainLog ->
   m TimeHandle ->
   TinyWallet m ->
-  TVar m SomeOnChainHeadStateAt ->
+  TVar m ChainStateAt ->
   SubmitTx m ->
   Chain Tx m
 mkChain tracer queryTimeHandle wallet headState submitTx =
@@ -121,12 +120,12 @@ mkChain tracer queryTimeHandle wallet headState submitTx =
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
-  TVar m SomeOnChainHeadStateAt ->
+  TVar m ChainStateAt ->
   ValidatedTx LedgerEra ->
   STM m (ValidatedTx LedgerEra)
 finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
-  someSt <- currentOnChainHeadState <$> readTVar headState
-  let headUTxO = (\(SomeOnChainHeadState st) -> getKnownUTxO st) someSt
+  someSt <- currentChainState <$> readTVar headState
+  let headUTxO = getKnownUTxO someSt
   walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
     Left ErrUnknownInput{input} -> do
@@ -157,8 +156,8 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
 -- pointing to the previous chain state; This allows to easily rewind the state
 -- to a point in the past when rolling backward due to a change of chain fork by
 -- our local cardano-node.
-data SomeOnChainHeadStateAt = SomeOnChainHeadStateAt
-  { currentOnChainHeadState :: SomeOnChainHeadState
+data ChainStateAt = ChainStateAt
+  { currentChainState :: ChainState
   , recordedAt :: RecordedAt
   }
   deriving (Eq, Show)
@@ -167,7 +166,7 @@ data SomeOnChainHeadStateAt = SomeOnChainHeadStateAt
 -- simply exist out of any chain events (e.g. the 'Idle' state).
 data RecordedAt
   = AtStart
-  | AtPoint ChainPoint SomeOnChainHeadStateAt
+  | AtPoint ChainPoint ChainStateAt
   deriving (Eq, Show)
 
 -- | A /handler/ that takes care of following the chain.
@@ -190,7 +189,7 @@ chainSyncHandler ::
   -- | Chain callback
   (ChainEvent Tx -> m ()) ->
   -- | On-chain head-state.
-  TVar m SomeOnChainHeadStateAt ->
+  TVar m ChainStateAt ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
 chainSyncHandler tracer callback headState =
@@ -224,17 +223,17 @@ chainSyncHandler tracer callback headState =
   withNextTx :: UTCTime -> Point Block -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
   withNextTx now point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
-    case observeSomeTx tx (currentOnChainHeadState st) of
+    case observeSomeTx tx (currentChainState st) of
       Just (onChainTx, st') -> do
         writeTVar headState $
-          SomeOnChainHeadStateAt
-            { currentOnChainHeadState = st'
+          ChainStateAt
+            { currentChainState = st'
             , recordedAt = AtPoint (fromConsensusPointHF point) st
             }
         -- FIXME: The right thing to do is probably to decouple the observation from the
         -- transformation into an `OnChainTx`
-        let event = case (onChainTx, castHeadState st') of
-              (OnCloseTx{snapshotNumber}, Just closedSt@ClosedState{}) ->
+        let event = case (onChainTx, st') of
+              (OnCloseTx{snapshotNumber}, Closed closedSt@ClosedState{}) ->
                 let remainingTimeWithBuffer = 1 + diffUTCTime (posixToUTCTime $ getContestationDeadline closedSt) now
                  in OnCloseTx{snapshotNumber, remainingContestationPeriod = remainingTimeWithBuffer}
               _ -> onChainTx
@@ -249,7 +248,7 @@ chainSyncHandler tracer callback headState =
 -- that needs to be discarded given some rollback 'chainPoint'. This depth is used
 -- in 'Hydra.HeadLogic.rollback' to discard corresponding off-chain state. Consequently
 -- the two states /must/ be kept in sync in order for rollbacks to be handled properly.
-rollback :: ChainPoint -> SomeOnChainHeadStateAt -> (SomeOnChainHeadStateAt, Word)
+rollback :: ChainPoint -> ChainStateAt -> (ChainStateAt, Word)
 rollback chainPoint = backward 0
  where
   backward n st =
@@ -270,27 +269,26 @@ fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
   TinyWallet m ->
-  TVar m SomeOnChainHeadStateAt ->
+  TVar m ChainStateAt ->
   PostChainTx Tx ->
   STM m Tx
 fromPostChainTx timeHandle wallet someHeadState tx = do
   pointInTime <- throwLeft currentPointInTime
-  cst <- currentOnChainHeadState <$> readTVar someHeadState
-  case tx of
-    InitTx params ->
-      assertState cst >>= \IdleState{ctx} ->
-        getFuelUTxO wallet >>= \case
-          Just (fromLedgerTxIn -> seedInput, _) -> do
-            pure $ initialize ctx params seedInput
-          Nothing ->
-            throwIO (NoSeedInput @Tx)
-    AbortTx{} ->
-      assertState cst <&> abort
+  cst <- currentChainState <$> readTVar someHeadState
+  case (tx, cst) of
+    (InitTx params, Idle IdleState{ctx}) ->
+      getFuelUTxO wallet >>= \case
+        Just (fromLedgerTxIn -> seedInput, _) -> do
+          pure $ initialize ctx params seedInput
+        Nothing ->
+          throwIO (NoSeedInput @Tx)
+    (AbortTx{}, Initial st) ->
+      pure $ abort st
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
-    CommitTx{committed} ->
-      assertState cst >>= \st -> either throwIO pure (commit st committed)
+    (CommitTx{committed}, Initial st) ->
+      either throwIO pure (commit st committed)
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from
@@ -298,34 +296,26 @@ fromPostChainTx timeHandle wallet someHeadState tx = do
     --
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
-    CollectComTx{} ->
-      assertState cst <&> collect
-    CloseTx{confirmedSnapshot} ->
-      assertState cst >>= \st -> do
-        shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-        pure (close st confirmedSnapshot shifted)
-    ContestTx{confirmedSnapshot} ->
-      assertState cst >>= \st -> do
-        shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-        pure (contest st confirmedSnapshot shifted)
-    FanoutTx{utxo} ->
-      assertState cst >>= \st -> do
-        -- NOTE: It's a bit weird that we inspect the state here, but handling
-        -- errors of the possibly failing "time -> slot" conversion is better
-        -- done here.
-        deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
-        pure (fanout st utxo deadlineSlot)
+    (CollectComTx{}, Initial st) ->
+      pure $ collect st
+    (CloseTx{confirmedSnapshot}, Open st) -> do
+      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+      pure (close st confirmedSnapshot shifted)
+    (ContestTx{confirmedSnapshot}, Closed st) -> do
+      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+      pure (contest st confirmedSnapshot shifted)
+    (FanoutTx{utxo}, Closed st) -> do
+      -- NOTE: It's a bit weird that we inspect the state here, but handling
+      -- errors of the possibly failing "time -> slot" conversion is better
+      -- done here.
+      deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
+      pure (fanout st utxo deadlineSlot)
+    (_, _) -> throwIO $ InvalidStateToPost tx
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure
 
   TimeHandle{currentPointInTime, adjustPointInTime, slotFromPOSIXTime} = timeHandle
-
-  assertState :: (Typeable a, MonadThrow m) => SomeOnChainHeadState -> m a
-  assertState st =
-    case castHeadState st of
-      Nothing -> throwIO $ InvalidStateToPost tx
-      Just x -> pure x
 
 --
 -- Helpers

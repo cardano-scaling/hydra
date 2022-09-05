@@ -13,12 +13,11 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import qualified Data.ByteString.Lazy as LBS
-import Data.List (elemIndex, intersect, (!!), (\\))
+import Data.List (intersect, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Data.Typeable (eqT)
 import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
@@ -61,21 +60,20 @@ import Hydra.Chain.Direct.Context (
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.Handlers (
+  ChainStateAt (..),
   ChainSyncHandler (..),
   RecordedAt (..),
-  SomeOnChainHeadStateAt (..),
   chainSyncHandler,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
+  ChainState (Closed, Idle, Initial, Open),
+  ChainTransition (Close, Collect, Commit, Contest, Fanout, Init),
   ClosedState,
   HasKnownUTxO (getKnownUTxO),
-  HasTransitions (transitions),
   IdleState (..),
   InitialState (..),
   OpenState,
-  SomeOnChainHeadState (..),
-  TransitionFrom (TransitionTo),
   abort,
   close,
   collect,
@@ -90,6 +88,7 @@ import Hydra.Chain.Direct.State (
   observeInit,
   observeSomeTx,
  )
+import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
@@ -107,7 +106,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   renderEvaluationReportFailures,
  )
 import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
-import Ouroboros.Consensus.Block (Point, blockPoint, type (:~:) (Refl))
+import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
@@ -123,6 +122,7 @@ import Test.Hydra.Prelude (
   prop,
  )
 import Test.QuickCheck (
+  Positive (Positive),
   Property,
   Testable (property),
   checkCoverage,
@@ -136,6 +136,7 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShow,
   label,
+  oneof,
   sized,
   sublistOf,
   tabulate,
@@ -157,9 +158,10 @@ spec = parallel $ do
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $
       checkCoverage $
-        forAllSt $ \st tx ->
-          isJust (observeSomeTx tx (SomeOnChainHeadState st))
-            & counterexample "observeSomeTx returned Nothing"
+        forAll genChainStateWithTx $ \(st, tx, transition) ->
+          genericCoverTable [transition] $
+            isJust (observeSomeTx tx st)
+              & counterexample "observeSomeTx returned Nothing"
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
@@ -239,7 +241,7 @@ spec = parallel $ do
 
   describe "ChainSyncHandler" $ do
     prop "yields observed transactions rolling forward" $ do
-      forAllSt $ \(SomeOnChainHeadState -> st) tx -> do
+      forAll genChainStateWithTx $ \(st, tx, _) -> do
         let callback = \case
               Rollback{} ->
                 fail "rolled back but expected roll forward."
@@ -280,7 +282,7 @@ spec = parallel $ do
             st'' <- run $ mapM_ (onRollForward handler) toReplay *> readTVarIO headState
             assert (st' == st'')
 
-withCounterExample :: [Block] -> TVar IO SomeOnChainHeadStateAt -> IO a -> PropertyM IO a
+withCounterExample :: [Block] -> TVar IO ChainStateAt -> IO a -> PropertyM IO a
 withCounterExample blks headState step = do
   stBefore <- run $ readTVarIO headState
   a <- run step
@@ -290,8 +292,8 @@ withCounterExample blks headState step = do
       counterexample $
         toString $
           unlines
-            [ "Head state at (before rollback): " <> showStateRecordedAt stBefore
-            , "Head state at (after rollback):  " <> showStateRecordedAt stAfter
+            [ "Head state at (before rollback): " <> showChainStateAt stBefore
+            , "Head state at (after rollback):  " <> showChainStateAt stAfter
             , "Block sequence: \n"
                 <> unlines
                   ( fmap
@@ -314,7 +316,7 @@ genRollbackPoint blks = do
 -- Note that this does not generate the entire spectrum of observable
 -- transactions in Hydra, but only init and commits, which is already sufficient
 -- to observe at least one state transition and different levels of rollback.
-genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadStateAt, [Block])
+genSequenceOfObservableBlocks :: Gen (ChainStateAt, [Block])
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext 3
   -- NOTE: commits must be generated from each participant POV, and thus, we
@@ -326,7 +328,7 @@ genSequenceOfObservableBlocks = do
     initTx <- stepInit cctx (ctxHeadParameters ctx)
     void $ stepCommits initTx (map IdleState allContexts)
 
-  pure (stAtGenesis (SomeOnChainHeadState IdleState{ctx = cctx}), reverse blks)
+  pure (stAtGenesis (Idle IdleState{ctx = cctx}), reverse blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
   nextSlot = do
@@ -370,10 +372,10 @@ genSequenceOfObservableBlocks = do
     putNextBlock commitTx
     pure $ snd $ fromJust $ observeCommit stInitial commitTx
 
-stAtGenesis :: SomeOnChainHeadState -> SomeOnChainHeadStateAt
-stAtGenesis currentOnChainHeadState =
-  SomeOnChainHeadStateAt
-    { currentOnChainHeadState
+stAtGenesis :: ChainState -> ChainStateAt
+stAtGenesis currentChainState =
+  ChainStateAt
+    { currentChainState
     , recordedAt = AtStart
     }
 
@@ -421,59 +423,57 @@ propIsValid forAllTx =
 -- QuickCheck Extras
 --
 
--- XXX: This does not prevent us of not aligning forAll generators with
--- Transition labels. Ideally we would would use the actual states/transactions
--- or observed states/transactions for labeling.
-forAllSt ::
-  (Testable property) =>
-  ( forall from.
-    ( Typeable from
-    , Eq from
-    , Show from
-    , HasKnownUTxO from
-    , HasTransitions from
-    ) =>
-    from ->
-    Tx ->
-    property
-  ) ->
-  Property
-forAllSt action =
-  forAllBlind
-    ( elements
-        [
-          ( forAllInit action
-          , Transition @IdleState (TransitionTo "init" (Proxy @InitialState))
-          )
-        ,
-          ( forAllCommit action
-          , Transition @InitialState (TransitionTo "commit" (Proxy @InitialState))
-          )
-        ,
-          ( forAllAbort action
-          , Transition @InitialState (TransitionTo "abort" (Proxy @IdleState))
-          )
-        ,
-          ( forAllCollectCom action
-          , Transition @InitialState (TransitionTo "collect" (Proxy @OpenState))
-          )
-        ,
-          ( forAllClose action
-          , Transition @OpenState (TransitionTo "close" (Proxy @ClosedState))
-          )
-        ,
-          ( forAllContest action
-          , Transition @ClosedState (TransitionTo "contest" (Proxy @ClosedState))
-          )
-        ,
-          ( forAllFanout action
-          , Transition @ClosedState (TransitionTo "fanout" (Proxy @IdleState))
-          )
-        ]
-    )
-    $ \(p, lbl) ->
-      genericCoverTable [lbl] p
-        & counterexample ("Transition: " <> show lbl)
+genChainStateWithTx :: Gen (ChainState, Tx, ChainTransition)
+genChainStateWithTx =
+  oneof
+    [ genInitWithState
+    , genCommitWithState
+    , genCollectWithState
+    , genCloseWithState
+    , genContestWithState
+    , genFanoutWithState
+    ]
+ where
+  genInitWithState :: Gen (ChainState, Tx, ChainTransition)
+  genInitWithState = do
+    ctx <- genHydraContext 3
+    cctx <- pickChainContext ctx
+    seedInput <- genTxIn
+    let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+    pure (Idle $ IdleState cctx, tx, Init)
+
+  genCommitWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCommitWithState = do
+    ctx <- genHydraContext 3
+    stInitial <- genStInitial ctx
+    utxo <- genCommit
+    let tx = unsafeCommit stInitial utxo
+    pure (Initial stInitial, tx, Commit)
+
+  genCollectWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCollectWithState = do
+    (_, st, tx) <- genCollectComTx
+    pure (Initial st, tx, Collect)
+
+  genCloseWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCloseWithState = do
+    (st, tx, _) <- genCloseTx 3
+    pure (Open st, tx, Close)
+
+  genContestWithState :: Gen (ChainState, Tx, ChainTransition)
+  genContestWithState = do
+    (_, _, st, tx) <- genContestTx
+    pure (Closed st, tx, Contest)
+
+  genFanoutWithState :: Gen (ChainState, Tx, ChainTransition)
+  genFanoutWithState = do
+    Positive numParties <- arbitrary
+    Positive numOutputs <- arbitrary
+    (st, tx) <- genFanoutTx numParties numOutputs
+    pure (Closed st, tx, Fanout)
+
+-- TODO: These forAllXX functions are hard to use and understand. Maybe simple
+-- 'Gen' or functions in 'PropertyM' are better combinable?
 
 forAllInit ::
   (Testable property) =>
@@ -550,14 +550,15 @@ forAllCollectCom action =
   forAllBlind genCollectComTx $ \(committedUTxO, stInitialized, tx) ->
     action stInitialized tx
       & counterexample ("Committed UTxO: " <> show committedUTxO)
- where
-  genCollectComTx = do
-    ctx <- genHydraContextFor 3
-    initTx <- genInitTx ctx
-    commits <- genCommits ctx initTx
-    cctx <- pickChainContext ctx
-    let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (committedUTxO, stInitialized, collect stInitialized)
+
+genCollectComTx :: Gen ([UTxO], InitialState, Tx)
+genCollectComTx = do
+  ctx <- genHydraContextFor 3
+  initTx <- genInitTx ctx
+  commits <- genCommits ctx initTx
+  cctx <- pickChainContext ctx
+  let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+  pure (committedUTxO, stInitialized, collect stInitialized)
 
 forAllClose ::
   (Testable property) =>
@@ -603,17 +604,24 @@ forAllContest action =
   oneMonth = oneDay * 30
   oneYear = oneDay * 365
 
-  genContestTx = do
-    ctx <- genHydraContextFor 3
-    (u0, stOpen) <- genStOpen ctx
-    confirmed <- genConfirmedSnapshot 0 u0 []
-    closePointInTime <- genPointInTime
-    let closeTx = close stOpen confirmed closePointInTime
-    let stClosed = snd $ fromJust $ observeClose stOpen closeTx
-    utxo <- arbitrary
-    contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
-    contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (ctx, closePointInTime, stClosed, contest stClosed contestSnapshot contestPointInTime)
+genContestTx ::
+  Gen
+    ( HydraContext
+    , PointInTime
+    , ClosedState
+    , Tx
+    )
+genContestTx = do
+  ctx <- genHydraContextFor 3
+  (u0, stOpen) <- genStOpen ctx
+  confirmed <- genConfirmedSnapshot 0 u0 []
+  closePointInTime <- genPointInTime
+  let closeTx = close stOpen confirmed closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen closeTx
+  utxo <- arbitrary
+  contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
+  contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+  pure (ctx, closePointInTime, stClosed, contest stClosed contestSnapshot contestPointInTime)
 
 forAllFanout ::
   (Testable property) =>
@@ -657,43 +665,6 @@ genBlockAt sl txs = do
      in Praos.Header body' sig
 
 --
--- Wrapping Transition for easy labelling
---
-allTransitions :: [Transition]
-allTransitions =
-  mconcat
-    [ Transition <$> transitions @IdleState
-    , Transition <$> transitions @InitialState
-    , Transition <$> transitions @OpenState
-    , Transition <$> transitions @ClosedState
-    ]
-
-data Transition where
-  Transition ::
-    forall from.
-    Typeable from =>
-    TransitionFrom from ->
-    Transition
-deriving instance Typeable Transition
-
-instance Show Transition where
-  show (Transition t) = show t
-
-instance Eq Transition where
-  (Transition (from :: a)) == (Transition (from' :: b)) =
-    case eqT @a @b of
-      Just Refl -> from == from'
-      Nothing -> False
-
-instance Enum Transition where
-  toEnum = (!!) allTransitions
-  fromEnum = fromJust . (`elemIndex` allTransitions)
-
-instance Bounded Transition where
-  minBound = Prelude.head allTransitions
-  maxBound = Prelude.last allTransitions
-
---
 -- Prettifier
 --
 
@@ -705,8 +676,8 @@ showRollbackInfo (rollbackDepth, rollbackPoint) =
       , "Rollback point: " <> show rollbackPoint
       ]
 
-showStateRecordedAt :: SomeOnChainHeadStateAt -> Text
-showStateRecordedAt SomeOnChainHeadStateAt{recordedAt, currentOnChainHeadState} =
+showChainStateAt :: ChainStateAt -> Text
+showChainStateAt ChainStateAt{recordedAt, currentChainState} =
   case recordedAt of
-    AtStart -> "AtStart " <> show currentOnChainHeadState
-    AtPoint pt _ -> "AtPoint " <> show pt <> " " <> show currentOnChainHeadState
+    AtStart -> "AtStart " <> show currentChainState
+    AtPoint pt _ -> "AtPoint " <> show pt <> " " <> show currentChainState
