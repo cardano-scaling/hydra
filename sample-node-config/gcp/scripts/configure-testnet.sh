@@ -34,8 +34,8 @@ mithril_client show $SNAPSHOT
 mithril_client download $SNAPSHOT
 mithril_client restore $SNAPSHOT
 
-# TODO: set env variable containing path to restored DB
-# run docker
+mv -f data/testnet/${SNAPSHOT}/db devnet/
+
 docker-compose --profile hydraw up -d
 
 # create marker utxo

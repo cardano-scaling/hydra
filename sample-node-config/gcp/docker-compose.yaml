@@ -89,10 +89,3 @@ services:
     - --config.file=/etc/prometheus/prometheus.yml
     volumes:
     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-
-  # promtail:
-  #   image: grafana/promtail:1.4.1
-  #   volumes:
-  #     - /var/lib/docker/containers:/var/lib/docker/containers
-  #     - ./promtail-config.yml:/etc/promtail/promtail-config.yml
-  #   command: -config.file=/etc/promtail/promtail-config.yml
