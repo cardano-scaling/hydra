@@ -47,11 +47,41 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Plutus.V2.Ledger.Api (POSIXTime)
 import Test.QuickCheck (sized)
 
--- | A class for accessing the known 'UTxO' set in a type.
+-- | A class for accessing the known 'UTxO' set in a type. This is useful to get
+-- all the relevant UTxO for resolving transaction inputs.
 class HasKnownUTxO a where
   getKnownUTxO :: a -> UTxO
 
--- * States
+-- * States & transitions
+
+-- | A definition of all transitions between 'ChainState's. Enumerable and
+-- bounded to be used as labels for checking coverage.
+data ChainTransition
+  = Init
+  | Commit
+  | Collect
+  | Close
+  | Contest
+  | Fanout
+  deriving (Eq, Show, Enum, Bounded)
+
+-- | An enumeration of all possible on-chain states of a Hydra Head, where each
+-- case stores the relevant information to construct & observe transactions to
+-- other states.
+data ChainState
+  = Idle IdleState
+  | Initial InitialState
+  | Open OpenState
+  | Closed ClosedState
+  deriving (Eq, Show)
+
+instance HasKnownUTxO ChainState where
+  getKnownUTxO :: ChainState -> UTxO
+  getKnownUTxO = \case
+    Idle st -> getKnownUTxO st
+    Initial st -> getKnownUTxO st
+    Open st -> getKnownUTxO st
+    Closed st -> getKnownUTxO st
 
 -- | Read-only chain-specific data. This is different to 'HydraContext' as it
 -- only provide contains data known to single peer.
@@ -155,38 +185,11 @@ instance HasKnownUTxO ClosedState where
       , closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}
       } = st
 
+-- | Access the contestation deadline in a 'ClosedState'.
 getContestationDeadline :: ClosedState -> POSIXTime
 getContestationDeadline
   ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
     closedContestationDeadline
-
--- | An enumeration of all possible chain states. This can be kept around in
--- memory.
-data ChainState
-  = Idle IdleState
-  | Initial InitialState
-  | Open OpenState
-  | Closed ClosedState
-  deriving (Eq, Show)
-
--- TODO: No type class needed for this
-instance HasKnownUTxO ChainState where
-  getKnownUTxO :: ChainState -> UTxO
-  getKnownUTxO = \case
-    Idle st -> getKnownUTxO st
-    Initial st -> getKnownUTxO st
-    Open st -> getKnownUTxO st
-    Closed st -> getKnownUTxO st
-
--- | An enumeration of all transitions. Can be used as labels for checking coverage.
-data ChainTransition
-  = Init
-  | Commit
-  | Collect
-  | Close
-  | Contest
-  | Fanout
-  deriving (Eq, Show, Enum, Bounded)
 
 -- * Constructing transactions
 
