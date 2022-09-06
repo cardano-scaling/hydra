@@ -6,7 +6,7 @@ module Hydra.BehaviorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 
-import Control.Monad.Class.MonadAsync (forConcurrently_)
+import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), forConcurrently_)
 import Control.Monad.Class.MonadSTM (
   modifyTVar,
   modifyTVar',
@@ -40,7 +40,7 @@ import Hydra.Node (
   HydraNodeLog (..),
   createEventQueue,
   createHydraHead,
-  handleChainTx,
+  handleChainEvent,
   handleClientInput,
   handleMessage,
   runHydraNode,
@@ -463,16 +463,20 @@ data TestHydraNode tx m = TestHydraNode
 data ConnectToChain tx m = ConnectToChain
   { chainComponent :: HydraNode tx m -> m (HydraNode tx m)
   , history :: TVar m [PostChainTx tx]
+  , tickThread :: Async m ()
   }
 
 -- | Creates a simulated chain and network by returning a function to "monkey
 -- patch" a 'HydraNode' such that it is connected. This is necessary, to get to
 -- know all nodes which use this function and simulate network and chain
 -- messages being sent around.
-simulatedChainAndNetwork :: (MonadSTM m, MonadTime m) => m (ConnectToChain tx m)
+simulatedChainAndNetwork ::
+  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m) =>
+  m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
   history <- newTVarIO []
   nodes <- newTVarIO []
+  tickThread <- async $ simulateTicks nodes
   pure $
     ConnectToChain
       { chainComponent = \node -> do
@@ -483,8 +487,15 @@ simulatedChainAndNetwork = do
               , hn = Network{broadcast = broadcast node nodes}
               }
       , history
+      , tickThread
       }
  where
+  blockTime = 20 -- seconds
+  simulateTicks nodes = forever $ do
+    threadDelay blockTime
+    now <- getCurrentTime
+    readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
+
   postTx nodes refHistory tx = do
     res <- atomically $ do
       modifyTVar' refHistory (tx :)
@@ -493,7 +504,7 @@ simulatedChainAndNetwork = do
       Nothing -> pure ()
       Just ns -> do
         now <- getCurrentTime
-        mapM_ (`handleChainTx` toOnChainTx now tx) ns
+        mapM_ (`handleChainEvent` toOnChainTx now tx) ns
 
   broadcast node nodes msg = do
     allNodes <- readTVarIO nodes
@@ -569,7 +580,7 @@ createTestHydraNode outputs outputHistory node ConnectToChain{history} =
               toReplay <$ writeTVar history kept
           _ ->
             pure []
-        handleChainTx node e
+        handleChainEvent node e
         mapM_ (postTx (oc node)) (reverse toReplay)
     , waitForNext = atomically (readTQueue outputs)
     , serverOutputs = reverse <$> readTVarIO outputHistory

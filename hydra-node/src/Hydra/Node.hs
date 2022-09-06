@@ -122,8 +122,8 @@ createHydraNode eq hn ledger oc server env = do
 handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
 handleClientInput HydraNode{eq} = putEvent eq . ClientEvent
 
-handleChainTx :: HydraNode tx m -> ChainEvent tx -> m ()
-handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
+handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
+handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
 
 handleMessage :: HydraNode tx m -> Message tx -> m ()
 handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
