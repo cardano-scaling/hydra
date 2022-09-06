@@ -57,8 +57,6 @@ data Event tx
     NetworkEvent {message :: Message tx}
   | -- | Event received from the chain via a "Hydra.Chain".
     OnChainEvent {chainEvent :: ChainEvent tx}
-  | -- | An "internal" event raised after a delay. TODO: we can get rid of this (see time handling ADR).
-    ShouldPostFanout
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Eq, Show, Generic)
@@ -125,6 +123,7 @@ data HeadState tx
       { parameters :: HeadParameters
       , confirmedSnapshot :: ConfirmedSnapshot tx
       , previousRecoverableState :: HeadState tx
+      , contestationDeadline :: UTCTime
       }
   deriving stock (Generic)
 
@@ -653,6 +652,7 @@ onOpenChainCloseTx
         { parameters
         , previousRecoverableState
         , confirmedSnapshot
+        , contestationDeadline
         }
     headIsClosed =
       HeadIsClosed
@@ -675,8 +675,7 @@ onClosedChainContestTx confirmedSnapshot snapshotNumber
       ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
     -- TODO: A more recent snapshot number was succesfully contested, we will
-    -- not be able to fanout! We might want to communicate that to the client
-    -- and/or not try to fan out on the `ShouldPostFanout` later.
+    -- not be able to fanout! We might want to communicate that to the client!
     OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
   | otherwise =
     OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
@@ -782,8 +781,9 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       onOpenChainCloseTx parameters prev coordinatedHeadState closedSnapshotNumber contestationDeadline
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
     onClosedChainContestTx confirmedSnapshot snapshotNumber
-  (ClosedState{}, ShouldPostFanout) ->
-    OnlyEffects [ClientEffect ReadyToFanout]
+  (ClosedState{contestationDeadline}, OnChainEvent (Tick chainTime))
+    | chainTime > contestationDeadline ->
+      OnlyEffects [ClientEffect ReadyToFanout]
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
     onClosedChainFanoutTx confirmedSnapshot
   (currentState, OnChainEvent (Rollback n)) ->

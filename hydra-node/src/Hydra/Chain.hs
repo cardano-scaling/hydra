@@ -136,7 +136,10 @@ newtype Chain tx m = Chain
     postTx :: MonadThrow m => PostChainTx tx -> m ()
   }
 
-data ChainEvent tx = Observation (OnChainTx tx) | Rollback Word
+data ChainEvent tx
+  = Observation (OnChainTx tx)
+  | Rollback Word
+  | Tick UTCTime
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

@@ -216,10 +216,16 @@ spec = do
                     , contestationDeadline
                     }
             clientEffect = ClientEffect HeadIsClosed{snapshotNumber, contestationDeadline}
-        let s1 = update bobEnv ledger s0 observeCloseTx
-        s1 `shouldBe` OnlyEffects [clientEffect]
-        let stepTimePastDeadline = error "TODO"
-        update bobEnv ledger s0 stepTimePastDeadline `shouldBe` OnlyEffects [ClientEffect ReadyToFanout]
+        let outcome1 = update bobEnv ledger s0 observeCloseTx
+        outcome1 `hasEffect` clientEffect
+        outcome1 `hasNoEffectSatisfying` \case
+          ClientEffect ReadyToFanout -> True
+          _ -> False
+        s1 <- assertNewState outcome1
+        let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
+            stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline
+            s2 = update bobEnv ledger s1 stepTimePastDeadline
+        s2 `hasEffect` ClientEffect ReadyToFanout
 
       it "notify user on rollback" $
         forAll arbitrary $ \s -> monadicIO $ do
@@ -336,10 +342,16 @@ inClosedState parties = inClosedState' parties snapshot0
 
 inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> HeadState SimpleTx
 inClosedState' parties confirmedSnapshot =
-  ClosedState{parameters, previousRecoverableState, confirmedSnapshot}
+  ClosedState
+    { parameters
+    , previousRecoverableState
+    , confirmedSnapshot
+    , contestationDeadline
+    }
  where
   parameters = HeadParameters cperiod parties
   previousRecoverableState = inOpenState parties simpleLedger
+  contestationDeadline = arbitrary `generateWith` 42
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
