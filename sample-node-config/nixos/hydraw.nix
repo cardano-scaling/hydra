@@ -41,11 +41,10 @@ in
 
   # Our hydra-node instance
   virtualisation.oci-containers.containers.hydra-node =
-    # TODO: lookup by network (preview)
+    # NOTE: These are for the "preview" network
     let
       hydraScriptsTxId = "bde2ca1f404200e78202ec37979174df9941e96fd35c05b3680d79465853a246";
       networkMagic = "2";
-      nodeId = "314";
     in
     {
       image = "ghcr.io/input-output-hk/hydra-node:0.7.0";
@@ -58,7 +57,7 @@ in
         "5001:5001"
       ];
       cmd = builtins.concatLists [
-        [ "--node-id" nodeId ]
+        [ "--node-id" "314" ]
         [ "--api-host" "0.0.0.0" ]
         [ "--host" "0.0.0.0" ]
         [ "--monitoring-port" "6001" ]
