@@ -43,11 +43,13 @@ Also copy any additional Hydra verification keys into the
 `/data/hydra-node/credentials` and extend the command line of the `hydra-node`
 container accordingly.
 
-Lastly, the `hydra-node` requires some `protocol-parameters.json` to configure the ledger in the `/data/hydra-node` directory. Use the ones from the e2e tests `hydra-cluster/config/protocol-parameters.json` or use the L1 ones via the `cardano-cli` on the target host:
+Lastly, the `hydra-node` requires some `protocol-parameters.json` to configure the ledger in the `/data/hydra-node` directory. Use the ones from the e2e tests `hydra-cluster/config/protocol-parameters.json` or the L1 ones via the `cardano-cli` on the target host as basis:
 
 ``` sh
-ssh example "CARDANO_NODE_SOCKET_PATH=/data/cardano-node/node.socket cardano-cli query protocol-parameters --testnet-magic 2 > /data/hydra-node/protocol-parameters.json"
+ssh example "CARDANO_NODE_SOCKET_PATH=/data/cardano-node/node.socket cardano-cli query protocol-parameters --testnet-magic 2 | 's/"txFeeFixed.*/"txFeeFixed": 0,/;s/"txFeePerByte.*/"txFeePerByte": 0,/' > /data/hydra-node/protocol-parameters.json"
 ```
+
+IMPORTANT: The `hydraw` application requires **0 fees**! So ensure `"txFeeFixed": 0` and `"txFeePerByte": 0`.
 
 ## Attach the tui
 
@@ -69,3 +71,6 @@ ssh -t example docker run --rm -it \
 To continue, you will need to have some "fuel" UTxO owned by the `--cardano-signing-key` available to the `hydra-node`. See [testnet instructions](../../testnets/README.md) on how to do that.
 
 Then, we can open the Head usin the TUI and commit some funds into it. If you have other participants in the head with you, they will need to commit something (or opt for nothing).
+
+Once open, we can use the web interface of `hydraw` at port 1337 of your target
+or via a reverse proxy as in the example module to paint pixels!
