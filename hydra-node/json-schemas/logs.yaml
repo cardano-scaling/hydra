@@ -1087,7 +1087,7 @@ definitions:
         tag:
           type: string
           enum: [ "WaitOnSeenSnapshot" ]
-    - title: WaitOnContestationPeriod
+    - title: WaitOnContestationDeadline
       description: >-
         Contestation period is not over yet.
       type: object
@@ -1097,4 +1097,4 @@ definitions:
       properties:
         tag:
           type: string
-          enum: [ "WaitOnContestationPeriod" ]
+          enum: [ "WaitOnContestationDeadline" ]
