@@ -14,10 +14,9 @@ import qualified Data.Set as Set
 import Hydra.Chain (
   ChainEvent (..),
   HeadParameters (..),
-  OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx, OnContestTx),
+  OnChainTx (..),
   PostChainTx (ContestTx),
  )
-import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), Environment (..), Event (..), HeadState (..), LogicError (..), Outcome (..), SeenSnapshot (NoSeenSnapshot, SeenSnapshot), WaitReason (..), update)
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
@@ -25,7 +24,7 @@ import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.Party (Party (..))
-import Hydra.ServerOutput (ServerOutput (PeerConnected, RolledBack))
+import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
@@ -42,7 +41,7 @@ spec = do
     describe "Coordinated Head Protocol" $ do
       let threeParties = [alice, bob, carol]
           ledger = simpleLedger
-          env =
+          bobEnv =
             Environment
               { party = bob
               , signingKey = bobSk
@@ -54,20 +53,20 @@ spec = do
             inputs = utxoRef 1
             s0 = inOpenState threeParties ledger
 
-        update env ledger s0 reqTx `shouldBe` Wait (WaitOnNotApplicableTx (ValidationError "cannot apply transaction"))
+        update bobEnv ledger s0 reqTx `shouldBe` Wait (WaitOnNotApplicableTx (ValidationError "cannot apply transaction"))
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let s0 = inOpenState threeParties ledger
             reqSn = NetworkEvent $ ReqSn alice 1 []
             snapshot1 = Snapshot 1 mempty []
             ackFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot1) 1
-        s1 <- assertNewState $ update env ledger s0 reqSn
-        s2 <- assertNewState $ update env ledger s1 (ackFrom carolSk carol)
-        s3 <- assertNewState $ update env ledger s2 (ackFrom aliceSk alice)
+        s1 <- assertNewState $ update bobEnv ledger s0 reqSn
+        s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
+        s3 <- assertNewState $ update bobEnv ledger s2 (ackFrom aliceSk alice)
 
         getConfirmedSnapshot s3 `shouldBe` Just (Snapshot 0 mempty [])
 
-        s4 <- assertNewState $ update env ledger s3 (ackFrom bobSk bob)
+        s4 <- assertNewState $ update bobEnv ledger s3 (ackFrom bobSk bob)
         getConfirmedSnapshot s4 `shouldBe` Just snapshot1
 
       it "does not confirm snapshot when given a non-matching signature produced from a different message" $ do
@@ -77,10 +76,10 @@ spec = do
             snapshot' = Snapshot 2 mempty []
             ackFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot) 1
             invalidAckFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot') 1
-        s1 <- assertNewState $ update env ledger s0 reqSn
-        s2 <- assertNewState $ update env ledger s1 (ackFrom carolSk carol)
-        s3 <- assertNewState $ update env ledger s2 (ackFrom aliceSk alice)
-        s4 <- assertNewState $ update env ledger s3 (invalidAckFrom bobSk bob)
+        s1 <- assertNewState $ update bobEnv ledger s0 reqSn
+        s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
+        s3 <- assertNewState $ update bobEnv ledger s2 (ackFrom aliceSk alice)
+        s4 <- assertNewState $ update bobEnv ledger s3 (invalidAckFrom bobSk bob)
 
         getConfirmedSnapshot s4 `shouldBe` getConfirmedSnapshot s3
 
@@ -89,35 +88,35 @@ spec = do
             reqSn = NetworkEvent $ ReqSn alice 1 []
             snapshot = Snapshot 1 mempty []
             ackFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot) 1
-        s1 <- assertNewState $ update env ledger s0 reqSn
-        s2 <- assertNewState $ update env ledger s1 (ackFrom carolSk carol)
-        s3 <- assertNewState $ update env ledger s2 (ackFrom aliceSk alice)
-        s4 <- assertNewState $ update env ledger s3 (ackFrom (generateSigningKey "foo") bob)
+        s1 <- assertNewState $ update bobEnv ledger s0 reqSn
+        s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
+        s3 <- assertNewState $ update bobEnv ledger s2 (ackFrom aliceSk alice)
+        s4 <- assertNewState $ update bobEnv ledger s3 (ackFrom (generateSigningKey "foo") bob)
 
         getConfirmedSnapshot s4 `shouldBe` getConfirmedSnapshot s3
 
       it "waits if we receive a snapshot with not-yet-seen transactions" $ do
         let event = NetworkEvent $ ReqSn alice 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
-        update env ledger (inOpenState threeParties ledger) event
+        update bobEnv ledger (inOpenState threeParties ledger) event
           `shouldBe` Wait (WaitOnNotApplicableTx (ValidationError "cannot apply transaction"))
 
       it "waits if we receive an AckSn for an unseen snapshot" $ do
         let snapshot = Snapshot 1 mempty []
             event = NetworkEvent $ AckSn alice (sign aliceSk snapshot) 1
-        update env ledger (inOpenState threeParties ledger) event `shouldBe` Wait WaitOnSeenSnapshot
+        update bobEnv ledger (inOpenState threeParties ledger) event `shouldBe` Wait WaitOnSeenSnapshot
 
       -- TODO: write a property test for various future snapshots
       it "waits if we receive a future snapshot" $ do
         let event = NetworkEvent $ ReqSn bob 2 []
             st = inOpenState threeParties ledger
-        update env ledger st event `shouldBe` Wait WaitOnSeenSnapshot
+        update bobEnv ledger st event `shouldBe` Wait WaitOnSeenSnapshot
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
         let s0 = inOpenState threeParties ledger
             reqSn1 = NetworkEvent $ ReqSn alice 1 []
             reqSn2 = NetworkEvent $ ReqSn bob 2 []
-        s1 <- assertNewState $ update env ledger s0 reqSn1
-        update env ledger s1 reqSn2 `shouldBe` Wait (WaitOnSnapshotNumber 1)
+        s1 <- assertNewState $ update bobEnv ledger s0 reqSn1
+        update bobEnv ledger s1 reqSn2 `shouldBe` Wait (WaitOnSnapshotNumber 1)
 
       it "acks signed snapshot from the constant leader" $ do
         let leader = alice
@@ -125,14 +124,14 @@ spec = do
             event = NetworkEvent $ ReqSn leader (number snapshot) []
             sig = sign bobSk snapshot
             st = inOpenState threeParties ledger
-            ack = AckSn (party env) sig (number snapshot)
-        update env ledger st event `hasEffect` NetworkEffect ack
+            ack = AckSn bob sig (number snapshot)
+        update bobEnv ledger st event `hasEffect` NetworkEffect ack
 
       it "does not ack snapshots from non-leaders" $ do
         let event = NetworkEvent $ ReqSn notTheLeader 1 []
             notTheLeader = bob
             st = inOpenState threeParties ledger
-        update env ledger st event `shouldBe` Error (InvalidEvent event st)
+        update bobEnv ledger st event `shouldBe` Error (InvalidEvent event st)
 
       -- TODO(SN): maybe this and the next are a property! at least DRY
       -- NOTE(AB): we should cover variations of snapshot numbers and state of snapshot
@@ -149,7 +148,7 @@ spec = do
                   , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = NoSeenSnapshot
                   }
-        update env ledger st event `shouldBe` Error (InvalidEvent event st)
+        update bobEnv ledger st event `shouldBe` Error (InvalidEvent event st)
 
       it "rejects too-old snapshots when collecting signatures" $ do
         let event = NetworkEvent $ ReqSn theLeader 2 []
@@ -163,13 +162,13 @@ spec = do
                   , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = SeenSnapshot (Snapshot 3 mempty []) mempty
                   }
-        update env ledger st event `shouldBe` Error (InvalidEvent event st)
+        update bobEnv ledger st event `shouldBe` Error (InvalidEvent event st)
 
       it "wait given too new snapshots from the leader" $ do
         let event = NetworkEvent $ ReqSn theLeader 3 []
             theLeader = carol
             st = inOpenState threeParties ledger
-        update env ledger st event `shouldBe` Wait WaitOnSeenSnapshot
+        update bobEnv ledger st event `shouldBe` Wait WaitOnSeenSnapshot
 
       it "rejects overlapping snapshot requests from the leader" $ do
         let s0 = inOpenState threeParties ledger
@@ -178,57 +177,54 @@ spec = do
             firstReqSn = NetworkEvent $ ReqSn theLeader nextSN [aValidTx 42]
             secondReqSn = NetworkEvent $ ReqSn theLeader nextSN [aValidTx 51]
 
-        s1 <- assertNewState $ update env ledger s0 firstReqSn
-        update env ledger s1 secondReqSn `shouldBe` Error (InvalidEvent secondReqSn s1)
+        s1 <- assertNewState $ update bobEnv ledger s0 firstReqSn
+        update bobEnv ledger s1 secondReqSn `shouldBe` Error (InvalidEvent secondReqSn s1)
 
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties
             event = NetworkEvent $ ReqTx alice (aValidTx 42)
-        update env ledger s0 event `shouldBe` Error (InvalidEvent event s0)
+        update bobEnv ledger s0 event `shouldBe` Error (InvalidEvent event s0)
 
       it "notifies client when it receives a ping" $ do
         let peer = Host{hostname = "1.2.3.4", port = 1}
-        update env ledger (inOpenState threeParties ledger) (NetworkEvent $ Connected peer)
+        update bobEnv ledger (inOpenState threeParties ledger) (NetworkEvent $ Connected peer)
           `hasEffect` ClientEffect (PeerConnected peer)
 
       it "cannot observe abort after collect com" $ do
         let s0 = inInitialState threeParties
-        s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ Observation OnCollectComTx)
+        s1 <- assertNewState $ update bobEnv ledger s0 (OnChainEvent $ Observation OnCollectComTx)
         let invalidEvent = OnChainEvent $ Observation OnAbortTx
-        let s2 = update env ledger s1 invalidEvent
+        let s2 = update bobEnv ledger s1 invalidEvent
         s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
       it "cannot observe collect com after abort" $ do
         let s0 = inInitialState threeParties
-        s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ Observation OnAbortTx)
+        s1 <- assertNewState $ update bobEnv ledger s0 (OnChainEvent $ Observation OnAbortTx)
         let invalidEvent = OnChainEvent $ Observation OnCollectComTx
-        let s2 = update env ledger s1 invalidEvent
+        let s2 = update bobEnv ledger s1 invalidEvent
         s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
-      it "notify user when passing the contestation deadline" $ do
+      it "notify user on head closing and when passing the contestation deadline" $ do
         let s0 = inOpenState threeParties ledger
-            deadline = error "TODO: use a proper time and simulate blockchain time progress past it"
-            closeTx = OnChainEvent $ Observation $ OnCloseTx 0 deadline
-
-        let shouldPostFanout =
-              Delay
-                { delay = case s0 of
-                    OpenState{parameters = HeadParameters{contestationPeriod}} ->
-                      toNominalDiffTime contestationPeriod
-                    _ ->
-                      error "inOpenState: not OpenState?"
-                , reason =
-                    WaitOnContestationDeadline
-                , event =
-                    ShouldPostFanout
-                }
-
-        update env ledger s0 closeTx `hasEffect` shouldPostFanout
+            snapshotNumber = 0
+            contestationDeadline = arbitrary `generateWith` 42
+            observeCloseTx =
+              OnChainEvent $
+                Observation
+                  OnCloseTx
+                    { snapshotNumber
+                    , contestationDeadline
+                    }
+            clientEffect = ClientEffect HeadIsClosed{snapshotNumber, contestationDeadline}
+        let s1 = update bobEnv ledger s0 observeCloseTx
+        s1 `shouldBe` OnlyEffects [clientEffect]
+        let stepTimePastDeadline = error "TODO"
+        update bobEnv ledger s0 stepTimePastDeadline `shouldBe` OnlyEffects [ClientEffect ReadyToFanout]
 
       it "notify user on rollback" $
         forAll arbitrary $ \s -> monadicIO $ do
           let rollback = OnChainEvent (Rollback 2)
-          let s' = update env ledger s rollback
+          let s' = update bobEnv ledger s rollback
           void $ run $ s' `hasEffect` ClientEffect RolledBack
 
       it "contests when detecting close with old snapshot" $ do
@@ -245,7 +241,7 @@ spec = do
             deadline = arbitrary `generateWith` 42
             closeTxEvent = OnChainEvent $ Observation $ OnCloseTx 0 deadline
             contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
-            s1 = update env ledger s0 closeTxEvent
+            s1 = update bobEnv ledger s0 closeTxEvent
         s1 `hasEffect` contestTxEffect
         s1 `shouldSatisfy` \case
           NewState ClosedState{} _ -> True
@@ -257,7 +253,7 @@ spec = do
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             contestSnapshot1Event = OnChainEvent $ Observation $ OnContestTx 1
             contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
-            s1 = update env ledger s0 contestSnapshot1Event
+            s1 = update bobEnv ledger s0 contestSnapshot1Event
         s1 `hasEffect` contestTxEffect
         assertOnlyEffects s1
 

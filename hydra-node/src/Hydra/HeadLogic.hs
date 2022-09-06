@@ -642,11 +642,9 @@ onOpenChainCloseTx
     --
     --   a) Warn the user about a close tx outside of an open state
     --   b) Move to close state, using information from the close tx
-    NewState
-      closedState
-      ( [ClientEffect headIsClosed, scheduledPostFanout]
-          ++ [OnChainEffect ContestTx{confirmedSnapshot} | onChainEffectCondition]
-      )
+    NewState closedState $
+      ClientEffect headIsClosed :
+        [OnChainEffect ContestTx{confirmedSnapshot} | onChainEffectCondition]
    where
     CoordinatedHeadState{confirmedSnapshot} =
       coordinatedHeadState
@@ -660,12 +658,6 @@ onOpenChainCloseTx
       HeadIsClosed
         { snapshotNumber = closedSnapshotNumber
         , contestationDeadline
-        }
-    scheduledPostFanout =
-      Delay
-        { delay = error "TODO: remove Delay instead"
-        , reason = WaitOnContestationDeadline
-        , event = ShouldPostFanout
         }
     onChainEffectCondition =
       number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
