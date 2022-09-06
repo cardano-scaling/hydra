@@ -5,7 +5,7 @@ import Hydra.Painter (Pixel (..), paintPixel, withClient)
 
 main :: IO ()
 main = do
-  key <- fromMaybe (error "set HYDRA_SIGNING_KEY environment variable") <$> lookupEnv "HYDRA_SIGNING_KEY"
+  key <- fromMaybe (error "set HYDRAW_CARDANO_SIGNING_KEY environment variable") <$> lookupEnv "HYDRAW_CARDANO_SIGNING_KEY"
   host <- readHost . fromMaybe (error "set HYDRA_API_HOST environment variable") =<< lookupEnv "NETWORK_ID"
   args <- getArgs
   case readMaybe <$> args of

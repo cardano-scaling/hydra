@@ -73,7 +73,7 @@ services:
     entrypoint:
       [ "hydraw" ]
     environment:
-      - HYDRA_SIGNING_KEY=/data/arnaud.sk
+      - HYDRAW_CARDANO_SIGNING_KEY=/data/arnaud.sk
       - HYDRA_API_HOST=hydra-node:4001
     volumes:
       - .:/data:ro
