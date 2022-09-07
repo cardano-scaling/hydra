@@ -57,16 +57,19 @@ spec = parallel $ do
   describe "Behavior of one ore more hydra nodes" $ do
     describe "Sanity tests of test suite" $ do
       it "does not delay for real" $
+        -- If it works, it simulates a lot of time passing within 1 second
         failAfter 1 $ shouldRunInSim $ threadDelay 600
 
       it "does detect when no responses are sent" $ do
-        let action = shouldRunInSim $ do
-              chain <- simulatedChainAndNetwork
-              withHydraNode aliceSk [] chain $ \n ->
-                waitForNext n >> failure "unexpected output"
-        action `shouldThrow` \case
-          FailureDeadlock _ -> True
-          _ -> False
+        -- If it works, it simulates a lot of time passing within 1 second
+        failAfter 1 $
+          let action = shouldRunInSim $ do
+                chain <- simulatedChainAndNetwork
+                void . withHydraNode aliceSk [] chain $ \n ->
+                  waitForNext n >> failure "unexpected output"
+           in action `shouldThrow` \case
+                FailureDeadlock _ -> True
+                _ -> False
 
     describe "Single participant Head" $ do
       it "accepts Init command" $
@@ -476,6 +479,7 @@ simulatedChainAndNetwork ::
 simulatedChainAndNetwork = do
   history <- newTVarIO []
   nodes <- newTVarIO []
+  -- TODO: this is likely leaking threads (as no code is actually 'cancel'ling these)
   tickThread <- async $ simulateTicks nodes
   pure $
     ConnectToChain
