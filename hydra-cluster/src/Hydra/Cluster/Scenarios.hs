@@ -8,10 +8,9 @@ import Hydra.Prelude
 import CardanoClient (queryTip)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
-import Data.Aeson (Result (Error, Success), fromJSON, object, (.=))
-import Data.Aeson.Lens (key, _JSON, _Number, _String)
+import Data.Aeson (object, (.=))
+import Data.Aeson.Lens (key, _JSON)
 import qualified Data.Set as Set
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Alice), actorName, alice, aliceSk)
@@ -50,7 +49,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     deadline <- waitMatch 600 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       v ^? key "contestationDeadline" . _JSON
-    -- Expect to see readyToFanout within 600 seconds after deadline
+    -- Expect to see ReadyToFanout within 600 seconds after deadline
     remainingTime <- diffUTCTime deadline <$> getCurrentTime
     waitFor tracer (truncate $ remainingTime + 600) [n1] $
       output "ReadyToFanout" []

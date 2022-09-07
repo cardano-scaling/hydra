@@ -231,13 +231,14 @@ spec = around showLogsOnFailure $ do
                 _ ->
                   Nothing
             now <- getCurrentTime
-            unless (contestationDeadline > now) $
-              failure $ "contestationDeadline in the past: " <> (show contestationDeadline) <> ", now: " <> (show now)
-
+            unless (deadline > now) $
+              failure $ "contestationDeadline in the past: " <> show deadline <> ", now: " <> show now
             delayUntil deadline
+            -- TODO: WIP wait until Tick with > deadline
             postTx $
               FanoutTx
                 { utxo = someUTxO
+                , contestationDeadline = deadline
                 }
             alicesCallback `observesInTime` OnFanoutTx
             failAfter 5 $
@@ -333,4 +334,4 @@ isIntersectionNotFoundException _ = True
 delayUntil :: (MonadDelay m, MonadTime m) => UTCTime -> m ()
 delayUntil target = do
   now <- getCurrentTime
-  threadDelay $ diffUTCTime target now
+  threadDelay . realToFrac $ diffUTCTime target now
