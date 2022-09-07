@@ -122,6 +122,9 @@ allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
 newtype IdleState = IdleState {ctx :: ChainContext}
   deriving (Show, Eq)
 
+instance Arbitrary IdleState where
+  arbitrary = IdleState <$> arbitrary
+
 instance HasKnownUTxO IdleState where
   getKnownUTxO IdleState{ctx = ChainContext{scriptRegistry}} =
     registryUTxO scriptRegistry

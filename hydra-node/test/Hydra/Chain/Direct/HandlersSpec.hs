@@ -13,6 +13,7 @@ import Control.Tracer (nullTracer)
 import Data.List ((\\))
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
@@ -66,16 +67,28 @@ import Test.QuickCheck (
   label,
  )
 import Test.QuickCheck.Monadic (
-  PropertyM,
+  PropertyM (MkPropertyM),
   assert,
   monadicIO,
   monitor,
+  pick,
   run,
  )
 import qualified Prelude
 
 spec :: Spec
 spec = do
+  prop "roll forward results in Tick events" $
+    monadicIO $ do
+      idleState <- pickBlind arbitrary -- TODO: use an arbitrary ChainState
+      (handler, getEvents) <- run $ recordEventsHandler $ Idle idleState
+      slot <- pick arbitrary
+      blk <- pickBlind $ genBlockAt slot []
+      run $ onRollForward handler blk
+      events <- run getEvents
+      monitor $ counterexample ("events: " <> show events)
+      assert $ events == [Tick $ posixSecondsToUTCTime 0]
+
   prop "yields observed transactions rolling forward" $ do
     forAll genChainStateWithTx $ \(st, tx, _) -> do
       let callback = \case
@@ -113,6 +126,24 @@ spec = do
           let toReplay = blks \\ [blk | blk <- blks, blockPoint blk <= rollbackPoint]
           st'' <- run $ mapM_ (onRollForward handler) toReplay *> readTVarIO headState
           assert (st' == st'')
+
+recordEventsHandler :: ChainState -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
+recordEventsHandler st = do
+  headState <- newTVarIO $ stAtGenesis st
+  eventsVar <- newTVarIO []
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) headState
+  pure (handler, getEvents eventsVar)
+ where
+  getEvents = atomically . readTVar
+
+  recordEvents var e = atomically $ modifyTVar var (e :)
+
+-- | Like 'pick' but using 'forAllBlind' under the hood.
+pickBlind :: Monad m => Gen a -> PropertyM m a
+pickBlind gen = MkPropertyM $ \k -> do
+  a <- gen
+  mp <- k a
+  pure (forAllBlind (return a) . const <$> mp)
 
 withCounterExample :: [Block] -> TVar IO ChainStateAt -> IO a -> PropertyM IO a
 withCounterExample blks headState step = do
