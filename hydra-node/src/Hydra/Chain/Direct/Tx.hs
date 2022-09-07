@@ -354,7 +354,7 @@ contestTx ::
   Snapshot Tx ->
   -- | Multi-signature of the whole snapshot
   MultiSignature (Snapshot Tx) ->
-  -- | Current slot and posix time to be recorded as the closing time.
+  -- | Current slot and posix time to be used as the contestation time.
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->

@@ -50,12 +50,14 @@ addContestationPeriod time UnsafeContestationPeriod{milliseconds} = time Plutus.
 -- | Convert given on-chain 'POSIXTime' to a 'UTCTime'.
 posixToUTCTime :: POSIXTime -> UTCTime
 posixToUTCTime (POSIXTime ms) =
+  -- NOTE: POSIXTime records the number of milliseconds since epoch
   posixSecondsToUTCTime (fromRational $ ms % 1000)
 
 -- | Compute on-chain 'POSIXTime' from a given 'UTCTime'.
 posixFromUTCTime :: UTCTime -> POSIXTime
 posixFromUTCTime utcTime =
-  POSIXTime . truncate $ posixSeconds / 1000
+  -- NOTE: POSIXTime records the number of milliseconds since epoch
+  POSIXTime . truncate $ posixSeconds * 1000
  where
   -- NOTE: 'Pico' is a 'Fixed' precision integer and denotes here the seconds
   -- since epoch with picosecond precision.
