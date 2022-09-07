@@ -19,6 +19,7 @@ import Hydra.Cardano.Api (
   Era,
   EraHistory (EraHistory),
   NetworkId,
+  ProtocolParameters,
   shelleyBasedEra,
   toLedgerPParams,
  )
@@ -49,6 +50,20 @@ data TimeHandle = TimeHandle
     -- negatively.
     adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
   }
+
+instance Arbitrary TimeHandle where
+  arbitrary = undefined
+
+-- | Construct a time handle from given current 'PointInTime' and chain
+-- parameters. See 'queryTimeHandle' to create one by querying a cardano-node.
+mkTimeHandle ::
+  -- | Point in time to use as the current time.
+  PointInTime ->
+  ProtocolParameters ->
+  EraHistory CardanoMode ->
+  SystemStart ->
+  TimeHandle
+mkTimeHandle = undefined
 
 -- | Compute current Query 'PointInTime' from wall clock and by querying the
 -- node for era history, system start and protocol parameters. "Current" means within somewhere within

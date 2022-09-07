@@ -47,6 +47,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.StateSpec (genChainStateWithTx)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToPOSIXTime))
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger.Cardano (
@@ -84,14 +85,21 @@ spec = do
   prop "roll forward results in Tick events" $
     monadicIO $ do
       idleState <- pickBlind arbitrary -- TODO: use an arbitrary ChainState
-      (handler, getEvents) <- run $ recordEventsHandler $ Idle idleState
+      timeHandle <- pickBlind arbitrary
+      (handler, getEvents) <- run $ recordEventsHandler (Idle idleState) timeHandle
+
       slot <- pick arbitrary
+      expectedUTCTime <-
+        run $
+          either (failure . ("Time conversion failed: " <>) . toString) pure $
+            posixToUTCTime <$> slotToPOSIXTime timeHandle slot
+
       blk <- pickBlind $ genBlockAt slot []
       run $ onRollForward handler blk
+
       events <- run getEvents
       monitor $ counterexample ("events: " <> show events)
-      void . stop $
-        events === [Tick $ posixToUTCTime $ slotNoToPOSIXTime slot]
+      void . stop $ events === [Tick expectedUTCTime]
 
   prop "yields observed transactions rolling forward" $ do
     forAll genChainStateWithTx $ \(st, tx, _) -> do
@@ -102,7 +110,8 @@ spec = do
               fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
       forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
         headState <- run $ newTVarIO $ stAtGenesis st
-        let handler = chainSyncHandler nullTracer callback headState
+        timeHandle <- pickBlind arbitrary
+        let handler = chainSyncHandler nullTracer callback headState timeHandle
         run $ onRollForward handler blk
 
   prop "can replay chain on (benign) rollback" $
@@ -116,7 +125,8 @@ spec = do
         monadicIO $ do
           monitor $ label ("Rollback depth: " <> show rollbackDepth)
           headState <- run $ newTVarIO st
-          let handler = chainSyncHandler nullTracer callback headState
+          timeHandle <- pickBlind arbitrary
+          let handler = chainSyncHandler nullTracer callback headState timeHandle
 
           -- 1/ Simulate some chain following
           st' <- run $ mapM_ (onRollForward handler) blks *> readTVarIO headState
@@ -131,11 +141,11 @@ spec = do
           st'' <- run $ mapM_ (onRollForward handler) toReplay *> readTVarIO headState
           assert (st' == st'')
 
-recordEventsHandler :: ChainState -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
-recordEventsHandler st = do
+recordEventsHandler :: ChainState -> TimeHandle -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
+recordEventsHandler st th = do
   headState <- newTVarIO $ stAtGenesis st
   eventsVar <- newTVarIO []
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) headState
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) headState th
   pure (handler, getEvents eventsVar)
  where
   getEvents = atomically . readTVar
