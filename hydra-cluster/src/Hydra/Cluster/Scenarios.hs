@@ -8,9 +8,10 @@ import Hydra.Prelude
 import CardanoClient (queryTip)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
-import Data.Aeson (object, (.=))
-import Data.Aeson.Lens (key, _Number)
+import Data.Aeson (Result (Error, Success), fromJSON, object, (.=))
+import Data.Aeson.Lens (key, _JSON, _Number, _String)
 import qualified Data.Set as Set
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Alice), actorName, alice, aliceSk)
@@ -48,16 +49,11 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     send n1 $ input "Close" []
     deadline <- waitMatch 600 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
-      v ^? key "contestationDeadline" . _Number
-    -- Expect to see readyToFanout within 10 seconds after deadline
-    remainingTime <- getCurrentTime >>= diffUTCTime (posixSecondsToUTCTime deadline)
-    waitFor tracer (truncate $ remainingSeconds + 10) [n1] $
+      v ^? key "contestationDeadline" . _JSON
+    -- Expect to see readyToFanout within 600 seconds after deadline
+    remainingTime <- diffUTCTime deadline <$> getCurrentTime
+    waitFor tracer (truncate $ remainingTime + 600) [n1] $
       output "ReadyToFanout" []
-    -- FIXME: Ideally the 'ReadyToFanout' is only sent when it's really ready,
-    -- but the cardano-ledger only updates it's "current slot" when it sees a
-    -- block. So we wait for roughly 1-2 blocks here (if not fixable, should at
-    -- least configure this given the shelley genesis)
-    threadDelay (2 * 20)
     send n1 $ input "Fanout" []
     waitFor tracer 600 [n1] $
       output "HeadIsFinalized" ["utxo" .= object mempty]
