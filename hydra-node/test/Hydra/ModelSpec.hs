@@ -110,13 +110,21 @@ prop_checkModel (AnyActions actions) =
       runIOSimProp $
         monadic' $ do
           (WorldState{hydraParties, hydraState}, _symEnv) <- runActions actions
-          run $ lift waitUntilTheEndOfTime
+          -- XXX: In the past we waited until the end of time here, which would
+          -- robustly catch all the remaining asynchronous actions, but we have
+          -- now a "more active" simulated chain which ticks away and not simply
+          -- detects a deadlock if we wait for infinity. Maybe cancelling the
+          -- simulation's 'tickThread' and wait then could work?
+          run $ lift waitForADay
           let parties = Set.fromList $ deriveParty . fst <$> hydraParties
           nodes <- run $ gets nodes
           assert (parties == Map.keysSet nodes)
           forM_ parties $ \p -> do
             assertNodeSeesAndReportsAllExpectedCommits hydraState nodes p
             assertBalancesInOpenHeadAreConsistent hydraState nodes p
+ where
+  waitForADay :: MonadDelay m => m ()
+  waitForADay = threadDelay $ 60 * 60 * 24
 
 assertNodeSeesAndReportsAllExpectedCommits ::
   GlobalState ->
@@ -200,12 +208,6 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
             GetUTxOResponse u -> pure u
             _ -> loop
     loop
-
--- NOTE: This is only sound to run in IOSim, because delays are instant. It
--- allows to make sure we wait long-enough for remaining asynchronous actions /
--- events to complete before we make any test assertion.
-waitUntilTheEndOfTime :: MonadDelay m => m ()
-waitUntilTheEndOfTime = threadDelay 1000000000000
 
 --
 
