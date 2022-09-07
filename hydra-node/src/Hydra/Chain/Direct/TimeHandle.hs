@@ -7,7 +7,7 @@ module Hydra.Chain.Direct.TimeHandle where
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
+import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import Cardano.Ledger.Babbage.PParams (PParams' (..))
 import Cardano.Slotting.EpochInfo (EpochInfo, hoistEpochInfo)
 import Cardano.Slotting.Slot (SlotNo)
@@ -39,11 +39,15 @@ type PointInTime = (SlotNo, POSIXTime)
 data TimeHandle = TimeHandle
   { -- | Get the current 'PointInTime'
     currentPointInTime :: Either Text PointInTime
+  , -- | Lookup slot number given a 'POSIXTime'. This will fail if the time is
+    -- outside the "safe zone".
+    slotFromPOSIXTime :: POSIXTime -> Either Text SlotNo
+  , -- | Convert a slot number to a 'POSIXTime' using the stored parameters. This
+    -- will fail if the slot is outside the "safe zone".
+    slotToPOSIXTime :: SlotNo -> Either Text POSIXTime
   , -- | Adjust a 'PointInTime' by some number of slots, positively or
     -- negatively.
     adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
-  , -- | Lookup slot number given a POSIXTime. This will fail if it's outside the "safe zone".
-    slotFromPOSIXTime :: POSIXTime -> Either Text SlotNo
   }
 
 -- | Compute current Query 'PointInTime' from wall clock and by querying the
@@ -60,19 +64,20 @@ queryTimeHandle networkId socketPath = do
   currentTime <- getCurrentTime
   currentSlotNo <- either throwIO pure $ utcTimeToSlot systemStart eraHistory currentTime
   let toTime =
-        slotToPOSIXTime
+        Ledger.slotToPOSIXTime
           (toLedgerPParams (shelleyBasedEra @Era) pparams)
           (toEpochInfo eraHistory)
           systemStart
   pure $
     TimeHandle
       { currentPointInTime = (currentSlotNo,) <$> toTime currentSlotNo
+      , slotFromPOSIXTime =
+          left show . utcTimeToSlot systemStart eraHistory . posixToUTCTime
+      , slotToPOSIXTime = toTime
       , adjustPointInTime = \n (slot, _) -> do
           let adjusted = slot + n
           time <- toTime adjusted
           pure (adjusted, time)
-      , slotFromPOSIXTime =
-          left show . utcTimeToSlot systemStart eraHistory . posixToUTCTime
       }
  where
   toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Either Text)
