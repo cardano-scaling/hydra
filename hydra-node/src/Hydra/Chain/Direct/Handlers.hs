@@ -189,11 +189,11 @@ chainSyncHandler ::
   (ChainEvent Tx -> m ()) ->
   -- | On-chain head-state.
   TVar m ChainStateAt ->
-  -- | Means to acquire a new 'TimeHandle'.
-  m TimeHandle ->
+  -- | A handle on time to do `SlotNo -> POSIXTime` conversions for 'Tick' events.
+  TimeHandle ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback headState queryTimeHandle =
+chainSyncHandler tracer callback headState timeHandle =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -215,8 +215,6 @@ chainSyncHandler tracer callback headState queryTimeHandle =
         slotNo = case chainPoint of
           ChainPointAtGenesis -> 0
           ChainPoint s _ -> s
-    -- REVIEW: query protocol parameters etc. each time
-    timeHandle <- queryTimeHandle
     case posixToUTCTime <$> slotToPOSIXTime timeHandle slotNo of
       Left reason ->
         traceWith tracer $ TickTimeConversionFailed{slotNo, reason}
