@@ -586,6 +586,7 @@ definitions:
         - parameters
         - previousRecoverableState
         - confirmedSnapshot
+        - contestationDeadline
         - readyToFanoutSent
       properties:
         tag:
@@ -597,6 +598,8 @@ definitions:
           $ref: "#/definitions/HeadState"
         confirmedSnapshot:
           $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        contestationDeadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
         readyToFanoutSent:
           type: boolean
 
@@ -924,7 +927,7 @@ definitions:
         required:
         - tag
         - snapshotNumber
-        - remainingContestationPeriod
+        - contestationDeadline
         properties:
           tag:
             type: string
@@ -932,9 +935,8 @@ definitions:
           snapshotNumber:
             type: integer
             minimum: 0
-          remainingContestationPeriod:
-            type: integer
-            minimum: 0
+          contestationDeadline:
+            $ref: "api.yaml#/components/schemas/UTCTime"
       - title: OnContestTx
         type: object
         additionalProperties: false
