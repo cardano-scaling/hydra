@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-incomplete-record-updates #-}
 
 -- | Implements the Head Protocol's /state machine/ as a /pure function/.
 --
@@ -124,6 +125,9 @@ data HeadState tx
       , confirmedSnapshot :: ConfirmedSnapshot tx
       , previousRecoverableState :: HeadState tx
       , contestationDeadline :: UTCTime
+      , -- | Tracks whether we have informed clients already about being
+        -- 'ReadyToFanout'.
+        readyToFanoutSent :: Bool
       }
   deriving stock (Generic)
 
@@ -653,6 +657,7 @@ onOpenChainCloseTx
         , previousRecoverableState
         , confirmedSnapshot
         , contestationDeadline
+        , readyToFanoutSent = False
         }
     headIsClosed =
       HeadIsClosed
@@ -781,13 +786,19 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       onOpenChainCloseTx parameters prev coordinatedHeadState closedSnapshotNumber contestationDeadline
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
     onClosedChainContestTx confirmedSnapshot snapshotNumber
-  (ClosedState{contestationDeadline}, OnChainEvent (Tick chainTime))
-    | chainTime > contestationDeadline ->
-      OnlyEffects [ClientEffect ReadyToFanout]
+  (cst@ClosedState{contestationDeadline, readyToFanoutSent}, OnChainEvent (Tick chainTime))
+    | chainTime > contestationDeadline && not readyToFanoutSent ->
+      NewState
+        -- XXX: Requires -Wno-incomplete-record-updates. Should refactor
+        -- 'HeadState' to hold individual 'ClosedState' etc. types
+        (cst{readyToFanoutSent = True})
+        [ClientEffect ReadyToFanout]
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
     onClosedChainFanoutTx confirmedSnapshot
   (currentState, OnChainEvent (Rollback n)) ->
     onCurrentChainRollback currentState n
+  (_, OnChainEvent Tick{}) ->
+    OnlyEffects []
   (_, NetworkEvent (Connected host)) ->
     OnlyEffects [ClientEffect $ PeerConnected host]
   (_, NetworkEvent (Disconnected host)) ->

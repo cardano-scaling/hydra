@@ -18,7 +18,18 @@ import Hydra.Chain (
   PostChainTx (ContestTx),
  )
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), Environment (..), Event (..), HeadState (..), LogicError (..), Outcome (..), SeenSnapshot (NoSeenSnapshot, SeenSnapshot), WaitReason (..), update)
+import Hydra.HeadLogic (
+  CoordinatedHeadState (..),
+  Effect (..),
+  Environment (..),
+  Event (..),
+  HeadState (..),
+  LogicError (..),
+  Outcome (..),
+  SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
+  WaitReason (..),
+  update,
+ )
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
@@ -347,6 +358,7 @@ inClosedState' parties confirmedSnapshot =
     , previousRecoverableState
     , confirmedSnapshot
     , contestationDeadline
+    , readyToFanoutSent = False
     }
  where
   parameters = HeadParameters cperiod parties
