@@ -13,7 +13,6 @@ import Control.Tracer (nullTracer)
 import Data.List ((\\))
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
@@ -49,9 +48,11 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.StateSpec (genChainStateWithTx)
 import Hydra.Chain.Direct.Util (Block)
+import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger.Cardano (
   genTxIn,
  )
+import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -65,6 +66,7 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShow,
   label,
+  (===),
  )
 import Test.QuickCheck.Monadic (
   PropertyM (MkPropertyM),
@@ -73,6 +75,7 @@ import Test.QuickCheck.Monadic (
   monitor,
   pick,
   run,
+  stop,
  )
 import qualified Prelude
 
@@ -87,7 +90,8 @@ spec = do
       run $ onRollForward handler blk
       events <- run getEvents
       monitor $ counterexample ("events: " <> show events)
-      assert $ events == [Tick $ posixSecondsToUTCTime 0]
+      void . stop $
+        events === [Tick $ posixToUTCTime $ slotNoToPOSIXTime slot]
 
   prop "yields observed transactions rolling forward" $ do
     forAll genChainStateWithTx $ \(st, tx, _) -> do

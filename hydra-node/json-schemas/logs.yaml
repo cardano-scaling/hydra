@@ -247,7 +247,7 @@ definitions:
           enum: ["PostingFailed"]
         tx:
           $ref: "api.yaml#/components/schemas/Transaction"
-        reason:
+        postTxError:
           $ref: "api.yaml#/components/schemas/PostTxError"
     - title: ReceivedTxs
       description: >-

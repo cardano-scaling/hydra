@@ -60,6 +60,7 @@ import Hydra.Chain.Direct.Wallet (
   getFuelUTxO,
   getTxId,
  )
+import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
@@ -86,6 +87,7 @@ type SubmitTx m = ValidatedTx LedgerEra -> m ()
 mkChain ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
+  -- | Means to acquire a new 'TimeHandle'.
   m TimeHandle ->
   TinyWallet m ->
   TVar m ChainStateAt ->
@@ -187,9 +189,11 @@ chainSyncHandler ::
   (ChainEvent Tx -> m ()) ->
   -- | On-chain head-state.
   TVar m ChainStateAt ->
+  -- | Means to acquire a new 'TimeHandle'.
+  m TimeHandle ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback headState =
+chainSyncHandler tracer callback headState queryTimeHandle =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -204,8 +208,23 @@ chainSyncHandler tracer callback headState =
 
   onRollForward :: Block -> m ()
   onRollForward blk = do
+    let point = blockPoint blk
+    traceWith tracer $ RolledForward $ SomePoint point
+
+    let chainPoint = fromConsensusPointHF point
+        slotNo = case chainPoint of
+          ChainPointAtGenesis -> 0
+          ChainPoint s _ -> s
+    -- REVIEW: query protocol parameters etc. each time
+    timeHandle <- queryTimeHandle
+    case posixToUTCTime <$> slotToPOSIXTime timeHandle slotNo of
+      Left reason ->
+        traceWith tracer $ TickTimeConversionFailed{slotNo, reason}
+      Right utcTime ->
+        callback (Tick utcTime)
+
     let receivedTxs = toList $ getBabbageTxs blk
-    onChainTxs <- reverse <$> atomically (foldM (withNextTx (blockPoint blk)) [] receivedTxs)
+    onChainTxs <- reverse <$> atomically (foldM (withNextTx chainPoint) [] receivedTxs)
     unless (null receivedTxs) $
       traceWith tracer $
         ReceivedTxs
@@ -214,7 +233,7 @@ chainSyncHandler tracer callback headState =
           }
     mapM_ (callback . Observation) onChainTxs
 
-  withNextTx :: Point Block -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
+  withNextTx :: ChainPoint -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
   withNextTx point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
     case observeSomeTx tx (currentChainState st) of
@@ -222,7 +241,7 @@ chainSyncHandler tracer callback headState =
         writeTVar headState $
           ChainStateAt
             { currentChainState = st'
-            , recordedAt = AtPoint (fromConsensusPointHF point) st
+            , recordedAt = AtPoint point st
             }
         pure $ event : observed
       Nothing ->
@@ -326,10 +345,12 @@ data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {txId :: Ledger.TxId StandardCrypto}
   | PostedTx {txId :: Ledger.TxId StandardCrypto}
-  | PostingFailed {tx :: ValidatedTx LedgerEra, reason :: PostTxError Tx}
+  | PostingFailed {tx :: ValidatedTx LedgerEra, postTxError :: PostTxError Tx}
   | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [Ledger.TxId StandardCrypto]}
+  | RolledForward {point :: SomePoint}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
+  | TickTimeConversionFailed {slotNo :: SlotNo, reason :: Text}
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 

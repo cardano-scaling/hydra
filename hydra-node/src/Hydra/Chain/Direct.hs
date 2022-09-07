@@ -197,7 +197,8 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
       )
       ( handle onIOException $ do
           let intersection = toConsensusPointHF <$> point
-          let client = ouroborosApplication tracer intersection queue (chainSyncHandler tracer callback headState) wallet
+          let handler = chainSyncHandler tracer callback headState queryTimeHandle
+          let client = ouroborosApplication tracer intersection queue handler wallet
           connectTo
             (localSnocket iocp)
             nullConnectTracers
@@ -400,9 +401,9 @@ txSubmissionClient tracer queue =
               atomically (putTMVar response Nothing)
               clientStIdle
             SubmitFail err -> do
-              let reason = onFail err
-              traceWith tracer PostingFailed{tx, reason}
-              atomically (putTMVar response (Just reason))
+              let postTxError = onFail err
+              traceWith tracer PostingFailed{tx, postTxError}
+              atomically (putTMVar response (Just postTxError))
               clientStIdle
         )
 
