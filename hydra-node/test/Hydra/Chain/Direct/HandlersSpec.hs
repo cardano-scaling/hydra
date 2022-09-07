@@ -105,6 +105,8 @@ spec = do
               fail "rolled back but expected roll forward."
             Observation onChainTx ->
               fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
+            Tick{} -> pure ()
+
       forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
         headState <- run $ newTVarIO $ stAtGenesis st
         timeHandle <- pickBlind arbitrary
@@ -115,8 +117,8 @@ spec = do
     forAllBlind genSequenceOfObservableBlocks $ \(st, blks) ->
       forAllShow (genRollbackPoint blks) showRollbackInfo $ \(rollbackDepth, rollbackPoint) -> do
         let callback = \case
-              Observation{} -> do
-                pure ()
+              Observation{} -> pure ()
+              Tick{} -> pure ()
               Rollback n -> n `shouldBe` rollbackDepth
 
         monadicIO $ do
