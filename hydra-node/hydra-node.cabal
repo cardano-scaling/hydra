@@ -268,6 +268,7 @@ test-suite tests
     Hydra.Chain.Direct.HandlersSpec
     Hydra.Chain.Direct.ScriptRegistrySpec
     Hydra.Chain.Direct.StateSpec
+    Hydra.Chain.Direct.TimeHandleSpec
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.WalletSpec
     Hydra.ClientInputSpec

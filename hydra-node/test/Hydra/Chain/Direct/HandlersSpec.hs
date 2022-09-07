@@ -88,6 +88,7 @@ spec = do
       timeHandle <- pickBlind arbitrary
       (handler, getEvents) <- run $ recordEventsHandler (Idle idleState) timeHandle
 
+      -- Pick a random slot and expect the 'Tick' event to correspond
       slot <- pick arbitrary
       expectedUTCTime <-
         run $
