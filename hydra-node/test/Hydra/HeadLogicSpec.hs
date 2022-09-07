@@ -44,11 +44,11 @@ import Test.QuickCheck.Monadic (monadicIO, run)
 
 spec :: Spec
 spec = do
-  parallel $
-    describe "Event" $ do
+  parallel $ do
+    describe "Types" $ do
       roundtripAndGoldenSpecs (Proxy @(Event SimpleTx))
+      roundtripAndGoldenSpecs (Proxy @(HeadState SimpleTx))
 
-  parallel $
     describe "Coordinated Head Protocol" $ do
       let threeParties = [alice, bob, carol]
           ledger = simpleLedger
