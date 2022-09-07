@@ -17,24 +17,26 @@ import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ClosedState,
+  ClosedState (ClosedState),
   InitialState,
   OpenState,
   close,
+  closedThreadOutput,
   collect,
   commit,
   fanout,
-  getContestationDeadline,
   initialize,
   observeClose,
   observeCollect,
   observeCommit,
   observeInit,
  )
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (ClosedThreadOutput), closedContestationDeadline)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, generateSigningKey)
+import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTime, slotNoFromPOSIXTime)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTime, slotNoFromUTCTime)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, genConfirmedSnapshot)
 import Test.QuickCheck (choose, elements, frequency, vector)
@@ -168,8 +170,13 @@ genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
   utxo <- genUTxOAdaOnlyOfSize numOutputs
   (_, toFanout, stClosed) <- genStClosed ctx utxo
-  let deadlineSlotNo = slotNoFromPOSIXTime (getContestationDeadline stClosed)
+  let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
   pure (stClosed, fanout stClosed toFanout deadlineSlotNo)
+
+getContestationDeadline :: ClosedState -> UTCTime
+getContestationDeadline
+  ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
+    posixToUTCTime closedContestationDeadline
 
 genStOpen ::
   HydraContext ->

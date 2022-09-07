@@ -689,10 +689,14 @@ onClosedChainContestTx confirmedSnapshot snapshotNumber
 -- latest confirmed snapshot from 'ClosedState'.
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
-onClosedClientFanout :: ConfirmedSnapshot tx -> Outcome tx
-onClosedClientFanout confirmedSnapshot =
+onClosedClientFanout :: ConfirmedSnapshot tx -> UTCTime -> Outcome tx
+onClosedClientFanout confirmedSnapshot contestationDeadline =
   OnlyEffects
-    [ OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)
+    [ OnChainEffect
+        FanoutTx
+          { utxo = getField @"utxo" $ getSnapshot confirmedSnapshot
+          , contestationDeadline
+          }
     ]
 
 -- | Observe a fanout transaction by finalize the head state and notifying
@@ -754,8 +758,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     onInitialChainAbortTx committed
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     onOpenClientClose confirmedSnapshot
-  (ClosedState{confirmedSnapshot}, ClientEvent Fanout) ->
-    onClosedClientFanout confirmedSnapshot
+  (ClosedState{confirmedSnapshot, contestationDeadline}, ClientEvent Fanout) ->
+    onClosedClientFanout confirmedSnapshot contestationDeadline
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   ( OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}

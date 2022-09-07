@@ -2,9 +2,12 @@ module Hydra.Data.ContestationPeriodSpec where
 
 import Hydra.Prelude
 
+import Data.Time (secondsToNominalDiffTime)
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Data.ContestationPeriod (
   contestationPeriodFromDiffTime,
   contestationPeriodToDiffTime,
+  posixFromUTCTime,
   posixToUTCTime,
  )
 import Plutus.Orphans ()
@@ -24,3 +27,10 @@ spec = do
       let ordering = compare t1 t2
        in ordering === compare (posixToUTCTime t1) (posixToUTCTime t2)
             & collect ordering
+
+  prop "roundtrip posixToUTCTime . posixFromUTCTime" $ \t ->
+    posixFromUTCTime (posixToUTCTime t) === t
+
+  prop "roundtrip posixFromUTCTime . posixToUTCTime" $ \s ->
+    let t = posixSecondsToUTCTime $ secondsToNominalDiffTime s
+     in posixToUTCTime (posixFromUTCTime t) === t

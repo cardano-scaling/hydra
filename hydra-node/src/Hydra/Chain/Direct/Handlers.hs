@@ -46,7 +46,6 @@ import Hydra.Chain.Direct.State (
   commit,
   contest,
   fanout,
-  getContestationDeadline,
   getKnownUTxO,
   initialize,
   observeSomeTx,
@@ -60,7 +59,6 @@ import Hydra.Chain.Direct.Wallet (
   getFuelUTxO,
   getTxId,
  )
-import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
@@ -215,7 +213,7 @@ chainSyncHandler tracer callback headState timeHandle =
         slotNo = case chainPoint of
           ChainPointAtGenesis -> 0
           ChainPoint s _ -> s
-    case posixToUTCTime <$> slotToPOSIXTime timeHandle slotNo of
+    case slotToUTCTime timeHandle slotNo of
       Left reason ->
         traceWith tracer $ TickTimeConversionFailed{slotNo, reason}
       Right utcTime ->
@@ -308,19 +306,15 @@ fromPostChainTx timeHandle wallet someHeadState tx = do
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (contest st confirmedSnapshot shifted)
-    (FanoutTx{utxo}, Closed st) -> do
-      -- TODO: The 'FanoutTx' should contain the deadline in UTCTime
-      -- NOTE: It's a bit weird that we inspect the state here, but handling
-      -- errors of the possibly failing "time -> slot" conversion is better
-      -- done here.
-      deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
+    (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
+      deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       pure (fanout st utxo deadlineSlot)
     (_, _) -> throwIO $ InvalidStateToPost tx
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure
 
-  TimeHandle{currentPointInTime, adjustPointInTime, slotFromPOSIXTime} = timeHandle
+  TimeHandle{currentPointInTime, adjustPointInTime, slotFromUTCTime} = timeHandle
 
 --
 -- Helpers

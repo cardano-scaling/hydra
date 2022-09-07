@@ -56,6 +56,7 @@ import Hydra.Cardano.Api (
   toLedgerExUnits,
   toLedgerPParams,
  )
+import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
   EraEnd (EraUnbounded),
@@ -67,7 +68,6 @@ import Ouroboros.Consensus.HardFork.History (
   mkInterpreter,
  )
 import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
-import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import Test.QuickCheck (choose)
 
@@ -216,42 +216,36 @@ slotLength = mkSlotLength 1
 systemStart :: SystemStart
 systemStart = SystemStart $ posixSecondsToUTCTime 0
 
-genPointInTime :: Gen (SlotNo, Plutus.POSIXTime)
+genPointInTime :: Gen (SlotNo, UTCTime)
 genPointInTime = do
   slot <- SlotNo <$> arbitrary
-  let time = slotNoToPOSIXTime slot
+  let time = slotNoToUTCTime slot
   pure (slot, time)
 
-genPointInTimeBefore :: Plutus.POSIXTime -> Gen (SlotNo, Plutus.POSIXTime)
+genPointInTimeBefore :: UTCTime -> Gen (SlotNo, UTCTime)
 genPointInTimeBefore deadline = do
-  let SlotNo slotDeadline = slotNoFromPOSIXTime deadline
+  let SlotNo slotDeadline = slotNoFromUTCTime deadline
   slot <- SlotNo <$> choose (0, slotDeadline)
-  pure (slot, slotNoToPOSIXTime slot)
+  pure (slot, slotNoToUTCTime slot)
 
-genPointInTimeAfter :: Plutus.POSIXTime -> Gen (SlotNo, Plutus.POSIXTime)
+genPointInTimeAfter :: UTCTime -> Gen (SlotNo, UTCTime)
 genPointInTimeAfter deadline = do
-  let SlotNo slotDeadline = slotNoFromPOSIXTime deadline
+  let SlotNo slotDeadline = slotNoFromUTCTime deadline
   slot <- SlotNo <$> choose (slotDeadline, maxBound)
-  pure (slot, slotNoToPOSIXTime slot)
+  pure (slot, slotNoToUTCTime slot)
 
 -- | Using hard-coded systemStart and slotLength, do not use in production!
-slotNoFromPOSIXTime :: Plutus.POSIXTime -> SlotNo
-slotNoFromPOSIXTime posixTime =
+slotNoFromUTCTime :: UTCTime -> SlotNo
+slotNoFromUTCTime utcTime =
   SlotNo $ truncate (relativeTime / getSlotLength slotLength)
  where
   (RelativeTime relativeTime) =
     toRelativeTime systemStart utcTime
 
-  utcTime =
-    posixSecondsToUTCTime $
-      realToFrac $
-        (`div` 1000) $
-          Plutus.getPOSIXTime posixTime
-
 -- | Using hard-coded defaults above. Fails for slots past epoch boundaries.
-slotNoToPOSIXTime :: HasCallStack => SlotNo -> Plutus.POSIXTime
-slotNoToPOSIXTime =
-  either error id
+slotNoToUTCTime :: HasCallStack => SlotNo -> UTCTime
+slotNoToUTCTime =
+  either error posixToUTCTime
     . slotToPOSIXTime
       (toLedgerPParams (shelleyBasedEra @Era) pparams)
       epochInfo

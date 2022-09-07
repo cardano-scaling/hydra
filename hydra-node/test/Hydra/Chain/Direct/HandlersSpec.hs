@@ -47,13 +47,9 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.StateSpec (genChainStateWithTx)
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToPOSIXTime))
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block)
-import Hydra.Data.ContestationPeriod (posixToUTCTime)
-import Hydra.Ledger.Cardano (
-  genTxIn,
- )
-import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
+import Hydra.Ledger.Cardano (genTxIn)
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -93,7 +89,7 @@ spec = do
       expectedUTCTime <-
         run $
           either (failure . ("Time conversion failed: " <>) . toString) pure $
-            posixToUTCTime <$> slotToPOSIXTime timeHandle slot
+            slotToUTCTime timeHandle slot
 
       blk <- pickBlind $ genBlockAt slot []
       run $ onRollForward handler blk

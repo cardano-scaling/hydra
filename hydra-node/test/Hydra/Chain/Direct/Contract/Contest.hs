@@ -21,14 +21,15 @@ import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
+import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
+import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (BuiltinByteString, POSIXTime, toBuiltin, toData)
+import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Gen (choose)
@@ -47,7 +48,7 @@ healthyContestTx =
       somePartyCardanoVerificationKey
       healthyContestSnapshot
       (healthySignature healthyContestSnapshotNumber)
-      (healthySlotNo, slotNoToPOSIXTime healthySlotNo)
+      (healthySlotNo, slotNoToUTCTime healthySlotNo)
       closedThreadOutput
 
   headInput = generateWith arbitrary 42
@@ -67,7 +68,7 @@ healthyContestTx =
       { closedThreadUTxO = (headInput, headResolvedInput, headDatum)
       , closedParties =
           healthyOnChainParties
-      , closedContestationDeadline = healthyContestationDeadline
+      , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
       }
 
 healthyContestSnapshot :: Snapshot Tx
@@ -96,18 +97,17 @@ healthyClosedState =
     { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
     , utxoHash = healthyClosedUTxOHash
     , parties = healthyOnChainParties
-    , contestationDeadline = healthyContestationDeadline
+    , contestationDeadline = posixFromUTCTime healthyContestationDeadline
     }
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
 
-healthyContestationDeadline :: POSIXTime
+healthyContestationDeadline :: UTCTime
 healthyContestationDeadline =
-  fromInteger
-    ( healthyContestationPeriodSeconds
-        + toInteger (slotNoToPOSIXTime healthySlotNo)
-    )
+  addUTCTime
+    (fromInteger healthyContestationPeriodSeconds)
+    (slotNoToUTCTime healthySlotNo)
 
 healthyContestationPeriodSeconds :: Integer
 healthyContestationPeriodSeconds = 10
@@ -221,4 +221,4 @@ genContestMutation
           headTxOut
 
     slotOverContestationDeadline slotNo =
-      slotNoToPOSIXTime slotNo > healthyContestationDeadline
+      slotNoToUTCTime slotNo > healthyContestationDeadline

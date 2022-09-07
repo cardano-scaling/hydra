@@ -41,6 +41,7 @@ import Hydra.Chain.Direct.Context (
   genInitTx,
   genStInitial,
   genStOpen,
+  getContestationDeadline,
   pickChainContext,
   unsafeCommit,
   unsafeObserveInitAndCommits,
@@ -59,7 +60,6 @@ import Hydra.Chain.Direct.State (
   collect,
   commit,
   contest,
-  getContestationDeadline,
   getKnownUTxO,
   initialize,
   observeAbort,
@@ -405,7 +405,6 @@ forAllContest action =
       & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
       & counterexample ("Contestation period: " <> show ctxContestationPeriod)
       & counterexample ("Close point: " <> show closePointInTime)
-      & tabulate "Contestation deadline" (tabulateNum $ getContestationDeadline stClosed)
       & tabulate "Contestation period" (tabulateContestationPeriod ctxContestationPeriod)
       & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
  where

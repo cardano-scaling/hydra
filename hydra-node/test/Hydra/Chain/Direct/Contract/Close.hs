@@ -15,11 +15,12 @@ import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
+import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
+import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
@@ -40,7 +41,7 @@ healthyCloseTx =
     closeTx
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
-      (healthySlotNo, slotNoToPOSIXTime healthySlotNo)
+      (healthySlotNo, slotNoToUTCTime healthySlotNo)
       openThreadOutput
 
   headInput = generateWith arbitrary 42
@@ -214,10 +215,7 @@ genCloseMutation (tx, _utxo) =
         , utxoHash
         , parties
         , contestationDeadline =
-            -- FIXME: we don't have useful functions for manipulating time on-chain seemingly
-            fromInteger
-              ( toInteger contestationPeriod
-                  + toInteger (slotNoToPOSIXTime healthySlotNo)
-              )
+            let closingTime = slotNoToUTCTime healthySlotNo
+             in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
         }
     st -> error $ "unexpected state " <> show st

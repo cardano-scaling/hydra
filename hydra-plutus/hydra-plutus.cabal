@@ -135,6 +135,7 @@ test-suite tests
     , hydra-prelude
     , hydra-test-utils
     , QuickCheck
+    , time
 
   build-tool-depends: hspec-discover:hspec-discover -any
 

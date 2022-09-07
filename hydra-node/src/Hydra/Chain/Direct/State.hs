@@ -46,7 +46,6 @@ import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
-import Plutus.V2.Ledger.Api (POSIXTime)
 import Test.QuickCheck (sized)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
@@ -189,13 +188,6 @@ instance HasKnownUTxO ClosedState where
       { ctx = ChainContext{scriptRegistry}
       , closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}
       } = st
-
--- | Access the contestation deadline in a 'ClosedState'.
--- TODO: This is only used in test code now
-getContestationDeadline :: ClosedState -> POSIXTime
-getContestationDeadline
-  ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
-    closedContestationDeadline
 
 -- * Constructing transactions
 
