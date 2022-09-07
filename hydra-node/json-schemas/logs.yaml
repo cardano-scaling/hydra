@@ -586,6 +586,7 @@ definitions:
         - parameters
         - previousRecoverableState
         - confirmedSnapshot
+        - readyToFanoutSent
       properties:
         tag:
           type: string
@@ -596,6 +597,8 @@ definitions:
           $ref: "#/definitions/HeadState"
         confirmedSnapshot:
           $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        readyToFanoutSent:
+          type: boolean
 
   CoordinatedHeadState:
     type: object
@@ -834,6 +837,21 @@ definitions:
           contents:
             type: integer
             minimum: 0
+
+      - title: Tick
+        description: |
+          Time has progressed on the chain.
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - contents
+        properties:
+          tag:
+            type: string
+            enum: ["Tick"]
+          contents:
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
   OnChainTx:
     description: >-
