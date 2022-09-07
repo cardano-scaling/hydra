@@ -168,7 +168,6 @@ data RecordedAt
   deriving (Eq, Show)
 
 -- | A /handler/ that takes care of following the chain.
--- TODO: replace use of `Block` with `Tx`
 data ChainSyncHandler m = ChainSyncHandler
   { onRollForward :: Block -> m ()
   , onRollBackward :: Point Block -> m ()
