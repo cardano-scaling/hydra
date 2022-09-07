@@ -18,7 +18,7 @@ import Control.Monad.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Class.MonadTimer (timeout)
-import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
+import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
 import Hydra.Cardano.Api (SigningKey)
@@ -59,17 +59,6 @@ spec = parallel $ do
       it "does not delay for real" $
         -- If it works, it simulates a lot of time passing within 1 second
         failAfter 1 $ shouldRunInSim $ threadDelay 600
-
-      it "does detect when no responses are sent" $ do
-        -- If it works, it simulates a lot of time passing within 1 second
-        failAfter 1 $
-          let action = shouldRunInSim $ do
-                chain <- simulatedChainAndNetwork
-                void . withHydraNode aliceSk [] chain $ \n ->
-                  waitForNext n >> failure "unexpected output"
-           in action `shouldThrow` \case
-                FailureDeadlock _ -> True
-                _ -> False
 
     describe "Single participant Head" $ do
       it "accepts Init command" $
