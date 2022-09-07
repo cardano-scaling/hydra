@@ -240,7 +240,7 @@ definitions:
       required:
         - tag
         - tx
-        - reason
+        - postTxError
       properties:
         tag:
           type: string
@@ -272,9 +272,24 @@ definitions:
           items:
             type: integer
 
+    - title: RolledForward
+      description: >-
+        Chain sync rolled forward by receiving a block with transactions.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - point
+      properties:
+        tag:
+          type: string
+          enum: ["RolledForward"]
+        point:
+          $ref: "api.yaml#/components/schemas/Point"
+
     - title: RolledBackward
       description: >-
-        Observation of a rollback.
+        Chain sync rolled backward to some point.
       type: object
       additionalProperties: false
       required:
@@ -286,6 +301,27 @@ definitions:
           enum: ["RolledBackward"]
         point:
           $ref: "api.yaml#/components/schemas/Point"
+
+    - title: TickTimeConversionFailed
+      description: >-
+        Conversion of a slot number to a time failed. This can be considered an
+        internal error and may be happening because the era history is too old
+        (its only fetched on startup). Restarting the node might help.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - slotNo
+        - reason
+      properties:
+        tag:
+          type: string
+          enum: ["TickTimeConversionFailed"]
+        slotNo:
+          type: number
+          minimum: 0
+        reason:
+          type: string
 
     - title: Wallet
       description: >-
