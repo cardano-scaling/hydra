@@ -49,9 +49,9 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     deadline <- waitMatch 600 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       v ^? key "contestationDeadline" . _JSON
-    -- Expect to see ReadyToFanout within 600 seconds after deadline
+    -- Expect to see ReadyToFanout within 3 seconds after deadline
     remainingTime <- diffUTCTime deadline <$> getCurrentTime
-    waitFor tracer (truncate $ remainingTime + 600) [n1] $
+    waitFor tracer (truncate $ remainingTime + 3) [n1] $
       output "ReadyToFanout" []
     send n1 $ input "Fanout" []
     waitFor tracer 600 [n1] $
