@@ -46,7 +46,7 @@ import Hydra.Chain.Direct.State (
   observeInit,
   observeSomeTx,
  )
-import Hydra.Chain.Direct.StateSpec (genChainStateWithTx)
+import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
@@ -80,9 +80,9 @@ spec :: Spec
 spec = do
   prop "roll forward results in Tick events" $
     monadicIO $ do
-      idleState <- pickBlind arbitrary -- TODO: use an arbitrary ChainState
+      chainState <- pickBlind genChainState
       timeHandle <- pickBlind arbitrary
-      (handler, getEvents) <- run $ recordEventsHandler (Idle idleState) timeHandle
+      (handler, getEvents) <- run $ recordEventsHandler chainState timeHandle
 
       -- Pick a random slot and expect the 'Tick' event to correspond
       slot <- pick arbitrary

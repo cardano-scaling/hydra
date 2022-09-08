@@ -248,6 +248,27 @@ propIsValid forAllTx =
 -- QuickCheck Extras
 --
 
+genChainState :: Gen ChainState
+genChainState =
+  oneof
+    [ Idle <$> arbitrary
+    , Initial <$> genInitialState
+    , Open <$> genOpenState
+    , Closed <$> genClosedState
+    ]
+ where
+  genInitialState = do
+    ctx <- genHydraContext 3
+    genStInitial ctx
+
+  genOpenState = do
+    ctx <- genHydraContext 3
+    snd <$> genStOpen ctx
+
+  genClosedState = do
+    -- XXX: Untangle the whole generator mess here
+    fst <$> genFanoutTx 3 70
+
 genChainStateWithTx :: Gen (ChainState, Tx, ChainTransition)
 genChainStateWithTx =
   oneof
