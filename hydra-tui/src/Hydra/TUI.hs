@@ -116,6 +116,7 @@ data HeadState
   | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: UTxO}
   | Open {parties :: [Party], utxo :: UTxO}
   | Closed {contestationDeadline :: UTCTime}
+  | FanoutPossible
   | Final {utxo :: UTxO}
   deriving (Eq, Show, Generic)
 
@@ -275,7 +276,8 @@ handleAppEvent s = \case
   Update HeadIsContested{snapshotNumber} ->
     s & info ("Head contested with snapshot number " <> show snapshotNumber)
   Update ReadyToFanout ->
-    s & info "Contestation period passed, ready for fanout."
+    s & headStateL .~ FanoutPossible
+      & info "Contestation period passed, ready for fanout."
   Update HeadIsAborted{} ->
     s & headStateL .~ Idle
       & info "Head aborted, back to square one."
@@ -540,7 +542,14 @@ draw Client{sk} CardanoClient{networkId} s =
               [ drawHeadState
               , drawRemainingContestationPeriod contestationDeadline
               ]
-              [ "[F]anout" -- TODO: should only render this when actually possible
+              [ "[Q]uit"
+              ]
+          Just FanoutPossible ->
+            withCommands
+              [ drawHeadState
+              , txt "Ready to fanout!"
+              ]
+              [ "[F]anout"
               , "[Q]uit"
               ]
           Just Final{utxo} ->
@@ -564,7 +573,7 @@ draw Client{sk} CardanoClient{networkId} s =
     let remaining = diffUTCTime deadline (s ^. nowL)
      in if remaining > 0
           then padLeftRight 1 $ txt "Remaining time to contest: " <+> str (renderTime remaining)
-          else txt "Contestation period passed, ready to fan out."
+          else txt "Contestation period passed, ready to fan out soon."
 
   drawHeadState = case s of
     Disconnected{} -> emptyWidget
