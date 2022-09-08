@@ -3,12 +3,12 @@ slug: 20
 title: |
   20. Handling time
 authors: []
-tags: [Proposed]
+tags: [Accepted]
 ---
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
