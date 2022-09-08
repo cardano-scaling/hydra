@@ -58,6 +58,9 @@ Proposed
   - Ensures clients only see `ReadyToFanout` when a following `Fanout` would be really possible.
   - Makes the `Delay` effect redundant and we can remove it (only delay via reenqueue on the `Wait` outcome)
 
+* By introducing `Tick` events, `IOSim` will not be able to detect non-progress (deadlocks).
+  - This means we cannot rely on early exit of simulations anymore and need to determine meaningful simulation endings instead of `waitUntilTheEndOfTime`.
+
 * We get a first, rough notion of time for free in our L2 and can support "timed transactions" with same resolution as the L1.
   - Tracking time in the state makes it trivial to provide it to the ledger when we `applyTransaction`.
   - Of course we could extend the fidelity of this feature using the system clock for "dead reckoning" between blocks. The conversion of wall clock to slot could even be configurable using an L2 `slotLength` analogous to L1 (although we might not want/need this).
