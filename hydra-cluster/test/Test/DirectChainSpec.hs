@@ -26,7 +26,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   Chain (..),
-  ChainEvent (Observation),
+  ChainEvent (Observation, Tick),
   HeadParameters (..),
   OnChainTx (..),
   PostChainTx (..),
@@ -225,16 +225,18 @@ spec = around showLogsOnFailure $ do
                 }
 
             deadline <-
-              alicesCallback `shouldSatisfyInTime` \case
-                Observation OnCloseTx{snapshotNumber, contestationDeadline} ->
-                  Just (snapshotNumber == 1, contestationDeadline)
-                _ ->
-                  Nothing
+              waitMatch alicesCallback $ \case
+                Observation OnCloseTx{snapshotNumber, contestationDeadline}
+                  | snapshotNumber == 1 -> Just contestationDeadline
+                _ -> Nothing
             now <- getCurrentTime
             unless (deadline > now) $
               failure $ "contestationDeadline in the past: " <> show deadline <> ", now: " <> show now
             delayUntil deadline
-            -- TODO: WIP wait until Tick with > deadline
+
+            waitMatch alicesCallback $ \case
+              Tick t | t > deadline -> Just ()
+              _ -> Nothing
             postTx $
               FanoutTx
                 { utxo = someUTxO
@@ -317,16 +319,12 @@ observesInTime mvar expected =
       Observation obs -> obs `shouldBe` expected
       _ -> go
 
-shouldSatisfyInTime :: MVar a -> (a -> Maybe (Bool, b)) -> IO b
-shouldSatisfyInTime mvar f =
-  failAfter 10 $ do
-    a <- takeMVar mvar
-    case f a of
-      Nothing ->
-        fail "predicate failed."
-      Just (predicate, b) -> do
-        shouldSatisfy predicate identity
-        return b
+waitMatch :: MVar a -> (a -> Maybe b) -> IO b
+waitMatch mvar match = do
+  a <- takeMVar mvar
+  case match a of
+    Nothing -> waitMatch mvar match
+    Just b -> pure b
 
 isIntersectionNotFoundException :: IntersectionNotFoundException -> Bool
 isIntersectionNotFoundException _ = True
