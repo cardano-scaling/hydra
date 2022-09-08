@@ -76,8 +76,6 @@ data Effect tx
     NetworkEffect {message :: Message tx}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.
     OnChainEffect {onChainTx :: PostChainTx tx}
-  | -- | A special effect to delay some 'Event' for some time. TODO: we can get rid of this (see time handling ADR).
-    Delay {delay :: NominalDiffTime, reason :: WaitReason, event :: Event tx}
   deriving stock (Generic)
 
 instance IsTx tx => Arbitrary (Effect tx) where

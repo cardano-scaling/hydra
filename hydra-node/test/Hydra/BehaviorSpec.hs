@@ -325,7 +325,6 @@ spec = parallel $ do
               openHead n1 n2
               send n1 Close
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
-              -- TODO: this will likely fail without simulating block chain time
               waitUntil [n1, n2] ReadyToFanout
               send n1 Fanout
               send n2 Fanout
