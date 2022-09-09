@@ -72,7 +72,7 @@ services:
     entrypoint:
       [ "hydraw" ]
     environment:
-      - HYDRA_SIGNING_KEY=/data/franco-hydra.sk
+      - HYDRA_SIGNING_KEY=/data/franco-cardano.sk
       - HYDRA_API_HOST=hydra-node:4001
     volumes:
       - .:/data:ro
