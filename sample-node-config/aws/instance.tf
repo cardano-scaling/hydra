@@ -85,7 +85,7 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "../hydra-poc/hydra-cluster/config/devnet/genesis-shelley.json"
+    source      = "../../hydra-cluster/config/devnet/genesis-shelley.json"
     destination = "/home/ubuntu/genesis-shelley.json"
 
     connection {
@@ -99,7 +99,7 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "../hydra-poc/hydra-cluster/config/protocol-parameters.json"
+    source      = "../../hydra-cluster/config/protocol-parameters.json"
     destination = "/home/ubuntu/protocol-parameters.json"
 
     connection {
