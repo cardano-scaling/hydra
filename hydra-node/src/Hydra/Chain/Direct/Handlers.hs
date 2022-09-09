@@ -173,14 +173,26 @@ data ChainSyncHandler m = ChainSyncHandler
   , onRollBackward :: Point Block -> m ()
   }
 
+-- | Conversion of a slot number to a time failed. This can be usually be
+-- considered an internal error and may be happening because the used era
+-- history is too old.
+data TimeConversionException = TimeConversionException
+  { slotNo :: SlotNo
+  , reason :: Text
+  }
+  deriving (Eq, Show, Exception)
+
 -- | Creates a `ChainSyncHandler` that can notify the given `callback` of events happening
 -- on-chain.
 --
 -- This forms the other half of a `ChainComponent` along with `mkChain` but is decoupled from
 -- actual interactions with the chain.
+--
+-- Throws 'TimeConversionException' when a received block's 'SlotNo' cannot be
+-- converted to a 'UTCTime' with the given 'TimeHandle'.
 chainSyncHandler ::
   forall m.
-  MonadSTM m =>
+  (MonadSTM m, MonadThrow m) =>
   -- | Tracer for logging
   Tracer m DirectChainLog ->
   -- | Chain callback
@@ -215,7 +227,7 @@ chainSyncHandler tracer callback headState timeHandle =
           ChainPoint s _ -> s
     case slotToUTCTime timeHandle slotNo of
       Left reason ->
-        traceWith tracer $ TickTimeConversionFailed{slotNo, reason}
+        throwIO TimeConversionException{slotNo, reason}
       Right utcTime ->
         callback (Tick utcTime)
 
@@ -342,7 +354,6 @@ data DirectChainLog
   | RolledForward {point :: SomePoint}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
-  | TickTimeConversionFailed {slotNo :: SlotNo, reason :: Text}
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 

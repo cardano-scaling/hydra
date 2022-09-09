@@ -302,27 +302,6 @@ definitions:
         point:
           $ref: "api.yaml#/components/schemas/Point"
 
-    - title: TickTimeConversionFailed
-      description: >-
-        Conversion of a slot number to a time failed. This can be considered an
-        internal error and may be happening because the era history is too old
-        (its only fetched on startup). Restarting the node might help.
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - slotNo
-        - reason
-      properties:
-        tag:
-          type: string
-          enum: ["TickTimeConversionFailed"]
-        slotNo:
-          type: number
-          minimum: 0
-        reason:
-          type: string
-
     - title: Wallet
       description: >-
         Logs coming from the wallet.
