@@ -35,13 +35,12 @@ services:
       - .:/data:ro
       - ./devnet:/devnet
     ports:
-      - "4002:4002"
-      - "5002:5002"
+      - "5001:5001"
     command:
-      [ "--node-id", "2"
+      [ "--node-id", "1"
       , "--api-host", "0.0.0.0"
       , "--host", "0.0.0.0"
-      , "--monitoring-port", "6002"
+      , "--monitoring-port", "6000"
       , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
       , "--hydra-signing-key", "/data/franco-hydra.sk"
       , "--cardano-signing-key", "/data/franco-cardano.sk"

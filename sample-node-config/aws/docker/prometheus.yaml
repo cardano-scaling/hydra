@@ -35,5 +35,5 @@ scrape_configs:
 
     static_configs:
     - targets: [
-      'hydra-node:6002', # hydra-nodes
+      'hydra-node:6000', # hydra-nodes
     ]
