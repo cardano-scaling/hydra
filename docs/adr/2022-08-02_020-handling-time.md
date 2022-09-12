@@ -26,7 +26,7 @@ Proposed
   - All past points in time since the `SystemStart` can be converted.
   - Future points in time can **only** be converted in the "safe zone", practically being at least `3k/f` slots (TODO: cross check). Refer to chapter 17 *Time* on the [consensus spec](https://hydra.iohk.io/build/16997794/download/1/report.pdf) for more details.
 
-* The Hydra Head protocol allows `close` and `contest` transactions only up before a deadline `T_final`, and `fanout` transactions before the deadline.
+* The Hydra Head protocol allows `close` and `contest` transactions only up before a deadline `T_final`, and `fanout` transactions after the deadline.
   - In the current implementation the deadline is upper validity of `closed` plus the contestation period.
   - We also consider protocol variants which push out the deadline by the contestation period on each `contest`.
   - Contestation periods may very well be longer than the stability window of the protocol. For example: 7 days, while the mainnet stability window is more like 36 hours.
