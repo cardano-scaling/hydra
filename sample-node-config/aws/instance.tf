@@ -43,6 +43,20 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
+    source      = "scripts/run-instance.sh"
+    destination = "/home/ubuntu/run-instance.sh"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("./env/dev-personal.pem")
+      timeout     = "2m"
+      agent       = false
+      host        = self.public_ip
+    }
+  }
+
+  provisioner "file" {
     source      = "scripts/fuel-testnet.sh"
     destination = "/home/ubuntu/fuel-testnet.sh"
 
@@ -156,7 +170,23 @@ resource "aws_instance" "hydra" {
     }
   }
 
-  user_data = file("${path.module}/scripts/userdata.sh")
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /home/ubuntu/run-instance.sh",
+      "/home/ubuntu/run-instance.sh"
+    ]
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("./env/dev-personal.pem")
+      timeout     = "2m"
+      agent       = false
+      host        = self.public_ip
+    }
+  }
+
+  user_data = file("./scripts/userdata.sh")
 
   tags = {
     Name = "Hydraw"
