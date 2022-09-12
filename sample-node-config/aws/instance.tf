@@ -85,8 +85,36 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
+    source      = "credentials/peers/arnaud-cardano.vk"
+    destination = "/home/ubuntu/arnaud-cardano.vk"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("./env/dev-personal.pem")
+      timeout     = "2m"
+      agent       = false
+      host        = self.public_ip
+    }
+  }
+
+  provisioner "file" {
     source      = "credentials/franco-hydra.sk"
     destination = "/home/ubuntu/franco-hydra.sk"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("./env/dev-personal.pem")
+      timeout     = "2m"
+      agent       = false
+      host        = self.public_ip
+    }
+  }
+
+  provisioner "file" {
+    source      = "credentials/peers/arnaud-hydra.vk"
+    destination = "/home/ubuntu/arnaud-hydra.vk"
 
     connection {
       type        = "ssh"

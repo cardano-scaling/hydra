@@ -48,6 +48,9 @@ services:
       , "--ledger-protocol-parameters", "/data/protocol-parameters.json"
       , "--network-id", "${NETWORK_MAGIC}"
       , "--node-socket", "/devnet/node.socket"
+      # peers
+      , "--hydra-verification-key", "/data/arnaud-hydra.vk"
+      , "--cardano-verification-key", "/data/arnaud-cardano.vk"
       ]
     
   hydra-tui:
