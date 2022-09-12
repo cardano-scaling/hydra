@@ -43,6 +43,20 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
+    source      = "scripts/fuel-testnet.sh"
+    destination = "/home/ubuntu/fuel-testnet.sh"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("./env/dev-personal.pem")
+      timeout     = "2m"
+      agent       = false
+      host        = self.public_ip
+    }
+  }
+
+  provisioner "file" {
     source      = "credentials/franco-cardano.sk"
     destination = "/home/ubuntu/franco-cardano.sk"
 
