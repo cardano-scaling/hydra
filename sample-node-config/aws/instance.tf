@@ -186,8 +186,6 @@ resource "aws_instance" "hydra" {
     }
   }
 
-  user_data = file("./scripts/userdata.sh")
-
   tags = {
     Name = "Hydraw"
   }

@@ -12,7 +12,3 @@ export NETWORK_MAGIC=$(jq .networkMagic cardano-configurations/network/preview/g
 export HYDRA_SCRIPTS_TX_ID=bde2ca1f404200e78202ec37979174df9941e96fd35c05b3680d79465853a246
 
 docker-compose --profile hydraw up -d
-
-# create marker utxo
-chmod +x ./fuel-testnet.sh
-exec ./fuel-testnet.sh devnet franco-cardano.sk 10000000
