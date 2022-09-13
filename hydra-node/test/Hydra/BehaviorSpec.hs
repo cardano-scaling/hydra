@@ -234,6 +234,34 @@ spec = parallel $ do
                 waitUntil [n1] $ TxValid (aValidTx 42)
                 waitUntil [n1, n2] $ TxSeen (aValidTx 42)
 
+      it "sending two conflicting transactions should lead one being confirmed and one invalid" $
+        shouldRunInSim $
+          failAfter 1 $ do
+            chain <- simulatedChainAndNetwork
+            withHydraNode aliceSk [bob] chain $ \n1 -> do
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+                let tx' =
+                      SimpleTx
+                        { txSimpleId = 1
+                        , txInputs = utxoRef 1
+                        , txOutputs = utxoRef 10
+                        }
+                    tx'' =
+                      SimpleTx
+                        { txSimpleId = 2
+                        , txInputs = utxoRef 1
+                        , txOutputs = utxoRef 11
+                        }
+                send n1 (NewTx tx')
+                send n2 (NewTx tx'')
+                let snapshot = Snapshot 1 (utxoRefs [1]) [tx']
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                    confirmed = SnapshotConfirmed snapshot sigs
+                waitUntil [n1, n2] confirmed
+                waitUntil [n1, n2] $
+                  TxInvalid (utxoRefs [1]) tx'' (ValidationError "cannot apply transaction")
+
       it "valid new transactions get snapshotted" $
         shouldRunInSim $ do
           withSimulatedChainAndNetwork $ \chain ->
