@@ -65,7 +65,7 @@ you can get them either by:
     + claim funds from site:
         https://faucet.preview.world.dev.cardano.org/basic-faucet
     + request them via http: 
-        ```
+        ```sh
         $ curl -X POST -s "https://faucet.preview.world.dev.cardano.org/send-money/$(cat credentials/cardano.addr)?api_key="
         ```
     
@@ -79,21 +79,21 @@ This is a folder you must create yourself to store all blockchain related creden
 
 2. generate your cardano signing and verification keys.
 at the root of `hydra-poc` project, execute:
-    ```
+    ```sh
     $ cardano-cli address key-gen --signing-key-file cardano-key.sk --verification-key-file cardano-key.vk
     ```
     > `cardano-key.sk` and `cardano-key.vk` will be generated at the root of the `hydra-poc` project.
 
 3. generate your hydra signing and verification keys.
 at the root of `hydra-poc` project, execute:
-    ```
+    ```sh
     $ cabal run hydra-tools gen-hydra-key
     ```
     > `hydra-key.sk` and `hydra-key.vk` will be generated at the root of the `hydra-poc` project.
 
 4. generate your cardano address
 at the root of `hydra-poc` project, execute:
-    ```
+    ```sh
     $ cardano-cli address build --payment-verification-key-file ./sample-node-config/aws/credentials/cardano-key.vk --testnet-magic 1 > cardano.addr
     ```
     > `cardano.addr` will be generated at the root of the `hydra-poc` project.
@@ -118,27 +118,27 @@ Then move it under `env` folder.
 ## Initialise Terraform
 This should only be done once, when starting afresh.
 At the root of `aws` project execute:
-```
+```sh
 $ terraform init
 ```
 
 ### Deploying the VM
 Then create a deployment plan and apply it:
-```
+```sh
 $ terraform plan -out vm.plan
 ```
 
 #### Starting VM
 
-```
+```sh
 $ terraform apply vm.plan
-... <takes some more time>
+... <takes some time - 3m aprox>
 
 Apply complete! Resources: 7 added, 0 changed, 0 destroyed.
 
 Outputs:
 
-instance_ip = "ec2-X-Y-Z-T.eu-west-3.compute.amazonaws.com"
+instance_ip = "ec2-13-38-62-128.eu-west-3.compute.amazonaws.com"
 ```
 
 > execute `terraform destroy` to take it down
@@ -155,6 +155,29 @@ To login to the VM:
 ```
 $ scripts/login.sh
 ```
+
+> useful tmux commands:
+- ctrl B + D: detach session
+- tmux a: attach the detached-session
+
+## Prepare the funds to be marked as fuel - on demand
+Once you login to your VM, execute:
+```sh
+$ # create marker utxo
+$ sudo chmod +x ./fuel-testnet.sh
+$ exec ./fuel-testnet.sh devnet cardano-key.sk 10000000
+```
+
+## Opening the Head
+Once you login to your VM, execute the hydra-tui and open the head:
+```sh
+$ docker-compose --profile tui run hydra-tui
+```
+
+> If you take down your hydra-node instance while the head is open. you will loose access to your funds commited to the head. 
+To get them back, currently you need to start the head from a point time in the past.
+For that you must run hydra-node the using parameter `--start-chain-from`.
+i.e.: --start-chain-from 2730515.c7a3629911ef004c873ef07313842df5d1331f61e0eb632432ac8c0636dfd391
 
 ## Using Hydraw
 
