@@ -27,6 +27,7 @@ library
     , QuickCheck
     , relude
     , transformers
+    , text
 
   default-extensions:
     NoImplicitPrelude
