@@ -1,6 +1,6 @@
 # Example Hydra Node Infrastructure
 
-This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and GCP based infrastructure code to setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation) connected to a testnet [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node). It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
+This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and GCP based infrastructure code to setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation) connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preview` testnet. It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
 
 # Install
 
@@ -58,8 +58,10 @@ $ terraform plan -out vm.plan
 ### Configuring Hydra Node
 
 The configuration process expects to find some files which are not provided by default and which are required for starting the Hydra node:
-* A Hydra signing key file `hydra.sk` which will be used in the Head to sign snapshots,
-* A cardano signing key file  `cardano.sk` which is required to identify the parties on-chain and sign transactions,
+* A Hydra signing key file `arnaud.sk` which will be used in the Head to sign snapshots.
+  This can be generated using [hydra-tools](https://hydra.family/head-protocol/docs/getting-started/quickstart#hydra-keys),
+* A cardano signing key file  `cardano.sk` which is required to identify the parties on-chain and sign transactions.
+  This is a standard Cardano key so one can reuse an existing key or [generate a new one](https://hydra.family/head-protocol/docs/getting-started/quickstart#cardano-keys),
 * 0 or more hydra verification keys and cardano verification keys for the other Head parties,
 * The IP addresses and ports of _peer_ nodes,
 * Configuration files for [promtail](https://grafana.com/docs/loki/latest/clients/promtail/) and [prometheus](https://prometheus.io/) which are run as part of the stack,
@@ -85,13 +87,19 @@ instance_ip = X.Y.Z.T
 
 # Using the Hydra Node
 
-Then one should be able to log into the VM as user `curry`.
+## Login to the VM
 
-To log in to the VM:
+One should be able to log into the VM as user `curry`.
+
+To login to the VM:
 
 ```
 $ scripts/login.sh curry@hydra-testnet-1
 ```
+
+## Using Hydraw
+
+[Hydraw](../../hydraw/README.md) web interface is exposed on port 80. Pointing a web browser lets one interact with the UI to collaboratively draw pixels.
 
 # Troubleshooting
 

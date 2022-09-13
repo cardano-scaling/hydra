@@ -37,6 +37,17 @@ resource "google_compute_instance" "hydra-testnet" {
   }
 
   provisioner "file" {
+    source      = "scripts/fuel-testnet.sh"
+    destination = "/home/curry/fuel-testnet.sh"
+
+    connection {
+      type = "ssh"
+      user = "curry"
+      host = self.network_interface.0.access_config.0.nat_ip
+    }
+  }
+
+  provisioner "file" {
     source      = "arnaud.sk"
     destination = "/home/curry/arnaud.sk"
 

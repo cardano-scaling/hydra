@@ -74,32 +74,15 @@ executable hydraw
     -Wunused-packages -threaded -rtsopts
 
   build-depends:
-    , base               >=4.7 && <5
+    , base            >=4.7 && <5
     , http-types
     , hydra-node
     , hydra-prelude
-    , io-classes
     , hydraw
+    , io-classes
     , relude
     , safe
     , wai
     , wai-websockets
     , warp
     , websockets
-
-executable hydrawer
-  import:         project-config
-  hs-source-dirs: painter
-  main-is:        Main.hs
-  ghc-options:
-    -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
-    -Wunused-packages -threaded -rtsopts
-
-  build-depends:
-    , base            >=4.7 && <5
-    , hydra-node
-    , hydra-prelude
-    , hydraw
-
-  ghc-options:    -threaded -rtsopts

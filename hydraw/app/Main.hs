@@ -22,7 +22,7 @@ import Safe (readMay)
 
 main :: IO ()
 main = do
-  key <- fromMaybe (error "set HYDRA_SIGNING_KEY environment variable") <$> lookupEnv "HYDRA_SIGNING_KEY"
+  key <- fromMaybe (error "set HYDRAW_CARDANO_SIGNING_KEY environment variable") <$> lookupEnv "HYDRAW_CARDANO_SIGNING_KEY"
   host <- readHost . fromMaybe (error "set HYDRA_API_HOST environment variable") =<< lookupEnv "HYDRA_API_HOST"
   withClient host $ \cnx -> do
     Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp key cnx)

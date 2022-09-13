@@ -31,5 +31,5 @@ All commands must be run from within `hydraw/` and assuming your Hydra API host+
 To launch the `hydraw` bridge:
 
 ``` sh
-HYDRA_API_HOST=hydra.example.io:4001 HYDRA_SIGNING_KEY=cardano.sk cabal exec hydraw
+HYDRA_API_HOST=hydra.example.io:4001 HYDRAW_CARDANO_SIGNING_KEY=cardano.sk cabal exec hydraw
 ```
