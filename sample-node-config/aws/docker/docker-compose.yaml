@@ -87,6 +87,13 @@ services:
     ports:
       - "9090:9090"
     command:
-    - --config.file=/etc/prometheus/prometheus.yaml
+    - --config.file=/etc/prometheus/prometheus.yml
     volumes:
-    - ./prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+    - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  promtail:
+    image: grafana/promtail:1.4.1
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers
+      - ./docker/promtail-config.yml:/etc/promtail/promtail-config.yml:ro

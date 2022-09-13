@@ -14,7 +14,7 @@ provider "aws" {
   region  = "eu-west-3" // Paris
 }
 
-output "DNS" {
+output "instance_ip" {
   value = aws_instance.hydra.public_dns
 }
 
@@ -127,8 +127,22 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "docker/prometheus.yaml"
-    destination = "/home/ubuntu/prometheus.yaml"
+    source      = "docker/prometheus.yml"
+    destination = "/home/ubuntu/prometheus.yml"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("./env/personal.pem")
+      timeout     = "2m"
+      agent       = false
+      host        = self.public_ip
+    }
+  }
+
+  provisioner "file" {
+    source      = "docker/promtail-config.yml"
+    destination = "/home/ubuntu/promtail-config.yml"
 
     connection {
       type        = "ssh"
