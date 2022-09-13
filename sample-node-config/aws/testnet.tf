@@ -71,8 +71,8 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "credentials/personal-cardano.sk"
-    destination = "/home/ubuntu/personal-cardano.sk"
+    source      = "credentials/cardano-key.sk"
+    destination = "/home/ubuntu/cardano-key.sk"
 
     connection {
       type        = "ssh"
