@@ -29,8 +29,8 @@ resource "aws_instance" "hydra" {
   associate_public_ip_address = true
 
   provisioner "file" {
-    source      = "scripts/configure-testnet.sh"
-    destination = "/home/ubuntu/configure-testnet.sh"
+    source      = "scripts/configure-instance.sh"
+    destination = "/home/ubuntu/configure-instance.sh"
 
     connection {
       type        = "ssh"
@@ -43,8 +43,8 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "scripts/run-instance.sh"
-    destination = "/home/ubuntu/run-instance.sh"
+    source      = "scripts/configure-testnet.sh"
+    destination = "/home/ubuntu/configure-testnet.sh"
 
     connection {
       type        = "ssh"
@@ -85,7 +85,7 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "credentials/peers/arnaud-cardano.vk"
+    source      = "credentials/arnaud-cardano.vk"
     destination = "/home/ubuntu/arnaud-cardano.vk"
 
     connection {
@@ -113,7 +113,7 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "credentials/peers/arnaud-hydra.vk"
+    source      = "credentials/arnaud-hydra.vk"
     destination = "/home/ubuntu/arnaud-hydra.vk"
 
     connection {
@@ -184,8 +184,8 @@ resource "aws_instance" "hydra" {
 
   provisioner "remote-exec" {
     inline = [
-      "chmod +x /home/ubuntu/configure-testnet.sh",
-      "/home/ubuntu/configure-testnet.sh"
+      "chmod +x /home/ubuntu/configure-instance.sh",
+      "/home/ubuntu/configure-instance.sh"
     ]
 
     connection {
@@ -200,8 +200,8 @@ resource "aws_instance" "hydra" {
 
   provisioner "remote-exec" {
     inline = [
-      "chmod +x /home/ubuntu/run-instance.sh",
-      "/home/ubuntu/run-instance.sh"
+      "chmod +x /home/ubuntu/configure-testnet.sh",
+      "/home/ubuntu/configure-testnet.sh"
     ]
 
     connection {
