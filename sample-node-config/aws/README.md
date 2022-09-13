@@ -56,20 +56,10 @@ for this example in `~/.aws/credentials` we have:
     aws_secret_access_key=???
     region=eu-west-3
     ```
-- you have terraform installed on your system.
+- you have terraform and aws installed on your system.
 - you have build the required 2 folder structures under aws:
     + credentials.
     + env.
-- you have claimed some funds from the preview faucet to your address.
-you can get them either by:
-    + claim funds from site:
-        https://faucet.preview.world.dev.cardano.org/basic-faucet
-    + request them via http: 
-        ```sh
-        $ curl -X POST -s "https://faucet.preview.world.dev.cardano.org/send-money/$(cat credentials/cardano.addr)?api_key="
-        ```
-    
-        > to request via http you must first obtain your api_key.
 
 ### Building ***credentials***
 This should only be done once, when starting afresh.
@@ -160,21 +150,33 @@ $ scripts/login.sh
 - ctrl B + D: detach session
 - tmux a: attach the detached-session
 
-## Prepare the funds to be marked as fuel - on demand
-Once you login to your VM, execute:
+## Opening the Head
+Before you open a head you mas have funds on the preview network and then
+prepare the funds to be marked as fuel.
+
+To get some funds from the preview faucet to your address, you can either:
+    + claim them from site:
+        https://faucet.preview.world.dev.cardano.org/basic-faucet
+    + or request them via http: 
+        ```sh
+        $ curl -X POST -s "https://faucet.preview.world.dev.cardano.org/send-money/$(cat credentials/cardano.addr)?api_key="
+        ```
+    
+        > to request via http you must first obtain your api_key.
+
+Then, once you login to your VM, execute:
 ```sh
 $ # create marker utxo
 $ sudo chmod +x ./fuel-testnet.sh
 $ exec ./fuel-testnet.sh devnet cardano-key.sk 10000000
 ```
 
-## Opening the Head
-Once you login to your VM, execute the hydra-tui and open the head:
+Finally, execute the hydra-tui and open the head:
 ```sh
 $ docker-compose --profile tui run hydra-tui
 ```
 
-> If you take down your hydra-node instance while the head is open. you will loose access to your funds commited to the head. 
+> If you take down your hydra-node instance once the head is open. you will loose access to your funds commited to the head. 
 To get them back, currently you need to start the head from a point time in the past.
 For that you must run hydra-node the using parameter `--start-chain-from`.
 i.e.: --start-chain-from 2730515.c7a3629911ef004c873ef07313842df5d1331f61e0eb632432ac8c0636dfd391
