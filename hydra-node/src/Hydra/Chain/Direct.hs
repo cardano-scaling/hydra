@@ -196,8 +196,15 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
               (submitTx queue)
       )
       ( handle onIOException $ do
+          -- NOTE: We can't re-query the time handle while the
+          -- 'chainSyncHandler' is running due to constraints. So this will use
+          -- always these initial parameters (as queried) for time conversions.
+          timeHandle <- queryTimeHandle networkId socketPath
+          let handler = chainSyncHandler tracer callback headState timeHandle
+
           let intersection = toConsensusPointHF <$> point
-          let client = ouroborosApplication tracer intersection queue (chainSyncHandler tracer callback headState) wallet
+          let client = ouroborosApplication tracer intersection queue handler wallet
+
           connectTo
             (localSnocket iocp)
             nullConnectTracers
@@ -400,9 +407,9 @@ txSubmissionClient tracer queue =
               atomically (putTMVar response Nothing)
               clientStIdle
             SubmitFail err -> do
-              let reason = onFail err
-              traceWith tracer PostingFailed{tx, reason}
-              atomically (putTMVar response (Just reason))
+              let postTxError = onFail err
+              traceWith tracer PostingFailed{tx, postTxError}
+              atomically (putTMVar response (Just postTxError))
               clientStIdle
         )
 

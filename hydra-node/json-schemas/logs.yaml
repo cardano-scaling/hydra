@@ -240,14 +240,14 @@ definitions:
       required:
         - tag
         - tx
-        - reason
+        - postTxError
       properties:
         tag:
           type: string
           enum: ["PostingFailed"]
         tx:
           $ref: "api.yaml#/components/schemas/Transaction"
-        reason:
+        postTxError:
           $ref: "api.yaml#/components/schemas/PostTxError"
     - title: ReceivedTxs
       description: >-
@@ -272,9 +272,24 @@ definitions:
           items:
             type: integer
 
+    - title: RolledForward
+      description: >-
+        Chain sync rolled forward by receiving a block with transactions.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - point
+      properties:
+        tag:
+          type: string
+          enum: ["RolledForward"]
+        point:
+          $ref: "api.yaml#/components/schemas/Point"
+
     - title: RolledBackward
       description: >-
-        Observation of a rollback.
+        Chain sync rolled backward to some point.
       type: object
       additionalProperties: false
       required:
@@ -586,6 +601,8 @@ definitions:
         - parameters
         - previousRecoverableState
         - confirmedSnapshot
+        - contestationDeadline
+        - readyToFanoutSent
       properties:
         tag:
           type: string
@@ -596,6 +613,10 @@ definitions:
           $ref: "#/definitions/HeadState"
         confirmedSnapshot:
           $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        contestationDeadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        readyToFanoutSent:
+          type: boolean
 
   CoordinatedHeadState:
     type: object
@@ -835,6 +856,21 @@ definitions:
             type: integer
             minimum: 0
 
+      - title: Tick
+        description: |
+          Time has progressed on the chain.
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - contents
+        properties:
+          tag:
+            type: string
+            enum: ["Tick"]
+          contents:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+
   OnChainTx:
     description: >-
       On-Chain transactions for the Head protocol. These data structures
@@ -906,7 +942,7 @@ definitions:
         required:
         - tag
         - snapshotNumber
-        - remainingContestationPeriod
+        - contestationDeadline
         properties:
           tag:
             type: string
@@ -914,9 +950,8 @@ definitions:
           snapshotNumber:
             type: integer
             minimum: 0
-          remainingContestationPeriod:
-            type: integer
-            minimum: 0
+          contestationDeadline:
+            $ref: "api.yaml#/components/schemas/UTCTime"
       - title: OnContestTx
         type: object
         additionalProperties: false
@@ -1087,7 +1122,7 @@ definitions:
         tag:
           type: string
           enum: [ "WaitOnSeenSnapshot" ]
-    - title: WaitOnContestationPeriod
+    - title: WaitOnContestationDeadline
       description: >-
         Contestation period is not over yet.
       type: object
@@ -1097,4 +1132,4 @@ definitions:
       properties:
         tag:
           type: string
-          enum: [ "WaitOnContestationPeriod" ]
+          enum: [ "WaitOnContestationDeadline" ]

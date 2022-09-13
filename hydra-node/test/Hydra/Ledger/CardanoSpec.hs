@@ -25,7 +25,7 @@ import Hydra.Ledger.Cardano (
   genUTxOFor,
   renderTx,
  )
-import Hydra.Ledger.Cardano.Evaluate (slotNoFromPOSIXTime, slotNoToPOSIXTime)
+import Hydra.Ledger.Cardano.Evaluate (slotNoFromUTCTime, slotNoToUTCTime)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
 import Test.QuickCheck (Property, counterexample, forAll, forAllBlind, property, sized, vectorOf, withMaxSuccess, (.&&.), (===))
@@ -79,8 +79,8 @@ spec =
       propCollisionResistant "genOneUTxOFor" (genOneUTxOFor (arbitrary `generateWith` 42))
 
     describe "Evaluate helpers" $
-      prop "slotNoFromPOSIXTime . slotNoToPOSIXTime === id" $ \slot ->
-        slotNoFromPOSIXTime (slotNoToPOSIXTime slot) === slot
+      prop "slotNoFromUTCTime . slotNoToUTCTime === id" $ \slot ->
+        slotNoFromUTCTime (slotNoToUTCTime slot) === slot
 
 shouldParseJSONAs :: forall a. FromJSON a => LByteString -> Expectation
 shouldParseJSONAs bs =

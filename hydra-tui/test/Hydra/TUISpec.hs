@@ -90,7 +90,19 @@ spec = do
           threadDelay 1
           shouldRender "Closed"
           shouldRender "Remaining time to contest"
-          threadDelay (realToFrac $ toNominalDiffTime tuiContestationPeriod + gracePeriod + someTime)
+          -- XXX: This is a hack to estimate the time it takes until we can
+          -- fanout. While we do use the 'HeadIsClosed' event in the end-to-end
+          -- tests, we have no access on the sent messages here. So, at this
+          -- point we know the close transaction has been observed, but the
+          -- contestation period will only start from the upper bound of the
+          -- transaction (we called it 'closeGraceTime'). Hence we expect a
+          -- ReadyToFanout after the contestationPeriod + grace time + the next
+          -- block. The former is 100 slots and on devnet we produce blocks
+          -- every slot at a slot length of 0.1 seconds, but we add another 3
+          -- slots safety.
+          let someTime = (100 + 1 + 3) * 0.1
+          threadDelay (realToFrac $ toNominalDiffTime tuiContestationPeriod + someTime)
+          shouldRender "FanoutPossible"
           sendInputEvent $ EvKey (KChar 'f') []
           threadDelay 1
           shouldRender "Final"
@@ -98,24 +110,15 @@ spec = do
           sendInputEvent $ EvKey (KChar 'q') []
   context "text rendering tests" $ do
     it "should format time with whole values for every unit, not total values" $ do
-      let
-        seconds = 1
-        minutes = seconds * 60
-        hours = minutes * 60
-        days = hours * 24
-        time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
+      let seconds = 1
+          minutes = seconds * 60
+          hours = minutes * 60
+          days = hours * 24
+          time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
       renderTime (time :: NominalDiffTime) `shouldBe` "10d 1h 1m 15s"
-      renderTime (-time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
-      let
-        time' = 1 * hours + 1 * minutes + 15 * seconds
-      renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
-
--- XXX: The same hack as in EndToEndSpec
-gracePeriod :: NominalDiffTime
-gracePeriod = 10 -- 100 slots with 0.1 sec slot time
-
-someTime :: NominalDiffTime
-someTime = 3
+      renderTime (- time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
+      let time' = 1 * hours + 1 * minutes + 15 * seconds
+      renderTime (- time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI action =

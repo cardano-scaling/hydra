@@ -39,7 +39,6 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
-  ClosedState (ClosedState),
   IdleState (IdleState, ctx),
   abort,
   close,
@@ -47,7 +46,6 @@ import Hydra.Chain.Direct.State (
   commit,
   contest,
   fanout,
-  getContestationDeadline,
   getKnownUTxO,
   initialize,
   observeSomeTx,
@@ -61,7 +59,6 @@ import Hydra.Chain.Direct.Wallet (
   getFuelUTxO,
   getTxId,
  )
-import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
@@ -88,6 +85,7 @@ type SubmitTx m = ValidatedTx LedgerEra -> m ()
 mkChain ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
+  -- | Means to acquire a new 'TimeHandle'.
   m TimeHandle ->
   TinyWallet m ->
   TVar m ChainStateAt ->
@@ -170,29 +168,42 @@ data RecordedAt
   deriving (Eq, Show)
 
 -- | A /handler/ that takes care of following the chain.
--- TODO: replace use of `Block` with `Tx`
 data ChainSyncHandler m = ChainSyncHandler
   { onRollForward :: Block -> m ()
   , onRollBackward :: Point Block -> m ()
   }
+
+-- | Conversion of a slot number to a time failed. This can be usually be
+-- considered an internal error and may be happening because the used era
+-- history is too old.
+data TimeConversionException = TimeConversionException
+  { slotNo :: SlotNo
+  , reason :: Text
+  }
+  deriving (Eq, Show, Exception)
 
 -- | Creates a `ChainSyncHandler` that can notify the given `callback` of events happening
 -- on-chain.
 --
 -- This forms the other half of a `ChainComponent` along with `mkChain` but is decoupled from
 -- actual interactions with the chain.
+--
+-- Throws 'TimeConversionException' when a received block's 'SlotNo' cannot be
+-- converted to a 'UTCTime' with the given 'TimeHandle'.
 chainSyncHandler ::
   forall m.
-  (MonadSTM m, MonadTime m) =>
+  (MonadSTM m, MonadThrow m) =>
   -- | Tracer for logging
   Tracer m DirectChainLog ->
   -- | Chain callback
   (ChainEvent Tx -> m ()) ->
   -- | On-chain head-state.
   TVar m ChainStateAt ->
+  -- | A handle on time to do `SlotNo -> POSIXTime` conversions for 'Tick' events.
+  TimeHandle ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback headState =
+chainSyncHandler tracer callback headState timeHandle =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -207,9 +218,21 @@ chainSyncHandler tracer callback headState =
 
   onRollForward :: Block -> m ()
   onRollForward blk = do
+    let point = blockPoint blk
+    traceWith tracer $ RolledForward $ SomePoint point
+
+    let chainPoint = fromConsensusPointHF point
+        slotNo = case chainPoint of
+          ChainPointAtGenesis -> 0
+          ChainPoint s _ -> s
+    case slotToUTCTime timeHandle slotNo of
+      Left reason ->
+        throwIO TimeConversionException{slotNo, reason}
+      Right utcTime ->
+        callback (Tick utcTime)
+
     let receivedTxs = toList $ getBabbageTxs blk
-    now <- getCurrentTime
-    onChainTxs <- reverse <$> atomically (foldM (withNextTx now (blockPoint blk)) [] receivedTxs)
+    onChainTxs <- reverse <$> atomically (foldM (withNextTx chainPoint) [] receivedTxs)
     unless (null receivedTxs) $
       traceWith tracer $
         ReceivedTxs
@@ -218,25 +241,16 @@ chainSyncHandler tracer callback headState =
           }
     mapM_ (callback . Observation) onChainTxs
 
-  -- NOTE: We pass 'now' or current time because we need it for observing passing of time in the
-  -- contestation phase.
-  withNextTx :: UTCTime -> Point Block -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
-  withNextTx now point observed (fromLedgerTx -> tx) = do
+  withNextTx :: ChainPoint -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
+  withNextTx point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
     case observeSomeTx tx (currentChainState st) of
-      Just (onChainTx, st') -> do
+      Just (event, st') -> do
         writeTVar headState $
           ChainStateAt
             { currentChainState = st'
-            , recordedAt = AtPoint (fromConsensusPointHF point) st
+            , recordedAt = AtPoint point st
             }
-        -- FIXME: The right thing to do is probably to decouple the observation from the
-        -- transformation into an `OnChainTx`
-        let event = case (onChainTx, st') of
-              (OnCloseTx{snapshotNumber}, Closed closedSt@ClosedState{}) ->
-                let remainingTimeWithBuffer = 1 + diffUTCTime (posixToUTCTime $ getContestationDeadline closedSt) now
-                 in OnCloseTx{snapshotNumber, remainingContestationPeriod = remainingTimeWithBuffer}
-              _ -> onChainTx
         pure $ event : observed
       Nothing ->
         pure observed
@@ -304,18 +318,15 @@ fromPostChainTx timeHandle wallet someHeadState tx = do
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (contest st confirmedSnapshot shifted)
-    (FanoutTx{utxo}, Closed st) -> do
-      -- NOTE: It's a bit weird that we inspect the state here, but handling
-      -- errors of the possibly failing "time -> slot" conversion is better
-      -- done here.
-      deadlineSlot <- throwLeft . slotFromPOSIXTime $ getContestationDeadline st
+    (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
+      deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       pure (fanout st utxo deadlineSlot)
     (_, _) -> throwIO $ InvalidStateToPost tx
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure
 
-  TimeHandle{currentPointInTime, adjustPointInTime, slotFromPOSIXTime} = timeHandle
+  TimeHandle{currentPointInTime, adjustPointInTime, slotFromUTCTime} = timeHandle
 
 --
 -- Helpers
@@ -338,8 +349,9 @@ data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {txId :: Ledger.TxId StandardCrypto}
   | PostedTx {txId :: Ledger.TxId StandardCrypto}
-  | PostingFailed {tx :: ValidatedTx LedgerEra, reason :: PostTxError Tx}
+  | PostingFailed {tx :: ValidatedTx LedgerEra, postTxError :: PostTxError Tx}
   | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [Ledger.TxId StandardCrypto]}
+  | RolledForward {point :: SomePoint}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)

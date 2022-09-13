@@ -122,8 +122,8 @@ createHydraNode eq hn ledger oc server env = do
 handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
 handleClientInput HydraNode{eq} = putEvent eq . ClientEvent
 
-handleChainTx :: HydraNode tx m -> ChainEvent tx -> m ()
-handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
+handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
+handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
 
 handleMessage :: HydraNode tx m -> Message tx -> m ()
 handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
@@ -157,8 +157,11 @@ stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
   atomically (processNextEvent node e) >>= \case
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
-    Left err -> traceWith tracer (ErrorHandlingEvent party e err)
-    Right effs ->
+    Error err -> traceWith tracer (ErrorHandlingEvent party e err)
+    Wait _reason -> putEventAfter eq 0.1 e >> traceWith tracer (EndEvent party e)
+    NewState _ effs ->
+      forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
+    OnlyEffects effs ->
       forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
@@ -166,16 +169,16 @@ processNextEvent ::
   IsTx tx =>
   HydraNode tx m ->
   Event tx ->
-  STM m (Either (LogicError tx) [Effect tx])
+  STM m (Outcome tx)
 processNextEvent HydraNode{hh, env} e =
   modifyHeadState hh $ \s ->
     case Logic.update env (ledger hh) s e of
-      OnlyEffects effects -> (Right effects, s)
+      OnlyEffects effects -> (OnlyEffects effects, s)
       NewState s' effects ->
         let (s'', effects') = emitSnapshot env effects s'
-         in (Right effects', s'')
-      Error err -> (Left err, s)
-      Wait reason -> (Right [Delay 0.1 reason e], s)
+         in (NewState s'' effects', s'')
+      Error err -> (Error err, s)
+      Wait reason -> (Wait reason, s)
 
 processEffect ::
   ( MonadAsync m
@@ -195,7 +198,6 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
       postTx oc postChainTx
         `catch` \(postTxError :: PostTxError tx) ->
           putEvent eq $ PostTxError{postChainTx, postTxError}
-    Delay delay _ event -> putEventAfter eq delay event
   traceWith tracer $ EndEffect party e
 -- ** Some general event queue from which the Hydra head is "fed"
 

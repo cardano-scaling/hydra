@@ -12,7 +12,20 @@ import Brick
 import Hydra.Cardano.Api
 
 import Brick.BChan (newBChan, writeBChan)
-import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, focusedFormInputAttr, formState, handleFormEvent, invalidFields, invalidFormInputAttr, newForm, radioField, renderForm)
+import Brick.Forms (
+  Form,
+  FormFieldState,
+  checkboxField,
+  editShowableFieldWithValidate,
+  focusedFormInputAttr,
+  formState,
+  handleFormEvent,
+  invalidFields,
+  invalidFormInputAttr,
+  newForm,
+  radioField,
+  renderForm,
+ )
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import qualified Cardano.Api.UTxO as UTxO
@@ -63,7 +76,9 @@ tuiContestationPeriod = UnsafeContestationPeriod 10
 
 data State
   = Disconnected
-      {nodeHost :: Host}
+      { nodeHost :: Host
+      , now :: UTCTime
+      }
   | Connected
       { me :: Maybe Party -- TODO(SN): we could make a nicer type if ClientConnected is only emited of 'Hydra.Client' upon receiving a 'Greeting'
       , nodeHost :: Host
@@ -71,6 +86,7 @@ data State
       , headState :: HeadState
       , dialogState :: DialogState
       , feedback :: Maybe UserFeedback
+      , now :: UTCTime
       }
 
 data UserFeedback = UserFeedback
@@ -99,7 +115,8 @@ data HeadState
   = Idle
   | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: UTxO}
   | Open {parties :: [Party], utxo :: UTxO}
-  | Closed {remainingContestationPeriod :: NominalDiffTime}
+  | Closed {contestationDeadline :: UTCTime}
+  | FanoutPossible
   | Final {utxo :: UTxO}
   deriving (Eq, Show, Generic)
 
@@ -113,6 +130,7 @@ makeLensesFor
   , ("clientState", "clientStateL")
   , ("dialogState", "dialogStateL")
   , ("feedback", "feedbackL")
+  , ("now", "nowL")
   ]
   ''State
 
@@ -226,9 +244,13 @@ handleAppEvent s = \case
       , headState = Idle
       , dialogState = NoDialog
       , feedback = Nothing
+      , now = s ^. nowL
       }
   ClientDisconnected ->
-    Disconnected{nodeHost = s ^. nodeHostL}
+    Disconnected
+      { nodeHost = s ^. nodeHostL
+      , now = s ^. nowL
+      }
   Update Greetings{me} ->
     s & meL ?~ me
   Update (PeerConnected p) ->
@@ -248,13 +270,13 @@ handleAppEvent s = \case
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & info "Head is now open!"
-  Update HeadIsClosed{snapshotNumber, remainingContestationPeriod} ->
-    s & headStateL .~ Closed{remainingContestationPeriod}
+  Update HeadIsClosed{snapshotNumber, contestationDeadline} ->
+    s & headStateL .~ Closed{contestationDeadline}
       & info ("Head closed with snapshot number " <> show snapshotNumber)
   Update HeadIsContested{snapshotNumber} ->
     s & info ("Head contested with snapshot number " <> show snapshotNumber)
   Update ReadyToFanout ->
-    s & headStateL .~ Closed{remainingContestationPeriod = 0}
+    s & headStateL .~ FanoutPossible
       & info "Contestation period passed, ready for fanout."
   Update HeadIsAborted{} ->
     s & headStateL .~ Idle
@@ -278,8 +300,8 @@ handleAppEvent s = \case
     s & warn ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
   Update RolledBack ->
     s & info "Chain rolled back! You might need to re-submit Head transactions manually now."
-  Tick ->
-    s & headStateL %~ handleTick
+  Tick now ->
+    s & nowL .~ now
  where
   partyCommitted party commit = \case
     Initializing{parties, remainingParties, utxo} ->
@@ -301,14 +323,6 @@ handleAppEvent s = \case
           & info ("Snapshot #" <> show number <> " confirmed.")
       _ ->
         s & warn "Snapshot confirmed but head is not open?"
-
-  handleTick = \case
-    Closed{remainingContestationPeriod = remaining}
-      | remaining - 1 > 0 ->
-        Closed{remainingContestationPeriod = remaining - 1}
-      | otherwise ->
-        Closed{remainingContestationPeriod = 0}
-    hs -> hs
 
 handleDialogEvent ::
   forall s e n.
@@ -523,12 +537,19 @@ draw Client{sk} CardanoClient{networkId} s =
               , "[C]lose"
               , "[Q]uit"
               ]
-          Just Closed{remainingContestationPeriod} ->
+          Just Closed{contestationDeadline} ->
             withCommands
               [ drawHeadState
-              , drawRemainingContestationPeriod remainingContestationPeriod
+              , drawRemainingContestationPeriod contestationDeadline
               ]
-              [ "[F]anout" -- TODO: should only render this when actually possible
+              [ "[Q]uit"
+              ]
+          Just FanoutPossible ->
+            withCommands
+              [ drawHeadState
+              , txt "Ready to fanout!"
+              ]
+              [ "[F]anout"
               , "[Q]uit"
               ]
           Just Final{utxo} ->
@@ -548,13 +569,11 @@ draw Client{sk} CardanoClient{networkId} s =
               ]
               ["[Q]uit"]
 
-  drawRemainingContestationPeriod remaining
-    | remaining > 0 =
-      padLeftRight 1 $
-        txt "Remaining time to contest: "
-          <+> str (renderTime remaining)
-    | otherwise =
-      txt "Contestation period passed, ready to fan out."
+  drawRemainingContestationPeriod deadline =
+    let remaining = diffUTCTime deadline (s ^. nowL)
+     in if remaining > 0
+          then padLeftRight 1 $ txt "Remaining time to contest: " <+> str (renderTime remaining)
+          else txt "Contestation period passed, ready to fan out soon."
 
   drawHeadState = case s of
     Disconnected{} -> emptyWidget
@@ -714,7 +733,8 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
     -- REVIEW(SN): what happens if callback blocks?
     withClient @Tx options (writeBChan eventChan) $ \client -> do
       initialVty <- buildVty
-      customMain initialVty buildVty (Just eventChan) (app client) initialState
+      now <- getCurrentTime
+      customMain initialVty buildVty (Just eventChan) (app client) (initialState now)
  where
   app client =
     App
@@ -725,12 +745,13 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
       , appAttrMap = style
       }
 
-  initialState = Disconnected{nodeHost = hydraNodeHost}
+  initialState now = Disconnected{nodeHost = hydraNodeHost, now}
 
   cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
 
   timer chan = forever $ do
-    writeBChan chan Tick
+    now <- getCurrentTime
+    writeBChan chan $ Tick now
     threadDelay 1
 
 run :: Options -> IO State

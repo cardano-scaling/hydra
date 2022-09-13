@@ -17,7 +17,15 @@ data ServerOutput tx
   | ReadyToCommit {parties :: Set Party}
   | Committed {party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {utxo :: UTxOType tx}
-  | HeadIsClosed {snapshotNumber :: SnapshotNumber, remainingContestationPeriod :: NominalDiffTime}
+  | HeadIsClosed
+      { snapshotNumber :: SnapshotNumber
+      , -- | Nominal deadline until which contest can be submitted and after
+        -- which fanout is possible. NOTE: Use this only for informational
+        -- purpose and wait for 'ReadyToFanout' instead before sending 'Fanout'
+        -- as the ledger of our cardano-node might not have progressed
+        -- sufficiently in time yet and we do not re-submit transactions (yet).
+        contestationDeadline :: UTCTime
+      }
   | HeadIsContested {snapshotNumber :: SnapshotNumber}
   | ReadyToFanout
   | HeadIsAborted {utxo :: UTxOType tx}

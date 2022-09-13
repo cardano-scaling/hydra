@@ -26,7 +26,7 @@ import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
-import Hydra.Data.ContestationPeriod (addContestationPeriod)
+import Hydra.Data.ContestationPeriod (addContestationPeriod, posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
@@ -282,12 +282,12 @@ closeTx ::
   VerificationKey PaymentKey ->
   -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
-  -- | Current slot and posix time to be recorded as the closing time.
+  -- | Current slot and UTC time to compute the contestation deadline time.
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
   Tx
-closeTx vk closing (slotNo, posixTime) openThreadOutput =
+closeTx vk closing (slotNo, utcTime) openThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -339,7 +339,8 @@ closeTx vk closing (slotNo, posixTime) openThreadOutput =
     CloseWithInitialSnapshot{} -> mempty
     CloseWithConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
 
-  contestationDeadline = addContestationPeriod posixTime openContestationPeriod
+  contestationDeadline =
+    addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
 
 -- XXX: This function is VERY similar to the 'closeTx' function (only notable
 -- difference being the redeemer, which is in itself also the same structure as
@@ -353,7 +354,7 @@ contestTx ::
   Snapshot Tx ->
   -- | Multi-signature of the whole snapshot
   MultiSignature (Snapshot Tx) ->
-  -- | Current slot and posix time to be recorded as the closing time.
+  -- | Current slot and posix time to be used as the contestation time.
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->

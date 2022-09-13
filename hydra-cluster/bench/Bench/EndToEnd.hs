@@ -21,7 +21,7 @@ import Control.Monad.Class.MonadSTM (
   writeTBQueue,
  )
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
-import Data.Aeson.Lens (key, _Array, _Number, _String)
+import Data.Aeson.Lens (key, _Array, _JSON, _Number, _String)
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Scientific (Scientific)
@@ -105,9 +105,14 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
 
                 putTextLn "Closing the Head"
                 send leader $ input "Close" []
-                -- REVIEW: Why 60 * clusterSize?
-                waitMatch (fromIntegral $ 60 * clusterSize) leader $ \v ->
-                  guard (v ^? key "tag" == Just "ReadyToFanout")
+                deadline <- waitMatch 3 leader $ \v -> do
+                  guard $ v ^? key "tag" == Just "HeadIsClosed"
+                  v ^? key "contestationDeadline" . _JSON
+
+                -- Expect to see ReadyToFanout within 3 seconds after deadline
+                remainingTime <- diffUTCTime deadline <$> getCurrentTime
+                waitFor tracer (truncate $ remainingTime + 3) [leader] $
+                  output "ReadyToFanout" []
 
                 putTextLn "Finalizing the Head"
                 send leader $ input "Fanout" []

@@ -3,12 +3,12 @@ slug: 20
 title: |
   20. Handling time
 authors: []
-tags: [Proposed]
+tags: [Accepted]
 ---
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -57,6 +57,9 @@ Proposed
 * The `HeadLogic` can track chain time in its state and condition `ReadyToFanout` upon seeing it pass the deadline.
   - Ensures clients only see `ReadyToFanout` when a following `Fanout` would be really possible.
   - Makes the `Delay` effect redundant and we can remove it (only delay via reenqueue on the `Wait` outcome)
+
+* By introducing `Tick` events, `IOSim` will not be able to detect non-progress (deadlocks).
+  - This means we cannot rely on early exit of simulations anymore and need to determine meaningful simulation endings instead of `waitUntilTheEndOfTime`.
 
 * We get a first, rough notion of time for free in our L2 and can support "timed transactions" with same resolution as the L1.
   - Tracking time in the state makes it trivial to provide it to the ledger when we `applyTransaction`.

@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
@@ -13,7 +12,7 @@ import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Lens ((^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Lens (key)
+import Data.Aeson.Lens (key, _JSON)
 import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -28,9 +27,7 @@ import Hydra.Cardano.Api (
   lovelaceToValue,
   mkVkAddress,
   serialiseAddress,
-  unSlotNo,
  )
-import Hydra.Chain.Direct.Handlers (closeGraceTime)
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
@@ -122,7 +119,7 @@ spec = around showLogsOnFailure $ do
                 seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel
                 seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel
 
-                let contestationPeriod = 2
+                let contestationPeriod = 2 :: Natural
 
                 send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
                 waitFor tracer 10 [n1, n2, n3] $
@@ -140,14 +137,15 @@ spec = around showLogsOnFailure $ do
                 waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0]
 
                 send n1 $ input "Close" []
-                waitMatch 3 n1 $ \v -> do
+                deadline <- waitMatch 3 n1 $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsClosed"
                   snapshotNumber <- v ^? key "snapshotNumber"
                   guard $ snapshotNumber == Aeson.Number 0
+                  v ^? key "contestationDeadline" . _JSON
 
-                -- NOTE: We expect the head to be finalized after the contestation period
-                -- and some three secs later, plus the closeGraceTime * slotLength
-                waitFor tracer (truncate $ contestationPeriod + (fromIntegral @_ @Double (unSlotNo closeGraceTime) * 0.1) + 3) [n1] $
+                -- Expect to see ReadyToFanout within 3 seconds after deadline
+                remainingTime <- diffUTCTime deadline <$> getCurrentTime
+                waitFor tracer (truncate $ remainingTime + 3) [n1] $
                   output "ReadyToFanout" []
 
                 send n1 $ input "Fanout" []
@@ -307,7 +305,7 @@ spec = around showLogsOnFailure $ do
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
                     waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
                     metrics <- getMetrics n1
-                    metrics `shouldSatisfy` ("hydra_head_events  5" `BS.isInfixOf`)
+                    metrics `shouldSatisfy` ("hydra_head_events" `BS.isInfixOf`)
 
     describe "hydra-node executable" $
       it "display proper semantic version given it is passed --version argument" $ \_ ->
@@ -343,7 +341,7 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket} = do
       seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel
       seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel
 
-      let contestationPeriod = 2
+      let contestationPeriod = 2 :: Natural
 
       send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
       waitFor tracer 10 [n1, n2, n3] $
@@ -415,14 +413,15 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket} = do
       waitFor tracer 10 [n1] $ output "GetUTxOResponse" ["utxo" .= newUTxO]
 
       send n1 $ input "Close" []
-      waitMatch 3 n1 $ \v -> do
+      deadline <- waitMatch 3 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "HeadIsClosed"
         snapshotNumber <- v ^? key "snapshotNumber"
         guard $ snapshotNumber == toJSON expectedSnapshotNumber
+        v ^? key "contestationDeadline" . _JSON
 
-      -- NOTE: We expect the head to be finalized after the contestation period
-      -- and some three secs later, plus the closeGraceTime * slotLength
-      waitFor tracer (truncate $ contestationPeriod + (fromIntegral @_ @Double (unSlotNo closeGraceTime) * 0.1) + 3) [n1] $
+      -- Expect to see ReadyToFanout within 3 seconds after deadline
+      remainingTime <- diffUTCTime deadline <$> getCurrentTime
+      waitFor tracer (truncate $ remainingTime + 3) [n1] $
         output "ReadyToFanout" []
 
       send n1 $ input "Fanout" []

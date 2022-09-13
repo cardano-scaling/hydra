@@ -26,6 +26,7 @@ import Hydra.Chain.Direct.Context (
   genStClosed,
   genStInitial,
   genStOpen,
+  getContestationDeadline,
   pickChainContext,
   unsafeObserveInitAndCommits,
  )
@@ -36,7 +37,6 @@ import Hydra.Chain.Direct.State (
   commit,
   contest,
   fanout,
-  getContestationDeadline,
   getKnownUTxO,
   initialize,
   observeClose,
@@ -54,7 +54,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   maxCpu,
   maxMem,
   maxTxSize,
-  slotNoFromPOSIXTime,
+  slotNoFromUTCTime,
  )
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
@@ -210,7 +210,7 @@ computeFanOutCost = do
     closePoint <- genPointInTime
     let closeTx = close stOpen snapshot closePoint
     let stClosed = snd . fromJust $ observeClose stOpen closeTx
-    let deadlineSlotNo = slotNoFromPOSIXTime (getContestationDeadline stClosed)
+    let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
     pure (getKnownUTxO stClosed, fanout stClosed utxo deadlineSlotNo)
 
 newtype NumParties = NumParties Int

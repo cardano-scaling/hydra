@@ -13,6 +13,7 @@ import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput, mkHeadTokenScript)
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (
   adaOnly,
@@ -20,10 +21,10 @@ import Hydra.Ledger.Cardano (
   genUTxOWithSimplifiedAddresses,
   genValue,
  )
-import Hydra.Ledger.Cardano.Evaluate (slotNoToPOSIXTime)
+import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Hydra.Party (partyToChain)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (POSIXTime, toBuiltin, toData)
+import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Instances ()
 
@@ -68,9 +69,9 @@ healthyFanoutUTxO =
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
 
-healthyContestationDeadline :: POSIXTime
+healthyContestationDeadline :: UTCTime
 healthyContestationDeadline =
-  slotNoToPOSIXTime $ healthySlotNo - 1
+  slotNoToUTCTime $ healthySlotNo - 1
 
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
@@ -78,7 +79,7 @@ healthyFanoutDatum =
     { snapshotNumber = 1
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyFanoutUTxO
     , parties = partyToChain <$> arbitrary `generateWith` 42
-    , contestationDeadline = healthyContestationDeadline
+    , contestationDeadline = posixFromUTCTime healthyContestationDeadline
     }
 
 data FanoutMutation
@@ -106,4 +107,4 @@ genFanoutMutation (tx, _utxo) =
     ]
  where
   slotBeforeContestationDeadline slotNo =
-    slotNoToPOSIXTime slotNo < healthyContestationDeadline
+    slotNoToUTCTime slotNo < healthyContestationDeadline

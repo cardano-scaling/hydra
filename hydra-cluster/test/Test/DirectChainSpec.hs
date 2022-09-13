@@ -26,7 +26,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   Chain (..),
-  ChainEvent (Observation),
+  ChainEvent (Observation, Tick),
   HeadParameters (..),
   OnChainTx (..),
   PostChainTx (..),
@@ -224,18 +224,23 @@ spec = around showLogsOnFailure $ do
                 , signatures = aggregate [sign aliceSk snapshot]
                 }
 
-            fanoutDelay <-
-              alicesCallback `shouldSatisfyInTime` \case
-                Observation OnCloseTx{snapshotNumber, remainingContestationPeriod} ->
-                  -- FIXME(SN): should assert contestationDeadline > current
-                  Just (snapshotNumber == 1, remainingContestationPeriod)
-                _ ->
-                  Nothing
+            deadline <-
+              waitMatch alicesCallback $ \case
+                Observation OnCloseTx{snapshotNumber, contestationDeadline}
+                  | snapshotNumber == 1 -> Just contestationDeadline
+                _ -> Nothing
+            now <- getCurrentTime
+            unless (deadline > now) $
+              failure $ "contestationDeadline in the past: " <> show deadline <> ", now: " <> show now
+            delayUntil deadline
 
-            threadDelay (toEnum (fromEnum fanoutDelay))
+            waitMatch alicesCallback $ \case
+              Tick t | t > deadline -> Just ()
+              _ -> Nothing
             postTx $
               FanoutTx
                 { utxo = someUTxO
+                , contestationDeadline = deadline
                 }
             alicesCallback `observesInTime` OnFanoutTx
             failAfter 5 $
@@ -314,16 +319,17 @@ observesInTime mvar expected =
       Observation obs -> obs `shouldBe` expected
       _ -> go
 
-shouldSatisfyInTime :: MVar a -> (a -> Maybe (Bool, b)) -> IO b
-shouldSatisfyInTime mvar f =
-  failAfter 10 $ do
-    a <- takeMVar mvar
-    case f a of
-      Nothing ->
-        fail "predicate failed."
-      Just (predicate, b) -> do
-        shouldSatisfy predicate identity
-        return b
+waitMatch :: MVar a -> (a -> Maybe b) -> IO b
+waitMatch mvar match = do
+  a <- takeMVar mvar
+  case match a of
+    Nothing -> waitMatch mvar match
+    Just b -> pure b
 
 isIntersectionNotFoundException :: IntersectionNotFoundException -> Bool
 isIntersectionNotFoundException _ = True
+
+delayUntil :: (MonadDelay m, MonadTime m) => UTCTime -> m ()
+delayUntil target = do
+  now <- getCurrentTime
+  threadDelay . realToFrac $ diffUTCTime target now

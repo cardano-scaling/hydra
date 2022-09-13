@@ -49,7 +49,7 @@ data PostChainTx tx
   | CollectComTx {utxo :: UTxOType tx}
   | CloseTx {confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {confirmedSnapshot :: ConfirmedSnapshot tx}
-  | FanoutTx {utxo :: UTxOType tx}
+  | FanoutTx {utxo :: UTxOType tx, contestationDeadline :: UTCTime}
   deriving stock (Generic)
 
 deriving instance IsTx tx => Eq (PostChainTx tx)
@@ -88,9 +88,7 @@ data OnChainTx tx
   | OnCollectComTx
   | OnCloseTx
       { snapshotNumber :: SnapshotNumber
-      , -- | The remaining contestation period in wall clock time calculated
-        -- from the actual upper bound of the close transaction observed.
-        remainingContestationPeriod :: NominalDiffTime
+      , contestationDeadline :: UTCTime
       }
   | OnContestTx {snapshotNumber :: SnapshotNumber}
   | OnFanoutTx
@@ -138,7 +136,10 @@ newtype Chain tx m = Chain
     postTx :: MonadThrow m => PostChainTx tx -> m ()
   }
 
-data ChainEvent tx = Observation (OnChainTx tx) | Rollback Word
+data ChainEvent tx
+  = Observation (OnChainTx tx)
+  | Rollback Word
+  | Tick UTCTime
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

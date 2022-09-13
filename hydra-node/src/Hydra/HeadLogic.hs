@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-incomplete-record-updates #-}
 
 -- | Implements the Head Protocol's /state machine/ as a /pure function/.
 --
@@ -57,8 +58,6 @@ data Event tx
     NetworkEvent {message :: Message tx}
   | -- | Event received from the chain via a "Hydra.Chain".
     OnChainEvent {chainEvent :: ChainEvent tx}
-  | -- | An "internal" event raised after a delay. TODO: we can get rid of this (see time handling ADR).
-    ShouldPostFanout
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Eq, Show, Generic)
@@ -77,8 +76,6 @@ data Effect tx
     NetworkEffect {message :: Message tx}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.
     OnChainEffect {onChainTx :: PostChainTx tx}
-  | -- | A special effect to delay some 'Event' for some time. TODO: we can get rid of this (see time handling ADR).
-    Delay {delay :: NominalDiffTime, reason :: WaitReason, event :: Event tx}
   deriving stock (Generic)
 
 instance IsTx tx => Arbitrary (Effect tx) where
@@ -125,6 +122,10 @@ data HeadState tx
       { parameters :: HeadParameters
       , confirmedSnapshot :: ConfirmedSnapshot tx
       , previousRecoverableState :: HeadState tx
+      , contestationDeadline :: UTCTime
+      , -- | Tracks whether we have informed clients already about being
+        -- 'ReadyToFanout'.
+        readyToFanoutSent :: Bool
       }
   deriving stock (Generic)
 
@@ -212,7 +213,7 @@ data WaitReason
   = WaitOnNotApplicableTx {validationError :: ValidationError}
   | WaitOnSnapshotNumber {waitingFor :: SnapshotNumber}
   | WaitOnSeenSnapshot
-  | WaitOnContestationPeriod
+  | WaitOnContestationDeadline
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -630,23 +631,21 @@ onOpenChainCloseTx ::
   -- | The offchain coordinated head state
   CoordinatedHeadState tx ->
   SnapshotNumber ->
-  NominalDiffTime ->
+  UTCTime ->
   Outcome tx
 onOpenChainCloseTx
   parameters
   previousRecoverableState
   coordinatedHeadState
   closedSnapshotNumber
-  remainingContestationPeriod =
+  contestationDeadline =
     -- TODO(2): In principle here, we want to:
     --
     --   a) Warn the user about a close tx outside of an open state
     --   b) Move to close state, using information from the close tx
-    NewState
-      closedState
-      ( [ClientEffect headIsClosed, scheduledPostFanout]
-          ++ [OnChainEffect ContestTx{confirmedSnapshot} | onChainEffectCondition]
-      )
+    NewState closedState $
+      ClientEffect headIsClosed :
+        [OnChainEffect ContestTx{confirmedSnapshot} | onChainEffectCondition]
    where
     CoordinatedHeadState{confirmedSnapshot} =
       coordinatedHeadState
@@ -655,17 +654,13 @@ onOpenChainCloseTx
         { parameters
         , previousRecoverableState
         , confirmedSnapshot
+        , contestationDeadline
+        , readyToFanoutSent = False
         }
     headIsClosed =
       HeadIsClosed
         { snapshotNumber = closedSnapshotNumber
-        , remainingContestationPeriod
-        }
-    scheduledPostFanout =
-      Delay
-        { delay = remainingContestationPeriod
-        , reason = WaitOnContestationPeriod
-        , event = ShouldPostFanout
+        , contestationDeadline
         }
     onChainEffectCondition =
       number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
@@ -683,8 +678,7 @@ onClosedChainContestTx confirmedSnapshot snapshotNumber
       ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
     -- TODO: A more recent snapshot number was succesfully contested, we will
-    -- not be able to fanout! We might want to communicate that to the client
-    -- and/or not try to fan out on the `ShouldPostFanout` later.
+    -- not be able to fanout! We might want to communicate that to the client!
     OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
   | otherwise =
     OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
@@ -693,10 +687,14 @@ onClosedChainContestTx confirmedSnapshot snapshotNumber
 -- latest confirmed snapshot from 'ClosedState'.
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
-onClosedClientFanout :: ConfirmedSnapshot tx -> Outcome tx
-onClosedClientFanout confirmedSnapshot =
+onClosedClientFanout :: ConfirmedSnapshot tx -> UTCTime -> Outcome tx
+onClosedClientFanout confirmedSnapshot contestationDeadline =
   OnlyEffects
-    [ OnChainEffect (FanoutTx $ getField @"utxo" $ getSnapshot confirmedSnapshot)
+    [ OnChainEffect
+        FanoutTx
+          { utxo = getField @"utxo" $ getSnapshot confirmedSnapshot
+          , contestationDeadline
+          }
     ]
 
 -- | Observe a fanout transaction by finalize the head state and notifying
@@ -758,8 +756,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     onInitialChainAbortTx committed
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     onOpenClientClose confirmedSnapshot
-  (ClosedState{confirmedSnapshot}, ClientEvent Fanout) ->
-    onClosedClientFanout confirmedSnapshot
+  (ClosedState{confirmedSnapshot, contestationDeadline}, ClientEvent Fanout) ->
+    onClosedClientFanout confirmedSnapshot contestationDeadline
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   ( OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}
@@ -785,17 +783,24 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     ) ->
       onOpenNetworkAckSn parties otherParty parameters previousRecoverableState snapshotSignature headState sn
   ( prev@OpenState{parameters, coordinatedHeadState}
-    , OnChainEvent (Observation OnCloseTx{snapshotNumber = closedSnapshotNumber, remainingContestationPeriod})
+    , OnChainEvent (Observation OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline})
     ) ->
-      onOpenChainCloseTx parameters prev coordinatedHeadState closedSnapshotNumber remainingContestationPeriod
+      onOpenChainCloseTx parameters prev coordinatedHeadState closedSnapshotNumber contestationDeadline
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
     onClosedChainContestTx confirmedSnapshot snapshotNumber
-  (ClosedState{}, ShouldPostFanout) ->
-    OnlyEffects [ClientEffect ReadyToFanout]
+  (cst@ClosedState{contestationDeadline, readyToFanoutSent}, OnChainEvent (Tick chainTime))
+    | chainTime > contestationDeadline && not readyToFanoutSent ->
+      NewState
+        -- XXX: Requires -Wno-incomplete-record-updates. Should refactor
+        -- 'HeadState' to hold individual 'ClosedState' etc. types
+        (cst{readyToFanoutSent = True})
+        [ClientEffect ReadyToFanout]
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
     onClosedChainFanoutTx confirmedSnapshot
   (currentState, OnChainEvent (Rollback n)) ->
     onCurrentChainRollback currentState n
+  (_, OnChainEvent Tick{}) ->
+    OnlyEffects []
   (_, NetworkEvent (Connected host)) ->
     OnlyEffects [ClientEffect $ PeerConnected host]
   (_, NetworkEvent (Disconnected host)) ->

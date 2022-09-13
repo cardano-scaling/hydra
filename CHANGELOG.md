@@ -10,12 +10,18 @@ changes.
 
 ## [0.8.0] - UNRELEASED
 
-- **BREAKING** Changed logs to improve legibility and trace on-chain posting errors
-  + Strip on-chain transactions logging to just TxId
-  + Rename `Processing` -> `Begin` and `Processed` -> `End`
-  + Added `PostingFailed` log entry
+- **BREAKING** Keep track of `contestationDeadline` instead of `remainingContestationPeriod` and fix `ReadyToFanout`.
+  + Clients can now rely on `ReadyToFanout`, such that sending a `Fanout` input after seeing this output will never be "too early".
+  + The `HeadIsClosed` server output now contains the deadline instead of the remaining time.
+  + See `hydra-tui` for an example how to use the `contestationDeadline` and `ReadyToFanout`.
+  + See [ADR20](./docs/adr/2022-08-02_020-handling-time.md) for details and the rationale.
 
-- The `hydra-cluster` does require `--publish-scripts` or `--hydra-scripts-tx-id` now as it may be provided with pre-published hydra scripts.
+- **BREAKING** Changed logs to improve legibility and trace on-chain posting errors.
+  + Strip chain layer logs to only contain `TxId` instead of full transactions in the nominal cases.
+  + Renamed log entry prefixes `Processing -> Begin` and `Processed -> End`.
+  + Added `PostingFailed` log entry.
+
+- **BREAKING** The `hydra-cluster` executable (our smoke test) does require `--publish-scripts` or `--hydra-scripts-tx-id` now as it may be provided with pre-published hydra scripts.
 
 - Added a `hydra-tools` executable, which provides basic commands to help working with Hydra Heads:
   + Generate a pair of Hydra keys

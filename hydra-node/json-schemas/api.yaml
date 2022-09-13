@@ -314,15 +314,15 @@ components:
         required:
           - tag
           - snapshotNumber
-          - remainingContestationPeriod
+          - contestationDeadline
         properties:
           tag:
             type: string
             enum: ["HeadIsClosed"]
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
-          remainingContestationPeriod:
-            $ref: "#/components/schemas/ContestationPeriod"
+          contestationDeadline:
+            $ref: "#/components/schemas/UTCTime"
 
     HeadIsContested:
       title: HeadIsContested
@@ -806,6 +806,7 @@ components:
           required:
             - tag
             - utxo
+            - contestationDeadline
           description: |
             Finalise the Head posting all UTxO from the Head on-chain.
           properties:
@@ -814,6 +815,8 @@ components:
               enum: ["FanoutTx"]
             utxo:
               $ref: "#/components/schemas/UTxO"
+            contestationDeadline:
+              $ref: "#/components/schemas/UTCTime"
 
     PostTxError:
       description: |
@@ -1360,6 +1363,12 @@ components:
             - type: string
               contentEncoding: base16
             - type: "null"
+
+    UTCTime:
+      type: string
+      format: "date-time"
+      description: |
+        A data and time as measured by a clock without a time zone. It is stored as a string in ISO 8601 format.
 
     UTxO:
       type: object
