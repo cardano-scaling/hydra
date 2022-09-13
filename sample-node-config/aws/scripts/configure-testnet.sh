@@ -3,12 +3,16 @@
 
 # fail if something goes wrong
 set -e
- 
+
+[ $# -eq 1 ] || { echo "requires an argument 'github user'"; exit 1 ; }
+
+GH_USER=$1
+
 # accept github.com key
 sudo ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 # download gpg key signing testnet dump
-curl https://api.github.com/users/ffakenz/gpg_keys | jq -r '.[] | .raw_key' | gpg --import
+curl https://api.github.com/users/$GH_USER/gpg_keys | jq -r '.[] | .raw_key' | gpg --import
 
 # get cardano network configuration
 git clone https://github.com/input-output-hk/cardano-configurations
@@ -41,4 +45,4 @@ docker-compose --profile hydraw up -d
 
 # create marker utxo
 # chmod +x ./fuel-testnet.sh
-# exec ./fuel-testnet.sh devnet franco-cardano.sk 10000000
+# exec ./fuel-testnet.sh devnet personal-cardano.sk 10000000

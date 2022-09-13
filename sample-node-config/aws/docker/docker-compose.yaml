@@ -42,8 +42,8 @@ services:
       , "--host", "0.0.0.0"
       , "--monitoring-port", "6000"
       , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
-      , "--hydra-signing-key", "/data/franco-hydra.sk"
-      , "--cardano-signing-key", "/data/franco-cardano.sk"
+      , "--hydra-signing-key", "/data/personal-hydra.sk"
+      , "--cardano-signing-key", "/data/personal-cardano.sk"
       , "--ledger-genesis", "/data/genesis-shelley.json"
       , "--ledger-protocol-parameters", "/data/protocol-parameters.json"
       , "--network-id", "${NETWORK_MAGIC}"
@@ -61,7 +61,7 @@ services:
       [ "--connect", "hydra-node:4001"
       , "--node-socket", "/devnet/node.socket"
       , "--network-id", "${NETWORK_MAGIC}"
-      , "--cardano-signing-key", "/data/franco-cardano.sk"
+      , "--cardano-signing-key", "/data/personal-cardano.sk"
       ]
     volumes:
       - .:/data:ro
@@ -74,7 +74,7 @@ services:
     entrypoint:
       [ "hydraw" ]
     environment:
-      - HYDRA_SIGNING_KEY=/data/franco-cardano.sk
+      - HYDRA_SIGNING_KEY=/data/personal-cardano.sk
       - HYDRA_API_HOST=hydra-node:4001
     volumes:
       - .:/data:ro

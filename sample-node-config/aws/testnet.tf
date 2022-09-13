@@ -35,7 +35,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -49,7 +49,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -63,7 +63,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -71,13 +71,13 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "credentials/franco-cardano.sk"
-    destination = "/home/ubuntu/franco-cardano.sk"
+    source      = "credentials/personal-cardano.sk"
+    destination = "/home/ubuntu/personal-cardano.sk"
 
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -91,7 +91,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -99,13 +99,13 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "credentials/franco-hydra.sk"
-    destination = "/home/ubuntu/franco-hydra.sk"
+    source      = "credentials/personal-hydra.sk"
+    destination = "/home/ubuntu/personal-hydra.sk"
 
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -119,7 +119,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -133,7 +133,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -147,7 +147,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -161,7 +161,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -175,7 +175,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -191,7 +191,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -201,13 +201,13 @@ resource "aws_instance" "hydra" {
   provisioner "remote-exec" {
     inline = [
       "chmod +x /home/ubuntu/configure-testnet.sh",
-      "/home/ubuntu/configure-testnet.sh"
+      "/home/ubuntu/configure-testnet.sh ffakenz" // personal gh-account
     ]
 
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("./env/dev-personal.pem")
+      private_key = file("./env/personal.pem")
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
