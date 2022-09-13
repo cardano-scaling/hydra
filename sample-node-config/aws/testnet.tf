@@ -99,8 +99,8 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "credentials/personal-hydra.sk"
-    destination = "/home/ubuntu/personal-hydra.sk"
+    source      = "credentials/hydra-key.sk"
+    destination = "/home/ubuntu/hydra-key.sk"
 
     connection {
       type        = "ssh"

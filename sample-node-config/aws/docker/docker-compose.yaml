@@ -42,7 +42,7 @@ services:
       , "--host", "0.0.0.0"
       , "--monitoring-port", "6000"
       , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
-      , "--hydra-signing-key", "/data/personal-hydra.sk"
+      , "--hydra-signing-key", "/data/hydra-key.sk"
       , "--cardano-signing-key", "/data/personal-cardano.sk"
       , "--ledger-genesis", "/data/genesis-shelley.json"
       , "--ledger-protocol-parameters", "/data/protocol-parameters.json"
