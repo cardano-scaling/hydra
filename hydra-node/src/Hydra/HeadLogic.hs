@@ -55,6 +55,9 @@ data Event tx
   = -- | Event received from clients via the "Hydra.API".
     ClientEvent {clientInput :: ClientInput tx}
   | -- | Event received from peers via a "Hydra.Network".
+    --
+    --  * `ttl` is a simple counter that's decreased every time the event is
+    --    reenqueued due to a wait. It's default value is `defaultTTL`
     NetworkEvent {ttl :: TTL, message :: Message tx}
   | -- | Event received from the chain via a "Hydra.Chain".
     OnChainEvent {chainEvent :: ChainEvent tx}
@@ -182,6 +185,9 @@ deriving instance IsTx tx => FromJSON (SeenSnapshot tx)
 type PendingCommits = Set Party
 
 type TTL = Natural
+
+defaultTTL :: TTL
+defaultTTL = 5
 
 -- | Preliminary type for collecting errors occurring during 'update'.
 -- TODO: Try to merge this (back) into 'Outcome'.
@@ -415,30 +421,26 @@ onOpenNetworkReqTx ::
   HeadState tx ->
   -- | The offchain coordinated head state
   CoordinatedHeadState tx ->
-  -- | The transaction TTL
-  TTL ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx ledger parameters previousRecoverableState headState@CoordinatedHeadState{seenTxs, seenUTxO} ttl tx =
-  if ttl == 0
-    then OnlyEffects [ClientEffect $ TxExpired tx]
-    else case applyTransactions ledger seenUTxO [tx] of
-      Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
-      Right utxo' ->
-        let newSeenTxs = seenTxs <> [tx]
-         in NewState
-              ( OpenState
-                  { parameters
-                  , coordinatedHeadState =
-                      headState
-                        { seenTxs = newSeenTxs
-                        , seenUTxO = utxo'
-                        }
-                  , previousRecoverableState
-                  }
-              )
-              [ClientEffect $ TxSeen tx]
+onOpenNetworkReqTx ledger parameters previousRecoverableState headState@CoordinatedHeadState{seenTxs, seenUTxO} tx =
+  case applyTransactions ledger seenUTxO [tx] of
+    Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
+    Right utxo' ->
+      let newSeenTxs = seenTxs <> [tx]
+       in NewState
+            ( OpenState
+                { parameters
+                , coordinatedHeadState =
+                    headState
+                      { seenTxs = newSeenTxs
+                      , seenUTxO = utxo'
+                      }
+                , previousRecoverableState
+                }
+            )
+            [ClientEffect $ TxSeen tx]
 
 -- | Receive network message about a snapshot request ('ReqSn') from a peer. We
 -- do distinguish two cases:
@@ -770,8 +772,11 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     , ClientEvent (NewTx tx)
     ) ->
       onOpenClientNewTx ledger party utxo tx
-  (OpenState{parameters, coordinatedHeadState, previousRecoverableState}, NetworkEvent ttl (ReqTx _ tx)) ->
-    onOpenNetworkReqTx ledger parameters previousRecoverableState coordinatedHeadState ttl tx
+  (OpenState{parameters, coordinatedHeadState, previousRecoverableState}, NetworkEvent ttl (ReqTx _ tx))
+    | ttl == 0 ->
+      OnlyEffects [ClientEffect $ TxExpired tx]
+    | otherwise ->
+      onOpenNetworkReqTx ledger parameters previousRecoverableState coordinatedHeadState tx
   ( OpenState
       { parameters
       , coordinatedHeadState = s@CoordinatedHeadState{}
