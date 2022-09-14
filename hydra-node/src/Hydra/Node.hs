@@ -34,8 +34,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), deserialiseFromRawBytes)
-import Hydra.Chain (Chain (..), ChainEvent, PostTxError)
-import Hydra.ClientInput (ClientInput)
+import Hydra.Chain (Chain (..), PostTxError)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
   Effect (..),
@@ -150,11 +149,19 @@ stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
     Error err -> traceWith tracer (ErrorHandlingEvent party e err)
-    Wait _reason -> putEventAfter eq 0.1 e >> traceWith tracer (EndEvent party e)
+    Wait _reason -> putEventAfter eq 0.1 (decreaseTTL e) >> traceWith tracer (EndEvent party e)
     NewState _ effs ->
       forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
     OnlyEffects effs ->
       forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
+ where
+  decreaseTTL =
+    \case
+      NetworkEvent ttl msg -> NetworkEvent (ttl - 1) msg
+      e -> e
+
+defaultTTL :: TTL
+defaultTTL = 5
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
@@ -171,9 +178,6 @@ processNextEvent HydraNode{hh, env} e =
          in (NewState s'' effects', s'')
       Error err -> (Error err, s)
       Wait reason -> (Wait reason, s)
-
-defaultTTL :: TTL
-defaultTTL = 5
 
 processEffect ::
   ( MonadAsync m

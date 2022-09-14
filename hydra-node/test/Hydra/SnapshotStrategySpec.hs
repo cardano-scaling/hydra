@@ -8,7 +8,6 @@ import Test.Hydra.Prelude
 
 import qualified Data.List as List
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Crypto (aggregate, sign)
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
@@ -25,7 +24,6 @@ import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
-import Hydra.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, cperiod)
 import Test.QuickCheck (Property, counterexample, forAll, label, (==>))
@@ -95,8 +93,6 @@ spec = do
                 CoordinatedHeadState SimpleTx
         newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
 
-      prop "exclude conflicting transactions from snapshot" prop_excludeConflictingTransactions
-
       describe "Snapshot Emission" $ do
         it "update seenSnapshot state when sending ReqSn" $ do
           let tx = aValidTx 1
@@ -115,33 +111,6 @@ spec = do
 
           emitSnapshot (envFor aliceSk) [] st
             `shouldBe` (st', [NetworkEffect $ ReqSn alice 1 [tx]])
-
-prop_excludeConflictingTransactions :: [SimpleTx] -> Property
-prop_excludeConflictingTransactions seenTxs =
-  let env =
-        let party = alice
-         in Environment
-              { party
-              , signingKey = aliceSk
-              , otherParties = []
-              }
-      snapshot = Snapshot @SimpleTx 1 (foldMap txInputs seenTxs) []
-      sigs = aggregate [sign aliceSk snapshot]
-      confirmedSnapshot = ConfirmedSnapshot snapshot sigs
-      st =
-        CoordinatedHeadState
-          { seenUTxO = mempty
-          , seenTxs
-          , confirmedSnapshot
-          , seenSnapshot = NoSeenSnapshot
-          }
-      params = HeadParameters cperiod [alice]
-      decision = newSn env params st
-      Snapshot{number} = getSnapshot confirmedSnapshot
-      (validTx, invalidTx) = partitionByConflicting seenTxs
-   in decision == ShouldSnapshot (succ number) validTx invalidTx
-        & counterexample ("decision: " <> show decision)
-        & label (Prelude.head . Prelude.words . show $ confirmedSnapshot)
 
 partitionByConflicting :: [SimpleTx] -> ([SimpleTx], [SimpleTx])
 partitionByConflicting = error "not implemented"

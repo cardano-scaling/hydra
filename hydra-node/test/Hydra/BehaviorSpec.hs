@@ -243,9 +243,9 @@ spec = parallel $ do
                 waitUntil [n1] $ TxValid (aValidTx 42)
                 waitUntil [n1, n2] $ TxSeen (aValidTx 42)
 
-      it "sending two conflicting transactions should lead one being confirmed and one invalid" $
+      it "sending two conflicting transactions should lead one being confirmed and one expired" $
         shouldRunInSim $
-          failAfter 1 $ do
+          failAfter 2 $ do
             chain <- simulatedChainAndNetwork
             withHydraNode aliceSk [bob] chain $ \n1 -> do
               withHydraNode bobSk [alice] chain $ \n2 -> do
@@ -264,7 +264,7 @@ spec = parallel $ do
                         }
                 send n1 (NewTx tx')
                 send n2 (NewTx tx'')
-                let snapshot = Snapshot 1 (utxoRefs [1]) [tx']
+                let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                     confirmed = SnapshotConfirmed snapshot sigs
                 waitUntil [n1, n2] confirmed
