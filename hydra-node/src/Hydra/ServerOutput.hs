@@ -34,6 +34,7 @@ data ServerOutput tx
   | TxSeen {transaction :: tx}
   | TxValid {transaction :: tx}
   | TxInvalid {utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
+  | TxExpired {transaction :: tx}
   | SnapshotConfirmed
       { snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)

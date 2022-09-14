@@ -259,8 +259,7 @@ spec = parallel $ do
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                     confirmed = SnapshotConfirmed snapshot sigs
                 waitUntil [n1, n2] confirmed
-                waitUntil [n1, n2] $
-                  TxInvalid (utxoRefs [1]) tx'' (ValidationError "cannot apply transaction")
+                waitUntil [n1, n2] (TxExpired tx'')
 
       it "valid new transactions get snapshotted" $
         shouldRunInSim $ do
