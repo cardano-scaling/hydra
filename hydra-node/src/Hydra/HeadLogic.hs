@@ -55,7 +55,7 @@ data Event tx
   = -- | Event received from clients via the "Hydra.API".
     ClientEvent {clientInput :: ClientInput tx}
   | -- | Event received from peers via a "Hydra.Network".
-    NetworkEvent {message :: Message tx}
+    NetworkEvent {ttl :: TTL, message :: Message tx}
   | -- | Event received from the chain via a "Hydra.Chain".
     OnChainEvent {chainEvent :: ChainEvent tx}
   | -- | Event to re-ingest errors from 'postTx' for further processing.
@@ -180,6 +180,8 @@ deriving instance IsTx tx => ToJSON (SeenSnapshot tx)
 deriving instance IsTx tx => FromJSON (SeenSnapshot tx)
 
 type PendingCommits = Set Party
+
+type TTL = Natural
 
 -- | Preliminary type for collecting errors occurring during 'update'.
 -- TODO: Try to merge this (back) into 'Outcome'.
@@ -413,26 +415,30 @@ onOpenNetworkReqTx ::
   HeadState tx ->
   -- | The offchain coordinated head state
   CoordinatedHeadState tx ->
+  -- | The transaction TTL
+  TTL ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx ledger parameters previousRecoverableState headState@CoordinatedHeadState{seenTxs, seenUTxO} tx =
-  case applyTransactions ledger seenUTxO [tx] of
-    Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
-    Right utxo' ->
-      let newSeenTxs = seenTxs <> [tx]
-       in NewState
-            ( OpenState
-                { parameters
-                , coordinatedHeadState =
-                    headState
-                      { seenTxs = newSeenTxs
-                      , seenUTxO = utxo'
-                      }
-                , previousRecoverableState
-                }
-            )
-            [ClientEffect $ TxSeen tx]
+onOpenNetworkReqTx ledger parameters previousRecoverableState headState@CoordinatedHeadState{seenTxs, seenUTxO} ttl tx =
+  if ttl == 0
+    then OnlyEffects [ClientEffect $ TxExpired tx]
+    else case applyTransactions ledger seenUTxO [tx] of
+      Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
+      Right utxo' ->
+        let newSeenTxs = seenTxs <> [tx]
+         in NewState
+              ( OpenState
+                  { parameters
+                  , coordinatedHeadState =
+                      headState
+                        { seenTxs = newSeenTxs
+                        , seenUTxO = utxo'
+                        }
+                  , previousRecoverableState
+                  }
+              )
+              [ClientEffect $ TxSeen tx]
 
 -- | Receive network message about a snapshot request ('ReqSn') from a peer. We
 -- do distinguish two cases:
@@ -764,14 +770,14 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     , ClientEvent (NewTx tx)
     ) ->
       onOpenClientNewTx ledger party utxo tx
-  (OpenState{parameters, coordinatedHeadState, previousRecoverableState}, NetworkEvent (ReqTx _ tx)) ->
-    onOpenNetworkReqTx ledger parameters previousRecoverableState coordinatedHeadState tx
+  (OpenState{parameters, coordinatedHeadState, previousRecoverableState}, NetworkEvent ttl (ReqTx _ tx)) ->
+    onOpenNetworkReqTx ledger parameters previousRecoverableState coordinatedHeadState ttl tx
   ( OpenState
       { parameters
       , coordinatedHeadState = s@CoordinatedHeadState{}
       , previousRecoverableState
       }
-    , evt@(NetworkEvent (ReqSn otherParty sn txs))
+    , evt@(NetworkEvent _ (ReqSn otherParty sn txs))
     ) ->
       onOpenNetworkReqSn ledger party signingKey previousRecoverableState parameters s otherParty sn txs st evt
   ( OpenState
@@ -779,7 +785,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       , coordinatedHeadState = headState@CoordinatedHeadState{}
       , previousRecoverableState
       }
-    , NetworkEvent (AckSn otherParty snapshotSignature sn)
+    , NetworkEvent _ (AckSn otherParty snapshotSignature sn)
     ) ->
       onOpenNetworkAckSn parties otherParty parameters previousRecoverableState snapshotSignature headState sn
   ( prev@OpenState{parameters, coordinatedHeadState}
@@ -801,9 +807,9 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     onCurrentChainRollback currentState n
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
-  (_, NetworkEvent (Connected host)) ->
+  (_, NetworkEvent _ (Connected host)) ->
     OnlyEffects [ClientEffect $ PeerConnected host]
-  (_, NetworkEvent (Disconnected host)) ->
+  (_, NetworkEvent _ (Disconnected host)) ->
     OnlyEffects [ClientEffect $ PeerDisconnected host]
   (_, PostTxError{postChainTx, postTxError}) ->
     OnlyEffects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]

@@ -32,6 +32,7 @@ import Hydra.Node (
   createHydraNode,
   initEnvironment,
   runHydraNode,
+  defaultTTL
  )
 import Hydra.Options (
   ChainConfig (..),
@@ -61,7 +62,7 @@ main = do
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         withChain tracer party (putEvent eq . OnChainEvent) hydraScriptsTxId chainConfig $ \oc -> do
           let RunOptions{host, port, peers} = opts
-          withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent) $ \hn -> do
+          withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
             withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts

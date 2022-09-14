@@ -44,6 +44,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   LogicError (..),
   Outcome (..),
+  TTL,
   emitSnapshot,
  )
 import qualified Hydra.HeadLogic as Logic
@@ -119,15 +120,6 @@ createHydraNode eq hn ledger oc server env = do
   hh <- createHydraHead IdleState ledger
   pure HydraNode{eq, hn, hh, oc, server, env}
 
-handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
-handleClientInput HydraNode{eq} = putEvent eq . ClientEvent
-
-handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
-handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
-
-handleMessage :: HydraNode tx m -> Message tx -> m ()
-handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
-
 runHydraNode ::
   ( MonadThrow m
   , MonadAsync m
@@ -180,6 +172,9 @@ processNextEvent HydraNode{hh, env} e =
       Error err -> (Error err, s)
       Wait reason -> (Wait reason, s)
 
+defaultTTL :: TTL
+defaultTTL = 5
+
 processEffect ::
   ( MonadAsync m
   , MonadCatch m
@@ -193,7 +188,7 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
   traceWith tracer $ BeginEffect party e
   case e of
     ClientEffect i -> sendOutput server i
-    NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent msg)
+    NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL msg)
     OnChainEffect postChainTx ->
       postTx oc postChainTx
         `catch` \(postTxError :: PostTxError tx) ->

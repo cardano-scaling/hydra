@@ -29,20 +29,20 @@ import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Environment (..),
-  Event (ClientEvent),
+  Event (ClientEvent, NetworkEvent, OnChainEvent),
   HeadState (IdleState),
  )
 import Hydra.Ledger (IsTx, Ledger, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
+import Hydra.Network.Message (Message)
 import Hydra.Node (
+  EventQueue (putEvent),
   HydraNode (..),
   HydraNodeLog (..),
   createEventQueue,
   createHydraHead,
-  handleChainEvent,
-  handleClientInput,
-  handleMessage,
+  defaultTTL,
   runHydraNode,
  )
 import Hydra.Party (Party, deriveParty)
@@ -51,6 +51,15 @@ import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
+
+handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
+handleClientInput HydraNode{eq} = putEvent eq . ClientEvent
+
+handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
+handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
+
+handleMessage :: HydraNode tx m -> Message tx -> m ()
+handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL
 
 spec :: Spec
 spec = parallel $ do
