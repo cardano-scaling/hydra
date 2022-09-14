@@ -54,7 +54,7 @@ spec = do
                 , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
                 , seenSnapshot = NoSeenSnapshot
                 }
-        newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx] []
+        newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
 
       prop "always ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshot
 
@@ -112,9 +112,6 @@ spec = do
           emitSnapshot (envFor aliceSk) [] st
             `shouldBe` (st', [NetworkEffect $ ReqSn alice 1 [tx]])
 
-partitionByConflicting :: [SimpleTx] -> ([SimpleTx], [SimpleTx])
-partitionByConflicting = error "not implemented"
-
 prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshot sn =
   let tx = aValidTx 1
@@ -135,7 +132,7 @@ prop_singleMemberHeadAlwaysSnapshot sn =
       params = HeadParameters cperiod [alice]
       decision = newSn aliceEnv params st
       Snapshot{number} = getSnapshot sn
-   in decision == ShouldSnapshot (succ number) [tx] []
+   in decision == ShouldSnapshot (succ number) [tx]
         & counterexample ("decision: " <> show decision)
         & label (Prelude.head . Prelude.words . show $ sn)
 

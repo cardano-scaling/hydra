@@ -819,7 +819,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     Error $ InvalidEvent ev st
 
 data SnapshotOutcome tx
-  = ShouldSnapshot SnapshotNumber [tx] [tx] -- TODO(AB) : we should really be using Set (TxId tx) instead
+  = ShouldSnapshot SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
   | ShouldNotSnapshot NoSnapshotReason
   deriving (Eq, Show, Generic)
 
@@ -848,7 +848,7 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
           | null seenTxs ->
             ShouldNotSnapshot NoTransactionsToSnapshot
           | otherwise ->
-            ShouldSnapshot nextSnapshotNumber seenTxs mempty
+            ShouldSnapshot nextSnapshotNumber seenTxs
 
 -- TODO: This is the only logic NOT in 'update' and gets applied on top of it in
 -- "Hydra.Node". We tried to do this decision inside 'update' in the past, but
@@ -859,13 +859,13 @@ emitSnapshot :: IsTx tx => Environment -> [Effect tx] -> HeadState tx -> (HeadSt
 emitSnapshot env@Environment{party} effects = \case
   st@OpenState{parameters, coordinatedHeadState, previousRecoverableState} ->
     case newSn env parameters coordinatedHeadState of
-      ShouldSnapshot sn validTxs _ ->
+      ShouldSnapshot sn txs ->
         ( OpenState
             { parameters
             , coordinatedHeadState = coordinatedHeadState{seenSnapshot = RequestedSnapshot}
             , previousRecoverableState
             }
-        , NetworkEffect (ReqSn party sn validTxs) : effects
+        , NetworkEffect (ReqSn party sn txs) : effects
         )
       _ -> (st, effects)
   st -> (st, effects)
