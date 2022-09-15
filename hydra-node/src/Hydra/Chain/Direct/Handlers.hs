@@ -109,7 +109,7 @@ mkChain tracer queryTimeHandle wallet headState submitTx =
               -- to bootstrap the init transaction. For now, we bear with it and
               -- keep the static keys in context.
               fromPostChainTx timeHandle wallet headState tx
-                >>= finalizeTx wallet headState . toLedgerTx
+                >>= finalizeTx tx wallet headState . toLedgerTx
             )
         submitTx vtx
     }
@@ -117,11 +117,12 @@ mkChain tracer queryTimeHandle wallet headState submitTx =
 -- | Balance and sign the given partial transaction.
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
+  PostChainTx Tx ->
   TinyWallet m ->
   TVar m ChainStateAt ->
   ValidatedTx LedgerEra ->
   STM m (ValidatedTx LedgerEra)
-finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
+finalizeTx postedTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
   someSt <- currentChainState <$> readTVar headState
   let headUTxO = getKnownUTxO someSt
   walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
@@ -130,6 +131,7 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
       throwIO
         ( CannotSpendInput
             { input = show input
+            , postedTx
             , walletUTxO
             , headUTxO
             } ::
