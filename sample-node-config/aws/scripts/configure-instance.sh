@@ -27,3 +27,8 @@ echo "alias logs='cat /var/log/cloud-init-output.log'" >> .bashrc
 echo "alias g=git" >> .bashrc
 echo "alias d=docker" >> .bashrc
 echo "alias dc=docker-compose" >> .bashrc
+echo "alias fuel='./create-marker-utxo.sh'" >> .bashrc
+echo "alias up='./hydraw-up.sh'" >> .bashrc
+echo "alias down='./hydraw-down.sh'" >> .bashrc
+echo "alias sync='docker exec -it ubuntu-cardano-node-1 cardano-cli query tip --testnet-magic=2'" >> .bashrc
+echo "alias tui='./run-tui.sh'" >> .bashrc
