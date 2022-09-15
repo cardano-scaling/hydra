@@ -49,6 +49,7 @@ services:
       , "--network-id", "${NETWORK_MAGIC}"
       , "--node-socket", "/devnet/node.socket"
       # peers
+      , "--peer", "35.233.17.169:5001"
       , "--hydra-verification-key", "/data/arnaud-hydra.vk"
       , "--cardano-verification-key", "/data/arnaud-cardano.vk"
       ]
