@@ -34,8 +34,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), deserialiseFromRawBytes)
-import Hydra.Chain (Chain (..), ChainEvent, PostTxError)
-import Hydra.ClientInput (ClientInput)
+import Hydra.Chain (Chain (..), PostTxError)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
   Effect (..),
@@ -44,6 +43,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   LogicError (..),
   Outcome (..),
+  defaultTTL,
   emitSnapshot,
  )
 import qualified Hydra.HeadLogic as Logic
@@ -119,15 +119,6 @@ createHydraNode eq hn ledger oc server env = do
   hh <- createHydraHead IdleState ledger
   pure HydraNode{eq, hn, hh, oc, server, env}
 
-handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
-handleClientInput HydraNode{eq} = putEvent eq . ClientEvent
-
-handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
-handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
-
-handleMessage :: HydraNode tx m -> Message tx -> m ()
-handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
-
 runHydraNode ::
   ( MonadThrow m
   , MonadAsync m
@@ -158,11 +149,16 @@ stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
     Error err -> traceWith tracer (ErrorHandlingEvent party e err)
-    Wait _reason -> putEventAfter eq 0.1 e >> traceWith tracer (EndEvent party e)
+    Wait _reason -> putEventAfter eq 0.1 (decreaseTTL e) >> traceWith tracer (EndEvent party e)
     NewState _ effs ->
       forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
     OnlyEffects effs ->
       forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
+ where
+  decreaseTTL =
+    \case
+      NetworkEvent ttl msg -> NetworkEvent (ttl - 1) msg
+      e -> e
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
@@ -193,7 +189,7 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
   traceWith tracer $ BeginEffect party e
   case e of
     ClientEffect i -> sendOutput server i
-    NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent msg)
+    NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL msg)
     OnChainEffect postChainTx ->
       postTx oc postChainTx
         `catch` \(postTxError :: PostTxError tx) ->

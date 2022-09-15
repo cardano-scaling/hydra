@@ -9,6 +9,7 @@ import qualified Data.Text as Text
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Event (NetworkEvent),
+  defaultTTL,
  )
 import Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Hydra.Logging (nullTracer, traceWith)
@@ -28,8 +29,8 @@ spec = do
     failAfter 3 $ do
       [p] <- randomUnusedTCPPorts 1
       withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
-        traceWith tracer (Node $ BeginEvent alice (NetworkEvent (ReqTx alice (aValidTx 42))))
-        traceWith tracer (Node $ BeginEvent alice (NetworkEvent (ReqTx alice (aValidTx 43))))
+        traceWith tracer (Node $ BeginEvent alice (NetworkEvent defaultTTL (ReqTx alice (aValidTx 42))))
+        traceWith tracer (Node $ BeginEvent alice (NetworkEvent defaultTTL (ReqTx alice (aValidTx 43))))
         threadDelay 0.1
         traceWith tracer (Node $ EndEffect alice (ClientEffect (SnapshotConfirmed (Snapshot 1 (utxoRefs [1]) [aValidTx 43, aValidTx 42]) mempty)))
 

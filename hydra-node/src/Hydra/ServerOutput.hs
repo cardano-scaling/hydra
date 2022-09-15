@@ -34,6 +34,7 @@ data ServerOutput tx
   | TxSeen {transaction :: tx}
   | TxValid {transaction :: tx}
   | TxInvalid {utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
+  | TxExpired {transaction :: tx}
   | SnapshotConfirmed
       { snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
@@ -71,6 +72,7 @@ instance IsTx tx => Arbitrary (ServerOutput tx) where
     CommandFailed i -> CommandFailed <$> shrink i
     TxSeen tx -> TxSeen <$> shrink tx
     TxValid tx -> TxValid <$> shrink tx
+    TxExpired tx -> TxExpired <$> shrink tx
     TxInvalid u tx err -> TxInvalid <$> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed s ms -> SnapshotConfirmed <$> shrink s <*> shrink ms
     GetUTxOResponse u -> GetUTxOResponse <$> shrink u

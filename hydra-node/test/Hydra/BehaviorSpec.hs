@@ -29,20 +29,20 @@ import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Environment (..),
-  Event (ClientEvent),
+  Event (ClientEvent, NetworkEvent, OnChainEvent),
   HeadState (IdleState),
+  defaultTTL,
  )
 import Hydra.Ledger (IsTx, Ledger, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
+import Hydra.Network.Message (Message)
 import Hydra.Node (
+  EventQueue (putEvent),
   HydraNode (..),
   HydraNodeLog (..),
   createEventQueue,
   createHydraHead,
-  handleChainEvent,
-  handleClientInput,
-  handleMessage,
   runHydraNode,
  )
 import Hydra.Party (Party, deriveParty)
@@ -51,6 +51,15 @@ import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
+
+handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
+handleClientInput HydraNode{eq} = putEvent eq . ClientEvent
+
+handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
+handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
+
+handleMessage :: HydraNode tx m -> Message tx -> m ()
+handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL
 
 spec :: Spec
 spec = parallel $ do
@@ -233,6 +242,33 @@ spec = parallel $ do
                 send n1 (NewTx (aValidTx 42))
                 waitUntil [n1] $ TxValid (aValidTx 42)
                 waitUntil [n1, n2] $ TxSeen (aValidTx 42)
+
+      it "sending two conflicting transactions should lead one being confirmed and one expired" $
+        shouldRunInSim $
+          failAfter 2 $ do
+            chain <- simulatedChainAndNetwork
+            withHydraNode aliceSk [bob] chain $ \n1 -> do
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+                let tx' =
+                      SimpleTx
+                        { txSimpleId = 1
+                        , txInputs = utxoRef 1
+                        , txOutputs = utxoRef 10
+                        }
+                    tx'' =
+                      SimpleTx
+                        { txSimpleId = 2
+                        , txInputs = utxoRef 1
+                        , txOutputs = utxoRef 11
+                        }
+                send n1 (NewTx tx')
+                send n2 (NewTx tx'')
+                let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                    confirmed = SnapshotConfirmed snapshot sigs
+                waitUntil [n1, n2] confirmed
+                waitUntil [n1, n2] (TxExpired tx'')
 
       it "valid new transactions get snapshotted" $
         shouldRunInSim $ do

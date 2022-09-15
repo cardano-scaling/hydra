@@ -53,6 +53,7 @@ channels:
           - $ref: "#/components/messages/TxSeen"
           - $ref: "#/components/messages/TxValid"
           - $ref: "#/components/messages/TxInvalid"
+          - $ref: "#/components/messages/TxExpired"
           - $ref: "#/components/messages/SnapshotConfirmed"
           - $ref: "#/components/messages/GetUTxOResponse"
           - $ref: "#/components/messages/RolledBack"
@@ -419,7 +420,7 @@ components:
             enum: ["TxValid"]
           transaction:
             $ref: "#/components/schemas/Transaction"
-
+      
     TxInvalid:
       title: TxInvalid
       description: |
@@ -445,6 +446,22 @@ components:
             properties:
               reason:
                 type: string
+
+    TxExpired:
+      title: TxExpired
+      description: |
+        An observed transaction is expired. The transactions is no longer valid because its ttl got to zero.
+      payload:
+        type: object
+        required:
+        - tag
+        - transaction
+        properties:
+          tag:
+            type: string
+            enum: ["TxExpired"]
+          transaction:
+            $ref: "#/components/schemas/Transaction"
 
     SnapshotConfirmed:
       title: SnapshotConfirmed

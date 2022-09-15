@@ -288,6 +288,8 @@ handleAppEvent s = \case
     s -- TUI is not needing this response, ignore it
   Update TxValid{} ->
     s & report Success "Transaction submitted successfully!"
+  Update TxExpired{transaction} ->
+    s & report Success ("Transaction with id " <> show (txId transaction) <> " is not applicable")
   Update TxInvalid{validationError} ->
     s & warn (show validationError)
   Update SnapshotConfirmed{snapshot} ->

@@ -10,7 +10,7 @@ import Hydra.Chain (Chain, ChainCallback)
 import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair, readVerificationKey)
-import Hydra.HeadLogic (Environment (..), Event (..))
+import Hydra.HeadLogic (Environment (..), Event (..), defaultTTL)
 import Hydra.Ledger.Cardano (Tx)
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
@@ -31,7 +31,7 @@ import Hydra.Node (
   createEventQueue,
   createHydraNode,
   initEnvironment,
-  runHydraNode,
+  runHydraNode
  )
 import Hydra.Options (
   ChainConfig (..),
@@ -61,7 +61,7 @@ main = do
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         withChain tracer party (putEvent eq . OnChainEvent) hydraScriptsTxId chainConfig $ \oc -> do
           let RunOptions{host, port, peers} = opts
-          withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent) $ \hn -> do
+          withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
             withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts

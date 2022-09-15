@@ -674,6 +674,7 @@ definitions:
       additionalProperties: false
       required:
       - tag
+      - ttl
       - message
       description: >-
         An event representing some message received from peers in the network.
@@ -683,6 +684,8 @@ definitions:
           enum: ["NetworkEvent"]
         message:
           $ref: "#/definitions/Message"
+        ttl:
+          type: number
     - title: OnChainEvent
       type: object
       additionalProperties: false
@@ -1010,6 +1013,7 @@ definitions:
             - $ref: "api.yaml#/components/messages/TxSeen/payload"
             - $ref: "api.yaml#/components/messages/TxValid/payload"
             - $ref: "api.yaml#/components/messages/TxInvalid/payload"
+            - $ref: "api.yaml#/components/messages/TxExpired/payload"
             - $ref: "api.yaml#/components/messages/SnapshotConfirmed/payload"
             - $ref: "api.yaml#/components/messages/GetUTxOResponse/payload"
             - $ref: "api.yaml#/components/messages/InvalidInput/payload"

@@ -21,6 +21,7 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
+  defaultTTL,
  )
 import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
@@ -52,9 +53,9 @@ spec = parallel $ do
           tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{message = ReqTx{party = alice, transaction = tx1}}
-                 , NetworkEvent{message = ReqTx{party = alice, transaction = tx2}}
-                 , NetworkEvent{message = ReqTx{party = alice, transaction = tx3}}
+              <> [ NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx1}}
+                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx2}}
+                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx3}}
                  ]
           signedSnapshot = sign aliceSk $ Snapshot 1 (utxoRefs [1, 3, 4]) [tx1]
       node <- createHydraNode aliceSk [bob, carol] events
@@ -69,10 +70,10 @@ spec = parallel $ do
           sn2 = Snapshot 2 (utxoRefs [1, 3, 4]) [tx1]
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{message = ReqSn{party = alice, snapshotNumber = 1, transactions = mempty}}
-                 , NetworkEvent{message = AckSn alice (sign aliceSk sn1) 1}
-                 , NetworkEvent{message = AckSn carol (sign carolSk sn1) 1}
-                 , NetworkEvent{message = ReqTx{party = alice, transaction = tx1}}
+              <> [ NetworkEvent{ttl = defaultTTL, message = ReqSn{party = alice, snapshotNumber = 1, transactions = mempty}}
+                 , NetworkEvent{ttl = defaultTTL, message = AckSn alice (sign aliceSk sn1) 1}
+                 , NetworkEvent{ttl = defaultTTL, message = AckSn carol (sign carolSk sn1) 1}
+                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx1}}
                  ]
 
       node <- createHydraNode bobSk [alice, carol] events
@@ -88,8 +89,8 @@ spec = parallel $ do
           sigAlice = sign aliceSk snapshot
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{message = AckSn{party = bob, signed = sigBob, snapshotNumber = 1}}
-                 , NetworkEvent{message = ReqSn{party = alice, snapshotNumber = 1, transactions = []}}
+              <> [ NetworkEvent{ttl = defaultTTL, message = AckSn{party = bob, signed = sigBob, snapshotNumber = 1}}
+                 , NetworkEvent{ttl = defaultTTL, message = ReqSn{party = alice, snapshotNumber = 1, transactions = []}}
                  ]
       node <- createHydraNode aliceSk [bob, carol] events
       (node', getNetworkMessages) <- recordNetwork node
@@ -99,8 +100,8 @@ spec = parallel $ do
   it "notifies client when postTx throws PostTxError" $
     showLogsOnFailure $ \tracer -> do
       let events =
-            [ NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
-            , NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
+            [ NetworkEvent{ttl = defaultTTL, message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
+            , NetworkEvent{ttl = defaultTTL, message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
             , ClientEvent $ Init cperiod
             ]
       (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
@@ -117,8 +118,8 @@ isReqSn = \case
 
 eventsToOpenHead :: [Event SimpleTx]
 eventsToOpenHead =
-  [ NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
-  , NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
+  [ NetworkEvent{ttl = defaultTTL, message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
+  , NetworkEvent{ttl = defaultTTL, message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
   , OnChainEvent
       { chainEvent = Observation $ OnInitTx cperiod [alice, bob, carol]
       }
