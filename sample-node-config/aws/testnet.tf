@@ -29,8 +29,8 @@ resource "aws_instance" "hydra" {
   associate_public_ip_address = true
 
   provisioner "file" {
-    source      = "scripts/configure-instance.sh"
-    destination = "/home/ubuntu/configure-instance.sh"
+    source      = "scripts/"
+    destination = "/home/ubuntu"
 
     connection {
       type        = "ssh"
@@ -43,8 +43,8 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "scripts/configure-testnet.sh"
-    destination = "/home/ubuntu/configure-testnet.sh"
+    source      = "credentials/"
+    destination = "/home/ubuntu"
 
     connection {
       type        = "ssh"
@@ -57,148 +57,8 @@ resource "aws_instance" "hydra" {
   }
 
   provisioner "file" {
-    source      = "scripts/fuel-testnet.sh"
-    destination = "/home/ubuntu/fuel-testnet.sh"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.personal_config.private_key)
-      timeout     = "2m"
-      agent       = false
-      host        = self.public_ip
-    }
-  }
-
-  provisioner "file" {
-    source      = "scripts/create-marker-utxo.sh"
-    destination = "/home/ubuntu/create-marker-utxo.sh"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.personal_config.private_key)
-      timeout     = "2m"
-      agent       = false
-      host        = self.public_ip
-    }
-  }
-
-  provisioner "file" {
-    source      = "scripts/hydraw-up.sh"
-    destination = "/home/ubuntu/hydraw-up.sh"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.personal_config.private_key)
-      timeout     = "2m"
-      agent       = false
-      host        = self.public_ip
-    }
-  }
-
-  provisioner "file" {
-    source      = "scripts/hydraw-down.sh"
-    destination = "/home/ubuntu/hydraw-down.sh"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.personal_config.private_key)
-      timeout     = "2m"
-      agent       = false
-      host        = self.public_ip
-    }
-  }
-
-  provisioner "file" {
-    source      = "scripts/run-tui.sh"
-    destination = "/home/ubuntu/run-tui.sh"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.personal_config.private_key)
-      timeout     = "2m"
-      agent       = false
-      host        = self.public_ip
-    }
-  }
-
-  provisioner "file" {
-    source      = "credentials/cardano-key.sk"
-    destination = "/home/ubuntu/cardano-key.sk"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.personal_config.private_key)
-      timeout     = "2m"
-      agent       = false
-      host        = self.public_ip
-    }
-  }
-
-  provisioner "file" {
-    source      = "credentials/arnaud-cardano.vk"
-    destination = "/home/ubuntu/arnaud-cardano.vk"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.personal_config.private_key)
-      timeout     = "2m"
-      agent       = false
-      host        = self.public_ip
-    }
-  }
-
-  provisioner "file" {
-    source      = "credentials/hydra-key.sk"
-    destination = "/home/ubuntu/hydra-key.sk"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.personal_config.private_key)
-      timeout     = "2m"
-      agent       = false
-      host        = self.public_ip
-    }
-  }
-
-  provisioner "file" {
-    source      = "credentials/arnaud-hydra.vk"
-    destination = "/home/ubuntu/arnaud-hydra.vk"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.personal_config.private_key)
-      timeout     = "2m"
-      agent       = false
-      host        = self.public_ip
-    }
-  }
-
-  provisioner "file" {
-    source      = "docker/prometheus.yml"
-    destination = "/home/ubuntu/prometheus.yml"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.personal_config.private_key)
-      timeout     = "2m"
-      agent       = false
-      host        = self.public_ip
-    }
-  }
-
-  provisioner "file" {
-    source      = "docker/promtail-config.yml"
-    destination = "/home/ubuntu/promtail-config.yml"
+    source      = "docker/"
+    destination = "/home/ubuntu"
 
     connection {
       type        = "ssh"
@@ -238,9 +98,15 @@ resource "aws_instance" "hydra" {
     }
   }
 
-  provisioner "file" {
-    source      = "docker/docker-compose.yaml"
-    destination = "/home/ubuntu/docker-compose.yaml"
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /home/ubuntu/configure-instance.sh",
+      "chmod +x /home/ubuntu/configure-testnet.sh",
+      "chmod +x /home/ubuntu/create-marker-utxo.sh",
+      "chmod +x /home/ubuntu/hydraw-up.sh",
+      "chmod +x /home/ubuntu/hydraw-down.sh",
+      "chmod +x /home/ubuntu/run-tui.sh"
+    ]
 
     connection {
       type        = "ssh"
@@ -254,7 +120,6 @@ resource "aws_instance" "hydra" {
 
   provisioner "remote-exec" {
     inline = [
-      "chmod +x /home/ubuntu/configure-instance.sh",
       "/home/ubuntu/configure-instance.sh"
     ]
 
@@ -270,7 +135,6 @@ resource "aws_instance" "hydra" {
 
   provisioner "remote-exec" {
     inline = [
-      "chmod +x /home/ubuntu/configure-testnet.sh",
       "/home/ubuntu/configure-testnet.sh ${var.personal_config.gh_account}"
     ]
 
