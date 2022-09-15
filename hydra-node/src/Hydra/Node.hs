@@ -44,6 +44,7 @@ import Hydra.HeadLogic (
   LogicError (..),
   Outcome (..),
   TTL,
+  defaultTTL,
   emitSnapshot,
  )
 import qualified Hydra.HeadLogic as Logic
@@ -159,9 +160,6 @@ stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
     \case
       NetworkEvent ttl msg -> NetworkEvent (ttl - 1) msg
       e -> e
-
-defaultTTL :: TTL
-defaultTTL = 5
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
