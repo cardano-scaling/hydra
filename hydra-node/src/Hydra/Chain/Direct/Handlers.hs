@@ -11,12 +11,14 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
+import Cardano.Api.UTxO (fromPairs)
 import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (readTVarIO, throwSTM, writeTVar)
+import qualified Data.Map as Map
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -26,6 +28,7 @@ import Hydra.Cardano.Api (
   fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
+  fromLedgerTxOut,
   fromLedgerUTxO,
   toLedgerTx,
   toLedgerUTxO,
@@ -91,7 +94,7 @@ mkChain ::
   TVar m ChainStateAt ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet headState submitTx =
+mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} headState submitTx =
   Chain
     { postTx = \tx -> do
         traceWith tracer $ ToPost{toPost = tx}
@@ -112,7 +115,10 @@ mkChain tracer queryTimeHandle wallet headState submitTx =
                 >>= finalizeTx tx wallet headState . toLedgerTx
             )
         submitTx vtx
+    , getUTxO = fromPairs . fmap toLedger . Map.assocs <$> atomically getUTxO
     }
+ where
+  toLedger (txIn, txOut) = (fromLedgerTxIn txIn, fromLedgerTxOut txOut)
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::

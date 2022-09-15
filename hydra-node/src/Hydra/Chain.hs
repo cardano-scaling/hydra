@@ -125,7 +125,7 @@ instance IsTx tx => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary
 
 -- | Handle to interface with the main chain network
-newtype Chain tx m = Chain
+data Chain tx m = Chain
   { -- | Construct and send a transaction to the main chain corresponding to the
     -- given 'OnChainTx' event. This function is not expected to block, so it is
     -- only responsible for submitting, but it should validate the created
@@ -134,6 +134,12 @@ newtype Chain tx m = Chain
     --
     -- Does at least throw 'PostTxError'.
     postTx :: MonadThrow m => PostChainTx tx -> m ()
+  , -- | Query the internal state of the `Chain` component for the `UTxO tx` it knows.
+    --
+    -- The main purpose of this function is to provide a way for `Chain` clients
+    -- to observe (part of) the internal state of the component in order to be
+    -- able to take decisions on whether or not it's safe to post a transaction.
+    getUTxO :: m (UTxOType tx)
   }
 
 data ChainEvent tx

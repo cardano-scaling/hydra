@@ -88,7 +88,6 @@ sign signingKey body =
     [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
     body
 
--- TODO: This should return a 'UTxO' (from Hydra.Ledger.Cardano)
 waitForPayment ::
   NetworkId ->
   FilePath ->
