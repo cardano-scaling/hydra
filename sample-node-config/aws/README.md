@@ -56,6 +56,8 @@ for this example in `~/.aws/credentials` we have:
     aws_secret_access_key=???
     region=eu-west-3
     ```
+> **personal** will be your AWS_PROFILE
+
 - you have terraform and aws installed on your system.
 - you have build the required 2 folder structures under aws:
     + credentials.
@@ -133,7 +135,6 @@ instance_ip = "ec2-13-38-62-128.eu-west-3.compute.amazonaws.com"
 
 > execute `terraform destroy` to take it down
 
-
 # Using the Hydra Node
 
 ## Login to the VM
@@ -143,6 +144,8 @@ One should be able to log into the VM as user `ubuntu`.
 To login to the VM:
 
 ```
+export AWS_PROFILE=<PERSONAL_PROFILE>
+
 $ scripts/login.sh
 ```
 
@@ -165,10 +168,8 @@ To get some funds from the preview faucet to your address, you can either:
         > to request via http you must first obtain your api_key.
 
 Then, once you login to your VM, execute:
-```sh
-$ # create marker utxo
-$ sudo chmod +x ./fuel-testnet.sh
-$ exec ./fuel-testnet.sh devnet cardano-key.sk 10000000
+```
+$ fuel
 ```
 
 Next, we need to configure your peer addresses to your hydra-node.
@@ -178,20 +179,16 @@ i.e.:
 "--peer", "35.233.17.169:5001"
 ```
 
-Next, we need to export the following env variables:
+Next, to run hydraw, execute:
 ```
-$ export NETWORK_MAGIC=$(jq .networkMagic cardano-configurations/network/preview/genesis/shelley.json)
-$ export HYDRA_SCRIPTS_TX_ID=bde2ca1f404200e78202ec37979174df9941e96fd35c05b3680d79465853a246
+$ up
 ```
 
-Next, we run the docker-compose manifest:
-```
-$ docker-compose --profile hydraw up -d
-```
+> execute `down` to take it down
 
 Finally, execute the hydra-tui and open the head:
-```sh
-$ docker-compose --profile tui run hydra-tui
+```
+$ tui
 ```
 
 > If you take down your hydra-node instance once the head is open. you will loose access to your funds commited to the head. 
@@ -219,5 +216,5 @@ Terraform relies on plain SSH to connect to the VM, so this can be caused by the
 Perhaps your node is out of sync with the L1.
 Check sync progress by running a `cardano-cli` query tip on your cardano node:
 ```
-$ docker exec -it ubuntu-cardano-node-1 cardano-cli query tip --testnet-magic=2
+$ sync
 ```
