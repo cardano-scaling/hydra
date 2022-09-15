@@ -171,6 +171,24 @@ $ sudo chmod +x ./fuel-testnet.sh
 $ exec ./fuel-testnet.sh devnet cardano-key.sk 10000000
 ```
 
+Next, we need to configure your peer addresses to your hydra-node.
+For that, we need to manually update the `docker-copose.yaml` to include the `--peer` arguments.
+i.e.: 
+```
+"--peer", "35.233.17.169:5001"
+```
+
+Next, we need to export the following env variables:
+```
+$ export NETWORK_MAGIC=$(jq .networkMagic cardano-configurations/network/preview/genesis/shelley.json)
+$ export HYDRA_SCRIPTS_TX_ID=bde2ca1f404200e78202ec37979174df9941e96fd35c05b3680d79465853a246
+```
+
+Next, we run the docker-compose manifest:
+```
+$ docker-compose --profile hydraw up -d
+```
+
 Finally, execute the hydra-tui and open the head:
 ```sh
 $ docker-compose --profile tui run hydra-tui
@@ -196,3 +214,10 @@ This script uses `AWS_PROFILE` environment variable to activate the correspondin
 > Terraform fails to run `scripts/configure-testnet.sh` on the VM
 
 Terraform relies on plain SSH to connect to the VM, so this can be caused by the same problems as the previous issue
+
+> Peers cannot see you connected
+Perhaps your node is out of sync with the L1.
+Check sync progress by running a `cardano-cli` query tip on your cardano node:
+```
+$ docker exec -it ubuntu-cardano-node-1 cardano-cli query tip --testnet-magic=2
+```
