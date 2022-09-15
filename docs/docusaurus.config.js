@@ -65,6 +65,23 @@ const config = {
 
   plugins: [
     [
+      "@docusaurus-terminology/parser",
+      {
+        termsDir: './terms/'
+      }
+    ],
+    [
+      'content-docs',
+      /** @type {import('@docusaurus/plugin-content-docs').Options} */
+      ({
+        id: 'terms',
+        path: 'terms',
+        routeBasePath: 'terms',
+        editUrl,
+        editLocalizedFiles: true
+      })
+    ],
+    [
       'content-docs',
       /** @type {import('@docusaurus/plugin-content-docs').Options} */
       ({
