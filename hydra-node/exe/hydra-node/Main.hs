@@ -10,7 +10,7 @@ import Hydra.Chain (Chain, ChainCallback)
 import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair, readVerificationKey)
-import Hydra.HeadLogic (Environment (..), Event (..))
+import Hydra.HeadLogic (Environment (..), Event (..), defaultTTL)
 import Hydra.Ledger.Cardano (Tx)
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
@@ -31,8 +31,7 @@ import Hydra.Node (
   createEventQueue,
   createHydraNode,
   initEnvironment,
-  runHydraNode,
-  defaultTTL
+  runHydraNode
  )
 import Hydra.Options (
   ChainConfig (..),

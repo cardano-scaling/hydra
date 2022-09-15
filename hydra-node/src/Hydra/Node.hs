@@ -43,7 +43,6 @@ import Hydra.HeadLogic (
   HeadState (..),
   LogicError (..),
   Outcome (..),
-  TTL,
   defaultTTL,
   emitSnapshot,
  )

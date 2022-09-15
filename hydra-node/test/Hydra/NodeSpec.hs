@@ -21,6 +21,7 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
+  defaultTTL,
  )
 import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
@@ -33,7 +34,6 @@ import Hydra.Node (
   HydraNodeLog,
   createEventQueue,
   createHydraHead,
-  defaultTTL,
   isEmpty,
   stepHydraNode,
  )

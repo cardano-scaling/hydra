@@ -9,13 +9,14 @@ import qualified Data.Text as Text
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Event (NetworkEvent),
+  defaultTTL,
  )
 import Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
 import Hydra.Network.Message (Message (ReqTx))
-import Hydra.Node (HydraNodeLog (BeginEvent, EndEffect), defaultTTL)
+import Hydra.Node (HydraNodeLog (BeginEvent, EndEffect))
 import Hydra.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.Snapshot (Snapshot (Snapshot))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))

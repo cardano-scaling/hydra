@@ -31,6 +31,7 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (ClientEvent, NetworkEvent, OnChainEvent),
   HeadState (IdleState),
+  defaultTTL,
  )
 import Hydra.Ledger (IsTx, Ledger, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -42,7 +43,6 @@ import Hydra.Node (
   HydraNodeLog (..),
   createEventQueue,
   createHydraHead,
-  defaultTTL,
   runHydraNode,
  )
 import Hydra.Party (Party, deriveParty)
