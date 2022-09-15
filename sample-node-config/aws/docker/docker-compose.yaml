@@ -24,7 +24,7 @@ services:
       ]
 
   hydra-node:
-    image: ghcr.io/input-output-hk/hydra-node:latest
+    image: abailly/hydra-node:latest
     restart: always
     logging:
       driver: "json-file"
