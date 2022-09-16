@@ -1,6 +1,6 @@
 provider "aws" {
-  profile = "personal"  // aws-profile configured
-  region  = "eu-west-3" // Paris
+  profile = var.personal_config.profile
+  region  = var.personal_config.region
 }
 
 output "instance_ip" {
@@ -8,7 +8,6 @@ output "instance_ip" {
 }
 
 resource "aws_instance" "hydra" {
-
   ami           = var.personal_config.ami
   instance_type = var.personal_config.instance_type
   key_name      = var.personal_config.key_name
@@ -89,12 +88,7 @@ resource "aws_instance" "hydra" {
 
   provisioner "remote-exec" {
     inline = [
-      "chmod +x /home/ubuntu/configure-instance.sh",
-      "chmod +x /home/ubuntu/configure-testnet.sh",
-      "chmod +x /home/ubuntu/create-marker-utxo.sh",
-      "chmod +x /home/ubuntu/hydraw-up.sh",
-      "chmod +x /home/ubuntu/hydraw-down.sh",
-      "chmod +x /home/ubuntu/run-tui.sh"
+      "find /home/ubuntu -type f -iname \"*.sh\" -exec chmod +x {} +"
     ]
 
     connection {
@@ -138,6 +132,6 @@ resource "aws_instance" "hydra" {
   }
 
   tags = {
-    Name = "Hydraw"
+    Name = var.personal_config.tag
   }
 }
