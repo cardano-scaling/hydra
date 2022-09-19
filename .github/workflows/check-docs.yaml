@@ -1,5 +1,8 @@
 name: "Check documentation"
 on:
+  push:
+    branches:
+    - abailly-iohk/fix-link-checker-job
   schedule:
     # Everyday at 5:00 AM UTC
     - cron: "0 5 * * *"
