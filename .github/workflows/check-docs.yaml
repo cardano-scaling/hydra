@@ -17,7 +17,7 @@ jobs:
         url: 'https://hydra.family/head-protocol/'
         # optional:
         honorRobotExclusions: true
-        ignorePatterns: 'github,google'
+        ignorePatterns: 'github,google,file://'
         recursiveLinks: true
     - name: Get the result
       run: echo "${{steps.link-report.outputs.result}}"
