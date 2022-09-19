@@ -359,6 +359,7 @@ instance StateModel WorldState where
                     }
               }
           _ -> error "unexpected state"
+      _ -> error "TODO: not implemented"
 
   postcondition :: WorldState -> Action WorldState a -> LookUp -> a -> Bool
   postcondition _st (Commit _party expectedCommitted) _ actualCommitted =
@@ -388,7 +389,7 @@ deriving instance Eq (Action WorldState a)
 -- * Running the model
 
 runModel ::
-  (MonadAsync m, MonadCatch m, MonadTimer m) =>
+  (MonadAsync m, MonadCatch m, MonadTimer m, MonadTime m) =>
   RunModel WorldState (StateT (Nodes m) m)
 runModel = RunModel{perform = perform}
  where
@@ -397,6 +398,7 @@ runModel = RunModel{perform = perform}
     , MonadAsync m
     , MonadCatch m
     , MonadTimer m
+    , MonadTime m
     ) =>
     WorldState ->
     Action WorldState a ->
@@ -415,6 +417,7 @@ runModel = RunModel{perform = perform}
       Abort party -> do
         party `sendsInput` Input.Abort
       Stop -> pure ()
+      _ -> error "TODO: not implemented"
 
 sendsInput :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 sendsInput party command = do
