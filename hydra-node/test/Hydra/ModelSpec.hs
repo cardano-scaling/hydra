@@ -63,6 +63,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude hiding (after)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Control.Monad.Class.MonadTimer ()
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
 import Data.Map ((!))
 import qualified Data.Map as Map
@@ -109,6 +110,7 @@ runIt :: forall s. RunModel WorldState (StateT (Nodes (IOSim s)) (IOSim s))
 runIt = runModel
 
 -- • Conflict-Free Liveness (Head):
+--
 -- In presence of a network adversary, a conflict-free execution satisfies the following condition:
 -- For any transaction tx input via (new,tx), tx ∈ T i∈[n] Ci eventually holds.
 --
@@ -142,20 +144,19 @@ prop_checkModel :: Actions WorldState -> Property
 prop_checkModel actions =
   within 2000000 $
     property $
-      runIOSimProp $
-        monadic' $ do
-          (WorldState{hydraParties, hydraState}, _symEnv) <- runActions actions
-          -- XXX: In the past we waited until the end of time here, which would
-          -- robustly catch all the remaining asynchronous actions, but we have
-          -- now a "more active" simulated chain which ticks away and not simply
-          -- detects a deadlock if we wait for infinity. Maybe cancelling the
-          -- simulation's 'tickThread' and wait then could work?
-          run $ lift waitForADay
-          let parties = Set.fromList $ deriveParty . fst <$> hydraParties
-          nodes <- run $ gets nodes
-          assert (parties == Map.keysSet nodes)
-          forM_ parties $ \p -> do
-            assertBalancesInOpenHeadAreConsistent hydraState nodes p
+      runIOSimProp $ do
+        (WorldState{hydraParties, hydraState}, _symEnv) <- runActions runIt actions
+        -- XXX: In the past we waited until the end of time here, which would
+        -- robustly catch all the remaining asynchronous actions, but we have
+        -- now a "more active" simulated chain which ticks away and not simply
+        -- detects a deadlock if we wait for infinity. Maybe cancelling the
+        -- simulation's 'tickThread' and wait then could work?
+        run $ lift waitForADay
+        let parties = Set.fromList $ deriveParty . fst <$> hydraParties
+        nodes <- run $ gets nodes
+        assert (parties == Map.keysSet nodes)
+        forM_ parties $ \p -> do
+          assertBalancesInOpenHeadAreConsistent hydraState nodes p
  where
   waitForADay :: MonadDelay m => m ()
   waitForADay = threadDelay $ 60 * 60 * 24
