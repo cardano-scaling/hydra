@@ -12,6 +12,7 @@ module Hydra.Chain.Direct.Handlers where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO (fromPairs)
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
@@ -115,7 +116,10 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} headState submitTx =
                 >>= finalizeTx tx wallet headState . toLedgerTx
             )
         submitTx vtx
-    , getUTxO = fromPairs . fmap toLedger . Map.assocs <$> atomically getUTxO
+    , getUTxO = atomically $ do
+        walletUtxo <- fmap toLedger . Map.assocs <$> getUTxO
+        knownUtxo <- Map.assocs . UTxO.toMap . getKnownUTxO . currentChainState <$> readTVar headState
+        pure $ fromPairs $ walletUtxo <> knownUtxo
     }
  where
   toLedger (txIn, txOut) = (fromLedgerTxIn txIn, fromLedgerTxOut txOut)
