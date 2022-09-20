@@ -179,22 +179,15 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
         { currentChainState = Idle IdleState{ctx}
         , recordedAt = AtStart
         }
+  let chainHandle =
+        mkChain
+          tracer
+          (queryTimeHandle networkId socketPath)
+          wallet
+          headState
+          (submitTx queue)
   res <-
     race
-      ( do
-          -- FIXME: There's currently a race-condition with the actual client
-          -- which will only see transactions after it has established
-          -- connection with the server's tip. So any transaction submitted
-          -- before that tip will be missed.
-          threadDelay 2
-          action $
-            mkChain
-              tracer
-              (queryTimeHandle networkId socketPath)
-              wallet
-              headState
-              (submitTx queue)
-      )
       ( handle onIOException $ do
           -- NOTE: We can't re-query the time handle while the
           -- 'chainSyncHandler' is running due to constraints. So this will use
@@ -211,9 +204,17 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
             (versions networkId client)
             socketPath
       )
+      ( do
+          -- FIXME: There's currently a race-condition with the actual client
+          -- which will only see transactions after it has established
+          -- connection with the server's tip. So any transaction submitted
+          -- before that tip will be missed.
+          threadDelay 2
+          action chainHandle
+      )
   case res of
-    Left a -> pure a
-    Right () -> error "'connectTo' cannot terminate but did?"
+    Left () -> error "'connectTo' cannot terminate but did?"
+    Right a -> pure a
  where
   queryUTxOEtc queryPoint address = do
     utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath queryPoint [address]
