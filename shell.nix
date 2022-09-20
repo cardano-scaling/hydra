@@ -53,7 +53,7 @@ let
 
   # Haskell.nix managed tools (via hackage)
   buildTools = {
-    cabal = "3.4.0.0";
+    cabal = "latest";
   };
 
   devTools = if withoutDevTools then { } else {
