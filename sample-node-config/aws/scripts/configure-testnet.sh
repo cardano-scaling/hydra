@@ -8,17 +8,27 @@ set -e
 
 GH_USER=$1
 
-# accept github.com key
+echo "Accepting github.com key"
 sudo ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-# download gpg key signing testnet dump
+echo "Downloading gpg key signing testnet dump"
 curl https://api.github.com/users/$GH_USER/gpg_keys | jq -r '.[] | .raw_key' | gpg --import
 
-# get cardano network configuration
+echo "Getting cardano network configuration"
 git clone https://github.com/input-output-hk/cardano-configurations
 ln -s cardano-configurations/network/preview devnet
 
+echo "Including hydra env variables"
+NETWORK_MAGIC=$(jq .networkMagic cardano-configurations/network/preview/genesis/shelley.json)
+echo "export NETWORK_MAGIC=$NETWORK_MAGIC" >> /home/ubuntu/.bashrc
+
+# this is manually hardcoded from https://github.com/input-output-hk/hydra-poc/releases/tag/0.7.0
+# perhaps there would be a way to look those up in the Chain?
+HYDRA_SCRIPTS_TX_ID=bde2ca1f404200e78202ec37979174df9941e96fd35c05b3680d79465853a246
+echo "export HYDRA_SCRIPTS_TX_ID=$HYDRA_SCRIPTS_TX_ID" >> /home/ubuntu/.bashrc
+
 # Mithril stuff
+echo "Pulling mithril"
 docker pull ghcr.io/input-output-hk/mithril-client:latest
 
 GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) 
