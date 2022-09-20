@@ -4,6 +4,7 @@
 module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import CardanoClient (queryTip)
 import CardanoNode (RunningNode (..))
@@ -45,10 +46,13 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     waitFor tracer 600 [n1] $
       output "HeadIsOpen" ["utxo" .= object mempty]
     -- Close head
+    -- NOTE: expect security horizon to be reached after 20 seconds so we wait for 3 seconds
+    threadDelay 20
     send n1 $ input "Close" []
     deadline <- waitMatch 600 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       v ^? key "contestationDeadline" . _JSON
+    _ <- failure "Ooops"
     -- Expect to see ReadyToFanout within 3 seconds after deadline
     remainingTime <- diffUTCTime deadline <$> getCurrentTime
     waitFor tracer (truncate $ remainingTime + 3) [n1] $
