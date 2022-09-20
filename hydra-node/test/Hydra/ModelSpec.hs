@@ -118,15 +118,12 @@ runIt = runModel
 conflictFreeLiveness :: DL WorldState ()
 conflictFreeLiveness = do
   anyActions_
-  st <- getModelStateDL
-  (party, payment) <- forAllQ (withGenQ (genPayment st) (const []))
-  let newTx = Model.NewTx party payment
-  action newTx
-  anyActions 10
-  eventually
-  action (ObserveConfirmedTx payment)
+  (party, payment) <- getModelStateDL >>= forAllQ . nonConflictingTx
+  action $ Model.NewTx party payment
+  eventually (ObserveConfirmedTx payment)
  where
-  eventually = action (Wait 10)
+  nonConflictingTx st = withGenQ (genPayment st) (const [])
+  eventually a = anyActions 10 >> action (Wait 10) >> action a
 
 genPayment :: WorldState -> Gen (Party, Payment)
 genPayment = error "not implemented"

@@ -216,8 +216,8 @@ instance StateModel WorldState where
     -- | Temporary action to cut the sequence of actions.
     -- TODO: Implement proper Close sequence
     Stop :: Action WorldState ()
-    -- TODO: implement
-    Wait :: Int -> Action WorldState ()
+    -- | Wait some amount of time
+    Wait :: DiffTime -> Action WorldState ()
     -- | Observe some transaction has been confirmed at all nodes
     ObserveConfirmedTx :: Payment -> Action WorldState ()
 
@@ -359,7 +359,8 @@ instance StateModel WorldState where
                     }
               }
           _ -> error "unexpected state"
-      _ -> error "TODO: not implemented"
+      Wait _ -> s
+      ObserveConfirmedTx _ -> s
 
   postcondition :: WorldState -> Action WorldState a -> LookUp -> a -> Bool
   postcondition _st (Commit _party expectedCommitted) _ actualCommitted =
@@ -417,7 +418,10 @@ runModel = RunModel{perform = perform}
       Abort party -> do
         party `sendsInput` Input.Abort
       Stop -> pure ()
-      _ -> error "TODO: not implemented"
+      Wait timeout ->
+        lift $ threadDelay timeout
+      ObserveConfirmedTx _payment ->
+        error "TODO: not implemented"
 
 sendsInput :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 sendsInput party command = do
