@@ -8,7 +8,7 @@ services:
       driver: "awslogs"
       options:
         awslogs-region: "eu-west-3"    # defined in variables.tf
-        awslogs-group: "docker_logs"   # defined in variables.tf
+        awslogs-group: "instance_logs" # defined in variables.tf
         awslogs-stream: "cardano_node" # defined in cloudwatch.tf
         tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
         mode: non-blocking
@@ -32,9 +32,9 @@ services:
     logging:
       driver: "awslogs"
       options:
-        awslogs-region: "eu-west-3"  # defined in variables.tf
-        awslogs-group: "docker_logs" # defined in variables.tf
-        awslogs-stream: "hydra_node" # defined in cloudwatch.tf
+        awslogs-region: "eu-west-3"    # defined in variables.tf
+        awslogs-group: "instance_logs" # defined in variables.tf
+        awslogs-stream: "hydra_node"   # defined in cloudwatch.tf
         tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
         mode: non-blocking
     volumes:
