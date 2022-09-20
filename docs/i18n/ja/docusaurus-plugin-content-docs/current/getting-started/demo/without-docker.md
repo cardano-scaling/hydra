@@ -76,7 +76,7 @@ Note, should you want to use `cabal`, pass the invocation for example like this 
 
 :::info Note
 We are trying to force ipv4 addresses by using `--peer 127.0.0.1`.
-If you don's see any connected peers in the tui it probably means that your system is configured to use ipv6.
+If you don't see any connected peers in the tui it probably means that your system is configured to use ipv6.
 :::
 
 ````mdx-code-block
