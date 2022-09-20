@@ -23,12 +23,13 @@ sudo chgrp docker /usr/local/bin/docker-compose # to give docker-compose to dock
 cd /home/ubuntu
 touch .bashrc
 echo "alias reload='source .bashrc'" >> .bashrc
-echo "alias logs='cat /var/log/cloud-init-output.log'" >> .bashrc
+echo "alias logs='cat /var/log/cloud-init.log'" >> .bashrc
+echo "alias udlogs='cat /var/log/user-data.log'" >> .bashrc
 echo "alias g=git" >> .bashrc
 echo "alias d=docker" >> .bashrc
 echo "alias dc=docker-compose" >> .bashrc
-echo "alias fuel='./create-marker-utxo.sh'" >> .bashrc
-echo "alias up='./hydraw-up.sh'" >> .bashrc
-echo "alias down='./hydraw-down.sh'" >> .bashrc
+echo "alias fuel='cd ~ && ./create-marker-utxo.sh'" >> .bashrc
+echo "alias up='cd ~ && ./hydraw-up.sh'" >> .bashrc
+echo "alias down='cd ~ && ./hydraw-down.sh'" >> .bashrc
+echo "alias tui='cd ~ && ./run-tui.sh'" >> .bashrc
 echo "alias sync='docker exec -it ubuntu-cardano-node-1 cardano-cli query tip --testnet-magic=2'" >> .bashrc
-echo "alias tui='./run-tui.sh'" >> .bashrc

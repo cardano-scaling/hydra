@@ -3,15 +3,20 @@ provider "aws" {
   region  = var.personal_config.region
 }
 
+locals {
+  userdata = templatefile("scripts/user_data.sh", {
+    ssm_cloudwatch_config = aws_ssm_parameter.cw_agent.name
+  })
+}
+
 output "instance_ip" {
   value = aws_instance.hydra.public_dns
 }
 
 resource "aws_instance" "hydra" {
-  ami           = var.personal_config.ami
-  instance_type = var.personal_config.instance_type
-  key_name      = var.personal_config.key_name
-
+  ami                         = var.personal_config.ami
+  instance_type               = var.personal_config.instance_type
+  key_name                    = var.personal_config.key_name
   security_groups             = ["${aws_security_group.hydra-sg.id}"]
   subnet_id                   = aws_subnet.hydra-subnet.id
   associate_public_ip_address = true
@@ -130,6 +135,9 @@ resource "aws_instance" "hydra" {
       host        = self.public_ip
     }
   }
+
+  iam_instance_profile = aws_iam_instance_profile.this.name
+  user_data            = local.userdata
 
   tags = {
     Name = var.personal_config.tag

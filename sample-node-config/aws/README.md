@@ -126,7 +126,7 @@ $ terraform plan -out vm.plan
 $ terraform apply vm.plan
 ... <takes some time - 3m aprox>
 
-Apply complete! Resources: 7 added, 0 changed, 0 destroyed.
+Apply complete! Resources: 18 added, 0 changed, 0 destroyed.
 
 Outputs:
 
@@ -218,3 +218,7 @@ Check sync progress by running a `cardano-cli` query tip on your cardano node:
 ```
 $ sync
 ```
+
+But others may come from the containers itself.
+For that, a CloudWatch Agent is configured to publish the docker logs to AWS CloudWatch service, under `instance_logs` log group.
+See the [agent config](./cw_agent_config.json) for more details.
