@@ -82,10 +82,13 @@ spec = do
     monadicIO $ do
       chainState <- pickBlind genChainState
       timeHandle <- pickBlind arbitrary
+      let Right (s, _) = currentPointInTime timeHandle
       (handler, getEvents) <- run $ recordEventsHandler chainState timeHandle
 
       -- Pick a random slot and expect the 'Tick' event to correspond
       slot <- pick arbitrary
+      monitor $
+        label $ "time handle slot: " <> show s <> ", block slot: " <> show slot
       expectedUTCTime <-
         run $
           either (failure . ("Time conversion failed: " <>) . toString) pure $
