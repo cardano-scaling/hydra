@@ -48,7 +48,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (..), mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
 import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
@@ -77,21 +77,27 @@ import Test.QuickCheck.Monadic (
   stop,
  )
 import qualified Prelude
+import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 
 spec :: Spec
 spec = do
   prop "roll forward results in Tick events" $
     monadicIO $ do
       chainState <- pickBlind genChainState
-      timeHandle <- pickBlind arbitrary
-      let Right (s, _) = currentPointInTime timeHandle
-      (handler, getEvents) <- run $ recordEventsHandler chainState (pure timeHandle)
-
       -- Pick a random slot and expect the 'Tick' event to correspond
       slot <- pick arbitrary
+      -- TODO: how can we make this more realistic
+      let getTimeHandle = do
+            now <- getCurrentTime
+            pure $
+              mkTimeHandle
+               now
+               Fixture.systemStart
+               Fixture.eraHistoryWithSafeZone
+      (handler, getEvents) <- run $ recordEventsHandler chainState getTimeHandle
+
       -- TODO: ensure that we actually catch all the interesting cases (withing the safe zone and outside)
-      monitor $
-        label $ "time handle slot: " <> show s <> ", block slot: " <> show slot
+      monitor $ label $ "slot: " <> show slot
       -- NOTE: uses a non forking eraHistory
       let expectedUTCTime = slotNoToUTCTime slot
 
