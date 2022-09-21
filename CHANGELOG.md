@@ -27,6 +27,13 @@ changes.
   + Generate a pair of Hydra keys
   + Output the marker datum hash
 
+- Added some sample Terraform-based configuration files to spin up GCP and AWS Hydra node
+
+#### Fixed
+
+- Prevent transactions from being resubmitted for application over and over [#485](https://github.com/input-output-hk/hydra-poc/issues/485)
+- Fix flakiness in tests involving the Cardano chain [#492](https://github.com/input-output-hk/hydra-poc/issues/492)
+
 ## [0.7.0] - 2022-08-23
 
 - **BREAKING** Switch to `BabbageEra` and `PlutusV2`.

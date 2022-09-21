@@ -496,7 +496,7 @@ data ConnectToChain tx m = ConnectToChain
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'
 -- the 'tickThread'.
 withSimulatedChainAndNetwork ::
-  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m) =>
+  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m, IsTx tx) =>
   (ConnectToChain tx m -> m ()) ->
   m ()
 withSimulatedChainAndNetwork action = do
@@ -509,7 +509,7 @@ withSimulatedChainAndNetwork action = do
 -- 'tickThread' needs to be 'cancel'ed after use. Use
 -- 'withSimulatedChainAndNetwork' instead where possible.
 simulatedChainAndNetwork ::
-  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m) =>
+  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m, IsTx tx) =>
   m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
   history <- newTVarIO []
@@ -521,7 +521,7 @@ simulatedChainAndNetwork = do
           atomically $ modifyTVar nodes (node :)
           pure $
             node
-              { oc = Chain{postTx = postTx nodes history}
+              { oc = Chain{postTx = postTx nodes history, getUTxO = pure mempty}
               , hn = Network{broadcast = broadcast node nodes}
               }
       , history
@@ -625,7 +625,7 @@ createTestHydraNode outputs outputHistory node ConnectToChain{history} =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m) =>
+  (MonadDelay m, MonadAsync m, IsTx tx) =>
   Ledger tx ->
   SigningKey HydraKey ->
   [Party] ->
@@ -641,7 +641,7 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
       { eq
       , hn = Network{broadcast = const $ pure ()}
       , hh
-      , oc = Chain (const $ pure ())
+      , oc = Chain{postTx = const $ pure (), getUTxO = pure mempty}
       , server =
           Server
             { sendOutput = \out -> atomically $ do

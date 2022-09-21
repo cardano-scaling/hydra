@@ -420,7 +420,7 @@ components:
             enum: ["TxValid"]
           transaction:
             $ref: "#/components/schemas/Transaction"
-      
+
     TxInvalid:
       title: TxInvalid
       description: |
@@ -861,6 +861,7 @@ components:
             - input
             - walletUTxO
             - headUTxO
+            - postedTx
           description: |
             Some input in a transaction cannot be resolved to a proper UTxO. This can happen either when some input
             is double-spent or the DirectChain component has not yet caught up with the chain.
@@ -883,6 +884,11 @@ components:
               description: >-
                 The Head protocol-relevant UTxO. Depending on the Head's current state, it includes the Head state thread output,
                 plus the ν_initial or ν_commit outputs.
+            postedTx:
+              $ref: "#/components/schemas/PostChainTx"
+              description: >-
+                The Head state machine transaction that's attempted to be posted. Useful for troubleshooting purpose trying to understand what went wrong.
+
         - title: CannotCoverFees
           type: object
           additionalProperties: false

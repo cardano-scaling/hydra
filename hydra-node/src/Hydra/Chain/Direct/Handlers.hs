@@ -11,12 +11,15 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
+import Cardano.Api.UTxO (fromPairs)
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (readTVarIO, throwSTM, writeTVar)
+import qualified Data.Map as Map
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -26,6 +29,7 @@ import Hydra.Cardano.Api (
   fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
+  fromLedgerTxOut,
   fromLedgerUTxO,
   toLedgerTx,
   toLedgerUTxO,
@@ -91,7 +95,7 @@ mkChain ::
   TVar m ChainStateAt ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet headState submitTx =
+mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} headState submitTx =
   Chain
     { postTx = \tx -> do
         traceWith tracer $ ToPost{toPost = tx}
@@ -109,19 +113,26 @@ mkChain tracer queryTimeHandle wallet headState submitTx =
               -- to bootstrap the init transaction. For now, we bear with it and
               -- keep the static keys in context.
               fromPostChainTx timeHandle wallet headState tx
-                >>= finalizeTx wallet headState . toLedgerTx
+                >>= finalizeTx tx wallet headState . toLedgerTx
             )
         submitTx vtx
+    , getUTxO = atomically $ do
+        walletUtxo <- fmap toLedger . Map.assocs <$> getUTxO
+        knownUtxo <- Map.assocs . UTxO.toMap . getKnownUTxO . currentChainState <$> readTVar headState
+        pure $ fromPairs $ walletUtxo <> knownUtxo
     }
+ where
+  toLedger (txIn, txOut) = (fromLedgerTxIn txIn, fromLedgerTxOut txOut)
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
+  PostChainTx Tx ->
   TinyWallet m ->
   TVar m ChainStateAt ->
   ValidatedTx LedgerEra ->
   STM m (ValidatedTx LedgerEra)
-finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
+finalizeTx postedTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
   someSt <- currentChainState <$> readTVar headState
   let headUTxO = getKnownUTxO someSt
   walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
@@ -130,6 +141,7 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
       throwIO
         ( CannotSpendInput
             { input = show input
+            , postedTx
             , walletUTxO
             , headUTxO
             } ::

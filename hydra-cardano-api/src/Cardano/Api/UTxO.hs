@@ -21,7 +21,7 @@ type Era = BabbageEra
 type UTxO = UTxO' (TxOut CtxUTxO Era)
 
 -- | Newtype with phantom types mostly required to work around the poor interface
--- of 'Ledger.UTXO'and provide 'Monoid' and 'Foldable' instances to make utxo
+-- of 'Ledger.UTXO' and provide 'Monoid' and 'Foldable' instances to make utxo
 -- manipulation bareable.
 newtype UTxO' out = UTxO
   { toMap :: Map TxIn out
@@ -37,6 +37,10 @@ newtype UTxO' out = UTxO
 
 instance Traversable UTxO' where
   traverse fn (UTxO m) = UTxO <$> traverse fn m
+
+-- | Checks some `UTxO` is contained in some other `UTxO`.
+contains :: Eq out => UTxO' out -> UTxO' out -> Bool
+contains (UTxO m) (UTxO m') = m' `Map.isSubmapOf` m
 
 -- | Create a 'UTxO' from a list of 'TxIn' and 'out' pairs.
 fromPairs :: [(TxIn, out)] -> UTxO' out
