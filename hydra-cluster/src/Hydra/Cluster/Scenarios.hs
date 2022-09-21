@@ -4,23 +4,18 @@
 module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import CardanoClient (queryTip)
 import CardanoNode (RunningNode (..))
-import Control.Lens ((^?))
-import Data.Aeson (object, (.=))
-import Data.Aeson.Lens (key, _JSON)
-import qualified Data.Set as Set
 import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet)
-import Hydra.Cluster.Fixture (Actor (Alice), actorName, alice, aliceSk)
+import Hydra.Cluster.Fixture (Actor (Alice), actorName, aliceSk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (networkId, startChainFrom)
-import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitMatch, withHydraNode)
+import HydraNode (EndToEndLog (..), withHydraNode)
 
 singlePartyHeadFullLifeCycle ::
   Tracer IO EndToEndLog ->
@@ -36,30 +31,8 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     chainConfigFor Alice workDir nodeSocket []
       <&> \config -> config{networkId, startChainFrom = Just tip}
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-    -- Initialize & open head
-    let contestationPeriod = 1 :: Natural
-    send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
-    waitFor tracer 600 [n1] $
-      output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
-    -- Commit nothing for now
-    send n1 $ input "Commit" ["utxo" .= object mempty]
-    waitFor tracer 600 [n1] $
-      output "HeadIsOpen" ["utxo" .= object mempty]
-    -- Close head
-    -- NOTE: expect security horizon to be reached after 20 seconds so we wait for 3 seconds
-    threadDelay 20
-    send n1 $ input "Close" []
-    deadline <- waitMatch 600 n1 $ \v -> do
-      guard $ v ^? key "tag" == Just "HeadIsClosed"
-      v ^? key "contestationDeadline" . _JSON
-    _ <- failure "Ooops"
-    -- Expect to see ReadyToFanout within 3 seconds after deadline
-    remainingTime <- diffUTCTime deadline <$> getCurrentTime
-    waitFor tracer (truncate $ remainingTime + 3) [n1] $
-      output "ReadyToFanout" []
-    send n1 $ input "Fanout" []
-    waitFor tracer 600 [n1] $
-      output "HeadIsFinalized" ["utxo" .= object mempty]
+    -- TODO: revert this back as we don't want to keep this kind of test around
+    threadDelay 2000
   traceRemainingFunds Alice
  where
   RunningNode{nodeSocket} = node
