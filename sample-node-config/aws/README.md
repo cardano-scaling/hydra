@@ -30,13 +30,16 @@ for this example in `~/.aws/credentials` we have:
     region=eu-west-3
     ```
 > **personal** will be your AWS_PROFILE
+> so whenever you see _personal_ in the rest of the file you need to replace it with your own aws profile name.
+> Also you need to make sure to create a new key pair in the region eu-west-3 (TODO: abstract the region away?)
+
 
 - you have terraform and aws installed on your system.
-- you have build the required 2 folder structures under aws folder:
+- you have built the required 2 folder structures under aws folder:
     + credentials.
     + env.
 
-## Project structure tu build
+## Project structure to build
 ```
 .
 +-- credentials
@@ -74,21 +77,27 @@ at the root of `hydra-poc` project, execute:
 4. generate your cardano address
 at the root of `hydra-poc` project, execute:
     ```sh
-    $ cardano-cli address build --payment-verification-key-file ./sample-node-config/aws/credentials/cardano-key.vk --testnet-magic 1 > cardano.addr
+    $ cardano-cli address build --payment-verification-key-file ./cardano-key.vk --testnet-magic 1 > cardano.addr
     ```
     > `cardano.addr` will be generated at the root of the `hydra-poc` project.
 
-5. move under `credetials` folder:
+5. move under `credentials` folder:
     - the party members verification keys: `arnaud-cardano.vk` and `arnaud-hydra.vk`.
     - your personal hydra keys: `hydra-key.sk` and `hydra-key.vk`.
     - your personal cardano keys: `cardano-key.sk` and `cardano-key.vk`.
     - your personal cardano address: `cardano.addr`.
 
+    ```sh
+    $ mv *.vk sample-node-config/aws/credentials/
+    $ mv *.sk sample-node-config/aws/credentials/
+    $ mv cardano.addr sample-node-config/aws/credentials/
+    ```
+
 ### Building ***env***
 This should only be done once, when starting afresh.
 This is a folder you must create yourself to store your personal aws credentials.
 
-go to ***EC2 Dashboard*** > ***Network & Security*** > ***Key Pairs*** and create one (for this template, the key pair is ***personal***). 
+go to ***EC2 Dashboard*** > ***Network & Security*** > ***Key Pairs*** and create one (for this template, the key pair is ***personal*** as mentioned).
 Then move it under `env` folder.
 
 > Default values are good enough (type: RSA & OpenSSH format: *.pem).
@@ -101,6 +110,10 @@ At the root of `aws` project execute:
 ```sh
 $ terraform init
 ```
+
+### Alter terraform variables
+
+Alter the file variables.tf found in `sample-node-config/aws/` to reflect your key name, github account etc.
 
 ### Deploying the VM
 Then create a deployment plan and apply it:
@@ -125,9 +138,17 @@ instance_ip = "ec2-13-38-62-128.eu-west-3.compute.amazonaws.com"
 
 # Using the Hydra Node
 
+Note: From now on we are assuming that the following commands will be executed inside of `sample-node-config/aws`
+
+``` sh
+$ cd sample-node-config/aws
+```
+
 ## Login to the VM
 
 One should be able to log into the VM as user `ubuntu`.
+
+Note: Please make sure your `env/personal.pem` file has correct permissions (`chmod 400 env/personal.pem`)
 
 To login to the VM:
 
@@ -142,7 +163,7 @@ $ scripts/login.sh
 - tmux a: attach the detached-session
 
 ## Opening the Head
-Before you open a head you mas have funds on the preview network and then
+Before you open a head you must have funds on the preview network and then
 prepare the funds to be marked as fuel.
 
 To get some funds from the preview faucet to your address, you can either:
@@ -155,16 +176,17 @@ To get some funds from the preview faucet to your address, you can either:
     
         > to request via http you must first obtain your api_key.
 
-Then, once you login to your VM, execute:
-```
-$ fuel
-```
-
-Next, we need to configure your peer addresses to your hydra-node.
-For that, we need to manually update the `docker-copose.yaml` to include the `--peer` arguments.
-i.e.: 
+Now that you are logged in to your VM we need to configure your peer addresses to your hydra-node.
+For that, we need to manually update the `docker-compose.yaml` to include the `--peer` arguments.
+i.e.:
 ```
 "--peer", "35.233.17.169:5001"
+```
+
+Then execute:
+```
+$ docker-compose up -d
+$ fuel
 ```
 
 Next, to run hydraw, execute:
