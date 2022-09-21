@@ -189,11 +189,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
   res <-
     race
       ( handle onIOException $ do
-          -- NOTE: We can't re-query the time handle while the
-          -- 'chainSyncHandler' is running due to constraints. So this will use
-          -- always these initial parameters (as queried) for time conversions.
-          timeHandle <- queryTimeHandle networkId socketPath
-          let handler = chainSyncHandler tracer callback headState timeHandle
+          let handler = chainSyncHandler tracer callback headState (queryTimeHandle networkId socketPath)
 
           let intersection = toConsensusPointHF <$> point
           let client = ouroborosApplication tracer intersection queue handler wallet
