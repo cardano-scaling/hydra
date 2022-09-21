@@ -53,7 +53,7 @@ instance Arbitrary TimeHandle where
       mkTimeHandle
         currentTime
         (SystemStart startTime)
-        Fixture.eraHistory
+        Fixture.eraHistoryWithSafeZone
 
 -- | Construct a time handle using current time and given chain parameters. See
 -- 'queryTimeHandle' to create one by querying a cardano-node.
