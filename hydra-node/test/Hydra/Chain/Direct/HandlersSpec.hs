@@ -75,6 +75,7 @@ import Test.QuickCheck.Monadic (
   stop,
  )
 import qualified Prelude
+import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 
 spec :: Spec
 spec = do
@@ -87,12 +88,11 @@ spec = do
 
       -- Pick a random slot and expect the 'Tick' event to correspond
       slot <- pick arbitrary
+      -- TODO: ensure that we actually catch all the interesting cases (withing the safe zone and outside)
       monitor $
         label $ "time handle slot: " <> show s <> ", block slot: " <> show slot
-      expectedUTCTime <-
-        run $
-          either (failure . ("Time conversion failed: " <>) . toString) pure $
-            slotToUTCTime timeHandle slot
+      -- NOTE: uses a non forking eraHistory
+      let expectedUTCTime = slotNoToUTCTime slot
 
       blk <- pickBlind $ genBlockAt slot []
       run $ onRollForward handler blk
