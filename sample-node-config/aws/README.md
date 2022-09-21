@@ -2,33 +2,6 @@
 
 This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and AWS based infrastructure code to setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation) connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preview` testnet. It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
 
-## Project structure tu build
-```
-.
-+-- credentials
-|   +-- arnaud-cardano.vk
-|   +-- arnaud-hydra.vk
-|   +-- cardano.addr
-|   +-- cardano-key.sk
-|   +-- cardano-key.vk
-|   +-- hydra-key.sk
-|   +-- hydra-key.vk
-+-- docker
-|   +-- docker-compose.yaml
-|   +-- prometheus.yml
-|   +-- promtail-config.yml
-+-- env
-|   +-- personal.pem
-+-- scripts
-|   +-- configure-instance.sh
-|   +-- configure-testnet.sh
-|   +-- fuel-testnet.sh
-|   +-- login.sh
-|   +-- scp.sh
-+-- network.tf
-+-- testnet.tf
-```
-
 ## Configuring Hydra Node
 The [configuration script](./scripts/configure-testnet.sh) assumes this image must be a reasonably recent Ubuntu/Debian Linux distribution, with [docker](https://docker.io) and [docker-compose](https://docs.docker.com/compose/) installed, and a configured user `ubuntu` with `sudo` access.
 
@@ -59,9 +32,24 @@ for this example in `~/.aws/credentials` we have:
 > **personal** will be your AWS_PROFILE
 
 - you have terraform and aws installed on your system.
-- you have build the required 2 folder structures under aws:
+- you have build the required 2 folder structures under aws folder:
     + credentials.
     + env.
+
+## Project structure tu build
+```
+.
++-- credentials
+|   +-- arnaud-cardano.vk
+|   +-- arnaud-hydra.vk
+|   +-- cardano-key.sk
+|   +-- cardano-key.vk
+|   +-- cardano.addr
+|   +-- hydra-key.sk
+|   +-- hydra-key.vk
++-- env
+|   +-- personal.pem
+```
 
 ### Building ***credentials***
 This should only be done once, when starting afresh.
