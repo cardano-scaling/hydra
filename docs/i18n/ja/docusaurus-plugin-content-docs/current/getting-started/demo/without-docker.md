@@ -73,6 +73,12 @@ Note, should you want to use `cabal`, pass the invocation for example like this 
 
 次に、3つの異なる端末で、`demo/` ディレクトリから3つの Hydra ノードを起動します。
 
+
+:::info Note
+We are trying to force ipv4 addresses by using `--peer 127.0.0.1`.
+If you don't see any connected peers in the tui it probably means that your system is configured to use ipv6.
+:::
+
 ````mdx-code-block
 <Tabs>
 
@@ -82,8 +88,8 @@ Note, should you want to use `cabal`, pass the invocation for example like this 
 ```
 source .env && hydra-node \
   --node-id 1 --port 5001 --api-port 4001 --monitoring-port 6001 \
-  --peer localhost:5002 \
-  --peer localhost:5003 \
+  --peer 127.0.0.1:5002 \
+  --peer 127.0.0.1:5003 \
   --hydra-signing-key alice.sk \
   --hydra-verification-key bob.vk \
   --hydra-verification-key carol.vk \
@@ -105,8 +111,8 @@ source .env && hydra-node \
 ```
 source .env && hydra-node \
   --node-id 2 --port 5002 --api-port 4002 --monitoring-port 6002 \
-  --peer localhost:5001 \
-  --peer localhost:5003 \
+  --peer 127.0.0.1:5001 \
+  --peer 127.0.0.1:5003 \
   --hydra-signing-key bob.sk \
   --hydra-verification-key alice.vk \
   --hydra-verification-key carol.vk \
@@ -128,8 +134,8 @@ source .env && hydra-node \
 ```
 source .env && hydra-node \
   --node-id 3 --port 5003 --api-port 4003 --monitoring-port 6003 \
-  --peer localhost:5001 \
-  --peer localhost:5002 \
+  --peer 127.0.0.1:5001 \
+  --peer 127.0.0.1:5002 \
   --hydra-signing-key carol.sk \
   --hydra-verification-key alice.vk \
   --hydra-verification-key bob.vk \
