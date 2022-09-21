@@ -182,11 +182,15 @@ data TimeConversionException = TimeConversionException
   }
   deriving (Eq, Show, Exception)
 
+type GetTimeHandle m = m TimeHandle
+
 -- | Creates a `ChainSyncHandler` that can notify the given `callback` of events happening
 -- on-chain.
 --
 -- This forms the other half of a `ChainComponent` along with `mkChain` but is decoupled from
 -- actual interactions with the chain.
+--
+-- A `TimeHandle` is needed to do `SlotNo -> POSIXTime` conversions for 'Tick' events.
 --
 -- Throws 'TimeConversionException' when a received block's 'SlotNo' cannot be
 -- converted to a 'UTCTime' with the given 'TimeHandle'.
@@ -199,11 +203,11 @@ chainSyncHandler ::
   (ChainEvent Tx -> m ()) ->
   -- | On-chain head-state.
   TVar m ChainStateAt ->
-  -- | A handle on time to do `SlotNo -> POSIXTime` conversions for 'Tick' events.
-  TimeHandle ->
+  -- | Means to acquire a new 'TimeHandle'.
+  GetTimeHandle m ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback headState timeHandle =
+chainSyncHandler tracer callback headState getTimeHandle =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -225,6 +229,7 @@ chainSyncHandler tracer callback headState timeHandle =
         slotNo = case chainPoint of
           ChainPointAtGenesis -> 0
           ChainPoint s _ -> s
+    timeHandle <- getTimeHandle
     case slotToUTCTime timeHandle slotNo of
       Left reason ->
         throwIO TimeConversionException{slotNo, reason}

@@ -32,7 +32,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
       <&> \config -> config{networkId, startChainFrom = Just tip}
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- TODO: revert this back as we don't want to keep this kind of test around
-    threadDelay 2000
+    threadDelay 20
   traceRemainingFunds Alice
  where
   RunningNode{nodeSocket} = node

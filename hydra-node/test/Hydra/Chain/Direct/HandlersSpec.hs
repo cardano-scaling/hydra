@@ -33,6 +33,7 @@ import Hydra.Chain.Direct.Context (
 import Hydra.Chain.Direct.Handlers (
   ChainStateAt (..),
   ChainSyncHandler (..),
+  GetTimeHandle,
   RecordedAt (..),
   chainSyncHandler,
  )
@@ -50,6 +51,7 @@ import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
+import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -75,7 +77,6 @@ import Test.QuickCheck.Monadic (
   stop,
  )
 import qualified Prelude
-import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 
 spec :: Spec
 spec = do
@@ -84,7 +85,7 @@ spec = do
       chainState <- pickBlind genChainState
       timeHandle <- pickBlind arbitrary
       let Right (s, _) = currentPointInTime timeHandle
-      (handler, getEvents) <- run $ recordEventsHandler chainState timeHandle
+      (handler, getEvents) <- run $ recordEventsHandler chainState (pure timeHandle)
 
       -- Pick a random slot and expect the 'Tick' event to correspond
       slot <- pick arbitrary
@@ -113,7 +114,7 @@ spec = do
       forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
         headState <- run $ newTVarIO $ stAtGenesis st
         timeHandle <- pickBlind arbitrary
-        let handler = chainSyncHandler nullTracer callback headState timeHandle
+        let handler = chainSyncHandler nullTracer callback headState (pure timeHandle)
         run $ onRollForward handler blk
 
   prop "can replay chain on (benign) rollback" $
@@ -128,7 +129,7 @@ spec = do
           monitor $ label ("Rollback depth: " <> show rollbackDepth)
           headState <- run $ newTVarIO st
           timeHandle <- pickBlind arbitrary
-          let handler = chainSyncHandler nullTracer callback headState timeHandle
+          let handler = chainSyncHandler nullTracer callback headState (pure timeHandle)
 
           -- 1/ Simulate some chain following
           st' <- run $ mapM_ (onRollForward handler) blks *> readTVarIO headState
@@ -143,11 +144,11 @@ spec = do
           st'' <- run $ mapM_ (onRollForward handler) toReplay *> readTVarIO headState
           assert (st' == st'')
 
-recordEventsHandler :: ChainState -> TimeHandle -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
-recordEventsHandler st th = do
+recordEventsHandler :: ChainState -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
+recordEventsHandler st getTimeHandle = do
   headState <- newTVarIO $ stAtGenesis st
   eventsVar <- newTVarIO []
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) headState th
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) headState getTimeHandle
   pure (handler, getEvents eventsVar)
  where
   getEvents = atomically . readTVar
