@@ -9,7 +9,7 @@ set -e
 CONNECT_AS=${1:-'ubuntu'}
 
 # TODO: the key name is hardcoded here, can we do better?
-KEY_PAIR_LOCATION=${2:-'./env/hydra.pem'}
+KEY_PAIR_LOCATION=${2:-'./env/personal.pem'}
 
 INSTANCE_DNS=$(aws --profile=$AWS_PROFILE ec2 describe-instances --output json \
   --query 'Reservations[].Instances[].[Tags[?Key==`Hydraw`] | [0].Value, State.Name, PublicDnsName]' \
