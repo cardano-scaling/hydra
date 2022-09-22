@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -77,8 +78,8 @@ import Hydra.Model (
   GlobalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
-  Payment,
   WorldState (..),
+  genPayment,
   runModel,
  )
 import qualified Hydra.Model as Model
@@ -118,15 +119,15 @@ runIt = runModel
 conflictFreeLiveness :: DL WorldState ()
 conflictFreeLiveness = do
   anyActions_
-  (party, payment) <- getModelStateDL >>= forAllQ . nonConflictingTx
-  action $ Model.NewTx party payment
-  eventually (ObserveConfirmedTx payment)
+  getModelStateDL >>= \case
+    st@WorldState{hydraState = Open{}} -> trace ("generating payment in state " <> show st) $ do
+      (party, payment) <- forAllQ (nonConflictingTx st)
+      action $ Model.NewTx party payment
+      eventually (ObserveConfirmedTx payment)
+    _ -> pass
  where
   nonConflictingTx st = withGenQ (genPayment st) (const [])
   eventually a = anyActions 10 >> action (Wait 10) >> action a
-
-genPayment :: WorldState -> Gen (Party, Payment)
-genPayment = error "not implemented"
 
 prop_generateTraces :: Actions WorldState -> Property
 prop_generateTraces actions =

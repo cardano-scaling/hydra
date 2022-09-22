@@ -280,6 +280,10 @@ instance StateModel WorldState where
       Nothing -> False
   precondition WorldState{hydraState = Open{}} Stop =
     True
+  precondition _ Wait{} =
+    True
+  precondition WorldState{hydraState = Open{}} ObserveConfirmedTx{} =
+    True
   precondition _ _ =
     False
 
@@ -412,7 +416,7 @@ runModel = RunModel{perform = perform}
       Commit party utxo ->
         performCommit (snd <$> hydraParties st) party utxo
       NewTx party transaction ->
-        performNewTx st party transaction
+        performNewTx party transaction
       Init party contestationPeriod ->
         party `sendsInput` Input.Init{contestationPeriod}
       Abort party -> do
@@ -420,8 +424,10 @@ runModel = RunModel{perform = perform}
       Stop -> pure ()
       Wait timeout ->
         lift $ threadDelay timeout
-      ObserveConfirmedTx _payment ->
-        error "TODO: not implemented"
+      ObserveConfirmedTx tx -> do
+        nodes <- Map.toList <$> gets nodes
+        forM_ nodes $ \(party, node) ->
+          waitForTxConfirmed mempty tx party node 10
 
 sendsInput :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 sendsInput party command = do
@@ -502,11 +508,10 @@ performCommit parties party paymentUTxO = do
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
-  WorldState ->
   Party ->
   Payment ->
   StateT (Nodes m) m ()
-performNewTx st party tx = do
+performNewTx party tx = do
   let recipient = mkVkAddress testNetworkId (getVerificationKey (to tx))
   nodes <- gets nodes
 
@@ -522,35 +527,7 @@ performNewTx st party tx = do
 
   party `sendsInput` Input.GetUTxO
 
-  let matchPayment p@(_, txOut) =
-        isOwned (from tx) p && value tx == txOutValue txOut
-
-      waitForUTxO utxo = \case
-        0 ->
-          lift $
-            throwIO $
-              Prelude.userError
-                ( "no utxo matched,\npayment = " <> show tx
-                    <> "\nutxo =  "
-                    <> show utxo
-                    <> "\nconfirmed = "
-                    <> show (fmap (first (mkVkAddress @Era testNetworkId . getVerificationKey)) $ confirmedUTxO $ offChainState $ hydraState st)
-                )
-        n ->
-          lift (threadDelay 1 >> waitForNext (nodes ! party)) >>= \case
-            GetUTxOResponse u
-              | u == mempty -> do
-                party `sendsInput` Input.GetUTxO
-                waitForUTxO u (n -1)
-              | otherwise -> case find matchPayment (UTxO.pairs u) of
-                Nothing -> do
-                  party `sendsInput` Input.GetUTxO
-                  waitForUTxO u (n -1)
-                Just p -> pure p
-            _ ->
-              waitForUTxO utxo (n -1)
-
-  (i, o) <- waitForUTxO mempty (5000 :: Int)
+  (i, o) <- waitForTxConfirmed mempty tx party (nodes ! party) (5000 :: Int)
 
   let realTx =
         either
@@ -565,6 +542,40 @@ performNewTx st party tx = do
         realTx `elem` Snapshot.confirmed snapshot
       err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
+
+waitForTxConfirmed ::
+  (MonadDelay m, MonadThrow m) =>
+  UTxO ->
+  Payment ->
+  Party ->
+  TestHydraNode Tx m ->
+  Int ->
+  StateT (Nodes m) m (TxIn, TxOut CtxUTxO)
+waitForTxConfirmed utxo tx party node = \case
+  0 ->
+    lift $
+      throwIO $
+        Prelude.userError
+          ( "no utxo matched,\npayment = " <> show tx
+              <> "\nutxo =  "
+              <> show utxo
+          )
+  n ->
+    lift (threadDelay 1 >> waitForNext node) >>= \case
+      GetUTxOResponse u
+        | u == mempty -> do
+          party `sendsInput` Input.GetUTxO
+          waitForTxConfirmed u tx party node (n -1)
+        | otherwise -> case find matchPayment (UTxO.pairs u) of
+          Nothing -> do
+            party `sendsInput` Input.GetUTxO
+            waitForTxConfirmed u tx party node (n -1)
+          Just p -> pure p
+      _ ->
+        waitForTxConfirmed utxo tx party node (n -1)
+ where
+  matchPayment p@(_, txOut) =
+    isOwned (from tx) p && value tx == txOutValue txOut
 
 --
 
