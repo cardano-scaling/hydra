@@ -34,7 +34,6 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   CardanoMode,
   ConsensusMode (CardanoMode),
-  EpochNo (EpochNo),
   Era,
   EraHistory (EraHistory),
   EraInMode (BabbageEraInCardanoMode),
@@ -60,7 +59,6 @@ import Hydra.Cardano.Api (
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
-  Bound (..),
   EraEnd (EraEnd, EraUnbounded),
   EraParams (..),
   EraSummary (..),
@@ -187,55 +185,72 @@ maxMem, maxCpu :: Natural
 maxCpu = executionSteps maxTxExecutionUnits
 maxMem = executionMemory maxTxExecutionUnits
 
--- | An artifical era history comprised by a single never ending (forking) era.
+-- | An artifical era history comprised by a single never ending (forking) era,
+-- with fixed 'epochSize' and 'slotLength'.
 eraHistory :: EraHistory CardanoMode
 eraHistory =
   EraHistory CardanoMode (mkInterpreter summary)
  where
-  summary :: Summary (CardanoEras StandardCrypto)
-  summary = Summary neverForksUntyped
-
   -- NOTE: Inlined / similar to --
   -- Ouroboros.Consensus.HardFork.History.Summary.neverForksSummary, but without
   -- a fixed '[x] type so we can use the CardanoMode eras
-  neverForksUntyped =
-    NonEmptyOne $
+  summary :: Summary (CardanoEras StandardCrypto)
+  summary =
+    Summary . NonEmptyOne $
       EraSummary
         { eraStart = initBound
         , eraEnd = EraUnbounded
         , eraParams =
             EraParams
-              { eraEpochSize = EpochSize 100
-              , eraSlotLength = mkSlotLength 1
+              { eraEpochSize = epochSize
+              , eraSlotLength = slotLength
               , eraSafeZone = UnsafeIndefiniteSafeZone
               }
         }
 
--- | An era history with a single era which will end at some point and has a
--- quite narrow safe zone. We have reconstructed this value from "real world"
--- 'EraHistory' values received from the cardano-node.
-eraHistoryWithSafeZone :: EraHistory CardanoMode
-eraHistoryWithSafeZone =
+-- | An era history with a single era which will end at some point.
+--
+-- A "real" 'EraHistory' received from the cardano-node will have the 'eraEnd'
+-- at a known or earliest possible end of the current era + a safe zone.
+--
+-- See 'Ouroboros.Consensus.HardFork.History.EraParams' for details.
+--
+-- TODO: make horizon of this configurable
+eraHistoryWithHorizonAt :: EraHistory CardanoMode
+eraHistoryWithHorizonAt =
   EraHistory CardanoMode (mkInterpreter summary)
  where
-  eraStart = initBound
-  eraParams =
-    EraParams
-      { eraEpochSize = EpochSize 5
-      , eraSlotLength = mkSlotLength 1
-      , eraSafeZone = StandardSafeZone 4
-      }
   summary :: Summary (CardanoEras StandardCrypto)
   summary =
     Summary . NonEmptyOne $
       EraSummary
         { eraStart
-        , eraEnd = EraEnd $ mkUpperBound eraParams eraStart 2
+        , eraEnd =
+            EraEnd $
+              mkUpperBound
+                eraParams
+                eraStart
+                -- NOTE: exclusive, so this is the first epoch of the next era
+                3
         , eraParams
         }
 
+  eraStart = initBound
+
+  eraParams =
+    EraParams
+      { eraEpochSize = EpochSize 5
+      , eraSlotLength = mkSlotLength 1
+      , -- NOTE: unused if the 'eraEnd' is already defined, but would be used to
+        -- extend the last era accordingly in the real cardano-node
+        eraSafeZone = UnsafeIndefiniteSafeZone
+      }
+
 epochInfo :: Monad m => EpochInfo m
-epochInfo = fixedEpochInfo (EpochSize 100) slotLength
+epochInfo = fixedEpochInfo epochSize slotLength
+
+epochSize :: EpochSize
+epochSize = EpochSize 100
 
 slotLength :: SlotLength
 slotLength = mkSlotLength 1
