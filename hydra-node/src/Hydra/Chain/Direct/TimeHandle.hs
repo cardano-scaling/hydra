@@ -5,11 +5,8 @@ module Hydra.Chain.Direct.TimeHandle where
 
 import Hydra.Prelude
 
-import Cardano.Slotting.EpochInfo (EpochInfo, epochInfoSlotToUTCTime, hoistEpochInfo)
 import Cardano.Slotting.Slot (SlotNo)
-import Cardano.Slotting.Time (SystemStart (SystemStart), toRelativeTime)
-import Control.Arrow (left)
-import Control.Monad.Trans.Except (runExcept)
+import Cardano.Slotting.Time (SystemStart (SystemStart), fromRelativeTime, toRelativeTime)
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
@@ -24,8 +21,7 @@ import Hydra.Chain.CardanoClient (
   queryTip,
  )
 import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
-import qualified Ouroboros.Consensus.HardFork.History as Consensus
-import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, wallclockToSlot)
+import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, slotToWallclock, wallclockToSlot)
 import Test.QuickCheck (getPositive)
 
 type PointInTime = (SlotNo, UTCTime)
@@ -65,7 +61,7 @@ mkTimeHandle ::
 mkTimeHandle now systemStart eraHistory = do
   TimeHandle
     { currentPointInTime = do
-        currentSlotNo <- left show $ utcTimeToSlot now
+        currentSlotNo <- slotFromUTCTime now
         pt <- slotToUTCTime currentSlotNo
         pure (currentSlotNo, pt)
     , slotFromUTCTime
@@ -76,26 +72,15 @@ mkTimeHandle now systemStart eraHistory = do
         pure (adjusted, time)
     }
  where
-  epochInfo :: EpochInfo (Either Text)
-  epochInfo =
-    hoistEpochInfo (left show . runExcept) $
-      Consensus.interpreterToEpochInfo interpreter
-
   slotToUTCTime slot =
-    -- NOTE: We are not using the Ledger.slotToPOSIXTime as we do not need the
-    -- workaround for past protocol versions. Hence, we also not need the
-    -- protocol parameters for this conversion.
-    epochInfoSlotToUTCTime
-      epochInfo
-      systemStart
-      slot
+    case interpretQuery interpreter (slotToWallclock slot) of
+      Left pastHorizonEx -> Left $ show pastHorizonEx
+      Right (relativeTime, _slotLength) -> pure $ fromRelativeTime systemStart relativeTime
 
-  slotFromUTCTime t = left show $ utcTimeToSlot t
-
-  utcTimeToSlot utcTime = do
+  slotFromUTCTime utcTime = do
     let relativeTime = toRelativeTime systemStart utcTime
     case interpretQuery interpreter (wallclockToSlot relativeTime) of
-      Left pastHorizonEx -> Left pastHorizonEx
+      Left pastHorizonEx -> Left $ show pastHorizonEx
       Right (slotNo, _timeSpentInSlot, _timeLeftInSlot) -> pure slotNo
 
   (EraHistory _ interpreter) = eraHistory
