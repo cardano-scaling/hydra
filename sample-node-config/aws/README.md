@@ -1,3 +1,8 @@
+DO NOT USE IN PRODUCTION!
+
+This is a sample setup for demonstration only. Some sensitive data should be better protected in a production setup.
+
+
 # Example Hydra Node Infrastructure
 
 This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and AWS based infrastructure code to setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation) connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preview` testnet. It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
