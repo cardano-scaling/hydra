@@ -68,6 +68,7 @@ import Ouroboros.Consensus.HardFork.History (
   Summary (Summary),
   initBound,
   mkInterpreter,
+  mkUpperBound,
  )
 import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
@@ -217,24 +218,20 @@ eraHistoryWithSafeZone :: EraHistory CardanoMode
 eraHistoryWithSafeZone =
   EraHistory CardanoMode (mkInterpreter summary)
  where
+  eraStart = initBound
+  eraParams =
+    EraParams
+      { eraEpochSize = EpochSize 5
+      , eraSlotLength = mkSlotLength 1
+      , eraSafeZone = StandardSafeZone 4
+      }
   summary :: Summary (CardanoEras StandardCrypto)
   summary =
     Summary . NonEmptyOne $
       EraSummary
-        { eraStart = initBound
-        , eraEnd =
-            EraEnd
-              Bound
-                { boundTime = RelativeTime 10
-                , boundSlot = SlotNo 100
-                , boundEpoch = EpochNo 1
-                }
-        , eraParams =
-            EraParams
-              { eraEpochSize = EpochSize 100
-              , eraSlotLength = mkSlotLength 1
-              , eraSafeZone = StandardSafeZone 30
-              }
+        { eraStart
+        , eraEnd = EraEnd $ mkUpperBound eraParams eraStart 2
+        , eraParams
         }
 
 epochInfo :: Monad m => EpochInfo m
