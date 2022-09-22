@@ -82,13 +82,7 @@ const Utils = {
 
 async function main() {
 
-    Utils.getItems("**/*.md", {
-        "ignore": [
-            '**/node_modules/**',
-            'README.md',
-            'docs/glossary.md'
-        ]
-    })
+    Utils.getItems("**/*.md", { "ignore": ['**/node_modules/**', 'README.md'] })
         .then(docs => {
             const docsMetadata = docs.map(Utils.getDocsMetadataJson)
             Promise

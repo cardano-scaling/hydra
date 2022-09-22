@@ -8,7 +8,6 @@
 .docusaurus
 .cache-loader
 /static/docs-metadata.json
-/docs/glossary.md
 
 # Misc
 .DS_Store
