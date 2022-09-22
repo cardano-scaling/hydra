@@ -1,6 +1,6 @@
-DO NOT USE IN PRODUCTION!
+*Disclaimer:* **`DO NOT USE IN PRODUCTION!`**
 
-This is a sample setup for demonstration only. Some sensitive data should be better protected in a production setup.
+> This is a sample setup for demonstration only. Some sensitive data should be better protected in a production setup.
 
 
 # Example Hydra Node Infrastructure
@@ -37,7 +37,7 @@ for this example in `~/.aws/credentials` we have:
 > **personal** will be your AWS_PROFILE
 > so whenever you see _personal_ in the rest of the file you need to replace it with your own aws profile name.
 > Also you need to make sure to create a new key pair in the region eu-west-3 (TODO: abstract the region away?)
-
+> TODO: it would be cool to use aws_ssm to connect to the EC2 so that we don't depend on extra ssh keys manipulations.
 
 - you have terraform and aws installed on your system.
 - you have built the required 2 folder structures under aws folder:
