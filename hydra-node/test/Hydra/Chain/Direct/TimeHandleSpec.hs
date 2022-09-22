@@ -3,11 +3,15 @@ module Hydra.Chain.Direct.TimeHandleSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import Cardano.Ledger.Slot (SlotNo (SlotNo))
+import Cardano.Slotting.Time (SystemStart (SystemStart))
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (..), mkTimeHandle)
+import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithSafeZone)
 import Test.QuickCheck (counterexample, forAllBlind, property, (===))
 
 spec :: Spec
-spec =
+spec = do
   prop "can roundtrip currentPointInTime" $
     forAllBlind arbitrary $ \TimeHandle{currentPointInTime, slotToUTCTime, slotFromUTCTime} ->
       let onLeft err = property False & counterexample ("Conversion failed: " <> toString err)
@@ -15,3 +19,16 @@ spec =
             (slot, _) <- currentPointInTime
             res <- slotFromUTCTime =<< slotToUTCTime slot
             pure $ res === slot
+  it "it should convert slot within latest/current era" $ do
+    let now = posixSecondsToUTCTime 13.4
+        systemStart = SystemStart $ posixSecondsToUTCTime 0
+        eraHistory = eraHistoryWithSafeZone
+        timeHandle =
+          mkTimeHandle
+            now
+            systemStart
+            eraHistory
+        slotInside = SlotNo 14
+        converted = slotToUTCTime timeHandle slotInside
+        expected = Right $ posixSecondsToUTCTime 14
+    converted `shouldBe` expected
