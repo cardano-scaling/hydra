@@ -19,7 +19,7 @@ spec = do
             (slot, _) <- currentPointInTime
             res <- slotFromUTCTime =<< slotToUTCTime slot
             pure $ res === slot
-  it "it should convert slot within latest/current era" $ do
+  it "should convert slot within latest/current era" $ do
     let now = posixSecondsToUTCTime 13.4
         systemStart = SystemStart $ posixSecondsToUTCTime 0
         eraHistory = eraHistoryWithSafeZone
