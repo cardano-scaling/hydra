@@ -49,7 +49,8 @@ instance Arbitrary TimeHandle where
       mkTimeHandle
         currentTime
         (SystemStart startTime)
-        Fixture.eraHistoryWithSafeZone
+        -- TODO: should we generate "outdated" handles? if not, just use 'Fixture.eraHistory'
+        Fixture.eraHistoryWithHorizonAt
 
 -- | Construct a time handle using current time and given chain parameters. See
 -- 'queryTimeHandle' to create one by querying a cardano-node.
