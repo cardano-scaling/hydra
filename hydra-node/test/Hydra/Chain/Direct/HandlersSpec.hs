@@ -48,10 +48,11 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (..), mkTimeHandle)
+import Hydra.Chain.Direct.TimeHandle (mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
 import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
+import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -77,7 +78,6 @@ import Test.QuickCheck.Monadic (
   stop,
  )
 import qualified Prelude
-import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 
 spec :: Spec
 spec = do
@@ -91,9 +91,9 @@ spec = do
             now <- getCurrentTime
             pure $
               mkTimeHandle
-               now
-               Fixture.systemStart
-               Fixture.eraHistoryWithSafeZone
+                now
+                Fixture.systemStart
+                Fixture.eraHistoryWithSafeZone
       (handler, getEvents) <- run $ recordEventsHandler chainState getTimeHandle
 
       -- TODO: ensure that we actually catch all the interesting cases (withing the safe zone and outside)
