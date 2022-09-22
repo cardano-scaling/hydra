@@ -72,11 +72,13 @@ mkTimeHandle now systemStart eraHistory = do
         pure (adjusted, time)
     }
  where
+  slotToUTCTime :: HasCallStack => SlotNo -> Either Text UTCTime
   slotToUTCTime slot =
     case interpretQuery interpreter (slotToWallclock slot) of
       Left pastHorizonEx -> Left $ show pastHorizonEx
       Right (relativeTime, _slotLength) -> pure $ fromRelativeTime systemStart relativeTime
 
+  slotFromUTCTime :: HasCallStack => UTCTime -> Either Text SlotNo
   slotFromUTCTime utcTime = do
     let relativeTime = toRelativeTime systemStart utcTime
     case interpretQuery interpreter (wallclockToSlot relativeTime) of
