@@ -1,15 +1,29 @@
 #! /bin/bash -xe
 # Configure instance for user ubuntu
 
+get_rid_of_apt_service() {
+  echo 'Terminating system apt updates so that we can install stuff'
+  sudo systemctl stop apt-daily.service
+  sudo systemctl kill --kill-who=all apt-daily.service
+
+  # wait until `apt-get updated` has been killed
+  while ! (systemctl list-units --all apt-daily.service | egrep -q '(dead|failed)')
+  do
+    sleep 1;
+  done
+}
+
 # fail if something goes wrong
 set -e
 
+get_rid_of_apt_service
+
 echo 'Updating system'
-sudo apt-get -o DPkg::Lock::Timeout=120 update -y
-sudo apt-get -o DPkg::Lock::Timeout=120 upgrade -y
+sudo apt-get update -y
+sudo apt-get upgrade -y
 
 echo 'Installing jq'
-sudo apt-get -o DPkg::Lock::Timeout=120 install jq -y
+sudo apt-get install jq -y
 
 echo 'Installing docker' # https://docs.docker.com/engine/install/ubuntu/
 curl -fsSL https://get.docker.com -o get-docker.sh
