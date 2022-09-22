@@ -7,23 +7,6 @@
 
 This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and AWS based infrastructure code to setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation) connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preview` testnet. It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
 
-## Configuring Hydra Node
-The [configuration script](./scripts/configure-testnet.sh) assumes this image must be a reasonably recent Ubuntu/Debian Linux distribution, with [docker](https://docker.io) and [docker-compose](https://docs.docker.com/compose/) installed, and a configured user `ubuntu` with `sudo` access.
-
-The configuration process expects to find some files which are not provided by default and which are required for starting the Hydra node:
-* A Hydra signing key file `hydra-key.sk` which will be used in the Head to sign snapshots.
-  This can be generated using [hydra-tools](https://hydra.family/head-protocol/docs/getting-started/quickstart#hydra-keys),
-* A cardano signing key file  `cardano-key.sk` which is required to identify the parties on-chain and sign transactions.
-  This is a standard Cardano key so one can reuse an existing key or [generate a new one](https://hydra.family/head-protocol/docs/getting-started/quickstart#cardano-keys),
-* 0 or more hydra verification keys and cardano verification keys for the other Head parties,
-* The IP addresses and ports of _peer_ nodes,
-* Configuration files for [promtail](https://grafana.com/docs/loki/latest/clients/promtail/) and [prometheus](https://prometheus.io/) which are run as part of the stack,
-* Configuration files for the off-chain ledger.
-
-The key files should be put in the current directory and their name referenced in the [testnet.tf](./testnet.tf) file. Then the [docker-compose.yaml](./docker/docker-compose.yaml) should be edited to reflect the above parameters as [command-line arguments](https://hydra.family/head-protocol/docs/getting-started/quickstart) to the `hydra-node` container.
-
-The [promtail-config.yml](./docker/promtail-config.yml) should be edited to point to the correct URL where logs should be shipped or the promtail container altogether removed.
-
 ### Pre-requisites
 - you have access to an aws account with root priviledges.
 - you have configured your local aws credentials. 
@@ -142,6 +125,18 @@ instance_ip = "ec2-13-38-62-128.eu-west-3.compute.amazonaws.com"
 > execute `terraform destroy` to take it down
 
 # Using the Hydra Node
+Before you open a head you must have funds on the preview network and then
+prepare the funds to be marked as fuel.
+
+To get some funds from the preview faucet to your address, you can either:
+    + claim them from site:
+        https://faucet.preview.world.dev.cardano.org/basic-faucet
+    + or request them via http: 
+        ```sh
+        $ curl -X POST -s "https://faucet.preview.world.dev.cardano.org/send-money/$(cat credentials/cardano.addr)?api_key="
+        ```
+    
+        > to request via http you must first obtain your api_key.
 
 Note: From now on we are assuming that the following commands will be executed inside of `sample-node-config/aws`
 
@@ -167,33 +162,37 @@ $ scripts/login.sh
 - ctrl B + D: detach session
 - tmux a: attach the detached-session
 
-## Opening the Head
-Before you open a head you must have funds on the preview network and then
-prepare the funds to be marked as fuel.
-
-To get some funds from the preview faucet to your address, you can either:
-    + claim them from site:
-        https://faucet.preview.world.dev.cardano.org/basic-faucet
-    + or request them via http: 
-        ```sh
-        $ curl -X POST -s "https://faucet.preview.world.dev.cardano.org/send-money/$(cat credentials/cardano.addr)?api_key="
-        ```
-    
-        > to request via http you must first obtain your api_key.
-
-Now that you are logged in to your VM we need to configure your peer addresses to your hydra-node.
-For that, we need to manually update the `docker-compose.yaml` to include the `--peer` arguments.
-i.e.:
+## Create marker utxo: get fuel from testnet
+Now that you are logged in to your VM, first thing we need is to spin up your `cardano-node` and create the marker utxo.
+For that we will need to execute:
 ```
-"--peer", "35.233.17.169:5001"
-```
-
-Then execute:
-```
-$ docker-compose up -d
+$ docker-compose up -d cardano-node
 $ fuel
 ```
 
+## Configuring Hydra Node
+We need to make sure some files, which are not provided by default and which are required for starting the `hydra-node`, are in place at the home folder of your VM:
+* A Hydra signing key file `hydra-key.sk` which will be used in the Head to sign snapshots.
+  This can be generated using [hydra-tools](https://hydra.family/head-protocol/docs/getting-started/quickstart#hydra-keys),
+* A cardano signing key file  `cardano-key.sk` which is required to identify the parties on-chain and sign transactions.
+  This is a standard Cardano key so one can reuse an existing key or [generate a new one](https://hydra.family/head-protocol/docs/getting-started/quickstart#cardano-keys),
+* 0 or more hydra verification keys and cardano verification keys for the other Head parties,
+* The IP addresses and ports of _peer_ nodes,
+* Configuration files for [promtail](https://grafana.com/docs/loki/latest/clients/promtail/) and [prometheus](https://prometheus.io/) which are run as part of the stack,
+* Configuration files for the off-chain ledger.
+
+Then the [docker-compose.yaml](./docker/docker-compose.yaml) should be edited to reflect the above parameters as [command-line arguments](https://hydra.family/head-protocol/docs/getting-started/quickstart) to the `hydra-node` container.
+
+i.e.:
+```
+"--peer", "35.233.17.169:5001"
+"--hydra-verification-key", "/data/arnaud-hydra.vk"
+"--cardano-verification-key", "/data/arnaud-cardano.vk"
+```
+
+The [promtail-config.yml](./docker/promtail-config.yml) should be edited to point to the correct URL where logs should be shipped or the promtail container altogether removed.
+
+## Running the hydraw instance
 Next, to run hydraw, execute:
 ```
 $ up
@@ -201,6 +200,7 @@ $ up
 
 > execute `down` to take it down
 
+## Opening the Head
 Finally, execute the hydra-tui and open the head:
 ```
 $ tui
