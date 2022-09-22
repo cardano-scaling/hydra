@@ -5,10 +5,11 @@
 set -e
 
 echo 'Updating system'
-sudo apt update -y
+sudo apt-get -o DPkg::Lock::Timeout=120 update -y
+sudo apt-get -o DPkg::Lock::Timeout=120 upgrade -y
 
 echo 'Installing jq'
-sudo apt-get install jq -y
+sudo apt-get -o DPkg::Lock::Timeout=120 install jq -y
 
 echo 'Installing docker' # https://docs.docker.com/engine/install/ubuntu/
 curl -fsSL https://get.docker.com -o get-docker.sh
