@@ -2,10 +2,6 @@
 # cloudwatch pricing details: https://aws.amazon.com/cloudwatch/pricing/
 # how to configure agents: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html
 
-variable "log_group_name" {
-  default = "instance_logs"
-}
-
 variable "log_retention_days" {
   default = "1"
 }
@@ -20,7 +16,7 @@ resource "aws_ssm_parameter" "cw_agent" {
 
 # create log group to be used by CloudAgent config
 resource "aws_cloudwatch_log_group" "docker_log_group" {
-  name              = var.log_group_name
+  name              = var.personal_config.log_group_name
   retention_in_days = var.log_retention_days
   # tags - (Optional): to distinguish between different log groups
   tags = {
