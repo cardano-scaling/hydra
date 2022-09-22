@@ -93,7 +93,7 @@ spec = do
               mkTimeHandle
                 now
                 Fixture.systemStart
-                Fixture.eraHistoryWithSafeZone
+                Fixture.eraHistoryWithHorizonAt
       (handler, getEvents) <- run $ recordEventsHandler chainState getTimeHandle
 
       -- TODO: ensure that we actually catch all the interesting cases (withing the safe zone and outside)
