@@ -29,14 +29,14 @@ echo "export HYDRA_SCRIPTS_TX_ID=$HYDRA_SCRIPTS_TX_ID" >> /home/ubuntu/.bashrc
 
 # Mithril stuff
 echo "Pulling mithril"
-docker pull ghcr.io/input-output-hk/mithril-client:latest
+docker pull ghcr.io/input-output-hk/mithril-client:main-b7d8691
 
 GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) 
 
 SNAPSHOT=$(curl -s https://aggregator.api.mithril.network/aggregator/snapshots | jq -r .[0].digest)
 
 mithril_client () {
-  docker run --rm -ti -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e NETWORK=testnet -v $(pwd):/data -e AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator -w /data -u $(id -u) ghcr.io/input-output-hk/mithril-client:latest $@
+  docker run --rm -ti -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e NETWORK=testnet -v $(pwd):/data -e AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator -w /data -u $(id -u) ghcr.io/input-output-hk/mithril-client:main-b7d8691 $@
 }
 
 echo "Restoring snapshot $SNAPSHOT"
