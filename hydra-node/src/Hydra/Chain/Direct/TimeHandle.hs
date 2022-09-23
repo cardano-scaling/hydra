@@ -42,6 +42,7 @@ data TimeHandle = TimeHandle
 
 instance Arbitrary TimeHandle where
   arbitrary = do
+    -- TODO: dry with genTimeHandleWithSlotInsideHorizon
     startTime <- posixSecondsToUTCTime . secondsToNominalDiffTime . getPositive <$> arbitrary
     uptimeSeconds <- getPositive <$> arbitrary
     let uptime = secondsToNominalDiffTime uptimeSeconds
@@ -52,7 +53,6 @@ instance Arbitrary TimeHandle where
       mkTimeHandle
         currentTime
         (SystemStart startTime)
-        -- TODO: should we generate "outdated" handles? if not, just use 'Fixture.eraHistory'
         (Fixture.eraHistoryWithHorizonAt horizonSlot)
 
 -- | Construct a time handle using current time and given chain parameters. See
