@@ -49,11 +49,10 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
-import Hydra.Chain.Direct.TimeHandle (mkTimeHandle)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
 import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
-import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -74,30 +73,27 @@ import Test.QuickCheck.Monadic (
   assert,
   monadicIO,
   monitor,
-  pick,
   run,
   stop,
  )
 import qualified Prelude
 
+genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
+genTimeHandleWithSlotInsideHorizon = undefined
+
+genTimeHandleWithSlotPastHorizon :: Gen (TimeHandle, SlotNo)
+genTimeHandleWithSlotPastHorizon = undefined
+
 spec :: Spec
 spec = do
   prop "roll forward results in Tick events" $
     monadicIO $ do
+      (timeHandle, slot) <- pickBlind genTimeHandleWithSlotInsideHorizon
+      blk <- pickBlind $ genBlockAt slot []
+
       chainState <- pickBlind genChainState
-      -- Pick a random slot and expect the 'Tick' event to correspond
-      slot <- pick arbitrary
-      -- TODO: how can we make this more realistic
-      timeHandle <- run $ do
-        now <- getCurrentTime
-        pure $
-          mkTimeHandle
-            now
-            Fixture.systemStart
-            Fixture.eraHistoryWithHorizonAt
       (handler, getEvents) <- run $ recordEventsHandler chainState (pure timeHandle)
 
-      blk <- pickBlind $ genBlockAt slot []
       run $ onRollForward handler blk
 
       events <- run getEvents
@@ -109,16 +105,10 @@ spec = do
 
   prop "roll forward fails with outdated TimeHandle" $
     monadicIO $ do
+      (timeHandle, slot) <- pickBlind genTimeHandleWithSlotPastHorizon
+      blk <- pickBlind $ genBlockAt slot []
+
       chainState <- pickBlind genChainState
-      -- Pick a random slot and some timeHandle
-      slot <- pick arbitrary
-      timeHandle <- run $ do
-        now <- getCurrentTime
-        pure $
-          mkTimeHandle
-            now
-            Fixture.systemStart
-            Fixture.eraHistoryWithHorizonAt
       headState <- run $ newTVarIO $ stAtGenesis chainState
       let handler =
             chainSyncHandler
@@ -126,7 +116,7 @@ spec = do
               (\e -> failure $ "Unexpected callback: " <> show e)
               headState
               (pure timeHandle)
-      blk <- pickBlind $ genBlockAt slot []
+
       run $
         onRollForward handler blk
           `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
