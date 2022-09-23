@@ -20,7 +20,7 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
   blockSlotNo,
-  toLedgerTx,
+  toLedgerTx, EraHistory, CardanoMode
  )
 import Hydra.Chain (
   ChainEvent (..),
@@ -52,7 +52,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
-import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt, slotNoToUTCTime)
@@ -82,29 +82,29 @@ import Test.QuickCheck.Monadic (
  )
 import qualified Prelude
 
+-- | Generate consistent values for 'SystemStart' and 'EraHistory' which has
+-- a horizon at the returned SlotNo as well as some UTCTime before that
+genTimeParams :: Gen (SystemStart, EraHistory CardanoMode, SlotNo, UTCTime)
+genTimeParams = do
+  startTime <- posixSecondsToUTCTime . secondsToNominalDiffTime . getPositive <$> arbitrary
+  uptimeSeconds <- getPositive <$> arbitrary
+  let uptime = secondsToNominalDiffTime uptimeSeconds
+      currentTime = addUTCTime uptime startTime
+      safeZone = 3 * 2160 / 0.05
+      horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
+  pure (SystemStart startTime, eraHistoryWithHorizonAt horizonSlot, horizonSlot, currentTime)
+
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotInsideHorizon = do
-  startTime <- posixSecondsToUTCTime . secondsToNominalDiffTime . getPositive <$> arbitrary
-  uptime <- secondsToNominalDiffTime . getPositive <$> arbitrary
-  let currentTime = addUTCTime uptime startTime
-
-  slot <- arbitrary
-
-  let eraHistory = eraHistoryWithHorizonAt $ slot + 1
-      timeHandle = mkTimeHandle currentTime (SystemStart startTime) eraHistory
-  pure (timeHandle, slot)
+  (systemStart, eraHistory, horizonSlot, currentTime) <- genTimeParams
+  let timeHandle = mkTimeHandle currentTime systemStart eraHistory
+  pure (timeHandle, horizonSlot - 1)
 
 genTimeHandleWithSlotPastHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotPastHorizon = do
-  startTime <- posixSecondsToUTCTime . secondsToNominalDiffTime . getPositive <$> arbitrary
-  uptime <- secondsToNominalDiffTime . getPositive <$> arbitrary
-  let currentTime = addUTCTime uptime startTime
-
-  slot <- arbitrary
-
-  let eraHistory = eraHistoryWithHorizonAt $ slot - 1
-      timeHandle = mkTimeHandle currentTime (SystemStart startTime) eraHistory
-  pure (timeHandle, slot)
+  (systemStart, eraHistory, horizonSlot, currentTime) <- genTimeParams
+  let timeHandle = mkTimeHandle currentTime systemStart eraHistory
+  pure (timeHandle, horizonSlot + 1)
 
 spec :: Spec
 spec = do
@@ -121,8 +121,10 @@ spec = do
       events <- run getEvents
       monitor $ counterexample ("events: " <> show events)
 
-      -- NOTE: uses a non forking eraHistory
-      let expectedUTCTime = slotNoToUTCTime slot
+      expectedUTCTime <-
+        run $
+          either (failure . ("Time conversion failed: " <>) . toString) pure $
+            slotToUTCTime timeHandle slot
       void . stop $ events === [Tick expectedUTCTime]
 
   prop "roll forward fails with outdated TimeHandle" $
