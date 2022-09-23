@@ -5,7 +5,7 @@ module Hydra.Chain.Direct.TimeHandle where
 
 import Hydra.Prelude
 
-import Cardano.Slotting.Slot (SlotNo)
+import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Cardano.Slotting.Time (SystemStart (SystemStart), fromRelativeTime, toRelativeTime)
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
@@ -43,14 +43,17 @@ data TimeHandle = TimeHandle
 instance Arbitrary TimeHandle where
   arbitrary = do
     startTime <- posixSecondsToUTCTime . secondsToNominalDiffTime . getPositive <$> arbitrary
-    uptime <- secondsToNominalDiffTime . getPositive <$> arbitrary
-    let currentTime = addUTCTime uptime startTime
+    uptimeSeconds <- getPositive <$> arbitrary
+    let uptime = secondsToNominalDiffTime uptimeSeconds
+        currentTime = addUTCTime uptime startTime
+        safeZone = 3 * 2160 / 0.05
+        horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
     pure $
       mkTimeHandle
         currentTime
         (SystemStart startTime)
         -- TODO: should we generate "outdated" handles? if not, just use 'Fixture.eraHistory'
-        Fixture.eraHistoryWithHorizonAt
+        (Fixture.eraHistoryWithHorizonAt horizonSlot)
 
 -- | Construct a time handle using current time and given chain parameters. See
 -- 'queryTimeHandle' to create one by querying a cardano-node.

@@ -23,7 +23,7 @@ import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
-import Cardano.Slotting.Slot (EpochSize (EpochSize), SlotNo (SlotNo))
+import Cardano.Slotting.Slot (EpochSize (EpochSize), SlotNo (SlotNo), EpochNo (EpochNo))
 import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength (getSlotLength), SystemStart (SystemStart), mkSlotLength, toRelativeTime)
 import qualified Data.ByteString as BS
 import Data.Default (def)
@@ -66,7 +66,7 @@ import Ouroboros.Consensus.HardFork.History (
   Summary (Summary),
   initBound,
   mkInterpreter,
-  mkUpperBound,
+  mkUpperBound, Bound (Bound, boundTime, boundSlot, boundEpoch)
  )
 import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
@@ -214,38 +214,25 @@ eraHistory =
 -- at a known or earliest possible end of the current era + a safe zone.
 --
 -- See 'Ouroboros.Consensus.HardFork.History.EraParams' for details.
---
--- TODO: make horizon of this configurable
+-- NOTE: This era is using not so realistic epoch sizes (1)
 eraHistoryWithHorizonAt :: SlotNo -> EraHistory CardanoMode
-eraHistoryWithHorizonAt =
-  undefined $
-    EraHistory CardanoMode (mkInterpreter summary)
+eraHistoryWithHorizonAt slotNo@(SlotNo n) =
+ EraHistory CardanoMode (mkInterpreter summary)
  where
   summary :: Summary (CardanoEras StandardCrypto)
   summary =
     Summary . NonEmptyOne $
       EraSummary
-        { eraStart
+        { eraStart = initBound
         , eraEnd =
             EraEnd $
-              mkUpperBound
-                eraParams
-                eraStart
-                -- NOTE: exclusive, so this is the first epoch of the next era
-                3
-        , eraParams
+              Bound
+              { boundTime = RelativeTime $ fromIntegral n
+              , boundSlot = slotNo
+              , boundEpoch = EpochNo n
+              }
+        , eraParams = error "This should be unused"
         }
-
-  eraStart = initBound
-
-  eraParams =
-    EraParams
-      { eraEpochSize = EpochSize 1
-      , eraSlotLength = mkSlotLength 1
-      , -- NOTE: unused if the 'eraEnd' is already defined, but would be used to
-        -- extend the last era accordingly in the real cardano-node
-        eraSafeZone = UnsafeIndefiniteSafeZone
-      }
 
 epochInfo :: Monad m => EpochInfo m
 epochInfo = fixedEpochInfo epochSize slotLength
