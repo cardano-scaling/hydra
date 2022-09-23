@@ -95,7 +95,16 @@ genTimeHandleWithSlotInsideHorizon = do
   pure (timeHandle, slot)
 
 genTimeHandleWithSlotPastHorizon :: Gen (TimeHandle, SlotNo)
-genTimeHandleWithSlotPastHorizon = undefined
+genTimeHandleWithSlotPastHorizon = do
+  startTime <- posixSecondsToUTCTime . secondsToNominalDiffTime . getPositive <$> arbitrary
+  uptime <- secondsToNominalDiffTime . getPositive <$> arbitrary
+  let currentTime = addUTCTime uptime startTime
+
+  slot <- arbitrary
+
+  let eraHistory = eraHistoryWithHorizonAt $ slot - 1
+      timeHandle = mkTimeHandle currentTime (SystemStart startTime) eraHistory
+  pure (timeHandle, slot)
 
 spec :: Spec
 spec = do
