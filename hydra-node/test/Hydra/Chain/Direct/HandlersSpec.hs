@@ -35,7 +35,7 @@ import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
   RecordedAt (..),
-  chainSyncHandler,
+  chainSyncHandler, TimeConversionException (TimeConversionException)
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -107,6 +107,33 @@ spec = do
       events <- run getEvents
       monitor $ counterexample ("events: " <> show events)
       void . stop $ events === [Tick expectedUTCTime]
+
+  prop "roll forward fails with outdated TimeHandle" $
+    monadicIO $ do
+      chainState <- pickBlind genChainState
+      -- Pick a random slot and expect the 'Tick' event to correspond
+      slot <- pick arbitrary
+      -- TODO: how can we make this more realistic
+      let getTimeHandle = do
+            now <- getCurrentTime
+            pure $
+              mkTimeHandle
+                now
+                Fixture.systemStart
+                Fixture.eraHistoryWithHorizonAt
+
+      headState <- run $ newTVarIO $ stAtGenesis chainState
+      let handler =
+            chainSyncHandler nullTracer (\e -> failure $ "Unexpected callback: " <> show e) headState getTimeHandle
+
+      -- TODO: ensure that we actually catch all the interesting cases (withing the safe zone and outside)
+      monitor $ label $ "slot: " <> show slot
+
+      blk <- pickBlind $ genBlockAt slot []
+      run $
+        onRollForward handler blk
+          `shouldThrow` \(TimeConversionException failingSlot _)  ->
+                                                failingSlot == slot
 
   prop "yields observed transactions rolling forward" $ do
     forAll genChainStateWithTx $ \(st, tx, _) -> do
