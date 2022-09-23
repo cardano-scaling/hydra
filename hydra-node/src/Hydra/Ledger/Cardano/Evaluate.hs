@@ -216,9 +216,10 @@ eraHistory =
 -- See 'Ouroboros.Consensus.HardFork.History.EraParams' for details.
 --
 -- TODO: make horizon of this configurable
-eraHistoryWithHorizonAt :: EraHistory CardanoMode
+eraHistoryWithHorizonAt :: SlotNo -> EraHistory CardanoMode
 eraHistoryWithHorizonAt =
-  EraHistory CardanoMode (mkInterpreter summary)
+  undefined $
+    EraHistory CardanoMode (mkInterpreter summary)
  where
   summary :: Summary (CardanoEras StandardCrypto)
   summary =
@@ -239,7 +240,7 @@ eraHistoryWithHorizonAt =
 
   eraParams =
     EraParams
-      { eraEpochSize = EpochSize 5
+      { eraEpochSize = EpochSize 1
       , eraSlotLength = mkSlotLength 1
       , -- NOTE: unused if the 'eraEnd' is already defined, but would be used to
         -- extend the last era accordingly in the real cardano-node
