@@ -52,7 +52,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), mkTimeHandle)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), mkTimeHandle, genTimeParams)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt, slotNoToUTCTime)
@@ -81,18 +81,6 @@ import Test.QuickCheck.Monadic (
   stop,
  )
 import qualified Prelude
-
--- | Generate consistent values for 'SystemStart' and 'EraHistory' which has
--- a horizon at the returned SlotNo as well as some UTCTime before that
-genTimeParams :: Gen (SystemStart, EraHistory CardanoMode, SlotNo, UTCTime)
-genTimeParams = do
-  startTime <- posixSecondsToUTCTime . secondsToNominalDiffTime . getPositive <$> arbitrary
-  uptimeSeconds <- getPositive <$> arbitrary
-  let uptime = secondsToNominalDiffTime uptimeSeconds
-      currentTime = addUTCTime uptime startTime
-      safeZone = 3 * 2160 / 0.05
-      horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
-  pure (SystemStart startTime, eraHistoryWithHorizonAt horizonSlot, horizonSlot, currentTime)
 
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotInsideHorizon = do

@@ -20,9 +20,9 @@ import Hydra.Chain.CardanoClient (
   querySystemStart,
   queryTip,
  )
-import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, slotToWallclock, wallclockToSlot)
 import Test.QuickCheck (getPositive)
+import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 
 type PointInTime = (SlotNo, UTCTime)
 
@@ -40,20 +40,23 @@ data TimeHandle = TimeHandle
     adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
   }
 
+-- | Generate consistent values for 'SystemStart' and 'EraHistory' which has
+-- a horizon at the returned SlotNo as well as some UTCTime before that
+genTimeParams :: Gen (SystemStart, EraHistory CardanoMode, SlotNo, UTCTime)
+genTimeParams = do
+  startTime <- posixSecondsToUTCTime . secondsToNominalDiffTime . getPositive <$> arbitrary
+  uptimeSeconds <- getPositive <$> arbitrary
+  let uptime = secondsToNominalDiffTime uptimeSeconds
+      currentTime = addUTCTime uptime startTime
+      -- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config 
+      safeZone = 3 * 2160 / 0.05
+      horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
+  pure (SystemStart startTime, eraHistoryWithHorizonAt horizonSlot, horizonSlot, currentTime)
+
 instance Arbitrary TimeHandle where
   arbitrary = do
-    -- TODO: dry with genTimeHandleWithSlotInsideHorizon
-    startTime <- posixSecondsToUTCTime . secondsToNominalDiffTime . getPositive <$> arbitrary
-    uptimeSeconds <- getPositive <$> arbitrary
-    let uptime = secondsToNominalDiffTime uptimeSeconds
-        currentTime = addUTCTime uptime startTime
-        safeZone = 3 * 2160 / 0.05
-        horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
-    pure $
-      mkTimeHandle
-        currentTime
-        (SystemStart startTime)
-        (Fixture.eraHistoryWithHorizonAt horizonSlot)
+    (systemStart, eraHistory, _, currentTime) <- genTimeParams
+    pure $ mkTimeHandle currentTime systemStart eraHistory
 
 -- | Construct a time handle using current time and given chain parameters. See
 -- 'queryTimeHandle' to create one by querying a cardano-node.
