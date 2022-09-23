@@ -8,11 +8,14 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Ledger.Block as Ledger
 import Cardano.Ledger.Era (toTxSeq)
+import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Monad.Class.MonadSTM (MonadSTM (..), newTVarIO)
 import Control.Tracer (nullTracer)
 import Data.List ((\\))
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
+import Data.Time (secondsToNominalDiffTime)
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
@@ -49,7 +52,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
-import Hydra.Chain.Direct.TimeHandle (TimeHandle)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
 import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
@@ -65,6 +68,7 @@ import Test.QuickCheck (
   forAll,
   forAllBlind,
   forAllShow,
+  getPositive,
   label,
   (===),
  )
@@ -79,7 +83,16 @@ import Test.QuickCheck.Monadic (
 import qualified Prelude
 
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
-genTimeHandleWithSlotInsideHorizon = undefined
+genTimeHandleWithSlotInsideHorizon = do
+  startTime <- posixSecondsToUTCTime . secondsToNominalDiffTime . getPositive <$> arbitrary
+  uptime <- secondsToNominalDiffTime . getPositive <$> arbitrary
+  let currentTime = addUTCTime uptime startTime
+
+  slot <- arbitrary
+
+  let eraHistory = eraHistoryWithHorizonAt $ slot + 1
+      timeHandle = mkTimeHandle currentTime (SystemStart startTime) eraHistory
+  pure (timeHandle, slot)
 
 genTimeHandleWithSlotPastHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotPastHorizon = undefined
