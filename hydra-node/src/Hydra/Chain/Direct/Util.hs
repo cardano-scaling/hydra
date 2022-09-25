@@ -181,6 +181,19 @@ retry predicate action =
  where
   catchIf f a b = a `catch` \e -> if f e then b e else throwIO e
 
+retryWithPreAction ::
+  forall e m a.
+  (MonadCatch m, MonadDelay m, Exception e) =>
+  (e -> Bool) ->
+  (e -> m ()) ->
+  m a ->
+  m a
+retryWithPreAction predicate preAction action =
+  catchIf predicate action $ \_ ->
+    threadDelay 0.5 >> retry predicate action
+ where
+  catchIf f a b = a `catch` \e -> if f e then preAction e >> b e else throwIO e
+
 signWith ::
   (Api.VerificationKey Api.PaymentKey, Api.SigningKey Api.PaymentKey) ->
   ValidatedTx Api.LedgerEra ->

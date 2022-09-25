@@ -18,6 +18,6 @@ spec =
         failAfter 30 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir ->
             withCardanoNodeDevnet tracer tmpDir $ \node ->
-              replicateConcurrently_ 100 $ do
+              replicateConcurrently_ 30 $ do
                 vk <- generate genVerificationKey
                 seedFromFaucet_ node vk 1_000_000 Normal tracer
