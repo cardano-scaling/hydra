@@ -1,4 +1,5 @@
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Cluster.Faucet where
 
@@ -14,9 +15,9 @@ import CardanoClient (
   waitForPayment,
  )
 import CardanoNode (NodeLog (MsgCLIStatus), RunningNode (..))
+import Control.Exception (IOException)
 import Control.Tracer (Tracer, traceWith)
 import qualified Data.Map as Map
-import GHC.IO.Exception (IOException)
 import Hydra.Chain.CardanoClient (
   SubmitTransactionException,
   buildTransaction,
@@ -26,7 +27,7 @@ import Hydra.Chain.CardanoClient (
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
  )
-import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash, retry)
+import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash, retry, retryWithPreAction)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
@@ -54,10 +55,13 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retry isIOException $ pure ()
-  retry isSubmitTransactionException $ submitSeedTx faucetVk faucetSk
+  retryWithPreAction isIOException preAction $
+    retry isSubmitTransactionException $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
+  preAction :: Exception ex => ex -> IO ()
+  preAction e = traceWith tracer $ MsgCLIStatus "[RETRY]" (show e)
+
   submitSeedTx faucetVk faucetSk = do
     traceWith tracer $ MsgCLIStatus "[HERE]" "finding faucetUTxO"
     faucetUTxO <- findUTxO faucetVk -- maybe this should be done once globally and not per each thread
@@ -67,8 +71,13 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
         traceWith tracer $ MsgCLIStatus "[HERE]" "tx built"
-        submitTransaction networkId nodeSocket (sign faucetSk body)
+        submitTransaction networkId nodeSocket (sign faucetSk body) `catch` (printExceptionAndThrow @SubmitTransactionException)
         traceWith tracer $ MsgCLIStatus "[HERE]" "tx submitted"
+
+  printExceptionAndThrow :: Exception a => a -> IO ()
+  printExceptionAndThrow = \ex -> do
+    traceWith tracer $ MsgCLIStatus "[ERROR]" ("other:" <> show ex)
+    throwIO ex
 
   findUTxO faucetVk = do
     faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
