@@ -13,8 +13,10 @@ import CardanoClient (
   sign,
   waitForPayment,
  )
-import CardanoNode (RunningNode (..))
+import CardanoNode (NodeLog (MsgCLIStatus), RunningNode (..))
+import Control.Tracer (Tracer, traceWith)
 import qualified Data.Map as Map
+import GHC.IO.Exception (IOException)
 import Hydra.Chain.CardanoClient (
   SubmitTransactionException,
   buildTransaction,
@@ -48,19 +50,25 @@ seedFromFaucet ::
   Lovelace ->
   -- | Marked as fuel or normal output?
   Marked ->
+  Tracer IO NodeLog ->
   IO UTxO
-seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked = do
+seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
+  retry isIOException $ pure ()
   retry isSubmitTransactionException $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   submitSeedTx faucetVk faucetSk = do
-    faucetUTxO <- findUTxO faucetVk
+    traceWith tracer $ MsgCLIStatus "[HERE]" "finding faucetUTxO"
+    faucetUTxO <- findUTxO faucetVk -- maybe this should be done once globally and not per each thread
+    traceWith tracer $ MsgCLIStatus "[HERE]" "faucetUTxO found"
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
     buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
+        traceWith tracer $ MsgCLIStatus "[HERE]" "tx built"
         submitTransaction networkId nodeSocket (sign faucetSk body)
+        traceWith tracer $ MsgCLIStatus "[HERE]" "tx submitted"
 
   findUTxO faucetVk = do
     faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
@@ -85,6 +93,9 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
   isSubmitTransactionException :: SubmitTransactionException -> Bool
   isSubmitTransactionException = const True
 
+  isIOException :: IOException -> Bool
+  isIOException = const True
+
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
   RunningNode ->
@@ -94,9 +105,10 @@ seedFromFaucet_ ::
   Lovelace ->
   -- | Marked as fuel or normal output?
   Marked ->
+  Tracer IO NodeLog ->
   IO ()
-seedFromFaucet_ node vk ll marked =
-  void $ seedFromFaucet node vk ll marked
+seedFromFaucet_ node vk ll marked tracer =
+  void $ seedFromFaucet node vk ll marked tracer
 
 -- | Publish current Hydra scripts as scripts outputs for later referencing them.
 --
