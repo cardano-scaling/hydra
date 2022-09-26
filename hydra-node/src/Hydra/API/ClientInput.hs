@@ -1,6 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 
-module Hydra.ClientInput where
+module Hydra.API.ClientInput where
 
 import Hydra.Prelude
 

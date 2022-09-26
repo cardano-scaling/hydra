@@ -44,8 +44,8 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.ClientInput (ClientInput (NewTx))
-import qualified Hydra.ClientInput as Input
+import Hydra.API.ClientInput (ClientInput (NewTx))
+import qualified Hydra.API.ClientInput as Input
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (Committed, PendingCommits)
 import Hydra.Ledger (IsTx (..))
@@ -53,8 +53,8 @@ import Hydra.Ledger.Cardano (cardanoLedger, genAdaValue, genKeyPair, genSigningK
 import Hydra.Logging (Tracer)
 import Hydra.Node (HydraNodeLog, runHydraNode)
 import Hydra.Party (Party, deriveParty)
-import Hydra.ServerOutput (ServerOutput (GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
-import qualified Hydra.ServerOutput as Output
+import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
+import qualified Hydra.API.ServerOutput as Output
 import qualified Hydra.Snapshot as Snapshot
 import Test.QuickCheck (elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)

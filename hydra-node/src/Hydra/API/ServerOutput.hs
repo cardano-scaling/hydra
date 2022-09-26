@@ -1,9 +1,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 
-module Hydra.ServerOutput where
+module Hydra.API.ServerOutput where
 
+import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (PostChainTx, PostTxError)
-import Hydra.ClientInput (ClientInput (..))
 import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (Host)

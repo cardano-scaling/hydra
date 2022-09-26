@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # API Behavior
 
-This page documents the behavior of a `hydra-node` at the API layer. That is, how the system behaves given [ClientInputs](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-ClientInput.html#t:ClientInput) and what [ServerOutputs](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-ServerOutput.html#t:ServerOutput) are produced in response to it. See also the [API reference](https://hydra.family/head-protocol/api-reference/) for more details about individual API messages.
+This page documents the behavior of a `hydra-node` at the API layer. That is, how the system behaves given [ClientInputs](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-API-ClientInput.html#t:ClientInput) and what [ServerOutputs](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-API-ServerOutput.html#t:ServerOutput) are produced in response to it. See also the [API reference](https://hydra.family/head-protocol/api-reference/) for more details about individual API messages.
 
 The formalism uses [UML statechart](https://en.wikipedia.org/wiki/UML_state_machine) language where transitions are labeled: `input [condition] / output`. When two outputs (e.g. `A` and `B`) are expected we write `A,B`, while `{A,B}` denotes mutual exclusiveness of outputs.
 
