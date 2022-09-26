@@ -20,4 +20,4 @@ spec =
             withCardanoNodeDevnet tracer tmpDir $ \node ->
               replicateConcurrently_ 10 $ do
                 vk <- generate genVerificationKey
-                seedFromFaucet_ node vk 1_000_000 Normal
+                seedFromFaucet_ node vk 1_000_000 Normal tracer
