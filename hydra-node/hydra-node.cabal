@@ -86,7 +86,7 @@ library
     Hydra.Chain.Direct.Tx
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
-    Hydra.ClientInput
+    Hydra.API.ClientInput
     Hydra.ContestationPeriod
     Hydra.Crypto
     Hydra.HeadLogic
@@ -111,7 +111,7 @@ library
     Hydra.Node.Version
     Hydra.Options
     Hydra.Party
-    Hydra.ServerOutput
+    Hydra.API.ServerOutput
     Hydra.Snapshot
 
   other-modules:   Paths_hydra_node
@@ -271,7 +271,7 @@ test-suite tests
     Hydra.Chain.Direct.TimeHandleSpec
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.WalletSpec
-    Hydra.ClientInputSpec
+    Hydra.API.ClientInputSpec
     Hydra.CryptoSpec
     Hydra.FireForgetSpec
     Hydra.HeadLogicSpec
@@ -287,7 +287,7 @@ test-suite tests
     Hydra.NodeSpec
     Hydra.OptionsSpec
     Hydra.PartySpec
-    Hydra.ServerOutputSpec
+    Hydra.API.ServerOutputSpec
     Hydra.SnapshotStrategySpec
     Paths_hydra_node
     Spec

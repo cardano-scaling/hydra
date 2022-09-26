@@ -1,13 +1,13 @@
 {-# LANGUAGE TypeApplications #-}
 
-module Hydra.ServerOutputSpec where
+module Hydra.API.ServerOutputSpec where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Hydra.API.ServerOutput (ServerOutput)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.ServerOutput (ServerOutput)
 import Test.Aeson.GenericSpecs (
   Settings (..),
   defaultSettings,
