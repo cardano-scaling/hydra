@@ -8,19 +8,16 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Ledger.Block as Ledger
 import Cardano.Ledger.Era (toTxSeq)
-import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Monad.Class.MonadSTM (MonadSTM (..), newTVarIO)
 import Control.Tracer (nullTracer)
 import Data.List ((\\))
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
-import Data.Time (secondsToNominalDiffTime)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
   blockSlotNo,
-  toLedgerTx, EraHistory, CardanoMode
+  toLedgerTx 
  )
 import Hydra.Chain (
   ChainEvent (..),
@@ -55,7 +52,6 @@ import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), mkTimeHandle, genTimeParams)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt, slotNoToUTCTime)
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -68,7 +64,6 @@ import Test.QuickCheck (
   forAll,
   forAllBlind,
   forAllShow,
-  getPositive,
   label,
   (===),
  )
