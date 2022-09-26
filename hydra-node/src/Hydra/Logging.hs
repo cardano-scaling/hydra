@@ -21,7 +21,6 @@ module Hydra.Logging (
   withTracer,
   withTracerOutputTo,
   showLogsOnFailure,
-  showLogsOnFailureOrFinish,
   traceInTVar,
   contramap,
 ) where
@@ -135,16 +134,6 @@ showLogsOnFailure action = do
   tvar <- newTVarIO []
   action (traceInTVar tvar)
     `onException` (readTVarIO tvar >>= mapM_ (say . decodeUtf8 . Aeson.encode) . reverse)
-
-showLogsOnFailureOrFinish ::
-  (MonadSTM m, MonadCatch m, MonadFork m, MonadTime m, MonadSay m, ToJSON msg) =>
-  (Tracer m msg -> m a) ->
-  m a
-showLogsOnFailureOrFinish action = do
-  tvar <- newTVarIO []
-  (action (traceInTVar tvar) >>= (\r -> printTrace tvar >> pure r)) `onException` printTrace tvar
- where
-  printTrace tvar = readTVarIO tvar >>= mapM_ (say . decodeUtf8 . Aeson.encode) . reverse
 
 traceInTVar ::
   (MonadFork m, MonadTime m, MonadSTM m) =>

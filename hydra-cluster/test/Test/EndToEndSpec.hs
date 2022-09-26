@@ -115,9 +115,9 @@ spec = around showLogsOnFailure $ do
                 waitForNodesConnected tracer [n1, n2, n3]
 
                 -- Funds to be used as fuel by Hydra protocol transactions
-                seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
-                seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
-                seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
+                seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
+                seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel
+                seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel
 
                 let contestationPeriod = 2 :: Natural
 
@@ -126,8 +126,8 @@ spec = around showLogsOnFailure $ do
                   output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
 
                 -- Get some UTXOs to commit to a head
-                committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromCardanoNode tracer)
-                committedUTxOByBob <- seedFromFaucet node bobCardanoVk bobCommittedToHead Normal (contramap FromCardanoNode tracer)
+                committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal
+                committedUTxOByBob <- seedFromFaucet node bobCardanoVk bobCommittedToHead Normal
                 send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
                 send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
                 send n3 $ input "Commit" ["utxo" .= Object mempty]
@@ -160,7 +160,7 @@ spec = around showLogsOnFailure $ do
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             tip <- withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-              seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
+              seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
               tip <- queryTip defaultNetworkId nodeSocket
               let contestationPeriod = 10 :: Natural
               send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
@@ -185,8 +185,8 @@ spec = around showLogsOnFailure $ do
             (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
 
-            seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
-            seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
+            seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
+            seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel
 
             tip <- queryTip defaultNetworkId nodeSocket
             let startFromTip x = x{startChainFrom = Just tip}
@@ -209,7 +209,7 @@ spec = around showLogsOnFailure $ do
                 waitFor tracer 10 [n1, n2] $
                   output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
 
-                committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromCardanoNode tracer)
+                committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal
                 send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
                 send n2 $ input "Commit" ["utxo" .= Object mempty]
                 waitFor tracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice]
@@ -263,8 +263,8 @@ spec = around showLogsOnFailure $ do
               withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] allNodeIds hydraScriptsTxId $ \n1 ->
                 withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds hydraScriptsTxId $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
-                  seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
-                  seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
+                  seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
+                  seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel
 
                   let contestationPeriod = 10 :: Natural
                   send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
@@ -300,7 +300,7 @@ spec = around showLogsOnFailure $ do
                 withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds hydraScriptsTxId $ \n2 ->
                   withHydraNode tracer carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds hydraScriptsTxId $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
-                    seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
+                    seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
                     waitForNodesConnected tracer [n1, n2, n3]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
                     waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
@@ -337,9 +337,9 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket} = do
       waitForNodesConnected tracer [n1, n2, n3]
 
       -- Funds to be used as fuel by Hydra protocol transactions
-      seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
-      seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
-      seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromCardanoNode tracer)
+      seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
+      seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel
+      seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel
 
       let contestationPeriod = 2 :: Natural
 
@@ -348,8 +348,8 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket} = do
         output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
 
       -- Get some UTXOs to commit to a head
-      committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromCardanoNode tracer)
-      committedUTxOByBob <- seedFromFaucet node bobCardanoVk bobCommittedToHead Normal (contramap FromCardanoNode tracer)
+      committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal
+      committedUTxOByBob <- seedFromFaucet node bobCardanoVk bobCommittedToHead Normal
       send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
       send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
       send n3 $ input "Commit" ["utxo" .= Object mempty]
