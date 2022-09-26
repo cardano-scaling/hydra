@@ -53,7 +53,6 @@ genTimeParams = do
       horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
   pure (SystemStart startTime, eraHistoryWithHorizonAt horizonSlot, horizonSlot, currentTime)
 
--- TODO: Do we actually use/need this instance?
 instance Arbitrary TimeHandle where
   arbitrary = do
     (systemStart, eraHistory, _, currentTime) <- genTimeParams
