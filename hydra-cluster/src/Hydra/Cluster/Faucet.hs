@@ -1,5 +1,4 @@
 {-# LANGUAGE DerivingStrategies #-}
-{-# HLINT ignore "Use lambda-case" #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module Hydra.Cluster.Faucet where
