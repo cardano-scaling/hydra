@@ -227,6 +227,8 @@ jobs:
       with:
         repository: input-output-hk/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
+        # Ensure we have all history with all commits
+        fetch-depth: 0
 
     - name: Setup Node.js
       uses: actions/setup-node@v3
