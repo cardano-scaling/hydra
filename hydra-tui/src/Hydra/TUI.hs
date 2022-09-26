@@ -89,7 +89,7 @@ data State
       , peers :: [Host]
       , headState :: HeadState
       , dialogState :: DialogState
-      , feedbacks :: [UserFeedback]
+      , feedback :: [UserFeedback]
       , now :: UTCTime
       }
 
@@ -134,7 +134,7 @@ makeLensesFor
   , ("headState", "headStateL")
   , ("clientState", "clientStateL")
   , ("dialogState", "dialogStateL")
-  , ("feedbacks", "feedbacksL")
+  , ("feedback", "feedbackL")
   , ("now", "nowL")
   ]
   ''State
@@ -178,8 +178,8 @@ warn = report Error
 
 report :: Severity -> Text -> State -> State
 report typ msg st = case st of
-  Connected{me, nodeHost, peers, headState, dialogState, feedbacks, now} ->
-    Connected{me, nodeHost, peers, headState, dialogState, feedbacks = userFeedback : feedbacks, now}
+  Connected{me, nodeHost, peers, headState, dialogState, feedback, now} ->
+    Connected{me, nodeHost, peers, headState, dialogState, feedback = userFeedback : feedback, now}
    where
     userFeedback = UserFeedback typ msg now
   disconnected -> disconnected
@@ -187,17 +187,17 @@ report typ msg st = case st of
 --
 -- Update
 --
-clearFeedbacks :: UTCTime -> UTCTime -> [UserFeedback] -> [UserFeedback]
-clearFeedbacks startUpTime now feedbacks =
-  if now > startUpTime then nonExpiredFeedbacks else mempty
+clearFeedback :: UTCTime -> UTCTime -> [UserFeedback] -> [UserFeedback]
+clearFeedback startUpTime now feedback =
+  if now > startUpTime then nonExpiredFeedback else mempty
  where
-  expiredFeedback UserFeedback{time} = 3 < diffUTCTime now time
-  nonExpiredFeedbacks = filter (not . expiredFeedback) feedbacks
+  expired UserFeedback{time} = 3 < diffUTCTime now time
+  nonExpiredFeedback = filter (not . expired) feedback
 
 clearState :: UTCTime -> State -> State
 clearState startUpTime = \case
-  s@Connected{feedbacks, now} ->
-    s & feedbacksL .~ clearFeedbacks startUpTime now feedbacks
+  s@Connected{feedback, now} ->
+    s & feedbackL .~ clearFeedback startUpTime now feedback
   disconnected -> disconnected
 
 handleEvent ::
@@ -263,7 +263,7 @@ handleAppEvent s = \case
       , peers = []
       , headState = Idle
       , dialogState = NoDialog
-      , feedbacks = []
+      , feedback = []
       , now = s ^. nowL
       }
   ClientDisconnected ->
@@ -482,7 +482,7 @@ draw Client{sk} CardanoClient{networkId} s =
               , drawRightPanel
               ]
           , hBorder
-          , padLeftRight 1 drawFeedbacks
+          , padLeftRight 1 drawFeedback
           ]
  where
   vk = getVerificationKey sk
@@ -637,15 +637,15 @@ draw Client{sk} CardanoClient{networkId} s =
       , padLeftRight 1 $ vBox (str <$> cmds)
       ]
 
-  drawFeedbacks =
-    case s ^? feedbacksL of
-      Just feedbacks ->
+  drawFeedback =
+    case s ^? feedbackL of
+      Just feedback ->
         renderList
           ( const $ \UserFeedback{message, severity} ->
               withAttr (severityToAttr severity) $ str (toString message)
           )
           False
-          (list "feedbacks" feedbacks 1)
+          (list "feedback" feedback 1)
       _ ->
         -- Reserves the space and not have this area collapse
         str " "
