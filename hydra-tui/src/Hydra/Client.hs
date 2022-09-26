@@ -12,10 +12,10 @@ import Hydra.Cardano.Api (
   SigningKey,
  )
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.ClientInput (ClientInput)
+import Hydra.API.ClientInput (ClientInput)
 import Hydra.Ledger (IsTx)
 import Hydra.Network (Host (Host, hostname, port))
-import Hydra.ServerOutput (ServerOutput)
+import Hydra.API.ServerOutput (ServerOutput)
 import Hydra.TUI.Options (Options (..))
 import Network.WebSockets (ConnectionException, receiveData, runClient, sendBinaryData)
 

@@ -27,7 +27,7 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError,
  )
-import Hydra.ClientInput (ClientInput (..))
+import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.ContestationPeriod
 import Hydra.Crypto (HydraKey, Signature, SigningKey, aggregateInOrder, sign, verify)
 import Hydra.Ledger (
@@ -41,7 +41,7 @@ import Hydra.Ledger (
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
-import Hydra.ServerOutput (ServerOutput (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
 -- * Types
