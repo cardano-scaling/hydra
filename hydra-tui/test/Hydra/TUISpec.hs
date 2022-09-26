@@ -193,21 +193,27 @@ withTUITest region action = do
       , getPicture
       , shouldRender = \expected -> do
           bytes <- getPicture
-          shouldRenderIf unless expected bytes
+          let unescaped = findBytes bytes
+          unless (expected `BS.isInfixOf` unescaped) $
+            failure $
+              "Expected bytes not found in frame: "
+                <> decodeUtf8 expected
+                <> "\n"
+                <> decodeUtf8 bytes -- use colored frame (= with escape codes)
       , shouldNotRender = \expected -> do
           bytes <- getPicture
-          shouldRenderIf when expected bytes
+          let unescaped = findBytes bytes
+          when (expected `BS.isInfixOf` unescaped) $
+            failure $
+              "NOT Expected bytes found in frame: "
+                <> decodeUtf8 expected
+                <> "\n"
+                <> decodeUtf8 bytes -- use colored frame (= with escape codes)
       }
  where
-  shouldRenderIf condition expected bytes =
-    -- Split at '\ESC' (27) and drop until 'm' (109)
-    let unescaped = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
-     in condition (expected `BS.isInfixOf` unescaped) $
-          failure $
-            "Expected bytes not found in frame: "
-              <> decodeUtf8 expected
-              <> "\n"
-              <> decodeUtf8 bytes -- use colored frame (= with escape codes)
+  -- Split at '\ESC' (27) and drop until 'm' (109)
+  findBytes bytes = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
+
   buildVty q frameBuffer = do
     input <- inputForConfig defaultConfig
     -- NOTE(SN): This is used by outputPicture and we hack it such that it
