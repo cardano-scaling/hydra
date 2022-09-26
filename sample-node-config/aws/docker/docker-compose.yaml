@@ -1,0 +1,106 @@
+version: "3.9"
+
+services:
+  cardano-node:
+    image: inputoutput/cardano-node:latest
+    restart: always
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "eu-west-3"    # defined in variables.tf
+        awslogs-group: "instance_logs" # defined in variables.tf
+        awslogs-stream: "cardano_node" # defined in cloudwatch.tf
+        tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
+        mode: non-blocking
+    volumes:
+      - .:/data
+      - ./devnet:/devnet
+    working_dir: /data
+    environment:
+      - CARDANO_SOCKET_PATH=/devnet/node.socket      # used by cardano-node
+      - CARDANO_NODE_SOCKET_PATH=/devnet/node.socket # used by cardano-cli
+    command:
+      [ "run"
+      , "--config", "/devnet/cardano-node/config.json"
+      , "--topology", "/devnet/cardano-node/topology.json"
+      , "--database-path", "/devnet/db"
+      ]
+
+  hydra-node:
+    image: abailly/hydra-node:latest
+    restart: always
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "eu-west-3"    # defined in variables.tf
+        awslogs-group: "instance_logs" # defined in variables.tf
+        awslogs-stream: "hydra_node"   # defined in cloudwatch.tf
+        tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
+        mode: non-blocking
+    volumes:
+      - .:/data:ro
+      - ./devnet:/devnet
+    ports:
+      - "5001:5001"
+    command:
+      [ "--node-id", "1"
+      , "--api-host", "0.0.0.0"
+      , "--host", "0.0.0.0"
+      , "--monitoring-port", "6000"
+      , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
+      , "--hydra-signing-key", "/data/hydra-key.sk"
+      , "--cardano-signing-key", "/data/cardano-key.sk"
+      , "--ledger-genesis", "/data/genesis-shelley.json"
+      , "--ledger-protocol-parameters", "/data/protocol-parameters.json"
+      , "--network-id", "${NETWORK_MAGIC}"
+      , "--node-socket", "/devnet/node.socket"
+      # hardcoded peers
+      , "--peer", "35.233.17.169:5001"
+      , "--hydra-verification-key", "/data/arnaud-hydra.vk"
+      , "--cardano-verification-key", "/data/arnaud-cardano.vk"
+      ]
+    
+  hydra-tui:
+    image: ghcr.io/input-output-hk/hydra-tui:latest
+    profiles:
+      - tui
+    command:
+      [ "--connect", "hydra-node:4001"
+      , "--node-socket", "/devnet/node.socket"
+      , "--network-id", "${NETWORK_MAGIC}"
+      , "--cardano-signing-key", "/data/cardano-key.sk"
+      ]
+    volumes:
+      - .:/data:ro
+      - ./devnet:/devnet
+
+  hydraw:
+    image: ghcr.io/input-output-hk/hydraw:latest
+    profiles:
+      - hydraw
+    entrypoint:
+      [ "hydraw" ]
+    environment:
+      - HYDRA_SIGNING_KEY=/data/cardano-key.sk
+      - HYDRA_API_HOST=hydra-node:4001
+    volumes:
+      - .:/data:ro
+    ports:
+      - "80:1337"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  promtail:
+    image: grafana/promtail:1.4.1
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers
+      - ./promtail-config.yml:/etc/promtail/promtail-config.yml:ro
