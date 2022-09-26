@@ -1,5 +1,4 @@
 {-# LANGUAGE DerivingStrategies #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module Hydra.Cluster.Faucet where
 
