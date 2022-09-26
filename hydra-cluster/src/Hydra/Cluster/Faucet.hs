@@ -13,9 +13,12 @@ import CardanoClient (
   sign,
   waitForPayment,
  )
-import CardanoNode (RunningNode (..))
+import CardanoNode (NodeLog (MsgNodeCmdSpec), RunningNode (..))
+import Control.Exception (IOException)
+import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
+import Control.Tracer (Tracer, traceWith)
 import qualified Data.Map as Map
-import GHC.IO.Exception (IOErrorType (ResourceExhausted))
+import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import Hydra.Chain.CardanoClient (
   SubmitTransactionException,
   buildTransaction,
@@ -25,7 +28,7 @@ import Hydra.Chain.CardanoClient (
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
  )
-import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash, retry)
+import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
@@ -39,13 +42,6 @@ data FaucetException
 
 instance Exception FaucetException
 
-data NodeOrSubmitTransactionException
-  = IOErrorTypeWrapper IOErrorType
-  | SubmitTransactionExceptionWrapper SubmitTransactionException
-  deriving (Show)
-
-instance Exception NodeOrSubmitTransactionException
-
 -- | Create a specially marked "seed" UTXO containing requested 'Lovelace' by
 -- redeeming funds available to the well-known faucet.
 seedFromFaucet ::
@@ -56,12 +52,41 @@ seedFromFaucet ::
   Lovelace ->
   -- | Marked as fuel or normal output?
   Marked ->
+  Tracer IO NodeLog ->
   IO UTxO
-seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked = do
+seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retry isNodeOrSubmitTransactionException $ submitSeedTx faucetVk faucetSk
+  retryOnExceptions $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
+  delay = threadDelay 1
+
+  traceException :: Exception ex => ex -> IO ()
+  traceException ex =
+    traceWith tracer $
+      MsgNodeCmdSpec
+        ( "Expected exception raised from seedFromFaucet: " <> show ex
+        )
+
+  handleSubmitException :: IO () -> SubmitTransactionException -> IO ()
+  handleSubmitException action ex = traceException ex >> delay >> retryOnExceptions action
+
+  handleIOException :: IO () -> IOException -> IO ()
+  handleIOException action ex =
+    case ioe_type ex of
+      ResourceExhausted -> traceException ex >> delay >> retryOnExceptions action
+      _ -> throwIO ex
+
+  handleException :: IO () -> SomeException -> IO ()
+  handleException _ ex = throwIO ex
+
+  retryOnExceptions action =
+    action
+      `catches` [ Handler $ handleSubmitException action
+                , Handler $ handleIOException action
+                , Handler $ handleException action
+                ]
+
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findUTxO faucetVk
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
@@ -90,14 +115,6 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
     Fuel -> TxOutDatumHash markerDatumHash
     Normal -> TxOutDatumNone
 
-  isNodeOrSubmitTransactionException :: NodeOrSubmitTransactionException -> Bool
-  isNodeOrSubmitTransactionException = \case
-    SubmitTransactionExceptionWrapper _ -> True
-    IOErrorTypeWrapper ex ->
-      case ex of
-        ResourceExhausted -> True
-        _ -> False
-
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
   RunningNode ->
@@ -107,9 +124,10 @@ seedFromFaucet_ ::
   Lovelace ->
   -- | Marked as fuel or normal output?
   Marked ->
+  Tracer IO NodeLog ->
   IO ()
-seedFromFaucet_ node vk ll marked =
-  void $ seedFromFaucet node vk ll marked
+seedFromFaucet_ node vk ll marked tracer =
+  void $ seedFromFaucet node vk ll marked tracer
 
 -- | Publish current Hydra scripts as scripts outputs for later referencing them.
 --
