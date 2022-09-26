@@ -177,12 +177,10 @@ warn :: Text -> State -> State
 warn = report Error
 
 report :: Severity -> Text -> State -> State
-report typ msg st = case st of
-  Connected{me, nodeHost, peers, headState, dialogState, feedback, now} ->
-    Connected{me, nodeHost, peers, headState, dialogState, feedback = userFeedback : feedback, now}
-   where
-    userFeedback = UserFeedback typ msg now
-  disconnected -> disconnected
+report typ msg s =
+  s & feedbackL %~ (userFeedback :)
+ where
+  userFeedback = UserFeedback typ msg (s ^. nowL)
 
 --
 -- Update
