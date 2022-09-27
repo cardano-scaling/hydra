@@ -27,7 +27,7 @@ services:
       ]
 
   hydra-node:
-    image: abailly/hydra-node:latest
+    image: ghcr.io/input-output-hk/hydra-node:latest
     restart: always
     logging:
       driver: "awslogs"
@@ -55,9 +55,22 @@ services:
       , "--network-id", "${NETWORK_MAGIC}"
       , "--node-socket", "/devnet/node.socket"
       # hardcoded peers
+      ## Arnaud
       , "--peer", "35.233.17.169:5001"
-      , "--hydra-verification-key", "/data/arnaud-hydra.vk"
-      , "--cardano-verification-key", "/data/arnaud-cardano.vk"
+      , "--hydra-verification-key", "/data/arnaud.hydra.vk"
+      , "--cardano-verification-key", "/data/arnaud.cardano.vk"
+      ## Sebastian
+      , "--peer", "fk.ncoding.at:5001"
+      , "--hydra-verification-key", "/data/sebastian.hydra.vk"
+      , "--cardano-verification-key", "/data/sebastian.cardano.vk"
+      ## Pascal
+      , "--peer", "13.39.80.222:5001"
+      , "--hydra-verification-key", "/data/pascal.hydra.vk"
+      , "--cardano-verification-key", "/data/pascal.cardano.vk"
+      ## Sasha
+      , "--peer", "13.38.49.252:5001"
+      , "--hydra-verification-key", "/data/sasha.hydra.vk"
+      , "--cardano-verification-key", "/data/sasha.cardano.vk"
       ]
     
   hydra-tui:

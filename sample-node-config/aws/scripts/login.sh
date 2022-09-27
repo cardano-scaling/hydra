@@ -9,10 +9,11 @@ set -e
 CONNECT_AS=${1:-'ubuntu'}
 
 # TODO: the key name is hardcoded here, can we do better?
-KEY_PAIR_LOCATION=${2:-'./env/personal.pem'}
+INSTANCE_TAG=$(cat variables.tf | grep -o -P '(?<=tag).*' | grep -o -P '(?<=").*(?=")')
+KEY_PAIR_LOCATION=$(cat variables.tf | grep -o -P '(?<=private_key).*' | grep -o -P '(?<=").*(?=")')
 
 INSTANCE_DNS=$(aws --profile=$AWS_PROFILE ec2 describe-instances --output json \
-  --query 'Reservations[].Instances[].[Tags[?Key==`Hydraw`] | [0].Value, State.Name, PublicDnsName]' \
-  | jq -c '.[]' | grep running | jq '.[2]' | tr -d '"')
+  --query 'Reservations[].Instances[].[Tags[?Value==`'$INSTANCE_TAG'`] | [0].Value, State.Name, PublicDnsName]' \
+  | jq -c '.[]' | grep running | grep $INSTANCE_TAG | jq '.[2]' | tr -d '"')
 
 ssh -i $KEY_PAIR_LOCATION $CONNECT_AS@$INSTANCE_DNS

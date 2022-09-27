@@ -7,7 +7,7 @@ locals {
 
 # define our role
 resource "aws_iam_role" "this" {
-  name = "EC2-Role"
+  name = var.personal_config.iam_role
   path = "/"
 
   assume_role_policy = jsonencode(
@@ -48,7 +48,7 @@ resource "aws_iam_role_policy" "this" {
 
 # create EC2 profile
 resource "aws_iam_instance_profile" "this" {
-  name = "EC2-Profile"
+  name = var.personal_config.iam_instance_profile
   role = aws_iam_role.this.name
 }
 
