@@ -3,8 +3,8 @@ locals {
     "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM",
     "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
   ]
-  iam_role             = "EC2-Role-${var.key_name}"
-  iam_instance_profile = "EC2-Profile-${var.key_name}"
+  iam_role             = "ec2-role-${var.key_name}"
+  iam_instance_profile = "ec2-profile-${var.key_name}"
 }
 
 # define our role
@@ -30,7 +30,7 @@ resource "aws_iam_role" "this" {
 
 # create embedded policy for our role
 resource "aws_iam_role_policy" "this" {
-  name = "EC2-Inline-Policy"
+  name = "ec2-inline-policy"
   role = aws_iam_role.this.id
   policy = jsonencode(
     {

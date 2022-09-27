@@ -7,9 +7,9 @@ services:
     logging:
       driver: "awslogs"
       options:
-        awslogs-region: "eu-west-3"    # defined in variables.tf
-        awslogs-group: "instance_logs" # defined in variables.tf
-        awslogs-stream: "cardano_node" # defined in cloudwatch.tf
+        awslogs-region: "eu-west-3"           # defined in variables.tf
+        awslogs-group: "franco_instance_logs" # defined in cloudwatch.tf
+        awslogs-stream: "franco_cardano_node" # defined in cloudwatch.tf
         tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
         mode: non-blocking
     volumes:
@@ -32,9 +32,9 @@ services:
     logging:
       driver: "awslogs"
       options:
-        awslogs-region: "eu-west-3"    # defined in variables.tf
-        awslogs-group: "instance_logs" # defined in variables.tf
-        awslogs-stream: "hydra_node"   # defined in cloudwatch.tf
+        awslogs-region: "eu-west-3"           # defined in variables.tf
+        awslogs-group: "franco_instance_logs" # defined in cloudwatch.tf
+        awslogs-stream: "franco_hydra_node"   # defined in cloudwatch.tf
         tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
         mode: non-blocking
     volumes:

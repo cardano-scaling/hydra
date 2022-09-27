@@ -1,15 +1,15 @@
 variable "profile" {
-  description = "aws-profile configured by the user in ~/.aws/credentials"
+  description = "The AWS profile configured by the user in ~/.aws/credentials"
   type        = string
 }
 
 variable "key_name" {
-  description = "name of key-pair created by the user in aws ec2 > 'Network & Security'"
+  description = "The name of key-pair created by the user in aws ec2 > 'Network & Security'"
   type        = string
 }
 
 variable "gh_account" {
-  description = "user github account"
+  description = "The user github account"
   type        = string
 }
 
@@ -26,7 +26,7 @@ variable "region" {
 }
 
 variable "instance_type" {
-  description = "define your instance profile for your role"
+  description = "The instance profile for your role"
   type        = string
   default     = "t2.micro" // t2.micro is available in the AWS free tier
 }

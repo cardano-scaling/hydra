@@ -26,27 +26,27 @@ resource "aws_cloudwatch_log_group" "docker_log_group" {
   retention_in_days = var.log_retention_days
   # tags - (Optional): to distinguish between different log groups
   tags = {
-    Environment = "testnet"
-    Application = "Hydraw"
+    Environment = "${var.key_name}-testnet"
+    Application = "hydraw-${var.key_name}"
   }
 }
 
 resource "aws_cloudwatch_log_stream" "cloudwatch_agent" {
-  name           = "cloudwatch_agent"
-  log_group_name = aws_cloudwatch_log_group.docker_log_group.name
+  name           = "${var.key_name}_cloudwatch_agent"
+  log_group_name = local.log_group_name
 }
 
 resource "aws_cloudwatch_log_stream" "syslog" {
-  name           = "syslog"
-  log_group_name = aws_cloudwatch_log_group.docker_log_group.name
+  name           = "${var.key_name}_syslog"
+  log_group_name = local.log_group_name
 }
 
 resource "aws_cloudwatch_log_stream" "cardano_node" {
-  name           = "cardano_node"
-  log_group_name = aws_cloudwatch_log_group.docker_log_group.name
+  name           = "${var.key_name}_cardano_node"
+  log_group_name = local.log_group_name
 }
 
 resource "aws_cloudwatch_log_stream" "hydra_node" {
-  name           = "hydra_node"
-  log_group_name = aws_cloudwatch_log_group.docker_log_group.name
+  name           = "${var.key_name}_hydra_node"
+  log_group_name = local.log_group_name
 }
