@@ -310,13 +310,17 @@ spec = around showLogsOnFailure $ do
         failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
 
 waitUntilHasUTxO :: IO UTxO -> UTxO -> IO ()
-waitUntilHasUTxO getUTxO utxo = go
+waitUntilHasUTxO getUTxO utxo = go 10
  where
-  go = do
+  go :: Int -> IO ()
+  go 0 = do
+    knownUTxO <- getUTxO
+    failure $ "Timeout waiting for UTxO to appear in wallet.\n Expected " <> show utxo <> "\n Got " <> show knownUTxO
+  go n = do
     knownUTxO <- getUTxO
     unless (knownUTxO `contains` utxo) $ do
       threadDelay 1
-      go
+      go (n - 1)
 
 data TestClusterLog
   = FromNode NodeLog
