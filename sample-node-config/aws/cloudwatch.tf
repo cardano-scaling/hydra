@@ -33,20 +33,20 @@ resource "aws_cloudwatch_log_group" "docker_log_group" {
 
 resource "aws_cloudwatch_log_stream" "cloudwatch_agent" {
   name           = "${var.key_name}_cloudwatch_agent"
-  log_group_name = local.log_group_name
+  log_group_name = aws_cloudwatch_log_group.docker_log_group.name
 }
 
 resource "aws_cloudwatch_log_stream" "syslog" {
   name           = "${var.key_name}_syslog"
-  log_group_name = local.log_group_name
+  log_group_name = aws_cloudwatch_log_group.docker_log_group.name
 }
 
 resource "aws_cloudwatch_log_stream" "cardano_node" {
   name           = "${var.key_name}_cardano_node"
-  log_group_name = local.log_group_name
+  log_group_name = aws_cloudwatch_log_group.docker_log_group.name
 }
 
 resource "aws_cloudwatch_log_stream" "hydra_node" {
   name           = "${var.key_name}_hydra_node"
-  log_group_name = local.log_group_name
+  log_group_name = aws_cloudwatch_log_group.docker_log_group.name
 }

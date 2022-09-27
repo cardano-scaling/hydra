@@ -11,8 +11,17 @@ locals {
   tag         = "hydraw-${var.key_name}"
 }
 
-output "instance_ip" {
+output "instance_dns" {
   value = aws_instance.hydra.public_dns
+}
+
+resource "aws_eip" "hydra_lb" {
+  instance = aws_instance.hydra.id
+  vpc      = true
+}
+
+output "instance_ip" {
+  value = aws_eip.hydra_lb.public_ip
 }
 
 resource "aws_instance" "hydra" {
