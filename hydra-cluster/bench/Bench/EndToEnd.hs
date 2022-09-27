@@ -7,7 +7,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
+import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Control.Monad.Class.MonadSTM (
@@ -35,7 +35,7 @@ import Hydra.Cluster.Fixture (Actor (Faucet), defaultNetworkId)
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger (txId)
-import Hydra.Logging (withTracerOutputTo)
+import Hydra.Logging (Tracer (Tracer), withTracerOutputTo)
 import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (FromCardanoNode),
@@ -83,7 +83,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
           withOSStats workDir $
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
               putTextLn "Seeding network"
-              hydraScriptsTxId <- seedNetwork node dataset
+              hydraScriptsTxId <- seedNetwork node dataset (contramap FromCardanoNode tracer)
               withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId $ \(leader :| followers) -> do
                 let clients = leader : followers
                 waitForNodesConnected tracer clients
@@ -217,8 +217,8 @@ movingAverage confirmations =
 -- | Distribute 100 ADA fuel, starting funds from faucet for each client in the
 -- dataset, and also publish the hydra scripts. The 'TxId' of the publishing
 -- transaction is returned.
-seedNetwork :: RunningNode -> Dataset -> IO TxId
-seedNetwork node@RunningNode{nodeSocket} Dataset{fundingTransaction, clientDatasets} = do
+seedNetwork :: RunningNode -> Dataset -> Tracer IO NodeLog -> IO TxId
+seedNetwork node@RunningNode{nodeSocket} Dataset{fundingTransaction, clientDatasets} tracer = do
   fundClients
   forM_ clientDatasets fuelWith100Ada
   publishHydraScriptsAs node Faucet
@@ -229,7 +229,7 @@ seedNetwork node@RunningNode{nodeSocket} Dataset{fundingTransaction, clientDatas
 
   fuelWith100Ada ClientDataset{signingKey} = do
     let vk = getVerificationKey signingKey
-    seedFromFaucet node vk 100_000_000 Fuel
+    seedFromFaucet node vk 100_000_000 Fuel tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
 -- (asumed same sequence) of clients.
