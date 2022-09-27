@@ -27,6 +27,7 @@ import Graphics.Vty (
  )
 import Graphics.Vty.Image (DisplayRegion)
 import Hydra.Cluster.Faucet (
+  FaucetLog,
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
   seedFromFaucet_,
@@ -143,9 +144,9 @@ setupNodeAndTUI action =
         let nodeId = 1
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do
           -- Fuel to pay hydra transactions
-          seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
+          seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           -- Some ADA to commit
-          seedFromFaucet_ node aliceCardanoVk 42_000_000 Normal
+          seedFromFaucet_ node aliceCardanoVk 42_000_000 Normal (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
@@ -273,4 +274,5 @@ withTUITest region action = do
 data TUILog
   = FromCardano NodeLog
   | FromHydra EndToEndLog
+  | FromFaucet FaucetLog
   deriving (Show, Generic, ToJSON)

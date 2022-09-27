@@ -65,28 +65,23 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
   retryOnExceptions $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
-  delay = threadDelay 1
-
-  traceException :: IOException -> IO ()
-  traceException ex =
-    traceWith tracer $
-      TraceResourceExhaustedHandled
-        ( "Expected exception raised from seedFromFaucet: " <> show ex
-        )
-
-  handleSubmitException :: IO () -> SubmitTransactionException -> IO ()
-  handleSubmitException action _ = delay >> retryOnExceptions action
-
-  handleIOException :: IO () -> IOException -> IO ()
-  handleIOException action ex =
-    case ioe_type ex of
-      ResourceExhausted -> traceException ex >> delay >> retryOnExceptions action
-      _ -> throwIO ex
+  isResourceExhausted ex = case ioe_type ex of
+    ResourceExhausted -> True
+    _ -> False
 
   retryOnExceptions action =
     action
-      `catches` [ Handler $ handleSubmitException action
-                , Handler $ handleIOException action
+      `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do
+                    threadDelay 1
+                    retryOnExceptions action
+                , Handler $ \(ex :: IOException) -> do
+                    unless (isResourceExhausted ex) $
+                      throwIO ex
+                    traceWith tracer $
+                      TraceResourceExhaustedHandled $
+                        "Expected exception raised from seedFromFaucet: " <> show ex
+                    threadDelay 1
+                    retryOnExceptions action
                 ]
 
   submitSeedTx faucetVk faucetSk = do
