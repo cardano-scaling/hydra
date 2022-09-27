@@ -152,7 +152,7 @@ createHydraNode signingKey otherParties events = do
       { eq
       , hn = Network{broadcast = const $ pure ()}
       , hh
-      , oc = Chain{postTx = const $ pure (), getUTxO = pure mempty}
+      , oc = Chain{postTx = const $ pure ()}
       , server = Server{sendOutput = const $ pure ()}
       , env =
           Environment
@@ -183,4 +183,4 @@ messageRecorder = do
 
 throwExceptionOnPostTx :: IsTx tx => PostTxError tx -> HydraNode tx IO -> IO (HydraNode tx IO)
 throwExceptionOnPostTx exception node =
-  pure node{oc = Chain{postTx = const $ throwIO exception, getUTxO = pure mempty}}
+  pure node{oc = Chain{postTx = const $ throwIO exception}}
