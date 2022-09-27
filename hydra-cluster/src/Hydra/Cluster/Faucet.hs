@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
 
 module Hydra.Cluster.Faucet where
@@ -13,7 +14,7 @@ import CardanoClient (
   sign,
   waitForPayment,
  )
-import CardanoNode (NodeLog (MsgNodeCmdSpec), RunningNode (..))
+import CardanoNode (RunningNode (..))
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
@@ -42,6 +43,11 @@ data FaucetException
 
 instance Exception FaucetException
 
+newtype FaucetLog
+  = TraceResourceExhaustedHandled Text
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
 -- | Create a specially marked "seed" UTXO containing requested 'Lovelace' by
 -- redeeming funds available to the well-known faucet.
 seedFromFaucet ::
@@ -52,7 +58,7 @@ seedFromFaucet ::
   Lovelace ->
   -- | Marked as fuel or normal output?
   Marked ->
-  Tracer IO NodeLog ->
+  Tracer IO FaucetLog ->
   IO UTxO
 seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
@@ -61,10 +67,10 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
  where
   delay = threadDelay 1
 
-  traceException :: Exception ex => ex -> IO ()
+  traceException :: IOException -> IO ()
   traceException ex =
     traceWith tracer $
-      MsgNodeCmdSpec
+      TraceResourceExhaustedHandled
         ( "Expected exception raised from seedFromFaucet: " <> show ex
         )
 
@@ -120,7 +126,7 @@ seedFromFaucet_ ::
   Lovelace ->
   -- | Marked as fuel or normal output?
   Marked ->
-  Tracer IO NodeLog ->
+  Tracer IO FaucetLog ->
   IO ()
 seedFromFaucet_ node vk ll marked tracer =
   void $ seedFromFaucet node vk ll marked tracer
