@@ -9,16 +9,16 @@ variable "log_retention_days" {
 # store CloudAgent config inside SSM parameter
 resource "aws_ssm_parameter" "cw_agent" {
   description = "Cloudwatch agent config to configure custom log"
-  name        = var.personal_config.cw_agent
+  name        = var.cw_agent
   type        = "String"
   value = templatefile("cw_agent_config.tftpl", {
-    log_group_name = var.personal_config.log_group_name
+    log_group_name = var.log_group_name
   })
 }
 
 # create log group to be used by CloudAgent config
 resource "aws_cloudwatch_log_group" "docker_log_group" {
-  name              = var.personal_config.log_group_name
+  name              = var.log_group_name
   retention_in_days = var.log_retention_days
   # tags - (Optional): to distinguish between different log groups
   tags = {

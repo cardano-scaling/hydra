@@ -1,30 +1,62 @@
-variable "personal_config" {
-  type = object({
-    ami                  = string
-    profile              = string
-    region               = string
-    instance_type        = string
-    key_name             = string
-    private_key          = string
-    gh_account           = string
-    tag                  = string
-    log_group_name       = string
-    cw_agent             = string
-    iam_role             = string
-    iam_instance_profile = string
-  })
-  default = {
-    ami                  = "ami-04f862d90d8e4ebfc" // Ubuntu 20.10 https://cloud-images.ubuntu.com/locator/ec2/
-    profile              = "iog"                   // aws-profile configured
-    region               = "eu-west-3"             // Paris
-    instance_type        = "t2.micro"              // t2.micro is available in the AWS free tier
-    key_name             = "franco"                // name of key-pair created
-    private_key          = "./env/franco.pem"
-    gh_account           = "ffakenz"
-    tag                  = "hydraw-franco"
-    log_group_name       = "franco_instance_logs"
-    cw_agent             = "franco_cloudwatch-agent_config"
-    iam_role             = "EC2-Role-Franco"
-    iam_instance_profile = "EC2-Profile-Franco"
-  }
+variable "profile" {
+  description = "aws-profile configured by the user in ~/.aws/credentials"
+  type        = string
+}
+
+variable "key_name" {
+  description = "name of key-pair created by the user in aws ec2 > 'Network & Security'"
+  type        = string
+}
+
+variable "gh_account" {
+  description = "user github account"
+  type        = string
+}
+
+variable "cw_agent" {
+  description = "user github account"
+  type        = string
+}
+
+variable "private_key" {
+  description = "the path of your *.pem file relative to this"
+  type        = string
+}
+
+variable "tag" {
+  description = "marker to be used to identify your instance"
+  type        = string
+}
+
+variable "log_group_name" {
+  description = "log group name to be used in cloudwatch to store all your container logs"
+  type        = string
+}
+
+variable "iam_role" {
+  description = "define your instance role"
+  type        = string
+}
+
+variable "iam_instance_profile" {
+  description = "define your instance profile for your role"
+  type        = string
+}
+
+variable "ami" {
+  description = "Amazon Machine Images Id"
+  type        = string
+  default     = "ami-04f862d90d8e4ebfc" // Ubuntu 20.10 https://cloud-images.ubuntu.com/locator/ec2/
+}
+
+variable "region" {
+  description = "AWS region to be used to deploy all resources"
+  type        = string
+  default     = "eu-west-3" // Paris
+}
+
+variable "instance_type" {
+  description = "define your instance profile for your role"
+  type        = string
+  default     = "t2.micro" // t2.micro is available in the AWS free tier
 }
