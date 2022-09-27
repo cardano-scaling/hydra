@@ -28,7 +28,7 @@ import Brick.Forms (
  )
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
-import Brick.Widgets.List (Splittable (splitAt), list, renderList)
+import Brick.Widgets.List (Splittable (splitAt))
 import qualified Cardano.Api.UTxO as UTxO
 import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map hiding (splitAt)
@@ -62,7 +62,7 @@ import Hydra.Party (Party (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Options (Options (..))
-import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
+import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?), _head)
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 import qualified Prelude
@@ -185,27 +185,14 @@ report typ msg s =
 --
 -- Update
 --
-clearFeedback :: UTCTime -> UTCTime -> [UserFeedback] -> [UserFeedback]
-clearFeedback startUpTime now feedback =
-  if now > startUpTime then nonExpiredFeedback else mempty
- where
-  expired UserFeedback{time} = 3 < diffUTCTime now time
-  nonExpiredFeedback = filter (not . expired) feedback
-
-clearState :: UTCTime -> State -> State
-clearState startUpTime = \case
-  s@Connected{feedback, now} ->
-    s & feedbackL .~ clearFeedback startUpTime now feedback
-  disconnected -> disconnected
 
 handleEvent ::
   Client Tx IO ->
   CardanoClient ->
-  UTCTime ->
   State ->
   BrickEvent Name (HydraEvent Tx) ->
   EventM Name (Next State)
-handleEvent client@Client{sendInput} cardanoClient startUpTime (clearState startUpTime -> s) = \case
+handleEvent client@Client{sendInput} cardanoClient s = \case
   AppEvent e ->
     continue (handleAppEvent s e)
   VtyEvent e -> case s ^? dialogStateL of
@@ -636,15 +623,10 @@ draw Client{sk} CardanoClient{networkId} s =
       ]
 
   drawFeedback =
-    case s ^? feedbackL of
-      Just feedback ->
-        renderList
-          ( const $ \UserFeedback{message, severity} ->
-              withAttr (severityToAttr severity) $ str (toString message)
-          )
-          False
-          (list "feedback" feedback 1)
-      _ ->
+    case s ^? (feedbackL . _head) of
+      Just UserFeedback{message, severity, time} ->
+        withAttr (severityToAttr severity) $ str (toString (show time <> ":" <> message))
+      Nothing ->
         -- Reserves the space and not have this area collapse
         str " "
 
@@ -759,13 +741,13 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
     withClient @Tx options (writeBChan eventChan) $ \client -> do
       initialVty <- buildVty
       now <- getCurrentTime
-      customMain initialVty buildVty (Just eventChan) (app client now) (initialState now)
+      customMain initialVty buildVty (Just eventChan) (app client) (initialState now)
  where
-  app client startUpTime =
+  app client =
     App
       { appDraw = draw client cardanoClient
       , appChooseCursor = showFirstCursor
-      , appHandleEvent = handleEvent client cardanoClient startUpTime
+      , appHandleEvent = handleEvent client cardanoClient
       , appStartEvent = pure
       , appAttrMap = style
       }
