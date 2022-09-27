@@ -11,7 +11,7 @@ import CardanoClient (
   buildAddress,
   queryUTxO,
   sign,
-  waitForPayment,
+  waitForUTxO,
  )
 import CardanoNode (RunningNode (..))
 import qualified Data.Map as Map
@@ -51,8 +51,11 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retry isSubmitTransactionException $ submitSeedTx faucetVk faucetSk
-  waitForPayment networkId nodeSocket lovelace receivingAddress
+  retry isSubmitTransactionException $ do
+    txId <- submitSeedTx faucetVk faucetSk
+    let utxo = UTxO.singleton (TxIn txId (TxIx 0), toUTxOContext theOutput)
+    waitForUTxO networkId nodeSocket utxo
+    pure utxo
  where
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findUTxO faucetVk
@@ -61,6 +64,7 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
         submitTransaction networkId nodeSocket (sign faucetSk body)
+        pure $ getTxId body
 
   findUTxO faucetVk = do
     faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
