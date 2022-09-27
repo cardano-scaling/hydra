@@ -77,14 +77,10 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
       ResourceExhausted -> traceException ex >> delay >> retryOnExceptions action
       _ -> throwIO ex
 
-  handleException :: IO () -> SomeException -> IO ()
-  handleException _ ex = throwIO ex
-
   retryOnExceptions action =
     action
       `catches` [ Handler $ handleSubmitException action
                 , Handler $ handleIOException action
-                , Handler $ handleException action
                 ]
 
   submitSeedTx faucetVk faucetSk = do
