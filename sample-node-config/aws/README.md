@@ -31,8 +31,8 @@ for this example in `~/.aws/credentials` we have:
 ```
 .
 +-- credentials
-|   +-- arnaud-cardano.vk
-|   +-- arnaud-hydra.vk
+|   +-- arnaud.cardano.vk
+|   +-- arnaud.hydra.vk
 |   +-- cardano-key.sk
 |   +-- cardano-key.vk
 |   +-- cardano.addr
@@ -40,6 +40,7 @@ for this example in `~/.aws/credentials` we have:
 |   +-- hydra-key.vk
 +-- env
 |   +-- personal.pem
++-- terraform.tfvars
 ```
 
 ### Building ***credentials***
@@ -70,7 +71,7 @@ at the root of `hydra-poc` project, execute:
     > `cardano.addr` will be generated at the root of the `hydra-poc` project.
 
 5. move under `credentials` folder:
-    - the party members verification keys: `arnaud-cardano.vk` and `arnaud-hydra.vk`.
+    - the party members verification keys: `arnaud.cardano.vk` and `arnaud.hydra.vk`.
     - your personal hydra keys: `hydra-key.sk` and `hydra-key.vk`.
     - your personal cardano keys: `cardano-key.sk` and `cardano-key.vk`.
     - your personal cardano address: `cardano.addr`.
@@ -100,8 +101,14 @@ $ terraform init
 ```
 
 ### Alter terraform variables
+Alter the file `variables.tf` found in `sample-node-config/aws/` to reflect your ami, region and instance_type. Defaults are already provided.
 
-Alter the file variables.tf found in `sample-node-config/aws/` to reflect your key name, github account etc.
+Then, you must create yourself a file called `terraform.tfvars`, used to complete the above `variables.tf` definitions. For this example it could be defined as:
+```
+profile    = "iog"
+key_name   = "personal"
+gh_account = "personal_gh"
+```
 
 ### Deploying the VM
 Then create a deployment plan and apply it:
@@ -115,11 +122,12 @@ $ terraform plan -out vm.plan
 $ terraform apply vm.plan
 ... <takes some time - 3m aprox>
 
-Apply complete! Resources: 18 added, 0 changed, 0 destroyed.
+Apply complete! Resources: 19 added, 0 changed, 0 destroyed.
 
 Outputs:
 
-instance_ip = "ec2-13-38-62-128.eu-west-3.compute.amazonaws.com"
+instance_dns = "ec2-13-38-249-96.eu-west-3.compute.amazonaws.com"
+instance_ip = "13.37.88.84"
 ```
 
 > execute `terraform destroy` to take it down
@@ -186,11 +194,13 @@ Then the [docker-compose.yaml](./docker/docker-compose.yaml) should be edited to
 i.e.:
 ```
 "--peer", "35.233.17.169:5001"
-"--hydra-verification-key", "/data/arnaud-hydra.vk"
-"--cardano-verification-key", "/data/arnaud-cardano.vk"
+"--hydra-verification-key", "/data/arnaud.hydra.vk"
+"--cardano-verification-key", "/data/arnaud.cardano.vk"
 ```
 
 The [promtail-config.yml](./docker/promtail-config.yml) should be edited to point to the correct URL where logs should be shipped or the promtail container altogether removed.
+
+For `cardano-node` and `hydra-node` services, make sure the `logging` options for `awslogs` are propperly aligned with what is defined in your `cloudwatch.tf` and `variables.tf` files.
 
 ## Running the hydraw instance
 Next, to run hydraw, execute:
