@@ -625,7 +625,7 @@ draw Client{sk} CardanoClient{networkId} s =
   drawFeedback =
     case s ^? (feedbackL . _head) of
       Just UserFeedback{message, severity, time} ->
-        withAttr (severityToAttr severity) $ str (toString (show time <> ":" <> message))
+        withAttr (severityToAttr severity) $ str (toString (show time <> " | " <> message))
       Nothing ->
         -- Reserves the space and not have this area collapse
         str " "
