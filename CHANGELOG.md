@@ -32,7 +32,6 @@ changes.
 #### Fixed
 
 - Prevent transactions from being resubmitted for application over and over [#485](https://github.com/input-output-hk/hydra-poc/issues/485)
-- Fix flakiness in tests involving the Cardano chain [#492](https://github.com/input-output-hk/hydra-poc/issues/492)
 
 ## [0.7.0] - 2022-08-23
 
