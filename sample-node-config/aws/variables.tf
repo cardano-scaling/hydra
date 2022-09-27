@@ -13,36 +13,6 @@ variable "gh_account" {
   type        = string
 }
 
-variable "cw_agent" {
-  description = "user github account"
-  type        = string
-}
-
-variable "private_key" {
-  description = "the path of your *.pem file relative to this"
-  type        = string
-}
-
-variable "tag" {
-  description = "marker to be used to identify your instance"
-  type        = string
-}
-
-variable "log_group_name" {
-  description = "log group name to be used in cloudwatch to store all your container logs"
-  type        = string
-}
-
-variable "iam_role" {
-  description = "define your instance role"
-  type        = string
-}
-
-variable "iam_instance_profile" {
-  description = "define your instance profile for your role"
-  type        = string
-}
-
 variable "ami" {
   description = "Amazon Machine Images Id"
   type        = string

@@ -3,11 +3,13 @@ locals {
     "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM",
     "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
   ]
+  iam_role             = "EC2-Role-${var.key_name}"
+  iam_instance_profile = "EC2-Profile-${var.key_name}"
 }
 
 # define our role
 resource "aws_iam_role" "this" {
-  name = var.iam_role
+  name = local.iam_role
   path = "/"
 
   assume_role_policy = jsonencode(
@@ -48,7 +50,7 @@ resource "aws_iam_role_policy" "this" {
 
 # create EC2 profile
 resource "aws_iam_instance_profile" "this" {
-  name = var.iam_instance_profile
+  name = local.iam_instance_profile
   role = aws_iam_role.this.name
 }
 

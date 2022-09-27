@@ -7,6 +7,8 @@ locals {
   userdata = templatefile("scripts/user_data.sh", {
     ssm_cloudwatch_config = aws_ssm_parameter.cw_agent.name
   })
+  private_key = "./env/${var.key_name}.pem"
+  tag         = "hydraw-${var.key_name}"
 }
 
 output "instance_ip" {
@@ -28,7 +30,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file(var.private_key)
+      private_key = file(local.private_key)
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -42,7 +44,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file(var.private_key)
+      private_key = file(local.private_key)
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -56,7 +58,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file(var.private_key)
+      private_key = file(local.private_key)
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -70,7 +72,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file(var.private_key)
+      private_key = file(local.private_key)
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -84,7 +86,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file(var.private_key)
+      private_key = file(local.private_key)
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -99,7 +101,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file(var.private_key)
+      private_key = file(local.private_key)
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -114,7 +116,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file(var.private_key)
+      private_key = file(local.private_key)
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -129,7 +131,7 @@ resource "aws_instance" "hydra" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file(var.private_key)
+      private_key = file(local.private_key)
       timeout     = "2m"
       agent       = false
       host        = self.public_ip
@@ -140,6 +142,6 @@ resource "aws_instance" "hydra" {
   user_data            = local.userdata
 
   tags = {
-    Name = var.tag
+    Name = local.tag
   }
 }
