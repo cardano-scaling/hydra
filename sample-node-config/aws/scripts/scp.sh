@@ -10,8 +10,10 @@ set -e
 
 FILE_PATH=$1
 CONNECT_AS=${2:-'ubuntu'}
-INSTANCE_TAG=$(cat variables.tf | grep -o -P '(?<=tag).*' | grep -o -P '(?<=").*(?=")')
-KEY_PAIR_LOCATION=$(cat variables.tf | grep -o -P '(?<=private_key).*' | grep -o -P '(?<=").*(?=")')
+
+KEY_NAME=$(cat terraform.tfvars | grep -o -P '(?<=key_name).*' | grep -o -P '(?<=").*(?=")')
+INSTANCE_TAG="hydraw-$KEY_NAME"
+KEY_PAIR_LOCATION="./env/$KEY_NAME.pem"
 
 INSTANCE_DNS=$(aws --profile=$AWS_PROFILE ec2 describe-instances --output json \
   --query 'Reservations[].Instances[].[Tags[?Value==`'$INSTANCE_TAG'`] | [0].Value, State.Name, PublicDnsName]' \
