@@ -6,7 +6,7 @@
 
 module Hydra.TUI where
 
-import Hydra.Prelude hiding (State, padLeft, splitAt)
+import Hydra.Prelude hiding (State, padLeft)
 
 import Brick
 import Hydra.Cardano.Api
@@ -28,11 +28,10 @@ import Brick.Forms (
  )
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
-import Brick.Widgets.List (Splittable (splitAt))
 import qualified Cardano.Api.UTxO as UTxO
 import Data.List (nub, (\\))
-import qualified Data.Map.Strict as Map hiding (splitAt)
-import qualified Data.Text as Text hiding (splitAt)
+import qualified Data.Map.Strict as Map
+import qualified Data.Text as Text
 import Data.Time (defaultTimeLocale, formatTime)
 import Data.Time.Format (FormatTime)
 import Data.Version (showVersion)
@@ -70,9 +69,6 @@ import qualified Prelude
 -- TODO(SN): hardcoded contestation period used by the tui
 tuiContestationPeriod :: ContestationPeriod
 tuiContestationPeriod = UnsafeContestationPeriod 10
-
-instance Splittable [] where
-  splitAt = Prelude.splitAt
 
 --
 -- Model
