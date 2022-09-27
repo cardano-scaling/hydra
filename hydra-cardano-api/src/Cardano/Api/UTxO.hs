@@ -38,10 +38,6 @@ newtype UTxO' out = UTxO
 instance Traversable UTxO' where
   traverse fn (UTxO m) = UTxO <$> traverse fn m
 
--- | Checks some `UTxO` is contained in some other `UTxO`.
-contains :: Eq out => UTxO' out -> UTxO' out -> Bool
-contains (UTxO m) (UTxO m') = m' `Map.isSubmapOf` m
-
 -- | Create a 'UTxO' from a list of 'TxIn' and 'out' pairs.
 fromPairs :: [(TxIn, out)] -> UTxO' out
 fromPairs = UTxO . Map.fromList

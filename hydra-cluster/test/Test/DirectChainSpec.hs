@@ -7,7 +7,6 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO (contains)
 import CardanoClient (
   QueryPoint (QueryTip),
   buildAddress,
@@ -21,7 +20,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
   ChainPoint (..),
-  UTxO,
   lovelaceToValue,
   txOutValue,
   unsafeDeserialiseFromRawBytesBase16,
@@ -104,7 +102,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId (putMVar alicesCallback) $ \Chain{postTx, getUTxO} -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys Nothing hydraScriptsTxId (putMVar bobsCallback) $ \_ -> do
               postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
@@ -112,7 +110,6 @@ spec = around showLogsOnFailure $ do
 
               let aliceCommitment = 66_000_000
               aliceUTxO <- seedFromFaucet node aliceCardanoVk aliceCommitment Normal
-              waitUntilHasUTxO getUTxO aliceUTxO
               postTx $ CommitTx alice aliceUTxO
 
               alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
@@ -159,7 +156,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId (putMVar alicesCallback) $ \Chain{postTx, getUTxO} -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId (putMVar alicesCallback) $ \Chain{postTx} -> do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             alicesCallback `observesInTime` OnInitTx cperiod [alice]
 
@@ -175,7 +172,6 @@ spec = around showLogsOnFailure $ do
                 _ -> False
 
             aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal
-            waitUntilHasUTxO getUTxO aliceUTxO
             postTx $ CommitTx alice aliceUTxO
             alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
 
@@ -204,12 +200,11 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId (putMVar alicesCallback) $ \Chain{postTx, getUTxO} -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId (putMVar alicesCallback) $ \Chain{postTx} -> do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             alicesCallback `observesInTime` OnInitTx cperiod [alice]
 
             someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal
-            waitUntilHasUTxO getUTxO someUTxO
             postTx $ CommitTx alice someUTxO
             alicesCallback `observesInTime` OnCommitTx alice someUTxO
 
@@ -308,19 +303,6 @@ spec = around showLogsOnFailure $ do
                in unsafeDeserialiseFromRawBytesBase16
                     (removeTrailingNewline (encodeUtf8 hydraScriptsTxIdStr))
         failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
-
-waitUntilHasUTxO :: IO UTxO -> UTxO -> IO ()
-waitUntilHasUTxO getUTxO utxo = go 10
- where
-  go :: Int -> IO ()
-  go 0 = do
-    knownUTxO <- getUTxO
-    failure $ "Timeout waiting for UTxO to appear in wallet.\n Expected " <> show utxo <> "\n Got " <> show knownUTxO
-  go n = do
-    knownUTxO <- getUTxO
-    unless (knownUTxO `contains` utxo) $ do
-      threadDelay 1
-      go (n - 1)
 
 data TestClusterLog
   = FromNode NodeLog
