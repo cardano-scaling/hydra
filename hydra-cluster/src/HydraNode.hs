@@ -35,6 +35,7 @@ import Data.Aeson.Types (Pair)
 import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
+import Hydra.Cluster.Faucet (FaucetLog)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Crypto (HydraKey)
 import Hydra.Ledger.Cardano ()
@@ -185,6 +186,7 @@ data EndToEndLog
   | ReceivedMessage Int Aeson.Value
   | EndWaiting Int
   | FromCardanoNode NodeLog
+  | FromFaucet FaucetLog
   | StartingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
   | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, fuelUTxO :: UTxO}
   | RemainingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}

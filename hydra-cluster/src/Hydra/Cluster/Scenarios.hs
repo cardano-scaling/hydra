@@ -78,5 +78,5 @@ refuelIfNeeded tracer node actor amount = do
   traceWith tracer $ StartingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
   let fuelBalance = selectLovelace $ balance @Tx fuelUTxO
   when (fuelBalance < amount) $ do
-    utxo <- seedFromFaucet node actorVk amount Fuel (contramap FromCardanoNode tracer)
+    utxo <- seedFromFaucet node actorVk amount Fuel (contramap FromFaucet tracer)
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, fuelUTxO = utxo}
