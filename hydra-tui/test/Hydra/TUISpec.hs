@@ -43,7 +43,7 @@ import Hydra.Network (Host (..))
 import Hydra.Options (ChainConfig (..))
 import Hydra.TUI (renderTime, runWithVty, tuiContestationPeriod)
 import Hydra.TUI.Options (Options (..))
-import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
+import HydraNode (EndToEndLog (FromFaucet), HydraClient (HydraClient, hydraNodeId), withHydraNode)
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
 spec :: Spec
@@ -143,9 +143,9 @@ setupNodeAndTUI action =
         let nodeId = 1
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do
           -- Fuel to pay hydra transactions
-          seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel
+          seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           -- Some ADA to commit
-          seedFromFaucet_ node aliceCardanoVk 42_000_000 Normal
+          seedFromFaucet_ node aliceCardanoVk 42_000_000 Normal (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
