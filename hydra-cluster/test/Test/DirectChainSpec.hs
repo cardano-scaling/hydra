@@ -111,7 +111,6 @@ spec = around showLogsOnFailure $ do
 
               let aliceCommitment = 66_000_000
               aliceUTxO <- seedFromFaucet node aliceCardanoVk aliceCommitment Normal (contramap FromFaucet tracer)
-              waitUntilHasUTxO getUTxO aliceUTxO
               postTx $ CommitTx alice aliceUTxO
 
               alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
@@ -174,7 +173,6 @@ spec = around showLogsOnFailure $ do
                 _ -> False
 
             aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
-            waitUntilHasUTxO getUTxO aliceUTxO
             postTx $ CommitTx alice aliceUTxO
             alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
 
@@ -208,7 +206,6 @@ spec = around showLogsOnFailure $ do
             alicesCallback `observesInTime` OnInitTx cperiod [alice]
 
             someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
-            waitUntilHasUTxO getUTxO someUTxO
             postTx $ CommitTx alice someUTxO
             alicesCallback `observesInTime` OnCommitTx alice someUTxO
 
