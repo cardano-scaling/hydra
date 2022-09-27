@@ -69,7 +69,7 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
         )
 
   handleSubmitException :: IO () -> SubmitTransactionException -> IO ()
-  handleSubmitException action ex = traceException ex >> delay >> retryOnExceptions action
+  handleSubmitException action _ = delay >> retryOnExceptions action
 
   handleIOException :: IO () -> IOException -> IO ()
   handleIOException action ex =
