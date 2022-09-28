@@ -582,7 +582,10 @@ draw Client{sk} CardanoClient{networkId} s =
     Disconnected{} -> emptyWidget
     Connected{headState} ->
       vBox
-        [ padLeftRight 1 $ txt "Head status: " <+> withAttr infoA (txt $ Prelude.head (words $ show headState))
+        [ padLeftRight 1 $
+            txt "Head status: "
+              <+> withAttr infoA (txt $ Prelude.head (words $ show headState))
+              <+> txt " (Transition pending)"
         , hBorder
         ]
 

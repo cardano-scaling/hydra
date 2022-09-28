@@ -125,11 +125,13 @@ spec = do
         \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
           threadDelay 1
           shouldRender "Idle"
+          shouldNotRender "pending"
           sendInputEvent $ EvKey (KChar 'i') []
-          shouldRender "Pending"
+          shouldRender "pending"
           sendInputEvent $ EvKey (KChar 'i') []
           shouldNotRender "PostTxOnChainFailed"
-       
+          shouldRender "Transition already pending"
+
   context "text rendering tests" $ do
     it "should format time with whole values for every unit, not total values" $ do
       let seconds = 1
