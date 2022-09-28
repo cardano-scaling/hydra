@@ -148,7 +148,7 @@ prop_generateTraces actions =
 
 prop_checkModel :: Actions WorldState -> Property
 prop_checkModel actions =
-  within 2000000 $
+  within 20000000 $
     property $
       runIOSimProp $ do
         (WorldState{hydraParties, hydraState}, _symEnv) <- runActions runIt actions
