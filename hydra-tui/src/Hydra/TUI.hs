@@ -204,6 +204,7 @@ handleEvent client@Client{sendInput} cardanoClient s = \case
             | c `elem` ['q', 'Q'] ->
               halt s
             | c `elem` ['i', 'I'] ->
+              -- TODO: don't do this when something pending already
               liftIO (sendInput $ Init tuiContestationPeriod) >> continue s
             | c `elem` ['a', 'A'] ->
               liftIO (sendInput Abort) >> continue s
