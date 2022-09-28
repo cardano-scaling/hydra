@@ -17,7 +17,7 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
   blockSlotNo,
-  toLedgerTx,
+  toLedgerTx 
  )
 import Hydra.Chain (
   ChainEvent (..),
@@ -33,7 +33,9 @@ import Hydra.Chain.Direct.Context (
 import Hydra.Chain.Direct.Handlers (
   ChainStateAt (..),
   ChainSyncHandler (..),
+  GetTimeHandle,
   RecordedAt (..),
+  TimeConversionException (..),
   chainSyncHandler,
  )
 import Hydra.Chain.Direct.State (
@@ -47,7 +49,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), mkTimeHandle, genTimeParams)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
 import Ouroboros.Consensus.Block (Point, blockPoint)
@@ -70,33 +72,61 @@ import Test.QuickCheck.Monadic (
   assert,
   monadicIO,
   monitor,
-  pick,
   run,
   stop,
  )
 import qualified Prelude
 
+genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
+genTimeHandleWithSlotInsideHorizon = do
+  (systemStart, eraHistory, horizonSlot, currentTime) <- genTimeParams
+  let timeHandle = mkTimeHandle currentTime systemStart eraHistory
+  pure (timeHandle, horizonSlot - 1)
+
+genTimeHandleWithSlotPastHorizon :: Gen (TimeHandle, SlotNo)
+genTimeHandleWithSlotPastHorizon = do
+  (systemStart, eraHistory, horizonSlot, currentTime) <- genTimeParams
+  let timeHandle = mkTimeHandle currentTime systemStart eraHistory
+  pure (timeHandle, horizonSlot + 1)
+
 spec :: Spec
 spec = do
   prop "roll forward results in Tick events" $
     monadicIO $ do
-      chainState <- pickBlind genChainState
-      timeHandle <- pickBlind arbitrary
-      (handler, getEvents) <- run $ recordEventsHandler chainState timeHandle
-
-      -- Pick a random slot and expect the 'Tick' event to correspond
-      slot <- pick arbitrary
-      expectedUTCTime <-
-        run $
-          either (failure . ("Time conversion failed: " <>) . toString) pure $
-            slotToUTCTime timeHandle slot
-
+      (timeHandle, slot) <- pickBlind genTimeHandleWithSlotInsideHorizon
       blk <- pickBlind $ genBlockAt slot []
+
+      chainState <- pickBlind genChainState
+      (handler, getEvents) <- run $ recordEventsHandler chainState (pure timeHandle)
+
       run $ onRollForward handler blk
 
       events <- run getEvents
       monitor $ counterexample ("events: " <> show events)
+
+      expectedUTCTime <-
+        run $
+          either (failure . ("Time conversion failed: " <>) . toString) pure $
+            slotToUTCTime timeHandle slot
       void . stop $ events === [Tick expectedUTCTime]
+
+  prop "roll forward fails with outdated TimeHandle" $
+    monadicIO $ do
+      (timeHandle, slot) <- pickBlind genTimeHandleWithSlotPastHorizon
+      blk <- pickBlind $ genBlockAt slot []
+
+      chainState <- pickBlind genChainState
+      headState <- run $ newTVarIO $ stAtGenesis chainState
+      let handler =
+            chainSyncHandler
+              nullTracer
+              (\e -> failure $ "Unexpected callback: " <> show e)
+              headState
+              (pure timeHandle)
+
+      run $
+        onRollForward handler blk
+          `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
 
   prop "yields observed transactions rolling forward" $ do
     forAll genChainStateWithTx $ \(st, tx, _) -> do
@@ -110,7 +140,7 @@ spec = do
       forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
         headState <- run $ newTVarIO $ stAtGenesis st
         timeHandle <- pickBlind arbitrary
-        let handler = chainSyncHandler nullTracer callback headState timeHandle
+        let handler = chainSyncHandler nullTracer callback headState (pure timeHandle)
         run $ onRollForward handler blk
 
   prop "can replay chain on (benign) rollback" $
@@ -125,7 +155,7 @@ spec = do
           monitor $ label ("Rollback depth: " <> show rollbackDepth)
           headState <- run $ newTVarIO st
           timeHandle <- pickBlind arbitrary
-          let handler = chainSyncHandler nullTracer callback headState timeHandle
+          let handler = chainSyncHandler nullTracer callback headState (pure timeHandle)
 
           -- 1/ Simulate some chain following
           st' <- run $ mapM_ (onRollForward handler) blks *> readTVarIO headState
@@ -140,11 +170,11 @@ spec = do
           st'' <- run $ mapM_ (onRollForward handler) toReplay *> readTVarIO headState
           assert (st' == st'')
 
-recordEventsHandler :: ChainState -> TimeHandle -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
-recordEventsHandler st th = do
+recordEventsHandler :: ChainState -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
+recordEventsHandler st getTimeHandle = do
   headState <- newTVarIO $ stAtGenesis st
   eventsVar <- newTVarIO []
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) headState th
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) headState getTimeHandle
   pure (handler, getEvents eventsVar)
  where
   getEvents = atomically . readTVar
