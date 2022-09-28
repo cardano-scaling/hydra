@@ -13,7 +13,6 @@ import Test.QuickCheck (counterexample, forAllBlind, property, (===))
 spec :: Spec
 spec = do
   prop "can roundtrip currentPointInTime" $
-    -- TODO: convert to property test
     forAllBlind arbitrary $ \TimeHandle{currentPointInTime, slotToUTCTime, slotFromUTCTime} ->
       let onLeft err = property False & counterexample ("Conversion failed: " <> toString err)
        in either onLeft id $ do
