@@ -131,6 +131,7 @@ spec = do
           -- the devnet block production
           threadDelay 0.01
           shouldRender "pending"
+          shouldNotRender "Transition already pending"
           -- we expect the application to prevent this and also to inform us about it
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 0.01
