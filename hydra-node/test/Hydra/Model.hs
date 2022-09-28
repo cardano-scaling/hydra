@@ -116,19 +116,20 @@ data OffChainState = OffChainState
   deriving stock (Eq, Show)
 
 -- | State maintained by the model.
--- This state is parameterised by the underlying `Monad m` in which `Action`s will
--- be `perform`ed. See its `StateModel` instance for a detailed explanation.
 data WorldState = WorldState
-  { -- |List of parties identified by both signing keys required to run protocol.
+  { -- | List of parties identified by both signing keys required to run protocol.
     -- This list must not contain any duplicated key.
     hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
-  , hydraState :: GlobalState
+  , -- | Expected consensus state
+    -- All nodes should be in the same state.
+    hydraState :: GlobalState
   }
   deriving (Eq, Show)
 
 -- | Concrete state needed to run actions against the implementation.
 data Nodes m = Nodes
-  { nodes :: Map.Map Party (TestHydraNode Tx m)
+  { -- | Map from party identifiers to a /handle/ for interacting with a node.
+    nodes :: Map.Map Party (TestHydraNode Tx m)
   , -- | Logger used by each node.
     -- The reason we put this here is because the concrete value needs to be
     -- instantiated upon the test run initialisation, outiside of the model.
