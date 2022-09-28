@@ -57,7 +57,18 @@ spec = do
           -- Using hex representation of aliceSk's HydraVerificationKey
           shouldRender "Party d5bf4a3fcce71"
           sendInputEvent $ EvKey (KChar 'q') []
-
+      it "report feedback for ever" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "connected"
+          shouldRender "Idle"
+          sendInputEvent $ EvKey (KChar 'f') []
+          threadDelay 1
+          shouldRender "Invalid command: Fanout"
+          threadDelay 1
+          shouldRender "Invalid command: Fanout"
+          threadDelay 1
+          shouldRender "Invalid command: Fanout"
       it "supports the init & abort Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
@@ -165,6 +176,7 @@ data TUITest = TUITest
     -- data is used in this assertion. That means, you do not need to include
     -- color switching escape codes etc. in your 'expected' bytes.
     shouldRender :: HasCallStack => ByteString -> Expectation
+  , shouldNotRender :: HasCallStack => ByteString -> Expectation
   }
 
 withTUITest :: DisplayRegion -> (TUITest -> Expectation) -> Expectation
@@ -179,16 +191,27 @@ withTUITest region action = do
       , getPicture
       , shouldRender = \expected -> do
           bytes <- getPicture
-          -- Split at '\ESC' (27) and drop until 'm' (109)
-          let unescaped = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
+          let unescaped = findBytes bytes
           unless (expected `BS.isInfixOf` unescaped) $
             failure $
               "Expected bytes not found in frame: "
                 <> decodeUtf8 expected
                 <> "\n"
                 <> decodeUtf8 bytes -- use colored frame (= with escape codes)
+      , shouldNotRender = \expected -> do
+          bytes <- getPicture
+          let unescaped = findBytes bytes
+          when (expected `BS.isInfixOf` unescaped) $
+            failure $
+              "NOT Expected bytes found in frame: "
+                <> decodeUtf8 expected
+                <> "\n"
+                <> decodeUtf8 bytes -- use colored frame (= with escape codes)
       }
  where
+  -- Split at '\ESC' (27) and drop until 'm' (109)
+  findBytes bytes = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
+
   buildVty q frameBuffer = do
     input <- inputForConfig defaultConfig
     -- NOTE(SN): This is used by outputPicture and we hack it such that it

@@ -61,7 +61,7 @@ import Hydra.Network (Host (..))
 import Hydra.Party (Party (..))
 import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Options (Options (..))
-import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
+import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?), _head)
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 import qualified Prelude
@@ -85,13 +85,14 @@ data State
       , peers :: [Host]
       , headState :: HeadState
       , dialogState :: DialogState
-      , feedback :: Maybe UserFeedback
+      , feedback :: [UserFeedback]
       , now :: UTCTime
       }
 
 data UserFeedback = UserFeedback
   { severity :: Severity
   , message :: Text
+  , time :: UTCTime
   }
   deriving (Eq, Show, Generic)
 
@@ -172,14 +173,14 @@ warn :: Text -> State -> State
 warn = report Error
 
 report :: Severity -> Text -> State -> State
-report typ msg = feedbackL ?~ UserFeedback typ msg
+report typ msg s =
+  s & feedbackL %~ (userFeedback :)
+ where
+  userFeedback = UserFeedback typ msg (s ^. nowL)
 
 --
 -- Update
 --
-
-clearFeedback :: State -> State
-clearFeedback = feedbackL .~ empty
 
 handleEvent ::
   Client Tx IO ->
@@ -187,7 +188,7 @@ handleEvent ::
   State ->
   BrickEvent Name (HydraEvent Tx) ->
   EventM Name (Next State)
-handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
+handleEvent client@Client{sendInput} cardanoClient s = \case
   AppEvent e ->
     continue (handleAppEvent s e)
   VtyEvent e -> case s ^? dialogStateL of
@@ -243,7 +244,7 @@ handleAppEvent s = \case
       , peers = []
       , headState = Idle
       , dialogState = NoDialog
-      , feedback = Nothing
+      , feedback = []
       , now = s ^. nowL
       }
   ClientDisconnected ->
@@ -462,7 +463,7 @@ draw Client{sk} CardanoClient{networkId} s =
               , drawRightPanel
               ]
           , hBorder
-          , padLeftRight 1 drawErrorMessage
+          , padLeftRight 1 drawFeedback
           ]
  where
   vk = getVerificationKey sk
@@ -617,11 +618,11 @@ draw Client{sk} CardanoClient{networkId} s =
       , padLeftRight 1 $ vBox (str <$> cmds)
       ]
 
-  drawErrorMessage =
-    case s ^? feedbackL of
-      Just (Just UserFeedback{message, severity}) ->
-        withAttr (severityToAttr severity) $ str (toString message)
-      _ ->
+  drawFeedback =
+    case s ^? (feedbackL . _head) of
+      Just UserFeedback{message, severity, time} ->
+        withAttr (severityToAttr severity) $ str (toString (show time <> " | " <> message))
+      Nothing ->
         -- Reserves the space and not have this area collapse
         str " "
 
