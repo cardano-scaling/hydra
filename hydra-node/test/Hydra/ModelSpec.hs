@@ -85,7 +85,15 @@ import Hydra.Model (
 import qualified Hydra.Model as Model
 import Hydra.Party (Party (..), deriveParty)
 import Test.QuickCheck (Property, Testable, counterexample, forAll, property, withMaxSuccess, within)
-import Test.QuickCheck.DynamicLogic (DL, action, anyActions, anyActions_, forAllDL_, forAllQ, getModelStateDL, withGenQ)
+import Test.QuickCheck.DynamicLogic (
+  DL,
+  action,
+  anyActions_,
+  forAllDL_,
+  forAllQ,
+  getModelStateDL,
+  withGenQ,
+ )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, RunModel, runActions, stateAfter, pattern Actions)
@@ -120,14 +128,14 @@ conflictFreeLiveness :: DL WorldState ()
 conflictFreeLiveness = do
   anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraState = Open{}} -> trace ("generating payment in state " <> show st) $ do
+    st@WorldState{hydraState = Open{}} -> do
       (party, payment) <- forAllQ (nonConflictingTx st)
       action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx payment)
     _ -> pass
  where
   nonConflictingTx st = withGenQ (genPayment st) (const [])
-  eventually a = anyActions 10 >> action (Wait 10) >> action a
+  eventually a = action (Wait 10) >> action a
 
 prop_generateTraces :: Actions WorldState -> Property
 prop_generateTraces actions =
