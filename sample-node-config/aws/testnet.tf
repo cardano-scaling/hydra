@@ -12,25 +12,30 @@ locals {
 }
 
 output "instance_dns" {
-  value = aws_instance.hydra.public_dns
+  value = aws_instance.this.public_dns
 }
 
-resource "aws_eip" "hydra_lb" {
-  instance = aws_instance.hydra.id
+resource "aws_eip" "this" {
+  instance = aws_instance.this.id
   vpc      = true
 }
 
 output "instance_ip" {
-  value = aws_eip.hydra_lb.public_ip
+  value = aws_eip.this.public_ip
 }
 
-resource "aws_instance" "hydra" {
+resource "aws_instance" "this" {
   ami                         = var.ami
   instance_type               = var.instance_type
   key_name                    = var.key_name
-  security_groups             = ["${aws_security_group.hydra-sg.id}"]
-  subnet_id                   = aws_subnet.hydra-subnet.id
+  security_groups             = ["${aws_security_group.this.id}"]
+  subnet_id                   = aws_subnet.this.id
   associate_public_ip_address = true
+
+  ebs_block_device {
+    device_name = "/dev/sda1"
+    volume_size = 20
+  }
 
   provisioner "file" {
     source      = "scripts/"
