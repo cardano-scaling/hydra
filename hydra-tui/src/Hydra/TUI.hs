@@ -283,8 +283,9 @@ handleAppEvent s = \case
   Update Committed{party, utxo} ->
     s & headStateL %~ partyCommitted [party] utxo
       & info (show party <> " committed " <> renderValue (balance @Tx utxo))
-      -- TODO: only unblock when we committed
-      & pendingL .~ False
+      & if Just (Just party) == s ^? meL
+        then pendingL .~ False
+        else id
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & info "Head is now open!"
