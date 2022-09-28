@@ -32,7 +32,6 @@ import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Arrow (left)
-import Control.Exception (throw)
 import Control.Monad.Class.MonadSTM (
   check,
   newTVarIO,
@@ -197,6 +196,7 @@ data ErrCoverFee
   | ErrUnknownInput {input :: TxIn}
   | ErrNoPaymentUTxOFound
   | ErrScriptExecutionFailed (RdmrPtr, TransactionScriptFailure StandardCrypto)
+  | ErrTranslationError (TranslationError StandardCrypto)
   deriving (Show)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
@@ -222,8 +222,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
   resolvedInputs <- traverse resolveInput (toList inputs')
 
   estimatedScriptCosts <-
-    left ErrScriptExecutionFailed $
-      estimateScriptsCost pparams systemStart epochInfo (lookupUTxO <> walletUTxO) partialTx
+    estimateScriptsCost pparams systemStart epochInfo (lookupUTxO <> walletUTxO) partialTx
   let adjustedRedeemers =
         adjustRedeemers
           (inputs body)
@@ -361,15 +360,13 @@ estimateScriptsCost ::
   Map TxIn TxOut ->
   -- | The pre-constructed transaction
   ValidatedTx LedgerEra ->
-  Either (RdmrPtr, TransactionScriptFailure StandardCrypto) (Map RdmrPtr ExUnits)
+  Either ErrCoverFee (Map RdmrPtr ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
-  -- FIXME: throwing exceptions in pure code is discouraged! Convert them to
-  -- throwM or throwIO or represent thes situations in the return type!
   case result of
     Left translationError ->
-      throw $ BadTranslationException translationError
+      Left $ ErrTranslationError translationError
     Right units ->
-      Map.traverseWithKey (\ptr -> left (ptr,)) units
+      Map.traverseWithKey (\ptr -> left $ ErrScriptExecutionFailed . (ptr,)) units
  where
   result =
     evaluateTransactionExecutionUnits
@@ -384,12 +381,6 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
     array
       (fst (Map.findMin m), fst (Map.findMax m))
       (Map.toList m)
-
-newtype BadTranslationException
-  = BadTranslationException (TranslationError StandardCrypto)
-  deriving (Show)
-
-instance Exception BadTranslationException
 
 --
 -- Logs

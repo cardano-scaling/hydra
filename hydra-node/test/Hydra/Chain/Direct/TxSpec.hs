@@ -179,6 +179,7 @@ spec =
                                           ErrNotEnoughFunds{} -> "Not enough funds"
                                           ErrUnknownInput{} -> "Unknown input"
                                           ErrScriptExecutionFailed{} -> "Script(s) execution failed"
+                                          ErrTranslationError{} -> "Transaction context translation error"
                                       )
                                 Right (_, fromLedgerTx -> txAbortWithFees) ->
                                   let actualExecutionCost = totalExecutionCost ledgerPParams txAbortWithFees
