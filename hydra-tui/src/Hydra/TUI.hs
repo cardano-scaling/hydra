@@ -206,14 +206,19 @@ handleEvent client@Client{sendInput} cardanoClient s = \case
             | c `elem` ['q', 'Q'] ->
               halt s
             | c `elem` ['i', 'I'] -> do
-              unless (s ^? pendingL == Just True) $  
+              unless (s ^? pendingL == Just True) $
                 liftIO (sendInput $ Init tuiContestationPeriod)
-              continue (s & pendingL .~ True)
+              continue $
+                s & pendingL .~ True
+                  & info "Transition already pending"
             | c `elem` ['a', 'A'] ->
+              -- TODO: add pending logic
               liftIO (sendInput Abort) >> continue s
             | c `elem` ['f', 'F'] ->
+              -- TODO: add pending logic
               liftIO (sendInput Fanout) >> continue s
             | c `elem` ['c', 'C'] ->
+              -- TODO: add pending logic
               case s ^? headStateL of
                 Just Initializing{} ->
                   handleCommitEvent client cardanoClient s

@@ -46,7 +46,6 @@ import Hydra.TUI (renderTime, runWithVty, tuiContestationPeriod)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
-import Hydra.Chain (PostTxError(NoSeedInput))
 
 spec :: Spec
 spec = do
@@ -128,13 +127,19 @@ spec = do
           shouldRender "Idle"
           shouldNotRender "pending"
           sendInputEvent $ EvKey (KChar 'i') []
-          threadDelay 0.05
+          -- NOTE: The timing is important here as it needs to be faster than
+          -- the devnet block production
+          threadDelay 0.01
           shouldRender "pending"
           -- we expect the application to prevent this and also to inform us about it
           sendInputEvent $ EvKey (KChar 'i') []
-          threadDelay 0.05
-          shouldNotRender "An error happened"
+          threadDelay 0.01
           shouldRender "Transition already pending"
+          shouldNotRender "An error happened"
+          -- Eventualy the first Init should be successful
+          threadDelay 1
+          shouldRender "Initializing"
+          shouldNotRender "pending"
 
   context "text rendering tests" $ do
     it "should format time with whole values for every unit, not total values" $ do
