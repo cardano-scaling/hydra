@@ -277,9 +277,7 @@ instance StateModel WorldState where
   precondition WorldState{hydraState = Initial{}} Abort{} =
     True
   precondition WorldState{hydraState = Open{offChainState}} (NewTx _ tx) =
-    case List.lookup (from tx) (confirmedUTxO offChainState) of
-      Just v -> v == value tx
-      Nothing -> False
+    (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition WorldState{hydraState = Open{}} Stop =
     True
   precondition _ Wait{} =
