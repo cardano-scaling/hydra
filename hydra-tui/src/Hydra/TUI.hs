@@ -133,6 +133,7 @@ makeLensesFor
   , ("dialogState", "dialogStateL")
   , ("feedback", "feedbackL")
   , ("now", "nowL")
+  , ("pending", "pendingL")
   ]
   ''State
 
@@ -204,9 +205,10 @@ handleEvent client@Client{sendInput} cardanoClient s = \case
         if
             | c `elem` ['q', 'Q'] ->
               halt s
-            | c `elem` ['i', 'I'] ->
-              -- TODO: don't do this when something pending already
-              liftIO (sendInput $ Init tuiContestationPeriod) >> continue s
+            | c `elem` ['i', 'I'] -> do
+              unless (s ^? pendingL == Just True) $  
+                liftIO (sendInput $ Init tuiContestationPeriod)
+              continue (s & pendingL .~ True)
             | c `elem` ['a', 'A'] ->
               liftIO (sendInput Abort) >> continue s
             | c `elem` ['f', 'F'] ->

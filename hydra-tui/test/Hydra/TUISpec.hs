@@ -46,6 +46,7 @@ import Hydra.TUI (renderTime, runWithVty, tuiContestationPeriod)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
+import Hydra.Chain (PostTxError(NoSeedInput))
 
 spec :: Spec
 spec = do
@@ -127,9 +128,12 @@ spec = do
           shouldRender "Idle"
           shouldNotRender "pending"
           sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 0.05
           shouldRender "pending"
+          -- we expect the application to prevent this and also to inform us about it
           sendInputEvent $ EvKey (KChar 'i') []
-          shouldNotRender "PostTxOnChainFailed"
+          threadDelay 0.05
+          shouldNotRender "An error happened"
           shouldRender "Transition already pending"
 
   context "text rendering tests" $ do
