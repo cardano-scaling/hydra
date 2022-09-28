@@ -426,8 +426,11 @@ runModel = RunModel{perform = perform}
         lift $ threadDelay timeout
       ObserveConfirmedTx tx -> do
         nodes <- Map.toList <$> gets nodes
-        forM_ nodes $ \(party, node) ->
-          waitForTxConfirmed mempty tx party node 10
+        forM_ nodes $ \(party, node) -> do
+          party `sendsInput` Input.GetUTxO
+          waitForUTxOToSpend mempty (to tx) (value tx) party node 1000 >>= \case
+            Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
+            Right _ -> pure ()
 
 sendsInput :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 sendsInput party command = do
@@ -527,7 +530,10 @@ performNewTx party tx = do
 
   party `sendsInput` Input.GetUTxO
 
-  (i, o) <- waitForTxConfirmed mempty tx party (nodes ! party) (5000 :: Int)
+  (i, o) <-
+    waitForUTxOToSpend mempty (from tx) (value tx) party (nodes ! party) (5000 :: Int) >>= \case
+      Left u -> error $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
+      Right ok -> pure ok
 
   let realTx =
         either
@@ -543,39 +549,34 @@ performNewTx party tx = do
       err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
 
-waitForTxConfirmed ::
+waitForUTxOToSpend ::
   (MonadDelay m, MonadThrow m) =>
   UTxO ->
-  Payment ->
+  CardanoSigningKey ->
+  Value ->
   Party ->
   TestHydraNode Tx m ->
   Int ->
-  StateT (Nodes m) m (TxIn, TxOut CtxUTxO)
-waitForTxConfirmed utxo tx party node = \case
+  StateT (Nodes m) m (Either UTxO (TxIn, TxOut CtxUTxO))
+waitForUTxOToSpend utxo key value party node = \case
   0 ->
-    lift $
-      throwIO $
-        Prelude.userError
-          ( "no utxo matched,\npayment = " <> show tx
-              <> "\nutxo =  "
-              <> show utxo
-          )
+    pure $ Left utxo
   n ->
     lift (threadDelay 1 >> waitForNext node) >>= \case
       GetUTxOResponse u
         | u == mempty -> do
           party `sendsInput` Input.GetUTxO
-          waitForTxConfirmed u tx party node (n -1)
+          waitForUTxOToSpend u key value party node (n -1)
         | otherwise -> case find matchPayment (UTxO.pairs u) of
           Nothing -> do
             party `sendsInput` Input.GetUTxO
-            waitForTxConfirmed u tx party node (n -1)
-          Just p -> pure p
+            waitForUTxOToSpend u key value party node (n -1)
+          Just p -> pure $ Right p
       _ ->
-        waitForTxConfirmed utxo tx party node (n -1)
+        waitForUTxOToSpend utxo key value party node (n -1)
  where
   matchPayment p@(_, txOut) =
-    isOwned (from tx) p && value tx == txOutValue txOut
+    isOwned key p && value == txOutValue txOut
 
 --
 
