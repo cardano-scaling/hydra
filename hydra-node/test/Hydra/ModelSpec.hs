@@ -1,7 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -63,39 +62,82 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (after)
 
--- This is completely safe
-import Unsafe.Coerce (unsafeCoerce)
-
 import qualified Cardano.Api.UTxO as UTxO
+import Control.Monad.Class.MonadTimer ()
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
 import Data.Map ((!))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Model (
+  Action (ObserveConfirmedTx, Wait),
   GlobalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
   WorldState (..),
+  genPayment,
+  runModel,
  )
+import qualified Hydra.Model as Model
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.API.ServerOutput (ServerOutput (..))
-import Test.QuickCheck (Property, counterexample, forAll, property, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, forAll, property, withMaxSuccess, within)
+import Test.QuickCheck.DynamicLogic (
+  DL,
+  action,
+  anyActions_,
+  forAllDL_,
+  forAllQ,
+  getModelStateDL,
+  withGenQ,
+ )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
-import Test.QuickCheck.StateModel (Actions, runActions, stateAfter, pattern Actions)
+import Test.QuickCheck.StateModel (Actions, RunModel, runActions, stateAfter, pattern Actions)
 import Test.Util (printTrace, traceInIOSim)
-import qualified Prelude
 
 spec :: Spec
 spec = do
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
   prop "implementation respects model" $ forAll arbitrary prop_checkModel
+  prop "check conflict-free liveness" prop_checkConflictFreeLiveness
 
-prop_generateTraces :: AnyActions -> Property
-prop_generateTraces (AnyActions actions) =
+prop_checkConflictFreeLiveness :: Property
+prop_checkConflictFreeLiveness =
+  forAllDL_ conflictFreeLiveness prop_HydraModel
+
+prop_HydraModel :: Actions WorldState -> Property
+prop_HydraModel actions = property $
+  runIOSimProp $ do
+    _ <- runActions runIt actions
+    assert True
+
+runIt :: forall s. RunModel WorldState (StateT (Nodes (IOSim s)) (IOSim s))
+runIt = runModel
+
+-- • Conflict-Free Liveness (Head):
+--
+-- In presence of a network adversary, a conflict-free execution satisfies the following condition:
+-- For any transaction tx input via (new,tx), tx ∈ T i∈[n] Ci eventually holds.
+--
+-- TODO: make the network adversarial => make the model runner interleave/delay network messages
+conflictFreeLiveness :: DL WorldState ()
+conflictFreeLiveness = do
+  anyActions_
+  getModelStateDL >>= \case
+    st@WorldState{hydraState = Open{}} -> do
+      (party, payment) <- forAllQ (nonConflictingTx st)
+      action $ Model.NewTx party payment
+      eventually (ObserveConfirmedTx payment)
+    _ -> pass
+ where
+  nonConflictingTx st = withGenQ (genPayment st) (const [])
+  eventually a = action (Wait 10) >> action a
+
+prop_generateTraces :: Actions WorldState -> Property
+prop_generateTraces actions =
   let st = stateAfter actions
    in case actions of
         Actions [] -> property True
@@ -103,67 +145,26 @@ prop_generateTraces (AnyActions actions) =
           hydraState st /= Start
             & counterexample ("state: " <> show st)
 
-prop_checkModel :: AnyActions -> Property
-prop_checkModel (AnyActions actions) =
-  within 2000000 $
+prop_checkModel :: Actions WorldState -> Property
+prop_checkModel actions =
+  within 20000000 $
     property $
-      runIOSimProp $
-        monadic' $ do
-          (WorldState{hydraParties, hydraState}, _symEnv) <- runActions actions
-          -- XXX: In the past we waited until the end of time here, which would
-          -- robustly catch all the remaining asynchronous actions, but we have
-          -- now a "more active" simulated chain which ticks away and not simply
-          -- detects a deadlock if we wait for infinity. Maybe cancelling the
-          -- simulation's 'tickThread' and wait then could work?
-          run $ lift waitForADay
-          let parties = Set.fromList $ deriveParty . fst <$> hydraParties
-          nodes <- run $ gets nodes
-          assert (parties == Map.keysSet nodes)
-          forM_ parties $ \p -> do
-            assertNodeSeesAndReportsAllExpectedCommits hydraState nodes p
-            assertBalancesInOpenHeadAreConsistent hydraState nodes p
+      runIOSimProp $ do
+        (WorldState{hydraParties, hydraState}, _symEnv) <- runActions runIt actions
+        -- XXX: In the past we waited until the end of time here, which would
+        -- robustly catch all the remaining asynchronous actions, but we have
+        -- now a "more active" simulated chain which ticks away and not simply
+        -- detects a deadlock if we wait for infinity. Maybe cancelling the
+        -- simulation's 'tickThread' and wait then could work?
+        run $ lift waitForADay
+        let parties = Set.fromList $ deriveParty . fst <$> hydraParties
+        nodes <- run $ gets nodes
+        assert (parties == Map.keysSet nodes)
+        forM_ parties $ \p -> do
+          assertBalancesInOpenHeadAreConsistent hydraState nodes p
  where
   waitForADay :: MonadDelay m => m ()
   waitForADay = threadDelay $ 60 * 60 * 24
-
-assertNodeSeesAndReportsAllExpectedCommits ::
-  GlobalState ->
-  Map Party (TestHydraNode Tx (IOSim s)) ->
-  Party ->
-  PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) ()
-assertNodeSeesAndReportsAllExpectedCommits world nodes p = do
-  let node = nodes ! p
-  case world of
-    Initial{commits} -> do
-      outputs <- run $ lift $ serverOutputs @Tx node
-      let expectedCommitted =
-            fmap
-              ( \(sk, value) ->
-                  TxOut
-                    ( mkVkAddress
-                        testNetworkId
-                        (getVerificationKey sk)
-                    )
-                    value
-                    TxOutDatumNone
-                    ReferenceScriptNone
-              )
-              <$> commits
-      let actualCommitted =
-            Map.fromList
-              [ (party, Map.elems (UTxO.toMap utxo))
-              | Committed{party = party, utxo = utxo} <- outputs
-              ]
-      monitor $
-        counterexample $
-          toString $
-            unlines
-              [ "Actual committed: (" <> show p <> ") " <> show actualCommitted
-              , "Expected committed: (" <> show p <> ") " <> show expectedCommitted
-              ]
-      assert (actualCommitted == expectedCommitted)
-    _ -> do
-      pure ()
 
 assertBalancesInOpenHeadAreConsistent ::
   GlobalState ->
@@ -179,7 +180,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
             Map.fromListWith
               (<>)
               [ (unwrapAddress addr, value)
-              | (sk, value) <- confirmedUTxO
+              | (Model.CardanoSigningKey sk, value) <- confirmedUTxO
               , let addr = mkVkAddress testNetworkId (getVerificationKey sk)
               , valueToLovelace value /= Just 0
               ]
@@ -216,10 +217,10 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
 --
 
 -- | Specialised runner similar to <runSTGen https://hackage.haskell.org/package/QuickCheck-2.14.2/docs/src/Test.QuickCheck.Monadic.html#runSTGen>.
-runIOSimProp :: (forall s. Gen (StateT (Nodes (IOSim s)) (IOSim s) Property)) -> Gen Property
+runIOSimProp :: Testable a => (forall s. PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) a) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  let tr = runSimTrace $ evalStateT (eval p) (Nodes mempty traceInIOSim)
+  let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty traceInIOSim)
       traceDump = printTrace (Proxy :: Proxy Tx) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
   case traceResult False tr of
@@ -229,20 +230,6 @@ runIOSimProp p = do
       pure $ counterexample (show ex) $ logsOnError $ property False
     Left ex ->
       pure $ counterexample (show ex) $ logsOnError $ property False
-
-newtype AnyActions = AnyActions {unAnyActions :: forall s. Actions (WorldState (IOSim s))}
-
-instance Show AnyActions where
-  show (AnyActions acts) = Prelude.show (acts @())
-
-instance Arbitrary AnyActions where
-  arbitrary = do
-    Capture eval <- capture
-    return (AnyActions (eval arbitrary))
-
-  shrink (AnyActions actions) = case actions of
-    Actions [] -> []
-    acts -> [AnyActions (unsafeCoerce act) | act <- shrink acts]
 
 unwrapAddress :: AddressInEra -> Text
 unwrapAddress = \case
