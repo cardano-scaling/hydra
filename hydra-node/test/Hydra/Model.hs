@@ -137,11 +137,15 @@ data Nodes m = Nodes
     logger :: Tracer m (HydraNodeLog Tx)
   }
 
-type CardanoSigningKey = SigningKey PaymentKey
+newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
+
+instance Show CardanoSigningKey where
+  show CardanoSigningKey{signingKey} =
+    show . mkVkAddress @Era testNetworkId . getVerificationKey $ signingKey
 
 -- NOTE: We need this orphan instance in order to lookup keys in lists.
 instance Eq CardanoSigningKey where
-  (PaymentSigningKey skd) == (PaymentSigningKey skd') = skd == skd'
+  CardanoSigningKey (PaymentSigningKey skd) == CardanoSigningKey (PaymentSigningKey skd') = skd == skd'
 
 instance ToJSON CardanoSigningKey where
   toJSON = error "don't use"
@@ -153,7 +157,7 @@ instance Arbitrary Value where
   arbitrary = genAdaValue
 
 instance Arbitrary CardanoSigningKey where
-  arbitrary = snd <$> genKeyPair
+  arbitrary = CardanoSigningKey . snd <$> genKeyPair
 
 -- | A single Ada-payment only transaction in our model.
 data Payment = Payment
@@ -167,14 +171,12 @@ instance Show Payment where
   -- NOTE: We display derived addresses instead of raw signing keys in order to help troubleshooting
   -- tests failures or errors.
   show Payment{from, to, value} =
-    "Payment { from = " <> signingKeyAsAddress from
+    "Payment { from = " <> show from
       <> ", to = "
-      <> signingKeyAsAddress to
+      <> show to
       <> ", value = "
       <> show value
       <> " }"
-   where
-    signingKeyAsAddress = show . mkVkAddress @Era testNetworkId . getVerificationKey
 
 instance Arbitrary Payment where
   arbitrary = error "don't use"
@@ -295,7 +297,7 @@ instance StateModel WorldState where
       Seed{seedKeys} -> WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys}}
        where
         idleParties = map (deriveParty . fst) seedKeys
-        cardanoKeys = map (getVerificationKey . snd) seedKeys
+        cardanoKeys = map (getVerificationKey . signingKey . snd) seedKeys
       --
       Init _ contestationPeriod ->
         WorldState{hydraParties, hydraState = mkInitialState hydraState}
@@ -469,7 +471,7 @@ performCommit ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
   [CardanoSigningKey] ->
   Party ->
-  [(SigningKey PaymentKey, Value)] ->
+  [(CardanoSigningKey, Value)] ->
   StateT (Nodes m) m ActualCommitted
 performCommit parties party paymentUTxO = do
   nodes <- gets nodes
@@ -480,7 +482,7 @@ performCommit parties party paymentUTxO = do
       let realUTxO =
             UTxO.fromPairs $
               [ (mkMockTxIn vk ix, txOut)
-              | (ix, (sk, val)) <- zip [0 ..] paymentUTxO
+              | (ix, (CardanoSigningKey sk, val)) <- zip [0 ..] paymentUTxO
               , let vk = getVerificationKey sk
               , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone ReferenceScriptNone
               ]
@@ -507,7 +509,7 @@ performCommit parties party paymentUTxO = do
       Just sk -> (sk, value)
 
   makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
-  makeAddressFromSigningKey = mkVkAddress testNetworkId . getVerificationKey
+  makeAddressFromSigningKey = mkVkAddress testNetworkId . getVerificationKey . signingKey
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
@@ -515,7 +517,7 @@ performNewTx ::
   Payment ->
   StateT (Nodes m) m ()
 performNewTx party tx = do
-  let recipient = mkVkAddress testNetworkId (getVerificationKey (to tx))
+  let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
   nodes <- gets nodes
 
   let waitForOpen = do
@@ -539,7 +541,7 @@ performNewTx party tx = do
         either
           (error . show)
           id
-          (mkSimpleTx (i, o) (recipient, value tx) (from tx))
+          (mkSimpleTx (i, o) (recipient, value tx) (signingKey $ from tx))
 
   party `sendsInput` Input.NewTx realTx
   lift $
@@ -604,11 +606,11 @@ partyKeys :: Gen [(SigningKey HydraKey, CardanoSigningKey)]
 partyKeys =
   sized $ \len -> do
     hks <- nub <$> vectorOf len arbitrary
-    cks <- nub <$> vectorOf len genSigningKey
+    cks <- nub . fmap CardanoSigningKey <$> vectorOf len genSigningKey
     pure $ zip hks cks
 
 isOwned :: CardanoSigningKey -> (TxIn, TxOut ctx) -> Bool
-isOwned sk (_, TxOut{txOutAddress = ShelleyAddressInEra (ShelleyAddress _ cre _)}) =
+isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (ShelleyAddress _ cre _)}) =
   case fromShelleyPaymentCredential cre of
     (PaymentCredentialByKey ha) -> verificationKeyHash (getVerificationKey sk) == ha
     _ -> False

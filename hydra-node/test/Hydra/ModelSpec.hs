@@ -181,7 +181,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
             Map.fromListWith
               (<>)
               [ (unwrapAddress addr, value)
-              | (sk, value) <- confirmedUTxO
+              | (Model.CardanoSigningKey sk, value) <- confirmedUTxO
               , let addr = mkVkAddress testNetworkId (getVerificationKey sk)
               , valueToLovelace value /= Just 0
               ]
