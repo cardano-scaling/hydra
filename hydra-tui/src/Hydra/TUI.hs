@@ -190,7 +190,7 @@ handleEvent ::
   State ->
   BrickEvent Name (HydraEvent Tx) ->
   EventM Name (Next State)
-handleEvent client@Client{sendInput} cardanoClient s = \case
+handleEvent client cardanoClient s = \case
   AppEvent e ->
     continue (handleAppEvent s e)
   VtyEvent e -> case s ^? dialogStateL of
@@ -206,17 +206,17 @@ handleEvent client@Client{sendInput} cardanoClient s = \case
             | c `elem` ['q', 'Q'] ->
               halt s
             | c `elem` ['i', 'I'] ->
-              doSendInputAndTransitionIfNotPending (Init tuiContestationPeriod)
+              doSendInputAndTransitionIfNotPending client s (Init tuiContestationPeriod)
             | c `elem` ['a', 'A'] ->
-              doSendInputAndTransitionIfNotPending Abort
+              doSendInputAndTransitionIfNotPending client s Abort
             | c `elem` ['f', 'F'] ->
-              doSendInputAndTransitionIfNotPending Fanout
+              doSendInputAndTransitionIfNotPending client s Fanout
             | c `elem` ['c', 'C'] ->
               case s ^? headStateL of
                 Just Initializing{} ->
-                  handleCommitEvent client cardanoClient s
+                  showCommitDialog client cardanoClient s
                 Just Open{} ->
-                  doSendInputAndTransitionIfNotPending Close
+                  doSendInputAndTransitionIfNotPending client s Close
                 _ ->
                   continue s
             | c `elem` ['n', 'N'] ->
@@ -233,15 +233,16 @@ handleEvent client@Client{sendInput} cardanoClient s = \case
       _ -> continue s
   e ->
     continue $ s & warn ("unhandled event: " <> show e)
- where
-  doSendInputAndTransitionIfNotPending input = case s ^? pendingL of
-    Just True -> do
-      continue $ s & info "Transition already pending"
-    Just False -> do
-      liftIO $ sendInput input
-      continue $ s & pendingL .~ True
-    -- XXX: Not connected is impossible here (smell -> refactor)
-    Nothing -> continue s
+
+doSendInputAndTransitionIfNotPending :: Client tx IO -> State -> ClientInput tx -> EventM n (Next State)
+doSendInputAndTransitionIfNotPending Client{sendInput} s input = case s ^? pendingL of
+  Just True -> do
+    continue $ s & info "Transition already pending"
+  Just False -> do
+    liftIO $ sendInput input
+    continue $ s & pendingL .~ True
+  -- XXX: Not connected is impossible here (smell -> refactor)
+  Nothing -> continue s
 
 handleAppEvent ::
   State ->
@@ -374,20 +375,17 @@ handleDialogEvent (title, form, submit) s = \case
     form' <- handleFormEvent (VtyEvent e) form
     continue $ s & dialogStateL .~ Dialog title form' submit
 
-handleCommitEvent ::
+showCommitDialog ::
   Client Tx IO ->
   CardanoClient ->
   State ->
   EventM n (Next State)
-handleCommitEvent Client{sendInput, sk} CardanoClient{queryUTxOByAddress, networkId} s = case s ^? headStateL of
-  Just Initializing{} -> do
-    utxo <- liftIO $ queryUTxOByAddress [ourAddress]
-    -- XXX(SN): this is a hydra implementation detail and should be moved
-    -- somewhere hydra specific
-    let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (UTxO.toMap utxo)
-    continue $ s & dialogStateL .~ commitDialog utxoWithoutFuel
-  _ ->
-    continue $ s & warn "Invalid command."
+showCommitDialog client@Client{sk} CardanoClient{queryUTxOByAddress, networkId} s = do
+  utxo <- liftIO $ queryUTxOByAddress [ourAddress]
+  -- XXX(SN): this is a hydra implementation detail and should be moved
+  -- somewhere hydra specific
+  let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (UTxO.toMap utxo)
+  continue $ s & dialogStateL .~ commitDialog utxoWithoutFuel
  where
   ourAddress =
     makeShelleyAddress
@@ -409,8 +407,7 @@ handleCommitEvent Client{sendInput, sk} CardanoClient{queryUTxOByAddress, networ
               & warn "Cannot commit more than 1 entry."
               & dialogStateL .~ NoDialog
         else do
-          liftIO (sendInput $ Commit commitUTxO)
-          continue (s' & dialogStateL .~ NoDialog)
+          doSendInputAndTransitionIfNotPending client (s' & dialogStateL .~ NoDialog) (Commit commitUTxO)
 
 handleNewTxEvent ::
   Client Tx IO ->
