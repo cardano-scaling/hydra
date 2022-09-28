@@ -87,6 +87,7 @@ data State
       , dialogState :: DialogState
       , feedback :: [UserFeedback]
       , now :: UTCTime
+      , pending :: Bool
       }
 
 data UserFeedback = UserFeedback
@@ -247,6 +248,7 @@ handleAppEvent s = \case
       , dialogState = NoDialog
       , feedback = []
       , now = s ^. nowL
+      , pending = False
       }
   ClientDisconnected ->
     Disconnected
@@ -581,12 +583,12 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawHeadState = case s of
     Disconnected{} -> emptyWidget
-    Connected{headState} ->
+    Connected{headState, pending} ->
       vBox
         [ padLeftRight 1 $
             txt "Head status: "
               <+> withAttr infoA (txt $ Prelude.head (words $ show headState))
-              <+> txt " (Transition pending)"
+              <+> if pending then txt " (Transition pending)" else txt ""
         , hBorder
         ]
 
