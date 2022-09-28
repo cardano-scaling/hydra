@@ -270,20 +270,25 @@ handleAppEvent s = \case
     s & peersL %~ \cp -> cp \\ [p]
   Update CommandFailed{clientInput} -> do
     s & report Error ("Invalid command: " <> show clientInput)
+      & pendingL .~ False
   Update ReadyToCommit{parties} ->
     let utxo = mempty
         ps = toList parties
      in s & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo}
+          & pendingL .~ False
           & info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
     s & headStateL %~ partyCommitted [party] utxo
       & info (show party <> " committed " <> renderValue (balance @Tx utxo))
+      -- TODO: only unblock when we committed
+      & pendingL .~ False
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & info "Head is now open!"
   Update HeadIsClosed{snapshotNumber, contestationDeadline} ->
     s & headStateL .~ Closed{contestationDeadline}
       & info ("Head closed with snapshot number " <> show snapshotNumber)
+      & pendingL .~ False
   Update HeadIsContested{snapshotNumber} ->
     s & info ("Head contested with snapshot number " <> show snapshotNumber)
   Update ReadyToFanout ->
@@ -292,9 +297,11 @@ handleAppEvent s = \case
   Update HeadIsAborted{} ->
     s & headStateL .~ Idle
       & info "Head aborted, back to square one."
+      & pendingL .~ False
   Update HeadIsFinalized{utxo} ->
     s & headStateL .~ Final{utxo}
       & info "Head finalized."
+      & pendingL .~ False
   Update TxSeen{} ->
     s -- TUI is not needing this response, ignore it
   Update TxValid{} ->
@@ -311,8 +318,12 @@ handleAppEvent s = \case
     s & warn ("Invalid input error: " <> toText reason)
   Update PostTxOnChainFailed{postTxError} ->
     s & warn ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
+      & pendingL .~ False
   Update RolledBack ->
+    -- XXX: This is a bit of a mess as we do NOT know in which state the Hydra
+    -- head is. Even worse, we have no way to find out!
     s & info "Chain rolled back! You might need to re-submit Head transactions manually now."
+      & pendingL .~ False
   Tick now ->
     s & nowL .~ now
  where
