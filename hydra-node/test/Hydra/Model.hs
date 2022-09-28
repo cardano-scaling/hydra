@@ -290,7 +290,7 @@ instance StateModel WorldState where
   nextState :: WorldState -> Action WorldState a -> Var a -> WorldState
   nextState s@WorldState{hydraParties, hydraState} a _ =
     case a of
-      Stop -> s{hydraState = Final empty}
+      Stop -> s
       --
       Seed{seedKeys} -> WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys}}
        where
