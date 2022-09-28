@@ -15,7 +15,7 @@ import Hydra.Chain (
   PostChainTx (InitTx),
   PostTxError (NoSeedInput),
  )
-import Hydra.ClientInput (ClientInput (..))
+import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Crypto (HydraKey, sign)
 import Hydra.HeadLogic (
   Environment (..),
@@ -38,7 +38,7 @@ import Hydra.Node (
   stepHydraNode,
  )
 import Hydra.Party (Party, deriveParty)
-import Hydra.ServerOutput (ServerOutput (PostTxOnChainFailed))
+import Hydra.API.ServerOutput (ServerOutput (PostTxOnChainFailed))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 

@@ -73,7 +73,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.ClientInput (ClientInput (..))
+import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Model (
   GlobalState (..),
   Nodes (Nodes, nodes),
@@ -81,7 +81,7 @@ import Hydra.Model (
   WorldState (..),
  )
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.ServerOutput (ServerOutput (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Test.QuickCheck (Property, counterexample, forAll, property, withMaxSuccess, within)
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)

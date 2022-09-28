@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 
-module Hydra.ClientInputSpec where
+module Hydra.API.ClientInputSpec where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
@@ -8,8 +8,8 @@ import Test.Hydra.Prelude
 import Cardano.Binary (serialize')
 import Data.Aeson (Result (..), Value (String), fromJSON)
 import qualified Data.ByteString.Base16 as Base16
+import Hydra.API.ClientInput (ClientInput)
 import Hydra.Cardano.Api (serialiseToTextEnvelope, toLedgerTx)
-import Hydra.ClientInput (ClientInput)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Test.Aeson.GenericSpecs (
