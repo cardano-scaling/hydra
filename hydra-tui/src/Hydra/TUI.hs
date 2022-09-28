@@ -205,28 +205,18 @@ handleEvent client@Client{sendInput} cardanoClient s = \case
         if
             | c `elem` ['q', 'Q'] ->
               halt s
-            | c `elem` ['i', 'I'] -> do
-              case s ^? pendingL of
-                Just True -> do
-                  continue $ s & info "Transition already pending"
-                Just False -> do
-                  liftIO (sendInput $ Init tuiContestationPeriod)
-                  continue $ s & pendingL .~ True
-                -- XXX: Not connected is impossible here (smell -> refactor)
-                Nothing -> continue s
+            | c `elem` ['i', 'I'] ->
+              doSendInputAndTransitionIfNotPending (Init tuiContestationPeriod)
             | c `elem` ['a', 'A'] ->
-              -- TODO: add pending logic
-              liftIO (sendInput Abort) >> continue s
+              doSendInputAndTransitionIfNotPending Abort
             | c `elem` ['f', 'F'] ->
-              -- TODO: add pending logic
-              liftIO (sendInput Fanout) >> continue s
+              doSendInputAndTransitionIfNotPending Fanout
             | c `elem` ['c', 'C'] ->
-              -- TODO: add pending logic
               case s ^? headStateL of
                 Just Initializing{} ->
                   handleCommitEvent client cardanoClient s
                 Just Open{} ->
-                  liftIO (sendInput Close) >> continue s
+                  doSendInputAndTransitionIfNotPending Close
                 _ ->
                   continue s
             | c `elem` ['n', 'N'] ->
@@ -243,6 +233,15 @@ handleEvent client@Client{sendInput} cardanoClient s = \case
       _ -> continue s
   e ->
     continue $ s & warn ("unhandled event: " <> show e)
+ where
+  doSendInputAndTransitionIfNotPending input = case s ^? pendingL of
+    Just True -> do
+      continue $ s & info "Transition already pending"
+    Just False -> do
+      liftIO $ sendInput input
+      continue $ s & pendingL .~ True
+    -- XXX: Not connected is impossible here (smell -> refactor)
+    Nothing -> continue s
 
 handleAppEvent ::
   State ->
