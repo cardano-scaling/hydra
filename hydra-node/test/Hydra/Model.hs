@@ -213,9 +213,6 @@ instance StateModel WorldState where
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
     Abort :: Party -> Action WorldState ()
     NewTx :: Party -> Payment -> Action WorldState ()
-    -- | Temporary action to cut the sequence of actions.
-    -- TODO: Implement proper Close sequence
-    Stop :: Action WorldState ()
     -- | Wait some amount of time
     Wait :: DiffTime -> Action WorldState ()
     -- | Observe some transaction has been confirmed at all nodes
@@ -237,11 +234,7 @@ instance StateModel WorldState where
           [ (5, genCommit pendingCommits)
           , (1, genAbort)
           ]
-      Open{} ->
-        frequency
-          [ (8, genNewTx)
-          , (2, pure $ Some Stop)
-          ]
+      Open{} -> genNewTx
       _ -> genSeed
    where
     genSeed = Some . Seed <$> resize 7 partyKeys
@@ -276,8 +269,6 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Open{offChainState}} (NewTx _ tx) =
     (from tx, value tx) `List.elem` confirmedUTxO offChainState
-  precondition WorldState{hydraState = Open{}} Stop =
-    True
   precondition _ Wait{} =
     True
   precondition WorldState{hydraState = Open{}} ObserveConfirmedTx{} =
@@ -288,8 +279,6 @@ instance StateModel WorldState where
   nextState :: WorldState -> Action WorldState a -> Var a -> WorldState
   nextState s@WorldState{hydraParties, hydraState} a _ =
     case a of
-      Stop -> s
-      --
       Seed{seedKeys} -> WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys}}
        where
         idleParties = map (deriveParty . fst) seedKeys
@@ -419,7 +408,6 @@ runModel = RunModel{perform = perform}
         party `sendsInput` Input.Init{contestationPeriod}
       Abort party -> do
         party `sendsInput` Input.Abort
-      Stop -> pure ()
       Wait timeout ->
         lift $ threadDelay timeout
       ObserveConfirmedTx tx -> do
