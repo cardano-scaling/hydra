@@ -87,8 +87,10 @@ data State
       , dialogState :: DialogState
       , feedback :: [UserFeedback]
       , now :: UTCTime
-      , pending :: Bool
+      , pending :: Pending
       }
+
+data Pending = Pending | NotPending deriving (Eq, Show, Generic)
 
 data UserFeedback = UserFeedback
   { severity :: Severity
@@ -180,6 +182,12 @@ report typ msg s =
  where
   userFeedback = UserFeedback typ msg (s ^. nowL)
 
+stopPending :: State -> State
+stopPending = pendingL .~ NotPending
+
+initPending :: State -> State
+initPending = pendingL .~ Pending
+
 --
 -- Update
 --
@@ -236,11 +244,11 @@ handleEvent client cardanoClient s = \case
 
 doSendInputAndTransitionIfNotPending :: Client tx IO -> State -> ClientInput tx -> EventM n (Next State)
 doSendInputAndTransitionIfNotPending Client{sendInput} s input = case s ^? pendingL of
-  Just True -> do
+  Just Pending -> do
     continue $ s & info "Transition already pending"
-  Just False -> do
+  Just NotPending -> do
     liftIO $ sendInput input
-    continue $ s & pendingL .~ True
+    continue $ s & initPending
   -- XXX: Not connected is impossible here (smell -> refactor)
   Nothing -> continue s
 
@@ -258,7 +266,7 @@ handleAppEvent s = \case
       , dialogState = NoDialog
       , feedback = []
       , now = s ^. nowL
-      , pending = False
+      , pending = NotPending
       }
   ClientDisconnected ->
     Disconnected
@@ -273,18 +281,18 @@ handleAppEvent s = \case
     s & peersL %~ \cp -> cp \\ [p]
   Update CommandFailed{clientInput} -> do
     s & report Error ("Invalid command: " <> show clientInput)
-      & pendingL .~ False
+      & stopPending
   Update ReadyToCommit{parties} ->
     let utxo = mempty
         ps = toList parties
      in s & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo}
-          & pendingL .~ False
+          & stopPending
           & info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
     s & headStateL %~ partyCommitted [party] utxo
       & info (show party <> " committed " <> renderValue (balance @Tx utxo))
       & if Just (Just party) == s ^? meL
-        then pendingL .~ False
+        then stopPending
         else id
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
@@ -292,7 +300,7 @@ handleAppEvent s = \case
   Update HeadIsClosed{snapshotNumber, contestationDeadline} ->
     s & headStateL .~ Closed{contestationDeadline}
       & info ("Head closed with snapshot number " <> show snapshotNumber)
-      & pendingL .~ False
+      & stopPending
   Update HeadIsContested{snapshotNumber} ->
     s & info ("Head contested with snapshot number " <> show snapshotNumber)
   Update ReadyToFanout ->
@@ -301,11 +309,11 @@ handleAppEvent s = \case
   Update HeadIsAborted{} ->
     s & headStateL .~ Idle
       & info "Head aborted, back to square one."
-      & pendingL .~ False
+      & stopPending
   Update HeadIsFinalized{utxo} ->
     s & headStateL .~ Final{utxo}
       & info "Head finalized."
-      & pendingL .~ False
+      & stopPending
   Update TxSeen{} ->
     s -- TUI is not needing this response, ignore it
   Update TxValid{} ->
@@ -322,12 +330,12 @@ handleAppEvent s = \case
     s & warn ("Invalid input error: " <> toText reason)
   Update PostTxOnChainFailed{postTxError} ->
     s & warn ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
-      & pendingL .~ False
+      & stopPending
   Update RolledBack ->
     -- XXX: This is a bit of a mess as we do NOT know in which state the Hydra
     -- head is. Even worse, we have no way to find out!
     s & info "Chain rolled back! You might need to re-submit Head transactions manually now."
-      & pendingL .~ False
+      & stopPending
   Tick now ->
     s & nowL .~ now
  where
@@ -601,12 +609,15 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawHeadState = case s of
     Disconnected{} -> emptyWidget
-    Connected{headState, pending} ->
+    Connected{headState, pending = NotPending} -> drawVBox headState $ txt ""
+    Connected{headState, pending = Pending} -> drawVBox headState $ txt " (Transition pending)"
+   where
+    drawVBox headState drawPending =
       vBox
         [ padLeftRight 1 $
             txt "Head status: "
               <+> withAttr infoA (txt $ Prelude.head (words $ show headState))
-              <+> if pending then txt " (Transition pending)" else txt ""
+              <+> drawPending
         , hBorder
         ]
 
