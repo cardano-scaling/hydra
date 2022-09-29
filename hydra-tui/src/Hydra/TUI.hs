@@ -214,17 +214,17 @@ handleEvent client cardanoClient s = \case
             | c `elem` ['q', 'Q'] ->
               halt s
             | c `elem` ['i', 'I'] ->
-              doSendInputAndTransitionIfNotPending client s (Init tuiContestationPeriod)
+              sendInputAndTransition client s (Init tuiContestationPeriod)
             | c `elem` ['a', 'A'] ->
-              doSendInputAndTransitionIfNotPending client s Abort
+              sendInputAndTransition client s Abort
             | c `elem` ['f', 'F'] ->
-              doSendInputAndTransitionIfNotPending client s Fanout
+              sendInputAndTransition client s Fanout
             | c `elem` ['c', 'C'] ->
               case s ^? headStateL of
                 Just Initializing{} ->
                   showCommitDialog client cardanoClient s
                 Just Open{} ->
-                  doSendInputAndTransitionIfNotPending client s Close
+                  sendInputAndTransition client s Close
                 _ ->
                   continue s
             | c `elem` ['n', 'N'] ->
@@ -242,8 +242,8 @@ handleEvent client cardanoClient s = \case
   e ->
     continue $ s & warn ("unhandled event: " <> show e)
 
-doSendInputAndTransitionIfNotPending :: Client tx IO -> State -> ClientInput tx -> EventM n (Next State)
-doSendInputAndTransitionIfNotPending Client{sendInput} s input = case s ^? pendingL of
+sendInputAndTransition :: Client tx IO -> State -> ClientInput tx -> EventM n (Next State)
+sendInputAndTransition Client{sendInput} s input = case s ^? pendingL of
   Just Pending -> do
     continue $ s & info "Transition already pending"
   Just NotPending -> do
@@ -416,7 +416,7 @@ showCommitDialog client@Client{sk} CardanoClient{queryUTxOByAddress, networkId} 
               & warn "Cannot commit more than 1 entry."
               & dialogStateL .~ NoDialog
         else do
-          doSendInputAndTransitionIfNotPending client (s' & dialogStateL .~ NoDialog) (Commit commitUTxO)
+          sendInputAndTransition client (s' & dialogStateL .~ NoDialog) (Commit commitUTxO)
 
 handleNewTxEvent ::
   Client Tx IO ->
