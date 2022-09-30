@@ -54,6 +54,8 @@ import Hydra.Cardano.Api (
   ShelleyAddr,
   SigningKey,
   StakeAddressReference (NoStakeAddress),
+  Tx,
+  TxId (TxId),
   VerificationKey,
   makeShelleyAddress,
   shelleyAddressInEra,
@@ -61,6 +63,8 @@ import Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
+import Hydra.Cardano.Api.Tx (fromLedgerTx)
+import Hydra.Cardano.Api.TxId (fromLedgerTxId)
 import Hydra.Chain.CardanoClient (QueryPoint (QueryTip))
 import Hydra.Chain.Direct.Util (Block, markerDatum)
 import qualified Hydra.Chain.Direct.Util as Util
@@ -68,6 +72,8 @@ import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..))
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
+
+import Hydra.Ledger.Cardano
 
 type Address = Ledger.Addr StandardCrypto
 type TxIn = Ledger.TxIn StandardCrypto
@@ -138,19 +144,20 @@ newTinyWallet tracer networkId (vk, sk) queryUTxOEtc = do
             Left e ->
               pure (Left e)
             Right (walletUTxO', balancedTx) -> do
-              writeTVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
+              -- @TODO: remove optimistic update as it is not affecting
+              -- writeTVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
               pure (Right balancedTx)
       , reset = \point -> do
           res@(u, _, _, _) <- queryUTxOEtc point address
           atomically $ writeTVar utxoVar res
           traceWith tracer $ InitializingWallet point u
       , update = \block -> do
-          utxo' <- atomically $ do
+          (utxo', txs) <- atomically $ do
             (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar
-            let utxo' = applyBlock block (== ledgerAddress) utxo
+            let (utxo', txs) = applyBlock block (== ledgerAddress) utxo
             writeTVar utxoVar (utxo', pparams, systemStart, epochInfo)
-            pure utxo'
-          traceWith tracer $ ApplyBlock utxo'
+            pure (utxo', txs)
+          traceWith tracer $ ApplyBlock utxo' txs
       }
  where
   address =
@@ -163,21 +170,23 @@ newTinyWallet tracer networkId (vk, sk) queryUTxOEtc = do
 --
 -- To determine whether a produced output is ours, we apply the given function
 -- checking the output's address.
-applyBlock :: Block -> (Address -> Bool) -> Map TxIn TxOut -> Map TxIn TxOut
+applyBlock :: Block -> (Address -> Bool) -> Map TxIn TxOut -> (Map TxIn TxOut, [TxId])
 applyBlock blk isOurs utxo = case blk of
   BlockBabbage (ShelleyBlock block _) ->
-    flip execState utxo $ do
-      forM_ (fromTxSeq $ bbody block) $ \tx -> do
-        let txId = getTxId tx
-        modify (`Map.withoutKeys` inputs (body tx))
-        let indexedOutputs =
-              let outs = toList $ outputs' (body tx)
-                  maxIx = fromIntegral $ length outs
-               in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
-        forM_ indexedOutputs $ \(ix, out@(Ledger.Babbage.TxOut addr _ _ _)) ->
-          when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
+    let x = flip execState utxo $ do
+          forM_ (fromTxSeq $ bbody block) $ \tx -> do
+            let txId = getTxId tx
+            modify (`Map.withoutKeys` inputs (body tx))
+            let indexedOutputs =
+                  let outs = toList $ outputs' (body tx)
+                      maxIx = fromIntegral $ length outs
+                   in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
+            forM_ indexedOutputs $ \(ix, out@(Ledger.Babbage.TxOut addr _ _ _)) ->
+              when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
+        list = toList $ fmap (fromLedgerTxId . getTxId) $ fromTxSeq $ bbody block
+     in (x, list)
   _ ->
-    utxo
+    (utxo, [])
 
 getTxId ::
   ( HashAlgorithm (HASH crypto)
@@ -388,7 +397,7 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
 
 data TinyWalletLog
   = InitializingWallet QueryPoint (Map TxIn TxOut)
-  | ApplyBlock (Map TxIn TxOut)
+  | ApplyBlock (Map TxIn TxOut) [TxId]
   | LedgerEraMismatchError {expected :: Text, actual :: Text}
   deriving (Eq, Generic, Show)
 
@@ -401,10 +410,11 @@ instance ToJSON TinyWalletLog where
           , "point" .= show @Text point
           , "initialUTxO" .= initialUTxO
           ]
-      (ApplyBlock utxo') ->
+      (ApplyBlock utxo' txIds) ->
         object
           [ "tag" .= String "ApplyBlock"
           , "newUTxO" .= utxo'
+          , "txIds" .= txIds
           ]
       LedgerEraMismatchError{expected, actual} ->
         object
