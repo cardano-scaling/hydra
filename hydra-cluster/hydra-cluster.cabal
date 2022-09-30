@@ -209,7 +209,6 @@ test-suite integration
     Paths_hydra_cluster
     Spec
     Test.CardanoNodeSpec
-    Test.SmallSpec
     Test.DirectChainSpec
     Test.EndToEndSpec
     Test.GeneratorSpec
