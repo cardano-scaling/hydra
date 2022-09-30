@@ -140,8 +140,13 @@ newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
           case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx of
             Left e ->
               pure (Left e)
-            Right (walletUTxO', balancedTx) -> do
-              writeTVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
+            Right (_walletUTxO', balancedTx) -> do
+              -- NOTE: We do not update 'utxoVar' here as it still might be the
+              -- case that submission fails and we rather not revert these
+              -- changes. The drawback is, that the wallet could (likely will)
+              -- select the same UTxOs again if we try to 'coverFee' before
+              -- seeing the outputs spent. This will effectively allow us to
+              -- only balance at most one (successful) transaciton per block.
               pure (Right balancedTx)
       , reset = \point -> do
           res@(u, _, _, _) <- queryUTxOEtc point address
