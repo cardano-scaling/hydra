@@ -132,10 +132,8 @@ showLogsOnFailure ::
   m a
 showLogsOnFailure action = do
   tvar <- newTVarIO []
-  result <- action (traceInTVar tvar) `onException` log tvar
-  log tvar >> pure result
- where
-  log tvar = readTVarIO tvar >>= mapM_ (say . decodeUtf8 . Aeson.encode) . reverse
+  action (traceInTVar tvar)
+    `onException` (readTVarIO tvar >>= mapM_ (say . decodeUtf8 . Aeson.encode) . reverse)
 
 traceInTVar ::
   (MonadFork m, MonadTime m, MonadSTM m) =>
