@@ -103,14 +103,16 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+
+          let aliceCommitment = 66_000_000
+          aliceUTxO <- seedFromFaucet node aliceCardanoVk aliceCommitment Normal (contramap FromFaucet tracer)
+
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys Nothing hydraScriptsTxId (putMVar bobsCallback) $ \_ -> do
               postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
               bobsCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
 
-              let aliceCommitment = 66_000_000
-              aliceUTxO <- seedFromFaucet node aliceCardanoVk aliceCommitment Normal (contramap FromFaucet tracer)
               postTx $ CommitTx alice aliceUTxO
 
               alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
@@ -157,6 +159,9 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+
+          aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
+
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId (putMVar alicesCallback) $ \Chain{postTx} -> do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             alicesCallback `observesInTime` OnInitTx cperiod [alice]
@@ -172,7 +177,6 @@ spec = around showLogsOnFailure $ do
                 (CannotSpendInput{} :: PostTxError Tx) -> True
                 _ -> False
 
-            aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
             postTx $ CommitTx alice aliceUTxO
             alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
 
@@ -201,11 +205,13 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+
+          someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
+
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId (putMVar alicesCallback) $ \Chain{postTx} -> do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             alicesCallback `observesInTime` OnInitTx cperiod [alice]
 
-            someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
             postTx $ CommitTx alice someUTxO
             alicesCallback `observesInTime` OnCommitTx alice someUTxO
 
