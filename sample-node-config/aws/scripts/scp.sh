@@ -4,9 +4,7 @@
 # fail if something goes wrong
 set -e
 
-[ $# -eq 1 ] || { echo "requires an argument 'file path'"; exit 1 ; }
-
-FILE_PATH=$1
+FILE_PATH=${1:-'docker/docker-compose.yaml'}
 CONNECT_AS=${2:-'ubuntu'}
 
 AWS_PROFILE=$(cat terraform.tfvars | grep -o -P '(?<=profile).*' | grep -o -P '(?<=").*(?=")')
