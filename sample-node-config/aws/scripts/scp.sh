@@ -4,13 +4,12 @@
 # fail if something goes wrong
 set -e
 
-[ -z "${AWS_PROFILE}" ] && { echo "please set env variable AWS_PROFILE"; exit 1; }
-
 [ $# -eq 1 ] || { echo "requires an argument 'file path'"; exit 1 ; }
 
 FILE_PATH=$1
 CONNECT_AS=${2:-'ubuntu'}
 
+AWS_PROFILE=$(cat terraform.tfvars | grep -o -P '(?<=profile).*' | grep -o -P '(?<=").*(?=")')
 KEY_NAME=$(cat terraform.tfvars | grep -o -P '(?<=key_name).*' | grep -o -P '(?<=").*(?=")')
 INSTANCE_TAG="hydraw-$KEY_NAME"
 KEY_PAIR_LOCATION="./env/$KEY_NAME.pem"

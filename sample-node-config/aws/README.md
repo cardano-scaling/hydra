@@ -43,55 +43,23 @@ for this example in `~/.aws/credentials` we have:
 +-- terraform.tfvars
 ```
 
-### Building ***credentials***
 This should only be done once, when starting afresh.
-This is a folder you must create yourself to store all blockchain related credential files.
 
-1. ask to your party members for their verification keys (for this template, the party member is ***arnaud***)
+These are folders you must create yourself:
+- ***credentials*** to store all blockchain related credential files.
+- ***env*** to store your personal aws credentials.
 
-2. generate your cardano signing and verification keys.
-at the root of `hydra-poc` project, execute:
-    ```sh
-    $ cardano-cli address key-gen --signing-key-file cardano-key.sk --verification-key-file cardano-key.vk
-    ```
-    > `cardano-key.sk` and `cardano-key.vk` will be generated at the root of the `hydra-poc` project.
+At the root of the `aws` project, execute:
+```sh
+$ ./setup/setup.sh
+```
 
-3. generate your hydra signing and verification keys.
-at the root of `hydra-poc` project, execute:
-    ```sh
-    $ cabal run hydra-tools gen-hydra-key
-    ```
-    > `hydra-key.sk` and `hydra-key.vk` will be generated at the root of the `hydra-poc` project.
-
-4. generate your cardano address
-at the root of `hydra-poc` project, execute:
-    ```sh
-    $ cardano-cli address build --payment-verification-key-file ./cardano-key.vk --testnet-magic 1 > cardano.addr
-    ```
-    > `cardano.addr` will be generated at the root of the `hydra-poc` project.
-
-5. move under `credentials` folder:
-    - the party members verification keys: `arnaud.cardano.vk` and `arnaud.hydra.vk`.
-    - your personal hydra keys: `hydra-key.sk` and `hydra-key.vk`.
-    - your personal cardano keys: `cardano-key.sk` and `cardano-key.vk`.
-    - your personal cardano address: `cardano.addr`.
-
-    ```sh
-    $ mv *.vk sample-node-config/aws/credentials/
-    $ mv *.sk sample-node-config/aws/credentials/
-    $ mv cardano.addr sample-node-config/aws/credentials/
-    ```
-
-### Building ***env***
-This should only be done once, when starting afresh.
-This is a folder you must create yourself to store your personal aws credentials.
-
-go to ***EC2 Dashboard*** > ***Network & Security*** > ***Key Pairs*** and create one (for this template, the key pair is ***personal*** as mentioned).
-Then move it under `env` folder.
-
-> Default values are good enough (type: RSA & OpenSSH format: *.pem).
-
-> Creating a new pair will automatically generate a file and download it (one time action).
+This will create a file called `terraform.tfvars`, used to complete the `variables.tf` definitions. For this example it would be defined as:
+```
+profile    = "iog"
+key_name   = "personal"
+gh_account = "personal_gh"
+```
 
 ## Initialise Terraform
 This should only be done once, when starting afresh.
@@ -102,13 +70,6 @@ $ terraform init
 
 ### Alter terraform variables
 Alter the file `variables.tf` found in `sample-node-config/aws/` to reflect your ami, region and instance_type. Defaults are already provided.
-
-Then, you must create yourself a file called `terraform.tfvars`, used to complete the above `variables.tf` definitions. For this example it could be defined as:
-```
-profile    = "iog"
-key_name   = "personal"
-gh_account = "personal_gh"
-```
 
 ### Deploying the VM
 Then create a deployment plan and apply it:
@@ -161,8 +122,6 @@ Note: Please make sure your `env/personal.pem` file has correct permissions (`ch
 To login to the VM:
 
 ```
-export AWS_PROFILE=<PERSONAL_PROFILE>
-
 $ scripts/login.sh
 ```
 
@@ -231,7 +190,7 @@ Most issues boil down to authentication or authorisation problems.
 
 > Cannot log in to the VM using `scripts/login.sh`
 
-This script uses `AWS_PROFILE` environment variable to activate the corresponding service account and use `ssh` to log in. Check authorizations of the service account.
+This script uses `ssh` to log in. Check authorizations of the service account.
 
 > Terraform fails to run `scripts/configure-testnet.sh` on the VM
 
