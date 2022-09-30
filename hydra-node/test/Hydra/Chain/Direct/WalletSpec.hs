@@ -90,7 +90,7 @@ spec = parallel $ do
 
   describe "coverFee" $ do
     prop "balances transaction with fees" prop_balanceTransaction
-    prop "transaction's inputs are removed from wallet" prop_removeUsedInputs
+    prop "returns used UTxO" prop_returnsUsedUTxO
 
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
@@ -221,9 +221,9 @@ isBalanced utxo originalTx balancedTx =
         & counterexample ("Outputs after:   " <> show (coin out'))
         & counterexample ("Outputs before:  " <> show (coin out))
 
-prop_removeUsedInputs ::
+prop_returnsUsedUTxO ::
   Property
-prop_removeUsedInputs =
+prop_returnsUsedUTxO =
   forAllBlind (reasonablySized genValidatedTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \txUTxO ->
       forAllBlind genMarkedUTxO $ \extraUTxO ->
