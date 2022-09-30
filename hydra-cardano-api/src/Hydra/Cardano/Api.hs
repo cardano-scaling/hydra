@@ -73,6 +73,7 @@ import Cardano.Api.Byron as X (
  )
 import Cardano.Api.Shelley as X (
   Address (..),
+  Hash (HeaderHash),
   Key (..),
   PlutusScriptOrReferenceInput (PScript),
   PoolId,

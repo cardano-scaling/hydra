@@ -25,14 +25,15 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
+  ChainPoint (ChainPoint),
   Era,
+  Hash (HeaderHash),
   LedgerEra,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
   ShelleyLedgerEra,
   StandardCrypto,
   VerificationKey,
-  fromConsensusPointHF,
   fromLedgerTx,
   shelleyBasedEra,
   toLedgerPParams,
@@ -44,7 +45,7 @@ import qualified Hydra.Cardano.Api as Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Fixture (epochInfo, pparams, systemStart, testNetworkId)
-import Hydra.Chain.Direct.Util (Block, markerDatum)
+import Hydra.Chain.Direct.Util (markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
@@ -59,7 +60,6 @@ import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genTxIn, renderTx)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
-import Ouroboros.Network.Block (genesisPoint)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (
@@ -92,20 +92,26 @@ spec = parallel $ do
     prop "balances transaction with fees" prop_balanceTransaction
     prop "transaction's inputs are removed from wallet" prop_removeUsedInputs
 
-  before (generate genKeyPair) $
-    describe "newTinyWallet" $ do
-      it "initialises wallet by querying UTxO" $ \(vk, sk) -> do
-        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) (mockQueryOneUtxo vk)
-        utxo <- atomically (getUTxO wallet)
-        utxo `shouldSatisfy` \m -> Map.size m > 0
+  describe "newTinyWallet" $ do
+    prop "initialises wallet by querying UTxO" $
+      forAll genKeyPair $ \(vk, sk) ->
+        forAll genChainPoint $ \cp -> do
+          wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) cp (mockQueryOneUtxo vk)
+          utxo <- atomically (getUTxO wallet)
+          utxo `shouldSatisfy` \m -> Map.size m > 0
 
-      it "re-queries UTxO from the reset point" $ \(vk, sk) -> do
-        (queryFn, assertQueryPoint) <- setupQuery vk
-        wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) queryFn
-        assertQueryPoint QueryTip
-        let somePoint = fromConsensusPointHF @Block genesisPoint
-        reset wallet (QueryAt somePoint)
-        assertQueryPoint $ QueryAt somePoint
+    prop "re-queries UTxO from the reset point" $
+      forAll genKeyPair $ \(vk, sk) ->
+        let twoDistinctChainPoints = do
+              cp1 <- genChainPoint
+              cp2 <- genChainPoint `suchThat` (cp1 /=)
+              pure (cp1, cp2)
+         in forAll twoDistinctChainPoints $ \(cp1, cp2) -> do
+              (queryFn, assertQueryPoint) <- setupQuery vk
+              wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) cp1 queryFn
+              assertQueryPoint (QueryAt cp1)
+              reset wallet (QueryAt cp2)
+              assertQueryPoint $ QueryAt cp2
 
 setupQuery ::
   VerificationKey PaymentKey ->
@@ -239,6 +245,11 @@ ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
 --
 -- Generators
 --
+
+-- | Generate a chain point with a likely invalid block header hash.
+genChainPoint :: Gen ChainPoint
+genChainPoint =
+  ChainPoint <$> arbitrary <*> (HeaderHash <$> arbitrary)
 
 -- | Generate an arbitrary block, from a UTXO set such that, transactions may
 -- *sometimes* consume given UTXO and produce new ones. The generator is geared
