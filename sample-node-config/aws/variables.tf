@@ -8,11 +8,6 @@ variable "key_name" {
   type        = string
 }
 
-variable "gh_account" {
-  description = "The user github account"
-  type        = string
-}
-
 variable "ami" {
   description = "Amazon Machine Images Id"
   type        = string

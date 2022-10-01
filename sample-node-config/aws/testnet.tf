@@ -139,7 +139,7 @@ resource "aws_instance" "this" {
 
   provisioner "remote-exec" {
     inline = [
-      "/home/ubuntu/configure-testnet.sh ${var.gh_account}"
+      "/home/ubuntu/configure-testnet.sh"
     ]
 
     connection {

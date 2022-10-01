@@ -58,7 +58,6 @@ This will create a file called `terraform.tfvars`, used to complete the `variabl
 ```
 profile    = "iog"
 key_name   = "personal"
-gh_account = "personal_gh"
 ```
 
 ## Initialise Terraform

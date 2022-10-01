@@ -4,16 +4,6 @@
 # fail if something goes wrong
 set -e
 
-[ $# -eq 1 ] || { echo "requires an argument 'github user'"; exit 1 ; }
-
-GH_USER=$1
-
-echo "Accepting github.com key"
-sudo ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-echo "Downloading gpg key signing testnet dump"
-curl https://api.github.com/users/$GH_USER/gpg_keys | jq -r '.[] | .raw_key' | gpg --import
-
 echo "Getting cardano network configuration"
 git clone https://github.com/input-output-hk/cardano-configurations
 ln -s cardano-configurations/network/preview devnet
