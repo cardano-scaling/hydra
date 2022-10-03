@@ -125,6 +125,45 @@ hydra-tools marker-hash
 In the long-run, we'll [move commits outside of the Hydra node](https://github.com/input-output-hk/hydra-poc/issues/215) to be done by external wallets (likely through wallets following the [CIP-0030](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0030) standard).
 :::
 
+## Generating transactions for the WebSocket API
+
+To perform a transaction within an initialized Head via the WebSocket API of Hydra Node, use the commands below and send the output to the node:
+
+```bash title="Transaction building"
+cardano-cli transaction build-raw \
+  --babbage-era \
+  --tx-in 09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687 \
+  --tx-out addr1vx8apm8x8rla2w6tk7dxnwrlxkmeuera4x4tw5j695xhxeq4wawpz+7620669 \
+  --fee 0 \
+  --out-file tx.json
+
+cardano-cli transaction sign \
+  --tx-body-file tx.json \
+  --signing-key-file cardano.sk \
+  --out-file signed-tx.json
+
+echo "{ \"tag\": \"NewTx\", \"transaction\": $(cat signed-tx.json | jq ".cborHex") }"
+{ "tag": "NewTx", "transaction": "84a3008182582009d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add81902af0181a200581d618fd0ece638ffd53b4bb79a69b87f35b79e647da9aab7525a2d0d7364011a0074483d0200a10081825820c736d40ee64c031851af26007c00a3b6fcbebccfd333a8ee6f14983f9be5331c58404bae506f5235778ec65eca6fdfcf6ec61ab93420b91e0b71ca82d437904f860e999372cf00252246ca77012e19c344b3af60df9f853af53fc86835f95a119609f5f6" }
+```
+
+The `--tx-in` value is a UTxO obtained from the reply to the `{ "tag": "GetUTxO" }` message.
+E.g.:
+
+```json title="GetUTxOResponse"
+{
+  "tag": "GetUTxOResponse",
+  "utxo": {
+    "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
+      "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
+      "value": {
+        "lovelace": 7620669
+      }
+    }
+  }
+}
+```
+
+
 ## Example Setup
 
 ### Google Cloud w/ Terraform
