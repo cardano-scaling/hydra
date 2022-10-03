@@ -87,7 +87,10 @@ data State
       , dialogState :: DialogState
       , feedback :: [UserFeedback]
       , now :: UTCTime
+      , pending :: Pending
       }
+
+data Pending = Pending | NotPending deriving (Eq, Show, Generic)
 
 data UserFeedback = UserFeedback
   { severity :: Severity
@@ -132,6 +135,7 @@ makeLensesFor
   , ("dialogState", "dialogStateL")
   , ("feedback", "feedbackL")
   , ("now", "nowL")
+  , ("pending", "pendingL")
   ]
   ''State
 
@@ -178,6 +182,12 @@ report typ msg s =
  where
   userFeedback = UserFeedback typ msg (s ^. nowL)
 
+stopPending :: State -> State
+stopPending = pendingL .~ NotPending
+
+initPending :: State -> State
+initPending = pendingL .~ Pending
+
 --
 -- Update
 --
@@ -188,7 +198,7 @@ handleEvent ::
   State ->
   BrickEvent Name (HydraEvent Tx) ->
   EventM Name (Next State)
-handleEvent client@Client{sendInput} cardanoClient s = \case
+handleEvent client cardanoClient s = \case
   AppEvent e ->
     continue (handleAppEvent s e)
   VtyEvent e -> case s ^? dialogStateL of
@@ -204,17 +214,17 @@ handleEvent client@Client{sendInput} cardanoClient s = \case
             | c `elem` ['q', 'Q'] ->
               halt s
             | c `elem` ['i', 'I'] ->
-              liftIO (sendInput $ Init tuiContestationPeriod) >> continue s
+              sendInputAndTransition client s (Init tuiContestationPeriod)
             | c `elem` ['a', 'A'] ->
-              liftIO (sendInput Abort) >> continue s
+              sendInputAndTransition client s Abort
             | c `elem` ['f', 'F'] ->
-              liftIO (sendInput Fanout) >> continue s
+              sendInputAndTransition client s Fanout
             | c `elem` ['c', 'C'] ->
               case s ^? headStateL of
                 Just Initializing{} ->
-                  handleCommitEvent client cardanoClient s
+                  showCommitDialog client cardanoClient s
                 Just Open{} ->
-                  liftIO (sendInput Close) >> continue s
+                  sendInputAndTransition client s Close
                 _ ->
                   continue s
             | c `elem` ['n', 'N'] ->
@@ -232,6 +242,16 @@ handleEvent client@Client{sendInput} cardanoClient s = \case
   e ->
     continue $ s & warn ("unhandled event: " <> show e)
 
+sendInputAndTransition :: Client tx IO -> State -> ClientInput tx -> EventM n (Next State)
+sendInputAndTransition Client{sendInput} s input = case s ^? pendingL of
+  Just Pending -> do
+    continue $ s & info "Transition already pending"
+  Just NotPending -> do
+    liftIO $ sendInput input
+    continue $ s & initPending
+  -- XXX: Not connected is impossible here (smell -> refactor)
+  Nothing -> continue s
+
 handleAppEvent ::
   State ->
   HydraEvent Tx ->
@@ -246,6 +266,7 @@ handleAppEvent s = \case
       , dialogState = NoDialog
       , feedback = []
       , now = s ^. nowL
+      , pending = NotPending
       }
   ClientDisconnected ->
     Disconnected
@@ -260,20 +281,26 @@ handleAppEvent s = \case
     s & peersL %~ \cp -> cp \\ [p]
   Update CommandFailed{clientInput} -> do
     s & report Error ("Invalid command: " <> show clientInput)
+      & stopPending
   Update ReadyToCommit{parties} ->
     let utxo = mempty
         ps = toList parties
      in s & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo}
+          & stopPending
           & info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
     s & headStateL %~ partyCommitted [party] utxo
       & info (show party <> " committed " <> renderValue (balance @Tx utxo))
+      & if Just (Just party) == s ^? meL
+        then stopPending
+        else id
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & info "Head is now open!"
   Update HeadIsClosed{snapshotNumber, contestationDeadline} ->
     s & headStateL .~ Closed{contestationDeadline}
       & info ("Head closed with snapshot number " <> show snapshotNumber)
+      & stopPending
   Update HeadIsContested{snapshotNumber} ->
     s & info ("Head contested with snapshot number " <> show snapshotNumber)
   Update ReadyToFanout ->
@@ -282,9 +309,11 @@ handleAppEvent s = \case
   Update HeadIsAborted{} ->
     s & headStateL .~ Idle
       & info "Head aborted, back to square one."
+      & stopPending
   Update HeadIsFinalized{utxo} ->
     s & headStateL .~ Final{utxo}
       & info "Head finalized."
+      & stopPending
   Update TxSeen{} ->
     s -- TUI is not needing this response, ignore it
   Update TxValid{} ->
@@ -301,8 +330,12 @@ handleAppEvent s = \case
     s & warn ("Invalid input error: " <> toText reason)
   Update PostTxOnChainFailed{postTxError} ->
     s & warn ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
+      & stopPending
   Update RolledBack ->
+    -- XXX: This is a bit of a mess as we do NOT know in which state the Hydra
+    -- head is. Even worse, we have no way to find out!
     s & info "Chain rolled back! You might need to re-submit Head transactions manually now."
+      & stopPending
   Tick now ->
     s & nowL .~ now
  where
@@ -351,20 +384,17 @@ handleDialogEvent (title, form, submit) s = \case
     form' <- handleFormEvent (VtyEvent e) form
     continue $ s & dialogStateL .~ Dialog title form' submit
 
-handleCommitEvent ::
+showCommitDialog ::
   Client Tx IO ->
   CardanoClient ->
   State ->
   EventM n (Next State)
-handleCommitEvent Client{sendInput, sk} CardanoClient{queryUTxOByAddress, networkId} s = case s ^? headStateL of
-  Just Initializing{} -> do
-    utxo <- liftIO $ queryUTxOByAddress [ourAddress]
-    -- XXX(SN): this is a hydra implementation detail and should be moved
-    -- somewhere hydra specific
-    let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (UTxO.toMap utxo)
-    continue $ s & dialogStateL .~ commitDialog utxoWithoutFuel
-  _ ->
-    continue $ s & warn "Invalid command."
+showCommitDialog client@Client{sk} CardanoClient{queryUTxOByAddress, networkId} s = do
+  utxo <- liftIO $ queryUTxOByAddress [ourAddress]
+  -- XXX(SN): this is a hydra implementation detail and should be moved
+  -- somewhere hydra specific
+  let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (UTxO.toMap utxo)
+  continue $ s & dialogStateL .~ commitDialog utxoWithoutFuel
  where
   ourAddress =
     makeShelleyAddress
@@ -386,8 +416,7 @@ handleCommitEvent Client{sendInput, sk} CardanoClient{queryUTxOByAddress, networ
               & warn "Cannot commit more than 1 entry."
               & dialogStateL .~ NoDialog
         else do
-          liftIO (sendInput $ Commit commitUTxO)
-          continue (s' & dialogStateL .~ NoDialog)
+          sendInputAndTransition client (s' & dialogStateL .~ NoDialog) (Commit commitUTxO)
 
 handleNewTxEvent ::
   Client Tx IO ->
@@ -580,9 +609,15 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawHeadState = case s of
     Disconnected{} -> emptyWidget
-    Connected{headState} ->
+    Connected{headState, pending = NotPending} -> drawVBox headState $ txt ""
+    Connected{headState, pending = Pending} -> drawVBox headState $ txt " (Transition pending)"
+   where
+    drawVBox headState drawPending =
       vBox
-        [ padLeftRight 1 $ txt "Head status: " <+> withAttr infoA (txt $ Prelude.head (words $ show headState))
+        [ padLeftRight 1 $
+            txt "Head status: "
+              <+> withAttr infoA (txt $ Prelude.head (words $ show headState))
+              <+> drawPending
         , hBorder
         ]
 
