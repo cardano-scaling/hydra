@@ -205,14 +205,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoin
             (versions networkId client)
             socketPath
       )
-      ( do
-          -- FIXME: There's currently a race-condition with the actual client
-          -- which will only see transactions after it has established
-          -- connection with the server's tip. So any transaction submitted
-          -- before that tip will be missed.
-          threadDelay 2
-          action chainHandle
-      )
+      (action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
