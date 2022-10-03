@@ -17,8 +17,9 @@ import Test.QuickCheck (oneof)
 
 type NodeSocket = FilePath
 
-newtype QueryException
-  = QueryException Text
+data QueryException
+  = QueryAcquireException AcquireFailure
+  | QueryEraMismatchException EraMismatch
   deriving (Eq, Show)
 
 instance Exception QueryException
@@ -291,7 +292,7 @@ queryStakePools networkId socket queryPoint =
 runQuery :: NetworkId -> FilePath -> QueryPoint -> QueryInMode CardanoMode a -> IO a
 runQuery networkId socket point query =
   queryNodeLocalState (localNodeConnectInfo networkId socket) maybePoint query >>= \case
-    Left err -> throwIO $ QueryException (show err)
+    Left err -> throwIO $ QueryAcquireException err
     Right result -> pure result
  where
   maybePoint =
@@ -304,7 +305,7 @@ runQuery networkId socket point query =
 throwOnEraMismatch :: (MonadThrow m) => Either EraMismatch a -> m a
 throwOnEraMismatch res =
   case res of
-    Left eraMismatch -> throwIO $ QueryException (show eraMismatch)
+    Left eraMismatch -> throwIO $ QueryEraMismatchException eraMismatch
     Right result -> pure result
 
 localNodeConnectInfo :: NetworkId -> FilePath -> LocalNodeConnectInfo CardanoMode
