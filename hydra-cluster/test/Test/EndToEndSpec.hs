@@ -45,7 +45,6 @@ import Hydra.Cluster.Fixture (
   carol,
   carolSk,
   carolVk,
-  defaultNetworkId,
  )
 import Hydra.Cluster.Scenarios (singlePartyHeadFullLifeCycle)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -155,13 +154,13 @@ spec = around showLogsOnFailure $ do
     describe "start chain observer from the past" $
       it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
         withTempDir "end-to-end-chain-observer" $ \tmp -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             tip <- withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
               seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-              tip <- queryTip defaultNetworkId nodeSocket
+              tip <- queryTip networkId nodeSocket
               let contestationPeriod = 10 :: Natural
               send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
               waitFor tracer 10 [n1] $
@@ -179,7 +178,7 @@ spec = around showLogsOnFailure $ do
     describe "contestation scenarios" $ do
       it "close of an initial snapshot from restarting node is contested" $ \tracer -> do
         withTempDir "end-to-end-chain-observer" $ \tmp -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
 
             (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
@@ -188,7 +187,7 @@ spec = around showLogsOnFailure $ do
             seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
             seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
-            tip <- queryTip defaultNetworkId nodeSocket
+            tip <- queryTip networkId nodeSocket
             let startFromTip x = x{startChainFrom = Just tip}
 
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Bob] <&> startFromTip
@@ -314,7 +313,7 @@ spec = around showLogsOnFailure $ do
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
-initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket} = do
+initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
   withTempDir "end-to-end-init-and-close" $ \tmpDir -> do
     aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
     bobKeys@(bobCardanoVk, _) <- generate genKeyPair
@@ -432,7 +431,7 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket} = do
         Error err ->
           failure $ "newUTxO isn't valid JSON?: " <> err
         Success u ->
-          failAfter 5 $ waitForUTxO defaultNetworkId nodeSocket u
+          failAfter 5 $ waitForUTxO networkId nodeSocket u
 
 --
 -- Fixtures

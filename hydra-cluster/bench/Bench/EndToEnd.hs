@@ -31,7 +31,7 @@ import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
 import Hydra.Chain.CardanoClient (awaitTransaction, submitTransaction)
 import Hydra.Cluster.Faucet (FaucetLog, Marked (Fuel), publishHydraScriptsAs, seedFromFaucet)
-import Hydra.Cluster.Fixture (Actor (Faucet), defaultNetworkId)
+import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger (txId)
@@ -218,14 +218,14 @@ movingAverage confirmations =
 -- dataset, and also publish the hydra scripts. The 'TxId' of the publishing
 -- transaction is returned.
 seedNetwork :: RunningNode -> Dataset -> Tracer IO FaucetLog -> IO TxId
-seedNetwork node@RunningNode{nodeSocket} Dataset{fundingTransaction, clientDatasets} tracer = do
+seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, clientDatasets} tracer = do
   fundClients
   forM_ clientDatasets fuelWith100Ada
   publishHydraScriptsAs node Faucet
  where
   fundClients = do
-    submitTransaction defaultNetworkId nodeSocket fundingTransaction
-    void $ awaitTransaction defaultNetworkId nodeSocket fundingTransaction
+    submitTransaction networkId nodeSocket fundingTransaction
+    void $ awaitTransaction networkId nodeSocket fundingTransaction
 
   fuelWith100Ada ClientDataset{signingKey} = do
     let vk = getVerificationKey signingKey
