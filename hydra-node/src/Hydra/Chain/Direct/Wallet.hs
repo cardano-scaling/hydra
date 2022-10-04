@@ -137,12 +137,7 @@ newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
       , sign = Util.signWith (vk, sk)
       , coverFee = \lookupUTxO partialTx -> do
           (walletUTxO, pparams, systemStart, epochInfo) <- readTVar utxoVar
-          case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx of
-            Left e ->
-              pure (Left e)
-            Right (walletUTxO', balancedTx) -> do
-              writeTVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
-              pure (Right balancedTx)
+          pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
       , reset = \point -> do
           res@(u, _, _, _) <- queryUTxOEtc point address
           atomically $ writeTVar utxoVar res
@@ -217,7 +212,7 @@ coverFee_ ::
   Map TxIn TxOut ->
   Map TxIn TxOut ->
   ValidatedTx LedgerEra ->
-  Either ErrCoverFee (Map TxIn TxOut, ValidatedTx LedgerEra)
+  Either ErrCoverFee (ValidatedTx LedgerEra)
 coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@ValidatedTx{body, wits} = do
   (input, output) <- findUTxOToPayFees walletUTxO
 
@@ -261,13 +256,11 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
                 adjustedRedeemers
                 (txdats wits)
           }
-  pure
-    ( Map.withoutKeys walletUTxO inputs'
-    , partialTx
-        { body = finalBody
-        , wits = wits{txrdmrs = adjustedRedeemers}
-        }
-    )
+  pure $
+    partialTx
+      { body = finalBody
+      , wits = wits{txrdmrs = adjustedRedeemers}
+      }
  where
   findUTxOToPayFees utxo = case findFuelUTxO utxo of
     Nothing ->
