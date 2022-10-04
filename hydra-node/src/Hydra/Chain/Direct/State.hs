@@ -45,7 +45,7 @@ import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.QuickCheck (sized)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
@@ -335,10 +335,10 @@ contest ::
 contest st confirmedSnapshot pointInTime = do
   contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput
  where
-  (sn, sigs) =
+  (sn, sigs) = 
     case confirmedSnapshot of
-      ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
-      InitialSnapshot{snapshot} -> (snapshot, mempty)
+      ConfirmedSnapshot{signatures} -> (getSnapshot confirmedSnapshot, signatures)
+      _ -> (getSnapshot confirmedSnapshot, mempty)
 
   ClosedState
     { ctx = ChainContext{ownVerificationKey}

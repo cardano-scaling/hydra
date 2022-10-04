@@ -197,14 +197,16 @@ genStClosed ctx utxo = do
   (u0, stOpen) <- genStOpen ctx
   confirmed <- arbitrary
   let (sn, snapshot, toFanout) = case confirmed of
-        cf@InitialSnapshot{snapshot = s} ->
+        InitialSnapshot{} ->
           ( 0
-          , cf{snapshot = s{utxo = u0}}
+          , InitialSnapshot {initialUtxo = u0}
           , u0
           )
-        cf@ConfirmedSnapshot{snapshot = s} ->
-          ( number s
-          , cf{snapshot = s{utxo = utxo}}
+        ConfirmedSnapshot{snapshot = snap, signatures} ->
+          ( number snap
+          , ConfirmedSnapshot
+            { snapshot = snap { utxo = utxo }
+            , signatures}
           , utxo
           )
   pointInTime <- genPointInTime

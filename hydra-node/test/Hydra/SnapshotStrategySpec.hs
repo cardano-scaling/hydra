@@ -51,7 +51,7 @@ spec = do
               CoordinatedHeadState
                 { seenUTxO = initUTxO
                 , seenTxs = [tx]
-                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
+                , confirmedSnapshot = InitialSnapshot initUTxO
                 , seenSnapshot = NoSeenSnapshot
                 }
         newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
@@ -66,7 +66,7 @@ spec = do
               CoordinatedHeadState
                 { seenUTxO = initUTxO
                 , seenTxs = [tx]
-                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
+                , confirmedSnapshot = InitialSnapshot initUTxO
                 , seenSnapshot = NoSeenSnapshot
                 }
         newSn (envFor bobSk) params st `shouldBe` ShouldNotSnapshot (NotLeader 1)
@@ -77,7 +77,7 @@ spec = do
               CoordinatedHeadState
                 { seenUTxO = initUTxO
                 , seenTxs = mempty
-                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
+                , confirmedSnapshot = InitialSnapshot initUTxO
                 , seenSnapshot = SeenSnapshot sn1 mempty
                 }
         newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
@@ -87,7 +87,7 @@ spec = do
               CoordinatedHeadState
                 { seenUTxO = initUTxO
                 , seenTxs = mempty
-                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
+                , confirmedSnapshot = InitialSnapshot initUTxO
                 , seenSnapshot = NoSeenSnapshot
                 } ::
                 CoordinatedHeadState SimpleTx
@@ -100,7 +100,7 @@ spec = do
                 CoordinatedHeadState
                   { seenUTxO = initUTxO
                   , seenTxs = [tx]
-                  , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
+                  , confirmedSnapshot = InitialSnapshot initUTxO
                   , seenSnapshot = NoSeenSnapshot
                   }
               st =

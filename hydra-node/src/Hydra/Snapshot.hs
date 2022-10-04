@@ -70,9 +70,7 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Snapshot tx) where
 
 -- | Snapshot when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
-  = InitialSnapshot
-      { snapshot :: Snapshot tx
-      }
+  = InitialSnapshot { initialUtxo :: UTxOType tx }
   | ConfirmedSnapshot
       { snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
@@ -88,7 +86,12 @@ data ConfirmedSnapshot tx
 -- | Safely get a 'Snapshot' from a confirmed snapshot.
 getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
-  InitialSnapshot{snapshot} -> snapshot
+  InitialSnapshot{initialUtxo} ->
+    Snapshot
+    { number = 0
+    , utxo = initialUtxo
+    , confirmed = []
+    }
   ConfirmedSnapshot{snapshot} -> snapshot
 
 -- | Tell whether a snapshot is the initial snapshot coming from the collect-com
@@ -122,20 +125,8 @@ genConfirmedSnapshot minSn utxo sks
       , (9, confirmedSnapshot)
       ]
  where
-  initialSnapshot = do
-    -- FIXME: The fact that we need to set a constant 0 here is a code smell.
-    -- Initial snapshots with a different snapshot number are not valid and we
-    -- should model 'InitialSnapshot' differently, i.e not holding a
-    -- SnapshotNumber
-    pure
-      InitialSnapshot
-        { snapshot =
-            Snapshot
-              { confirmed = []
-              , utxo
-              , number = 0
-              }
-        }
+  initialSnapshot =
+    pure $ InitialSnapshot utxo
 
   confirmedSnapshot = do
     -- FIXME: This is another nail in the coffin to our current modeling of

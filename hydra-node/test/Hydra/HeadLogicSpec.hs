@@ -337,7 +337,7 @@ inOpenState parties Ledger{initUTxO} =
   inOpenState' parties $ CoordinatedHeadState u0 mempty snapshot0 NoSeenSnapshot
  where
   u0 = initUTxO
-  snapshot0 = InitialSnapshot $ Snapshot 0 u0 mempty
+  snapshot0 = InitialSnapshot u0
 
 inOpenState' ::
   [Party] ->
@@ -359,7 +359,7 @@ inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
  where
   u0 = initUTxO simpleLedger
-  snapshot0 = InitialSnapshot $ Snapshot 0 u0 mempty
+  snapshot0 = InitialSnapshot u0
 
 inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> HeadState SimpleTx
 inClosedState' parties confirmedSnapshot =
