@@ -144,6 +144,7 @@ import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.Typeable (typeOf)
+import Hydra.Chain (OnChainTx (OnInitTx))
 import Hydra.Chain.Direct.Fixture (genForParty, testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.State (ChainState (..), observeSomeTx)
@@ -244,6 +245,8 @@ propTransactionIsNotObserved :: (Tx, UTxO) -> ChainState -> Property
 propTransactionIsNotObserved (tx, _) st =
   case observeSomeTx tx st of
     Nothing ->
+      property True
+    Just (OnInitTx{}, _) ->
       property True
     Just (onChainTx, st') ->
       property False

@@ -154,7 +154,7 @@ spec =
             forAll genScriptRegistry $ \scriptRegistry ->
               let params = HeadParameters cperiod (party : parties)
                   tx = initTx testNetworkId cardanoKeys params txIn
-               in case observeInitTx testNetworkId cardanoKeys party tx of
+               in case observeInitTx testNetworkId party tx of
                     Just InitObservation{initials, threadOutput} -> do
                       let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
                           initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
