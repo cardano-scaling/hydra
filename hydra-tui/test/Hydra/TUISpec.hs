@@ -35,7 +35,6 @@ import Hydra.Cluster.Faucet (
 import Hydra.Cluster.Fixture (
   Actor (..),
   aliceSk,
-  defaultNetworkId,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (toNominalDiffTime)
@@ -150,16 +149,16 @@ spec = do
           days = hours * 24
           time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
       renderTime (time :: NominalDiffTime) `shouldBe` "10d 1h 1m 15s"
-      renderTime (- time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
+      renderTime (-time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
       let time' = 1 * hours + 1 * minutes + 15 * seconds
-      renderTime (- time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
+      renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI action =
   showLogsOnFailure $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
+      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         chainConfig <- chainConfigFor Alice tmpDir nodeSocket []
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
@@ -183,7 +182,7 @@ setupNodeAndTUI action =
                     , cardanoNodeSocket =
                         nodeSocket
                     , cardanoNetworkId =
-                        defaultNetworkId
+                        networkId
                     , cardanoSigningKey =
                         (cardanoSigningKey :: ChainConfig -> FilePath) chainConfig
                     }
