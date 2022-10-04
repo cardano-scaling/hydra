@@ -20,6 +20,20 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (networkId, startChainFrom)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitMatch, withHydraNode)
+import Test.Hydra.Prelude (failure)
+
+
+restartANodeAfterHeadInitialized :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO b
+restartANodeAfterHeadInitialized tracer workDir cardanoNode hydraScriptsTxId = do
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket []
+      <&> \config -> config{networkId, startChainFrom = Nothing}
+  
+  withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \_node -> do
+    failure "in progress"
+  where
+    RunningNode{nodeSocket, networkId} = cardanoNode
+
 
 singlePartyHeadFullLifeCycle ::
   Tracer IO EndToEndLog ->
