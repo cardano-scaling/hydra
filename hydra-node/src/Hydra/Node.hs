@@ -32,6 +32,7 @@ import Control.Monad.Class.MonadSTM (
   stateTVar,
   writeTQueue,
  )
+import qualified Data.Aeson as Aeson
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), PostTxError)
@@ -93,6 +94,7 @@ data HydraNodeLog tx
   | EndEvent {by :: Party, event :: Event tx}
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
+  | SavingState
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -117,6 +119,7 @@ runHydraNode ::
   , MonadAsync m
   , IsTx tx
   , MonadCatch m
+  , MonadIO m
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -131,6 +134,7 @@ stepHydraNode ::
   , MonadAsync m
   , IsTx tx
   , MonadCatch m
+  , MonadIO m
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -143,8 +147,13 @@ stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
     -- does trace and not throw!
     Error err -> traceWith tracer (ErrorHandlingEvent party e err)
     Wait _reason -> putEventAfter eq 0.1 (decreaseTTL e) >> traceWith tracer (EndEvent party e)
-    NewState _ effs ->
-      forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
+    NewState s effs -> do
+      traceWith tracer SavingState
+      -- TODO: of course abstract away storing to disk and make location configurable
+      -- TODO: should use a durable/atomic write like unliftio's 'writeBinaryFileDurableAtomic'
+      writeFileLBS "/tmp/headstate" $ Aeson.encode s
+      forM_ effs (processEffect node tracer)
+      traceWith tracer (EndEvent party e)
     OnlyEffects effs ->
       forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
  where

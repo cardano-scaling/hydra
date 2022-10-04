@@ -36,6 +36,7 @@ restartANodeAfterHeadInitialized tracer workDir cardanoNode hydraScriptsTxId = d
     -- XXX: might need to tweak the wait time
     waitFor tracer 10 [n1] $
       output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     send n1 $ input "Abort" []
     waitFor tracer 10 [n1] $
