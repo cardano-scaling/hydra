@@ -1,13 +1,17 @@
+# This workflow builds docker images on 'master', for all release tags, but also
+# for all pull requests. It only tags and pushes all builds from 'master' and
+# releases. However, the 'latest' docker tag on the registry will always point
+# to the latest version (likely the one built from 'master') so referring to the
+# versioned images is suggested.
 name: Docker
 
-# NOTE: This workflow builds & tags docker images also on master to get
-# pre-release feedback about working docker builds, but it ONLY pushes them when
-# we pushed a git tag. Hence, the 'latest' docker tag on the registry is equal
-# to the latest released version (not the latest built from master).
 on:
   push:
     branches: [ "master" ]
     tags: [ "*.*.*" ]
+  pull_request:
+    branches:
+      - 'master'
 
 jobs:
   docker:
@@ -46,7 +50,7 @@ jobs:
       uses: docker/build-push-action@v2
       with:
         context: .
-        push: ${{ github.ref_type == 'tag' }}
+        push: ${{ github.event_name != 'pull_request' }}
         target: ${{ matrix.target }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
