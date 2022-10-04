@@ -181,7 +181,7 @@ spec =
                                           ErrScriptExecutionFailed{} -> "Script(s) execution failed"
                                           ErrTranslationError{} -> "Transaction context translation error"
                                       )
-                                Right (_, fromLedgerTx -> txAbortWithFees) ->
+                                Right (fromLedgerTx -> txAbortWithFees) ->
                                   let actualExecutionCost = totalExecutionCost ledgerPParams txAbortWithFees
                                       fee = txFee' txAbortWithFees
                                    in actualExecutionCost > Lovelace 0 && fee > actualExecutionCost

@@ -90,7 +90,6 @@ spec = parallel $ do
 
   describe "coverFee" $ do
     prop "balances transaction with fees" prop_balanceTransaction
-    prop "returns used UTxO" prop_returnsUsedUTxO
 
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
@@ -205,7 +204,7 @@ prop_balanceTransaction =
               & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
               & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
               & counterexample (renderTx $ fromLedgerTx tx)
-          Right (_, tx') ->
+          Right tx' ->
             isBalanced (lookupUTxO <> walletUTxO) tx tx'
 
 isBalanced :: Map TxIn TxOut -> ValidatedTx LedgerEra -> ValidatedTx LedgerEra -> Property
@@ -220,24 +219,6 @@ isBalanced utxo originalTx balancedTx =
         & counterexample ("Added value:     " <> show (coin inp'))
         & counterexample ("Outputs after:   " <> show (coin out'))
         & counterexample ("Outputs before:  " <> show (coin out))
-
-prop_returnsUsedUTxO ::
-  Property
-prop_returnsUsedUTxO =
-  forAllBlind (reasonablySized genValidatedTx) $ \tx ->
-    forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \txUTxO ->
-      forAllBlind genMarkedUTxO $ \extraUTxO ->
-        prop' txUTxO (txUTxO <> extraUTxO) tx
- where
-  prop' txUTxO walletUTxO tx =
-    case coverFee_ ledgerPParams systemStart epochInfo mempty walletUTxO tx of
-      Left err ->
-        property False & counterexample ("Error: " <> show err)
-      Right (utxo', _) ->
-        null (Map.intersection walletUTxO utxo')
-          & counterexample ("Remaining UTXO: " <> show utxo')
-          & counterexample ("Tx UTxO: " <> show txUTxO)
-          & counterexample ("Wallet UTXO: " <> show walletUTxO)
 
 ledgerPParams :: PParams (ShelleyLedgerEra Era)
 ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
