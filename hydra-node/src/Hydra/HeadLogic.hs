@@ -368,7 +368,7 @@ onInitialChainCollectTx previousRecoverableState parameters committed =
   -- For example, we do expect `null remainingParties` but what happens if
   -- it's untrue?
   let u0 = fold committed
-      initialSnapshot = InitialSnapshot $ Snapshot 0 u0 mempty
+      initialSnapshot = InitialSnapshot u0
    in NewState
         ( OpenState
             { parameters
