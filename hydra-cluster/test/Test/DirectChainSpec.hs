@@ -8,6 +8,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoClient (
+  QueryException (QueryAcquireException),
   QueryPoint (QueryTip),
   buildAddress,
   queryTip,
@@ -19,6 +20,7 @@ import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
+  AcquireFailure (AcquireFailurePointNotOnChain),
   ChainPoint (..),
   lovelaceToValue,
   txOutValue,
@@ -32,11 +34,7 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError (..),
  )
-import Hydra.Chain.Direct (
-  IntersectionNotFoundException,
-  withDirectChain,
-  withIOManager,
- )
+import Hydra.Chain.Direct (withDirectChain, withIOManager)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Cluster.Faucet (
@@ -287,9 +285,12 @@ spec = around showLogsOnFailure $ do
 
           let headerHash = unsafeDeserialiseFromRawBytesBase16 (B8.replicate 64 '0')
           let fakeTip = ChainPoint 42 headerHash
-          flip shouldThrow isIntersectionNotFoundException $
-            withDirectChain aliceTrace defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just fakeTip) hydraScriptsTxId (putMVar alicesCallback) $ \_ -> do
-              threadDelay 5 >> fail "should not execute main action but did?"
+          let action =
+                withDirectChain aliceTrace defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just fakeTip) hydraScriptsTxId (putMVar alicesCallback) $ \_ -> do
+                  threadDelay 5 >> fail "should not execute main action but did?"
+          action `shouldThrow` \case
+            QueryAcquireException err -> err == AcquireFailurePointNotOnChain
+            _ -> False
 
   it "can publish and query reference scripts in a timely manner" $ \tracer -> do
     withTempDir "direct-chain" $ \tmp -> do
@@ -336,9 +337,6 @@ waitMatch mvar match = do
   case match a of
     Nothing -> waitMatch mvar match
     Just b -> pure b
-
-isIntersectionNotFoundException :: IntersectionNotFoundException -> Bool
-isIntersectionNotFoundException _ = True
 
 delayUntil :: (MonadDelay m, MonadTime m) => UTCTime -> m ()
 delayUntil target = do

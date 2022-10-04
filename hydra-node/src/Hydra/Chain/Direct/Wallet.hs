@@ -47,6 +47,7 @@ import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
+  ChainPoint,
   LedgerEra,
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
@@ -61,7 +62,7 @@ import Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
-import Hydra.Chain.CardanoClient (QueryPoint (QueryTip))
+import Hydra.Chain.CardanoClient (QueryPoint (QueryAt))
 import Hydra.Chain.Direct.Util (Block, markerDatum)
 import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Logging (Tracer, traceWith)
@@ -121,12 +122,14 @@ newTinyWallet ::
   NetworkId ->
   -- | Credentials of the wallet.
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  -- Starting point on the chain. From this onward we will receive blocks on 'update'.
+  ChainPoint ->
   -- | A function to query UTxO, pparams, system start and epoch info from the
   -- node. Initially and on demand later.
   ChainQuery IO ->
   IO (TinyWallet IO)
-newTinyWallet tracer networkId (vk, sk) queryUTxOEtc = do
-  utxoVar <- newTVarIO =<< queryUTxOEtc QueryTip address
+newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
+  utxoVar <- newTVarIO =<< queryUTxOEtc (QueryAt chainPoint) address
   pure
     TinyWallet
       { getUTxO =

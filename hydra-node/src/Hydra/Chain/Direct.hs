@@ -65,6 +65,7 @@ import Hydra.Chain.CardanoClient (
   queryEraHistory,
   queryProtocolParameters,
   querySystemStart,
+  queryTip,
   queryUTxO,
  )
 import Hydra.Chain.Direct.Handlers (
@@ -160,9 +161,13 @@ withDirectChain ::
   -- | Transaction id at which Hydra scripts should be published.
   TxId ->
   ChainComponent Tx IO a
-withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point hydraScriptsTxId callback action = do
+withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoint hydraScriptsTxId callback action = do
   queue <- newTQueueIO
-  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair queryUTxOEtc
+  -- Select a chain point from which to start synchronizing
+  chainPoint <- case mpoint of
+    Nothing -> queryTip networkId socketPath
+    Just point -> pure point
+  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair chainPoint queryUTxOEtc
   let (vk, _) = keyPair
   scriptRegistry <- queryScriptRegistry networkId socketPath hydraScriptsTxId
   let ctx =
@@ -191,7 +196,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
       ( handle onIOException $ do
           let handler = chainSyncHandler tracer callback headState (queryTimeHandle networkId socketPath)
 
-          let intersection = toConsensusPointHF <$> point
+          let intersection = toConsensusPointHF <$> mpoint
           let client = ouroborosApplication tracer intersection queue handler wallet
 
           connectTo
@@ -200,14 +205,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
             (versions networkId client)
             socketPath
       )
-      ( do
-          -- FIXME: There's currently a race-condition with the actual client
-          -- which will only see transactions after it has established
-          -- connection with the server's tip. So any transaction submitted
-          -- before that tip will be missed.
-          threadDelay 2
-          action chainHandle
-      )
+      (action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
@@ -271,14 +269,14 @@ ouroborosApplication ::
   TinyWallet m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-ouroborosApplication tracer point queue handler wallet nodeToClientV =
+ouroborosApplication tracer mpoint queue handler wallet nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClient handler wallet point
+                  let peer = chainSyncClient handler wallet mpoint
                    in MuxPeer nullTracer cChainSyncCodec (chainSyncClientPeer peer)
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
