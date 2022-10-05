@@ -169,6 +169,7 @@ import Test.QuickCheck (
   property,
   suchThat,
   vector,
+  (.||.),
  )
 import Test.QuickCheck.Instances ()
 
@@ -204,12 +205,22 @@ propMutationOffChain (tx, utxo) genMutation genSt =
               conjoin
                 [ propTransactionValidates x
                     & counterexample "Transaction should have validated but didn't."
-                , propTransactionIsNotObserved x st
-                    & counterexample "Transaction should have not been observed but was observed."
+                , ( propTransactionInitIsObserved x st
+                      & counterexample "Transaction should have been observed but was not."
+                  )
+                    .||. ( propTransactionIsNotObserved x st
+                            & counterexample "Transaction should have not been observed but was observed."
+                         )
                 ]
           )
         & genericCoverTable [label]
         & checkCoverage
+
+propTransactionInitIsObserved :: (Tx, UTxO) -> ChainState -> Property
+propTransactionInitIsObserved (tx, _) st =
+  case observeSomeTx tx st of
+    Just (OnInitTx{}, _) -> property True
+    _ -> property False
 
 -- | A 'Property' checking some (transaction, UTxO) pair is invalid.
 propTransactionDoesNotValidate :: (Tx, UTxO) -> Property
@@ -245,8 +256,6 @@ propTransactionIsNotObserved :: (Tx, UTxO) -> ChainState -> Property
 propTransactionIsNotObserved (tx, _) st =
   case observeSomeTx tx st of
     Nothing ->
-      property True
-    Just (OnInitTx{}, _) ->
       property True
     Just (onChainTx, st') ->
       property False
