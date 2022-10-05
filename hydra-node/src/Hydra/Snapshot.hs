@@ -70,7 +70,7 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Snapshot tx) where
 
 -- | A snapshot that can be used to close a head with. Either the initial one, or when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
-  = InitialSnapshot { initialUtxo :: UTxOType tx }
+  = InitialSnapshot { initialUTxO :: UTxOType tx }
   | ConfirmedSnapshot
       { snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
@@ -86,10 +86,10 @@ data ConfirmedSnapshot tx
 -- | Safely get a 'Snapshot' from a confirmed snapshot.
 getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
-  InitialSnapshot{initialUtxo} ->
+  InitialSnapshot{initialUTxO} ->
     Snapshot
     { number = 0
-    , utxo = initialUtxo
+    , utxo = initialUTxO
     , confirmed = []
     }
   ConfirmedSnapshot{snapshot} -> snapshot
