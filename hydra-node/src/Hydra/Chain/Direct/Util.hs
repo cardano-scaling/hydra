@@ -182,10 +182,10 @@ retry predicate action =
   catchIf f a b = a `catch` \e -> if f e then b e else throwIO e
 
 signWith ::
-  (Api.VerificationKey Api.PaymentKey, Api.SigningKey Api.PaymentKey) ->
+  Api.SigningKey Api.PaymentKey ->
   ValidatedTx Api.LedgerEra ->
   ValidatedTx Api.LedgerEra
-signWith credentials validatedTx@ValidatedTx{body, wits} =
+signWith signingKey validatedTx@ValidatedTx{body, wits} =
   validatedTx
     { wits =
         wits{txwitsVKey = Set.union (txwitsVKey wits) sig}
@@ -195,7 +195,7 @@ signWith credentials validatedTx@ValidatedTx{body, wits} =
     Ledger.TxId (SafeHash.hashAnnotated body)
   sig =
     toLedgerKeyWitness
-      [Api.signWith @Api.Era (fromLedgerTxId txid) credentials]
+      [Api.signWith @Api.Era (fromLedgerTxId txid) signingKey]
 
 -- | Marker datum used to identify payment UTXO
 markerDatum :: Data

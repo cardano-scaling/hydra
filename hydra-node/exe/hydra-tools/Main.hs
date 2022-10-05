@@ -3,11 +3,9 @@ module Main where
 import Hydra.Prelude
 
 import Crypto.Random (getRandomBytes)
-import qualified Data.ByteString as BS
 import Hydra.Cardano.Api (
   SigningKey,
   getVerificationKey,
-  serialiseToRawBytes,
   writeFileTextEnvelope,
  )
 import Hydra.Chain.Direct.Util (markerDatumHash)

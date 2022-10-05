@@ -25,6 +25,8 @@ changes.
 
 - **BREAKING** The `InitialSnapshot` only contains the `initialUTxO` as the rest of the information was useless.
 
+- **BREAKING** Hydra keys now use text envelope format.
+
 - Added a `hydra-tools` executable, which provides basic commands to help working with Hydra Heads:
   + Generate a pair of Hydra keys
   + Output the marker datum hash
