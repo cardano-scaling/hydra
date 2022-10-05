@@ -8,6 +8,7 @@ import Hydra.Cardano.Api (
   SigningKey,
   getVerificationKey,
   serialiseToRawBytes,
+  writeFileTextEnvelope,
  )
 import Hydra.Chain.Direct.Util (markerDatumHash)
 import Hydra.Crypto (HydraKey, generateSigningKey)
@@ -77,6 +78,6 @@ main = do
   case opts of
     GenerateKeyPair{outputFile} -> do
       sk :: SigningKey HydraKey <- generateSigningKey <$> getRandomBytes 16
-      BS.writeFile (outputFile <.> "sk") (serialiseToRawBytes sk)
-      BS.writeFile (outputFile <.> "vk") (serialiseToRawBytes $ getVerificationKey sk)
+      void $ writeFileTextEnvelope (outputFile <.> "sk") Nothing sk
+      void $ writeFileTextEnvelope (outputFile <.> "vk") Nothing (getVerificationKey sk)
     OutputMarkerHash -> print markerDatumHash
