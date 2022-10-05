@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module HydraNode (
   HydraClient (..),
@@ -271,10 +272,10 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
       let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
       readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
       let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
-      BS.writeFile hydraSigningKey (serialiseToRawBytes hydraSKey)
+      void $ writeFileTextEnvelope hydraSigningKey Nothing hydraSKey
       hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
         let filepath = dir </> (show i <> ".vk")
-        filepath <$ BS.writeFile filepath (serialiseToRawBytes vKey)
+        filepath <$ writeFileTextEnvelope filepath Nothing vKey
       let ledgerConfig =
             CardanoLedgerConfig
               { cardanoLedgerGenesisFile
