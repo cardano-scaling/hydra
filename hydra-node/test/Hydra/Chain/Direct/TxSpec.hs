@@ -149,12 +149,12 @@ spec =
                               & cover 80 True "Success"
 
       prop "cover fee correctly handles redeemers" $
-        withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys walletUTxO ->
+        withMaxSuccess 60 $ \txIn cperiod (party :| parties) (ownKey :| cardanoKeys) walletUTxO ->
           forAll (genForParty genVerificationKey <$> elements (party : parties)) $ \signer ->
             forAll genScriptRegistry $ \scriptRegistry ->
               let params = HeadParameters cperiod (party : parties)
                   tx = initTx testNetworkId cardanoKeys params txIn
-               in case observeInitTx testNetworkId party tx of
+               in case observeInitTx testNetworkId ownKey party tx of
                     Just InitObservation{initials, threadOutput} -> do
                       let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
                           initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]

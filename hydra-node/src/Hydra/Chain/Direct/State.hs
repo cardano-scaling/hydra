@@ -386,7 +386,7 @@ observeInit ::
   Tx ->
   Maybe (OnChainTx Tx, InitialState)
 observeInit ctx tx = do
-  observation <- observeInitTx networkId ownParty tx
+  observation <- observeInitTx networkId (ownVerificationKey ctx) ownParty tx
   pure (toEvent observation, toState observation)
  where
   toEvent InitObservation{contestationPeriod, parties} =

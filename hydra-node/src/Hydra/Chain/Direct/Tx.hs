@@ -542,18 +542,20 @@ data InitObservation = InitObservation
 -- only returning a Maybe, i.e. 'Either Reason (OnChainTx tx, OnChainHeadState)'
 observeInitTx ::
   NetworkId ->
+  VerificationKey PaymentKey ->
   Party ->
   Tx ->
   Maybe InitObservation
-observeInitTx networkId party tx = do
+observeInitTx networkId ownVerificationKey party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   parties <- mapM partyFromChain ps
   let contestationPeriod = fromChain cp
   guard $ party `elem` parties
-  (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
-  guard $ headAssetName `elem` mintedAssetNames
+  (headTokenPolicyId, _) <- findHeadAssetId headOut
+  let partyAssetName = assetNameFromVerificationKey ownVerificationKey
+  guard $ partyAssetName `elem` mintedAssetNames
   headTokenScript <- findScriptMinting tx headTokenPolicyId
   pure
     InitObservation
