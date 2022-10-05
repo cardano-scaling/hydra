@@ -1,4 +1,5 @@
-const client = new WebSocket("ws://" + window.location.host);
+const protocol = window.location.protocol == "https:" ? "wss:" : "ws:";
+const client = new WebSocket(protocol + "//" + window.location.host);
 
 const metadataLabel = 14;
 const query = (window.location.search || "?")
