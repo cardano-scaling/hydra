@@ -28,6 +28,8 @@ import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import qualified Prelude
 import System.IO.Error (IOError, ioeGetErrorType)
 import GHC.IO.Exception (IOErrorType(OtherError))
+import Data.Versions (semver, SemVer (SemVer))
+import Data.Text (pack)
 
 -- | Generate arbitrary serializable (JSON) value, and check their validity
 -- against a known JSON schema.
@@ -160,8 +162,13 @@ ensureSystemRequirements ::
   IO ()
 ensureSystemRequirements = do
   getToolVersion >>= \case
-    Right "3.2.0" -> pure ()
-    Right _ -> failure "This test requires the python library 'jsonschema==3.2.0' to be in scope."
+    Right version ->
+      case semver (pack version) of
+        Right v ->
+          if v >= SemVer 3 2 0 [] Nothing then pure ()
+          else
+            failure $ "jsonschema version " <> version <> " found but >=3.2.0 needed"
+        Left err -> failure $ show err
     Left errorMsg -> failure errorMsg
  where
   -- Returns 'Nothing' when not available and 'Just <version number>' otherwise.
@@ -169,7 +176,8 @@ ensureSystemRequirements = do
     IO (Either String String)
   getToolVersion = do
     try (readProcessWithExitCode "jsonschema" ["--version"] mempty) >>= \case
-      Right (exitCode, out, _) -> pure (dropWhileEnd isSpace out <$ guard (exitCode == ExitSuccess))
+      Right (exitCode, out, _) ->
+        pure (dropWhileEnd isSpace out <$ guard (exitCode == ExitSuccess))
       Left (err :: IOError)
         | ioeGetErrorType err == OtherError ->
             pure (Left $ "Check jsonschema is installed and in $PATH")
