@@ -250,6 +250,30 @@ spec = around showLogsOnFailure $ do
                 (initAndClose tracer 0 hydraScriptsTxId node)
                 (initAndClose tracer 1 hydraScriptsTxId node)
 
+      it "bob misses alice's cardano vks" $ \tracer -> do
+        failAfter 60 $
+          withTempDir "end-to-end-two-heads-one-missconfigured" $ \tmpDir -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
+              (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+              (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
+              aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [Bob]
+              bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket []
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [bobVk] allNodeIds hydraScriptsTxId $ \n1 ->
+                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds hydraScriptsTxId $ \n2 -> do
+                  -- Funds to be used as fuel by Hydra protocol transactions
+                  seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+                  seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+
+                  let contestationPeriod = 10 :: Natural
+                  send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                  waitFor tracer 10 [n2] $
+                    output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
+
+                  send n2 $ input "Abort" []
+                  waitFor tracer 10 [n1] $
+                    output "HeadIsAborted" ["utxo" .= Object mempty]
+
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
           withTempDir "end-to-end-two-heads" $ \tmpDir -> do
