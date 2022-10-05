@@ -33,7 +33,7 @@ The quickest way to get a `hydra-node` running is to use our [docker
 images](https://github.com/orgs/input-output-hk/packages?repo_name=hydra-poc).
 
 ```sh
-docker pull ghcr.io/input-output-hk/hydra-node:latest
+docker pull ghcr.io/input-output-hk/hydra-node:0.7.0
 docker run --rm ghcr.io/input-output-hk/hydra-node --help
 ```
 

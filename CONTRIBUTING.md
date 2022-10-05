@@ -128,8 +128,9 @@ During development
 
 ### Releasing
 
-To perform a release
+To perform a release of next `<version>`
 + Check version to be released is also correct in software components, e.g. `.cabal` files.
++ Refer to `<version>` in deployment instructions, e.g. `docker-compose.yaml` files.
 + Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601)
 + Create a signed, annotated git tag of the version: `git tag -as <version>`
 + (ideally) Use the released changes as annotation
