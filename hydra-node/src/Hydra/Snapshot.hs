@@ -68,7 +68,7 @@ instance (ToCBOR tx, ToCBOR (UTxOType tx)) => ToCBOR (Snapshot tx) where
 instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR
 
--- | Snapshot when it was signed by all parties, i.e. it is confirmed.
+-- | A snapshot that can be used to close a head with. Either the initial one, or when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
   = InitialSnapshot { initialUtxo :: UTxOType tx }
   | ConfirmedSnapshot
