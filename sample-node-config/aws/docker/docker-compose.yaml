@@ -27,7 +27,7 @@ services:
       ]
 
   hydra-node:
-    image: ghcr.io/input-output-hk/hydra-node:latest
+    image: ghcr.io/input-output-hk/hydra-node:0.7.0
     restart: always
     logging:
       driver: "awslogs"
@@ -74,7 +74,7 @@ services:
       ]
     
   hydra-tui:
-    image: ghcr.io/input-output-hk/hydra-tui:latest
+    image: ghcr.io/input-output-hk/hydra-tui:0.7.0
     profiles:
       - tui
     command:

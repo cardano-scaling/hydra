@@ -18,7 +18,7 @@ The quickest way to get a hydra-node running is to use our Docker images.
 <TerminalWindow>
 
 ```
-docker pull ghcr.io/input-output-hk/hydra-node:latest
+docker pull ghcr.io/input-output-hk/hydra-node:0.7.0
 docker run --rm ghcr.io/input-output-hk/hydra-node --help
 ```
 
