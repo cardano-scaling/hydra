@@ -199,7 +199,7 @@ genStClosed ctx utxo = do
   let (sn, snapshot, toFanout) = case confirmed of
         InitialSnapshot{} ->
           ( 0
-          , InitialSnapshot {initialUtxo = u0}
+          , InitialSnapshot {initialUTxO = u0}
           , u0
           )
         ConfirmedSnapshot{snapshot = snap, signatures} ->

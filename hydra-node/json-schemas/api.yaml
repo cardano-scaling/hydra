@@ -611,11 +611,11 @@ components:
         type: object
         additionalProperties: false
         required:
-          - snapshot
+          - initialUTxO
           - tag
         properties:
-          snapshot:
-            $ref: "#/components/schemas/Snapshot"
+          initialUTxO:
+            $ref: "#/components/schemas/UTxO"
           tag:
             type: string
             enum: ["InitialSnapshot"]
