@@ -159,7 +159,7 @@ pparams =
               ]
       , _maxValSize = 1000000000
       , _maxTxExUnits = ExUnits 14_000_000 10_000_000_000
-      , _maxBlockExUnits = ExUnits 56_000_000 40_000_000_000
+      , _maxBlockExUnits = ExUnits 62_000_000 40_000_000_000
       , _protocolVersion = ProtVer 7 0
       , _maxTxSize = 16384
       , _minfeeA = 44
