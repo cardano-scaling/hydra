@@ -23,6 +23,8 @@ changes.
 
 - **BREAKING** The `hydra-cluster` executable (our smoke test) does require `--publish-scripts` or `--hydra-scripts-tx-id` now as it may be provided with pre-published hydra scripts.
 
+- **BREAKING** The `InitialSnapshot` only contains the `initialUTxO` as the rest of the information was useless.
+
 - Added a `hydra-tools` executable, which provides basic commands to help working with Hydra Heads:
   + Generate a pair of Hydra keys
   + Output the marker datum hash
