@@ -65,7 +65,17 @@ From there, each participant is expected to share their verification key with ot
 
 The second set of keys are the so-called Hydra keys, which are used for multi-signing snapshots within a Head. While in the long-run, those keys will be key pairs used within MuSig2 aggregated multi-signature scheme. At present however, the aggregated multisig cryptography is [yet to be implemented](https://github.com/input-output-hk/hydra-poc/issues/193) and the Hydra nodes are a naiive, but secure multi-signature scheme based on Ed25519 keys.
 
-These are similar to cardano keys, but shall not be mixed up and thus we use a different, more basic on-disk representation basically directly consisting of the key material (while Cardano keys usually are stored CBOR-encoded in text envelopes). We provide demo key pairs as `alice.{vk,sk}`, `bob.{vk,sk}` and `carol.{vk,sk}` in our [demo folder](https://github.com/input-output-hk/hydra-poc/tree/master/demo). Currently, participants are expected to pick one of those and in a similar fashion to Cardano keys, share the verification key with their peers and use the signing key for them. (TODO: we should provide an easy way to generate new ones using some system entropy)
+These are similar to cardano keys but are used only in the layer 2. We provide demo key pairs as `alice.{vk,sk}`, `bob.{vk,sk}` and `carol.{vk,sk}` in our [demo folder](https://github.com/input-output-hk/hydra-poc/tree/master/demo).
+
+Alternatively, unique keys can be generated using `hydra-tools`, a command-line utility that's provided as part of Hydra:
+
+```mdx-code-block
+<TerminalWindow>
+hydra-tools gen-hydra-key --output-file my-key
+</TerminalWindow>
+```
+
+This will create two files, `my-key.sk` and `my-key.vk` containing Hydra keys suitable for use inside a head.
 
 ### Ledger Parameters
 
