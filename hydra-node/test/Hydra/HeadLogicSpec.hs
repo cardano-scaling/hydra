@@ -11,6 +11,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Data.Set as Set
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
   HeadParameters (..),
@@ -36,7 +37,6 @@ import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.Party (Party (..))
-import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)

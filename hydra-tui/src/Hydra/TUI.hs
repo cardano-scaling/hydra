@@ -212,25 +212,25 @@ handleEvent client cardanoClient s = \case
       EvKey (KChar c) _ ->
         if
             | c `elem` ['q', 'Q'] ->
-              halt s
+                halt s
             | c `elem` ['i', 'I'] ->
-              sendInputAndTransition client s (Init tuiContestationPeriod)
+                sendInputAndTransition client s (Init tuiContestationPeriod)
             | c `elem` ['a', 'A'] ->
-              sendInputAndTransition client s Abort
+                sendInputAndTransition client s Abort
             | c `elem` ['f', 'F'] ->
-              sendInputAndTransition client s Fanout
+                sendInputAndTransition client s Fanout
             | c `elem` ['c', 'C'] ->
-              case s ^? headStateL of
-                Just Initializing{} ->
-                  showCommitDialog client cardanoClient s
-                Just Open{} ->
-                  sendInputAndTransition client s Close
-                _ ->
-                  continue s
+                case s ^? headStateL of
+                  Just Initializing{} ->
+                    showCommitDialog client cardanoClient s
+                  Just Open{} ->
+                    sendInputAndTransition client s Close
+                  _ ->
+                    continue s
             | c `elem` ['n', 'N'] ->
-              handleNewTxEvent client cardanoClient s
+                handleNewTxEvent client cardanoClient s
             | otherwise ->
-              continue s
+                continue s
       _ -> continue s
     -- Not connected
     Nothing -> case e of
@@ -638,9 +638,9 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawAddress addr
     | mkVkAddress networkId vk == addr =
-      withAttr own widget
+        withAttr own widget
     | otherwise =
-      widget
+        widget
    where
     widget = txt $ ellipsize 40 $ serialiseAddress addr
 

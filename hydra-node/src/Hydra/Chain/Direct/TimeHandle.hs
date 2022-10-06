@@ -20,24 +20,24 @@ import Hydra.Chain.CardanoClient (
   querySystemStart,
   queryTip,
  )
+import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, slotToWallclock, wallclockToSlot)
 import Test.QuickCheck (getPositive)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 
 type PointInTime = (SlotNo, UTCTime)
 
 data TimeHandle = TimeHandle
-  { -- | Get the current 'PointInTime'
-    currentPointInTime :: Either Text PointInTime
-  , -- | Lookup slot number given a 'UTCTime'. This will fail if the time is
-    -- outside the "safe zone".
-    slotFromUTCTime :: UTCTime -> Either Text SlotNo
-  , -- | Convert a slot number to a 'UTCTime' using the stored epoch info. This
-    -- will fail if the slot is outside the "safe zone".
-    slotToUTCTime :: SlotNo -> Either Text UTCTime
-  , -- | Adjust a 'PointInTime' by some number of slots, positively or
-    -- negatively.
-    adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
+  { currentPointInTime :: Either Text PointInTime
+  -- ^ Get the current 'PointInTime'
+  , slotFromUTCTime :: UTCTime -> Either Text SlotNo
+  -- ^ Lookup slot number given a 'UTCTime'. This will fail if the time is
+  -- outside the "safe zone".
+  , slotToUTCTime :: SlotNo -> Either Text UTCTime
+  -- ^ Convert a slot number to a 'UTCTime' using the stored epoch info. This
+  -- will fail if the slot is outside the "safe zone".
+  , adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
+  -- ^ Adjust a 'PointInTime' by some number of slots, positively or
+  -- negatively.
   }
 
 -- | Generate consistent values for 'SystemStart' and 'EraHistory' which has
@@ -48,7 +48,7 @@ genTimeParams = do
   uptimeSeconds <- getPositive <$> arbitrary
   let uptime = secondsToNominalDiffTime uptimeSeconds
       currentTime = addUTCTime uptime startTime
-      -- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config 
+      -- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config
       safeZone = 3 * 2160 / 0.05
       horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
   pure (SystemStart startTime, eraHistoryWithHorizonAt horizonSlot, horizonSlot, currentTime)

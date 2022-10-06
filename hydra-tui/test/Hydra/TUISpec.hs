@@ -194,10 +194,10 @@ data TUITest = TUITest
   { buildVty :: IO Vty
   , sendInputEvent :: Event -> IO ()
   , getPicture :: IO ByteString
-  , -- | Assert that some bytes are present in the frame. The unescaped image
-    -- data is used in this assertion. That means, you do not need to include
-    -- color switching escape codes etc. in your 'expected' bytes.
-    shouldRender :: HasCallStack => ByteString -> Expectation
+  , shouldRender :: HasCallStack => ByteString -> Expectation
+  -- ^ Assert that some bytes are present in the frame. The unescaped image
+  -- data is used in this assertion. That means, you do not need to include
+  -- color switching escape codes etc. in your 'expected' bytes.
   , shouldNotRender :: HasCallStack => ByteString -> Expectation
   }
 

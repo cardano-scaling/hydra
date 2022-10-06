@@ -20,6 +20,8 @@ import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import GHC.Records (getField)
+import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
   HeadParameters (..),
@@ -27,7 +29,6 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError,
  )
-import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.ContestationPeriod
 import Hydra.Crypto (HydraKey, Signature, SigningKey, aggregateInOrder, sign, verify)
 import Hydra.Ledger (
@@ -41,7 +42,6 @@ import Hydra.Ledger (
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
-import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
 -- * Types
@@ -126,9 +126,9 @@ data HeadState tx
       , confirmedSnapshot :: ConfirmedSnapshot tx
       , previousRecoverableState :: HeadState tx
       , contestationDeadline :: UTCTime
-      , -- | Tracks whether we have informed clients already about being
-        -- 'ReadyToFanout'.
-        readyToFanoutSent :: Bool
+      , readyToFanoutSent :: Bool
+      -- ^ Tracks whether we have informed clients already about being
+      -- 'ReadyToFanout'.
       }
   deriving stock (Generic)
 
@@ -144,14 +144,14 @@ type Committed tx = Map Party (UTxOType tx)
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
-  { -- | The latest UTxO of the "seen ledger".
-    seenUTxO :: UTxOType tx
-  , -- | List of seen transactions.
-    seenTxs :: [tx]
-  , -- | The latest confirmed snapshot, representing the "confirmed ledger".
-    confirmedSnapshot :: ConfirmedSnapshot tx
-  , -- | Whether we are currently collecting signatures for a snapshot.
-    seenSnapshot :: SeenSnapshot tx
+  { seenUTxO :: UTxOType tx
+  -- ^ The latest UTxO of the "seen ledger".
+  , seenTxs :: [tx]
+  -- ^ List of seen transactions.
+  , confirmedSnapshot :: ConfirmedSnapshot tx
+  -- ^ The latest confirmed snapshot, representing the "confirmed ledger".
+  , seenSnapshot :: SeenSnapshot tx
+  -- ^ Whether we are currently collecting signatures for a snapshot.
   }
   deriving stock (Generic)
 
@@ -229,8 +229,8 @@ instance Arbitrary WaitReason where
   arbitrary = genericArbitrary
 
 data Environment = Environment
-  { -- | This is the p_i from the paper
-    party :: Party
+  { party :: Party
+  -- ^ This is the p_i from the paper
   , -- NOTE(MB): In the long run we would not want to keep the signing key in
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey HydraKey
@@ -496,35 +496,35 @@ onOpenNetworkReqSn
     | (number . getSnapshot) confirmedSnapshot + 1 == sn
         && isLeader parameters otherParty sn
         && not (snapshotPending seenSnapshot) =
-      -- TODO: Also we might be robust against multiple ReqSn for otherwise
-      -- valid request, which is currently leading to 'Error'
-      -- TODO: Verify the request is signed by (?) / comes from the leader
-      -- (Can we prove a message comes from a given peer, without signature?)
-      case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
-        Left (_, err) ->
-          -- FIXME: this will not happen, as we are always comparing against the
-          -- confirmed snapshot utxo?
-          Wait $ WaitOnNotApplicableTx err
-        Right u ->
-          let nextSnapshot = Snapshot sn u txs
-              snapshotSignature = sign signingKey nextSnapshot
-           in NewState
-                ( OpenState
-                    { parameters
-                    , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
-                    , previousRecoverableState
-                    }
-                )
-                [NetworkEffect $ AckSn party snapshotSignature sn]
+        -- TODO: Also we might be robust against multiple ReqSn for otherwise
+        -- valid request, which is currently leading to 'Error'
+        -- TODO: Verify the request is signed by (?) / comes from the leader
+        -- (Can we prove a message comes from a given peer, without signature?)
+        case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
+          Left (_, err) ->
+            -- FIXME: this will not happen, as we are always comparing against the
+            -- confirmed snapshot utxo?
+            Wait $ WaitOnNotApplicableTx err
+          Right u ->
+            let nextSnapshot = Snapshot sn u txs
+                snapshotSignature = sign signingKey nextSnapshot
+             in NewState
+                  ( OpenState
+                      { parameters
+                      , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
+                      , previousRecoverableState
+                      }
+                  )
+                  [NetworkEffect $ AckSn party snapshotSignature sn]
     | sn > (number . getSnapshot) confirmedSnapshot
         && isLeader parameters otherParty sn =
-      -- TODO: How to handle ReqSN with sn > confirmed + 1
-      -- This code feels contrived
-      case seenSnapshot of
-        SeenSnapshot{snapshot}
-          | number snapshot == sn -> Error (InvalidEvent ev st)
-          | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
-        _ -> Wait WaitOnSeenSnapshot
+        -- TODO: How to handle ReqSN with sn > confirmed + 1
+        -- This code feels contrived
+        case seenSnapshot of
+          SeenSnapshot{snapshot}
+            | number snapshot == sn -> Error (InvalidEvent ev st)
+            | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
+          _ -> Wait WaitOnSeenSnapshot
     | otherwise = Error $ InvalidEvent ev st
    where
     snapshotPending :: SeenSnapshot tx -> Bool
@@ -579,43 +579,43 @@ onOpenNetworkAckSn
       SeenSnapshot snapshot sigs
         | number snapshot /= sn -> Wait $ WaitOnSnapshotNumber (number snapshot)
         | otherwise ->
-          let sigs'
-                -- TODO: Must check whether we know the 'otherParty' signing the snapshot
-                | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
-                | otherwise = sigs
-              multisig = aggregateInOrder sigs' parties
-              allMembersHaveSigned = Map.keysSet sigs' == Set.fromList parties
-           in if allMembersHaveSigned
-                then
-                  NewState
-                    ( OpenState
-                        { parameters
-                        , coordinatedHeadState =
-                            headState
-                              { confirmedSnapshot =
-                                  ConfirmedSnapshot
-                                    { snapshot
-                                    , signatures = multisig
-                                    }
-                              , seenSnapshot = NoSeenSnapshot
-                              , seenTxs = seenTxs \\ confirmed snapshot
-                              }
-                        , previousRecoverableState
-                        }
-                    )
-                    [ClientEffect $ SnapshotConfirmed snapshot multisig]
-                else
-                  NewState
-                    ( OpenState
-                        { parameters
-                        , coordinatedHeadState =
-                            headState
-                              { seenSnapshot = SeenSnapshot snapshot sigs'
-                              }
-                        , previousRecoverableState
-                        }
-                    )
-                    []
+            let sigs'
+                  -- TODO: Must check whether we know the 'otherParty' signing the snapshot
+                  | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
+                  | otherwise = sigs
+                multisig = aggregateInOrder sigs' parties
+                allMembersHaveSigned = Map.keysSet sigs' == Set.fromList parties
+             in if allMembersHaveSigned
+                  then
+                    NewState
+                      ( OpenState
+                          { parameters
+                          , coordinatedHeadState =
+                              headState
+                                { confirmedSnapshot =
+                                    ConfirmedSnapshot
+                                      { snapshot
+                                      , signatures = multisig
+                                      }
+                                , seenSnapshot = NoSeenSnapshot
+                                , seenTxs = seenTxs \\ confirmed snapshot
+                                }
+                          , previousRecoverableState
+                          }
+                      )
+                      [ClientEffect $ SnapshotConfirmed snapshot multisig]
+                  else
+                    NewState
+                      ( OpenState
+                          { parameters
+                          , coordinatedHeadState =
+                              headState
+                                { seenSnapshot = SeenSnapshot snapshot sigs'
+                                }
+                          , previousRecoverableState
+                          }
+                      )
+                      []
 
 -- ** Closing the Head
 
@@ -680,16 +680,16 @@ onOpenChainCloseTx
 onClosedChainContestTx :: ConfirmedSnapshot tx -> SnapshotNumber -> Outcome tx
 onClosedChainContestTx confirmedSnapshot snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
-    OnlyEffects
-      [ ClientEffect HeadIsContested{snapshotNumber}
-      , OnChainEffect ContestTx{confirmedSnapshot}
-      ]
+      OnlyEffects
+        [ ClientEffect HeadIsContested{snapshotNumber}
+        , OnChainEffect ContestTx{confirmedSnapshot}
+        ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
-    -- TODO: A more recent snapshot number was succesfully contested, we will
-    -- not be able to fanout! We might want to communicate that to the client!
-    OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
+      -- TODO: A more recent snapshot number was succesfully contested, we will
+      -- not be able to fanout! We might want to communicate that to the client!
+      OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
   | otherwise =
-    OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
+      OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
 
 -- | Client request to fanout leads to a fanout transaction on chain using the
 -- latest confirmed snapshot from 'ClosedState'.
@@ -774,9 +774,9 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       onOpenClientNewTx ledger party utxo tx
   (OpenState{parameters, coordinatedHeadState, previousRecoverableState}, NetworkEvent ttl (ReqTx _ tx))
     | ttl == 0 ->
-      OnlyEffects [ClientEffect $ TxExpired tx]
+        OnlyEffects [ClientEffect $ TxExpired tx]
     | otherwise ->
-      onOpenNetworkReqTx ledger parameters previousRecoverableState coordinatedHeadState tx
+        onOpenNetworkReqTx ledger parameters previousRecoverableState coordinatedHeadState tx
   ( OpenState
       { parameters
       , coordinatedHeadState = s@CoordinatedHeadState{}
@@ -801,11 +801,11 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     onClosedChainContestTx confirmedSnapshot snapshotNumber
   (cst@ClosedState{contestationDeadline, readyToFanoutSent}, OnChainEvent (Tick chainTime))
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-      NewState
-        -- XXX: Requires -Wno-incomplete-record-updates. Should refactor
-        -- 'HeadState' to hold individual 'ClosedState' etc. types
-        (cst{readyToFanoutSent = True})
-        [ClientEffect ReadyToFanout]
+        NewState
+          -- XXX: Requires -Wno-incomplete-record-updates. Should refactor
+          -- 'HeadState' to hold individual 'ClosedState' etc. types
+          (cst{readyToFanoutSent = True})
+          [ClientEffect ReadyToFanout]
   (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
     onClosedChainFanoutTx confirmedSnapshot
   (currentState, OnChainEvent (Rollback n)) ->
@@ -847,13 +847,13 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
       nextSnapshotNumber = succ number
    in if
           | not (isLeader parameters party nextSnapshotNumber) ->
-            ShouldNotSnapshot $ NotLeader nextSnapshotNumber
+              ShouldNotSnapshot $ NotLeader nextSnapshotNumber
           | seenSnapshot /= NoSeenSnapshot ->
-            ShouldNotSnapshot $ SnapshotInFlight nextSnapshotNumber
+              ShouldNotSnapshot $ SnapshotInFlight nextSnapshotNumber
           | null seenTxs ->
-            ShouldNotSnapshot NoTransactionsToSnapshot
+              ShouldNotSnapshot NoTransactionsToSnapshot
           | otherwise ->
-            ShouldSnapshot nextSnapshotNumber seenTxs
+              ShouldSnapshot nextSnapshotNumber seenTxs
 
 -- TODO: This is the only logic NOT in 'update' and gets applied on top of it in
 -- "Hydra.Node". We tried to do this decision inside 'update' in the past, but
@@ -888,19 +888,19 @@ rollback ::
   HeadState tx
 rollback depth
   | depth == 0 =
-    identity
+      identity
   | otherwise =
-    rollback (pred depth) . \case
-      IdleState ->
-        -- NOTE: This is debatable. We could also just return 'IdleState' and
-        -- silently swallow this. But we choose to make it a clear invariant /
-        -- post-condition to show that there's a inconsistency between both
-        -- layers. In principle, once we are in ready state, we can only
-        -- rollback of `0` (thus caught by the case above).
-        error "trying to rollback beyond known states? Chain layer screwed up."
-      InitialState{previousRecoverableState} ->
-        previousRecoverableState
-      OpenState{previousRecoverableState} ->
-        previousRecoverableState
-      ClosedState{previousRecoverableState} ->
-        previousRecoverableState
+      rollback (pred depth) . \case
+        IdleState ->
+          -- NOTE: This is debatable. We could also just return 'IdleState' and
+          -- silently swallow this. But we choose to make it a clear invariant /
+          -- post-condition to show that there's a inconsistency between both
+          -- layers. In principle, once we are in ready state, we can only
+          -- rollback of `0` (thus caught by the case above).
+          error "trying to rollback beyond known states? Chain layer screwed up."
+        InitialState{previousRecoverableState} ->
+          previousRecoverableState
+        OpenState{previousRecoverableState} ->
+          previousRecoverableState
+        ClosedState{previousRecoverableState} ->
+          previousRecoverableState

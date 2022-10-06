@@ -18,11 +18,11 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput))
 import Network.WebSockets (
   acceptRequest,
   receiveData,
@@ -54,8 +54,8 @@ instance Arbitrary APIServerLog where
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
-  { -- | Send some output to all connected clients.
-    sendOutput :: ServerOutput tx -> m ()
+  { sendOutput :: ServerOutput tx -> m ()
+  -- ^ Send some output to all connected clients.
   }
 
 -- | Callback for receiving client inputs.

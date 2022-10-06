@@ -301,13 +301,13 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   prettyScript (fromLedgerScript -> script)
     | script == fromPlutusScript @PlutusScriptV2 Initial.validatorScript =
-      "InitialScript Script (" <> scriptHash <> ")"
+        "InitialScript Script (" <> scriptHash <> ")"
     | script == fromPlutusScript @PlutusScriptV2 Commit.validatorScript =
-      "CommitScript Script (" <> scriptHash <> ")"
+        "CommitScript Script (" <> scriptHash <> ")"
     | script == fromPlutusScript @PlutusScriptV2 Head.validatorScript =
-      "Head Script (" <> scriptHash <> ")"
+        "Head Script (" <> scriptHash <> ")"
     | otherwise =
-      "Unknown Script (" <> scriptHash <> ")"
+        "Unknown Script (" <> scriptHash <> ")"
    where
     scriptHash =
       show (Ledger.hashScript @(ShelleyLedgerEra Era) (toLedgerScript script))

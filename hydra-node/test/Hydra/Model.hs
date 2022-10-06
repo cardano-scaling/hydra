@@ -117,23 +117,23 @@ data OffChainState = OffChainState
 
 -- | State maintained by the model.
 data WorldState = WorldState
-  { -- | List of parties identified by both signing keys required to run protocol.
-    -- This list must not contain any duplicated key.
-    hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
-  , -- | Expected consensus state
-    -- All nodes should be in the same state.
-    hydraState :: GlobalState
+  { hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
+  -- ^ List of parties identified by both signing keys required to run protocol.
+  -- This list must not contain any duplicated key.
+  , hydraState :: GlobalState
+  -- ^ Expected consensus state
+  -- All nodes should be in the same state.
   }
   deriving (Eq, Show)
 
 -- | Concrete state needed to run actions against the implementation.
 data Nodes m = Nodes
-  { -- | Map from party identifiers to a /handle/ for interacting with a node.
-    nodes :: Map.Map Party (TestHydraNode Tx m)
-  , -- | Logger used by each node.
-    -- The reason we put this here is because the concrete value needs to be
-    -- instantiated upon the test run initialisation, outiside of the model.
-    logger :: Tracer m (HydraNodeLog Tx)
+  { nodes :: Map.Map Party (TestHydraNode Tx m)
+  -- ^ Map from party identifiers to a /handle/ for interacting with a node.
+  , logger :: Tracer m (HydraNodeLog Tx)
+  -- ^ Logger used by each node.
+  -- The reason we put this here is because the concrete value needs to be
+  -- instantiated upon the test run initialisation, outiside of the model.
   }
 
 newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
@@ -206,7 +206,7 @@ type ActualCommitted = UTxOType Payment
 -- | Basic instantiation of `StateModel` for our `WorldState` state.
 instance StateModel WorldState where
   data Action WorldState a where
-    -- | Creation of the world.
+    -- Creation of the world.
     Seed :: {seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]} -> Action WorldState ()
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
     -- different return values.
@@ -214,9 +214,9 @@ instance StateModel WorldState where
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
     Abort :: Party -> Action WorldState ()
     NewTx :: Party -> Payment -> Action WorldState ()
-    -- | Wait some amount of time
+    -- Wait some amount of time
     Wait :: DiffTime -> Action WorldState ()
-    -- | Observe some transaction has been confirmed at all nodes
+    -- Observe some transaction has been confirmed at all nodes
     ObserveConfirmedTx :: Payment -> Action WorldState ()
 
   initialState =
@@ -367,10 +367,10 @@ instance StateModel WorldState where
     decoratePostconditionFailure
       | postcondition s action l result = id
       | otherwise =
-        counterexample "postcondition failed"
-          . counterexample ("Action: " <> show action)
-          . counterexample ("State: " <> show s)
-          . counterexample ("Result: " <> show result)
+          counterexample "postcondition failed"
+            . counterexample ("Action: " <> show action)
+            . counterexample ("State: " <> show s)
+            . counterexample ("Result: " <> show result)
 
     decorateTransitions =
       case (hydraState s, hydraState s') of
@@ -477,7 +477,7 @@ performCommit parties party paymentUTxO = do
           waitMatch actorNode $ \case
             Committed{party = cp, utxo = committedUTxO}
               | cp == party ->
-                Just committedUTxO
+                  Just committedUTxO
             _ -> Nothing
       pure $ fromUtxo observedUTxO
  where
@@ -552,15 +552,15 @@ waitForUTxOToSpend utxo key value party node = \case
     lift (threadDelay 1 >> waitForNext node) >>= \case
       GetUTxOResponse u
         | u == mempty -> do
-          party `sendsInput` Input.GetUTxO
-          waitForUTxOToSpend u key value party node (n -1)
-        | otherwise -> case find matchPayment (UTxO.pairs u) of
-          Nothing -> do
             party `sendsInput` Input.GetUTxO
-            waitForUTxOToSpend u key value party node (n -1)
-          Just p -> pure $ Right p
+            waitForUTxOToSpend u key value party node (n - 1)
+        | otherwise -> case find matchPayment (UTxO.pairs u) of
+            Nothing -> do
+              party `sendsInput` Input.GetUTxO
+              waitForUTxOToSpend u key value party node (n - 1)
+            Just p -> pure $ Right p
       _ ->
-        waitForUTxOToSpend utxo key value party node (n -1)
+        waitForUTxOToSpend utxo key value party node (n - 1)
  where
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut

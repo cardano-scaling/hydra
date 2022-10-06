@@ -83,14 +83,14 @@ type TxOut = Ledger.TxOut LedgerEra
 -- 'reset'. Otherwise it can be fed blocks via 'update' as the chain rolls
 -- forward.
 data TinyWallet m = TinyWallet
-  { -- | Return all known UTxO addressed to this wallet.
-    getUTxO :: STM m (Map TxIn TxOut)
+  { getUTxO :: STM m (Map TxIn TxOut)
+  -- ^ Return all known UTxO addressed to this wallet.
   , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
   , coverFee :: Map TxIn TxOut -> ValidatedTx LedgerEra -> STM m (Either ErrCoverFee (ValidatedTx LedgerEra))
-  , -- | Reset the wallet state to some point.
-    reset :: QueryPoint -> m ()
-  , -- | Update the wallet state given some 'Block'.
-    update :: Block -> m ()
+  , reset :: QueryPoint -> m ()
+  -- ^ Reset the wallet state to some point.
+  , update :: Block -> m ()
+  -- ^ Update the wallet state given some 'Block'.
   }
 
 type ChainQuery m =
@@ -292,13 +292,13 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
   mkChange (Ledger.Babbage.TxOut addr _ datum _) resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
-      Left $
-        ChangeError
-          { inputBalance = totalIn
-          , outputBalance = totalOut
-          }
+        Left $
+          ChangeError
+            { inputBalance = totalIn
+            , outputBalance = totalOut
+            }
     | otherwise =
-      Right $ Ledger.Babbage.TxOut addr (inject changeOut) datum refScript
+        Right $ Ledger.Babbage.TxOut addr (inject changeOut) datum refScript
    where
     totalOut = foldMap getAdaValue otherOutputs <> fee
     totalIn = foldMap getAdaValue resolvedInputs
@@ -317,7 +317,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
       case ptr of
         RdmrPtr Spend idx
           | fromIntegral idx `elem` differences ->
-            (RdmrPtr Spend (idx + 1), (d, executionUnitsFor ptr))
+              (RdmrPtr Spend (idx + 1), (d, executionUnitsFor ptr))
         _ ->
           (ptr, (d, executionUnitsFor ptr))
 

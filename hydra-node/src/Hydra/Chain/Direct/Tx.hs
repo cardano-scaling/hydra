@@ -448,16 +448,16 @@ abortTx ::
   Either AbortTxError Tx
 abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
-    Left OverlappingInputs
+      Left OverlappingInputs
   | otherwise =
-    Right $
-      unsafeBuildTransaction $
-        emptyTxBody
-          & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-          & addReferenceInputs [initialScriptRef, commitScriptRef]
-          & addOutputs reimbursedOutputs
-          & burnTokens headTokenScript Burn headTokens
-          & addExtraRequiredSigners [verificationKeyHash vk]
+      Right $
+        unsafeBuildTransaction $
+          emptyTxBody
+            & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
+            & addReferenceInputs [initialScriptRef, commitScriptRef]
+            & addOutputs reimbursedOutputs
+            & burnTokens headTokenScript Burn headTokens
+            & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -523,12 +523,12 @@ abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
 -- * Observe Hydra Head transactions
 
 data InitObservation = InitObservation
-  { -- | The state machine UTxO produced by the Init transaction
-    -- This output should always be present and 'threaded' across all
-    -- transactions.
-    -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-    -- XXX(SN): Data and [OnChain.Party] are overlapping
-    threadOutput :: InitialThreadOutput
+  { threadOutput :: InitialThreadOutput
+  -- ^ The state machine UTxO produced by the Init transaction
+  -- This output should always be present and 'threaded' across all
+  -- transactions.
+  -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
+  -- XXX(SN): Data and [OnChain.Party] are overlapping
   , initials :: [UTxOWithScript]
   , commits :: [UTxOWithScript]
   , headId :: HeadId
@@ -874,7 +874,7 @@ findHeadAssetId txOut =
   flip findFirst (valueToList $ txOutValue txOut) $ \case
     (AssetId pid aname, q)
       | aname == hydraHeadV1AssetName && q == 1 ->
-        Just (pid, aname)
+          Just (pid, aname)
     _ ->
       Nothing
 

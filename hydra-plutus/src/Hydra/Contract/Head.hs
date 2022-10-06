@@ -218,23 +218,23 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
       (fuel, commits, nCommits)
     TxInInfo{txInInfoResolved} : rest
       | isHeadOutput txInInfoResolved ->
-        traverseInputs
-          (fuel, commits, nCommits)
-          rest
+          traverseInputs
+            (fuel, commits, nCommits)
+            rest
       | hasPT txInInfoResolved ->
-        case commitDatum txInInfoResolved of
-          Just commit@Commit{} ->
-            traverseInputs
-              (fuel, commit : commits, succ nCommits)
-              rest
-          Nothing ->
-            traverseInputs
-              (fuel, commits, succ nCommits)
-              rest
+          case commitDatum txInInfoResolved of
+            Just commit@Commit{} ->
+              traverseInputs
+                (fuel, commit : commits, succ nCommits)
+                rest
+            Nothing ->
+              traverseInputs
+                (fuel, commits, succ nCommits)
+                rest
       | otherwise ->
-        traverseInputs
-          (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
-          rest
+          traverseInputs
+            (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
+            rest
 
   isHeadOutput txOut = txOutAddress txOut == headAddress
 
@@ -275,24 +275,24 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
  where
   checkSnapshot
     | snapshotNumber == 0 =
-      let expectedOutputDatum =
-            Closed
-              { parties
-              , snapshotNumber = 0
-              , utxoHash = initialUtxoHash
-              , contestationDeadline = makeContestationDeadline cperiod ctx
-              }
-       in checkHeadOutputDatum ctx expectedOutputDatum
+        let expectedOutputDatum =
+              Closed
+                { parties
+                , snapshotNumber = 0
+                , utxoHash = initialUtxoHash
+                , contestationDeadline = makeContestationDeadline cperiod ctx
+                }
+         in checkHeadOutputDatum ctx expectedOutputDatum
     | snapshotNumber > 0 =
-      let expectedOutputDatum =
-            Closed
-              { parties
-              , snapshotNumber
-              , utxoHash = closedUtxoHash
-              , contestationDeadline = makeContestationDeadline cperiod ctx
-              }
-       in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
-            && checkHeadOutputDatum ctx expectedOutputDatum
+        let expectedOutputDatum =
+              Closed
+                { parties
+                , snapshotNumber
+                , utxoHash = closedUtxoHash
+                , contestationDeadline = makeContestationDeadline cperiod ctx
+                }
+         in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
+              && checkHeadOutputDatum ctx expectedOutputDatum
     | otherwise = traceError "negative snapshot number"
 {-# INLINEABLE checkClose #-}
 
@@ -439,8 +439,8 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
       traceError "no continuing head output"
     (o : rest)
       | txOutAddress o == headAddress ->
-        traceIfFalse "wrong output head datum" (findTxOutDatum txInfo o == datum)
-          && traceIfFalse "wrong output value" (checkOutputValue (xs <> rest))
+          traceIfFalse "wrong output head datum" (findTxOutDatum txInfo o == datum)
+            && traceIfFalse "wrong output value" (checkOutputValue (xs <> rest))
     (o : rest) ->
       checkOutputDatum (o : xs) rest
 
@@ -449,7 +449,7 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
       True
     [o]
       | txOutAddress o /= headAddress ->
-        txOutValue o == lovelaceValue changeValue
+          txOutValue o == lovelaceValue changeValue
     _ ->
       traceError "invalid collect-com outputs: more than 2 outputs."
 

@@ -126,14 +126,14 @@ instance IsTx tx => Arbitrary (PostTxError tx) where
 
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain
-  { -- | Construct and send a transaction to the main chain corresponding to the
-    -- given 'OnChainTx' event. This function is not expected to block, so it is
-    -- only responsible for submitting, but it should validate the created
-    -- transaction against a reasonable local view of the chain and throw an
-    -- exception when invalid.
-    --
-    -- Does at least throw 'PostTxError'.
-    postTx :: MonadThrow m => PostChainTx tx -> m ()
+  { postTx :: MonadThrow m => PostChainTx tx -> m ()
+  -- ^ Construct and send a transaction to the main chain corresponding to the
+  -- given 'OnChainTx' event. This function is not expected to block, so it is
+  -- only responsible for submitting, but it should validate the created
+  -- transaction against a reasonable local view of the chain and throw an
+  -- exception when invalid.
+  --
+  -- Does at least throw 'PostTxError'.
   }
 
 data ChainEvent tx

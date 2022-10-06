@@ -31,14 +31,14 @@ import Hydra.Node (
   createEventQueue,
   createHydraNode,
   initEnvironment,
-  runHydraNode
+  runHydraNode,
  )
 import Hydra.Options (
   ChainConfig (..),
   Command (Publish, Run),
   LedgerConfig (..),
-  RunOptions (..),
   PublishOptions (..),
+  RunOptions (..),
   parseHydraCommand,
  )
 import Hydra.Party (Party)

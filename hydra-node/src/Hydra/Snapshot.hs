@@ -20,8 +20,8 @@ type SnapshotNumber = Natural
 data Snapshot tx = Snapshot
   { number :: SnapshotNumber
   , utxo :: UTxOType tx
-  , -- | The set of transactions that lead to 'utxo'
-    confirmed :: [tx]
+  , confirmed :: [tx]
+  -- ^ The set of transactions that lead to 'utxo'
   }
   deriving (Generic)
 
@@ -117,10 +117,10 @@ genConfirmedSnapshot ::
 genConfirmedSnapshot minSn utxo sks
   | minSn > 0 = confirmedSnapshot
   | otherwise =
-    frequency
-      [ (1, initialSnapshot)
-      , (9, confirmedSnapshot)
-      ]
+      frequency
+        [ (1, initialSnapshot)
+        , (9, confirmedSnapshot)
+        ]
  where
   initialSnapshot = do
     -- FIXME: The fact that we need to set a constant 0 here is a code smell.

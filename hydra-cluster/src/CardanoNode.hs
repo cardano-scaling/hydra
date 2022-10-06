@@ -50,12 +50,12 @@ data RunningNode = RunningNode
 
 -- | Configuration parameters for a single node devnet
 data DevnetConfig = DevnetConfig
-  { -- | Parent state directory
-    stateDirectory :: FilePath
-  , -- | Blockchain start time
-    systemStart :: UTCTime
-  , -- | A list of port
-    ports :: PortsConfig
+  { stateDirectory :: FilePath
+  -- ^ Parent state directory
+  , systemStart :: UTCTime
+  -- ^ Blockchain start time
+  , ports :: PortsConfig
+  -- ^ A list of port
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -98,10 +98,10 @@ defaultCardanoNodeArgs =
 -- | Configuration of ports from the perspective of a peer in the context of a
 -- fully sockected topology.
 data PortsConfig = PortsConfig
-  { -- | Our node TCP port.
-    ours :: Port
-  , -- | Other peers TCP ports.
-    peers :: [Port]
+  { ours :: Port
+  -- ^ Our node TCP port.
+  , peers :: [Port]
+  -- ^ Other peers TCP ports.
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)

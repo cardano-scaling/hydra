@@ -6,16 +6,16 @@ import Control.Concurrent.Async (link)
 import Control.Exception (Handler (Handler), IOException, catches)
 import Control.Monad.Class.MonadSTM (newTBQueueIO, readTBQueue, writeTBQueue)
 import Data.Aeson (eitherDecodeStrict, encode)
+import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.ServerOutput (ServerOutput)
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey, AsSigningKey),
   PaymentKey,
   SigningKey,
  )
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.API.ClientInput (ClientInput)
 import Hydra.Ledger (IsTx)
 import Hydra.Network (Host (Host, hostname, port))
-import Hydra.API.ServerOutput (ServerOutput)
 import Hydra.TUI.Options (Options (..))
 import Network.WebSockets (ConnectionException, receiveData, runClient, sendBinaryData)
 
@@ -28,8 +28,8 @@ data HydraEvent tx
 
 -- | Handle to interact with Hydra node
 data Client tx m = Client
-  { -- | Send some input to the server.
-    sendInput :: ClientInput tx -> m ()
+  { sendInput :: ClientInput tx -> m ()
+  -- ^ Send some input to the server.
   , sk :: SigningKey PaymentKey
   }
 

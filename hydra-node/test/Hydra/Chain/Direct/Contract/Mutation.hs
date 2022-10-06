@@ -337,9 +337,9 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         -- change the lookup UTXO
         fn o@(TxOut addr value _ refScript)
           | isHeadOutput o =
-            TxOut addr value datumHash refScript
+              TxOut addr value datumHash refScript
           | otherwise =
-            o
+              o
         -- change the datums in the tx
         ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
         newDatums = addDatum datum scriptData
@@ -528,9 +528,9 @@ alterRedeemerFor initialInputs txIn fn = \case
         sortedInputs = sort $ toList initialInputs
         removeRedeemer (ptr@(Ledger.RdmrPtr _ idx), (sd, exUnits))
           | sortedInputs List.!! fromIntegral idx == txIn =
-            case fn (fromLedgerData sd) of
-              Nothing -> []
-              Just sd' -> [(ptr, (toLedgerData sd', exUnits))]
+              case fn (fromLedgerData sd) of
+                Nothing -> []
+                Just sd' -> [(ptr, (toLedgerData sd', exUnits))]
           | otherwise = [(ptr, (sd, exUnits))]
      in TxBodyScriptData dats newRedeemers
 
