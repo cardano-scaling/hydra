@@ -25,7 +25,8 @@ changes.
 
 - **BREAKING** The `InitialSnapshot` only contains the `initialUTxO` as the rest of the information was useless.
 
-- **BREAKING** Hydra keys now use text envelope format.
+- **BREAKING** Hydra keys now use the text envelope format.
+  + `hydra-tools` executable produces keys in the same format as cardano keys so this should make key handling simpler.
 
 - Added a `hydra-tools` executable, which provides basic commands to help working with Hydra Heads:
   + Generate a pair of Hydra keys
