@@ -23,6 +23,7 @@ result*
 *.hi
 *.o
 test-results.xml
+hydra-node/golden/*.faulty.*
 
 # Benchmark results
 *.html
