@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.API.ServerOutput (ServerOutput)
+import Hydra.Chain.Direct.State ()
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Test.Aeson.GenericSpecs (

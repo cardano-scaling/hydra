@@ -39,11 +39,10 @@ import Hydra.Chain (
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.HeadLogic (
-  Effect (ClientEffect),
+  Effect (..),
   Environment (..),
   Event (..),
-  HeadState (IdleState),
-  chainState,
+  HeadState (..),
   defaultTTL,
  )
 import Hydra.Ledger (IsTx, Ledger, ValidationError (ValidationError))

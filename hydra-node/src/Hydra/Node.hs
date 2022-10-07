@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Top-level module to run a single Hydra node.
@@ -189,8 +190,8 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
   case e of
     ClientEffect i -> sendOutput server i
     NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL msg)
-    OnChainEffect postChainTx ->
-      postTx undefined postChainTx
+    OnChainEffect{chainState, postChainTx} ->
+      postTx chainState postChainTx
         `catch` \(postTxError :: PostTxError tx) ->
           putEvent eq $ PostTxError{postChainTx, postTxError}
   traceWith tracer $ EndEffect party e

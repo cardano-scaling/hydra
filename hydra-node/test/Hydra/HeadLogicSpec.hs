@@ -269,7 +269,7 @@ spec = do
                   }
             deadline = arbitrary `generateWith` 42
             closeTxEvent = observationEvent $ OnCloseTx 0 deadline
-            contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
+            contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
             s1 = update bobEnv ledger s0 closeTxEvent
         s1 `hasEffect` contestTxEffect
         s1 `shouldSatisfy` \case
@@ -281,7 +281,7 @@ spec = do
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             contestSnapshot1Event = observationEvent $ OnContestTx 1
-            contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
+            contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
             s1 = update bobEnv ledger s0 contestSnapshot1Event
         s1 `hasEffect` contestTxEffect
         assertOnlyEffects s1
@@ -290,7 +290,15 @@ spec = do
 -- Assertion utilities
 --
 
--- | Create an observation event with constant chain state and slot.
+-- | Create a chain effect with fixed chain state and slot.
+chainEffect :: PostChainTx SimpleTx -> Effect SimpleTx
+chainEffect postChainTx =
+  OnChainEffect
+    { postChainTx
+    , chainState = SimpleChainState{slot = ChainSlot 0}
+    }
+
+-- | Create an observation event with fixed chain state and slot.
 observationEvent :: OnChainTx SimpleTx -> Event SimpleTx
 observationEvent observedTx =
   OnChainEvent
