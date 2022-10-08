@@ -74,14 +74,16 @@ test-suite hydra-test-util-tests
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   build-depends:
-    , base
-    , bytestring
-    , hspec
-    , hspec-core
-    , hydra-prelude
-    , hydra-test-utils
-    , temporary
-    , text
+                    base
+                , bytestring
+                , directory
+                , filepath
+                , hspec
+                , hspec-core
+                , hydra-prelude
+                , hydra-test-utils
+                , temporary
+                , text
 
   build-tool-depends: hspec-discover:hspec-discover -any
   ghc-options:        -threaded -rtsopts
