@@ -13,7 +13,14 @@ source-repository head
   type:     git
   location: https://github.com/input-output-hk/hydra-poc
 
+common package-config
+  default-extensions:
+    NoImplicitPrelude
+    FlexibleContexts
+    OverloadedStrings
+
 library
+  import: package-config
   hs-source-dirs:     src
   exposed-modules:
     Test.Hydra.Prelude
@@ -54,9 +61,27 @@ library
     , temporary
     , warp
 
-  default-extensions:
-    NoImplicitPrelude
-    FlexibleContexts
-
   ghc-options:        -Wall -Werror -Wcompat -Wunused-packages
   default-language:   Haskell2010
+
+test-suite hydra-test-util-tests
+  import: package-config
+  hs-source-dirs:     test
+  other-modules:
+    Test.HSpec.MarkdownFormatterSpec
+    HydraTestUtilsSpec
+
+  main-is:            Main.hs
+  type:               exitcode-stdio-1.0
+  build-depends:
+    , base
+    , bytestring
+    , hspec
+    , hspec-core
+    , hydra-prelude
+    , hydra-test-utils
+    , temporary
+    , text
+
+  build-tool-depends: hspec-discover:hspec-discover -any
+  ghc-options:        -threaded -rtsopts
