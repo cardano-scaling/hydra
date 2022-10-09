@@ -18,11 +18,16 @@ common package-config
     NoImplicitPrelude
     FlexibleContexts
     OverloadedStrings
+    LambdaCase
+    NamedFieldPuns
+    TypeApplications
+
 
 library
   import: package-config
   hs-source-dirs:     src
   exposed-modules:
+    Test.Hspec.MarkdownFormatter
     Test.Hydra.Prelude
     Test.Network.Ports
     Test.Plutus.Validator

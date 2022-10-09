@@ -1,7 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE TypeApplications #-}
-
 module Test.HSpec.MarkdownFormatterSpec where
 
 import Hydra.Prelude
@@ -15,6 +11,7 @@ import Test.Hspec.Core.Runner (
   hspecWith,
   hspecWithResult,
  )
+import Test.Hspec.MarkdownFormatter
 import Test.Hydra.Prelude
 
 testSpec :: Spec
@@ -30,14 +27,3 @@ spec =
       void $ hspecWithResult defaultConfig{configFormat = Just (markdownFormatter markdownFile)} testSpec
       content <- readFile markdownFile
       content `shouldContain` "# Some Spec"
-
-markdownFormatter :: FilePath -> FormatConfig -> IO Format
-markdownFormatter outputFile config = pure $ \case
-  Done paths -> do
-    time <- getCurrentTime
-
-    let (directory, _) = splitFileName outputFile
-    createDirectoryIfMissing True directory
-
-    writeFile outputFile "# Some Spec"
-  _ -> pure ()
