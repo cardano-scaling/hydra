@@ -18,9 +18,11 @@ pathsToTree :: [(Path, Item)] -> Tree
 pathsToTree =
   foldr populateTree Root
  where
+  mkNode :: Description -> (Tree, Level) -> (Tree, Level)
+  mkNode desc (t, lvl) = (Group desc (lvl - 1) [t], lvl - 1)
+
   populateTree :: (Path, Item) -> Tree -> Tree
-  populateTree (([path], desc), _) Root = Group path 1 [Test desc]
-  populateTree _ tree = tree
+  populateTree ((path, desc), _) _ = fst $ foldr mkNode (Test desc, length path + 1) path
 
 type Description = String
 type Level = Int

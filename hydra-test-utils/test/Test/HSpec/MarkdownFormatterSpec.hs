@@ -17,7 +17,8 @@ import Test.Hydra.Prelude
 testSpec :: Spec
 testSpec =
   describe "Some Spec" $
-    it "does one thing" $ True `shouldBe` True
+    describe "Sub Spec" $
+      it "does one thing" $ True `shouldBe` True
 
 spec :: Spec
 spec =
@@ -33,4 +34,5 @@ spec =
           testSpec
       content <- readFile markdownFile
       content `shouldContain` "# Some Spec"
+      content `shouldContain` "## Sub Spec"
       content `shouldContain` "* does one thing"
