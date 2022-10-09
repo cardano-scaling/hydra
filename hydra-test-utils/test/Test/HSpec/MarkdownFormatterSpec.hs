@@ -24,6 +24,13 @@ spec =
   it "generates markdown content to given file when running spec" $
     withTempDir "mdformat" $ \tmpDir -> do
       let markdownFile = tmpDir </> "result.md"
-      void $ hspecWithResult defaultConfig{configFormat = Just (markdownFormatter markdownFile)} testSpec
+      summary <-
+        hspecWithResult
+          defaultConfig
+            { configIgnoreConfigFile = True -- Needed to ensure we don't mess up this run with our default config
+            , configFormat = Just (markdownFormatter markdownFile)
+            }
+          testSpec
       content <- readFile markdownFile
       content `shouldContain` "# Some Spec"
+      content `shouldContain` "* does one thing"
