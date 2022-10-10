@@ -25,12 +25,14 @@ growForest lvl (path, item) forest =
       | root == desc ->
         let subs' = growForest (lvl + 1) ((rest, itemDesc), item) subs
          in Group desc (lvl + 1) subs' : groups
-      | otherwise -> Group desc (lvl + 1) subs : growForest lvl (path, item) groups
+      | otherwise ->
+        Group desc (lvl + 1) subs : growForest lvl (path, item) groups
     ((root : rest, itemDesc), []) ->
-      [Group root (lvl + 1) (growForest (lvl + 1) ((rest, itemDesc), item) [])]
+      let subs = growForest (lvl + 1) ((rest, itemDesc), item) []
+       in [Group root (lvl + 1) subs]
     (([], itemDesc), groups) ->
       Test itemDesc : groups
-    other -> error $ "unhandled case " <> show other
+    other -> error $ "Malformed paths and tree: " <> show other
 
 type Description = String
 type Level = Int
@@ -50,4 +52,3 @@ toMarkdown (Group description level subTrees) =
  where
   header = replicate level '#' <> " "
 toMarkdown (Test description) = "* " <> description <> "\n"
-toMarkdown Root = ""
