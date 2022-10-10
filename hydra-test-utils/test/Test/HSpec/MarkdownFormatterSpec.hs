@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Test.HSpec.MarkdownFormatterSpec where
 
 import Data.List (isInfixOf)
@@ -18,13 +16,6 @@ import Test.Hspec.MarkdownFormatter
 import Test.Hydra.Prelude
 import Test.QuickCheck (Positive (..), Small (..), counterexample, forAll, frequency, property, vectorOf)
 import Test.QuickCheck.Monadic (assert, forAllM, monadic, monadicIO, monitor, run)
-
-testSpec :: Spec
-testSpec =
-  describe "Some Spec" $
-    describe "Sub Spec" $ do
-      it "does one thing" $ True `shouldBe` True
-      it "does two things" $ True `shouldBe` True
 
 spec :: Spec
 spec =
@@ -95,3 +86,10 @@ someLabel :: Gen String
 someLabel = do
   Positive (n :: Int) <- arbitrary
   pure $ "test-" <> show n
+
+testSpec :: Spec
+testSpec =
+  describe "Some Spec" $
+    describe "Sub Spec" $ do
+      it "does one thing" $ True `shouldBe` True
+      it "does two things" $ True `shouldBe` True
