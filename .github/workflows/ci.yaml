@@ -98,7 +98,7 @@ jobs:
         name: test-results
         path: |
           ./**/test-results.xml
-          ./**/test-results.md
+          ./**/hspec-results.md
 
   publish-test-results:
     name: Publish test results

@@ -122,7 +122,7 @@ dualFormatter ::
 dualFormatter suiteName config = do
   junit <- junitFormat junitConfig config
   docSpec <- formatterToFormat specdoc config
-  mdSpec <- markdownFormatter "test-results.md" config
+  mdSpec <- markdownFormatter "hspec-results.md" config
   pure $ \e -> junit e >> docSpec e >> mdSpec e
  where
   junitConfig =

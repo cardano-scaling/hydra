@@ -17,7 +17,7 @@ import Test.Hspec.Core.Format (Event (..), Format, FormatConfig, Item, Path)
 --
 -- main :: IO ()
 -- main = hspecWith
---    defaultConfig{configFormat = Just (markdownFormatter "test-results.md")}
+--    defaultConfig{configFormat = Just (markdownFormatter "hspec-results.md")}
 --    MySpec.spec
 -- @@
 --
