@@ -1,5 +1,7 @@
 module Test.Hspec.MarkdownFormatter where
 
+import qualified Data.ByteString as BS
+import qualified Data.Text as Text
 import Hydra.Prelude hiding (intercalate)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (splitFileName)
@@ -10,8 +12,8 @@ markdownFormatter outputFile _config = do
   createDirectoryIfMissing True (fst $ splitFileName outputFile)
   pure $ \case
     Done paths -> do
-      let itemsTree = pathsToTree paths
-      writeFile outputFile $ foldMap toMarkdown itemsTree
+      let markdown = foldMap toMarkdown $ pathsToTree paths
+      BS.writeFile outputFile $ encodeUtf8 $ Text.strip $ Text.pack markdown
     _else -> pure ()
 
 pathsToTree :: [(Path, Item)] -> [Tree]

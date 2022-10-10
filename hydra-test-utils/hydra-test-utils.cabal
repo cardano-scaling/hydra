@@ -79,7 +79,8 @@ test-suite hydra-test-util-tests
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   build-depends:
-                    base
+                      base
+                , QuickCheck
                 , bytestring
                 , directory
                 , filepath
@@ -87,8 +88,8 @@ test-suite hydra-test-util-tests
                 , hspec-core
                 , hydra-prelude
                 , hydra-test-utils
-                , QuickCheck
                 , temporary
+                , text
                 , text
 
   build-tool-depends: hspec-discover:hspec-discover -any

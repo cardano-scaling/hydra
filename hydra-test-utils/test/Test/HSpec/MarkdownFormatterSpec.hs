@@ -36,7 +36,7 @@ spec =
                        \## Sub Spec\
                        \\n\n\
                        \* does one thing\n\
-                       \* does two things\n\n\n"
+                       \* does two things"
 
     it "generates markdown content to file when running spec" $ \tmpDir ->
       property $
