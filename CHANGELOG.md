@@ -40,6 +40,8 @@ changes.
 
 - Prevent transactions from being resubmitted for application over and over [#485](https://github.com/input-output-hk/hydra-poc/issues/485)
 
+- Update [hydra-node-options](https://hydra.family/head-protocol/docs/getting-started/quickstart/#hydra-node-options) section in docs.
+
 ## [0.7.0] - 2022-08-23
 
 - **BREAKING** Switch to `BabbageEra` and `PlutusV2`.

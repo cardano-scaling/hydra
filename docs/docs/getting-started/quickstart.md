@@ -22,22 +22,26 @@ This image contains both `cardano-node` and `cardano-cli`. The latter is handy t
 
 So far, the `hydra-node` command-line provide a single command only for starting a node. The entire configuration is provided through command-line options and is fully static. Options are used to configured various elements, and can be summarized as follows (note however that reference documentation for those options is available under the `--help` flag):
 
-Options                                                 | Description
----                                                     | ---
-`--node-id`                                             | The Hydra node identifier, serving as identifier within the Head network.
-`--peer`                                                | The Hydra network peers address. Must be provided multiple time, one for each peer.
-`--host` <br/> `--port`                                 | This Hydra node host and port, to which peers from the Hydra network can connect to.
-`--node-socket`                                         | The Cardano node's IPC socket filepath, used for inter-process communication with the node.
-`--ledger-genesis` <br/> `--ledger-protocol-parameters` | The Hydra ledger rules and parameters for the head.
-`--hydra-scripts-tx-id`                                 | A transaction id referencing Hydra's Plutus scripts. See release notes.
-`--hydra-signing-key` <br/> `--cardano-signing-key` <br/> `--hydra-verification-key` <br/> `--cardano-verification-key` | The Cardano and Hydra credentials for peers and the node itself. Those options may also be provided multiple times depending on the number of peers.
+Options                                                       | Description
+---                                                           | ---
+`--node-id`                                                   | The Hydra node identifier, serving as identifier within the Head network.
+`--host` <br/> `--port`                                       | This Hydra node host and port, to which peers from the Hydra network can connect to.
+`--peer`                                                      | The Hydra network peers address. Must be provided multiple time, one for each peer.
+`--hydra-verification-key` <br/> `--cardano-verification-key` | The Cardano and Hydra credentials for peers. Those options may also be provided multiple times depending on the number of peers.
+`--hydra-signing-key` <br/> `--cardano-signing-key`           | The Cardano and Hydra credentials for the node itself.
+`--hydra-scripts-tx-id`                                       | A transaction id referencing Hydra's Plutus scripts. See release notes.
+`--node-socket`                                               | The Cardano node's IPC socket filepath, used for inter-process communication with the node.
+`--ledger-genesis` <br/> `--ledger-protocol-parameters`       | The Hydra ledger rules and parameters for the head.
 
 Also, optionally:
 
 Options                         | Description
 ---                             | ---
+`--verbosity`                   | Turn on/off logging. Default is on. Turn off by passing 'quiet' as value.
 `--api-host` <br/> `--api-port` | The Hydra API host and port, to interact with the [WebSocket API](/api-reference).
 `--monitoring-port`             | The port this node listens on for monitoring and metrics via Prometheus. If left empty, monitoring server is not started.
+`--network-id`                  | The id of a test network to conect, with the given network magic.
+`--start-chain-from`            | The id of the block we want to start observing the ledger from. Composed by the slot number, a saparor (".") and the hash of the block header (i.e.: 52970883.d36a9936ae7a07f5f4bdc9ad0b23761cb7b14f35007e54947e27a1510f897f04)
 
 :::info  Dynamic Configuration
 
