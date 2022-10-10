@@ -27,6 +27,17 @@ markdownFormatter :: FilePath -> FormatConfig -> IO Format
 markdownFormatter outputFile _config = do
   createDirectoryIfMissing True (fst $ splitFileName outputFile)
   pure $ \case
+    -- NOTE: one would be tempted to use the various `Event`s provided by hspec
+    -- formatter API (see https://hackage.haskell.org/package/hspec-core-2.10.6/docs/Test-Hspec-Core-Format.html#t:Event)
+    -- to "naturally" output a markdown layout isomorphic to the tree structure of Specs
+    -- but it turns out that:
+    --  1. These events are apparently not emitted by default prior to 2.10 (??!!)
+    --  2. What if one runs tests in parallel? We would need to accumulate and track the various parts in some
+    --     random order anyway
+    --
+    -- So this is annoying but using `Done` is the safest path, even though it implies
+    -- reconstructing the tree of tests from the individual paths which is somewhat
+    -- silly.
     Done paths -> do
       let markdown = foldMap toMarkdown $ pathsToTree paths
       BS.writeFile outputFile $ encodeUtf8 $ Text.strip $ Text.pack markdown
