@@ -28,11 +28,11 @@ testSpec =
 
 spec :: Spec
 spec =
-  around (withTempDir "foo") $
-    it "generates markdown content to given file when running spec" $ \tmpDir ->
+  around (withTempDir "foo") $ do
+    it "generates markdown content to file when running spec" $ \tmpDir ->
       property $
         monadicIO $
-          forAllM genSpecTree $ \aSpecTree -> do
+          forAllM (genDescribe 3) $ \aSpecTree -> do
             content <- run $ do
               let markdownFile = tmpDir </> "result.md"
               summary <-
@@ -63,15 +63,19 @@ data TestTree
   | It String
   deriving (Eq, Show)
 
-genSpecTree :: Gen TestTree
-genSpecTree =
+genDescribe :: Int -> Gen TestTree
+genDescribe maxDepth = do
+  (Positive (Small n)) <- arbitrary
+  Describe <$> someLabel <*> vectorOf n (genSpecTree (maxDepth - 1))
+
+genSpecTree :: Int -> Gen TestTree
+genSpecTree 0 = It <$> someLabel
+genSpecTree maxDepth =
   frequency
-    [ (3, It <$> someLabel)
+    [ (5, It <$> someLabel)
     ,
       ( 1
-      , do
-          (Positive (Small n)) <- arbitrary
-          Describe <$> someLabel <*> vectorOf n genSpecTree
+      , genDescribe maxDepth
       )
     ]
 

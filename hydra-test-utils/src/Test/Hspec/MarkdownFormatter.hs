@@ -27,12 +27,11 @@ growForest lvl (path, item) forest =
          in Group desc (lvl + 1) subs' : groups
       | otherwise ->
         Group desc (lvl + 1) subs : growForest lvl (path, item) groups
-    ((root : rest, itemDesc), []) ->
+    ((root : rest, itemDesc), groups) ->
       let subs = growForest (lvl + 1) ((rest, itemDesc), item) []
-       in [Group root (lvl + 1) subs]
+       in Group root (lvl + 1) subs : groups
     (([], itemDesc), groups) ->
       Test itemDesc : groups
-    other -> error $ "Malformed paths and tree: " <> show other
 
 type Description = String
 type Level = Int
