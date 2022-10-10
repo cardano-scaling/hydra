@@ -47,6 +47,7 @@ import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
 import Test.Hspec.JUnit (defaultJUnitConfig, junitFormat, setJUnitConfigOutputFile)
+import Test.Hspec.MarkdownFormatter (markdownFormatter)
 import Test.QuickCheck (Property, Testable, coverTable, forAll, tabulate)
 
 -- | Create a unique temporary directory.
@@ -121,7 +122,8 @@ dualFormatter ::
 dualFormatter suiteName config = do
   junit <- junitFormat junitConfig config
   docSpec <- formatterToFormat specdoc config
-  pure $ \e -> junit e >> docSpec e
+  mdSpec <- markdownFormatter "test-results.md" config
+  pure $ \e -> junit e >> docSpec e >> mdSpec e
  where
   junitConfig =
     defaultJUnitConfig suiteName
