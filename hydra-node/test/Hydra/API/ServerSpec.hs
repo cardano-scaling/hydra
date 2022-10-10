@@ -17,9 +17,9 @@ import Control.Monad.Class.MonadSTM (
  )
 import qualified Data.Aeson as Aeson
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
+import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), input)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), input)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)

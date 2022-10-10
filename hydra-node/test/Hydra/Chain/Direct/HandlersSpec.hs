@@ -17,7 +17,7 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
   blockSlotNo,
-  toLedgerTx 
+  toLedgerTx,
  )
 import Hydra.Chain (
   ChainEvent (..),
@@ -49,7 +49,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), mkTimeHandle, genTimeParams)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
 import Ouroboros.Consensus.Block (Point, blockPoint)

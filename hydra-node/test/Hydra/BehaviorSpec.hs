@@ -20,10 +20,11 @@ import Control.Monad.Class.MonadSTM (
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import GHC.Records (getField)
+import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
-import Hydra.API.ClientInput
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.HeadLogic (
@@ -46,7 +47,6 @@ import Hydra.Node (
   runHydraNode,
  )
 import Hydra.Party (Party, deriveParty)
-import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)

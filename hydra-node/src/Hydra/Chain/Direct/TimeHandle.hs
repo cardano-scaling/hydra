@@ -20,9 +20,9 @@ import Hydra.Chain.CardanoClient (
   querySystemStart,
   queryTip,
  )
+import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, slotToWallclock, wallclockToSlot)
 import Test.QuickCheck (getPositive)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 
 type PointInTime = (SlotNo, UTCTime)
 
@@ -48,7 +48,7 @@ genTimeParams = do
   uptimeSeconds <- getPositive <$> arbitrary
   let uptime = secondsToNominalDiffTime uptimeSeconds
       currentTime = addUTCTime uptime startTime
-      -- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config 
+      -- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config
       safeZone = 3 * 2160 / 0.05
       horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
   pure (SystemStart startTime, eraHistoryWithHorizonAt horizonSlot, horizonSlot, currentTime)
