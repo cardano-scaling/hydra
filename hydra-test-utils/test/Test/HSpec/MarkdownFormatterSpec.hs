@@ -29,22 +29,34 @@ testSpec =
 spec :: Spec
 spec =
   around (withTempDir "foo") $ do
+    it "format markdown content as expected" $ \tmpDir -> do
+      hspecWithMarkdown tmpDir testSpec
+        `shouldReturn` "# Some Spec\
+                       \\n\n\
+                       \## Sub Spec\
+                       \\n\n\
+                       \* does one thing\n\
+                       \* does two things\n\n\n"
+
     it "generates markdown content to file when running spec" $ \tmpDir ->
       property $
         monadicIO $
           forAllM (genDescribe 3) $ \aSpecTree -> do
-            content <- run $ do
-              let markdownFile = tmpDir </> "result.md"
-              summary <-
-                hspecWithResult
-                  defaultConfig
-                    { configIgnoreConfigFile = True -- Needed to ensure we don't mess up this run with our default config
-                    , configFormat = Just (markdownFormatter markdownFile)
-                    }
-                  (toSpec aSpecTree)
-              readFile markdownFile
+            content <- run $ hspecWithMarkdown tmpDir (toSpec aSpecTree)
             monitor (counterexample content)
             assert $ all (`isInfixOf` content) $ listLabels aSpecTree
+
+hspecWithMarkdown :: FilePath -> Spec -> IO String
+hspecWithMarkdown tmpDir aSpec = do
+  let markdownFile = tmpDir </> "result.md"
+  _summary <-
+    hspecWithResult
+      defaultConfig
+        { configIgnoreConfigFile = True -- Needed to ensure we don't mess up this run with our default config
+        , configFormat = Just (markdownFormatter markdownFile)
+        }
+      aSpec
+  readFile markdownFile
 
 listLabels :: TestTree -> [String]
 listLabels = go []
