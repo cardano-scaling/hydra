@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Test.HSpec.MarkdownFormatterSpec where
 
 import Data.List (isInfixOf)
@@ -14,8 +16,8 @@ import Test.Hspec.Core.Runner (
  )
 import Test.Hspec.MarkdownFormatter
 import Test.Hydra.Prelude
-import Test.QuickCheck (forAll, property)
-import Test.QuickCheck.Monadic (assert, forAllM, monadic, monadicIO, run)
+import Test.QuickCheck (Positive (..), Small (..), counterexample, forAll, frequency, property, vectorOf)
+import Test.QuickCheck.Monadic (assert, forAllM, monadic, monadicIO, monitor, run)
 
 testSpec :: Spec
 testSpec =
@@ -41,10 +43,20 @@ spec =
                     }
                   (toSpec aSpecTree)
               readFile markdownFile
-            assert $ "foo" `isInfixOf` content
+            monitor (counterexample content)
+            assert $ all (`isInfixOf` content) $ listLabels aSpecTree
+
+listLabels :: TestTree -> [String]
+listLabels = go []
+ where
+  go acc (Describe s tts) = foldMap (go (s : acc)) tts
+  go acc (It s) = s : acc
 
 toSpec :: TestTree -> Spec
-toSpec = error "not implemented"
+toSpec (Describe s tts) =
+  describe s $ forM_ tts toSpec
+toSpec (It s) =
+  it s $ True `shouldBe` True
 
 data TestTree
   = Describe String [TestTree]
@@ -52,4 +64,18 @@ data TestTree
   deriving (Eq, Show)
 
 genSpecTree :: Gen TestTree
-genSpecTree = error "not implemented"
+genSpecTree =
+  frequency
+    [ (3, It <$> someLabel)
+    ,
+      ( 1
+      , do
+          (Positive (Small n)) <- arbitrary
+          Describe <$> someLabel <*> vectorOf n genSpecTree
+      )
+    ]
+
+someLabel :: Gen String
+someLabel = do
+  Positive (n :: Int) <- arbitrary
+  pure $ "test-" <> show n
