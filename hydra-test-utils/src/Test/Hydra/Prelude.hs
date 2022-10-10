@@ -59,11 +59,11 @@ createSystemTempDirectory template = do
 
 -- | Create a temporary directory for the given 'action' to use.
 -- The directory is removed if and only if the action completes successfuly.
-withTempDir :: String -> (FilePath -> IO r) -> IO r
+withTempDir :: MonadIO m => String -> (FilePath -> m r) -> m r
 withTempDir baseName action = do
-  tmpDir <- createSystemTempDirectory baseName
+  tmpDir <- liftIO $ createSystemTempDirectory baseName
   res <- action tmpDir
-  cleanup 0 tmpDir
+  liftIO $ cleanup 0 tmpDir
   pure res
  where
   -- NOTE: Somehow, since 1.35.0, cleaning-up cardano-node database directory

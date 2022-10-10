@@ -87,6 +87,7 @@ test-suite hydra-test-util-tests
                 , hspec-core
                 , hydra-prelude
                 , hydra-test-utils
+                , QuickCheck
                 , temporary
                 , text
 
