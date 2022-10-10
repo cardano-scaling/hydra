@@ -11,18 +11,26 @@ markdownFormatter outputFile _config = do
   pure $ \case
     Done paths -> do
       let itemsTree = pathsToTree paths
-      writeFile outputFile $ toMarkdown itemsTree
+      writeFile outputFile $ foldMap toMarkdown itemsTree
     _else -> pure ()
 
-pathsToTree :: [(Path, Item)] -> Tree
+pathsToTree :: [(Path, Item)] -> [Tree]
 pathsToTree =
-  foldr populateTree Root
- where
-  mkNode :: Description -> (Tree, Level) -> (Tree, Level)
-  mkNode desc (t, lvl) = (Group desc (lvl - 1) [t], lvl - 1)
+  foldr (growForest 0) []
 
-  populateTree :: (Path, Item) -> Tree -> Tree
-  populateTree ((path, desc), _) _ = fst $ foldr mkNode (Test desc, length path + 1) path
+growForest :: Int -> (Path, Item) -> [Tree] -> [Tree]
+growForest lvl (path, item) forest =
+  case (path, forest) of
+    ((root : rest, itemDesc), Group desc _ subs : groups)
+      | root == desc ->
+        let subs' = growForest (lvl + 1) ((rest, itemDesc), item) subs
+         in Group desc (lvl + 1) subs' : groups
+      | otherwise -> Group desc (lvl + 1) subs : growForest lvl (path, item) groups
+    ((root : rest, itemDesc), []) ->
+      [Group root (lvl + 1) (growForest (lvl + 1) ((rest, itemDesc), item) [])]
+    (([], itemDesc), groups) ->
+      Test itemDesc : groups
+    other -> error $ "unhandled case " <> show other
 
 type Description = String
 type Level = Int
@@ -30,7 +38,7 @@ type Level = Int
 data Tree
   = Group Description Level [Tree]
   | Test Description
-  | Root
+  deriving (Eq, Show)
 
 toMarkdown :: Tree -> String
 toMarkdown (Group description level subTrees) =
