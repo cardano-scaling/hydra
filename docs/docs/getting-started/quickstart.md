@@ -39,9 +39,9 @@ Options                         | Description
 ---                             | ---
 `--verbosity`                   | Turn on/off logging. Default is on. Turn off by passing 'quiet' as value.
 `--api-host` <br/> `--api-port` | The Hydra API host and port, to interact with the [WebSocket API](/api-reference).
-`--monitoring-port`             | The port this node listens on for monitoring and metrics via Prometheus.<br /> If left empty, monitoring server is not started.
+`--monitoring-port`             | The port this node listens on for monitoring and metrics via Prometheus.<br />If left empty, monitoring server is not started.
 `--network-id`                  | The id of a test network to conect, with the given network magic.
-`--start-chain-from`            | The id of the block we want to start observing the ledger from.<br /> Composed by the slot number, a saparor (".") and the hash of the block header <br /> (i.e.: 52970883.d36a9936ae7a07f5f4bdc9ad0b23761cb7b14f35007e54947e27a1510f897f04)
+`--start-chain-from`            | The id of the block we want to start observing the ledger from.<br />Composed by the slot number, a saparor (".") and the hash of the block header.<br />(i.e.: 52970883.d36a9936ae7a07f5f4bdc9ad0b23761cb7b14f35007e54947e27a1510f897f04)
 
 :::info  Dynamic Configuration
 
