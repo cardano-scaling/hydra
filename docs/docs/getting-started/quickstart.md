@@ -37,7 +37,7 @@ Also, optionally:
 
 Options                         | Description
 ---                             | ---
-`--verbosity`                   | Turn on/off logging. Default is on. Turn off by passing 'quiet' as value.
+`--quiet`                   | Turn off logging when given, default is on.
 `--api-host` <br/> `--api-port` | The Hydra API host and port, to interact with the [WebSocket API](/api-reference).
 `--monitoring-port`             | The port this node listens on for monitoring and metrics via Prometheus.<br />If left empty, monitoring server is not started.
 `--network-id`                  | The id of a test network to conect, with the given network magic.
