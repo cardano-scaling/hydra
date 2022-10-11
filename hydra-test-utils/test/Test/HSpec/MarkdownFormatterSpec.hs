@@ -21,10 +21,12 @@ spec :: Spec
 spec =
   around (withTempDir "foo") $ do
     it "format markdown content as expected" $ \tmpDir -> do
-      hspecWithMarkdown tmpDir testSpec
-        `shouldReturn` "# Some Spec\
+      hspecWithMarkdown "Formatter Test" tmpDir testSpec
+        `shouldReturn` "# Formatter Test\
                        \\n\n\
-                       \## Sub Spec\
+                       \## Some Spec\
+                       \\n\n\
+                       \### Sub Spec\
                        \\n\n\
                        \* does one thing\n\
                        \* does two things"
@@ -33,18 +35,18 @@ spec =
       property $
         monadicIO $
           forAllM (genDescribe 3) $ \aSpecTree -> do
-            content <- run $ hspecWithMarkdown tmpDir (toSpec aSpecTree)
+            content <- run $ hspecWithMarkdown "Test" tmpDir (toSpec aSpecTree)
             monitor (counterexample content)
             assert $ all (`isInfixOf` content) $ listLabels aSpecTree
 
-hspecWithMarkdown :: FilePath -> Spec -> IO String
-hspecWithMarkdown tmpDir aSpec = do
+hspecWithMarkdown :: String -> FilePath -> Spec -> IO String
+hspecWithMarkdown title tmpDir aSpec = do
   let markdownFile = tmpDir </> "result.md"
   _summary <-
     hspecWithResult
       defaultConfig
         { configIgnoreConfigFile = True -- Needed to ensure we don't mess up this run with our default config
-        , configFormat = Just (markdownFormatter markdownFile)
+        , configFormat = Just (markdownFormatter title markdownFile)
         }
       aSpec
   readFile markdownFile

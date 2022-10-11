@@ -21,10 +21,16 @@ import Test.Hspec.Core.Format (Event (..), Format, FormatConfig, Item, Path)
 --    MySpec.spec
 -- @@
 --
+-- The resulting markdown content follows these conventions:
+--
+--  * The `title` is written as a level 1 header at the top of the file,
+--  * Every `describe` statement generates a new header one level below the enclosing one,
+--  * Every `it` or `specify` statement yields a list item.
+--
 -- FIXME: It seems the way to add formatters changed in 2.10 so perhaps this
 -- might not work in all settings.
-markdownFormatter :: FilePath -> FormatConfig -> IO Format
-markdownFormatter outputFile _config = do
+markdownFormatter :: String -> FilePath -> FormatConfig -> IO Format
+markdownFormatter title outputFile _config = do
   createDirectoryIfMissing True (fst $ splitFileName outputFile)
   pure $ \case
     -- NOTE: one would be tempted to use the various `Event`s provided by hspec
@@ -39,13 +45,13 @@ markdownFormatter outputFile _config = do
     -- reconstructing the tree of tests from the individual paths which is somewhat
     -- silly.
     Done paths -> do
-      let markdown = foldMap toMarkdown $ pathsToTree paths
+      let markdown = "# " <> title <> "\n\n" <> foldMap toMarkdown (pathsToTree 1 paths)
       BS.writeFile outputFile $ encodeUtf8 $ Text.strip $ Text.pack markdown
     _else -> pure ()
 
-pathsToTree :: [(Path, Item)] -> [Tree]
-pathsToTree =
-  foldr (growForest 0) []
+pathsToTree :: Level -> [(Path, Item)] -> [Tree]
+pathsToTree startLevel =
+  foldr (growForest startLevel) []
  where
   growForest :: Int -> (Path, Item) -> [Tree] -> [Tree]
   growForest lvl (path, item) forest =
