@@ -20,6 +20,8 @@ import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import GHC.Records (getField)
+import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
   HeadParameters (..),
@@ -27,7 +29,6 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError,
  )
-import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.ContestationPeriod
 import Hydra.Crypto (HydraKey, Signature, SigningKey, aggregateInOrder, sign, verify)
 import Hydra.Ledger (
@@ -41,7 +42,6 @@ import Hydra.Ledger (
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
-import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
 -- * Types

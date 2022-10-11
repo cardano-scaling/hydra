@@ -5,13 +5,13 @@ module Hydra.Painter where
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
+import Hydra.API.ClientInput (ClientInput (GetUTxO, NewTx))
+import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse))
 import Hydra.Cardano.Api
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.API.ClientInput (ClientInput (GetUTxO, NewTx))
 import Hydra.Ledger.Cardano (emptyTxBody)
 import Hydra.Network (Host (..))
 import Hydra.Prelude
-import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse))
 import Network.WebSockets (
   Connection,
   runClient,

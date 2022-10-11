@@ -17,6 +17,7 @@ import Hydra.Prelude
 import Control.Monad.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Event (NetworkEvent),
@@ -26,7 +27,6 @@ import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (BeginEvent, EndEffect, EndEvent))
-import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (confirmed))
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric (Metric (CounterMetric, HistogramMetric))

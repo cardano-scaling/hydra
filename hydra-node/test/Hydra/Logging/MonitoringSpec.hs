@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Data.Text as Text
+import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Event (NetworkEvent),
@@ -17,7 +18,6 @@ import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (BeginEvent, EndEffect))
-import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.Snapshot (Snapshot (Snapshot))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
 import Test.Hydra.Fixture (alice)

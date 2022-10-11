@@ -553,14 +553,14 @@ waitForUTxOToSpend utxo key value party node = \case
       GetUTxOResponse u
         | u == mempty -> do
           party `sendsInput` Input.GetUTxO
-          waitForUTxOToSpend u key value party node (n -1)
+          waitForUTxOToSpend u key value party node (n - 1)
         | otherwise -> case find matchPayment (UTxO.pairs u) of
           Nothing -> do
             party `sendsInput` Input.GetUTxO
-            waitForUTxOToSpend u key value party node (n -1)
+            waitForUTxOToSpend u key value party node (n - 1)
           Just p -> pure $ Right p
       _ ->
-        waitForUTxOToSpend utxo key value party node (n -1)
+        waitForUTxOToSpend utxo key value party node (n - 1)
  where
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut
