@@ -4,7 +4,7 @@
 
 , haskellNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/haskell.nix/archive/0.0.49.tar.gz")
+      "https://github.com/input-output-hk/haskell.nix/archive/b66b0445ebec8842270d91d945227898265a114a.tar.gz")
     { }
 
 , iohkNix ? import
