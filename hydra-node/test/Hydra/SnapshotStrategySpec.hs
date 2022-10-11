@@ -21,7 +21,7 @@ import Hydra.HeadLogic (
   newSn,
  )
 import Hydra.Ledger (Ledger (..))
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
+import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
@@ -104,9 +104,9 @@ spec = do
                   , seenSnapshot = NoSeenSnapshot
                   }
               st =
-                inOpenState' @SimpleTx threeParties coordinatedState
+                inOpenState' threeParties coordinatedState
               st' =
-                inOpenState' @SimpleTx threeParties $
+                inOpenState' threeParties $
                   coordinatedState{seenSnapshot = RequestedSnapshot}
 
           emitSnapshot (envFor aliceSk) [] st
@@ -149,16 +149,27 @@ prop_thereIsAlwaysALeader =
 
 inOpenState' ::
   [Party] ->
-  CoordinatedHeadState tx ->
-  HeadState tx
+  CoordinatedHeadState SimpleTx ->
+  HeadState SimpleTx
 inOpenState' parties coordinatedHeadState =
-  OpenState{parameters, coordinatedHeadState, previousRecoverableState}
+  OpenState
+    { parameters
+    , coordinatedHeadState
+    , previousRecoverableState
+    , chainState = SimpleChainState
+    }
  where
   parameters = HeadParameters cperiod parties
+
   previousRecoverableState =
     InitialState
       { parameters
       , pendingCommits = mempty
       , committed = mempty
-      , previousRecoverableState = IdleState
+      , previousRecoverableState = idleState
+      , chainState = SimpleChainState
       }
+
+  idleState :: HeadState SimpleTx
+  idleState =
+    IdleState{chainState = SimpleChainState}
