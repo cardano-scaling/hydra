@@ -384,7 +384,7 @@ deriving instance Eq (Action WorldState a)
 runModel ::
   (MonadAsync m, MonadCatch m, MonadTimer m, MonadTime m) =>
   RunModel WorldState (StateT (Nodes m) m)
-runModel = RunModel{perform = perform}
+runModel = RunModel{perform}
  where
   perform ::
     ( MonadDelay m

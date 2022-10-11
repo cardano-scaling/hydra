@@ -14,7 +14,7 @@ module Test.Hydra.Prelude (
   failure,
   location,
   failAfter,
-  dualFormatter,
+  combinedHspecFormatter,
   reasonablySized,
   ReasonablySized (..),
   genericCoverTable,
@@ -47,6 +47,7 @@ import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
 import Test.Hspec.JUnit (defaultJUnitConfig, junitFormat, setJUnitConfigOutputFile)
+import Test.Hspec.MarkdownFormatter (markdownFormatter)
 import Test.QuickCheck (Property, Testable, coverTable, forAll, tabulate)
 
 -- | Create a unique temporary directory.
@@ -59,11 +60,11 @@ createSystemTempDirectory template = do
 
 -- | Create a temporary directory for the given 'action' to use.
 -- The directory is removed if and only if the action completes successfuly.
-withTempDir :: String -> (FilePath -> IO r) -> IO r
+withTempDir :: MonadIO m => String -> (FilePath -> m r) -> m r
 withTempDir baseName action = do
-  tmpDir <- createSystemTempDirectory baseName
+  tmpDir <- liftIO $ createSystemTempDirectory baseName
   res <- action tmpDir
-  cleanup 0 tmpDir
+  liftIO $ cleanup 0 tmpDir
   pure res
  where
   -- NOTE: Somehow, since 1.35.0, cleaning-up cardano-node database directory
@@ -111,17 +112,25 @@ location = case reverse $ getCallStack callStack of
   (_, loc) : _ -> Just loc
   _ -> Nothing
 
--- | An HSpec test formatter that outputs __both__ a JUnit formatted file and stdout test results.
-dualFormatter ::
+-- | An HSpec test formatter that combines several formatters to output test-results.
+--
+-- It outputs:
+--
+--  * A `test-results.xml` file in the current working directory
+--    containing JUnit-formatted test results,
+--  * A `hspec-results.md` file in the working directory containing Markdown-formatted results,
+--  * Standard (colorised) reporting on the @stdout@.
+combinedHspecFormatter ::
   -- | The name of the test suite run, for reporting purpose.
   Text ->
   -- | Configuration, will be passed by the HSpec test runner.
   FormatConfig ->
   IO Format
-dualFormatter suiteName config = do
+combinedHspecFormatter suiteName config = do
   junit <- junitFormat junitConfig config
   docSpec <- formatterToFormat specdoc config
-  pure $ \e -> junit e >> docSpec e
+  mdSpec <- markdownFormatter ("Test Results for " <> toString suiteName) "hspec-results.md" config
+  pure $ \e -> junit e >> docSpec e >> mdSpec e
  where
   junitConfig =
     defaultJUnitConfig suiteName

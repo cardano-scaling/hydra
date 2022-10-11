@@ -95,7 +95,10 @@ jobs:
     - name: Upload build & test artifacts
       uses: actions/upload-artifact@v2
       with:
-        path: ./**/test-results.xml
+        name: test-results
+        path: |
+          ./**/test-results.xml
+          ./**/hspec-results.md
 
   publish-test-results:
     name: Publish test results
@@ -220,7 +223,7 @@ jobs:
 
   documentation:
     name: Documentation
-    needs: [haddock-benchmarks]
+    needs: [haddock-benchmarks,build-test]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.3.1
@@ -242,6 +245,12 @@ jobs:
       with:
         name: benchmarks-and-haddocks
         path: docs
+
+    - name: Download test results
+      uses: actions/download-artifact@v3
+      with:
+        name: test-results
+        path: docs/benchmarks/tests
 
     - name: Documentation (Docusaurus)
       working-directory: docs

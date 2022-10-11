@@ -13,5 +13,5 @@ The data provided in those pages is _generated_ by Hydra's [Continuous Integrati
 import DocCardList from '@theme/DocCardList';
 import {useDocsSidebar} from '@docusaurus/theme-common';
 
-<DocCardList items={useDocsSidebar().filter(({ docId }) => docId != "index")}/>
+<DocCardList items={useDocsSidebar().filter(({ docId }) => docId != "index").map(item => {if (item.label == "tests") item.label = "Test Results" ; return item})}/>
 ```
