@@ -134,7 +134,7 @@ newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
     TinyWallet
       { getUTxO =
           (\(u, _, _, _) -> u) <$> readTVar utxoVar
-      , sign = Util.signWith (vk, sk)
+      , sign = Util.signWith sk
       , coverFee = \lookupUTxO partialTx -> do
           (walletUTxO, pparams, systemStart, epochInfo) <- readTVar utxoVar
           pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx

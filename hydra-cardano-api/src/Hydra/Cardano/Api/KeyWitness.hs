@@ -11,20 +11,18 @@ import qualified Data.Set as Set
 -- * Extras
 
 -- | Construct a 'KeyWitness' from a transaction id and credentials.
---
--- TODO: The verification key can be inferred from the signing key and is
--- therefore redundant in the signature.
 signWith ::
   forall era.
   (IsShelleyBasedEra era) =>
   TxId ->
-  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  SigningKey PaymentKey ->
   KeyWitness era
-signWith (TxId h) (PaymentVerificationKey vk, PaymentSigningKey sk) =
-  ShelleyKeyWitness (shelleyBasedEra @era) $
-    Ledger.WitVKey
-      (Ledger.asWitness vk)
-      (Ledger.signedDSIGN @StandardCrypto sk h)
+signWith (TxId h) signingKey@(PaymentSigningKey sk) =
+  let (PaymentVerificationKey vk) = getVerificationKey signingKey
+   in ShelleyKeyWitness (shelleyBasedEra @era) $
+        Ledger.WitVKey
+          (Ledger.asWitness vk)
+          (Ledger.signedDSIGN @StandardCrypto sk h)
 
 -- * Type Conversions
 

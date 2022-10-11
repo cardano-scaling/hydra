@@ -54,7 +54,7 @@ it "spins up two hydra nodes" -> do
         aliceKeys <- generate genKeyPair
         bobKeys <- generate genKeyPair
 
-        -- Here we generate signing keys for hydra, note these are different from the cardano skeys generated above
+        -- Here we generate signing keys for hydra used to sign transactions on layer 2 only
         let aliceSk = generateSigningKey "alice"
             bobSk = generateSigningKey "bob"
 

@@ -33,8 +33,9 @@ import Control.Monad.Class.MonadSTM (
   writeTQueue,
  )
 import Hydra.API.Server (Server, sendOutput)
-import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), deserialiseFromRawBytes)
+import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), PostTxError)
+import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
   Effect (..),
@@ -58,7 +59,7 @@ import Hydra.Party (Party (..), deriveParty)
 
 initEnvironment :: RunOptions -> IO Environment
 initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys} = do
-  sk <- loadSigningKey hydraSigningKey
+  sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
   otherParties <- mapM loadParty hydraVerificationKeys
   pure $
     Environment
@@ -67,17 +68,9 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys} = do
       , otherParties
       }
  where
-  -- TODO: use text envelopes instead of this maybe fail stuff
-  loadSigningKey p =
-    readFileBS p >>= maybeFail <$> deserialiseFromRawBytes (AsSigningKey AsHydraKey)
-
   loadParty p =
-    Party <$> loadVerificationKey p
+    Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
 
-  loadVerificationKey p = do
-    readFileBS p >>= maybeFail <$> deserialiseFromRawBytes (AsVerificationKey AsHydraKey)
-
-  maybeFail = maybe (fail "could not deserialise from raw bytes") pure
 -- ** Create and run a hydra node
 
 data HydraNode tx m = HydraNode

@@ -32,7 +32,6 @@ import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson (Value (String), object, (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Pair)
-import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
 import Hydra.Cluster.Faucet (FaucetLog)
@@ -271,10 +270,10 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
       let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
       readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
       let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
-      BS.writeFile hydraSigningKey (serialiseToRawBytes hydraSKey)
+      void $ writeFileTextEnvelope hydraSigningKey Nothing hydraSKey
       hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
         let filepath = dir </> (show i <> ".vk")
-        filepath <$ BS.writeFile filepath (serialiseToRawBytes vKey)
+        filepath <$ writeFileTextEnvelope filepath Nothing vKey
       let ledgerConfig =
             CardanoLedgerConfig
               { cardanoLedgerGenesisFile
