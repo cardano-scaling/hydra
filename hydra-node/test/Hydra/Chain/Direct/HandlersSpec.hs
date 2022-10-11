@@ -73,6 +73,7 @@ import Test.QuickCheck.Monadic (
   assert,
   monadicIO,
   monitor,
+  pick,
   run,
   stop,
  )
@@ -116,36 +117,41 @@ spec = do
       (timeHandle, slot) <- pickBlind genTimeHandleWithSlotPastHorizon
       blk <- pickBlind $ genBlockAt slot []
 
-      chainState <- pickBlind genChainState
-      headState <- run $ newTVarIO $ stAtGenesis chainState
-      let persistence = Persistence{save = const $ pure (), load = failure "unexpected load"}
-      let handler =
-            chainSyncHandler
-              nullTracer
-              (\e -> failure $ "Unexpected callback: " <> show e)
-              headState
-              (pure timeHandle)
-              persistence
+      let chainSyncCallback = \_cont -> failure "Unexpected callback"
+          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle)
 
       run $
         onRollForward handler blk
           `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
 
-  prop "yields observed transactions rolling forward" $ do
-    forAll genChainStateWithTx $ \(st, tx, _) -> do
-      let callback = \case
-            Rollback{} ->
-              fail "rolled back but expected roll forward."
-            Observation onChainTx ->
-              fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
-            Tick{} -> pure ()
+  prop "yields observed transactions rolling forward" $
+    monadicIO $ do
+      -- Generate a state and related transaction and a block containing it
+      (st, tx, transition) <- pick genChainStateWithTx
+      blk <- pickBlind $ genBlockAt 1 [tx]
+      monitor (label $ show transition)
 
-      forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
-        headState <- run $ newTVarIO $ stAtGenesis st
-        timeHandle <- pickBlind arbitrary
-        let persistence = Persistence{save = const $ pure (), load = failure "unexpected load"}
-        let handler = chainSyncHandler nullTracer callback headState (pure timeHandle) persistence
-        run $ onRollForward handler blk
+      timeHandle <- pickBlind arbitrary
+      let callback cont =
+            -- Give chain state in which we expect the 'tx' to yield an 'Observation'.
+            case cont st of
+              Nothing ->
+                -- XXX: We need this to debug as 'failure' (via 'run') does not
+                -- yield counter examples.
+                failure . toString $
+                  unlines
+                    [ "expected continuation to yield an event"
+                    , "transition: " <> show transition
+                    , "chainState: " <> show st
+                    ]
+              Just Rollback{} ->
+                failure "rolled back but expected roll forward."
+              Just Tick{} -> pure ()
+              Just Observation{observedTx} ->
+                fst <$> observeSomeTx tx st `shouldBe` Just observedTx
+
+      let handler = chainSyncHandler nullTracer callback (pure timeHandle)
+      run $ onRollForward handler blk
 
   prop "can replay chain on (benign) rollback" $
     forAllBlind genSequenceOfObservableBlocks $ \(st, blks) ->
