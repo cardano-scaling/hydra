@@ -17,15 +17,15 @@ common package-config
   default-extensions:
     NoImplicitPrelude
     FlexibleContexts
-    OverloadedStrings
     LambdaCase
     NamedFieldPuns
-    TypeApplications
+    OverloadedStrings
     ScopedTypeVariables
+    TypeApplications
 
 library
-  import: package-config
-  hs-source-dirs:     src
+  import:           package-config
+  hs-source-dirs:   src
   exposed-modules:
     Test.Hspec.MarkdownFormatter
     Test.Hydra.Prelude
@@ -66,31 +66,30 @@ library
     , temporary
     , warp
 
-  ghc-options:        -Wall -Werror -Wcompat -Wunused-packages
-  default-language:   Haskell2010
+  ghc-options:      -Wall -Werror -Wcompat -Wunused-packages
+  default-language: Haskell2010
 
 test-suite hydra-test-util-tests
-  import: package-config
+  import:             package-config
   hs-source-dirs:     test
   other-modules:
-    Test.HSpec.MarkdownFormatterSpec
     HydraTestUtilsSpec
+    Test.HSpec.MarkdownFormatterSpec
 
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   build-depends:
-                      base
-                , QuickCheck
-                , bytestring
-                , directory
-                , filepath
-                , hspec
-                , hspec-core
-                , hydra-prelude
-                , hydra-test-utils
-                , temporary
-                , text
-                , text
+    , base
+    , bytestring
+    , directory
+    , filepath
+    , hspec
+    , hspec-core
+    , hydra-prelude
+    , hydra-test-utils
+    , QuickCheck
+    , temporary
+    , text
 
   build-tool-depends: hspec-discover:hspec-discover -any
   ghc-options:        -threaded -rtsopts

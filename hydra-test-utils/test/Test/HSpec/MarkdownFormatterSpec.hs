@@ -1,7 +1,10 @@
 module Test.HSpec.MarkdownFormatterSpec where
 
-import Data.List (isInfixOf)
 import Hydra.Prelude
+import Test.Hspec.MarkdownFormatter
+import Test.Hydra.Prelude
+
+import Data.List (isInfixOf)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (splitFileName, (</>))
 import Test.Hspec.Core.Format (Event (..), Format, FormatConfig)
@@ -12,15 +15,13 @@ import Test.Hspec.Core.Runner (
   hspecWith,
   hspecWithResult,
  )
-import Test.Hspec.MarkdownFormatter
-import Test.Hydra.Prelude
 import Test.QuickCheck (Positive (..), Small (..), counterexample, forAll, frequency, property, vectorOf)
-import Test.QuickCheck.Monadic (assert, forAllM, monadic, monadicIO, monitor, run)
+import Test.QuickCheck.Monadic (assert, forAllM, monadic, monadicIO, monitor, pick, run)
 
 spec :: Spec
 spec =
   around (withTempDir "foo") $ do
-    it "format markdown content as expected" $ \tmpDir -> do
+    it "generates markdown from Spec laying out all labels hierarchically" $ \tmpDir ->
       hspecWithMarkdown "Formatter Test" tmpDir testSpec
         `shouldReturn` "# Formatter Test\
                        \\n\n\
@@ -33,11 +34,11 @@ spec =
 
     it "generates markdown content to file when running spec" $ \tmpDir ->
       property $
-        monadicIO $
-          forAllM (genDescribe 3) $ \aSpecTree -> do
-            content <- run $ hspecWithMarkdown "Test" tmpDir (toSpec aSpecTree)
-            monitor (counterexample content)
-            assert $ all (`isInfixOf` content) $ listLabels aSpecTree
+        monadicIO $ do
+          aSpecTree <- pick (genDescribe 3)
+          content <- run $ hspecWithMarkdown "Test" tmpDir (toSpec aSpecTree)
+          monitor (counterexample content)
+          assert $ all (`isInfixOf` content) $ listLabels aSpecTree
 
 hspecWithMarkdown :: String -> FilePath -> Spec -> IO String
 hspecWithMarkdown title tmpDir aSpec = do
@@ -58,10 +59,11 @@ listLabels = go []
   go acc (It s) = s : acc
 
 toSpec :: TestTree -> Spec
-toSpec (Describe s tts) =
-  describe s $ forM_ tts toSpec
-toSpec (It s) =
-  it s $ True `shouldBe` True
+toSpec = \case
+  Describe s tts ->
+    describe s $ forM_ tts toSpec
+  It s ->
+    it s $ True `shouldBe` True
 
 data TestTree
   = Describe String [TestTree]

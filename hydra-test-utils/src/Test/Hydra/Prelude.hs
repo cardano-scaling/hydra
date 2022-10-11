@@ -14,7 +14,7 @@ module Test.Hydra.Prelude (
   failure,
   location,
   failAfter,
-  dualFormatter,
+  combinedHspecFormatter,
   reasonablySized,
   ReasonablySized (..),
   genericCoverTable,
@@ -112,14 +112,21 @@ location = case reverse $ getCallStack callStack of
   (_, loc) : _ -> Just loc
   _ -> Nothing
 
--- | An HSpec test formatter that outputs __both__ a JUnit formatted file and stdout test results.
-dualFormatter ::
+-- | An HSpec test formatter that combines several formatters to output test-results.
+--
+-- It outputs:
+--
+--  * A `test-results.xml` file in the current working directory
+--    containing JUnit-formatted test results,
+--  * A `hspec-results.md` file in the working directory containing Markdown-formatted results,
+--  * Standard (colorised) reporting on the @stdout@.
+combinedHspecFormatter ::
   -- | The name of the test suite run, for reporting purpose.
   Text ->
   -- | Configuration, will be passed by the HSpec test runner.
   FormatConfig ->
   IO Format
-dualFormatter suiteName config = do
+combinedHspecFormatter suiteName config = do
   junit <- junitFormat junitConfig config
   docSpec <- formatterToFormat specdoc config
   mdSpec <- markdownFormatter ("Test Results for " <> toString suiteName) "hspec-results.md" config

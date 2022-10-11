@@ -1,8 +1,9 @@
 module Test.Hspec.MarkdownFormatter (markdownFormatter) where
 
+import Hydra.Prelude hiding (intercalate)
+
 import qualified Data.ByteString as BS
 import qualified Data.Text as Text
-import Hydra.Prelude hiding (intercalate)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (splitFileName)
 import Test.Hspec.Core.Format (Event (..), Format, FormatConfig, Item, Path)
@@ -27,7 +28,7 @@ import Test.Hspec.Core.Format (Event (..), Format, FormatConfig, Item, Path)
 --  * Every `describe` statement generates a new header one level below the enclosing one,
 --  * Every `it` or `specify` statement yields a list item.
 --
--- FIXME: It seems the way to add formatters changed in 2.10 so perhaps this
+-- NOTE: It seems the way to add formatters changed in 2.10 so perhaps this
 -- might not work in all settings.
 markdownFormatter :: String -> FilePath -> FormatConfig -> IO Format
 markdownFormatter title outputFile _config = do
@@ -75,8 +76,6 @@ data Tree
   = Group Description Level [Tree]
   | Test Description
 
--- TODO: this function uses naive string concatenation, using Doc from any
--- prettyprinter package would provide better layout
 toMarkdown :: Tree -> String
 toMarkdown (Group description level subTrees) =
   header
