@@ -4,17 +4,24 @@
 
 , haskellNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/haskell.nix/archive/28dbf2f4bd32a4fbd1a2e9de45d02ad977b062d9.tar.gz")
+      "https://github.com/input-output-hk/haskell.nix/archive/0.0.49.tar.gz")
+    { }
+
+, iohkNix ? import
+    (builtins.fetchTarball
+      "https://github.com/input-output-hk/iohk-nix/archive/d31417fe8c8fbfb697b3ad4c498e17eb046874b9.tar.gz")
     { }
 
   # nixpkgs-unstable as also used by cardano-node, cardano-ledger et al
-, nixpkgsSrc ? builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/1882c6b7368fd284ad01b0a5b5601ef136321292.tar.gz"
+, nixpkgsSrc ? haskellNix.sources.nixpkgs-unstable
 }:
 let
   pkgs = import nixpkgsSrc (haskellNix.nixpkgsArgs // {
     overlays =
       # Haskell.nix (https://github.com/input-output-hk/haskell.nix)
-      haskellNix.overlays;
+      haskellNix.overlays
+        # needed for cardano-crypto-class which uses a patched libsodium
+        ++ iohkNix.overlays.crypto;
   });
 
   hsPkgs = pkgs.haskell-nix.project {
@@ -26,29 +33,18 @@ let
     compiler-nix-name = compiler;
 
     modules = [
+      # Allow reinstallation of terminfo, which wasn't installed with the cross compiler to begin with.
+      ({ lib, ...}: { options.nonReinstallablePkgs = lib.mkOption { apply = lib.remove "terminfo"; }; })
       # Set libsodium-vrf on cardano-crypto-{praos,class}. Otherwise they depend
       # on libsodium, which lacks the vrf functionality.
       ({ pkgs, lib, ... }:
-        # Override libsodium using local 'pkgs' to make sure it's using
+        # Override libsodium with local 'pkgs' to make sure it's using
         # overriden 'pkgs', e.g. musl64 packages
-        let
-          libsodium-vrf = pkgs.libsodium.overrideAttrs (oldAttrs: {
-            name = "libsodium-1.0.18-vrf";
-            src = pkgs.fetchFromGitHub {
-              owner = "input-output-hk";
-              repo = "libsodium";
-              # branch tdammers/rebased-vrf
-              rev = "66f017f16633f2060db25e17c170c2afa0f2a8a1";
-              sha256 = "12g2wz3gyi69d87nipzqnq4xc6nky3xbmi2i2pb2hflddq8ck72f";
-            };
-            nativeBuildInputs = [ pkgs.autoreconfHook ];
-            configureFlags = "--enable-static";
-          });
-        in
         {
-          packages.cardano-crypto-class.components.library.pkgconfig = lib.mkForce [ [ libsodium-vrf pkgs.secp256k1 ] ];
-          packages.cardano-crypto-praos.components.library.pkgconfig = lib.mkForce [ [ libsodium-vrf ] ];
-        })
+          packages.cardano-crypto-class.components.library.pkgconfig = lib.mkForce [ [ pkgs.libsodium-vrf pkgs.secp256k1 ] ];
+          packages.cardano-crypto-praos.components.library.pkgconfig = lib.mkForce [ [ pkgs.libsodium-vrf ] ];
+        }
+      )
     ];
   };
 
