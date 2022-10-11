@@ -49,7 +49,7 @@ spec = parallel $
     -- only check for correct format / wiring here using a single test case This
     -- became evident when realizing that the 'hydra-tui' is also relying on this
     -- Read instance for parsing, but in a different command line flag.
-    it "parses --peer <host>:<port> option" $ do
+    it "parses --peer `<host>:<port>` option" $ do
       ["--peer", "1.2.3.4:4567"]
         `shouldParse` Run defaultRunOptions{peers = [Host "1.2.3.4" 4567]}
       ["--peer", "1.2.3.4:4567", "--peer", "1.2.3.5:4568"]
