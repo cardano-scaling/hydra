@@ -33,8 +33,6 @@ let
     compiler-nix-name = compiler;
 
     modules = [
-      # Allow reinstallation of terminfo, which wasn't installed with the cross compiler to begin with.
-      ({ lib, ...}: { options.nonReinstallablePkgs = lib.mkOption { apply = lib.remove "terminfo"; }; })
       # Set libsodium-vrf on cardano-crypto-{praos,class}. Otherwise they depend
       # on libsodium, which lacks the vrf functionality.
       ({ pkgs, lib, ... }:

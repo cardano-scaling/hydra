@@ -8,7 +8,10 @@
 let
   project = import ./default.nix { };
   nativePkgs = project.hsPkgs;
-  musl64Pkgs = project.hsPkgs.projectCross.musl64.hsPkgs;
+  # Allow reinstallation of terminfo as it's not installed with cross compilers.
+  patchedForCrossProject = project.hsPkgs.appendModule
+      ({ lib, ...}: { options.nonReinstallablePkgs = lib.mkOption { apply = lib.remove "terminfo"; }; });
+  musl64Pkgs = patchedForCrossProject.projectCross.musl64.hsPkgs;
 in
 rec {
   # Build shell derivation to cache it
