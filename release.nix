@@ -8,7 +8,11 @@
 let
   project = import ./default.nix { };
   nativePkgs = project.hsPkgs;
-  musl64Pkgs = project.hsPkgs.projectCross.musl64.hsPkgs;
+
+  patchedProject = project.hsPkgs.appendModule
+      # Allow reinstallation of terminfo, which wasn't installed with the cross compiler to begin with.
+      ({ lib, ...}: { options.nonReinstallablePkgs = lib.mkOption { apply = lib.remove "terminfo"; }; });
+  musl64Pkgs = patchedProject.projectCross.musl64.hsPkgs;
 in
 rec {
   # Build shell derivation to cache it
@@ -18,7 +22,7 @@ rec {
   hydra-node = nativePkgs.hydra-node.components.exes.hydra-node;
   hydra-node-static = musl64Pkgs.hydra-node.components.exes.hydra-node;
   hydra-tui = nativePkgs.hydra-tui.components.exes.hydra-tui;
-  hydra-tui-static = musl64Pkgs.hydra-node.components.exes.hydra-tui;
+  hydra-tui-static = musl64Pkgs.hydra-tui.components.exes.hydra-tui;
   hydraw = nativePkgs.hydraw.components.exes.hydraw;
 
   # defines required jobs so that Hydra-the-CI correctly notifies

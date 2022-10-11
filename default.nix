@@ -17,19 +17,6 @@ let
       haskellNix.overlays;
   });
 
-  libsodium-vrf = pkgs.libsodium.overrideAttrs (oldAttrs: {
-    name = "libsodium-1.0.18-vrf";
-    src = pkgs.fetchFromGitHub {
-      owner = "input-output-hk";
-      repo = "libsodium";
-      # branch tdammers/rebased-vrf
-      rev = "66f017f16633f2060db25e17c170c2afa0f2a8a1";
-      sha256 = "12g2wz3gyi69d87nipzqnq4xc6nky3xbmi2i2pb2hflddq8ck72f";
-    };
-    nativeBuildInputs = [ pkgs.autoreconfHook ];
-    configureFlags = "--enable-static";
-  });
-
   hsPkgs = pkgs.haskell-nix.project {
     src = pkgs.haskell-nix.haskellLib.cleanGit {
       name = "hydra-poc";
@@ -39,18 +26,29 @@ let
     compiler-nix-name = compiler;
 
     modules = [
-      # Allow reinstallation of terminfo, which wasn't installed with the cross compiler to begin with.
-      ({ lib, ...}: { options.nonReinstallablePkgs = lib.mkOption { apply = lib.remove "terminfo"; }; })
-      # set libsodium-vrf on cardano-crypto-{praos,class}. Otherwise they depend on libsodium, which lacks
-      # the vrf functionality.
-      ({ pkgs, lib, ... }: {
-        # https://github.com/input-output-hk/cardano-wallet/commit/ced95e1b84ce8d9faa53268be45e96701ccc16e9
-        packages.cardano-config.components.library.build-tools = [ pkgs.buildPackages.buildPackages.gitMinimal ];
-
-        # https://github.com/input-output-hk/iohk-nix/pull/488
-        packages.cardano-crypto-class.components.library.pkgconfig = pkgs.lib.mkForce [ [ libsodium-vrf pkgs.secp256k1 ] ];
-        packages.cardano-crypto-praos.components.library.pkgconfig = pkgs.lib.mkForce [ [ libsodium-vrf ] ];
-      })
+      # Set libsodium-vrf on cardano-crypto-{praos,class}. Otherwise they depend
+      # on libsodium, which lacks the vrf functionality.
+      ({ pkgs, lib, ... }:
+        # Override libsodium using local 'pkgs' to make sure it's using
+        # overriden 'pkgs', e.g. musl64 packages
+        let
+          libsodium-vrf = pkgs.libsodium.overrideAttrs (oldAttrs: {
+            name = "libsodium-1.0.18-vrf";
+            src = pkgs.fetchFromGitHub {
+              owner = "input-output-hk";
+              repo = "libsodium";
+              # branch tdammers/rebased-vrf
+              rev = "66f017f16633f2060db25e17c170c2afa0f2a8a1";
+              sha256 = "12g2wz3gyi69d87nipzqnq4xc6nky3xbmi2i2pb2hflddq8ck72f";
+            };
+            nativeBuildInputs = [ pkgs.autoreconfHook ];
+            configureFlags = "--enable-static";
+          });
+        in
+        {
+          packages.cardano-crypto-class.components.library.pkgconfig = lib.mkForce [ [ libsodium-vrf pkgs.secp256k1 ] ];
+          packages.cardano-crypto-praos.components.library.pkgconfig = lib.mkForce [ [ libsodium-vrf ] ];
+        })
     ];
   };
 
