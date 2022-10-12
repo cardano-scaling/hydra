@@ -21,7 +21,7 @@ import Test.QuickCheck.Monadic (assert, forAllM, monadic, monadicIO, monitor, pi
 spec :: Spec
 spec =
   around (withTempDir "foo") $ do
-    it "generates markdown from Spec laying out all labels hierarchically" $ \tmpDir ->
+    it "generates markdown from Spec laying out all labels hierarchically and property runs details" $ \tmpDir ->
       hspecWithMarkdown "Formatter Test" tmpDir testSpec
         `shouldReturn` "# Formatter Test\
                        \\n\n\
@@ -30,7 +30,14 @@ spec =
                        \### Sub Spec\
                        \\n\n\
                        \* does one thing\n\
-                       \* does two things"
+                       \* does two things\n\
+                       \* check a property\n\
+                       \  <details>\n\
+                       \  <summary>Details</summary>\n\
+                       \  \n\
+                       \  > +++ OK, passed 100 tests.\n\
+                       \  \n\
+                       \  </details>"
 
     it "generates markdown content to file when running spec" $ \tmpDir ->
       property $
@@ -97,3 +104,4 @@ testSpec =
     describe "Sub Spec" $ do
       it "does one thing" $ True `shouldBe` True
       it "does two things" $ True `shouldBe` True
+      prop "check a property" $ \(n :: Int) -> n == n `div` 1

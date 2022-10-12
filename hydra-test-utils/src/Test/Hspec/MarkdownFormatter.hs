@@ -3,10 +3,17 @@ module Test.Hspec.MarkdownFormatter (markdownFormatter) where
 import Hydra.Prelude hiding (intercalate)
 
 import qualified Data.ByteString as BS
+import qualified Data.List as List
 import qualified Data.Text as Text
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (splitFileName)
-import Test.Hspec.Core.Format (Event (..), Format, FormatConfig, Item, Path)
+import Test.Hspec.Core.Format (
+  Event (..),
+  Format,
+  FormatConfig,
+  Item (..),
+  Path,
+ )
 
 -- | Generates a markdowm-formatted test tree into a file.
 --
@@ -26,7 +33,9 @@ import Test.Hspec.Core.Format (Event (..), Format, FormatConfig, Item, Path)
 --
 --  * The `title` is written as a level 1 header at the top of the file,
 --  * Every `describe` statement generates a new header one level below the enclosing one,
---  * Every `it` or `specify` statement yields a list item.
+--  * Every `it` or `specify` statement yields a list item,
+--  * Additional info output by a test (eg. QuickCheck's property count) will be added as
+--    pre-formatted text inside a foldable _Details_ section under its item.
 --
 -- NOTE: It seems the way to add formatters changed in 2.10 so perhaps this
 -- might not work in all settings.
@@ -67,14 +76,14 @@ pathsToTree startLevel =
         let subs = growForest (lvl + 1) ((rest, itemDesc), item) []
          in Group root (lvl + 1) subs : groups
       (([], itemDesc), groups) ->
-        Test itemDesc : groups
+        Test itemDesc item : groups
 
 type Description = String
 type Level = Int
 
 data Tree
   = Group Description Level [Tree]
-  | Test Description
+  | Test Description Item
 
 toMarkdown :: Tree -> String
 toMarkdown (Group description level subTrees) =
@@ -85,4 +94,14 @@ toMarkdown (Group description level subTrees) =
     <> "\n"
  where
   header = replicate level '#' <> " "
-toMarkdown (Test description) = "* " <> description <> "\n"
+toMarkdown (Test description Item{itemInfo}) =
+  "* " <> description <> "\n" <> moreInfo
+ where
+  moreInfo =
+    if null itemInfo
+      then ""
+      else
+        List.unlines $
+          ["  <details>", "  <summary>Details</summary>", "  "]
+            <> map ("  > " <>) (List.lines itemInfo)
+            <> ["  ", "  </details>"]
