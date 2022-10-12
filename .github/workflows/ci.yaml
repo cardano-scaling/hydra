@@ -162,9 +162,9 @@ jobs:
         name: test-results
 
     - name: ✏ Publish test results to PR
-      uses: EnricoMi/publish-unit-test-result-action@v1
+      uses: EnricoMi/publish-unit-test-result-action@v2
       with:
-        files: ./**/test-results.xml
+        junit_files: ./**/test-results.xml
 
   haddock-benchmarks:
     name: "Haddock & benchmarks"
