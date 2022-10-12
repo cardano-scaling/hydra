@@ -84,13 +84,14 @@ trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDS
 
 From there you can:
 
-* Build the project all its executables using `nix-build`
-* Build the `hydra-node` docker image: `docker build . --target hydra-node`
 - Build & run the `hydra-node`: `cabal build hydra-node && cabal exec hydra-node -- --version`
 - Build & run all tests: `cabal test all` 
 - Build & run all benchmarks: `cabal bench all`
 - Run `haskell-language-server` for an IDE experience
 - Run `hoogle` for symbol & documentation lookup
+- Build the `hydra-node` using nix: `nix-build release.nix -A hydra-node`
+- Build a statically linked `hydra-node` using nix: `nix-build release.nix -A hydra-node`
+- Build the `hydra-node` docker image: `docker build . --target hydra-node`
 
 Also, some of us use [direnv](https://direnv.net/) and
 [nix-direnv](https://github.com/nix-community/nix-direnv) to automatically

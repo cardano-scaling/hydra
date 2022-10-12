@@ -12,7 +12,7 @@ import TerminalWindow from '@site/src/components/TerminalWindow';
 
 ## Using Docker
 
-The quickest way to get a hydra-node running is to use our Docker images.
+The quickest way to get a hydra-node running is to use our Docker images:
 
 ````mdx-code-block
 <TerminalWindow>
@@ -24,6 +24,13 @@ docker run --rm ghcr.io/input-output-hk/hydra-node --help
 
 </TerminalWindow>
 ````
+
+## Using prebuilt static binaries
+
+We provide builds for `hydra-node`, `hydra-tools` and `hydra-tui` as statically
+linked `x64_86` binaries. These binaries can be found in our CI or attached to
+[github releases](https://github.com/input-output-hk/hydra-poc/releases)
+starting with version `0.8.0`.
 
 ## Building from source
 
