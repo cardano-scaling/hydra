@@ -493,7 +493,9 @@ genValue :: Gen Value
 genValue = fromLedgerValue <$> arbitrary
 
 genAdaValue :: Gen Value
-genAdaValue = lovelaceToValue . selectLovelace <$> genValue
+genAdaValue = filterOutNonAdaAssets <$> genValue
+ where
+  filterOutNonAdaAssets = lovelaceToValue . selectLovelace
 
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where

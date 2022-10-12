@@ -72,6 +72,7 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Ledger.Cardano (genAdaValue)
 import Hydra.Model (
   Action (ObserveConfirmedTx, Wait),
   GlobalState (..),
@@ -100,6 +101,9 @@ import Test.Util (printTrace, traceInIOSim)
 
 spec :: Spec
 spec = do
+  -- There cannot be a UTxO with no ADAs
+  -- See https://github.com/input-output-hk/cardano-ledger/blob/master/doc/explanations/min-utxo-mary.rst
+  prop "model should not generate 0 Ada UTxO" $ forAll genAdaValue (/= lovelaceToValue 0)
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
   prop "implementation respects model" $ forAll arbitrary prop_checkModel
   prop "check conflict-free liveness" prop_checkConflictFreeLiveness
