@@ -134,14 +134,14 @@ jobs:
     - name: ❄ Build static executables
       run: |
         mkdir -p bin/
-        nix-build -A hydra-node-static release.nix && cp result/bin/* bin/
-        nix-build -A hydra-tools-static release.nix && cp result/bin/* bin/
-        nix-build -A hydra-tui-static release.nix && cp result/bin/* bin/
+        nix-build release.nix -A hydra-node-static && cp result/bin/* bin/
+        nix-build release.nix -A hydra-tools-static && cp result/bin/* bin/
+        nix-build release.nix -A hydra-tui-static && cp result/bin/* bin/
 
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v3
       with:
-        name: executables
+        name: hydra-x86_64-unknown-linux-musl
         path: |
           ./bin
 
