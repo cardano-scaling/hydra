@@ -23,6 +23,7 @@ rec {
   hydra-tui = nativePkgs.hydra-tui.components.exes.hydra-tui;
   hydra-tui-static = musl64Pkgs.hydra-tui.components.exes.hydra-tui;
   hydraw = nativePkgs.hydraw.components.exes.hydraw;
+  hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
 
   # defines required jobs so that Hydra-the-CI correctly notifies
   # GH when the jobs are built
