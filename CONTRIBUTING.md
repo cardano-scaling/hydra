@@ -134,4 +134,8 @@ To perform a release of next `<version>`
 + Refer to `<version>` in deployment instructions, e.g. `docker-compose.yaml` files.
 + Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601)
 + Create a signed, annotated git tag of the version: `git tag -as <version>`
-+ (ideally) Use the released changes as annotation
++ Use the released changes as annotation
++ Create a github release page containing
+  - The released changes (formatted) and giving credit where credit is due
+  - Attach static binaries to the release (or link the CI artifact)
+  - Publish hydra scripts onto `preview` and `pre-prod` and include transaction ids (e.g. using the [smoke test](https://github.com/input-output-hk/hydra-poc/actions/workflows/smoke-test.yaml))
