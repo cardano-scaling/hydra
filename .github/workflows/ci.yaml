@@ -100,6 +100,49 @@ jobs:
           ./**/test-results.xml
           ./**/hspec-results.md
 
+  build-executables:
+    name: "Build using nix"
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # On pull_request events, we want to check out the latest commit of the
+        # PR, which is different to github.ref (the default, which would point
+        # to a "fake merge" commit). On push events, the default is fine as it
+        # refers to the pushed commit.
+        ref: ${{ github.event.pull_request.head.sha || github.ref }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v17
+      with:
+        extra_nix_config: |
+          trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+          substituters = https://cache.nixos.org https://cache.iog.io
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v10
+      with:
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+    - name: ❄ Build static executables
+      run: |
+        nix-build -A hydra-node-static release.nix -o hydra-node-static
+        nix-build -A hydra-tui-static release.nix -o hydra-tui-static
+
+    - name: 💾 Upload executables
+      uses: actions/upload-artifact@v2
+      with:
+        name: executables
+        path: |
+          ./hydra-node-static/bin/hydra-node
+          ./hydra-tui-static/bin/hydra-tui
+
   publish-test-results:
     name: Publish test results
     needs: [build-test]
