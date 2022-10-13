@@ -892,12 +892,9 @@ rollback depth
   | otherwise =
     rollback (pred depth) . \case
       IdleState ->
-        -- NOTE: This is debatable. We could also just return 'IdleState' and
-        -- silently swallow this. But we choose to make it a clear invariant /
-        -- post-condition to show that there's a inconsistency between both
-        -- layers. In principle, once we are in ready state, we can only
-        -- rollback of `0` (thus caught by the case above).
-        error "trying to rollback beyond known states? Chain layer screwed up."
+        -- NOTE: Before we were erroring here, but as we now load the chain and
+        -- head state separately, this can actually happen. We can ignore it
+        IdleState
       InitialState{previousRecoverableState} ->
         previousRecoverableState
       OpenState{previousRecoverableState} ->
