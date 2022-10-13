@@ -58,7 +58,7 @@ data InitialThreadOutput = InitialThreadOutput
   , initialContestationPeriod :: OnChain.ContestationPeriod
   , initialParties :: [OnChain.Party]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 -- | Representation of the Head output after a CollectCom transaction.
 data OpenThreadOutput = OpenThreadOutput
@@ -66,7 +66,7 @@ data OpenThreadOutput = OpenThreadOutput
   , openContestationPeriod :: OnChain.ContestationPeriod
   , openParties :: [OnChain.Party]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 data ClosedThreadOutput = ClosedThreadOutput
   { closedThreadUTxO :: UTxOWithScript

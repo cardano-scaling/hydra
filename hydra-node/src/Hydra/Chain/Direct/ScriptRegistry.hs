@@ -58,7 +58,7 @@ data ScriptRegistry = ScriptRegistry
   { initialReference :: (TxIn, TxOut CtxUTxO)
   , commitReference :: (TxIn, TxOut CtxUTxO)
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 data NewScriptRegistryException = MissingScript
   { scriptName :: Text
