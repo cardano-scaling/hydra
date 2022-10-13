@@ -14,8 +14,8 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Codec.Serialise (deserialiseOrFail, serialise)
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
@@ -59,12 +59,12 @@ newtype UTxOHash = UTxOHash ByteString
 
 instance ToJSON UTxOHash where
   toJSON (UTxOHash bytes) =
-    Aeson.String . decodeUtf8 $ serialise bytes
+    Aeson.String . decodeUtf8 $ Base16.encode bytes
 
 instance FromJSON UTxOHash where
   parseJSON = Aeson.withText "UTxOHash" $ \cborText ->
-    case deserialiseOrFail $ encodeUtf8 cborText of
-      Left e -> fail $ show e
+    case Base16.decode $ encodeUtf8 cborText of
+      Left e -> fail e
       Right bs -> pure $ UTxOHash bs
 
 -- | Representation of the Head output after an Init transaction.

@@ -87,7 +87,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   renderEvaluationReportFailures,
  )
 import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
-import Test.Aeson.GenericSpecs (roundtripSpecs)
+import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude (
   Spec,
@@ -124,7 +124,7 @@ import qualified Prelude
 spec :: Spec
 spec = parallel $ do
   describe "ChainState" $
-    roundtripSpecs (Proxy @ChainState)
+    roundtripAndGoldenSpecs (Proxy @ChainState)
 
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $

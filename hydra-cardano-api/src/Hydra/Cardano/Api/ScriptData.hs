@@ -7,7 +7,10 @@ import Hydra.Cardano.Api.Prelude
 import Cardano.Api.Byron (TxBody (..))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import Codec.Serialise (deserialise, deserialiseOrFail, serialise)
+import Control.Arrow (left)
 import Data.Aeson (Value (String))
+import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import qualified Plutus.V2.Ledger.Api as Plutus
 
@@ -72,11 +75,17 @@ toLedgerData =
 -- * Orphans
 
 instance ToJSON ScriptData where
-  toJSON = String . decodeUtf8 . serialiseToCBOR
+  toJSON =
+    String
+      . decodeUtf8
+      . Base16.encode
+      . toStrict
+      . serialise
+      . toPlutusData
 
 instance FromJSON ScriptData where
   parseJSON v = do
     text :: Text <- parseJSON v
-    case deserialiseFromCBOR AsScriptData $ encodeUtf8 text of
-      Left e -> fail $ show e
-      Right a -> pure a
+    either fail (pure . fromPlutusData) $ do
+      bytes <- Base16.decode (encodeUtf8 text)
+      left show $ deserialiseOrFail $ toLazy bytes
