@@ -2,8 +2,9 @@
 
 module Hydra.Cardano.Api.NetworkId where
 
-import Data.Aeson (Value (Number, String), object, withObject, (.:), (.=))
 import Hydra.Cardano.Api.Prelude
+
+import Data.Aeson (Value (Number, String), object, withObject, (.:), (.=))
 
 -- * Orphans
 

@@ -77,6 +77,7 @@ library
     Hydra.Cardano.Api
     Hydra.Cardano.Api.Address
     Hydra.Cardano.Api.AddressInEra
+    Hydra.Cardano.Api.ChainPoint
     Hydra.Cardano.Api.CtxTx
     Hydra.Cardano.Api.CtxUTxO
     Hydra.Cardano.Api.ExecutionUnits
