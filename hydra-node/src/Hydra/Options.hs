@@ -518,24 +518,27 @@ toArgs
     , hydraSigningKey
     , hydraVerificationKeys
     , hydraScriptsTxId
+    , persistenceDir
     , chainConfig
     , ledgerConfig
     } =
-    let (NodeId nId) = nodeId
-     in isVerbose verbosity
-          <> ["--node-id", unpack nId]
-          <> ["--host", show host]
-          <> ["--port", show port]
-          <> ["--api-host", show apiHost]
-          <> ["--api-port", show apiPort]
-          <> ["--hydra-signing-key", hydraSigningKey]
-          <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
-          <> concatMap toArgPeer peers
-          <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
-          <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
-          <> argsChainConfig
-          <> argsLedgerConfig
+    isVerbose verbosity
+      <> ["--node-id", unpack nId]
+      <> ["--host", show host]
+      <> ["--port", show port]
+      <> ["--api-host", show apiHost]
+      <> ["--api-port", show apiPort]
+      <> ["--hydra-signing-key", hydraSigningKey]
+      <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
+      <> concatMap toArgPeer peers
+      <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
+      <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
+      <> ["--persistence-dir", persistenceDir]
+      <> argsChainConfig
+      <> argsLedgerConfig
    where
+    (NodeId nId) = nodeId
+
     isVerbose = \case
       Quiet -> ["--quiet"]
       _ -> []
