@@ -24,6 +24,7 @@ import Hydra.Chain.Direct.Tx (
   InitObservation (..),
   InitialThreadOutput (..),
   OpenThreadOutput (..),
+  UTxOHash (UTxOHash),
   UTxOWithScript,
   abortTx,
   closeTx,
@@ -161,7 +162,7 @@ data OpenState = OpenState
   , openThreadOutput :: OpenThreadOutput
   , openHeadId :: HeadId
   , openHeadTokenScript :: PlutusScript
-  , openUtxoHash :: ByteString
+  , openUtxoHash :: UTxOHash
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -316,7 +317,7 @@ close st confirmedSnapshot pointInTime =
     ConfirmedSnapshot{snapshot = Snapshot{number, utxo}, signatures} ->
       CloseWithConfirmedSnapshot
         { snapshotNumber = number
-        , closeUtxoHash = hashUTxO @Tx utxo
+        , closeUtxoHash = UTxOHash $ hashUTxO @Tx utxo
         , signatures
         }
 

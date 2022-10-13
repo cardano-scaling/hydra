@@ -14,6 +14,8 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Codec.Serialise (deserialiseOrFail, serialise)
+import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
@@ -51,6 +53,19 @@ import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- | Needed on-chain data to create Head transactions.
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
+
+newtype UTxOHash = UTxOHash ByteString
+  deriving (Eq, Show, Generic)
+
+instance ToJSON UTxOHash where
+  toJSON (UTxOHash bytes) =
+    Aeson.String . decodeUtf8 $ serialise bytes
+
+instance FromJSON UTxOHash where
+  parseJSON = Aeson.withText "UTxOHash" $ \cborText ->
+    case deserialiseOrFail $ encodeUtf8 cborText of
+      Left e -> fail $ show e
+      Right bs -> pure $ UTxOHash bs
 
 -- | Representation of the Head output after an Init transaction.
 data InitialThreadOutput = InitialThreadOutput
@@ -266,10 +281,10 @@ collectComTx networkId vk initialThreadOutput commits =
 -- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
 -- contains relevant chain state like the 'openUtxoHash'.
 data ClosingSnapshot
-  = CloseWithInitialSnapshot {openUtxoHash :: ByteString}
+  = CloseWithInitialSnapshot {openUtxoHash :: UTxOHash}
   | CloseWithConfirmedSnapshot
       { snapshotNumber :: SnapshotNumber
-      , closeUtxoHash :: ByteString
+      , closeUtxoHash :: UTxOHash
       , -- XXX: This is a bit of a wart and stems from the fact that our
         -- SignableRepresentation of 'Snapshot' is in fact the snapshotNumber
         -- and the closeUtxoHash as also included above
@@ -312,7 +327,7 @@ closeTx vk closing (slotNo, utcTime) openThreadOutput =
     toScriptData
       Head.Close
         { snapshotNumber
-        , utxoHash
+        , utxoHash = toBuiltin utxoHashBytes
         , signature
         }
 
@@ -323,7 +338,7 @@ closeTx vk closing (slotNo, utcTime) openThreadOutput =
     mkTxOutDatum
       Head.Closed
         { snapshotNumber
-        , utxoHash
+        , utxoHash = toBuiltin utxoHashBytes
         , parties = openParties
         , contestationDeadline
         }
@@ -332,7 +347,7 @@ closeTx vk closing (slotNo, utcTime) openThreadOutput =
     CloseWithInitialSnapshot{} -> 0
     CloseWithConfirmedSnapshot{snapshotNumber = sn} -> sn
 
-  utxoHash = toBuiltin $ case closing of
+  UTxOHash utxoHashBytes = case closing of
     CloseWithInitialSnapshot{openUtxoHash} -> openUtxoHash
     CloseWithConfirmedSnapshot{closeUtxoHash} -> closeUtxoHash
 
@@ -681,7 +696,7 @@ convertTxOut = \case
 data CollectComObservation = CollectComObservation
   { threadOutput :: OpenThreadOutput
   , headId :: HeadId
-  , utxoHash :: ByteString
+  , utxoHash :: UTxOHash
   }
   deriving (Show, Eq)
 
@@ -702,7 +717,7 @@ observeCollectComTx utxo tx = do
     (Head.Initial{parties, contestationPeriod}, Head.CollectCom) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
-      utxoHash <- decodeUtxoHash newHeadDatum
+      utxoHash <- UTxOHash <$> decodeUtxoHash newHeadDatum
       pure
         CollectComObservation
           { threadOutput =
