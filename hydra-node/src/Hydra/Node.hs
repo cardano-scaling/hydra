@@ -55,6 +55,7 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
+import System.Directory (doesFileExist)
 
 -- * Environment Handling
 
@@ -102,7 +103,7 @@ instance IsTx tx => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 createHydraNode ::
-  (MonadSTM m, MonadIO m, MonadThrow m) =>
+  (MonadSTM m, MonadIO m, MonadThrow m, IsTx tx) =>
   EventQueue m (Event tx) ->
   Network m (Message tx) ->
   Ledger tx ->
@@ -111,8 +112,10 @@ createHydraNode ::
   Environment ->
   m (HydraNode tx m)
 createHydraNode eq hn ledger oc server env = do
-  hh <- createHydraHead IdleState ledger
   persistence <- createPersistence Proxy "/tmp/headstate"
+  hs <- fromMaybe IdleState <$> load persistence
+  liftIO $ print hs
+  hh <- createHydraHead hs ledger
   pure HydraNode{eq, hn, hh, oc, server, env, persistence}
 
 runHydraNode ::
@@ -263,7 +266,7 @@ createHydraHead initialState ledger = do
 -- | Handle to save and load files to/from disk using JSON encoding.
 data Persistence a m = Persistence
   { save :: ToJSON a => a -> m ()
-  , load :: FromJSON a => m a
+  , load :: FromJSON a => m (Maybe a)
   }
 
 newtype PersistenceException
@@ -280,9 +283,12 @@ createPersistence _ fp =
       { save = \a -> do
           -- TODO: should use a durable/atomic write like unliftio's 'writeBinaryFileDurableAtomic'
           writeFileLBS fp $ Aeson.encode a
-      , load = do
-          bs <- readFileLBS fp
-          case Aeson.eitherDecode' bs of
-            Left e -> throwIO $ PersistenceException e
-            Right a -> pure a
+      , load =
+          liftIO (doesFileExist fp) >>= \case
+            False -> pure Nothing
+            True -> do
+              bs <- readFileLBS fp
+              case Aeson.eitherDecode' bs of
+                Left e -> throwIO $ PersistenceException e
+                Right a -> pure $ Just a
       }

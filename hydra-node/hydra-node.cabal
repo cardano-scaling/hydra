@@ -142,6 +142,7 @@ library
     , containers
     , contra-tracer
     , data-default
+    , directory
     , filepath
     , formatting
     , gitrev
@@ -356,9 +357,9 @@ test-suite tests
     , text
     , time
     , typed-protocols-examples
+    , versions
     , websockets
     , yaml
-    , versions
 
   build-tool-depends: hspec-discover:hspec-discover -any
   ghc-options:        -threaded -rtsopts

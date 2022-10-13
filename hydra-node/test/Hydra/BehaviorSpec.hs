@@ -674,10 +674,7 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
       , persistence =
           Persistence
             { save = atomically . writeTVar persistenceVar . Just
-            , load =
-                readTVarIO persistenceVar >>= \case
-                  Nothing -> throwIO $ PersistenceException "never saved"
-                  Just a -> pure a
+            , load = readTVarIO persistenceVar
             }
       }
 
