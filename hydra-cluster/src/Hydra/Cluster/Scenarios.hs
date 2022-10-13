@@ -40,7 +40,7 @@ restartANodeAfterHeadInitialized tracer workDir cardanoNode hydraScriptsTxId = d
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     send n1 $ input "Abort" []
     waitFor tracer 10 [n1] $
-      output "HeadIsAborted" []
+      output "HeadIsAborted" ["utxo" .= object mempty]
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
