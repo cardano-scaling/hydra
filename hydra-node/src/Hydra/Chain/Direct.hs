@@ -97,6 +97,7 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
  )
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node (Persistence (load), createPersistence)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (
   GenTx (..),

@@ -44,6 +44,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genVerificationKey)
+import Hydra.Ledger.Cardano.Json ()
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.QuickCheck (sized)

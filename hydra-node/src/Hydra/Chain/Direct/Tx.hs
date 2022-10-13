@@ -45,6 +45,7 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
 
@@ -72,7 +73,7 @@ data ClosedThreadOutput = ClosedThreadOutput
   , closedParties :: [OnChain.Party]
   , closedContestationDeadline :: Plutus.POSIXTime
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 headPolicyId :: TxIn -> PolicyId
 headPolicyId =
