@@ -102,6 +102,6 @@ toMarkdown (Test description Item{itemInfo}) =
       then ""
       else
         List.unlines $
-          ["  <details>", "  <summary>Details</summary>", "  "]
-            <> map ("  > " <>) (List.lines itemInfo)
-            <> ["  ", "  </details>"]
+          ["  <details>", "  <summary>Details</summary>", "  ", "  ```"]
+            <> map ("  " <>) (List.lines itemInfo)
+            <> ["  ```", "  ", "  </details>"]
