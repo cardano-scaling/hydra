@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.StateSpec where
 
@@ -86,6 +87,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   renderEvaluationReportFailures,
  )
 import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
+import Test.Aeson.GenericSpecs (roundtripSpecs)
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude (
   Spec,
@@ -251,6 +253,10 @@ propIsValid forAllTx =
 --
 -- QuickCheck Extras
 --
+
+-- XXX: Orphan instance because of cyclic module dependencies
+instance Arbitrary ChainState where
+  arbitrary = genChainState
 
 genChainState :: Gen ChainState
 genChainState =

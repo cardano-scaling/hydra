@@ -43,7 +43,6 @@ import Hydra.Node (
   HydraNode (..),
   HydraNodeLog (..),
   Persistence (Persistence, load, save),
-  PersistenceException (PersistenceException),
   createEventQueue,
   createHydraHead,
   runHydraNode,
@@ -641,7 +640,7 @@ createTestHydraNode outputs outputHistory node ConnectToChain{history} =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadThrow m) =>
+  (MonadDelay m, MonadAsync m) =>
   Ledger tx ->
   SigningKey HydraKey ->
   [Party] ->

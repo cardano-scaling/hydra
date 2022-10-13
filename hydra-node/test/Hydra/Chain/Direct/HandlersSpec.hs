@@ -52,6 +52,7 @@ import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
+import Hydra.Node (Persistence (..))
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -117,12 +118,14 @@ spec = do
 
       chainState <- pickBlind genChainState
       headState <- run $ newTVarIO $ stAtGenesis chainState
+      let persistence = Persistence{save = const $ pure (), load = failure "unexpected load"}
       let handler =
             chainSyncHandler
               nullTracer
               (\e -> failure $ "Unexpected callback: " <> show e)
               headState
               (pure timeHandle)
+              persistence
 
       run $
         onRollForward handler blk
@@ -140,7 +143,8 @@ spec = do
       forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
         headState <- run $ newTVarIO $ stAtGenesis st
         timeHandle <- pickBlind arbitrary
-        let handler = chainSyncHandler nullTracer callback headState (pure timeHandle)
+        let persistence = Persistence{save = const $ pure (), load = failure "unexpected load"}
+        let handler = chainSyncHandler nullTracer callback headState (pure timeHandle) persistence
         run $ onRollForward handler blk
 
   prop "can replay chain on (benign) rollback" $
@@ -155,7 +159,8 @@ spec = do
           monitor $ label ("Rollback depth: " <> show rollbackDepth)
           headState <- run $ newTVarIO st
           timeHandle <- pickBlind arbitrary
-          let handler = chainSyncHandler nullTracer callback headState (pure timeHandle)
+          let persistence = Persistence{save = const $ pure (), load = failure "unexpected load"}
+          let handler = chainSyncHandler nullTracer callback headState (pure timeHandle) persistence
 
           -- 1/ Simulate some chain following
           st' <- run $ mapM_ (onRollForward handler) blks *> readTVarIO headState
@@ -174,12 +179,14 @@ recordEventsHandler :: ChainState -> GetTimeHandle IO -> IO (ChainSyncHandler IO
 recordEventsHandler st getTimeHandle = do
   headState <- newTVarIO $ stAtGenesis st
   eventsVar <- newTVarIO []
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) headState getTimeHandle
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) headState getTimeHandle persistence
   pure (handler, getEvents eventsVar)
  where
   getEvents = atomically . readTVar
 
   recordEvents var e = atomically $ modifyTVar var (e :)
+
+  persistence = Persistence{save = const $ pure (), load = failure "unexpected load"}
 
 -- | Like 'pick' but using 'forAllBlind' under the hood.
 pickBlind :: Monad m => Gen a -> PropertyM m a
