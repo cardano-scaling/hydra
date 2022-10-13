@@ -56,7 +56,8 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
-import System.Directory (doesFileExist)
+import System.Directory (createDirectoryIfMissing, doesFileExist)
+import System.FilePath (takeDirectory)
 import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
 
 -- * Environment Handling
@@ -284,7 +285,8 @@ instance Exception PersistenceException
 
 -- | Initialize persistence handle for given type 'a' at given file path.
 createPersistence :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (Persistence a m)
-createPersistence _ fp =
+createPersistence _ fp = do
+  liftIO . createDirectoryIfMissing True $ takeDirectory fp
   pure $
     Persistence
       { save = \a -> do

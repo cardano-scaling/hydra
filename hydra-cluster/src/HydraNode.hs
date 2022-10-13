@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module HydraNode (
   HydraClient (..),
@@ -294,7 +295,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                   , hydraSigningKey
                   , hydraVerificationKeys
                   , hydraScriptsTxId
-                  , persistenceDir = workDir
+                  , persistenceDir = workDir </> "state-" <> show hydraNodeId
                   , chainConfig
                   , ledgerConfig
                   }
