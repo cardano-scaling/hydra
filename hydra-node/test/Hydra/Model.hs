@@ -55,7 +55,7 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (Committed (), PendingCommits)
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (cardanoLedger, genAdaValue, genKeyPair, genSigningKey, mkSimpleTx)
+import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genValue, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Node (HydraNodeLog, runHydraNode)
 import Hydra.Party (Party, deriveParty)
@@ -581,6 +581,13 @@ genPayment WorldState{hydraParties, hydraState} =
       (_, to) <- elements hydraParties `suchThat` ((/= from) . snd)
       pure (party, Payment{from, to, value})
     _ -> error $ "genPayment impossible in state: " <> show hydraState
+
+genAdaValue :: Gen Value
+genAdaValue = genNonNullAdaValue
+ where
+  genNonNullAdaValue = genAdaAsset `suchThat` (/= lovelaceToValue 0)
+  genAdaAsset = onlyAdaAssets <$> genValue
+  onlyAdaAssets = lovelaceToValue . selectLovelace
 
 unsafeConstructorName :: (Show a) => a -> String
 unsafeConstructorName = Prelude.head . Prelude.words . show
