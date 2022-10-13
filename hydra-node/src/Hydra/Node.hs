@@ -98,7 +98,7 @@ data HydraNodeLog tx
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
   | SavingState
-  | LoadedState (HeadState tx)
+  | LoadedState {state :: HeadState tx}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
