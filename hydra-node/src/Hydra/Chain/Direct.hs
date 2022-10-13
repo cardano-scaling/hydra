@@ -178,12 +178,17 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoin
           , ownParty = party
           , scriptRegistry
           }
-  headState <-
-    newTVarIO $
-      ChainStateAt
-        { currentChainState = Idle IdleState{ctx}
-        , recordedAt = AtStart
-        }
+  persistence <- createPersistence (Proxy @ChainStateAt) "/tmp/chainstate"
+  cs <-
+    load persistence >>= \case
+      Nothing ->
+        pure $
+          ChainStateAt
+            { currentChainState = Idle IdleState{ctx}
+            , recordedAt = AtStart
+            }
+      Just a -> pure a
+  headState <- newTVarIO cs
   let chainHandle =
         mkChain
           tracer
@@ -191,10 +196,11 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoin
           wallet
           headState
           (submitTx queue)
+  let getTimeHandle = queryTimeHandle networkId socketPath
   res <-
     race
       ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback headState (queryTimeHandle networkId socketPath)
+          let handler = chainSyncHandler tracer callback headState getTimeHandle persistence
 
           let intersection = toConsensusPointHF <$> mpoint
           let client = ouroborosApplication tracer intersection queue handler wallet

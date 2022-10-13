@@ -60,6 +60,7 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
  )
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node (Persistence (Persistence, save))
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..), blockPoint)
@@ -206,9 +207,11 @@ chainSyncHandler ::
   TVar m ChainStateAt ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
+  -- | A handle to save chain state
+  Persistence ChainStateAt m ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback headState getTimeHandle =
+chainSyncHandler tracer callback headState getTimeHandle Persistence{save} =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -245,6 +248,7 @@ chainSyncHandler tracer callback headState getTimeHandle =
           { onChainTxs
           , receivedTxs = map getTxId receivedTxs
           }
+    readTVarIO headState >>= save
     mapM_ (callback . Observation) onChainTxs
 
   withNextTx :: ChainPoint -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
