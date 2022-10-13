@@ -87,7 +87,7 @@ spec = around showLogsOnFailure $ do
               >>= singlePartyHeadFullLifeCycle tracer tmpDir node
 
     describe "backup restore of a hydra head" $ do
-      fit "start a hydra node and restart it" $ \tracer -> do
+      it "start a hydra node and restart it" $ \tracer -> do
         withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
