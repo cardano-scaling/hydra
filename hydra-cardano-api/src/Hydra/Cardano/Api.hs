@@ -105,6 +105,7 @@ import Hydra.Cardano.Api.Hash as Extras
 import Hydra.Cardano.Api.KeyWitness as Extras
 import Hydra.Cardano.Api.Lovelace as Extras
 import Hydra.Cardano.Api.MultiAssetSupportedInEra as Extras
+import Hydra.Cardano.Api.NetworkId ()
 import Hydra.Cardano.Api.PlutusScript as Extras
 import Hydra.Cardano.Api.PlutusScriptVersion as Extras
 import Hydra.Cardano.Api.Point as Extras
@@ -129,6 +130,7 @@ import Hydra.Cardano.Api.UTxO as Extras
 import Hydra.Cardano.Api.UsingRawBytesHex as Extras
 import Hydra.Cardano.Api.ValidityInterval as Extras
 import Hydra.Cardano.Api.Value as Extras
+import Hydra.Cardano.Api.VerificationKey ()
 import Hydra.Cardano.Api.Witness as Extras
 
 import qualified Cardano.Api
