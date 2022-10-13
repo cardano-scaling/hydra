@@ -155,6 +155,7 @@ prop_doesNotGenerate0AdaUTxO (Actions actions) =
   contains0AdaUTxO :: Step WorldState -> Bool
   contains0AdaUTxO = \case
     _anyVar := Model.Commit _anyParty utxos -> any contains0Ada utxos
+    _anyVar := Model.NewTx _anyParty Model.Payment{value} -> value == lovelaceToValue 0
     _anyOtherStep -> False
   contains0Ada = (== lovelaceToValue 0) . snd
 
