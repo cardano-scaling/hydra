@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
 module Hydra.Cardano.Api.PlutusScript where
 
 import Hydra.Cardano.Api.Prelude
@@ -37,3 +38,17 @@ toLedgerScript (PlutusScriptSerialised bytes) =
 fromPlutusScript :: Plutus.Script -> PlutusScript lang
 fromPlutusScript =
   PlutusScriptSerialised . toShort . fromLazy . serialise
+
+-- * Orphans
+
+-- XXX: IsPlutusScriptLanguage is not exported, we would want to it here
+
+instance ToJSON (PlutusScript PlutusScriptV2) where
+  toJSON = toJSON . serialiseToTextEnvelope Nothing
+
+instance FromJSON (PlutusScript PlutusScriptV2) where
+  parseJSON v = do
+    env <- parseJSON v
+    case deserialiseFromTextEnvelope (AsPlutusScript AsPlutusScriptV2) env of
+      Left e -> fail $ show e
+      Right a -> pure a
