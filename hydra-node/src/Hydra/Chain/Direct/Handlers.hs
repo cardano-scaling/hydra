@@ -164,6 +164,17 @@ data ChainStateAt = ChainStateAt
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
+-- TODO: use a correct implementation, currently not possible because of cyclic
+-- dependenices (see Arbitrary ChainState)
+instance Arbitrary ChainStateAt where
+  arbitrary = do
+    ctx <- arbitrary
+    pure $
+      ChainStateAt
+        { currentChainState = Idle $ IdleState{ctx}
+        , recordedAt = AtStart
+        }
+
 -- | Records when a state was seen on-chain. 'AtStart' is used for states that
 -- simply exist out of any chain events (e.g. the 'Idle' state).
 data RecordedAt
@@ -364,6 +375,7 @@ data DirectChainLog
   | RolledForward {point :: SomePoint}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
+  | LoadedState ChainStateAt
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
