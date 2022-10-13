@@ -96,6 +96,7 @@ data HydraNodeLog tx
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
   | SavingState
+  | LoadedState (HeadState tx)
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -104,6 +105,7 @@ instance IsTx tx => Arbitrary (HydraNodeLog tx) where
 
 createHydraNode ::
   (MonadSTM m, MonadIO m, MonadThrow m, IsTx tx) =>
+  Tracer m (HydraNodeLog tx) ->
   EventQueue m (Event tx) ->
   Network m (Message tx) ->
   Ledger tx ->
@@ -111,10 +113,12 @@ createHydraNode ::
   Server tx m ->
   Environment ->
   m (HydraNode tx m)
-createHydraNode eq hn ledger oc server env = do
+createHydraNode tracer eq hn ledger oc server env = do
   persistence <- createPersistence Proxy "/tmp/headstate"
-  hs <- fromMaybe IdleState <$> load persistence
-  liftIO $ print hs
+  hs <-
+    load persistence >>= \case
+      Nothing -> pure IdleState
+      Just a -> traceWith tracer (LoadedState a) >> pure a
   hh <- createHydraHead hs ledger
   pure HydraNode{eq, hn, hh, oc, server, env, persistence}
 

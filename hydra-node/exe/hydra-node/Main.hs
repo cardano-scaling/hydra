@@ -66,8 +66,9 @@ main = do
             withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig $ \ledger -> do
-                node <- createHydraNode eq hn ledger oc server env
-                runHydraNode (contramap Node tracer) node
+                let tr = contramap Node tracer
+                node <- createHydraNode tr eq hn ledger oc server env
+                runHydraNode tr node
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
