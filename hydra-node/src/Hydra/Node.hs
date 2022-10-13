@@ -71,7 +71,6 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys} = do
  where
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
-
 -- ** Create and run a hydra node
 
 data HydraNode tx m = HydraNode
@@ -81,6 +80,7 @@ data HydraNode tx m = HydraNode
   , oc :: Chain tx m
   , server :: Server tx m
   , env :: Environment
+  , persistence :: Persistence (HeadState tx) m
   }
 
 -- NOTE(AB): we use partial fields access here for convenience purpose, to
@@ -102,7 +102,7 @@ instance IsTx tx => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 createHydraNode ::
-  MonadSTM m =>
+  (MonadSTM m, MonadIO m, MonadThrow m) =>
   EventQueue m (Event tx) ->
   Network m (Message tx) ->
   Ledger tx ->
@@ -112,14 +112,14 @@ createHydraNode ::
   m (HydraNode tx m)
 createHydraNode eq hn ledger oc server env = do
   hh <- createHydraHead IdleState ledger
-  pure HydraNode{eq, hn, hh, oc, server, env}
+  persistence <- createPersistence Proxy "/tmp/headstate"
+  pure HydraNode{eq, hn, hh, oc, server, env, persistence}
 
 runHydraNode ::
   ( MonadThrow m
   , MonadAsync m
   , IsTx tx
   , MonadCatch m
-  , MonadIO m
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -131,15 +131,14 @@ runHydraNode tracer node =
 
 stepHydraNode ::
   ( MonadThrow m
+  , MonadCatch m
   , MonadAsync m
   , IsTx tx
-  , MonadCatch m
-  , MonadIO m
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
-stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
+stepHydraNode tracer node = do
   e <- nextEvent eq
   traceWith tracer $ BeginEvent party e
   atomically (processNextEvent node e) >>= \case
@@ -149,9 +148,7 @@ stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
     Wait _reason -> putEventAfter eq 0.1 (decreaseTTL e) >> traceWith tracer (EndEvent party e)
     NewState s effs -> do
       traceWith tracer SavingState
-      -- TODO: of course abstract away storing to disk and make location configurable
-      -- TODO: should use a durable/atomic write like unliftio's 'writeBinaryFileDurableAtomic'
-      writeFileLBS "/tmp/headstate" $ Aeson.encode s
+      save s
       forM_ effs (processEffect node tracer)
       traceWith tracer (EndEvent party e)
     OnlyEffects effs ->
@@ -161,6 +158,12 @@ stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
     \case
       NetworkEvent ttl msg -> NetworkEvent (ttl - 1) msg
       e -> e
+
+  Environment{party} = env
+
+  Persistence{save} = persistence
+
+  HydraNode{persistence, eq, env} = node
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
@@ -249,7 +252,37 @@ putState :: HydraHead tx m -> HeadState tx -> STM m ()
 putState HydraHead{modifyHeadState} new =
   modifyHeadState $ const ((), new)
 
+-- | Standard instance of a HydraHead state handle.
 createHydraHead :: MonadSTM m => HeadState tx -> Ledger tx -> m (HydraHead tx m)
 createHydraHead initialState ledger = do
   tv <- newTVarIO initialState
   pure HydraHead{modifyHeadState = stateTVar tv, ledger}
+
+-- ** Save and load files
+
+-- | Handle to save and load files to/from disk using JSON encoding.
+data Persistence a m = Persistence
+  { save :: ToJSON a => a -> m ()
+  , load :: FromJSON a => m a
+  }
+
+newtype PersistenceException
+  = PersistenceException String
+  deriving (Eq, Show)
+
+instance Exception PersistenceException
+
+-- | Initialize persistence handle for given type 'a' at given file path.
+createPersistence :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (Persistence a m)
+createPersistence _ fp =
+  pure $
+    Persistence
+      { save = \a -> do
+          -- TODO: should use a durable/atomic write like unliftio's 'writeBinaryFileDurableAtomic'
+          writeFileLBS fp $ Aeson.encode a
+      , load = do
+          bs <- readFileLBS fp
+          case Aeson.eitherDecode' bs of
+            Left e -> throwIO $ PersistenceException e
+            Right a -> pure a
+      }

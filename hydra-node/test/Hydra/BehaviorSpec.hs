@@ -42,6 +42,8 @@ import Hydra.Node (
   EventQueue (putEvent),
   HydraNode (..),
   HydraNodeLog (..),
+  Persistence (Persistence, load, save),
+  PersistenceException (PersistenceException),
   createEventQueue,
   createHydraHead,
   runHydraNode,
@@ -639,7 +641,7 @@ createTestHydraNode outputs outputHistory node ConnectToChain{history} =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m) =>
+  (MonadDelay m, MonadAsync m, MonadThrow m) =>
   Ledger tx ->
   SigningKey HydraKey ->
   [Party] ->
@@ -650,6 +652,7 @@ createHydraNode ::
 createHydraNode ledger signingKey otherParties outputs outputHistory connectToChain = do
   eq <- createEventQueue
   hh <- createHydraHead IdleState ledger
+  persistenceVar <- newTVarIO Nothing
   chainComponent connectToChain $
     HydraNode
       { eq
@@ -667,6 +670,14 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
             { party = deriveParty signingKey
             , signingKey
             , otherParties
+            }
+      , persistence =
+          Persistence
+            { save = atomically . writeTVar persistenceVar . Just
+            , load =
+                readTVarIO persistenceVar >>= \case
+                  Nothing -> throwIO $ PersistenceException "never saved"
+                  Just a -> pure a
             }
       }
 
