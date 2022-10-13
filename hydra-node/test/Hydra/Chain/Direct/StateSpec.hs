@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Direct.StateSpec where
 
@@ -120,6 +121,9 @@ import qualified Prelude
 
 spec :: Spec
 spec = parallel $ do
+  describe "ChainState" $
+    roundtripSpecs (Proxy @ChainState)
+
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $
       checkCoverage $

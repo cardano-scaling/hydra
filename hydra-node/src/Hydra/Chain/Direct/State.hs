@@ -74,7 +74,7 @@ data ChainState
   | Initial InitialState
   | Open OpenState
   | Closed ClosedState
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance HasKnownUTxO ChainState where
   getKnownUTxO :: ChainState -> UTxO
@@ -93,7 +93,7 @@ data ChainContext = ChainContext
   , ownParty :: Party
   , scriptRegistry :: ScriptRegistry
   }
-  deriving (Show, Eq)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance Arbitrary ChainContext where
   arbitrary = sized $ \n -> do
@@ -119,7 +119,8 @@ allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
 -- | The idle state does not contain any head-specific information and exists to
 -- be used as a starting and terminal state.
 newtype IdleState = IdleState {ctx :: ChainContext}
-  deriving (Show, Eq)
+  deriving (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary IdleState where
   arbitrary = IdleState <$> arbitrary
@@ -136,7 +137,7 @@ data InitialState = InitialState
   , initialHeadId :: HeadId
   , initialHeadTokenScript :: PlutusScript
   }
-  deriving (Show, Eq)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance HasKnownUTxO InitialState where
   getKnownUTxO st =
@@ -161,7 +162,7 @@ data OpenState = OpenState
   , openHeadTokenScript :: PlutusScript
   , openUtxoHash :: ByteString
   }
-  deriving (Show, Eq)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance HasKnownUTxO OpenState where
   getKnownUTxO st =
@@ -178,7 +179,7 @@ data ClosedState = ClosedState
   , closedHeadId :: HeadId
   , closedHeadTokenScript :: PlutusScript
   }
-  deriving (Show, Eq)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance HasKnownUTxO ClosedState where
   getKnownUTxO st =
@@ -335,7 +336,7 @@ contest ::
 contest st confirmedSnapshot pointInTime = do
   contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput
  where
-  (sn, sigs) = 
+  (sn, sigs) =
     case confirmedSnapshot of
       ConfirmedSnapshot{signatures} -> (getSnapshot confirmedSnapshot, signatures)
       _ -> (getSnapshot confirmedSnapshot, mempty)

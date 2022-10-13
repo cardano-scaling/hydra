@@ -162,14 +162,14 @@ data ChainStateAt = ChainStateAt
   { currentChainState :: ChainState
   , recordedAt :: RecordedAt
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 -- | Records when a state was seen on-chain. 'AtStart' is used for states that
 -- simply exist out of any chain events (e.g. the 'Idle' state).
 data RecordedAt
   = AtStart
   | AtPoint ChainPoint ChainStateAt
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 -- | A /handler/ that takes care of following the chain.
 data ChainSyncHandler m = ChainSyncHandler
