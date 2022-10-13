@@ -135,6 +135,7 @@ data RunOptions = RunOptions
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
   , hydraScriptsTxId :: TxId
+  , persistenceDir :: FilePath
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   }
@@ -153,6 +154,7 @@ instance Arbitrary RunOptions where
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
     hydraScriptsTxId <- arbitrary
+    persistenceDir <- genDirPath
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
     pure $
@@ -168,6 +170,7 @@ instance Arbitrary RunOptions where
         , hydraSigningKey
         , hydraVerificationKeys
         , hydraScriptsTxId
+        , persistenceDir
         , chainConfig
         , ledgerConfig
         }
@@ -186,6 +189,7 @@ runOptionsParser =
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
     <*> hydraScriptsTxIdParser
+    <*> persistenceDirParser
     <*> chainConfigParser
     <*> ledgerConfigParser
 
@@ -455,6 +459,16 @@ hydraScriptsTxIdParser =
           \first 10 outputs."
     )
 
+persistenceDirParser :: Parser FilePath
+persistenceDirParser =
+  option
+    str
+    ( long "persistence-dir"
+        <> metavar "DIR"
+        <> value "./"
+        <> help "The directory where to keep the 'headstate' and 'chainstate'"
+    )
+
 hydraNodeCommand :: ParserInfo Command
 hydraNodeCommand =
   info
@@ -571,6 +585,11 @@ genFilePath :: String -> Gen FilePath
 genFilePath extension = do
   path <- reasonablySized (listOf1 (elements ["a", "b", "c"]))
   pure $ intercalate "/" path <> "." <> extension
+
+genDirPath :: Gen FilePath
+genDirPath = do
+  path <- reasonablySized (listOf1 (elements ["a", "b", "c"]))
+  pure $ intercalate "/" path
 
 genChainPoint :: Gen ChainPoint
 genChainPoint = ChainPoint <$> (SlotNo <$> arbitrary) <*> someHeaderHash

@@ -104,7 +104,7 @@ instance IsTx tx => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 createHydraNode ::
-  (MonadSTM m, MonadIO m, MonadThrow m, IsTx tx) =>
+  (MonadSTM m, IsTx tx) =>
   Tracer m (HydraNodeLog tx) ->
   EventQueue m (Event tx) ->
   Network m (Message tx) ->
@@ -112,9 +112,10 @@ createHydraNode ::
   Chain tx m ->
   Server tx m ->
   Environment ->
+  -- | Persistence handle to load/save head state
+  Persistence (HeadState tx) m ->
   m (HydraNode tx m)
-createHydraNode tracer eq hn ledger oc server env = do
-  persistence <- createPersistence Proxy "/tmp/headstate"
+createHydraNode tracer eq hn ledger oc server env persistence = do
   hs <-
     load persistence >>= \case
       Nothing -> pure IdleState

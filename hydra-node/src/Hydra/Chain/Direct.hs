@@ -97,7 +97,7 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node (Persistence (load), createPersistence)
+import Hydra.Node (Persistence (load))
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (
   GenTx (..),
@@ -161,8 +161,10 @@ withDirectChain ::
   Maybe ChainPoint ->
   -- | Transaction id at which Hydra scripts should be published.
   TxId ->
+  -- | Persistence handle to load/save chain state
+  Persistence ChainStateAt IO ->
   ChainComponent Tx IO a
-withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoint hydraScriptsTxId callback action = do
+withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoint hydraScriptsTxId persistence callback action = do
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- case mpoint of
@@ -179,7 +181,6 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoin
           , ownParty = party
           , scriptRegistry
           }
-  persistence <- createPersistence (Proxy @ChainStateAt) "/tmp/chainstate"
   cs <-
     load persistence >>= \case
       Nothing ->
