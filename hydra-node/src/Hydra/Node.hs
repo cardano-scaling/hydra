@@ -33,6 +33,7 @@ import Control.Monad.Class.MonadSTM (
   writeTQueue,
  )
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString as BS
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), PostTxError)
@@ -56,6 +57,7 @@ import Hydra.Network.Message (Message)
 import Hydra.Options (RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
 import System.Directory (doesFileExist)
+import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
 
 -- * Environment Handling
 
@@ -286,14 +288,16 @@ createPersistence _ fp =
   pure $
     Persistence
       { save = \a -> do
-          -- TODO: should use a durable/atomic write like unliftio's 'writeBinaryFileDurableAtomic'
-          writeFileLBS fp $ Aeson.encode a
+          writeBinaryFileDurableAtomic fp . toStrict $ Aeson.encode a
       , load =
           liftIO (doesFileExist fp) >>= \case
             False -> pure Nothing
             True -> do
-              bs <- readFileLBS fp
-              case Aeson.eitherDecode' bs of
-                Left e -> throwIO $ PersistenceException e
-                Right a -> pure $ Just a
+              bs <- toStrict <$> readFileLBS fp
+              -- XXX: This is weird and smelly
+              if BS.null bs
+                then pure Nothing
+                else case Aeson.eitherDecodeStrict' bs of
+                  Left e -> throwIO $ PersistenceException e
+                  Right a -> pure $ Just a
       }

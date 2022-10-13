@@ -179,6 +179,7 @@ library
     , typed-protocols
     , typed-protocols-cborg
     , typed-protocols-examples
+    , unliftio
     , websockets
 
   ghc-options:     -haddock
