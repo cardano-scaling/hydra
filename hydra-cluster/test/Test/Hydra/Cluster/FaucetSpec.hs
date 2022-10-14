@@ -13,11 +13,12 @@ import Test.QuickCheck (generate)
 
 spec :: Spec
 spec =
-  it "should work concurrently" $
-    showLogsOnFailure $ \tracer ->
-      failAfter 30 $
-        withTempDir "end-to-end-cardano-node" $ \tmpDir ->
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            replicateConcurrently_ 10 $ do
-              vk <- generate genVerificationKey
-              seedFromFaucet_ node vk 1_000_000 Normal (contramap FromFaucet tracer)
+  describe "seedFromFaucet" $
+    it "should work concurrently" $
+      showLogsOnFailure $ \tracer ->
+        failAfter 30 $
+          withTempDir "end-to-end-cardano-node" $ \tmpDir ->
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+              replicateConcurrently_ 10 $ do
+                vk <- generate genVerificationKey
+                seedFromFaucet_ node vk 1_000_000 Normal (contramap FromFaucet tracer)
