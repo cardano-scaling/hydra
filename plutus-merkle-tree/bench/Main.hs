@@ -13,6 +13,8 @@ import Data.Maybe (fromJust)
 import Plutus.MerkleTree (rootHash)
 import qualified Plutus.MerkleTree as MT
 import qualified Plutus.V1.Ledger.Api as Plutus
+import System.Directory (createDirectoryIfMissing)
+import System.FilePath ((</>))
 import Test.Plutus.Validator (ExUnits (ExUnits), evaluateScriptExecutionUnits)
 import Test.QuickCheck (generate, vectorOf)
 import Validators (merkleTreeBuilderValidator, merkleTreeMemberValidator)
@@ -27,8 +29,30 @@ newtype CpuUnit = CpuUnit Natural
 
 main :: IO ()
 main = do
-  mt <- costOfMerkleTree
-  hPut stdout (encodeUtf8 mt)
+  outputDirectory <-
+    getArgs <&> getOutputDirectory
+  mt <- encodeUtf8 <$> costOfMerkleTree
+  case outputDirectory of
+    Nothing ->
+      hPut stdout mt
+    Just out -> do
+      createDirectoryIfMissing True out
+      withFile (out </> "mt-benchmarks.md") WriteMode $ \hdl ->
+        hPut hdl mt
+
+getOutputDirectory :: [String] -> Maybe String
+getOutputDirectory = listToMaybe
+
+pageHeader :: [Text]
+pageHeader =
+  [ "--- "
+  , "sidebar_label: 'Plutus Merkle-Tree Benchmarks' "
+  , "sidebar_position: 3 "
+  , "--- "
+  , ""
+  , "# Plutus Merkle-Tree Contract"
+  , ""
+  ]
 
 costOfMerkleTree :: IO Text
 costOfMerkleTree = markdownMerkleTreeCost <$> computeMerkleTreeCost

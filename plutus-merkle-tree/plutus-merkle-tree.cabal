@@ -126,6 +126,8 @@ benchmark on-chain-cost
     , cardano-binary
     , cardano-ledger-alonzo
     , containers
+    , directory
+    , filepath
     , hydra-prelude
     , hydra-test-utils
     , plutus-core
@@ -134,6 +136,7 @@ benchmark on-chain-cost
     , plutus-tx
     , plutus-tx-plugin
     , QuickCheck
+
   if flag(hydra-development)
     -- NOTE(SN): should fix HLS choking on PlutusTx plugin
     ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
