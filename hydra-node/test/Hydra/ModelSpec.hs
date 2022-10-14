@@ -95,11 +95,14 @@ import Test.QuickCheck.DynamicLogic (
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
-import Test.QuickCheck.StateModel (Actions, RunModel, runActions, stateAfter, pattern Actions)
+import Test.QuickCheck.StateModel (Actions, RunModel, Step ((:=)), runActions, stateAfter, pattern Actions)
 import Test.Util (printTrace, traceInIOSim)
 
 spec :: Spec
 spec = do
+  -- There cannot be a UTxO with no ADAs
+  -- See https://github.com/input-output-hk/cardano-ledger/blob/master/doc/explanations/min-utxo-mary.rst
+  prop "model should not generate 0 Ada UTxO" $ withMaxSuccess 10000 prop_doesNotGenerate0AdaUTxO
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
   prop "implementation respects model" $ forAll arbitrary prop_checkModel
   prop "check conflict-free liveness" prop_checkConflictFreeLiveness
@@ -144,6 +147,17 @@ prop_generateTraces actions =
         Actions _ ->
           hydraState st /= Start
             & counterexample ("state: " <> show st)
+
+prop_doesNotGenerate0AdaUTxO :: Actions WorldState -> Bool
+prop_doesNotGenerate0AdaUTxO (Actions actions) =
+  not (any contains0AdaUTxO actions)
+ where
+  contains0AdaUTxO :: Step WorldState -> Bool
+  contains0AdaUTxO = \case
+    _anyVar := Model.Commit _anyParty utxos -> any contains0Ada utxos
+    _anyVar := Model.NewTx _anyParty Model.Payment{value} -> value == lovelaceToValue 0
+    _anyOtherStep -> False
+  contains0Ada = (== lovelaceToValue 0) . snd
 
 prop_checkModel :: Actions WorldState -> Property
 prop_checkModel actions =
