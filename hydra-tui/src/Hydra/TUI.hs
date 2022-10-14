@@ -57,7 +57,7 @@ import Hydra.Client (Client (..), HydraEvent (..), withClient)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
-import Hydra.Network (Host (..))
+import Hydra.Network (Host (..), NodeId)
 import Hydra.Party (Party (..))
 import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Options (Options (..))
@@ -82,7 +82,7 @@ data State
   | Connected
       { me :: Maybe Party -- TODO(SN): we could make a nicer type if ClientConnected is only emited of 'Hydra.Client' upon receiving a 'Greeting'
       , nodeHost :: Host
-      , peers :: [Host]
+      , peers :: [NodeId]
       , headState :: HeadState
       , dialogState :: DialogState
       , feedback :: [UserFeedback]
@@ -673,7 +673,7 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawPeers = case s of
     Disconnected{} -> emptyWidget
-    Connected{peers} -> vBox $ str "Connected peers:" : map drawShow peers
+    Connected{peers} -> vBox $ str "Peers connected to our node:" : map drawShow peers
 
   drawHex :: SerialiseAsRawBytes a => a -> Widget n
   drawHex = txt . (" - " <>) . serialiseToRawBytesHexText

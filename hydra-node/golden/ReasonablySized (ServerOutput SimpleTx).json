@@ -928,10 +928,7 @@
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.7",
-                "port": 6
-            },
+            "peer": "grT",
             "tag": "PeerDisconnected"
         },
         {
@@ -1091,10 +1088,7 @@
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.4",
-                "port": 2
-            },
+            "peer": "t땆\u0010\u0005",
             "tag": "PeerDisconnected"
         },
         {
@@ -1137,10 +1131,7 @@
             ]
         },
         {
-            "peer": {
-                "hostname": "0.0.0.8",
-                "port": 6
-            },
+            "peer": "",
             "tag": "PeerDisconnected"
         },
         {
@@ -1682,10 +1673,7 @@
             ]
         },
         {
-            "peer": {
-                "hostname": "0.0.0.4",
-                "port": 8
-            },
+            "peer": "t𤾓\u0013\u000b",
             "tag": "PeerDisconnected"
         },
         {
@@ -1867,10 +1855,7 @@
             "tag": "ReadyToFanout"
         },
         {
-            "peer": {
-                "hostname": "0.0.0.1",
-                "port": 5
-            },
+            "peer": " ",
             "tag": "PeerConnected"
         },
         {
@@ -1912,10 +1897,7 @@
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.4",
-                "port": 4
-            },
+            "peer": "󱦹]\u0004\u0007",
             "tag": "PeerConnected"
         },
         {
@@ -2154,10 +2136,7 @@
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.5",
-                "port": 2
-            },
+            "peer": "\u0007[u􎹕",
             "tag": "PeerDisconnected"
         },
         {
@@ -2184,10 +2163,7 @@
             "tag": "ReadyToCommit"
         },
         {
-            "peer": {
-                "hostname": "0.0.0.4",
-                "port": 1
-            },
+            "peer": "9*\u0016",
             "tag": "PeerConnected"
         },
         {
@@ -2203,10 +2179,7 @@
             ]
         },
         {
-            "peer": {
-                "hostname": "0.0.0.2",
-                "port": 6
-            },
+            "peer": "Ku`WK",
             "tag": "PeerConnected"
         },
         {
@@ -2219,10 +2192,7 @@
             "tag": "Greetings"
         },
         {
-            "peer": {
-                "hostname": "0.0.0.5",
-                "port": 3
-            },
+            "peer": "󽝉<H\u0001",
             "tag": "PeerDisconnected"
         },
         {
@@ -2251,10 +2221,7 @@
             "tag": "HeadIsContested"
         },
         {
-            "peer": {
-                "hostname": "0.0.0.4",
-                "port": 6
-            },
+            "peer": "[>􁓥\u000e",
             "tag": "PeerConnected"
         },
         {
