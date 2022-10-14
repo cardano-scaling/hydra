@@ -23,7 +23,7 @@ import Hydra.Ledger.Cardano.Configuration (
 import Hydra.Logging (Tracer, Verbosity (..), withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Network (Host (..))
+import Hydra.Network (Host (..), HydraNodeId (HydraNodeId))
 import Hydra.Network.Heartbeat (withHeartbeat)
 import Hydra.Network.Ouroboros (withIOManager, withOuroborosNetwork)
 import Hydra.Node (
@@ -77,7 +77,7 @@ main = do
 
   withNetwork tracer host port peers nodeId =
     let localhost = Host{hostname = show host, port}
-     in withHeartbeat nodeId $ withOuroborosNetwork tracer localhost peers
+     in withHeartbeat (HydraNodeId nodeId) $ withOuroborosNetwork tracer localhost peers
 
   withCardanoLedger ledgerConfig action = do
     globals <-

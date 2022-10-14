@@ -18,7 +18,7 @@ module Hydra.Network (
   NetworkCallback,
   IP,
   Host (..),
-  NodeId,
+  HydraNodeId (..),
   showHost,
   readHost,
   PortNumber,
@@ -34,6 +34,7 @@ import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
 import Network.TypedProtocol.Pipelined ()
+import Test.QuickCheck.Gen (suchThat)
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
 
@@ -73,7 +74,18 @@ instance ToCBOR PortNumber where
 instance FromCBOR PortNumber where
   fromCBOR = fmap fromInteger fromCBOR
 
-type NodeId = Text
+newtype HydraNodeId = HydraNodeId {hydraNodeId :: Text}
+  deriving newtype (Eq, Show, Ord, ToJSON, FromJSON)
+
+instance Arbitrary HydraNodeId where
+  arbitrary =
+    HydraNodeId . pack <$> suchThat arbitrary (not . null)
+
+instance FromCBOR HydraNodeId where
+  fromCBOR = HydraNodeId <$> fromCBOR
+
+instance ToCBOR HydraNodeId where
+  toCBOR HydraNodeId{hydraNodeId} = toCBOR hydraNodeId
 
 -- ** Host
 

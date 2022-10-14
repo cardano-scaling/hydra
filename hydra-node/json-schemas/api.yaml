@@ -235,7 +235,7 @@ components:
             type: string
             enum: ["PeerConnected"]
           peer:
-            $ref: "#/components/schemas/Peer"
+            $ref: "#/components/schemas/HydraNodeId"
 
     PeerDisconnected:
       title: PeerDisconnected
@@ -251,7 +251,7 @@ components:
             type: string
             enum: ["PeerDisconnected"]
           peer:
-            $ref: "#/components/schemas/Peer"
+            $ref: "#/components/schemas/HydraNodeId"
 
     ReadyToCommit:
       title: ReadyToCommit
@@ -699,6 +699,16 @@ components:
             "hostname": "10.0.0.10",
             "port": 5001
         }
+
+    HydraNodeId:
+      type: object
+      description: Hydra Node identifier
+      properties:
+        hydraNodeId:
+          type: string
+      example:
+        { "hydraNodeId" : "some hydra-node id" }
+
 
     Point:
       description: |

@@ -6,14 +6,14 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
-import Hydra.Network (NodeId)
+import Hydra.Network (HydraNodeId)
 import Hydra.Party (Party)
 import Hydra.Prelude
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 data ServerOutput tx
-  = PeerConnected {peer :: NodeId}
-  | PeerDisconnected {peer :: NodeId}
+  = PeerConnected {peer :: HydraNodeId}
+  | PeerDisconnected {peer :: HydraNodeId}
   | ReadyToCommit {parties :: Set Party}
   | Committed {party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {utxo :: UTxOType tx}

@@ -262,7 +262,7 @@ defaultRunOptions :: RunOptions
 defaultRunOptions =
   RunOptions
     { verbosity = Verbose "HydraNode"
-    , nodeId = "some_node_id"
+    , nodeId = "some_node_id_string"
     , host = "127.0.0.1"
     , port = 5001
     , peers = []

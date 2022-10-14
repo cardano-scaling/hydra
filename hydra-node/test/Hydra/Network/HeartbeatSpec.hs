@@ -5,7 +5,7 @@ import Test.Hydra.Prelude
 
 import Control.Monad.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
-import Hydra.Network (Network (..))
+import Hydra.Network (HydraNodeId (HydraNodeId), Network (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Message (Message (Connected, Disconnected, ReqTx))
 import Test.Hydra.Fixture (alice, bob)
@@ -19,9 +19,9 @@ spec = parallel $
         captureIncoming receivedMessages msg =
           atomically $ modifyTVar' receivedMessages (msg :)
 
-        nodeId = "node_id-1"
+        nodeId = HydraNodeId "node_id-1"
 
-        otherNodeId = "node_id-2"
+        otherNodeId = HydraNodeId "node_id-2"
 
     it "sends a heartbeat message with local host after 500 ms" $ do
       let sentHeartbeats = runSimOrThrow $ do

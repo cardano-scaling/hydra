@@ -806,21 +806,21 @@ definitions:
         additionalProperties: false
         required:
         - tag
-        - peer
+        - nodeId
         description: >-
           Given party is known to be connected to the network.
         properties:
           tag:
             type: string
             enum: ["Connected"]
-          peer:
-            $ref: "api.yaml#/components/schemas/Peer"
+          nodeId:
+            $ref: "api.yaml#/components/schemas/HydraNodeId"
       - title: Disconnected
         type: object
         additionalProperties: false
         required:
         - tag
-        - peer
+        - nodeId
         description: >-
           Given peer is probably disconnected from the network.
         properties:
@@ -828,7 +828,7 @@ definitions:
             type: string
             enum: ["Disconnected"]
           peer:
-            $ref: "api.yaml#/components/schemas/Peer"
+            $ref: "api.yaml#/components/schemas/HydraNodeId"
 
   OnChainEvent:
     oneOf:
