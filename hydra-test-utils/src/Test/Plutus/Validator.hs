@@ -20,7 +20,7 @@ import Hydra.Prelude hiding (label)
 import Cardano.Binary (unsafeDeserialize')
 import Cardano.Ledger.Address (Addr (..))
 import Cardano.Ledger.Alonzo.Data (Data (..), hashData)
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
 import Cardano.Ledger.Alonzo.Scripts (
   ExUnits (..),
   Script (..),
@@ -74,7 +74,7 @@ import Plutus.V1.Ledger.Api (ScriptContext, Validator, getValidator)
 import PlutusTx (BuiltinData, UnsafeFromData (..))
 import qualified PlutusTx as Plutus
 import PlutusTx.Prelude (check)
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1)
+import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import qualified Prelude
 
 -- TODO: DRY with hydra-plutus
@@ -124,7 +124,7 @@ evaluateScriptExecutionUnits validator redeemer =
       Left ("unexpected failure: " <> show e)
  where
   (tx, utxo) = transactionFromScript validator redeemer
-  costModels = array (PlutusV1, PlutusV1) [(PlutusV1, testingCostModelV1)]
+  costModels = array (PlutusV1, PlutusV2) [(PlutusV1, testingCostModelV1), (PlutusV2, testingCostModelV2)]
   epoch = fixedEpochInfo (EpochSize 432000) (mkSlotLength 1)
   start = SystemStart $ Prelude.read "2017-09-23 21:44:51 UTC"
   pparams = def{_maxTxExUnits = ExUnits 9999999999 9999999999}
