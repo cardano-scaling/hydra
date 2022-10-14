@@ -35,7 +35,9 @@ spec =
                        \  <details>\n\
                        \  <summary>Details</summary>\n\
                        \  \n\
-                       \  > +++ OK, passed 100 tests.\n\
+                       \  ```\n\
+                       \  +++ OK, passed 100 tests.\n\
+                       \  ```\n\
                        \  \n\
                        \  </details>"
 
