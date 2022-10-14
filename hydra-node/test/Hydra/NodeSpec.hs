@@ -27,7 +27,7 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Network (Host (..), Network (..))
+import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (
   EventQueue (..),
@@ -100,8 +100,8 @@ spec = parallel $ do
   it "notifies client when postTx throws PostTxError" $
     showLogsOnFailure $ \tracer -> do
       let events =
-            [ NetworkEvent{ttl = defaultTTL, message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
-            , NetworkEvent{ttl = defaultTTL, message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
+            [ NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = "NodeId1"}}
+            , NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = "NodeId2"}}
             , ClientEvent $ Init cperiod
             ]
       (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
@@ -118,8 +118,8 @@ isReqSn = \case
 
 eventsToOpenHead :: [Event SimpleTx]
 eventsToOpenHead =
-  [ NetworkEvent{ttl = defaultTTL, message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
-  , NetworkEvent{ttl = defaultTTL, message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
+  [ NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = "NodeId1"}}
+  , NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = "NodeId2"}}
   , OnChainEvent
       { chainEvent = Observation $ OnInitTx cperiod [alice, bob, carol]
       }

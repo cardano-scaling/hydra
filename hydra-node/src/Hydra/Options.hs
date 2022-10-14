@@ -123,7 +123,7 @@ publishOptionsParser =
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
-  , nodeId :: Natural
+  , nodeId :: Text
   , -- NOTE: Why not a 'Host'?
     host :: IP
   , port :: PortNumber
@@ -345,14 +345,14 @@ peerParser =
         <> help "A peer address in the form <host>:<port>, where <host> can be an IP address, or a host name"
     )
 
-nodeIdParser :: Parser Natural
+nodeIdParser :: Parser Text
 nodeIdParser =
   option
     auto
     ( long "node-id"
         <> short 'n'
-        <> value 1
-        <> metavar "INTEGER"
+        <> value "some_node_id_string"
+        <> metavar "TEXT"
         <> help "Sets this node's id"
     )
 

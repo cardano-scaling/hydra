@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Hydra.Crypto (Signature)
 import Hydra.Ledger (IsTx, UTxOType)
-import Hydra.Network (Host)
+import Hydra.Network (NodeId)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
@@ -16,8 +16,8 @@ data Message tx
   = ReqTx {party :: Party, transaction :: tx}
   | ReqSn {party :: Party, snapshotNumber :: SnapshotNumber, transactions :: [tx]}
   | AckSn {party :: Party, signed :: Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
-  | Connected {peer :: Host}
-  | Disconnected {peer :: Host}
+  | Connected {nodeId :: NodeId}
+  | Disconnected {nodeId :: NodeId}
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 

@@ -60,8 +60,8 @@ main = do
         eq <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         withChain tracer party (putEvent eq . OnChainEvent) hydraScriptsTxId chainConfig $ \oc -> do
-          let RunOptions{host, port, peers} = opts
-          withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
+          let RunOptions{host, port, peers, nodeId} = opts
+          withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
             withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
@@ -75,9 +75,9 @@ main = do
     txId <- publishHydraScripts networkId nodeSocket sk
     putStrLn (decodeUtf8 (serialiseToRawBytesHex txId))
 
-  withNetwork tracer host port peers =
+  withNetwork tracer host port peers nodeId =
     let localhost = Host{hostname = show host, port}
-     in withHeartbeat localhost $ withOuroborosNetwork tracer localhost peers
+     in withHeartbeat nodeId $ withOuroborosNetwork tracer localhost peers
 
   withCardanoLedger ledgerConfig action = do
     globals <-

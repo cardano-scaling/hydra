@@ -18,6 +18,7 @@ module Hydra.Network (
   NetworkCallback,
   IP,
   Host (..),
+  NodeId,
   showHost,
   readHost,
   PortNumber,
@@ -71,6 +72,8 @@ instance ToCBOR PortNumber where
 
 instance FromCBOR PortNumber where
   fromCBOR = fmap fromInteger fromCBOR
+
+type NodeId = Text
 
 -- ** Host
 

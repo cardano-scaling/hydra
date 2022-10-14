@@ -812,10 +812,10 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     onCurrentChainRollback currentState n
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
-  (_, NetworkEvent _ (Connected host)) ->
-    OnlyEffects [ClientEffect $ PeerConnected host]
-  (_, NetworkEvent _ (Disconnected host)) ->
-    OnlyEffects [ClientEffect $ PeerDisconnected host]
+  (_, NetworkEvent _ (Connected nodeId)) ->
+    OnlyEffects [ClientEffect $ PeerConnected nodeId]
+  (_, NetworkEvent _ (Disconnected nodeId)) ->
+    OnlyEffects [ClientEffect $ PeerDisconnected nodeId]
   (_, PostTxError{postChainTx, postTxError}) ->
     OnlyEffects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
   (_, ClientEvent{clientInput}) ->

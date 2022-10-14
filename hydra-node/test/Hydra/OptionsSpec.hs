@@ -229,13 +229,12 @@ spec = parallel $
           , ["--network-id", "42"]
           , ["--cardano-signing-key", "bar"]
           ]
-          `shouldParse` ( Publish
-                            PublishOptions
-                              { publishNodeSocket = "foo"
-                              , publishNetworkId = Testnet (NetworkMagic 42)
-                              , publishSigningKey = "bar"
-                              }
-                        )
+          `shouldParse` Publish
+            PublishOptions
+              { publishNodeSocket = "foo"
+              , publishNetworkId = Testnet (NetworkMagic 42)
+              , publishSigningKey = "bar"
+              }
 
 canRoundtripRunOptionsAndPrettyPrinting :: RunOptions -> Property
 canRoundtripRunOptionsAndPrettyPrinting opts =
@@ -263,7 +262,7 @@ defaultRunOptions :: RunOptions
 defaultRunOptions =
   RunOptions
     { verbosity = Verbose "HydraNode"
-    , nodeId = 1
+    , nodeId = "some_node_id"
     , host = "127.0.0.1"
     , port = 5001
     , peers = []
