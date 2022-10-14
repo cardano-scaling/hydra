@@ -814,7 +814,7 @@ definitions:
             type: string
             enum: ["Connected"]
           nodeId:
-            $ref: "api.yaml#/components/schemas/HydraNodeId"
+            $ref: "api.yaml#/components/schemas/NodeId"
       - title: Disconnected
         type: object
         additionalProperties: false
@@ -827,8 +827,8 @@ definitions:
           tag:
             type: string
             enum: ["Disconnected"]
-          peer:
-            $ref: "api.yaml#/components/schemas/HydraNodeId"
+          nodeId:
+            $ref: "api.yaml#/components/schemas/NodeId"
 
   OnChainEvent:
     oneOf:

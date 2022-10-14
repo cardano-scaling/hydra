@@ -18,7 +18,7 @@ module Hydra.Network (
   NetworkCallback,
   IP,
   Host (..),
-  HydraNodeId (..),
+  NodeId (..),
   showHost,
   readHost,
   PortNumber,
@@ -74,18 +74,18 @@ instance ToCBOR PortNumber where
 instance FromCBOR PortNumber where
   fromCBOR = fmap fromInteger fromCBOR
 
-newtype HydraNodeId = HydraNodeId {hydraNodeId :: Text}
+newtype NodeId = NodeId {nodeId :: Text}
   deriving newtype (Eq, Show, Ord, ToJSON, FromJSON)
 
-instance Arbitrary HydraNodeId where
+instance Arbitrary NodeId where
   arbitrary =
-    HydraNodeId . pack <$> suchThat arbitrary (not . null)
+    NodeId . pack <$> suchThat arbitrary (not . null)
 
-instance FromCBOR HydraNodeId where
-  fromCBOR = HydraNodeId <$> fromCBOR
+instance FromCBOR NodeId where
+  fromCBOR = NodeId <$> fromCBOR
 
-instance ToCBOR HydraNodeId where
-  toCBOR HydraNodeId{hydraNodeId} = toCBOR hydraNodeId
+instance ToCBOR NodeId where
+  toCBOR NodeId{nodeId} = toCBOR nodeId
 
 -- ** Host
 

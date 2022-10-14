@@ -34,6 +34,7 @@ import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Pair)
 import qualified Data.List as List
 import qualified Data.Text as T
+import qualified Data.Text as Text
 import Hydra.Cluster.Faucet (FaucetLog)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Crypto (HydraKey)
@@ -283,7 +284,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
             ( hydraNodeProcess $
                 RunOptions
                   { verbosity = Verbose "HydraNode"
-                  , nodeId = fromIntegral hydraNodeId
+                  , nodeId = Text.pack . show $ hydraNodeId
                   , host = "127.0.0.1"
                   , port = fromIntegral $ 5000 + hydraNodeId
                   , peers
