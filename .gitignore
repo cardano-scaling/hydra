@@ -24,6 +24,7 @@ result*
 *.o
 test-results.xml
 hydra-node/golden/*.faulty.*
+hspec-results.md
 
 # Benchmark results
 *.html
