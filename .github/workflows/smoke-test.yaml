@@ -28,30 +28,30 @@ jobs:
         token: ${{ secrets.MY_TOKEN || github.token }}
         submodules: true
 
-    - name: Prepare nix
-      uses: cachix/install-nix-action@v17
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v18
       with:
         extra_nix_config: |
-          trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-          substituters = https://cache.nixos.org https://cache.iog.io https://iohk.cachix.org
+          trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+          substituters = https://cache.nixos.org https://cache.iog.io
 
-    - name: Cachix cache of nix derivations
-      uses: cachix/cachix-action@v10
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v11
       with:
         name: hydra-node
-        authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-    - name: Github cache of state-directory
-      uses: actions/cache@v2.1.5
+    - name: 🔁 Github cache of state-directory
+      uses: actions/cache@v3
       with:
         path: state-${{inputs.network}}
         key: state-${{inputs.network}}
 
-    - name: Prepare nix-shell
+    - name: ❄ Prepare nix-shell
       run: |
         nix-build -A exes shell.nix
 
-    - name: Run hydra-cluster 
+    - name: 🚬 Run hydra-cluster smoke test
       run: |
         if [ -n "${{inputs.hydra-scripts-tx-id}}" ]; then
           nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}} --state-directory state-${{inputs.network}}"
@@ -59,7 +59,7 @@ jobs:
           nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --publish-scripts --state-directory state-${{inputs.network}}"
         fi
 
-    - name: Archive logs
+    - name: 💾 Upload logs
       if: always()
       uses: actions/upload-artifact@v3
       with:

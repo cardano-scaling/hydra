@@ -4,16 +4,16 @@
 
 , haskellNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/haskell.nix/archive/28dbf2f4bd32a4fbd1a2e9de45d02ad977b062d9.tar.gz")
+      "https://github.com/input-output-hk/haskell.nix/archive/0.0.49.tar.gz")
     { }
 
 , iohkNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/iohk-nix/archive/5e667b374153327c7bdfdbfab8ef19b1f27d4aac.tar.gz")
+      "https://github.com/input-output-hk/iohk-nix/archive/d31417fe8c8fbfb697b3ad4c498e17eb046874b9.tar.gz")
     { }
 
   # nixpkgs-unstable as also used by cardano-node, cardano-ledger et al
-, nixpkgsSrc ? builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/1882c6b7368fd284ad01b0a5b5601ef136321292.tar.gz"
+, nixpkgsSrc ? haskellNix.sources.nixpkgs-unstable
 }:
 let
   pkgs = import nixpkgsSrc (haskellNix.nixpkgsArgs // {
@@ -32,14 +32,18 @@ let
     projectFileName = "cabal.project";
     compiler-nix-name = compiler;
 
-    modules = [{
-      # https://github.com/input-output-hk/cardano-wallet/commit/ced95e1b84ce8d9faa53268be45e96701ccc16e9
-      packages.cardano-config.components.library.build-tools = [ pkgs.buildPackages.buildPackages.gitMinimal ];
-
-      # https://github.com/input-output-hk/iohk-nix/pull/488
-      packages.cardano-crypto-class.components.library.pkgconfig = pkgs.lib.mkForce [ [ pkgs.libsodium-vrf pkgs.secp256k1 ] ];
-      packages.cardano-crypto-praos.components.library.pkgconfig = pkgs.lib.mkForce [ [ pkgs.libsodium-vrf ] ];
-    }];
+    modules = [
+      # Set libsodium-vrf on cardano-crypto-{praos,class}. Otherwise they depend
+      # on libsodium, which lacks the vrf functionality.
+      ({ pkgs, lib, ... }:
+        # Override libsodium with local 'pkgs' to make sure it's using
+        # overriden 'pkgs', e.g. musl64 packages
+        {
+          packages.cardano-crypto-class.components.library.pkgconfig = lib.mkForce [ [ pkgs.libsodium-vrf pkgs.secp256k1 ] ];
+          packages.cardano-crypto-praos.components.library.pkgconfig = lib.mkForce [ [ pkgs.libsodium-vrf ] ];
+        }
+      )
+    ];
   };
 
   # Add cardano-node & cardano-cli for our shell environments.

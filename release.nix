@@ -7,15 +7,24 @@
 }:
 let
   project = import ./default.nix { };
+  nativePkgs = project.hsPkgs;
+  # Allow reinstallation of terminfo as it's not installed with cross compilers.
+  patchedForCrossProject = project.hsPkgs.appendModule
+      ({ lib, ...}: { options.nonReinstallablePkgs = lib.mkOption { apply = lib.remove "terminfo"; }; });
+  musl64Pkgs = patchedForCrossProject.projectCross.musl64.hsPkgs;
 in
 rec {
   # Build shell derivation to cache it
   shell = import ./shell.nix { };
 
-  # Build executables only (for now)
-  hydra-node = project.hsPkgs.hydra-node.components.exes.hydra-node;
-  hydra-tui = project.hsPkgs.hydra-tui.components.exes.hydra-tui;
-  hydraw = project.hsPkgs.hydraw.components.exes.hydraw;
+  # Build some executables
+  hydra-node = nativePkgs.hydra-node.components.exes.hydra-node;
+  hydra-node-static = musl64Pkgs.hydra-node.components.exes.hydra-node;
+  hydra-tools-static = musl64Pkgs.hydra-node.components.exes.hydra-tools;
+  hydra-tui = nativePkgs.hydra-tui.components.exes.hydra-tui;
+  hydra-tui-static = musl64Pkgs.hydra-tui.components.exes.hydra-tui;
+  hydraw = nativePkgs.hydraw.components.exes.hydraw;
+  hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
 
   # defines required jobs so that Hydra-the-CI correctly notifies
   # GH when the jobs are built
