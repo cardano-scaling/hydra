@@ -90,7 +90,7 @@ From there you can:
 - Run `haskell-language-server` for an IDE experience
 - Run `hoogle` for symbol & documentation lookup
 - Build the `hydra-node` using nix: `nix-build release.nix -A hydra-node`
-- Build a statically linked `hydra-node` using nix: `nix-build release.nix -A hydra-node`
+- Build a statically linked `hydra-node` using nix: `nix-build release.nix -A hydra-node-static`
 - Build the `hydra-node` docker image: `docker build . --target hydra-node`
 
 Also, some of us use [direnv](https://direnv.net/) and
