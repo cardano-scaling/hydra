@@ -43,12 +43,11 @@ import Test.QuickCheck (
 import qualified Prelude
 
 spec :: Spec
-spec = do
-  describe "our CBOR encoding matches oracle's ('cborg' library)" $ do
-    prop "for all values" $
-      withMaxSuccess 1000 $
-        forAllShrink genSomeValue shrinkSomeValue $ \(SomeValue x _ encode encode') ->
-          propCompareWithOracle encode encode' x
+spec =
+  prop "matches cborg library encoding" $
+    withMaxSuccess 1000 $
+      forAllShrink genSomeValue shrinkSomeValue $ \(SomeValue x _ encode encode') ->
+        propCompareWithOracle encode encode' x
 
 -- | Compare encoding a value 'x' with our own encoder and a reference
 -- implementation. Counterexamples shows both encoded values, but in a pretty /

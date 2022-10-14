@@ -24,7 +24,7 @@ import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (randomUnusedTCPPorts)
 
 spec :: Spec
-spec = do
+spec =
   it "provides prometheus metrics from traces" $ do
     failAfter 3 $ do
       [p] <- randomUnusedTCPPorts 1
