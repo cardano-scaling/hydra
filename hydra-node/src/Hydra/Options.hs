@@ -58,6 +58,7 @@ import Options.Applicative (
   progDesc,
   progDescDoc,
   short,
+  showDefault,
   strOption,
   subparser,
   value,
@@ -87,12 +88,13 @@ commandParser =
         ( info
             (helper <*> publishOptionsParser)
             ( fullDesc
-                <> header
-                  "Publish Hydra's Plutus scripts on chain for later reference."
                 <> progDescDoc
                   ( Just $
                       vsep
-                        [ " ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ "
+                        [ "Publish Hydra's Plutus scripts on chain to be used"
+                        , "by the hydra-node as --hydra-script-tx-id."
+                        , ""
+                        , " ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ "
                         , " ┃              ⚠ WARNING ⚠              ┃ "
                         , " ┣═══════════════════════════════════════┫ "
                         , " ┃    This costs money. About 50 Ada.    ┃ "
@@ -224,7 +226,11 @@ cardanoLedgerGenesisParser =
     ( long "ledger-genesis"
         <> metavar "FILE"
         <> value "genesis-shelley.json"
-        <> help "Path to a Shelley-compatible genesis JSON file."
+        <> showDefault
+        <> help
+          "Path to a Shelley-compatible genesis JSON file used for the Hydra \
+          \ledger. You can use the corresponding Cardano network's shelley \
+          \genesis file from: https://book.world.dev.cardano.org/environments.html"
     )
 
 cardanoLedgerProtocolParametersParser :: Parser FilePath
@@ -233,7 +239,10 @@ cardanoLedgerProtocolParametersParser =
     ( long "ledger-protocol-parameters"
         <> metavar "FILE"
         <> value "protocol-parameters.json"
-        <> help "Path to a JSON file describing protocol parameters (same format as returned from 'cardano-cli query protocol-parameters')"
+        <> showDefault
+        <> help
+          "Path to protocol parameters used in the Hydra Head. \
+          \See manual how to configure this."
     )
 
 data ChainConfig = DirectChainConfig
@@ -291,8 +300,12 @@ networkIdParser =
         ( long "network-id"
             <> metavar "INTEGER"
             <> value 42
-            <> completer (listCompleter ["1097911063", "42"])
-            <> help "A test network with the given network magic."
+            <> showDefault
+            <> completer (listCompleter ["1", "2", "42"])
+            <> help
+              "Network identifier for a testnet to connect to. We only need to \
+              \provide the magic number here. For example: '2' is the 'preview' \
+              \network. See https://book.world.dev.cardano.org/environments.html for available networks."
         )
 
 nodeSocketParser :: Parser FilePath
@@ -301,7 +314,10 @@ nodeSocketParser =
     ( long "node-socket"
         <> metavar "FILE"
         <> value "node.socket"
-        <> help "Local (Unix) socket path to connect to cardano node."
+        <> showDefault
+        <> help
+          "Filepath to local unix domain socket used to communicate with \
+          \the cardano node."
     )
 
 cardanoSigningKeyFileParser :: Parser FilePath
@@ -309,8 +325,11 @@ cardanoSigningKeyFileParser =
   strOption
     ( long "cardano-signing-key"
         <> metavar "FILE"
+        <> showDefault
         <> value "cardano.sk"
-        <> help "Signing key for the internal wallet use for Chain interactions."
+        <> help
+          "Cardano signing key of our hydra-node. This will be used to 'fuel' \
+          \and sign Hydra protocol transactions, as well as commit UTxOs from."
     )
 
 cardanoVerificationKeyFileParser :: Parser FilePath
@@ -319,7 +338,9 @@ cardanoVerificationKeyFileParser =
     str
     ( long "cardano-verification-key"
         <> metavar "FILE"
-        <> help "Cardano verification key of other Hydra participant's wallet."
+        <> help
+          "Cardano verification key of another party in the Head. Can be \
+          \provided multiple times, once for each participant."
     )
 
 hydraSigningKeyFileParser :: Parser FilePath
@@ -329,7 +350,8 @@ hydraSigningKeyFileParser =
     ( long "hydra-signing-key"
         <> metavar "FILE"
         <> value "hydra.sk"
-        <> help "Our Hydra multisig signing key."
+        <> showDefault
+        <> help "Hydra signing key used by our hydra-node."
     )
 
 hydraVerificationKeyFileParser :: Parser FilePath
@@ -338,7 +360,9 @@ hydraVerificationKeyFileParser =
     str
     ( long "hydra-verification-key"
         <> metavar "FILE"
-        <> help "Other party multisig verification key."
+        <> help
+          "Hydra verification key of another party in the Head. Can be \
+          \provided multiple times, once for each participant."
     )
 
 peerParser :: Parser Host
@@ -347,7 +371,10 @@ peerParser =
     (maybeReader readHost)
     ( long "peer"
         <> short 'P'
-        <> help "A peer address in the form <host>:<port>, where <host> can be an IP address, or a host name"
+        <> help
+          "A peer address in the form <host>:<port>, where <host> can be an IP \
+          \address, or a host name. Can be provided multiple times, once for \
+          \each peer node."
     )
 
 nodeIdParser :: Parser NodeId
@@ -358,8 +385,9 @@ nodeIdParser =
         <> short 'n'
         <> metavar "NODE-ID"
         <> help
-          "Sets the hydra node's id. It is important to have a unique identifiers for hydra-nodes \
-          \ in order to be able distinguish between connected peers in the tui."
+          "The Hydra node identifier used on the Hydra network. It is \
+          \important to have a unique identifier in order to be able \
+          \distinguish between connected peers."
     )
 
 verbosityParser :: Parser Verbosity
@@ -369,7 +397,7 @@ verbosityParser =
     Quiet
     ( long "quiet"
         <> short 'q'
-        <> help "Turns off any logging"
+        <> help "Turns off logging."
     )
 
 hostParser :: Parser IP
@@ -378,9 +406,10 @@ hostParser =
     auto
     ( long "host"
         <> short 'h'
-        <> value "127.0.0.1"
+        <> value "0.0.0.0"
+        <> showDefault
         <> metavar "IP"
-        <> help "The address this node listens on for Hydra network peers connection (default: 127.0.0.1)"
+        <> help "Listen address for incoming Hydra network connections."
     )
 
 portParser :: Parser PortNumber
@@ -390,8 +419,9 @@ portParser =
     ( long "port"
         <> short 'p'
         <> value 5001
+        <> showDefault
         <> metavar "PORT"
-        <> help "The port this node listens on for Hydra network peers connection (default: 5001)"
+        <> help "Listen port for incoming Hydra network connections."
     )
 
 apiHostParser :: Parser IP
@@ -401,7 +431,8 @@ apiHostParser =
     ( long "api-host"
         <> value "127.0.0.1"
         <> metavar "IP"
-        <> help "The address this node listens on for client API connections (default: 127.0.0.1)"
+        <> showDefault
+        <> help "Listen address for incoming client API connections."
     )
 
 apiPortParser :: Parser PortNumber
@@ -410,8 +441,9 @@ apiPortParser =
     (maybeReader readPort)
     ( long "api-port"
         <> value 4001
+        <> showDefault
         <> metavar "PORT"
-        <> help "The port this node listens on for client API connections (default: 4001)"
+        <> help "Listen port for incoming client API connections."
     )
 
 monitoringPortParser :: Parser PortNumber
@@ -420,7 +452,9 @@ monitoringPortParser =
     (maybeReader readPort)
     ( long "monitoring-port"
         <> metavar "PORT"
-        <> help "The port this node listens on for monitoring and metrics. If left empty, monitoring server is not started"
+        <> help
+          "Listen port for monitoring and metrics via prometheus. If left \
+          \empty, monitoring server is not started."
     )
 
 startChainFromParser :: Parser ChainPoint
@@ -429,7 +463,11 @@ startChainFromParser =
     (maybeReader readChainPoint)
     ( long "start-chain-from"
         <> metavar "SLOT.HEADER_HASH"
-        <> help "The point at which to start on-chain component. Defaults to chain tip at startup time."
+        <> help
+          "The id of the block we want to start observing the chain from. \
+          \If not given, uses the chain tip at startup. Composed by the slot \
+          \number, a separator ('.') and the hash of the block header. \
+          \For example: 52970883.d36a9936ae7a07f5f4bdc9ad0b23761cb7b14f35007e54947e27a1510f897f04."
     )
  where
   readChainPoint :: String -> Maybe ChainPoint
@@ -443,7 +481,7 @@ startChainFromParser =
             Just
             (deserialiseFromRawBytesBase16 (encodeUtf8 headerHashTxt))
         pure $ ChainPoint slotNo headerHash
-      _ ->
+      _emptyOrSingularList ->
         Nothing
 
 hydraScriptsTxIdParser :: Parser TxId
@@ -454,9 +492,10 @@ hydraScriptsTxIdParser =
         <> metavar "TXID"
         <> value "0101010101010101010101010101010101010101010101010101010101010101"
         <> help
-          "The transaction which is expected to have published Hydra scripts as\
-          \reference scripts in its outputs. Note: All scripts need to be in the\
-          \first 10 outputs."
+          "The transaction which is expected to have published Hydra scripts as \
+          \reference scripts in its outputs. Note: All scripts need to be in the \
+          \first 10 outputs. See release notes for pre-published versions. You \
+          \can use the 'publish-scripts' sub-command to publish them yourself."
     )
 
 persistenceDirParser :: Parser FilePath
@@ -466,7 +505,9 @@ persistenceDirParser =
     ( long "persistence-dir"
         <> metavar "DIR"
         <> value "./"
-        <> help "The directory where to keep the 'headstate' and 'chainstate'"
+        <> help
+          "The directory where the Hydra Head state is stored.\
+          \Do not edit these files manually!"
     )
 
 hydraNodeCommand :: ParserInfo Command
