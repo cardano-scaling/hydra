@@ -35,13 +35,12 @@ import Data.Aeson.Types (Pair)
 import qualified Data.List as List
 import Data.Text (pack)
 import qualified Data.Text as T
-import qualified Data.Text as Text
 import Hydra.Cluster.Faucet (FaucetLog)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Crypto (HydraKey)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
-import Hydra.Network (Host (Host))
+import Hydra.Network (Host (Host), NodeId (NodeId))
 import qualified Hydra.Network as Network
 import Hydra.Options (ChainConfig (..), LedgerConfig (..), RunOptions (..), defaultChainConfig, toArgs)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
@@ -285,7 +284,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
             ( hydraNodeProcess $
                 RunOptions
                   { verbosity = Verbose "HydraNode"
-                  , nodeId = Text.pack . show $ hydraNodeId
+                  , nodeId = NodeId $ show hydraNodeId
                   , host = "127.0.0.1"
                   , port = fromIntegral $ 5000 + hydraNodeId
                   , peers

@@ -28,7 +28,7 @@ import Hydra.Cardano.Api (
 import qualified Hydra.Contract as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, PortNumber, readHost, readPort)
+import Hydra.Network (Host, NodeId, PortNumber, readHost, readPort)
 import Hydra.Node.Version (gitDescribe)
 import Options.Applicative (
   Parser,
@@ -123,7 +123,7 @@ publishOptionsParser =
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
-  , nodeId :: Text
+  , nodeId :: NodeId
   , -- NOTE: Why not a 'Host'?
     host :: IP
   , port :: PortNumber
@@ -345,15 +345,16 @@ peerParser =
         <> help "A peer address in the form <host>:<port>, where <host> can be an IP address, or a host name"
     )
 
-nodeIdParser :: Parser Text
+nodeIdParser :: Parser NodeId
 nodeIdParser =
   option
     auto
     ( long "node-id"
         <> short 'n'
-        <> value "some_node_id_string"
         <> metavar "TEXT"
-        <> help "Sets this node's id"
+        <> help
+          "Sets the hydra node's id. It is important to have a unique identifiers for hydra-nodes \
+          \ in order to be able distinguish between connected peers in the tui."
     )
 
 verbosityParser :: Parser Verbosity

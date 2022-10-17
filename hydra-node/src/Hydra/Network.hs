@@ -34,7 +34,7 @@ import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
 import Network.TypedProtocol.Pipelined ()
-import Test.QuickCheck.Gen (suchThat)
+import Test.QuickCheck (elements, listOf)
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
 
@@ -75,11 +75,13 @@ instance FromCBOR PortNumber where
   fromCBOR = fmap fromInteger fromCBOR
 
 newtype NodeId = NodeId {nodeId :: Text}
-  deriving newtype (Eq, Show, Ord, ToJSON, FromJSON)
+  deriving newtype (Eq, Show, IsString, Read, Ord, ToJSON, FromJSON)
 
 instance Arbitrary NodeId where
   arbitrary =
-    NodeId . pack <$> suchThat arbitrary (not . null)
+    NodeId . pack <$> listOf (elements ['a' .. 'z'])
+
+-- return $ NodeId $ pack c
 
 instance FromCBOR NodeId where
   fromCBOR = NodeId <$> fromCBOR
