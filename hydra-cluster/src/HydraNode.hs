@@ -33,6 +33,7 @@ import Data.Aeson (Value (String), object, (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Pair)
 import qualified Data.List as List
+import Data.Text (pack)
 import qualified Data.Text as T
 import qualified Data.Text as Text
 import Hydra.Cluster.Faucet (FaucetLog)
@@ -361,11 +362,7 @@ waitForNodesConnected tracer clients =
         ( \nodeId ->
             object
               [ "tag" .= String "PeerConnected"
-              , "peer"
-                  .= object
-                    [ "hostname" .= ("127.0.0.1" :: Text)
-                    , "port" .= (5000 + nodeId)
-                    ]
+              , "peer" .= String (pack $ show nodeId)
               ]
         )
         (filter (/= hydraNodeId) allNodeIds)
