@@ -36,6 +36,10 @@ changes.
 
 - Added some sample Terraform-based configuration files to spin up GCP and AWS Hydra node
 
+- hydra-node command line flag `--node-id` is converted from `INT` to `TEXT`. Instead of `Host` we are using the `node-id`
+  in the server messages like `PeerConnected/Disconnected` which is also used in the TUI to
+  distinguish between different connected peers.
+
 #### Fixed
 
 - Prevent transactions from being resubmitted for application over and over [#485](https://github.com/input-output-hk/hydra-poc/issues/485)
