@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Hydra.Crypto (Signature)
 import Hydra.Ledger (IsTx, UTxOType)
-import Hydra.Network (Host)
+import Hydra.Network (NodeId)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
@@ -16,8 +16,8 @@ data Message tx
   = ReqTx {party :: Party, transaction :: tx}
   | ReqSn {party :: Party, snapshotNumber :: SnapshotNumber, transactions :: [tx]}
   | AckSn {party :: Party, signed :: Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
-  | Connected {peer :: Host}
-  | Disconnected {peer :: Host}
+  | Connected {nodeId :: NodeId}
+  | Disconnected {nodeId :: NodeId}
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -29,8 +29,8 @@ instance (ToCBOR tx, ToCBOR (UTxOType tx)) => ToCBOR (Message tx) where
     ReqTx party tx -> toCBOR ("ReqTx" :: Text) <> toCBOR party <> toCBOR tx
     ReqSn party sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR party <> toCBOR sn <> toCBOR txs
     AckSn party sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sig <> toCBOR sn
-    Connected host -> toCBOR ("Connected" :: Text) <> toCBOR host
-    Disconnected host -> toCBOR ("Disconnected" :: Text) <> toCBOR host
+    Connected nodeId -> toCBOR ("Connected" :: Text) <> toCBOR nodeId
+    Disconnected nodeId -> toCBOR ("Disconnected" :: Text) <> toCBOR nodeId
 
 instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Message tx) where
   fromCBOR =

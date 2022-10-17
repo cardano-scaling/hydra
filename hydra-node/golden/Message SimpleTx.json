@@ -1,31 +1,28 @@
 {
     "samples": [
         {
-            "peer": {
-                "hostname": "0.0.4.59",
-                "port": 2142
-            },
+            "nodeId": "\u0012Y~𨄈c愱(𤪼\r\u0008l𩦊t`\"􂙨o\u0019nᓚ\u0003ez\u0005㗵ᖐ\n",
             "tag": "Disconnected"
         },
         {
             "party": {
-                "vkey": "86d2b6713d0cd0e4ef92e2ba10850ba53a8501c5fc9132287bd9945a46f9c204"
+                "vkey": "d4a58e92bb48486978c8b0bad4f22de41df6c6e07172105997b0c91b9acf518b"
             },
-            "signed": "25557f3903a1ec633298ec964dfd35fe5a80a97158a2ac50c6b708aa30a6a0f28ad012f1bb08741e9e8bc827dc1a26ea4ff1a46198dc2c474de49746c09d5601",
+            "signed": "35f4bfc9aeda1bd6de6860a0734ce68ee2d46d08d5d519004eaa449fb7f8363dbf55bc62d7e87d1dee3fba79ef4a0bc296caa153030c704466b3505c58fb1a0a",
             "snapshotNumber": 15,
             "tag": "AckSn"
         },
         {
             "party": {
-                "vkey": "fdf3c15d16bcc85eaf6349b96504da21e4197dfff255e369d656781afa9257bc"
+                "vkey": "8ea0d38fa36c03928e4aa86a5f349357ef9e41f4f5d400b6ac71a850fa682ce0"
             },
-            "signed": "991be92e4ac4167610180b644f47d12bb89bace2b4388c269479e51347b8b6353d4d7caa64040c5fc5868bf0f3336c0926fe4610f0719e33df97377179c1e50f",
+            "signed": "13b0f667985871659cfffe73e87652b44454c307a81e4679227bc67a6317a020e978fdc183a52bf2b374f65856e536e702623a49d13a6824e1a63849ee8f150c",
             "snapshotNumber": 26,
             "tag": "AckSn"
         },
         {
             "party": {
-                "vkey": "28b2fb6a709cb4ca07d350a63e2265ec83af1c929fb56921abd5c4475bb84a37"
+                "vkey": "a533e531ad92e81005836a14f87d18e8a26042fb4c450e267bee1b8443fbf5eb"
             },
             "snapshotNumber": 11,
             "tag": "ReqSn",
@@ -75,10 +72,7 @@
             ]
         },
         {
-            "peer": {
-                "hostname": "0.0.74.30",
-                "port": 2658
-            },
+            "nodeId": "\u001dQu_\u001e\u0002h󵏧􂘚󸾱\u001f5r\u0002D@\u0016ᚳ#j",
             "tag": "Connected"
         }
     ],

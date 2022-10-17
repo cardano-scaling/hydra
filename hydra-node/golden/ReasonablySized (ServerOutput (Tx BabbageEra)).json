@@ -5039,10 +5039,7 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "peer": {
-                "hostname": "0.0.0.3",
-                "port": 3
-            },
+            "peer": "g\r󳴓",
             "tag": "PeerConnected"
         },
         {
@@ -6812,10 +6809,7 @@
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.1",
-                "port": 8
-            },
+            "peer": "\u0014",
             "tag": "PeerDisconnected"
         },
         {
@@ -7599,10 +7593,7 @@
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.2",
-                "port": 7
-            },
+            "peer": "􇽞󵣩",
             "tag": "PeerConnected"
         },
         {
@@ -7697,10 +7688,7 @@
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.2",
-                "port": 6
-            },
+            "peer": "󠄉5",
             "tag": "PeerConnected"
         },
         {
@@ -9250,10 +9238,7 @@
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.7",
-                "port": 1
-            },
+            "peer": "󱙹W\u0012!",
             "tag": "PeerDisconnected"
         },
         {
@@ -9593,10 +9578,7 @@
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.3",
-                "port": 2
-            },
+            "peer": "C93Z𬵛󵇻",
             "tag": "PeerDisconnected"
         },
         {
@@ -10639,10 +10621,7 @@
             "tag": "HeadIsContested"
         },
         {
-            "peer": {
-                "hostname": "0.0.0.3",
-                "port": 1
-            },
+            "peer": "䖻􎄋菽cv􅺌",
             "tag": "PeerDisconnected"
         },
         {
@@ -10681,10 +10660,7 @@
             "tag": "HeadIsClosed"
         },
         {
-            "peer": {
-                "hostname": "0.0.0.0",
-                "port": 3
-            },
+            "peer": "",
             "tag": "PeerDisconnected"
         },
         {
@@ -12287,10 +12263,7 @@
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.7",
-                "port": 7
-            },
+            "peer": "L𐡹ql$",
             "tag": "PeerDisconnected"
         },
         {
@@ -16088,10 +16061,7 @@
             }
         },
         {
-            "peer": {
-                "hostname": "0.0.0.6",
-                "port": 1
-            },
+            "peer": "Zu\u0015[𫏿􈞩",
             "tag": "PeerDisconnected"
         },
         {
@@ -19979,10 +19949,7 @@
             "tag": "HeadIsClosed"
         },
         {
-            "peer": {
-                "hostname": "0.0.0.3",
-                "port": 3
-            },
+            "peer": "\u001f.>",
             "tag": "PeerConnected"
         },
         {
@@ -21688,10 +21655,7 @@
             "tag": "HeadIsContested"
         },
         {
-            "peer": {
-                "hostname": "0.0.0.5",
-                "port": 1
-            },
+            "peer": "\u0013\u0007㲮",
             "tag": "PeerDisconnected"
         },
         {

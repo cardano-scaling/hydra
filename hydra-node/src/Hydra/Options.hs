@@ -9,6 +9,7 @@ import Control.Arrow (left)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.IP (IP (IPv4), toIPv4w)
+import Data.Text (unpack)
 import qualified Data.Text as T
 import Data.Version (showVersion)
 import Hydra.Cardano.Api (
@@ -28,7 +29,7 @@ import Hydra.Cardano.Api (
 import qualified Hydra.Contract as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, PortNumber, readHost, readPort)
+import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
 import Hydra.Node.Version (gitDescribe)
 import Options.Applicative (
   Parser,
@@ -123,7 +124,7 @@ publishOptionsParser =
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
-  , nodeId :: Natural
+  , nodeId :: NodeId
   , -- NOTE: Why not a 'Host'?
     host :: IP
   , port :: PortNumber
@@ -345,15 +346,16 @@ peerParser =
         <> help "A peer address in the form <host>:<port>, where <host> can be an IP address, or a host name"
     )
 
-nodeIdParser :: Parser Natural
+nodeIdParser :: Parser NodeId
 nodeIdParser =
   option
-    auto
+    str
     ( long "node-id"
         <> short 'n'
-        <> value 1
-        <> metavar "INTEGER"
-        <> help "Sets this node's id"
+        <> metavar "NODE-ID"
+        <> help
+          "Sets the hydra node's id. It is important to have a unique identifiers for hydra-nodes \
+          \ in order to be able distinguish between connected peers in the tui."
     )
 
 verbosityParser :: Parser Verbosity
@@ -505,19 +507,20 @@ toArgs
     , chainConfig
     , ledgerConfig
     } =
-    isVerbose verbosity
-      <> ["--node-id", show nodeId]
-      <> ["--host", show host]
-      <> ["--port", show port]
-      <> ["--api-host", show apiHost]
-      <> ["--api-port", show apiPort]
-      <> ["--hydra-signing-key", hydraSigningKey]
-      <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
-      <> concatMap toArgPeer peers
-      <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
-      <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
-      <> argsChainConfig
-      <> argsLedgerConfig
+    let (NodeId nId) = nodeId
+     in isVerbose verbosity
+          <> ["--node-id", unpack nId]
+          <> ["--host", show host]
+          <> ["--port", show port]
+          <> ["--api-host", show apiHost]
+          <> ["--api-port", show apiPort]
+          <> ["--hydra-signing-key", hydraSigningKey]
+          <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
+          <> concatMap toArgPeer peers
+          <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
+          <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
+          <> argsChainConfig
+          <> argsLedgerConfig
    where
     isVerbose = \case
       Quiet -> ["--quiet"]

@@ -15,21 +15,21 @@ import Data.Aeson.Lens (AsValue, key, _Array, _String)
 import Data.Char (isSpace)
 import Data.List (dropWhileEnd)
 import qualified Data.Map.Strict as Map
+import Data.Text (pack)
+import Data.Versions (SemVer (SemVer), semver)
 import qualified Data.Yaml as Yaml
+import GHC.IO.Exception (IOErrorType (OtherError))
 import qualified Paths_hydra_node as Pkg
 import System.Directory (listDirectory)
 import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
+import System.IO.Error (IOError, ioeGetErrorType)
 import System.Process (readProcessWithExitCode)
 import Test.Hspec (pendingWith)
 import Test.Hydra.Prelude (createSystemTempDirectory, failure)
 import Test.QuickCheck (Property, conjoin, counterexample, forAllBlind, forAllShrink, vectorOf, withMaxSuccess)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import qualified Prelude
-import System.IO.Error (IOError, ioeGetErrorType)
-import GHC.IO.Exception (IOErrorType(OtherError))
-import Data.Versions (semver, SemVer (SemVer))
-import Data.Text (pack)
 
 -- | Generate arbitrary serializable (JSON) value, and check their validity
 -- against a known JSON schema.
@@ -165,9 +165,9 @@ ensureSystemRequirements = do
     Right version ->
       case semver (pack version) of
         Right v ->
-          if v >= SemVer 3 2 0 [] Nothing then pure ()
-          else
-            failure $ "jsonschema version " <> version <> " found but >=3.2.0 needed"
+          if v >= SemVer 3 2 0 [] Nothing
+            then pure ()
+            else failure $ "jsonschema version " <> version <> " found but >=3.2.0 needed"
         Left err -> failure $ show err
     Left errorMsg -> failure errorMsg
  where
@@ -180,5 +180,5 @@ ensureSystemRequirements = do
         pure (dropWhileEnd isSpace out <$ guard (exitCode == ExitSuccess))
       Left (err :: IOError)
         | ioeGetErrorType err == OtherError ->
-            pure (Left $ "Check jsonschema is installed and in $PATH")
+          pure (Left $ "Check jsonschema is installed and in $PATH")
       Left err -> pure (Left $ show err)
