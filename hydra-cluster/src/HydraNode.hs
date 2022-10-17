@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NumericUnderscores #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module HydraNode (
   HydraClient (..),
