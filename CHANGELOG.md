@@ -34,6 +34,11 @@ changes.
   + Instead of `Host` we are using the `node-id` in the server messages like + `PeerConnected/Disconnected` which are also used in
   + the TUI to distinguish between different connected peers.
 
+- The `hydra-node` does persist L1 and L2 states on disk now:
+  + New `--persistence-dir` command line argument to configure location.
+  + Writes two JSON files `headstate` and `chainstate` to the persistence directory.
+  + While introspectable, modification of these files is not recommended.
+
 - Added a `hydra-tools` executable, which provides basic commands to help working with Hydra Heads:
   + Generate a pair of Hydra keys
   + Output the marker datum hash
