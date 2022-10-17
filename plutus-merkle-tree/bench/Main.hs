@@ -31,14 +31,13 @@ main :: IO ()
 main = do
   outputDirectory <-
     getArgs <&> getOutputDirectory
-  mt <- encodeUtf8 <$> costOfMerkleTree
+  mt <- encodeUtf8 . (unlines pageHeader <>) <$> costOfMerkleTree
   case outputDirectory of
     Nothing ->
       hPut stdout mt
     Just out -> do
       createDirectoryIfMissing True out
-      withFile (out </> "mt-benchmarks.md") WriteMode $ \hdl ->
-        hPut hdl mt
+      writeFileBS (out </> "mt-benchmarks.md") mt
 
 getOutputDirectory :: [String] -> Maybe String
 getOutputDirectory = listToMaybe
