@@ -30,15 +30,15 @@ changes.
   +  Take a look at the [example] (https://github.com/input-output-hk/hydra-poc/blob/master/docs/docs/getting-started/quickstart.md#hydra-keys)
   +  on how to use `hydra-tools` to generate necessary hydra keys.
 
+- **BREAKING** hydra-node command line flag `--node-id` is now mandatory.
+  + Instead of `Host` we are using the `node-id` in the server messages like + `PeerConnected/Disconnected` which are also used in
+  + the TUI to distinguish between different connected peers.
+
 - Added a `hydra-tools` executable, which provides basic commands to help working with Hydra Heads:
   + Generate a pair of Hydra keys
   + Output the marker datum hash
 
 - Added some sample Terraform-based configuration files to spin up GCP and AWS Hydra node
-
-- hydra-node command line flag `--node-id` is converted from `INT` to `TEXT`. Instead of `Host` we are using the `node-id`
-  in the server messages like `PeerConnected/Disconnected` which is also used in the TUI to
-  distinguish between different connected peers.
 
 #### Fixed
 
