@@ -34,7 +34,7 @@ import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
 import Network.TypedProtocol.Pipelined ()
-import Test.QuickCheck (elements, listOf)
+import Test.QuickCheck (elements, listOf, suchThat)
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
 
@@ -79,7 +79,7 @@ newtype NodeId = NodeId {nodeId :: Text}
 
 instance Arbitrary NodeId where
   arbitrary =
-    NodeId . pack <$> listOf (elements ['a' .. 'z'])
+    NodeId . pack <$> suchThat (listOf (elements ['a' .. 'z'])) (not . null)
 
 -- return $ NodeId $ pack c
 
