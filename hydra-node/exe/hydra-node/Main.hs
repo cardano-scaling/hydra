@@ -36,7 +36,6 @@ import Hydra.Node (
   initEnvironment,
   runHydraNode,
  )
-import Hydra.Node.OptionsValidator (validateArguments)
 import Hydra.Options (
   ChainConfig (..),
   Command (Publish, Run),
@@ -44,6 +43,7 @@ import Hydra.Options (
   PublishOptions (..),
   RunOptions (..),
   parseHydraCommand,
+  validateArguments,
  )
 import Hydra.Party (Party)
 
