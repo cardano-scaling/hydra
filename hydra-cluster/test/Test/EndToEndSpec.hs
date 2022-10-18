@@ -266,8 +266,8 @@ spec = around showLogsOnFailure $ do
               aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket []
               bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice]
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] allNodeIds hydraScriptsTxId $ \n1 ->
-                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds hydraScriptsTxId $ \n2 -> do
+              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 ->
+                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
                   seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
                   seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
