@@ -546,7 +546,6 @@ validateArguments RunOptions{peers, hydraVerificationKeys} = do
     throwIO $ CannotStartHydraNode $ "Maximum number of peers is currently " <> show numberOfPeers <> "."
   when (length peers /= length hydraVerificationKeys) $
     throwIO $ CannotStartHydraNode "Number of loaded cardano and hydra keys needs to match."
-  pure ()
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraCommand :: IO Command
