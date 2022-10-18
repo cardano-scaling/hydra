@@ -35,10 +35,9 @@ RUN nix-build -A hydra-tui-static -o hydra-tui-result release.nix
 
 FROM alpine as hydra-tui
 RUN apk update && apk add ncurses-terminfo
-ENV TERMINFO=/usr/share/terminfo
 COPY --from=build-hydra-tui /build/hydra-tui-result/bin/hydra-tui /bin/
 STOPSIGNAL SIGINT
-ENTRYPOINT ["hydra-tui"]
+ENTRYPOINT ["sh", "-c", "TERMINFO=/usr/share/terminfo hydra-tui $@"]
 
 # hydraw
 
