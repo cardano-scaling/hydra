@@ -1,6 +1,14 @@
 # Example Hydra Node Infrastructure
 
-This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and GCP based infrastructure code to setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation) connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preview` testnet. It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
+This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and GCP based infrastructure code to:
+* Setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation),
+* Connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preview` testnet,
+* Primed by [mithril](https://mithril.network) latest snapshot,
+* Serving [hydraw](../../hydraw) application on port 80.
+
+:warning: It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
+
+:warning: This should not be considered a production-grade setup esp. when it comes to security. Keys are being moved around freely in clear, there's no provision for TLS, application is exposed on port 80 without HTTPS, etc.
 
 # Install
 
@@ -35,7 +43,7 @@ $ gcloud iam service-accounts keys create hydra.json --iam-account hydra@my-proj
 
 ## Selecting the base image
 
-This can be done by editing the `image = iog-hydra-xxxx` parameter in [testnet.tf](./testnet.tf). The [configuration script](./scripts/configure-testnet.sh) assumes this image must be a reasonably recent Ubuntu/Debian Linux distribution, with [docker](https://docker.io) and [docker-compose](https://docs.docker.com/compose/) installed, and a configured user `curry` with `sudo` access.
+This can be done by editing the `image = iog-hydra-xxxx` parameter in [demo.tf](./demo.tf). The [configuration script](./scripts/configure-testnet.sh) assumes this image must be a reasonably recent Ubuntu/Debian Linux distribution, with [docker](https://docker.io) and [docker-compose](https://docs.docker.com/compose/) installed, and a configured user `curry` with `sudo` access.
 
 ## Deploying the VM
 
@@ -58,18 +66,16 @@ $ terraform plan -out vm.plan
 ### Configuring Hydra Node
 
 The configuration process expects to find some files which are not provided by default and which are required for starting the Hydra node:
-* A Hydra signing key file `arnaud.sk` which will be used in the Head to sign snapshots.
+* A Hydra signing key file `keys/arnaud-hydra.sk` which will be used in the Head to sign snapshots.
   This can be generated using [hydra-tools](https://hydra.family/head-protocol/docs/getting-started/quickstart#hydra-keys),
-* A cardano signing key file  `cardano.sk` which is required to identify the parties on-chain and sign transactions.
+* A cardano signing key file  `keys/arnaud.sk` which is required to identify the parties on-chain and sign transactions.
   This is a standard Cardano key so one can reuse an existing key or [generate a new one](https://hydra.family/head-protocol/docs/getting-started/quickstart#cardano-keys),
 * 0 or more hydra verification keys and cardano verification keys for the other Head parties,
 * The IP addresses and ports of _peer_ nodes,
-* Configuration files for [promtail](https://grafana.com/docs/loki/latest/clients/promtail/) and [prometheus](https://prometheus.io/) which are run as part of the stack,
+* Configuration files [prometheus](https://prometheus.io/) which is run as part of the stack, for monitoring purpose,
 * Configuration files for the off-chain ledger.
 
-The key files should be put in the current directory and their name referenced in the [testnet.tf](./testnet.tf) file. Then the [docker-compose.yaml](./docker-compose.yaml) should be edited to reflect the above parameters as [command-line arguments](https://hydra.family/head-protocol/docs/getting-started/quickstart) to the `hydra-node` container.
-
-The [promtail-config.yml](./promtail-config.yml) should be edited to point to the correct URL where logs should be shipped or the promtail container altogether removed.
+The key files should be put in a `keys/` directory. Then the [docker-compose.yaml](./docker-compose.yaml) should be edited to reflect the above parameters as [command-line arguments](https://hydra.family/head-protocol/docs/getting-started/quickstart) to the `hydra-node` container.
 
 ### Starting VM
 
@@ -94,7 +100,7 @@ One should be able to log into the VM as user `curry`.
 To login to the VM:
 
 ```
-$ scripts/login.sh curry@hydra-testnet-1
+$ scripts/login.sh curry@hydra-demo-1
 ```
 
 ## Using Hydraw
