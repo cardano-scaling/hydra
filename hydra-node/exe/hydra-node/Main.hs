@@ -51,7 +51,8 @@ main :: IO ()
 main = do
   command <- parseHydraCommand
   case command of
-    Run options ->
+    Run options -> do
+      validateArguments options
       run (identifyNode options)
     Publish options ->
       publish options
