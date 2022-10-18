@@ -19,7 +19,7 @@ import Hydra.Options (
   defaultLedgerConfig,
   parseHydraCommandFromArgs,
   toArgs,
-  validateArguments,
+  validateRunOptions,
  )
 import Test.QuickCheck (Property, counterexample, forAll, property, (===))
 
@@ -28,18 +28,18 @@ spec = parallel $
   describe "Hydra Node RunOptions" $ do
     -- NOTE: --node-id flag needs to be set so we set a default here
     let setFlags a = ["--node-id", "node-id-1"] <> a
-    it "validateArguments: using more than 4 peers should error out" $ do
+    it "validateRunOptions: using more than 4 peers should error out" $ do
       -- use 5 peers to see the error happening
       let wrongNumberOfPeers = (\a -> Host (show a) a) <$> [1 .. 5]
-      validateArguments (defaultRunOptions{peers = wrongNumberOfPeers})
+      validateRunOptions (defaultRunOptions{peers = wrongNumberOfPeers})
         `shouldThrow` (== CannotStartHydraNode "Maximum number of peers is currently 4.")
-    it "validateArguments: loaded cardano and hydra keys length needs to match" $ do
+    it "validateRunOptions: loaded cardano and hydra keys length needs to match" $ do
       let simulatedKeys = replicate 10 ['a' .. 'z']
           -- use 5 hydra keys and 6 cardano keys to trigger the error
           hydraKeys = take 5 simulatedKeys
           cardanoKeys = take 6 simulatedKeys
           chainCfg = (chainConfig defaultRunOptions){cardanoVerificationKeys = cardanoKeys}
-      validateArguments (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
+      validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
         `shouldThrow` (== CannotStartHydraNode "Number of loaded cardano and hydra keys needs to match.")
 
     it "parses with default node-id set" $

@@ -43,7 +43,7 @@ import Hydra.Options (
   PublishOptions (..),
   RunOptions (..),
   parseHydraCommand,
-  validateArguments,
+  validateRunOptions,
  )
 import Hydra.Party (Party)
 
@@ -52,7 +52,7 @@ main = do
   command <- parseHydraCommand
   case command of
     Run options -> do
-      validateArguments options
+      validateRunOptions options
       run (identifyNode options)
     Publish options ->
       publish options

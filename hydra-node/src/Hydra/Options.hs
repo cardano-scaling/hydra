@@ -539,8 +539,8 @@ instance Exception CannotStartHydraNode
 
 -- | Validate cmd line arguments for hydra-node
 -- and check if they make sense before actually running the node.
-validateArguments :: MonadThrow m => RunOptions -> m ()
-validateArguments RunOptions{peers, hydraVerificationKeys} = do
+validateRunOptions :: MonadThrow m => RunOptions -> m ()
+validateRunOptions RunOptions{peers, hydraVerificationKeys} = do
   let numberOfPeers = 4
   when (length peers > numberOfPeers) $
     throwIO $ CannotStartHydraNode $ "Maximum number of peers is currently " <> show numberOfPeers <> "."
