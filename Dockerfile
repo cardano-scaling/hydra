@@ -18,6 +18,16 @@ COPY --from=build-hydra-node /build/hydra-node-result/bin/hydra-node /bin/
 STOPSIGNAL SIGINT
 ENTRYPOINT ["hydra-node"]
 
+# hydra-tools
+
+FROM build as build-hydra-tools
+RUN nix-build -A hydra-tools-static -o hydra-tools-result release.nix
+
+FROM alpine as hydra-tools
+COPY --from=build-hydra-tools /build/hydra-tools-result/bin/hydra-tools /bin/
+STOPSIGNAL SIGINT
+ENTRYPOINT ["hydra-tools"]
+
 # hydra-tui
 
 FROM build as build-hydra-tui
