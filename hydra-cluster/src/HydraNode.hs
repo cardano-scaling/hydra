@@ -345,9 +345,6 @@ withNewClient :: HydraClient -> (HydraClient -> IO a) -> IO a
 withNewClient HydraClient{hydraNodeId, tracer} =
   withConnectionToNode tracer hydraNodeId
 
-newtype CannotStartHydraClient = CannotStartHydraClient Int deriving (Show)
-instance Exception CannotStartHydraClient
-
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 

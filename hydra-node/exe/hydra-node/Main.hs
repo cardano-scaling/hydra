@@ -36,6 +36,7 @@ import Hydra.Node (
   initEnvironment,
   runHydraNode,
  )
+import Hydra.Node.OptionsValidator (validateArguments)
 import Hydra.Options (
   ChainConfig (..),
   Command (Publish, Run),
@@ -57,6 +58,7 @@ main = do
  where
   run opts = do
     let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
+    validateArguments opts
     env@Environment{party} <- initEnvironment opts
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do

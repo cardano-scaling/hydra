@@ -109,6 +109,7 @@ library
     Hydra.Network.Ouroboros.Server
     Hydra.Network.Ouroboros.Type
     Hydra.Node
+    Hydra.Node.OptionsValidator
     Hydra.Node.Version
     Hydra.Options
     Hydra.Party
@@ -362,5 +363,5 @@ test-suite tests
     , websockets
     , yaml
 
-  build-tool-depends: hspec-discover:hspec-discover -any
+  build-tool-depends: hspec-discover:hspec-discover
   ghc-options:        -threaded -rtsopts
