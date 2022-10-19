@@ -42,5 +42,8 @@ instance Arbitrary POSIXTime where
 instance ToJSON POSIXTime where
   toJSON (POSIXTime ms) = toJSON ms
 
+instance FromJSON POSIXTime where
+  parseJSON = fmap POSIXTime . parseJSON
+
 instance Arbitrary a => Arbitrary (UpperBound a) where
   arbitrary = upperBound <$> arbitrary

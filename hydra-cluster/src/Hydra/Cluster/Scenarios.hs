@@ -21,6 +21,29 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (networkId, startChainFrom)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitMatch, withHydraNode)
 
+restartANodeAfterHeadInitialized :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+restartANodeAfterHeadInitialized tracer workDir cardanoNode hydraScriptsTxId = do
+  refuelIfNeeded tracer cardanoNode Alice 100_000_000
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket []
+      -- we delibelately do not start from a chain point here to highlight the
+      -- need for persistence
+      <&> \config -> config{networkId, startChainFrom = Nothing}
+
+  withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+    let contestationPeriod = 1 :: Natural
+    send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+    -- XXX: might need to tweak the wait time
+    waitFor tracer 10 [n1] $
+      output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+
+  withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+    send n1 $ input "Abort" []
+    waitFor tracer 10 [n1] $
+      output "HeadIsAborted" ["utxo" .= object mempty]
+ where
+  RunningNode{nodeSocket, networkId} = cardanoNode
+
 singlePartyHeadFullLifeCycle ::
   Tracer IO EndToEndLog ->
   FilePath ->

@@ -274,6 +274,7 @@ defaultRunOptions =
     , hydraSigningKey = "hydra.sk"
     , hydraVerificationKeys = []
     , hydraScriptsTxId = "0101010101010101010101010101010101010101010101010101010101010101"
+    , persistenceDir = "./"
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
     }

@@ -49,9 +49,9 @@ Proof of concept:
 - [x] Terminal user interface client
 - [x] Cardano-node integration via Direct connection
 - [x] Running on testnet
+- [x] Persisted Head state
 
 Later:
-- [ ] Persisted Head state
 - [ ] Audited and mainnet ready
 - [ ] Multiple Heads per hydra-node, managed via API
 - [ ] Support for external wallets (e.g. hardware wallets)

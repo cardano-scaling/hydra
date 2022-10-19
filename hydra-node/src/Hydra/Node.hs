@@ -32,6 +32,8 @@ import Control.Monad.Class.MonadSTM (
   stateTVar,
   writeTQueue,
  )
+import qualified Data.Aeson as Aeson
+import qualified Data.ByteString as BS
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), PostTxError)
@@ -54,6 +56,9 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
+import System.Directory (createDirectoryIfMissing, doesFileExist)
+import System.FilePath (takeDirectory)
+import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
 
 -- * Environment Handling
 
@@ -70,7 +75,6 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys} = do
  where
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
-
 -- ** Create and run a hydra node
 
 data HydraNode tx m = HydraNode
@@ -80,6 +84,7 @@ data HydraNode tx m = HydraNode
   , oc :: Chain tx m
   , server :: Server tx m
   , env :: Environment
+  , persistence :: Persistence (HeadState tx) m
   }
 
 -- NOTE(AB): we use partial fields access here for convenience purpose, to
@@ -93,6 +98,8 @@ data HydraNodeLog tx
   | EndEvent {by :: Party, event :: Event tx}
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
+  | CreatedState
+  | LoadedState
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -100,17 +107,28 @@ instance IsTx tx => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 createHydraNode ::
-  MonadSTM m =>
+  (MonadSTM m, IsTx tx) =>
+  Tracer m (HydraNodeLog tx) ->
   EventQueue m (Event tx) ->
   Network m (Message tx) ->
   Ledger tx ->
   Chain tx m ->
   Server tx m ->
   Environment ->
+  -- | Persistence handle to load/save head state
+  Persistence (HeadState tx) m ->
   m (HydraNode tx m)
-createHydraNode eq hn ledger oc server env = do
-  hh <- createHydraHead IdleState ledger
-  pure HydraNode{eq, hn, hh, oc, server, env}
+createHydraNode tracer eq hn ledger oc server env persistence = do
+  hs <-
+    load persistence >>= \case
+      Nothing -> do
+        traceWith tracer CreatedState
+        pure IdleState
+      Just a -> do
+        traceWith tracer LoadedState
+        pure a
+  hh <- createHydraHead hs ledger
+  pure HydraNode{eq, hn, hh, oc, server, env, persistence}
 
 runHydraNode ::
   ( MonadThrow m
@@ -128,14 +146,14 @@ runHydraNode tracer node =
 
 stepHydraNode ::
   ( MonadThrow m
+  , MonadCatch m
   , MonadAsync m
   , IsTx tx
-  , MonadCatch m
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
-stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
+stepHydraNode tracer node = do
   e <- nextEvent eq
   traceWith tracer $ BeginEvent party e
   atomically (processNextEvent node e) >>= \case
@@ -143,8 +161,10 @@ stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
     -- does trace and not throw!
     Error err -> traceWith tracer (ErrorHandlingEvent party e err)
     Wait _reason -> putEventAfter eq 0.1 (decreaseTTL e) >> traceWith tracer (EndEvent party e)
-    NewState _ effs ->
-      forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
+    NewState s effs -> do
+      save s
+      forM_ effs (processEffect node tracer)
+      traceWith tracer (EndEvent party e)
     OnlyEffects effs ->
       forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
  where
@@ -152,6 +172,12 @@ stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
     \case
       NetworkEvent ttl msg -> NetworkEvent (ttl - 1) msg
       e -> e
+
+  Environment{party} = env
+
+  Persistence{save} = persistence
+
+  HydraNode{persistence, eq, env} = node
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
@@ -240,7 +266,43 @@ putState :: HydraHead tx m -> HeadState tx -> STM m ()
 putState HydraHead{modifyHeadState} new =
   modifyHeadState $ const ((), new)
 
+-- | Standard instance of a HydraHead state handle.
 createHydraHead :: MonadSTM m => HeadState tx -> Ledger tx -> m (HydraHead tx m)
 createHydraHead initialState ledger = do
   tv <- newTVarIO initialState
   pure HydraHead{modifyHeadState = stateTVar tv, ledger}
+
+-- ** Save and load files
+
+-- | Handle to save and load files to/from disk using JSON encoding.
+data Persistence a m = Persistence
+  { save :: ToJSON a => a -> m ()
+  , load :: FromJSON a => m (Maybe a)
+  }
+
+newtype PersistenceException
+  = PersistenceException String
+  deriving (Eq, Show)
+
+instance Exception PersistenceException
+
+-- | Initialize persistence handle for given type 'a' at given file path.
+createPersistence :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (Persistence a m)
+createPersistence _ fp = do
+  liftIO . createDirectoryIfMissing True $ takeDirectory fp
+  pure $
+    Persistence
+      { save = \a -> do
+          writeBinaryFileDurableAtomic fp . toStrict $ Aeson.encode a
+      , load =
+          liftIO (doesFileExist fp) >>= \case
+            False -> pure Nothing
+            True -> do
+              bs <- readFileBS fp
+              -- XXX: This is weird and smelly
+              if BS.null bs
+                then pure Nothing
+                else case Aeson.eitherDecodeStrict' bs of
+                  Left e -> throwIO $ PersistenceException e
+                  Right a -> pure $ Just a
+      }

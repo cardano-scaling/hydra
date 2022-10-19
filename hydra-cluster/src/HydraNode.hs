@@ -294,6 +294,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                   , hydraSigningKey
                   , hydraVerificationKeys
                   , hydraScriptsTxId
+                  , persistenceDir = workDir </> "state-" <> show hydraNodeId
                   , chainConfig
                   , ledgerConfig
                   }

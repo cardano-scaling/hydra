@@ -33,6 +33,7 @@ import Hydra.Node (
   EventQueue (..),
   HydraNode (..),
   HydraNodeLog,
+  Persistence (Persistence, load, save),
   createEventQueue,
   createHydraHead,
   isEmpty,
@@ -138,7 +139,7 @@ runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = go
       stepHydraNode tracer node >> go
 
 createHydraNode ::
-  (MonadSTM m, MonadDelay m, MonadAsync m) =>
+  (MonadSTM m, MonadDelay m, MonadAsync m, MonadThrow m) =>
   SigningKey HydraKey ->
   [Party] ->
   [Event SimpleTx] ->
@@ -159,6 +160,11 @@ createHydraNode signingKey otherParties events = do
             { party
             , signingKey
             , otherParties
+            }
+      , persistence =
+          Persistence
+            { save = const $ pure ()
+            , load = failure "unexpected load"
             }
       }
  where

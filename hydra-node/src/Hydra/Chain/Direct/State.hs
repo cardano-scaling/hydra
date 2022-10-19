@@ -24,6 +24,7 @@ import Hydra.Chain.Direct.Tx (
   InitObservation (..),
   InitialThreadOutput (..),
   OpenThreadOutput (..),
+  UTxOHash (UTxOHash),
   UTxOWithScript,
   abortTx,
   closeTx,
@@ -44,6 +45,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genVerificationKey)
+import Hydra.Ledger.Cardano.Json ()
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.QuickCheck (sized)
@@ -74,7 +76,7 @@ data ChainState
   | Initial InitialState
   | Open OpenState
   | Closed ClosedState
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance HasKnownUTxO ChainState where
   getKnownUTxO :: ChainState -> UTxO
@@ -93,7 +95,7 @@ data ChainContext = ChainContext
   , ownParty :: Party
   , scriptRegistry :: ScriptRegistry
   }
-  deriving (Show, Eq)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance Arbitrary ChainContext where
   arbitrary = sized $ \n -> do
@@ -119,7 +121,8 @@ allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
 -- | The idle state does not contain any head-specific information and exists to
 -- be used as a starting and terminal state.
 newtype IdleState = IdleState {ctx :: ChainContext}
-  deriving (Show, Eq)
+  deriving (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary IdleState where
   arbitrary = IdleState <$> arbitrary
@@ -136,7 +139,7 @@ data InitialState = InitialState
   , initialHeadId :: HeadId
   , initialHeadTokenScript :: PlutusScript
   }
-  deriving (Show, Eq)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance HasKnownUTxO InitialState where
   getKnownUTxO st =
@@ -159,9 +162,9 @@ data OpenState = OpenState
   , openThreadOutput :: OpenThreadOutput
   , openHeadId :: HeadId
   , openHeadTokenScript :: PlutusScript
-  , openUtxoHash :: ByteString
+  , openUtxoHash :: UTxOHash
   }
-  deriving (Show, Eq)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance HasKnownUTxO OpenState where
   getKnownUTxO st =
@@ -178,7 +181,7 @@ data ClosedState = ClosedState
   , closedHeadId :: HeadId
   , closedHeadTokenScript :: PlutusScript
   }
-  deriving (Show, Eq)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance HasKnownUTxO ClosedState where
   getKnownUTxO st =
@@ -314,7 +317,7 @@ close st confirmedSnapshot pointInTime =
     ConfirmedSnapshot{snapshot = Snapshot{number, utxo}, signatures} ->
       CloseWithConfirmedSnapshot
         { snapshotNumber = number
-        , closeUtxoHash = hashUTxO @Tx utxo
+        , closeUtxoHash = UTxOHash $ hashUTxO @Tx utxo
         , signatures
         }
 
@@ -335,7 +338,7 @@ contest ::
 contest st confirmedSnapshot pointInTime = do
   contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput
  where
-  (sn, sigs) = 
+  (sn, sigs) =
     case confirmedSnapshot of
       ConfirmedSnapshot{signatures} -> (getSnapshot confirmedSnapshot, signatures)
       _ -> (getSnapshot confirmedSnapshot, mempty)

@@ -60,6 +60,7 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
  )
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node (Persistence (Persistence, save))
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..), blockPoint)
@@ -161,14 +162,25 @@ data ChainStateAt = ChainStateAt
   { currentChainState :: ChainState
   , recordedAt :: RecordedAt
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+-- TODO: use a correct implementation, currently not possible because of cyclic
+-- dependenices (see Arbitrary ChainState)
+instance Arbitrary ChainStateAt where
+  arbitrary = do
+    ctx <- arbitrary
+    pure $
+      ChainStateAt
+        { currentChainState = Idle $ IdleState{ctx}
+        , recordedAt = AtStart
+        }
 
 -- | Records when a state was seen on-chain. 'AtStart' is used for states that
 -- simply exist out of any chain events (e.g. the 'Idle' state).
 data RecordedAt
   = AtStart
   | AtPoint ChainPoint ChainStateAt
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 -- | A /handler/ that takes care of following the chain.
 data ChainSyncHandler m = ChainSyncHandler
@@ -206,9 +218,11 @@ chainSyncHandler ::
   TVar m ChainStateAt ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
+  -- | A handle to save chain state
+  Persistence ChainStateAt m ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback headState getTimeHandle =
+chainSyncHandler tracer callback headState getTimeHandle Persistence{save} =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -245,6 +259,7 @@ chainSyncHandler tracer callback headState getTimeHandle =
           { onChainTxs
           , receivedTxs = map getTxId receivedTxs
           }
+    readTVarIO headState >>= save
     mapM_ (callback . Observation) onChainTxs
 
   withNextTx :: ChainPoint -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
@@ -360,6 +375,8 @@ data DirectChainLog
   | RolledForward {point :: SomePoint}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
+  | CreatedState
+  | LoadedState
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 

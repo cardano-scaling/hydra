@@ -77,6 +77,7 @@ library
     Hydra.Cardano.Api
     Hydra.Cardano.Api.Address
     Hydra.Cardano.Api.AddressInEra
+    Hydra.Cardano.Api.ChainPoint
     Hydra.Cardano.Api.CtxTx
     Hydra.Cardano.Api.CtxUTxO
     Hydra.Cardano.Api.ExecutionUnits
@@ -85,6 +86,7 @@ library
     Hydra.Cardano.Api.Lovelace
     Hydra.Cardano.Api.MultiAssetSupportedInEra
     Hydra.Cardano.Api.Network
+    Hydra.Cardano.Api.NetworkId
     Hydra.Cardano.Api.PlutusScript
     Hydra.Cardano.Api.PlutusScriptVersion
     Hydra.Cardano.Api.Point
@@ -111,6 +113,7 @@ library
     Hydra.Cardano.Api.UTxO
     Hydra.Cardano.Api.ValidityInterval
     Hydra.Cardano.Api.Value
+    Hydra.Cardano.Api.VerificationKey
     Hydra.Cardano.Api.Witness
 
   build-depends:
