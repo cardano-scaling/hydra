@@ -340,7 +340,7 @@ cardanoVerificationKeyFileParser =
         <> metavar "FILE"
         <> help
           "Cardano verification key of another party in the Head. Can be \
-          \provided multiple times, once for each participant."
+          \provided multiple times, once for each participant (current maximum limit is 4)."
     )
 
 hydraSigningKeyFileParser :: Parser FilePath
@@ -362,7 +362,7 @@ hydraVerificationKeyFileParser =
         <> metavar "FILE"
         <> help
           "Hydra verification key of another party in the Head. Can be \
-          \provided multiple times, once for each participant."
+          \provided multiple times, once for each participant (current maximum limit is 4)."
     )
 
 peerParser :: Parser Host
@@ -374,7 +374,7 @@ peerParser =
         <> help
           "A peer address in the form <host>:<port>, where <host> can be an IP \
           \address, or a host name. Can be provided multiple times, once for \
-          \each peer node."
+          \each peer (current maximum limit is 4 peers)."
     )
 
 nodeIdParser :: Parser NodeId
