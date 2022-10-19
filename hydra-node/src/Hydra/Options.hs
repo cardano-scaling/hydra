@@ -540,12 +540,15 @@ instance Exception CannotStartHydraNode
 -- | Validate cmd line arguments for hydra-node
 -- and check if they make sense before actually running the node.
 validateRunOptions :: MonadThrow m => RunOptions -> m ()
-validateRunOptions RunOptions{peers, hydraVerificationKeys} = do
-  let numberOfPeers = 4
-  when (length peers > numberOfPeers) $
-    throwIO $ CannotStartHydraNode $ "Maximum number of peers is currently " <> show numberOfPeers <> "."
-  when (length peers /= length hydraVerificationKeys) $
-    throwIO $ CannotStartHydraNode "Number of loaded cardano and hydra keys needs to match."
+validateRunOptions RunOptions{peers, hydraVerificationKeys, chainConfig} = do
+  let rightNumberOfPeers = 4
+      peerLength = length peers
+  when (peerLength > rightNumberOfPeers) $
+    throwIO $ CannotStartHydraNode $ "Maximum number of peers is currently " <> show rightNumberOfPeers <> "."
+  when (peerLength /= length hydraVerificationKeys) $
+    throwIO $ CannotStartHydraNode "Number of loaded hydra keys needs to match the peer number."
+  when (peerLength /= length (cardanoVerificationKeys chainConfig)) $
+    throwIO $ CannotStartHydraNode "Number of loaded cardano keys needs to match the peer number."
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraCommand :: IO Command

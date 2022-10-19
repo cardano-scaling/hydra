@@ -33,14 +33,17 @@ spec = parallel $
       let wrongNumberOfPeers = (\a -> Host (show a) a) <$> [1 .. 5]
       validateRunOptions (defaultRunOptions{peers = wrongNumberOfPeers})
         `shouldThrow` (== CannotStartHydraNode "Maximum number of peers is currently 4.")
-    it "validateRunOptions: loaded cardano and hydra keys length needs to match" $ do
+    it "validateRunOptions: loaded hydra keys length needs to match the peers" $ do
       let simulatedKeys = replicate 10 ['a' .. 'z']
-          -- use 5 hydra keys and 6 cardano keys to trigger the error
           hydraKeys = take 5 simulatedKeys
+      validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys})
+        `shouldThrow` (== CannotStartHydraNode "Number of loaded hydra keys needs to match the peer number.")
+    it "validateRunOptions: loaded cardano keys length needs to match the peers" $ do
+      let simulatedKeys = replicate 10 ['a' .. 'z']
           cardanoKeys = take 6 simulatedKeys
           chainCfg = (chainConfig defaultRunOptions){cardanoVerificationKeys = cardanoKeys}
-      validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
-        `shouldThrow` (== CannotStartHydraNode "Number of loaded cardano and hydra keys needs to match.")
+      validateRunOptions (defaultRunOptions{chainConfig = chainCfg})
+        `shouldThrow` (== CannotStartHydraNode "Number of loaded cardano keys needs to match the peer number.")
 
     it "parses with default node-id set" $
       setFlags [] `shouldParse` Run defaultRunOptions
