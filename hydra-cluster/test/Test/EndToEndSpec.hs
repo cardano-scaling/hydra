@@ -10,7 +10,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Lens ((^?))
-import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
+import Data.Aeson (Result (..), Value (Null, Number, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _JSON)
 import qualified Data.ByteString as BS
@@ -313,11 +313,27 @@ spec = around showLogsOnFailure $ do
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_events" `BS.isInfixOf`)
 
-    describe "hydra-node executable" $
+    describe "hydra-node executable" $ do
       it "display proper semantic version given it is passed --version argument" $ \_ ->
         failAfter 5 $ do
           version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
+      fit "logs it's command line arguments" $ \tracer ->
+        failAfter 5 $ do
+          withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
+              aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
+
+              let cardanoKeys = [aliceKeys]
+                  hydraKeys = [aliceSk]
+
+              let firstNodeId = 0
+
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              withHydraCluster tracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
+                waitFor tracer 30 (toList nodes) $
+                  output "NodeStarted" []
+                True `shouldBe` True
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
