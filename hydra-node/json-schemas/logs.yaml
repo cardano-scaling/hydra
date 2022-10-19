@@ -481,15 +481,6 @@ definitions:
             The Party emitting the log entry.
         effect:
           $ref: "#/definitions/Effect"
-    - title: SavingState
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: [ "SavingState" ]
     - title: LoadedState
       type: object
       additionalProperties: false

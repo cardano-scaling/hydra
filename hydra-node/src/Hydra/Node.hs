@@ -98,7 +98,6 @@ data HydraNodeLog tx
   | EndEvent {by :: Party, event :: Event tx}
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
-  | SavingState
   | LoadedState
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -158,7 +157,6 @@ stepHydraNode tracer node = do
     Error err -> traceWith tracer (ErrorHandlingEvent party e err)
     Wait _reason -> putEventAfter eq 0.1 (decreaseTTL e) >> traceWith tracer (EndEvent party e)
     NewState s effs -> do
-      traceWith tracer SavingState
       save s
       forM_ effs (processEffect node tracer)
       traceWith tracer (EndEvent party e)
