@@ -47,5 +47,11 @@ for member in $MEMBERS; do
 EOF
 
     hydraVK=$(echo $MEMBER_JSON | jq '.["hydra-vk"]')
-    echo $hydraVK | tr -d '"' | base64 -d > ./$DIR/$member.hydra.vk
+    cat << EOF >./$DIR/$member.hydra.vk
+{
+    "type": "HydraVerificationKey_ed25519",
+    "description": "",
+    "cborHex": $hydraVK
+}
+EOF
 done
