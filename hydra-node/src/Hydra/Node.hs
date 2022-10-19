@@ -295,7 +295,7 @@ createPersistence _ fp = do
           liftIO (doesFileExist fp) >>= \case
             False -> pure Nothing
             True -> do
-              bs <- toStrict <$> readFileLBS fp
+              bs <- readFileBS fp
               -- XXX: This is weird and smelly
               if BS.null bs
                 then pure Nothing
