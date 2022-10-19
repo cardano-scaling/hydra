@@ -406,7 +406,8 @@ hostParser =
     auto
     ( long "host"
         <> short 'h'
-        <> value "0.0.0.0"
+        -- XXX: This is default does not make sense, should use 0.0.0.0.
+        <> value "127.0.0.1"
         <> showDefault
         <> metavar "IP"
         <> help "Listen address for incoming Hydra network connections."
