@@ -20,23 +20,106 @@ Cardanoノードの実行には、コンテナや[公式Dockerイメージ](http
 
 ## Hydra-nodeのオプション...
 
-現在`hydra-node` コマンドラインはノードを起動するための単一のコマンドのみを提供しています。設定全体はコマンドラインオプションで提供され、完全に静的です。オプションは様々な要素を設定するために使用され、以下のようにまとめることができます (ただし、これらのオプションのリファレンスドキュメントは `--help` フラグの下に用意されていることに注意してください)。
+`hydra-node` の構成全体は、コマンドライン オプションを使用して提供されます。 オプションは、ネットワーク、API、チェーン接続、および使用される台帳のさまざまな要素を構成するために使用されます。 `--help` オプションを使用して、すべてのオプションの説明を取得できます。
 
-オプション                                                 | 概要
----                                                     | ---
-`--node-id`                                             | Hydraノードの識別子で、Headネットワーク内の識別子として機能します。
-`--peer`                                                | Hydraネットワークのピアのアドレス。各ピアごとに複数回指定する必要があります。
-`--host` <br/> `--port`                                 | このHydraノードのホストとポート。Hydraネットワークからのピア接続先
-`--node-socket`                                         | CardanoノードのIPCソケットのファイルパス。ノードとのプロセス間通信に使用されます。
-`--ledger-genesis` <br/> `--ledger-protocol-parameters` | ハイドラ台帳のルールとヘッドのパラメータ。
-`--hydra-signing-key` <br/> `--cardano-signing-key` <br/> `--hydra-verification-key` <br/> `--cardano-verification-key` | CardanoとHydraの認証情報。 これらのオプションは、ピアの数に応じて複数回指定される場合もあります。
+```
+hydra-node - A prototype of Hydra Head protocol
 
-任意オプション:
+Usage: hydra-node ([-q|--quiet] (-n|--node-id NODE-ID) [-h|--host IP] 
+                    [-p|--port PORT] [-P|--peer ARG] [--api-host IP] 
+                    [--api-port PORT] [--monitoring-port PORT] 
+                    [--hydra-signing-key FILE] [--hydra-verification-key FILE]
+                    --hydra-scripts-tx-id TXID [--persistence-dir DIR] 
+                    [--network-id INTEGER] [--node-socket FILE] 
+                    [--cardano-signing-key FILE] 
+                    [--cardano-verification-key FILE] 
+                    [--start-chain-from SLOT.HEADER_HASH] 
+                    [--ledger-genesis FILE] 
+                    [--ledger-protocol-parameters FILE] |
+                    COMMAND) [--version] [--script-info]
 
-オプション                        | 概要
----                             | ---
-`--api-host` <br/> `--api-port` | [WebSocket API](/api-reference)と対話するためのHydra API のホストとポート。
-`--monitoring-port`             | Prometheusによるモニタリングとメトリクスのためのポート。空白の場合、監視サーバは起動しません。
+  Starts a Hydra Node
+
+Available options:
+  -q,--quiet               Turns off logging.
+  -n,--node-id NODE-ID     The Hydra node identifier used on the Hydra network.
+                           It is important to have a unique identifier in order
+                           to be able distinguish between connected peers.
+  -h,--host IP             Listen address for incoming Hydra network
+                           connections. (default: 0.0.0.0)
+  -p,--port PORT           Listen port for incoming Hydra network connections.
+                           (default: 5001)
+  -P,--peer ARG            A peer address in the form <host>:<port>, where
+                           <host> can be an IP address, or a host name. Can be
+                           provided multiple times, once for each peer node.
+  --api-host IP            Listen address for incoming client API connections.
+                           (default: 127.0.0.1)
+  --api-port PORT          Listen port for incoming client API connections.
+                           (default: 4001)
+  --monitoring-port PORT   Listen port for monitoring and metrics via
+                           prometheus. If left empty, monitoring server is not
+                           started.
+  --hydra-signing-key FILE Hydra signing key used by our hydra-node.
+                           (default: "hydra.sk")
+  --hydra-verification-key FILE
+                           Hydra verification key of another party in the Head.
+                           Can be provided multiple times, once for each
+                           participant.
+  --hydra-scripts-tx-id TXID
+                           The transaction which is expected to have published
+                           Hydra scripts as reference scripts in its outputs.
+                           Note: All scripts need to be in the first 10 outputs.
+                           See release notes for pre-published versions. You can
+                           use the 'publish-scripts' sub-command to publish them
+                           yourself.
+  --persistence-dir DIR    The directory where the Hydra Head state is stored.Do
+                           not edit these files manually!
+  --network-id INTEGER     Network identifier for a testnet to connect to. We
+                           only need to provide the magic number here. For
+                           example: '2' is the 'preview' network. See
+                           https://book.world.dev.cardano.org/environments.html
+                           for available networks. (default: 42)
+  --node-socket FILE       Filepath to local unix domain socket used to
+                           communicate with the cardano node.
+                           (default: "node.socket")
+  --cardano-signing-key FILE
+                           Cardano signing key of our hydra-node. This will be
+                           used to 'fuel' and sign Hydra protocol transactions,
+                           as well as commit UTxOs from. (default: "cardano.sk")
+  --cardano-verification-key FILE
+                           Cardano verification key of another party in the
+                           Head. Can be provided multiple times, once for each
+                           participant.
+  --start-chain-from SLOT.HEADER_HASH
+                           The id of the block we want to start observing the
+                           chain from. If not given, uses the chain tip at
+                           startup. Composed by the slot number, a separator
+                           ('.') and the hash of the block header. For example:
+                           52970883.d36a9936ae7a07f5f4bdc9ad0b23761cb7b14f35007e54947e27a1510f897f04.
+  --ledger-genesis FILE    Path to a Shelley-compatible genesis JSON file used
+                           for the Hydra ledger. You can use the corresponding
+                           Cardano network's shelley genesis file from:
+                           https://book.world.dev.cardano.org/environments.html
+                           (default: "genesis-shelley.json")
+  --ledger-protocol-parameters FILE
+                           Path to protocol parameters used in the Hydra Head.
+                           See manual how to configure this.
+                           (default: "protocol-parameters.json")
+  --version                Show version
+  --script-info            Dump script info as JSON
+  -h,--help                Show this help text
+
+Available commands:
+  publish-scripts          Publish Hydra's Plutus scripts on chain to be used
+                           by the hydra-node as --hydra-script-tx-id.
+                           
+                            ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ 
+                            ┃              ⚠ WARNING ⚠              ┃ 
+                            ┣═══════════════════════════════════════┫ 
+                            ┃    This costs money. About 50 Ada.    ┃ 
+                            ┃ Spent using the provided signing key. ┃ 
+                            ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ 
+```
 
 :::info  Dynamic Configuration
 

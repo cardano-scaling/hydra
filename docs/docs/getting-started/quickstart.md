@@ -20,7 +20,7 @@ This image contains both `cardano-node` and `cardano-cli`. The latter is handy t
 
 ## Hydra-node options...
 
-The entire configuration of the `hydra-node` is provided through command-line options. Options are used to configured various elements of the network, API, chain connection and used ledger. You can use the `--help` option to get a description of all options:
+The entire configuration of the `hydra-node` is provided through command-line options. Options are used to configure various elements of the network, API, chain connection and used ledger. You can use the `--help` option to get a description of all options:
 
 ```
 hydra-node - A prototype of Hydra Head protocol
