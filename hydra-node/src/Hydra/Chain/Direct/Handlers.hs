@@ -375,6 +375,7 @@ data DirectChainLog
   | RolledForward {point :: SomePoint}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
+  | CreatedState
   | LoadedState
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON)

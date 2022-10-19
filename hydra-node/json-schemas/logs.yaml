@@ -317,6 +317,26 @@ definitions:
         contents:
           $ref: "#/definitions/Wallet"
 
+    - title: CreatedState
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      properties:
+        tag:
+          type: string
+          enum: [ "CreatedState" ]
+
+    - title: LoadedState
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      properties:
+        tag:
+          type: string
+          enum: [ "LoadedState" ]
+
   Wallet:
     oneOf:
     - title: InitializingWallet
@@ -481,6 +501,15 @@ definitions:
             The Party emitting the log entry.
         effect:
           $ref: "#/definitions/Effect"
+    - title: CreatedState
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      properties:
+        tag:
+          type: string
+          enum: [ "CreatedState" ]
     - title: LoadedState
       type: object
       additionalProperties: false

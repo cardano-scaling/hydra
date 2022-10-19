@@ -183,14 +183,16 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoin
           }
   cs <-
     load persistence >>= \case
-      Nothing ->
+      Nothing -> do
+        traceWith tracer CreatedState
         pure $
           ChainStateAt
             { currentChainState = Idle IdleState{ctx}
             , recordedAt = AtStart
             }
-      Just a ->
-        traceWith tracer LoadedState >> pure a
+      Just a -> do
+        traceWith tracer LoadedState
+        pure a
   headState <- newTVarIO cs
   let chainHandle =
         mkChain
