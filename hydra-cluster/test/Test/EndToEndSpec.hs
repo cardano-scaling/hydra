@@ -331,8 +331,8 @@ spec = around showLogsOnFailure $ do
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               withHydraCluster tracer tmpDir nodeSocket clusterIx cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
                 waitForNodesConnected tracer (toList nodes)
-                waitFor tracer 1 (toList nodes) $
-                  output "RunOptions" ["contents" .= Number 0]
+                waitFor tracer 30 (toList nodes) $
+                  output "NodeOptions" ["contents" .= Number 0]
                 True `shouldBe` True
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
