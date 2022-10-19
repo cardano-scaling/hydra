@@ -322,17 +322,17 @@ spec = around showLogsOnFailure $ do
         failAfter 5 $ do
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
-              aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
-
-              let cardanoKeys = [aliceKeys]
+              let clusterIx = 0
+              aliceKeys <- generate genKeyPair
+              let aliceSk = generateSigningKey ("alice-" <> show clusterIx)
+                  cardanoKeys = [aliceKeys]
                   hydraKeys = [aliceSk]
 
-              let firstNodeId = 0
-
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              withHydraCluster tracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
-                waitFor tracer 30 (toList nodes) $
-                  output "NodeStarted" []
+              withHydraCluster tracer tmpDir nodeSocket clusterIx cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
+                waitForNodesConnected tracer (toList nodes)
+                waitFor tracer 1 (toList nodes) $
+                  output "RunOptions" ["contents" .= Number 0]
                 True `shouldBe` True
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()

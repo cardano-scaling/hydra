@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hydra.Options (
   module Hydra.Options,
   ParserResult (..),
@@ -124,6 +126,9 @@ publishOptionsParser =
     <*> nodeSocketParser
     <*> cardanoSigningKeyFileParser
 
+deriving instance ToJSON IP
+deriving instance FromJSON IP
+
 data RunOptions = RunOptions
   { verbosity :: Verbosity
   , nodeId :: NodeId
@@ -141,7 +146,7 @@ data RunOptions = RunOptions
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance Arbitrary RunOptions where
   arbitrary = do
@@ -199,7 +204,7 @@ data LedgerConfig = CardanoLedgerConfig
   { cardanoLedgerGenesisFile :: FilePath
   , cardanoLedgerProtocolParametersFile :: FilePath
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 defaultLedgerConfig :: LedgerConfig
 defaultLedgerConfig =
@@ -252,7 +257,7 @@ data ChainConfig = DirectChainConfig
   , cardanoVerificationKeys :: [FilePath]
   , startChainFrom :: Maybe ChainPoint
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 defaultChainConfig :: ChainConfig
 defaultChainConfig =

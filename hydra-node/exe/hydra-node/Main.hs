@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 module Main where
 
@@ -29,6 +30,7 @@ import Hydra.Network.Heartbeat (withHeartbeat)
 import Hydra.Network.Ouroboros (withIOManager, withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
+  HydraNodeLog (Options),
   Persistence,
   createEventQueue,
   createHydraNode,
@@ -63,6 +65,7 @@ main = do
     env@Environment{party} <- initEnvironment opts
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
+        -- void $ traceWith tracer (Options opts)
         eq <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         persistChainState <- createPersistence Proxy $ persistenceDir <> "/chainstate"
