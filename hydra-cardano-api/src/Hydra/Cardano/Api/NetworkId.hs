@@ -23,4 +23,4 @@ instance FromJSON NetworkId where
     case tag :: Text of
       "Mainnet" -> pure Mainnet
       "Testnet" -> Testnet . NetworkMagic <$> o .: "magic"
-      _ -> fail "Expected tag to be Mainnet | Tesnet"
+      _ -> fail "Expected tag to be Mainnet | Testnet"
