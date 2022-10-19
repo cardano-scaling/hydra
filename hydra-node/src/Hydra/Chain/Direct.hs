@@ -189,9 +189,8 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoin
             { currentChainState = Idle IdleState{ctx}
             , recordedAt = AtStart
             }
-      Just a -> do
-        traceWith tracer $ LoadedState a
-        pure a
+      Just a ->
+        traceWith tracer LoadedState >> pure a
   headState <- newTVarIO cs
   let chainHandle =
         mkChain

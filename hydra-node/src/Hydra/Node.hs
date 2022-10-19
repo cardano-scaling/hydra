@@ -99,7 +99,7 @@ data HydraNodeLog tx
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
   | SavingState
-  | LoadedState {state :: HeadState tx}
+  | LoadedState
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -122,7 +122,7 @@ createHydraNode tracer eq hn ledger oc server env persistence = do
   hs <-
     load persistence >>= \case
       Nothing -> pure IdleState
-      Just a -> traceWith tracer (LoadedState a) >> pure a
+      Just a -> traceWith tracer LoadedState >> pure a
   hh <- createHydraHead hs ledger
   pure HydraNode{eq, hn, hh, oc, server, env, persistence}
 

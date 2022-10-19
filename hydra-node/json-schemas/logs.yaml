@@ -495,13 +495,10 @@ definitions:
       additionalProperties: false
       required:
       - tag
-      - state
       properties:
         tag:
           type: string
           enum: [ "LoadedState" ]
-        state:
-          $ref: "#/definitions/HeadState"
 
   LogicError:
     oneOf:
