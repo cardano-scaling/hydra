@@ -8,15 +8,16 @@ import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Options (
-  CannotStartHydraNode (..),
   ChainConfig (..),
   Command (..),
+  InvalidOptions (..),
   LedgerConfig (..),
   ParserResult (..),
   PublishOptions (..),
   RunOptions (..),
   defaultChainConfig,
   defaultLedgerConfig,
+  maximumNumberOfParties,
   parseHydraCommandFromArgs,
   toArgs,
   validateRunOptions,
@@ -28,22 +29,20 @@ spec = parallel $
   describe "Hydra Node RunOptions" $ do
     -- NOTE: --node-id flag needs to be set so we set a default here
     let setFlags a = ["--node-id", "node-id-1"] <> a
-    it "validateRunOptions: using more than 4 peers should error out" $ do
-      -- use 5 peers to see the error happening
-      let wrongNumberOfPeers = (\a -> Host (show a) a) <$> [1 .. 5]
-      validateRunOptions (defaultRunOptions{peers = wrongNumberOfPeers})
-        `shouldThrow` (== CannotStartHydraNode "Maximum number of peers is currently 4.")
-    it "validateRunOptions: loaded hydra keys length needs to match the peers" $ do
-      let simulatedKeys = replicate 10 ['a' .. 'z']
-          hydraKeys = take 5 simulatedKeys
-      validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys})
-        `shouldThrow` (== CannotStartHydraNode "Number of loaded hydra keys needs to match the peer number.")
-    it "validateRunOptions: loaded cardano keys length needs to match the peers" $ do
+    it ("validateRunOptions: using more than " <> show (maximumNumberOfParties + 1) <> " parties should error out") $ do
       let simulatedKeys = replicate 10 ['a' .. 'z']
           cardanoKeys = take 6 simulatedKeys
+          hydraKeys = take 5 simulatedKeys
           chainCfg = (chainConfig defaultRunOptions){cardanoVerificationKeys = cardanoKeys}
-      validateRunOptions (defaultRunOptions{chainConfig = chainCfg})
-        `shouldThrow` (== CannotStartHydraNode "Number of loaded cardano keys needs to match the peer number.")
+      validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
+        `shouldBe` Left MaximumNumberOfPartiesExceeded
+    it "validateRunOptions: loaded cardano keys needs to match with the hydra keys length" $ do
+      let simulatedKeys = replicate 10 ['a' .. 'z']
+          hydraKeys = take 5 simulatedKeys
+          cardanoKeys = take 4 simulatedKeys
+          chainCfg = (chainConfig defaultRunOptions){cardanoVerificationKeys = cardanoKeys}
+      validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
+        `shouldBe` Left CardanoAndHydraKeysMissmatch
 
     it "parses with default node-id set" $
       setFlags [] `shouldParse` Run defaultRunOptions

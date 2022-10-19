@@ -42,6 +42,7 @@ import Hydra.Options (
   LedgerConfig (..),
   PublishOptions (..),
   RunOptions (..),
+  explain,
   parseHydraCommand,
   validateRunOptions,
  )
@@ -52,7 +53,7 @@ main = do
   command <- parseHydraCommand
   case command of
     Run options -> do
-      validateRunOptions options
+      either (die . explain) pure $ validateRunOptions options
       run (identifyNode options)
     Publish options ->
       publish options

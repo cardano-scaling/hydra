@@ -534,21 +534,37 @@ hydraNodeCommand =
       (decodeUtf8 $ encodePretty Contract.scriptInfo)
       (long "script-info" <> help "Dump script info as JSON")
 
-newtype CannotStartHydraNode = CannotStartHydraNode Text deriving (Eq, Show)
-instance Exception CannotStartHydraNode
+data InvalidOptions
+  = MaximumNumberOfPartiesExceeded
+  | CardanoAndHydraKeysMissmatch
+  deriving (Eq, Show)
 
--- | Validate cmd line arguments for hydra-node
--- and check if they make sense before actually running the node.
-validateRunOptions :: MonadThrow m => RunOptions -> m ()
-validateRunOptions RunOptions{peers, hydraVerificationKeys, chainConfig} = do
-  let rightNumberOfPeers = 4
-      peerLength = length peers
-  when (peerLength > rightNumberOfPeers) $
-    throwIO $ CannotStartHydraNode $ "Maximum number of peers is currently " <> show rightNumberOfPeers <> "."
-  when (peerLength /= length hydraVerificationKeys) $
-    throwIO $ CannotStartHydraNode "Number of loaded hydra keys needs to match the peer number."
-  when (peerLength /= length (cardanoVerificationKeys chainConfig)) $
-    throwIO $ CannotStartHydraNode "Number of loaded cardano keys needs to match the peer number."
+-- | Hardcoded limit for maximum number of parties in a head protocol
+-- NB: we don't count our own node here so need to do + 1 at the call site
+maximumNumberOfParties :: Int
+maximumNumberOfParties = 4
+
+explain :: InvalidOptions -> String
+explain = \case
+  MaximumNumberOfPartiesExceeded -> "Maximum number of parties is currently set to: " <> show maximumNumberOfParties
+  CardanoAndHydraKeysMissmatch -> "Number of loaded cardano and hydra keys needs to match"
+
+-- | Validate cmd line arguments for hydra-node and check if they make sense before actually running the node.
+-- Rules we apply:
+--  - Check if number of parties is bigger than our hardcoded limit
+--      (by looking at loaded hydra or cardano keys and comparing it to the 'maximumNumberOfParties')
+--  - Check that number of loaded hydra keys match with the number of loaded cardano keys
+--      (by comparing lengths of the two lists)
+validateRunOptions :: RunOptions -> Either InvalidOptions ()
+validateRunOptions RunOptions{hydraVerificationKeys, chainConfig}
+  | numberOfParties > maximumNumberOfParties + 1 = Left MaximumNumberOfPartiesExceeded
+  | length (cardanoVerificationKeys chainConfig) /= length hydraVerificationKeys =
+    Left CardanoAndHydraKeysMissmatch
+  | otherwise = Right ()
+ where
+  -- let's take the higher number of loaded cardano/hydra keys
+  numberOfParties =
+    max (length hydraVerificationKeys) (length $ cardanoVerificationKeys chainConfig)
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraCommand :: IO Command
