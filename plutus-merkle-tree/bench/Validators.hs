@@ -8,7 +8,7 @@ import PlutusTx.Prelude
 
 import Plutus.MerkleTree (member)
 import qualified Plutus.MerkleTree as MT
-import Plutus.V1.Ledger.Api (ScriptContext, Validator, mkValidatorScript)
+import Plutus.V2.Ledger.Api (ScriptContext, Validator, mkValidatorScript)
 import PlutusTx (UnsafeFromData (..))
 import qualified PlutusTx as Plutus
 
