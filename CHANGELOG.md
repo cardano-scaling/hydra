@@ -44,6 +44,7 @@ changes.
   + Output the marker datum hash
 
 - Added some sample Terraform-based configuration files to spin up GCP and AWS Hydra node
+- Log hydra-node command line arguments on start for easier debugging
 
 #### Fixed
 
