@@ -13,7 +13,7 @@ import Test.QuickCheck (generate)
 
 spec :: Spec
 spec =
-  describe "seed from faucet" $
+  describe "seedFromFaucet" $
     it "should work concurrently" $
       showLogsOnFailure $ \tracer ->
         failAfter 30 $
