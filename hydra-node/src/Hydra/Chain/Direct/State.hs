@@ -8,7 +8,7 @@ import Hydra.Prelude hiding (init)
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
-import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
+import Hydra.Chain (ChainStateType, HeadId (..), HeadParameters, IsChainState, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
@@ -77,6 +77,12 @@ data ChainState
   | Open OpenState
   | Closed ClosedState
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+-- | The chain state type for Cardano 'Tx' is 'ChainState'.
+type instance ChainStateType Tx = ChainState
+
+-- TODO: implement
+instance IsChainState ChainState
 
 instance HasKnownUTxO ChainState where
   getKnownUTxO :: ChainState -> UTxO

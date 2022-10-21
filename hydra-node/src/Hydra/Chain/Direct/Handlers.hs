@@ -71,9 +71,6 @@ import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
--- | The chain state type for Cardano 'Tx' is 'ChainState'.
-type instance ChainStateType Tx = ChainState
-
 -- * Posting Transactions
 
 -- | A callback used to actually submit a transaction to the chain.
@@ -86,22 +83,20 @@ type GetTimeHandle m = m TimeHandle
 --
 -- This component does not actually interact with a cardano-node, but creates
 -- cardano transactions from `PostChainTx` transactions emitted by a
--- `HydraNode`, balancing them using given `TinyWallet`, while maintaining some
--- state in the `headState` variable and before handing it off to the given
--- 'SubmitTx' callback.
+-- `HydraNode`, balancing and signing them using given `TinyWallet`, before
+-- handing it off to the given 'SubmitTx' callback.
 --
 -- NOTE: Given the constraints on `m` this function should work within `IOSim` and does not
--- require any actual `IO`  to happen which makes it highly suitable for simulations and testing.
+-- require any actual `IO` to happen which makes it highly suitable for simulations and testing.
 mkChain ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
   TinyWallet m ->
-  TVar m ChainStateAt ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet headState submitTx =
+mkChain tracer queryTimeHandle wallet submitTx =
   Chain
     { postTx = \chainState tx -> do
         traceWith tracer $ ToPost{toPost = tx}
@@ -119,7 +114,7 @@ mkChain tracer queryTimeHandle wallet headState submitTx =
               -- to bootstrap the init transaction. For now, we bear with it and
               -- keep the static keys in context.
               fromPostChainTx timeHandle wallet chainState tx
-                >>= finalizeTx wallet headState . toLedgerTx
+                >>= finalizeTx wallet chainState . toLedgerTx
             )
         submitTx vtx
     }
@@ -128,12 +123,11 @@ mkChain tracer queryTimeHandle wallet headState submitTx =
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
-  TVar m ChainStateAt ->
+  ChainStateType Tx ->
   ValidatedTx LedgerEra ->
   STM m (ValidatedTx LedgerEra)
-finalizeTx TinyWallet{sign, coverFee} headState partialTx = do
-  someSt <- currentChainState <$> readTVar headState
-  let headUTxO = getKnownUTxO someSt
+finalizeTx TinyWallet{sign, coverFee} chainState partialTx = do
+  let headUTxO = getKnownUTxO chainState
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
       throwIO (NotEnoughFuel :: PostTxError Tx)

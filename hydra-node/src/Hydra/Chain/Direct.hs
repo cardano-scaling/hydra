@@ -29,7 +29,6 @@ import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (
   newEmptyTMVar,
   newTQueueIO,
-  newTVarIO,
   putTMVar,
   readTQueue,
   takeTMVar,
@@ -58,6 +57,7 @@ import Hydra.Cardano.Api (
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain (
   ChainComponent,
+  ChainStateType,
   PostTxError (..),
  )
 import Hydra.Chain.CardanoClient (
@@ -69,10 +69,8 @@ import Hydra.Chain.CardanoClient (
   queryUTxO,
  )
 import Hydra.Chain.Direct.Handlers (
-  ChainStateAt (..),
   ChainSyncHandler,
   DirectChainLog (..),
-  RecordedAt (..),
   chainSyncHandler,
   mkChain,
   onRollBackward,
@@ -97,7 +95,6 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node (Persistence (load))
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (
   GenTx (..),
@@ -142,6 +139,36 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
  )
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
+-- | Create the initial state of the direct chain layer. This will query for the
+-- hydra scripts and initialize a 'ChainContext'.
+-- XXX: It's a bit weird that this needs to be in the 'ChainState'
+initialChainState ::
+  -- | Network identifer to which we expect to connect.
+  NetworkId ->
+  -- | Path to a domain socket used to connect to the server.
+  FilePath ->
+  -- | Transaction id at which to look for Hydra scripts.
+  TxId ->
+  -- | Hydra party of our hydra node.
+  Party ->
+  -- | Public key of the internal wallet.
+  VerificationKey PaymentKey ->
+  -- | Cardano keys of all Head participants (including our key pair).
+  [VerificationKey PaymentKey] ->
+  IO (ChainStateType Tx)
+initialChainState networkId socketPath hydraScriptsTxId party vk cardanoKeys = do
+  scriptRegistry <- queryScriptRegistry networkId socketPath hydraScriptsTxId
+  let ctx =
+        ChainContext
+          { networkId
+          , peerVerificationKeys = cardanoKeys \\ [vk]
+          , ownVerificationKey = vk
+          , ownParty = party
+          , scriptRegistry
+          }
+  pure $
+    Idle IdleState{ctx}
+
 withDirectChain ::
   -- | Tracer for logging
   Tracer IO DirectChainLog ->
@@ -153,53 +180,21 @@ withDirectChain ::
   FilePath ->
   -- | Key pair for the wallet.
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
-  -- | Hydra party of our hydra node.
-  Party ->
-  -- | Cardano keys of all Head participants (including our key pair).
-  [VerificationKey PaymentKey] ->
   -- | Point at which to start following the chain.
   Maybe ChainPoint ->
-  -- | Transaction id at which Hydra scripts should be published.
-  TxId ->
-  -- | Persistence handle to load/save chain state
-  Persistence ChainStateAt IO ->
   ChainComponent Tx IO a
-withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoint hydraScriptsTxId persistence callback action = do
+withDirectChain tracer networkId iocp socketPath keyPair mpoint callback action = do
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- case mpoint of
     Nothing -> queryTip networkId socketPath
     Just point -> pure point
   wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair chainPoint queryUTxOEtc
-  let (vk, _) = keyPair
-  scriptRegistry <- queryScriptRegistry networkId socketPath hydraScriptsTxId
-  let ctx =
-        ChainContext
-          { networkId
-          , peerVerificationKeys = cardanoKeys \\ [vk]
-          , ownVerificationKey = vk
-          , ownParty = party
-          , scriptRegistry
-          }
-  cs <-
-    load persistence >>= \case
-      Nothing -> do
-        traceWith tracer CreatedState
-        pure $
-          ChainStateAt
-            { currentChainState = Idle IdleState{ctx}
-            , recordedAt = AtStart
-            }
-      Just a -> do
-        traceWith tracer LoadedState
-        pure a
-  headState <- newTVarIO cs
   let chainHandle =
         mkChain
           tracer
           (queryTimeHandle networkId socketPath)
           wallet
-          headState
           (submitTx queue)
   let getTimeHandle = queryTimeHandle networkId socketPath
   res <-
