@@ -362,5 +362,5 @@ test-suite tests
     , websockets
     , yaml
 
-  build-tool-depends: hspec-discover:hspec-discover
+  build-tool-depends: hspec-discover:hspec-discover -any
   ghc-options:        -threaded -rtsopts
