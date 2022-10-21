@@ -205,7 +205,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoin
   res <-
     race
       ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback getTimeHandle persistence
+          let handler = chainSyncHandler tracer callback getTimeHandle
 
           let intersection = toConsensusPointHF <$> mpoint
           let client = ouroborosApplication tracer intersection queue handler wallet
