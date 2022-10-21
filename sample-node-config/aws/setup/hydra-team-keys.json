@@ -2,26 +2,26 @@
     "arnaud": {
         "peer": "35.233.17.169:5001",
         "cardano-vk": "5820ea295cfdd2914067994eeae8a7a32e9862180596bb88db85d9ee8f3b241f32d6",
-        "hydra-vk": "9hbFrOewdExHWUEAGD6ZQrK2qW0UhbD4ZPWqs0/YZTQ="
+        "hydra-vk": "5820286b3cbf98f62a4f9f3368dc7ddbc02001b2580ee5e3720cb7619e2492d1bb77"
     },
     "sebastian": {
         "peer": "fk.ncoding.at:5001",
         "cardano-vk": "5820b35c9fb66fe460e137e511282c8a3dbb4ed301f7132abefb0fe59966ceb72023",
-        "hydra-vk": "42roigR0bp3fnmqoPlDdHo3Ctv9oGIeJM33Kn9QbyM8="
+        "hydra-vk": "582043d8ac3fb8e39b355005ed546c8fc9cd80e4909cb254835513a542b1c9a2e3ad"
     },
     "franco": {
         "peer": "13.38.189.209:5001",
         "cardano-vk": "5820a5eaaf8b0d7cda349aae162428a419aa2ba128d11d5cf9b0dd9d6cd9b31d85b7",
-        "hydra-vk": "NPn52Au7ojb/Cya8SdX31DgmwtKtXZUJwPuQQkUwF3c="
+        "hydra-vk": "5820935df47d312772df391cc7a934702e13e9f4263c611cc275b93f76ec6d31d02c"
     },
     "pascal": {
         "peer": "13.39.80.222:5001",
         "cardano-vk": "582082300ea5e0ad5d9318999c3b8814347453648101aceef9fef8c09d8aeeca60ff",
-        "hydra-vk": "d9QPt7PgxQoWkJtlcWXI77J9gDdF7Fv/HlGzaasyMlk="
+        "hydra-vk": "5820737b232d388e9666af437440f4962eda30e42bfff826906145c1816249a91340"
     },
     "sasha": {
         "peer": "13.38.49.252:5001",
         "cardano-vk": "5820f4e4d4d2c478420c70b57d38c02514d73537bb58ec651885df45f95c1ea429fe",
-        "hydra-vk": "GKX9qKQlg9I/++se/S1Lk42Qj5no1kBJlgTw03VnHlI="
+        "hydra-vk": "5820a65dd1af5d938e394b05198b97870a33343d3dd2ec8feb8906a2cbbd2cc0ac96"
     }
 }
