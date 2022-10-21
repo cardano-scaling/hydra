@@ -149,6 +149,13 @@ deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (HeadState tx)
 deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (HeadState tx)
 deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
 
+getChainState :: HeadState tx -> ChainStateType tx
+getChainState hs = case hs of
+  IdleState{chainState} -> chainState
+  InitialState{chainState} -> chainState
+  OpenState{chainState} -> chainState
+  ClosedState{chainState} -> chainState
+
 type Committed tx = Map Party (UTxOType tx)
 
 -- | Off-chain state of the Coordinated Head protocol.

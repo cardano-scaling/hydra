@@ -6,12 +6,11 @@ import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (TxId, serialiseToRawBytesHex)
-import Hydra.Chain (Chain, ChainCallback)
-import Hydra.Chain.Direct (withDirectChain)
-import Hydra.Chain.Direct.Handlers (ChainStateAt)
+import Hydra.Chain (Chain, ChainCallback, ChainStateType)
+import Hydra.Chain.Direct (initialChainState, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair, readVerificationKey)
-import Hydra.HeadLogic (Environment (..), Event (..), defaultTTL)
+import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), defaultTTL, getChainState)
 import Hydra.Ledger.Cardano (Tx)
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
@@ -29,10 +28,10 @@ import Hydra.Network.Heartbeat (withHeartbeat)
 import Hydra.Network.Ouroboros (withIOManager, withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
-  HydraNodeLog (..),
-  Persistence,
+  NodeState (..),
   createEventQueue,
   createHydraNode,
+  createNodeState,
   createPersistence,
   initEnvironment,
   runHydraNode,
@@ -67,8 +66,9 @@ main = do
         traceWith (contramap Node tracer) (NodeOptions opts)
         eq <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
-        persistChainState <- createPersistence Proxy $ persistenceDir <> "/chainstate"
-        withChain tracer party (putEvent eq . OnChainEvent) hydraScriptsTxId persistChainState chainConfig $ \oc -> do
+        chainState <- prepareChainState chainConfig party hydraScriptsTxId
+        nodeState <- createNodeState IdleState{chainState}
+        withChain tracer chainConfig (chainCallback nodeState eq) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
@@ -76,9 +76,17 @@ main = do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig $ \ledger -> do
                 let tr = contramap Node tracer
-                persistHeadState <- createPersistence Proxy $ persistenceDir <> "/headstate"
-                node <- createHydraNode tr eq hn ledger oc server env persistHeadState
+                persistence <- createPersistence Proxy $ persistenceDir <> "/state"
+                node <- createHydraNode tr nodeState eq hn ledger chain server env persistence
                 runHydraNode tr node
+
+  chainCallback :: NodeState Tx IO -> EventQueue IO (Event Tx) -> ChainCallback Tx IO
+  chainCallback NodeState{queryHeadState} eq cont = do
+    st <- atomically $ queryHeadState
+    case cont $ getChainState st of
+      Nothing -> pure ()
+      Just chainEvent ->
+        putEvent eq $ OnChainEvent{chainEvent}
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
@@ -101,18 +109,28 @@ main = do
 
     action (Ledger.cardanoLedger globals ledgerEnv)
 
+-- TODO: DRY these two functions, i.e. keys are loaded twice
+
+prepareChainState ::
+  ChainConfig ->
+  Party ->
+  TxId ->
+  IO (ChainStateType Tx)
+prepareChainState config party hydraScriptsTxId = do
+  (vk, _) <- readKeyPair cardanoSigningKey
+  otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
+  initialChainState networkId nodeSocket hydraScriptsTxId party vk otherCardanoKeys
+ where
+  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} = config
+
 withChain ::
   Tracer IO (HydraLog Tx net) ->
-  Party ->
-  ChainCallback Tx IO ->
-  TxId ->
-  Persistence ChainStateAt IO ->
   ChainConfig ->
+  ChainCallback Tx IO ->
   (Chain Tx IO -> IO ()) ->
   IO ()
-withChain tracer party callback hydraScriptsTxId persistence config action = do
-  keyPair@(vk, _) <- readKeyPair cardanoSigningKey
-  otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
+withChain tracer config callback action = do
+  keyPair <- readKeyPair cardanoSigningKey
   withIOManager $ \iocp -> do
     withDirectChain
       (contramap DirectChain tracer)
@@ -120,15 +138,11 @@ withChain tracer party callback hydraScriptsTxId persistence config action = do
       iocp
       nodeSocket
       keyPair
-      party
-      (vk : otherCardanoKeys)
       startChainFrom
-      hydraScriptsTxId
-      persistence
       callback
       action
  where
-  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys, startChainFrom} = config
+  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, startChainFrom} = config
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
