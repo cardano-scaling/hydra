@@ -72,7 +72,6 @@ import Cardano.Api.Byron as X (
   Address (..),
  )
 import Cardano.Api.Shelley as X (
-  AcquireFailure (..),
   Address (..),
   Hash (HeaderHash),
   Key (..),
