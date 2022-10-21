@@ -1,4 +1,4 @@
--- Custom repository for cardano haskell packages, see CONTRIBUTING for more
+-- Custom repository for cardano haskell packages, see CONTRIBUTING.md
 repository cardano-haskell-packages
   url: https://input-output-hk.github.io/cardano-haskell-packages
   secure: True
@@ -10,8 +10,7 @@ repository cardano-haskell-packages
     c00aae8461a256275598500ea0e187588c35a5d5d7454fb57eac18d9edb86a56
     d4a35cd3121aa00d18544bb0ac01c3e1691d618f462c46129271bccf39f7e8ee
 
--- See CONTRIBUTING for information about these, including some Nix commands
--- you need to run if you change them
+-- See CONTRIBUTING.md for information about when and how to update these.
 index-state: 2022-10-21T00:00:00Z
 index-state: cardano-haskell-packages 2022-10-21T00:00:00Z
 
@@ -58,6 +57,8 @@ package hydra-test-utils
 -- Always show detailed output for tests
 test-show-details: direct
 
+-- TODO: These should be fixed upstream, try to remove them whenever upstream
+-- packages have updated their cabal files.
 constraints:
     hedgehog >= 1.0
   , bimap >= 0.4.0
@@ -67,7 +68,6 @@ constraints:
   , HSOpenSSL >= 0.11.7.2
   , algebraic-graphs < 0.7
   , protolude < 0.3.1
-    -- TODO: these should be set in cabal files, but avoiding setting them in lower dependencies for initial CHaP release
   , cardano-prelude == 0.1.0.0
   , base-deriving-via == 0.1.0.0
   , cardano-binary == 1.5.0

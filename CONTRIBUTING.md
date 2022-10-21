@@ -119,6 +119,42 @@ something merged we usually require:
 + Change is related to an issue, feature (idea) or bug report - ideally discussed beforehand
 + Well-scoped - we prefer multiple PRs, rather than a big one
 
+### Updating dependencies
+
+#### From Hackage
+
+Updating package dependencies from Hackage should work like normal in a Haskell
+project. The most important thing to note is that we pin the `index-state` of
+the Hackage package index in `cabal.project`. This means that cabal will always
+see Hackage “as if” it was that time, ensuring reproducibility. But it also
+means that if you need a package version that was released *after* that time,
+you need to bump the `index-state` (and to run ``cabal update`` locally).
+
+Because of how we use Nix to manage our Haskell build, whenever you do this you
+will also need to pull in the Nix equivalent of the newer `index-state`. You can
+do this by bumping the `haskellNix` to a newer tag in our `default.nix`.
+
+#### From Cardano Haskell Packages (CHaP)
+
+Many Cardano packages are not on Hackage and are instead in the [Cardano Haskell
+Packages (CHaP)](https://github.com/input-output-hk/cardano-haskell-packages) see the
+README for (lots) more information. Getting new packages from there works much
+like getting them from Hackage. The differences are that it has an independent
+`index-state`, and that there is the `CHaP` expression which you need to bump in
+the `default.nix`.
+
+#### Using unreleased versions of dependencies
+
+Sometimes we need to use an unreleased version of one of our dependencies,
+either to fix an issue in a package that is not under our control, or to
+experiment with a pre-release version of one of our own packages. You can use a
+`source-repository-package` stanza to pull in the unreleased version. Do this
+**only** for a short period of time, and try to get your changes released
+upstream. If that is (really) not possible, we can also release a patched
+version into CHap, see their
+[README](https://github.com/input-output-hk/cardano-haskell-packages) for
+instructions.
+
 ### Versioning & Changelog
 
 During development
