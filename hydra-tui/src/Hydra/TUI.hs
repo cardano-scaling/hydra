@@ -31,6 +31,7 @@ import Brick.Widgets.Border.Style (ascii)
 import qualified Cardano.Api.UTxO as UTxO
 import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
+import Data.Text (chunksOf)
 import qualified Data.Text as Text
 import Data.Time (defaultTimeLocale, formatTime)
 import Data.Time.Format (FormatTime)
@@ -492,7 +493,7 @@ draw Client{sk} CardanoClient{networkId} s =
               , drawRightPanel
               ]
           , hBorder
-          , padLeftRight 1 drawFeedback
+          , vBox $ padLeftRight 1 <$> drawFeedback
           ]
  where
   vk = getVerificationKey sk
@@ -656,10 +657,10 @@ draw Client{sk} CardanoClient{networkId} s =
   drawFeedback =
     case s ^? (feedbackL . _head) of
       Just UserFeedback{message, severity, time} ->
-        withAttr (severityToAttr severity) $ str (toString (show time <> " | " <> message))
+        withAttr (severityToAttr severity) . txt <$> chunksOf 120 (show time <> " | " <> message)
       Nothing ->
         -- Reserves the space and not have this area collapse
-        str " "
+        [txt ""]
 
   drawParties =
     case s ^? headStateL . partiesL of
