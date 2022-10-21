@@ -1,8 +1,8 @@
-resource "google_compute_instance" "hydra-testnet" {
-  name         = "hydra-testnet-1"
+resource "google_compute_instance" "hydra-demo" {
+  name         = "hydra-demo-1"
 
   # https://cloud.google.com/compute/docs/compute-optimized-machines
-  machine_type = "c2-standard-4"
+  machine_type = "c2d-standard-2"
   allow_stopping_for_update = true
 
   tags = [ "hydra", "testnet" ]
@@ -14,14 +14,14 @@ resource "google_compute_instance" "hydra-testnet" {
   boot_disk {
     initialize_params {
       size  = 50
-      image = "iog-hydra-1637229888"
+      image = "iog-hydra-1665828710"
     }
   }
 
   network_interface {
     network       = "default"
     access_config {
-      nat_ip = google_compute_address.hydra-testnet-address.address
+      nat_ip = google_compute_address.hydra-demo-address.address
     }
   }
 
@@ -47,9 +47,10 @@ resource "google_compute_instance" "hydra-testnet" {
     }
   }
 
-  provisioner "file" {
-    source      = "arnaud.sk"
-    destination = "/home/curry/arnaud.sk"
+  provisioner "remote-exec" {
+    inline = [
+      "mkdir keys"
+    ]
 
     connection {
       type = "ssh"
@@ -57,10 +58,9 @@ resource "google_compute_instance" "hydra-testnet" {
       host = self.network_interface.0.access_config.0.nat_ip
     }
   }
-
   provisioner "file" {
-    source      = "arnaud-hydra.sk"
-    destination = "/home/curry/arnaud-hydra.sk"
+    source      = "keys/"
+    destination = "/home/curry/keys"
 
     connection {
       type = "ssh"
@@ -92,6 +92,17 @@ resource "google_compute_instance" "hydra-testnet" {
   }
 
   provisioner "file" {
+    source      = "../../hydra-cluster/config/devnet/genesis-alonzo.json"
+    destination = "/home/curry/genesis-alonzo.json"
+
+    connection {
+      type = "ssh"
+      user = "curry"
+      host = self.network_interface.0.access_config.0.nat_ip
+    }
+  }
+
+  provisioner "file" {
     source      = "../../hydra-cluster/config/protocol-parameters.json"
     destination = "/home/curry/protocol-parameters.json"
 
@@ -101,6 +112,7 @@ resource "google_compute_instance" "hydra-testnet" {
       host = self.network_interface.0.access_config.0.nat_ip
     }
   }
+
 
   provisioner "file" {
     source      = "docker-compose.yaml"
@@ -139,14 +151,14 @@ resource "google_compute_instance" "hydra-testnet" {
 
 }
 
-resource "google_compute_address" "hydra-testnet-address" {
-  name = "hydra-testnet-address"
+resource "google_compute_address" "hydra-demo-address" {
+  name = "hydra-demo-address"
 }
 
-output "hydra-testnet-ip" {
-  value = google_compute_address.hydra-testnet-address.address
+output "hydra-demo-ip" {
+  value = google_compute_address.hydra-demo-address.address
 }
 
 output "project" {
-  value = google_compute_instance.hydra-testnet.project
+  value = google_compute_instance.hydra-demo.project
 }

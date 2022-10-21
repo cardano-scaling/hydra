@@ -25,8 +25,14 @@ ln -s cardano-configurations/network/preview devnet
 docker pull ghcr.io/input-output-hk/mithril-client:latest
 SNAPSHOT=$(curl -s https://aggregator.api.mithril.network/aggregator/snapshots | jq -r .[0].digest)
 
+GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey)
+
 mithril_client () {
-  docker run --rm -ti -e NETWORK=testnet -v $(pwd):/data -e AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator -w /data -u $(id -u) ghcr.io/input-output-hk/mithril-client:latest $@
+  docker run --rm -ti -v $(pwd):/data \
+         -e AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator \
+         -e NETWORK=preview \
+         -e GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY} \
+         -w /data -u $(id -u) ghcr.io/input-output-hk/mithril-client:latest $@
 }
 
 echo "Restoring snapshot $SNAPSHOT"
@@ -34,10 +40,10 @@ mithril_client show $SNAPSHOT
 mithril_client download $SNAPSHOT
 mithril_client restore $SNAPSHOT
 
-mv -f data/testnet/${SNAPSHOT}/db devnet/
+mv -f data/preview/${SNAPSHOT}/db devnet/
 
 docker-compose --profile hydraw up -d
 
 # create marker utxo
 chmod +x ./fuel-testnet.sh
-exec ./fuel-testnet.sh devnet arnaud.sk 10000000
+exec ./fuel-testnet.sh devnet keys/arnaud.sk 10000000
