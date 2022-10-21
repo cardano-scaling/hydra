@@ -20,7 +20,6 @@ import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
-  AcquireFailure (AcquireFailurePointNotOnChain),
   ChainPoint (..),
   lovelaceToValue,
   txOutValue,
@@ -63,6 +62,9 @@ import Hydra.Options (
   toArgNetworkId,
  )
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Ouroboros.Network.Protocol.LocalStateQuery.Type (
+  AcquireFailure (AcquireFailurePointNotOnChain),
+ )
 import System.Process (proc, readCreateProcess)
 import Test.QuickCheck (generate)
 

@@ -12,6 +12,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Time (SystemStart)
 import qualified Data.Set as Set
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
+import Ouroboros.Network.Protocol.LocalStateQuery.Type (AcquireFailure)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 import Test.QuickCheck (oneof)
 

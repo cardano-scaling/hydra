@@ -103,7 +103,6 @@ import qualified Generic.Random.Internal.Generic as Random
 import Relude hiding (
   MVar,
   Nat,
-  Option,
   STM,
   TMVar,
   TVar,

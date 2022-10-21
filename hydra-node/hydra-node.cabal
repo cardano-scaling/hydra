@@ -349,7 +349,7 @@ test-suite tests
     , plutus-ledger-api
     , process
     , QuickCheck
-    , quickcheck-dynamic
+    , quickcheck-dynamic                <2.0.0
     , quickcheck-instances
     , req
     , silently

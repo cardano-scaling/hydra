@@ -4,13 +4,17 @@
 
 , haskellNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/haskell.nix/archive/0.0.49.tar.gz")
+      "https://github.com/input-output-hk/haskell.nix/archive/0.0.64.tar.gz")
     { }
 
 , iohkNix ? import
     (builtins.fetchTarball
       "https://github.com/input-output-hk/iohk-nix/archive/d31417fe8c8fbfb697b3ad4c498e17eb046874b9.tar.gz")
     { }
+
+  # NOTE: use the 'repo' branch of CHaP which contains the index
+, CHaP ? (builtins.fetchTarball
+    "https://github.com/input-output-hk/cardano-haskell-packages/archive/ceaae5355c81453d7cb092acadec3441bf57ed11.tar.gz")
 
   # nixpkgs-unstable as also used by cardano-node, cardano-ledger et al
 , nixpkgsSrc ? haskellNix.sources.nixpkgs-unstable
@@ -31,6 +35,8 @@ let
     };
     projectFileName = "cabal.project";
     compiler-nix-name = compiler;
+
+    inputMap = { "https://input-output-hk.github.io/cardano-haskell-packages" = CHaP; };
 
     modules = [
       # Set libsodium-vrf on cardano-crypto-{praos,class}. Otherwise they depend
