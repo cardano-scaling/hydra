@@ -55,6 +55,7 @@ import Test.Hydra.Prelude (
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
+import Control.Exception (bracket)
 import Control.Lens ((^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
@@ -119,8 +120,8 @@ import HydraNode (
   withHydraNode,
  )
 import System.FilePath ((</>))
-import System.IO (hGetContents)
-import System.Process (createProcess)
+import System.IO (hClose, hFlush, hGetContents)
+import System.Process (cleanupProcess, createProcess)
 import Test.QuickCheck (generate)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
@@ -371,47 +372,45 @@ spec = around showLogsOnFailure $ do
         failAfter 5 $ do
           version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
-      it "hydra-node logs it's command line arguments" $ \_ -> do
+      fit "hydra-node logs it's command line arguments" $ \_ -> do
         failAfter 60 $
           withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
             let hydraSK = dir </> "hydra.sk"
             hydraSKey :: SigningKey HydraKey <- generate arbitrary
             void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
-            (_, Just nodeOutput, _, _) <-
-              createProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe}
-            out <- hGetContents nodeOutput
-            print out
-            let loadedOptions = Aeson.encode $ out ^? key "message" . key "node" . key "runOptions"
+            bracket
+              (createProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe})
+              cleanupProcess
+              ( \(_, Just nodeOutput, _, _) -> do
+                  out <- hGetContents nodeOutput
+                  let loadedOptions = Aeson.encode $ out ^? key "message" . key "node" . key "runOptions"
 
-                expectedPort = Just $ Aeson.Number 4001
-                expectedApiHost =
-                  Just $
-                    Aeson.object ["ipv4" .= Aeson.String "127.0.0.1", "tag" .= Aeson.String "IPv4"]
-                expectedHost =
-                  Just $
-                    Aeson.object ["ipv4" .= Aeson.String "127.0.0.1", "tag" .= Aeson.String "IPv4"]
-                expectedHydraScript =
-                  Just $ Aeson.String "0101010101010101010101010101010101010101010101010101010101010101"
-
-            -- now we can check some of the default values to see if the node logs them
-            -- NB: Object/HashMap doesn't know about the order of fields so that is why we are not able
-            -- to constuct a object and assert it is the same as the one we get from parsing the log
-            out ^? key "message" . key "node" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
-            loadedOptions ^? key "apiHost" `shouldBe` expectedApiHost
-            loadedOptions ^? key "apiPort" `shouldBe` expectedPort
-            isJust (loadedOptions ^? key "chainConfig") `shouldBe` True
-            loadedOptions ^? key "host" `shouldBe` expectedHost
-            loadedOptions ^? key "hydraScriptsTxId" `shouldBe` expectedHydraScript
-            isJust (loadedOptions ^? key "ledgerConfig") `shouldBe` True
-            isJust (loadedOptions ^? key "monitoringPort") `shouldBe` True
-            isJust (loadedOptions ^? key "nodeId") `shouldBe` True
-            isJust (loadedOptions ^? key "peers") `shouldBe` True
-            isJust (loadedOptions ^? key "persistenceDir") `shouldBe` True
-            isJust (loadedOptions ^? key "port") `shouldBe` True
-            isJust (loadedOptions ^? key "verbosity") `shouldBe` True
-
--- check if the logs match with our cmd line args
--- out ^? key "message" . key "node" . key "runOptions" `shouldBe` Just (Aeson.toJSON runOptions)
+                      expectedPort = Just $ Aeson.Number 4001
+                      expectedApiHost =
+                        Just $
+                          Aeson.object ["ipv4" .= Aeson.String "127.0.0.1", "tag" .= Aeson.String "IPv4"]
+                      expectedHost =
+                        Just $
+                          Aeson.object ["ipv4" .= Aeson.String "127.0.0.1", "tag" .= Aeson.String "IPv4"]
+                      expectedHydraScript =
+                        Just $ Aeson.String "0101010101010101010101010101010101010101010101010101010101010101"
+                  -- now we can check some of the default values to see if the node logs them
+                  -- NB: Object/HashMap doesn't know about the order of json fields so that is why we are not able
+                  -- to constuct a object and assert it is the same as the one we get from parsing the log
+                  out ^? key "message" . key "node" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
+                  loadedOptions ^? key "apiHost" `shouldBe` expectedApiHost
+                  loadedOptions ^? key "apiPort" `shouldBe` expectedPort
+                  isJust (loadedOptions ^? key "chainConfig") `shouldBe` True
+                  loadedOptions ^? key "host" `shouldBe` expectedHost
+                  loadedOptions ^? key "hydraScriptsTxId" `shouldBe` expectedHydraScript
+                  isJust (loadedOptions ^? key "ledgerConfig") `shouldBe` True
+                  isJust (loadedOptions ^? key "monitoringPort") `shouldBe` True
+                  isJust (loadedOptions ^? key "nodeId") `shouldBe` True
+                  isJust (loadedOptions ^? key "peers") `shouldBe` True
+                  isJust (loadedOptions ^? key "persistenceDir") `shouldBe` True
+                  isJust (loadedOptions ^? key "port") `shouldBe` True
+                  isJust (loadedOptions ^? key "verbosity") `shouldBe` True
+              )
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
