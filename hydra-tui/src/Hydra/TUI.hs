@@ -493,7 +493,7 @@ draw Client{sk} CardanoClient{networkId} s =
               , drawRightPanel
               ]
           , hBorder
-          , vBox $ padLeftRight 1 <$> drawFeedback
+          , vLimit 10 $ vBox $ padLeftRight 1 <$> drawFeedback
           ]
  where
   vk = getVerificationKey sk
