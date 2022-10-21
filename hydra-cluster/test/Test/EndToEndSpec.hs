@@ -98,30 +98,15 @@ import Hydra.Cluster.Scenarios (restartANodeAfterHeadInitialized, singlePartyHea
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (genKeyPair, genSigningKey, mkSimpleTx)
-import Hydra.Logging (Tracer, Verbosity (Verbose), showLogsOnFailure)
-import Hydra.Network (IP, nodeId, toIPv4w)
-import Hydra.Options (
-  ChainConfig (cardanoVerificationKeys, startChainFrom),
-  LedgerConfig (CardanoLedgerConfig, cardanoLedgerGenesisFile, cardanoLedgerProtocolParametersFile),
-  RunOptions (chainConfig, hydraScriptsTxId, hydraSigningKey),
-  apiHost,
-  cardanoSigningKey,
-  host,
-  hydraVerificationKeys,
-  ledgerConfig,
-  peers,
-  toArgs,
-  verbosity,
- )
-import qualified Hydra.Options as HO
+import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
+import Hydra.Logging (Tracer, showLogsOnFailure)
+import Hydra.Options (ChainConfig (startChainFrom))
 import Hydra.Party (deriveParty)
 import HydraNode (
   CreateProcess (std_out),
   EndToEndLog (..),
   StdStream (CreatePipe),
   getMetrics,
-  hydraNodeId,
   input,
   output,
   proc,
@@ -139,7 +124,6 @@ import System.Process (createProcess)
 import Test.QuickCheck (generate)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
-import Prelude (read)
 import qualified Prelude
 
 allNodeIds :: [Int]
@@ -387,7 +371,7 @@ spec = around showLogsOnFailure $ do
         failAfter 5 $ do
           version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
-      fit "hydra-node logs it's command line arguments" $ \_ -> do
+      it "hydra-node logs it's command line arguments" $ \_ -> do
         failAfter 60 $
           withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
             let hydraSK = dir </> "hydra.sk"
@@ -410,6 +394,8 @@ spec = around showLogsOnFailure $ do
                   Just $ Aeson.String "0101010101010101010101010101010101010101010101010101010101010101"
 
             -- now we can check some of the default values to see if the node logs them
+            -- NB: Object/HashMap doesn't know about the order of fields so that is why we are not able
+            -- to constuct a object and assert it is the same as the one we get from parsing the log
             out ^? key "message" . key "node" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
             loadedOptions ^? key "apiHost" `shouldBe` expectedApiHost
             loadedOptions ^? key "apiPort" `shouldBe` expectedPort
