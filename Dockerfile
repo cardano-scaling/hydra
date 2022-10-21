@@ -37,7 +37,7 @@ FROM alpine as hydra-tui
 RUN apk update && apk add ncurses-terminfo
 COPY --from=build-hydra-tui /build/hydra-tui-result/bin/hydra-tui /bin/
 STOPSIGNAL SIGINT
-ENTRYPOINT ["sh", "-c", "TERMINFO=/usr/share/terminfo hydra-tui $@"]
+ENTRYPOINT ["sh", "-c", "TERMINFO=/usr/share/terminfo hydra-tui $@", "--"]
 
 # hydraw
 
