@@ -31,7 +31,6 @@ import Hydra.Prelude (
   guard,
   id,
   isJust,
-  print,
   show,
   void,
   ($),
@@ -120,7 +119,7 @@ import HydraNode (
   withHydraNode,
  )
 import System.FilePath ((</>))
-import System.IO (hClose, hFlush, hGetContents)
+import System.IO (hGetLine)
 import System.Process (cleanupProcess, createProcess)
 import Test.QuickCheck (generate)
 import Text.Regex.TDFA ((=~))
@@ -382,7 +381,7 @@ spec = around showLogsOnFailure $ do
               (createProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe})
               cleanupProcess
               ( \(_, Just nodeOutput, _, _) -> do
-                  out <- hGetContents nodeOutput
+                  out <- hGetLine nodeOutput
                   let loadedOptions = Aeson.encode $ out ^? key "message" . key "node" . key "runOptions"
 
                       expectedPort = Just $ Aeson.Number 4001
