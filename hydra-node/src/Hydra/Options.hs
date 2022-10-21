@@ -361,8 +361,11 @@ hydraVerificationKeyFileParser =
     ( long "hydra-verification-key"
         <> metavar "FILE"
         <> help
-          "Hydra verification key of another party in the Head. Can be \
-          \provided multiple times, once for each participant (current maximum limit is 4)."
+          ( "Hydra verification key of another party in the Head. Can be \
+            \provided multiple times, once for each participant (current maximum limit is "
+              <> show maximumNumberOfParties
+              <> " )."
+          )
     )
 
 peerParser :: Parser Host
@@ -372,9 +375,12 @@ peerParser =
     ( long "peer"
         <> short 'P'
         <> help
-          "A peer address in the form <host>:<port>, where <host> can be an IP \
-          \address, or a host name. Can be provided multiple times, once for \
-          \each peer (current maximum limit is 4 peers)."
+          ( "A peer address in the form <host>:<port>, where <host> can be an IP \
+            \address, or a host name. Can be provided multiple times, once for \
+            \each peer (current maximum limit is "
+              <> show maximumNumberOfParties
+              <> " peers)."
+          )
     )
 
 nodeIdParser :: Parser NodeId
@@ -540,7 +546,8 @@ data InvalidOptions
   deriving (Eq, Show)
 
 -- | Hardcoded limit for maximum number of parties in a head protocol
--- NB: we don't count our own node here so need to do + 1 at the call site
+-- The value 4 is obtained from calculating the costs of running the scripts
+-- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
 maximumNumberOfParties :: Int
 maximumNumberOfParties = 4
 
@@ -557,13 +564,13 @@ explain = \case
 --      (by comparing lengths of the two lists)
 validateRunOptions :: RunOptions -> Either InvalidOptions ()
 validateRunOptions RunOptions{hydraVerificationKeys, chainConfig}
-  | numberOfParties > maximumNumberOfParties + 1 = Left MaximumNumberOfPartiesExceeded
+  | numberOfOtherParties + 1 > maximumNumberOfParties = Left MaximumNumberOfPartiesExceeded
   | length (cardanoVerificationKeys chainConfig) /= length hydraVerificationKeys =
     Left CardanoAndHydraKeysMissmatch
   | otherwise = Right ()
  where
   -- let's take the higher number of loaded cardano/hydra keys
-  numberOfParties =
+  numberOfOtherParties =
     max (length hydraVerificationKeys) (length $ cardanoVerificationKeys chainConfig)
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
