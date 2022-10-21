@@ -3,8 +3,54 @@
 
 module Test.EndToEndSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import Hydra.Prelude (
+  Arbitrary (arbitrary),
+  Bool (True),
+  Contravariant (contramap),
+  Either (Right),
+  Enum (toEnum),
+  Eq ((==)),
+  Foldable (toList),
+  Functor (fmap),
+  IO,
+  Int,
+  IsString,
+  Maybe (Just, Nothing),
+  Monad (return, (>>=)),
+  MonadAsync (concurrently_),
+  MonadTime (getCurrentTime),
+  Monoid (mempty),
+  Natural,
+  Num ((*), (+), (-)),
+  RealFrac (truncate),
+  Semigroup ((<>)),
+  String,
+  ToJSON (toJSON),
+  Word,
+  diffUTCTime,
+  guard,
+  id,
+  isJust,
+  print,
+  show,
+  void,
+  ($),
+  (.),
+  (<$>),
+  (<&>),
+ )
+import Test.Hydra.Prelude (
+  Spec,
+  around,
+  describe,
+  failAfter,
+  failure,
+  fit,
+  it,
+  shouldBe,
+  shouldSatisfy,
+  withTempDir,
+ )
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
@@ -54,7 +100,7 @@ import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer, Verbosity (Verbose), showLogsOnFailure)
-import Hydra.Network (nodeId)
+import Hydra.Network (IP, nodeId, toIPv4w)
 import Hydra.Options (
   ChainConfig (cardanoVerificationKeys, startChainFrom),
   LedgerConfig (CardanoLedgerConfig, cardanoLedgerGenesisFile, cardanoLedgerProtocolParametersFile),
@@ -93,6 +139,7 @@ import System.Process (createProcess)
 import Test.QuickCheck (generate)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
+import Prelude (read)
 import qualified Prelude
 
 allNodeIds :: [Int]
@@ -340,57 +387,45 @@ spec = around showLogsOnFailure $ do
         failAfter 5 $ do
           version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
-      fit "hydra-node logs it's command line arguments" $ \tracer -> do
+      fit "hydra-node logs it's command line arguments" $ \_ -> do
         failAfter 60 $
           withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node -> do
-              let hydraSK = dir </> "hydra.sk"
-                  cardanoSK = dir </> "cardano.sk"
-                  cardanoLedgerGenesisFile = dir </> "genesis.json"
-                  cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
+            let hydraSK = dir </> "hydra.sk"
+            hydraSKey :: SigningKey HydraKey <- generate arbitrary
+            void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
+            (_, Just nodeOutput, _, _) <-
+              createProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe}
+            out <- hGetContents nodeOutput
+            print out
+            let loadedOptions = Aeson.encode $ out ^? key "message" . key "node" . key "runOptions"
 
-              writeFileBS cardanoLedgerGenesisFile ""
-              writeFileBS cardanoLedgerProtocolParametersFile ""
-              let ledgerCfg =
-                    CardanoLedgerConfig
-                      { cardanoLedgerGenesisFile
-                      , cardanoLedgerProtocolParametersFile
-                      }
-              hydraSKey :: SigningKey HydraKey <- generate arbitrary
-              cardanoSKey <- generate genSigningKey
-              void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
-              void $ writeFileTextEnvelope cardanoSK Nothing cardanoSKey
-              hydraScriptsId <- publishHydraScriptsAs node Faucet
-              arbitraryOptions <- generate arbitrary
-              -- change the arbitrary options to suit our needs
-              let runOptions =
-                    arbitraryOptions
-                      { verbosity = Verbose ("HydraNode-" <> show (nodeId (HO.nodeId arbitraryOptions)))
-                      , host = "127.0.0.1"
-                      , HO.nodeId = HO.nodeId arbitraryOptions
-                      , apiHost = "127.0.0.1"
-                      , hydraSigningKey = hydraSK
-                      , peers = []
-                      , hydraVerificationKeys = []
-                      , HO.hydraScriptsTxId = hydraScriptsId
-                      , ledgerConfig = ledgerCfg
-                      , chainConfig =
-                          (chainConfig arbitraryOptions)
-                            { cardanoVerificationKeys = []
-                            , cardanoSigningKey = cardanoSK
-                            , HO.nodeSocket = nodeSocket node
-                            , HO.networkId = networkId node
-                            , startChainFrom = Nothing
-                            }
-                      }
-              let args = toArgs runOptions
-              -- REVIEW: running the hydra-node with supplied options fails with hydra-node:
-              --         user error (Error in $: not enough input)
-              -- so we're just grabbing the output here to determine if the logs match our provided options
-              (_, Just nodeOutput, _, _) <- createProcess (proc "hydra-node" args){std_out = CreatePipe}
-              out <- hGetContents nodeOutput
-              -- check if the logs match with our cmd line args
-              out ^? key "message" . key "node" . key "runOptions" `shouldBe` Just (Aeson.toJSON runOptions)
+                expectedPort = Just $ Aeson.Number 4001
+                expectedApiHost =
+                  Just $
+                    Aeson.object ["ipv4" .= Aeson.String "127.0.0.1", "tag" .= Aeson.String "IPv4"]
+                expectedHost =
+                  Just $
+                    Aeson.object ["ipv4" .= Aeson.String "127.0.0.1", "tag" .= Aeson.String "IPv4"]
+                expectedHydraScript =
+                  Just $ Aeson.String "0101010101010101010101010101010101010101010101010101010101010101"
+
+            -- now we can check some of the default values to see if the node logs them
+            out ^? key "message" . key "node" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
+            loadedOptions ^? key "apiHost" `shouldBe` expectedApiHost
+            loadedOptions ^? key "apiPort" `shouldBe` expectedPort
+            isJust (loadedOptions ^? key "chainConfig") `shouldBe` True
+            loadedOptions ^? key "host" `shouldBe` expectedHost
+            loadedOptions ^? key "hydraScriptsTxId" `shouldBe` expectedHydraScript
+            isJust (loadedOptions ^? key "ledgerConfig") `shouldBe` True
+            isJust (loadedOptions ^? key "monitoringPort") `shouldBe` True
+            isJust (loadedOptions ^? key "nodeId") `shouldBe` True
+            isJust (loadedOptions ^? key "peers") `shouldBe` True
+            isJust (loadedOptions ^? key "persistenceDir") `shouldBe` True
+            isJust (loadedOptions ^? key "port") `shouldBe` True
+            isJust (loadedOptions ^? key "verbosity") `shouldBe` True
+
+-- check if the logs match with our cmd line args
+-- out ^? key "message" . key "node" . key "runOptions" `shouldBe` Just (Aeson.toJSON runOptions)
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
