@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -30,13 +28,22 @@ module Hydra.Network (
 
 import Hydra.Prelude hiding (show)
 
-import Data.IP (IP, toIPv4w)
+import Data.IP (IP, IPv4, IPv6, toIPv4w)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
 import Network.TypedProtocol.Pipelined ()
 import Test.QuickCheck (elements, listOf, suchThat)
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
+
+deriving instance ToJSON IPv4
+deriving instance FromJSON IPv4
+
+deriving instance ToJSON IPv6
+deriving instance FromJSON IPv6
+
+deriving instance ToJSON IP
+deriving instance FromJSON IP
 
 -- * Hydra network interface
 

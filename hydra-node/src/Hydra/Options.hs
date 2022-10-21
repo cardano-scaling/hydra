@@ -126,9 +126,6 @@ publishOptionsParser =
     <*> nodeSocketParser
     <*> cardanoSigningKeyFileParser
 
-deriving instance ToJSON IP
-deriving instance FromJSON IP
-
 data RunOptions = RunOptions
   { verbosity :: Verbosity
   , nodeId :: NodeId
