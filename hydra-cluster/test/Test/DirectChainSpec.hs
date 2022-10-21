@@ -27,13 +27,13 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   Chain (..),
-  ChainEvent (Observation, Tick),
+  ChainEvent (..),
   HeadParameters (..),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
  )
-import Hydra.Chain.Direct (withDirectChain, withIOManager)
+import Hydra.Chain.Direct (initialChainState, withDirectChain, withIOManager)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Cluster.Faucet (
@@ -74,24 +74,26 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
-      aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
-        bobKeys <- keysFor Bob
-        cardanoKeys <- fmap fst <$> mapM keysFor [Alice, Bob, Carol]
-        withIOManager $ \iocp -> do
-          seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-          hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          persistence <- createPersistence Proxy $ tmp <> "/chainstate"
-          withDirectChain (contramap (FromDirectChain "alice") tracer) networkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId persistence (putMVar alicesCallback) $ \Chain{postTx} -> do
-            withDirectChain nullTracer networkId iocp nodeSocket bobKeys bob cardanoKeys Nothing hydraScriptsTxId persistence (putMVar bobsCallback) $ \_ -> do
-              postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
-              alicesCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
-              bobsCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
+        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
 
-              postTx $ AbortTx mempty
+        (aliceCardanoVk, _) <- keysFor Alice
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Alice, Bob, Carol]
+        bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Bob, Carol]
 
-              alicesCallback `observesInTime` OnAbortTx
-              bobsCallback `observesInTime` OnAbortTx
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+        aliceChainState <- initialChainState aliceChainConfig alice hydraScriptsTxId
+        withDirectChain (contramap (FromDirectChain "alice") tracer) aliceChainConfig (putMVar alicesCallback) $ \Chain{postTx} -> do
+          bobChainState <- initialChainState bobChainConfig bob hydraScriptsTxId
+          withDirectChain nullTracer bobChainConfig (putMVar bobsCallback) $ \_ -> do
+            postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
+            alicesCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
+            bobsCallback `observesInTime` OnInitTx cperiod [alice, bob, carol]
+
+            postTx $ AbortTx mempty
+
+            alicesCallback `observesInTime` OnAbortTx
+            bobsCallback `observesInTime` OnAbortTx
 
   it "can init and abort a 2-parties head after one party has committed" $ \tracer -> do
     alicesCallback <- newEmptyMVar
@@ -242,7 +244,7 @@ spec = around showLogsOnFailure $ do
 
             deadline <-
               waitMatch alicesCallback $ \case
-                Observation OnCloseTx{snapshotNumber, contestationDeadline}
+                Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
                   | snapshotNumber == 1 -> Just contestationDeadline
                 _ -> Nothing
             now <- getCurrentTime
@@ -339,7 +341,7 @@ observesInTime mvar expected =
   go = do
     e <- takeMVar mvar
     case e of
-      Observation obs -> obs `shouldBe` expected
+      Observation{observedTx} -> observedTx `shouldBe` expected
       _ -> go
 
 waitMatch :: MVar a -> (a -> Maybe b) -> IO b
