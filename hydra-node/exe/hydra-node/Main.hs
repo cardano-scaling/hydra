@@ -5,11 +5,11 @@ module Main where
 import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
-import Hydra.Cardano.Api (TxId, serialiseToRawBytesHex)
-import Hydra.Chain (Chain, ChainCallback, ChainStateType)
+import Hydra.Cardano.Api (serialiseToRawBytesHex)
+import Hydra.Chain (ChainCallback)
 import Hydra.Chain.Direct (initialChainState, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
-import Hydra.Chain.Direct.Util (readKeyPair, readVerificationKey)
+import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), defaultTTL, getChainState)
 import Hydra.Ledger.Cardano (Tx)
 import qualified Hydra.Ledger.Cardano as Ledger
@@ -20,12 +20,12 @@ import Hydra.Ledger.Cardano.Configuration (
   readJsonFileThrow,
   shelleyGenesisFromJson,
  )
-import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
+import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network (Host (..))
 import Hydra.Network.Heartbeat (withHeartbeat)
-import Hydra.Network.Ouroboros (withIOManager, withOuroborosNetwork)
+import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
   NodeState (..),
@@ -37,7 +37,6 @@ import Hydra.Node (
   runHydraNode,
  )
 import Hydra.Options (
-  ChainConfig (..),
   Command (Publish, Run),
   LedgerConfig (..),
   PublishOptions (..),
@@ -46,7 +45,6 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
-import Hydra.Party (Party)
 
 main :: IO ()
 main = do
@@ -66,9 +64,9 @@ main = do
         traceWith (contramap Node tracer) (NodeOptions opts)
         eq <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
-        chainState <- prepareChainState chainConfig party hydraScriptsTxId
+        chainState <- initialChainState chainConfig party hydraScriptsTxId
         nodeState <- createNodeState IdleState{chainState}
-        withChain tracer chainConfig (chainCallback nodeState eq) $ \chain -> do
+        withDirectChain (contramap DirectChain tracer) chainConfig (chainCallback nodeState eq) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
@@ -108,41 +106,6 @@ main = do
         <$> readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
 
     action (Ledger.cardanoLedger globals ledgerEnv)
-
--- TODO: DRY these two functions, i.e. keys are loaded twice
-
-prepareChainState ::
-  ChainConfig ->
-  Party ->
-  TxId ->
-  IO (ChainStateType Tx)
-prepareChainState config party hydraScriptsTxId = do
-  (vk, _) <- readKeyPair cardanoSigningKey
-  otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
-  initialChainState networkId nodeSocket hydraScriptsTxId party vk otherCardanoKeys
- where
-  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} = config
-
-withChain ::
-  Tracer IO (HydraLog Tx net) ->
-  ChainConfig ->
-  ChainCallback Tx IO ->
-  (Chain Tx IO -> IO ()) ->
-  IO ()
-withChain tracer config callback action = do
-  keyPair <- readKeyPair cardanoSigningKey
-  withIOManager $ \iocp -> do
-    withDirectChain
-      (contramap DirectChain tracer)
-      networkId
-      iocp
-      nodeSocket
-      keyPair
-      startChainFrom
-      callback
-      action
- where
-  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, startChainFrom} = config
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
