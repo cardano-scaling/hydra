@@ -6,7 +6,7 @@
 
 module Hydra.TUI where
 
-import Hydra.Prelude hiding (State, padLeft)
+import Hydra.Prelude hiding (Down, State, padLeft)
 
 import Brick
 import Hydra.Cardano.Api
@@ -212,6 +212,14 @@ handleEvent client cardanoClient s = \case
       -- Commands
       EvKey (KChar c) _ ->
         if
+            | c `elem` ['<'] -> do
+              let vp = viewportScroll feedbackViewportName
+              vScrollPage vp Up
+              continue s
+            | c `elem` ['>'] -> do
+              let vp = viewportScroll feedbackViewportName
+              vScrollPage vp Down
+              continue s
             | c `elem` ['q', 'Q'] ->
               halt s
             | c `elem` ['i', 'I'] ->
@@ -480,6 +488,8 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
 --
 -- View
 --
+feedbackViewportName :: Name
+feedbackViewportName = "feedback-view-port"
 
 draw :: Client Tx m -> CardanoClient -> State -> [Widget Name]
 draw Client{sk} CardanoClient{networkId} s =
@@ -493,7 +503,12 @@ draw Client{sk} CardanoClient{networkId} s =
               , drawRightPanel
               ]
           , hBorder
-          , vLimit 10 $ vBox $ padLeftRight 1 <$> drawFeedback
+          , withCommandsAndViewPort
+              feedbackViewportName
+              drawFeedback
+              [ "[<] scroll up"
+              , "[>] scroll down"
+              ]
           ]
  where
   vk = getVerificationKey sk
@@ -650,6 +665,13 @@ draw Client{sk} CardanoClient{networkId} s =
   withCommands panel cmds =
     hBox
       [ hLimit 70 (vBox panel)
+      , vBorder
+      , padLeftRight 1 $ vBox (str <$> cmds)
+      ]
+
+  withCommandsAndViewPort name panel cmds =
+    hBox
+      [ hLimit 120 $ viewport name Vertical (vBox panel)
       , vBorder
       , padLeftRight 1 $ vBox (str <$> cmds)
       ]
