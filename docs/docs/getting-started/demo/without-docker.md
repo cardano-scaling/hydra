@@ -163,7 +163,7 @@ Connect to the nodes using hydra-tui. For example, to use Alice's hydra-node and
 <TerminalWindow>
 
 ```
-cabal exec hydra-tui -- \
+hydra-tui \
   --connect 0.0.0.0:4001 \
   --cardano-signing-key devnet/credentials/alice.sk \
   --network-id 42 \
