@@ -129,7 +129,7 @@ type family ChainStateType tx
 
 -- | Interface available from a chain state. Expected to be instantiated by all
 -- 'ChainStateType tx'.
-class IsChainState a where
+class (ToJSON a, FromJSON a) => IsChainState a where
   -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: a -> ChainSlot
