@@ -15,6 +15,7 @@ import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
 import qualified Cardano.Ledger.Shelley.API as Ledger
+import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (readTVarIO, throwSTM, writeTVar)
 import Data.Sequence.Strict (StrictSeq)
@@ -31,10 +32,14 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   Chain (..),
+  ChainCallback,
   ChainEvent (..),
+  ChainSlot (ChainSlot),
+  ChainStateType,
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
+  chainStateSlot,
  )
 import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
@@ -67,6 +72,9 @@ import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
+-- | The chain state type for Cardano 'Tx' is 'ChainState'.
+type instance ChainStateType Tx = ChainState
+
 -- * Posting Transactions
 
 -- | A callback used to actually submit a transaction to the chain.
@@ -96,13 +104,13 @@ mkChain ::
   Chain Tx m
 mkChain tracer queryTimeHandle wallet headState submitTx =
   Chain
-    { postTx = \tx -> do
+    { postTx = \chainState tx -> do
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
         vtx <-
           atomically
             ( -- FIXME (MB): cardano keys should really not be here (as this
-              -- point they are in the 'headState' stored in the 'ChainContext')
+              -- point they are in the 'chainState' stored in the 'ChainContext')
               -- . They are only required for the init transaction and ought to
               -- come from the _client_ and be part of the init request
               -- altogether. This goes in the direction of 'dynamic heads' where
@@ -111,7 +119,7 @@ mkChain tracer queryTimeHandle wallet headState submitTx =
               -- details needed to establish connection to the other peers and
               -- to bootstrap the init transaction. For now, we bear with it and
               -- keep the static keys in context.
-              fromPostChainTx timeHandle wallet headState tx
+              fromPostChainTx timeHandle wallet chainState tx
                 >>= finalizeTx wallet headState . toLedgerTx
             )
         submitTx vtx
@@ -204,17 +212,14 @@ chainSyncHandler ::
   (MonadSTM m, MonadThrow m) =>
   -- | Tracer for logging
   Tracer m DirectChainLog ->
-  -- | Chain callback
-  (ChainEvent Tx -> m ()) ->
-  -- | On-chain head-state.
-  TVar m ChainStateAt ->
+  ChainCallback Tx m ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
   -- | A handle to save chain state
   Persistence ChainStateAt m ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback headState getTimeHandle Persistence{save} =
+chainSyncHandler tracer callback getTimeHandle Persistence{save} =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -223,50 +228,46 @@ chainSyncHandler tracer callback headState getTimeHandle Persistence{save} =
   onRollBackward :: Point Block -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward $ SomePoint point
-    (st, depth) <- rollback (fromConsensusPointHF point) <$> readTVarIO headState
-    atomically $ writeTVar headState st
-    callback (Rollback depth)
+    callback (const . Just $ Rollback $ chainSlotFromPoint point)
 
   onRollForward :: Block -> m ()
   onRollForward blk = do
     let point = blockPoint blk
     traceWith tracer $ RolledForward $ SomePoint point
 
-    let chainPoint = fromConsensusPointHF point
-        slotNo = case chainPoint of
-          ChainPointAtGenesis -> 0
-          ChainPoint s _ -> s
+    let slotNo = slotNoFromPoint point
     timeHandle <- getTimeHandle
     case slotToUTCTime timeHandle slotNo of
       Left reason ->
         throwIO TimeConversionException{slotNo, reason}
       Right utcTime ->
-        callback (Tick utcTime)
+        callback (const . Just $ Tick utcTime)
 
     let receivedTxs = toList $ getBabbageTxs blk
-    onChainTxs <- reverse <$> atomically (foldM (withNextTx chainPoint) [] receivedTxs)
     unless (null receivedTxs) $
       traceWith tracer $
         ReceivedTxs
-          { onChainTxs
-          , receivedTxs = map getTxId receivedTxs
+          { receivedTxs = map getTxId receivedTxs
           }
-    readTVarIO headState >>= save
-    mapM_ (callback . Observation) onChainTxs
+    forM_ receivedTxs $ \tx ->
+      callback $ \cs ->
+        case observeSomeTx (fromLedgerTx tx) cs of
+          Nothing -> Nothing
+          Just (observedTx, newChainState) ->
+            Just $
+              Observation
+                { observedTx
+                , slot = chainSlotFromPoint point
+                , newChainState
+                }
 
-  withNextTx :: ChainPoint -> [OnChainTx Tx] -> ValidatedTx LedgerEra -> STM m [OnChainTx Tx]
-  withNextTx point observed (fromLedgerTx -> tx) = do
-    st <- readTVar headState
-    case observeSomeTx tx (currentChainState st) of
-      Just (event, st') -> do
-        writeTVar headState $
-          ChainStateAt
-            { currentChainState = st'
-            , recordedAt = AtPoint point st
-            }
-        pure $ event : observed
-      Nothing ->
-        pure observed
+  slotNoFromPoint p = case fromConsensusPointHF p of
+    ChainPointAtGenesis -> 0
+    ChainPoint s _ -> s
+
+  chainSlotFromPoint p =
+    let (SlotNo s) = slotNoFromPoint p
+     in ChainSlot $ fromIntegral s
 
 -- | Rewind some head state back to the first known state that is strictly
 -- before the provided 'ChainPoint'.
@@ -296,12 +297,11 @@ fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
   TinyWallet m ->
-  TVar m ChainStateAt ->
+  ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx timeHandle wallet someHeadState tx = do
+fromPostChainTx timeHandle wallet cst tx = do
   pointInTime <- throwLeft currentPointInTime
-  cst <- currentChainState <$> readTVar someHeadState
   case (tx, cst) of
     (InitTx params, Idle IdleState{ctx}) ->
       getFuelUTxO wallet >>= \case
