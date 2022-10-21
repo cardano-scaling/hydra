@@ -27,6 +27,7 @@ import Hydra.Chain (
   ChainSlot,
   ChainStateType,
   HeadParameters (..),
+  IsChainState (chainStateSlot),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError,
@@ -739,17 +740,18 @@ onClosedChainFanoutTx confirmedSnapshot =
 --
 -- __Transition__: 'OpenState' → 'HeadState'
 onCurrentChainRollback ::
+  (IsChainState (ChainStateType tx)) =>
   HeadState tx ->
   ChainSlot ->
   Outcome tx
 onCurrentChainRollback currentState slot =
-  NewState (rollback (undefined slot) currentState) [ClientEffect RolledBack]
+  NewState (rollback slot currentState) [ClientEffect RolledBack]
 
 -- | The "pure core" of the Hydra node, which handles the 'Event' against a
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
 -- outcomes handled by the "Hydra.Node".
 update ::
-  IsTx tx =>
+  (IsTx tx, IsChainState (ChainStateType tx)) =>
   Environment ->
   Ledger tx ->
   HeadState tx ->
@@ -892,29 +894,15 @@ emitSnapshot env@Environment{party} effects = \case
       _ -> (st, effects)
   st -> (st, effects)
 
--- | Unwind the 'HeadState' to some /depth/.
---
--- The 'HeadState' is rolled back a number of times to some previous state. It's an
--- 'error' to call this function with a 'depth' that's larger than the current state depth.
--- See 'Hydra.Chain.Direct.rollback' for the on-chain counterpart to this function.
+-- TODO: document
 rollback ::
-  HasCallStack =>
-  -- | /Depth/ of states/transition to rollback.
-  Word ->
+  (IsChainState (ChainStateType tx)) =>
+  ChainSlot ->
   HeadState tx ->
   HeadState tx
-rollback depth
-  | depth == 0 =
-    identity
-  | otherwise =
-    rollback (pred depth) . \case
-      IdleState{chainState} ->
-        -- NOTE: Before we were erroring here, but as we now load the chain and
-        -- head state separately, this can actually happen. We can ignore it
-        IdleState{chainState}
-      InitialState{previousRecoverableState} ->
-        previousRecoverableState
-      OpenState{previousRecoverableState} ->
-        previousRecoverableState
-      ClosedState{previousRecoverableState} ->
-        previousRecoverableState
+rollback rollbackSlot hs
+  -- REVIEW: <= or >=?
+  | currentSlot <= rollbackSlot = hs
+  | otherwise = rollback rollbackSlot (previousRecoverableState hs)
+ where
+  currentSlot = chainStateSlot $ getChainState hs
