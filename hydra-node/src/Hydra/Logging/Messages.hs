@@ -12,7 +12,6 @@ import Hydra.Prelude
 
 import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
-import Hydra.Ledger (IsTx)
 import Hydra.Node (HydraNodeLog)
 
 data HydraLog tx net
@@ -20,15 +19,11 @@ data HydraLog tx net
   | APIServer {api :: APIServerLog}
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
+  deriving (Generic)
 
-instance
-  ( Arbitrary net
-  , Arbitrary DirectChainLog
-  , Arbitrary APIServerLog
-  , IsTx tx
-  ) =>
-  Arbitrary (HydraLog tx net)
-  where
+deriving instance (Eq net, Eq (HydraNodeLog tx)) => Eq (HydraLog tx net)
+deriving instance (Show net, Show (HydraNodeLog tx)) => Show (HydraLog tx net)
+deriving instance (ToJSON net, ToJSON (HydraNodeLog tx)) => ToJSON (HydraLog tx net)
+
+instance (Arbitrary net, Arbitrary (HydraNodeLog tx)) => Arbitrary (HydraLog tx net) where
   arbitrary = genericArbitrary

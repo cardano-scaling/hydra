@@ -36,7 +36,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), PostTxError)
+import Hydra.Chain (Chain (..), ChainStateType, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
@@ -101,14 +101,18 @@ data HydraNodeLog tx
   | CreatedState
   | LoadedState
   | NodeOptions {runOptions :: RunOptions}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving stock (Generic)
 
-instance IsTx tx => Arbitrary (HydraNodeLog tx) where
+deriving instance (IsTx tx, Eq (Event tx), Eq (LogicError tx)) => Eq (HydraNodeLog tx)
+deriving instance (IsTx tx, Show (Event tx), Show (LogicError tx)) => Show (HydraNodeLog tx)
+deriving instance (IsTx tx, ToJSON (Event tx), ToJSON (LogicError tx)) => ToJSON (HydraNodeLog tx)
+deriving instance (IsTx tx, FromJSON (Event tx), FromJSON (LogicError tx)) => FromJSON (HydraNodeLog tx)
+
+instance (IsTx tx, Arbitrary (Event tx), Arbitrary (LogicError tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 createHydraNode ::
-  (MonadSTM m, IsTx tx) =>
+  (MonadSTM m, IsTx tx, FromJSON (ChainStateType tx)) =>
   Tracer m (HydraNodeLog tx) ->
   EventQueue m (Event tx) ->
   Network m (Message tx) ->
@@ -124,7 +128,7 @@ createHydraNode tracer eq hn ledger oc server env persistence = do
     load persistence >>= \case
       Nothing -> do
         traceWith tracer CreatedState
-        pure IdleState
+        pure IdleState{chainState = undefined}
       Just a -> do
         traceWith tracer LoadedState
         pure a
@@ -133,9 +137,10 @@ createHydraNode tracer eq hn ledger oc server env persistence = do
 
 runHydraNode ::
   ( MonadThrow m
+  , MonadCatch m
   , MonadAsync m
   , IsTx tx
-  , MonadCatch m
+  , ToJSON (ChainStateType tx)
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -150,6 +155,7 @@ stepHydraNode ::
   , MonadCatch m
   , MonadAsync m
   , IsTx tx
+  , ToJSON (ChainStateType tx)
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -205,13 +211,13 @@ processEffect ::
   Tracer m (HydraNodeLog tx) ->
   Effect tx ->
   m ()
-processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e = do
+processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{party}} tracer e = do
   traceWith tracer $ BeginEffect party e
   case e of
     ClientEffect i -> sendOutput server i
     NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL msg)
     OnChainEffect postChainTx ->
-      postTx oc postChainTx
+      postTx undefined postChainTx
         `catch` \(postTxError :: PostTxError tx) ->
           putEvent eq $ PostTxError{postChainTx, postTxError}
   traceWith tracer $ EndEffect party e

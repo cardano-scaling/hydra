@@ -141,7 +141,7 @@ data HeadState tx
       }
   deriving stock (Generic)
 
-instance IsTx tx => Arbitrary (HeadState tx) where
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
 
 deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
@@ -207,15 +207,15 @@ data LogicError tx
   | LedgerError ValidationError
   deriving stock (Generic)
 
-instance IsTx tx => Exception (LogicError tx)
+instance (Typeable tx, Show (Event tx), Show (HeadState tx)) => Exception (LogicError tx)
 
-instance IsTx tx => Arbitrary (LogicError tx) where
+instance (Arbitrary (Event tx), Arbitrary (HeadState tx)) => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
 
-deriving instance IsTx tx => ToJSON (LogicError tx)
-deriving instance IsTx tx => FromJSON (LogicError tx)
 deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
 deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
+deriving instance (ToJSON (Event tx), ToJSON (HeadState tx)) => ToJSON (LogicError tx)
+deriving instance (FromJSON (Event tx), FromJSON (HeadState tx)) => FromJSON (LogicError tx)
 
 data Outcome tx
   = OnlyEffects [Effect tx]
@@ -223,8 +223,8 @@ data Outcome tx
   | Wait WaitReason
   | Error (LogicError tx)
 
-deriving instance IsTx tx => Eq (Outcome tx)
-deriving instance IsTx tx => Show (Outcome tx)
+deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (Outcome tx)
+deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (Outcome tx)
 
 data WaitReason
   = WaitOnNotApplicableTx {validationError :: ValidationError}
@@ -283,7 +283,7 @@ onIdleChainInitTx parties contestationPeriod =
         { parameters = HeadParameters{contestationPeriod, parties}
         , pendingCommits = Set.fromList parties
         , committed = mempty
-        , previousRecoverableState = IdleState
+        , previousRecoverableState = IdleState{chainState = undefined}
         }
     )
     [ClientEffect $ ReadyToCommit $ fromList parties]
@@ -358,7 +358,9 @@ onInitialClientAbort committed =
 -- __Transition__: 'InitialState' → 'IdleState'
 onInitialChainAbortTx :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
 onInitialChainAbortTx committed =
-  NewState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
+  NewState
+    IdleState{chainState = undefined}
+    [ClientEffect $ HeadIsAborted $ fold committed]
 
 -- | Observe a collectCom transaction. We initialize the 'OpenState' using the
 -- head parameters from 'IdleState' and construct an 'InitialSnapshot' holding
@@ -721,7 +723,7 @@ onClosedClientFanout confirmedSnapshot contestationDeadline =
 onClosedChainFanoutTx :: ConfirmedSnapshot tx -> Outcome tx
 onClosedChainFanoutTx confirmedSnapshot =
   NewState
-    IdleState
+    IdleState{chainState = undefined}
     [ ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot
     ]
 
@@ -749,7 +751,7 @@ update ::
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   (IdleState{}, ClientEvent (Init contestationPeriod)) ->
     onIdleClientInit party otherParties contestationPeriod
-  (IdleState{}, OnChainEvent (Observation{observedTx = OnInitTx{contestationPeriod, parties}})) ->
+  (IdleState{}, OnChainEvent (Observation{observedTx = OnInitTx{contestationPeriod, parties}, newChainState})) ->
     onIdleChainInitTx parties contestationPeriod
   (InitialState{pendingCommits}, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit party pendingCommits clientInput
@@ -899,10 +901,10 @@ rollback depth
     identity
   | otherwise =
     rollback (pred depth) . \case
-      IdleState{} ->
+      IdleState{chainState} ->
         -- NOTE: Before we were erroring here, but as we now load the chain and
         -- head state separately, this can actually happen. We can ignore it
-        IdleState
+        IdleState{chainState}
       InitialState{previousRecoverableState} ->
         previousRecoverableState
       OpenState{previousRecoverableState} ->
