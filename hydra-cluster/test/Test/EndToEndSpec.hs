@@ -3,53 +3,8 @@
 
 module Test.EndToEndSpec where
 
-import Hydra.Prelude (
-  Arbitrary (arbitrary),
-  Bool (True),
-  Contravariant (contramap),
-  Either (Right),
-  Enum (toEnum),
-  Eq ((==)),
-  Foldable (toList),
-  Functor (fmap),
-  IO,
-  Int,
-  IsString,
-  Maybe (Just, Nothing),
-  Monad (return, (>>=)),
-  MonadAsync (concurrently_),
-  MonadTime (getCurrentTime),
-  Monoid (mempty),
-  Natural,
-  Num ((*), (+), (-)),
-  RealFrac (truncate),
-  Semigroup ((<>)),
-  String,
-  ToJSON (toJSON),
-  Word,
-  diffUTCTime,
-  guard,
-  id,
-  isJust,
-  show,
-  void,
-  ($),
-  (.),
-  (<$>),
-  (<&>),
- )
-import Test.Hydra.Prelude (
-  Spec,
-  around,
-  describe,
-  failAfter,
-  failure,
-  fit,
-  it,
-  shouldBe,
-  shouldSatisfy,
-  withTempDir,
- )
+import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
