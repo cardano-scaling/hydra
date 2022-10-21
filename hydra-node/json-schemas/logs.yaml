@@ -249,28 +249,6 @@ definitions:
           $ref: "api.yaml#/components/schemas/Transaction"
         postTxError:
           $ref: "api.yaml#/components/schemas/PostTxError"
-    - title: ReceivedTxs
-      description: >-
-        Some transactions relevant to the Head logic have been observed on-chain, provide both the
-        concrete on-chain representation and logical counterpart.
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - onChainTxs
-        - receivedTxs
-      properties:
-        tag:
-          type: string
-          enum: ["ReceivedTxs"]
-        onChainTxs:
-          type: array
-          items:
-            $ref: "#/definitions/OnChainEvent"
-        receivedTxs:
-          type: array
-          items:
-            type: integer
 
     - title: RolledForward
       description: >-
@@ -280,12 +258,17 @@ definitions:
       required:
         - tag
         - point
+        - receivedTxIds
       properties:
         tag:
           type: string
           enum: ["RolledForward"]
         point:
           $ref: "api.yaml#/components/schemas/Point"
+        receivedTxIds:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/TxId"
 
     - title: RolledBackward
       description: >-

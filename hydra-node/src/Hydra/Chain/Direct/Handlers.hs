@@ -16,17 +16,20 @@ import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Slotting.Slot (SlotNo (SlotNo))
-import Control.Monad (foldM)
-import Control.Monad.Class.MonadSTM (readTVarIO, throwSTM, writeTVar)
+import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   LedgerEra,
   SlotNo,
   Tx,
+  TxId,
   fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
+  fromLedgerUTxO,
+  getTxBody,
+  getTxId,
   toLedgerTx,
   toLedgerUTxO,
  )
@@ -36,10 +39,8 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainSlot (ChainSlot),
   ChainStateType,
-  OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
-  chainStateSlot,
  )
 import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
@@ -55,13 +56,12 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Util (Block, SomePoint (..))
+import Hydra.Chain.Direct.Util (Block)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
   getFuelUTxO,
-  getTxId,
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node (Persistence (Persistence, save))
@@ -226,14 +226,20 @@ chainSyncHandler tracer callback getTimeHandle Persistence{save} =
     }
  where
   onRollBackward :: Point Block -> m ()
-  onRollBackward point = do
-    traceWith tracer $ RolledBackward $ SomePoint point
+  onRollBackward rollbackPoint = do
+    let point = fromConsensusPointHF rollbackPoint
+    traceWith tracer $ RolledBackward{point}
     callback (const . Just $ Rollback $ chainSlotFromPoint point)
 
   onRollForward :: Block -> m ()
   onRollForward blk = do
-    let point = blockPoint blk
-    traceWith tracer $ RolledForward $ SomePoint point
+    let point = fromConsensusPointHF $ blockPoint blk
+    let receivedTxs = map fromLedgerTx . toList $ getBabbageTxs blk
+    traceWith tracer $
+      RolledForward
+        { point
+        , receivedTxIds = getTxId . getTxBody <$> receivedTxs
+        }
 
     let slotNo = slotNoFromPoint point
     timeHandle <- getTimeHandle
@@ -243,15 +249,9 @@ chainSyncHandler tracer callback getTimeHandle Persistence{save} =
       Right utcTime ->
         callback (const . Just $ Tick utcTime)
 
-    let receivedTxs = toList $ getBabbageTxs blk
-    unless (null receivedTxs) $
-      traceWith tracer $
-        ReceivedTxs
-          { receivedTxs = map getTxId receivedTxs
-          }
     forM_ receivedTxs $ \tx ->
       callback $ \cs ->
-        case observeSomeTx (fromLedgerTx tx) cs of
+        case observeSomeTx tx cs of
           Nothing -> Nothing
           Just (observedTx, newChainState) ->
             Just $
@@ -261,7 +261,7 @@ chainSyncHandler tracer callback getTimeHandle Persistence{save} =
                 , newChainState
                 }
 
-  slotNoFromPoint p = case fromConsensusPointHF p of
+  slotNoFromPoint = \case
     ChainPointAtGenesis -> 0
     ChainPoint s _ -> s
 
@@ -363,9 +363,8 @@ data DirectChainLog
   | PostingTx {txId :: Ledger.TxId StandardCrypto}
   | PostedTx {txId :: Ledger.TxId StandardCrypto}
   | PostingFailed {tx :: ValidatedTx LedgerEra, postTxError :: PostTxError Tx}
-  | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [Ledger.TxId StandardCrypto]}
-  | RolledForward {point :: SomePoint}
-  | RolledBackward {point :: SomePoint}
+  | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
+  | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
   | CreatedState
   | LoadedState

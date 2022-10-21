@@ -25,3 +25,8 @@ instance FromJSON ChainPoint where
       "ChainPointAtGenesis" -> pure ChainPointAtGenesis
       "ChainPoint" -> ChainPoint <$> o .: "slot" <*> o .: "blockHash"
       _ -> fail "Expected tag to be ChainPointAtGenesis | ChainPoint"
+
+-- XXX: Incomplete arbitrary instance
+instance Arbitrary ChainPoint where
+  arbitrary =
+    pure ChainPointAtGenesis
