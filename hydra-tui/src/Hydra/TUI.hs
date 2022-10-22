@@ -215,24 +215,10 @@ handleEvent client cardanoClient s = \case
       -- Commands
       EvKey (KChar c) _ ->
         if
-            | c `elem` ['<'] -> do
-              case s ^? feedbackStateL of
-                Just Full -> do
-                  let vp = viewportScroll fullFeedbackViewportName
-                  vScrollPage vp Up
-                _ -> do
-                  let vp = viewportScroll shortFeedbackViewportName
-                  hScrollPage vp Up
-              continue s
-            | c `elem` ['>'] -> do
-              case s ^? feedbackStateL of
-                Just Full -> do
-                  let vp = viewportScroll fullFeedbackViewportName
-                  vScrollPage vp Down
-                _ -> do
-                  let vp = viewportScroll shortFeedbackViewportName
-                  hScrollPage vp Down
-              continue s
+            | c `elem` ['<'] ->
+              scroll s Up *> continue s
+            | c `elem` ['>'] ->
+              scroll s Down *> continue s
             | c `elem` ['h', 'H'] ->
               continue $ s & feedbackStateL .~ Full
             | c `elem` ['s', 'S'] ->
@@ -511,6 +497,16 @@ fullFeedbackViewportName = "full-feedback-view-port"
 
 shortFeedbackViewportName :: Name
 shortFeedbackViewportName = "short-feedback-view-port"
+
+scroll :: State -> Direction -> EventM Name ()
+scroll s direction =
+  case s ^? feedbackStateL of
+    Just Full -> do
+      let vp = viewportScroll fullFeedbackViewportName
+      vScrollPage vp direction
+    _ -> do
+      let vp = viewportScroll shortFeedbackViewportName
+      hScrollPage vp direction
 
 draw :: Client Tx m -> CardanoClient -> State -> [Widget Name]
 draw Client{sk} CardanoClient{networkId} s =
