@@ -521,16 +521,18 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawFullHistoryMode =
     vBox
-      [ let panel = drawFullFeedback
+      [ drawHeadState
+      , let panel = drawFullFeedback
             cmds =
-              [ "[<] scroll up"
-              , "[>] scroll down"
-              , "[S]hort Feedback Mode"
-              ]
+              commandList
+                <> [ "[<] scroll up"
+                   , "[>] scroll down"
+                   , "[S]hort Feedback Mode"
+                   ]
          in hBox
               [ hLimit 120 $ viewport fullFeedbackViewportName Vertical (vBox panel)
               , vBorder
-              , padLeftRight 1 $ vBox (str <$> cmds)
+              , padLeftRight 1 . vBox $ (str <$> cmds)
               ]
       ]
 
@@ -552,7 +554,7 @@ draw Client{sk} CardanoClient{networkId} s =
               hBox
                 [ hLimit 120 $ viewport shortFeedbackViewportName Horizontal panel
                 , vBorder
-                , padLeftRight 1 $ vBox (str <$> cmds)
+                , padLeftRight 1 . vBox $ (str <$> cmds)
                 ]
       ]
 
@@ -582,6 +584,19 @@ draw Client{sk} CardanoClient{networkId} s =
         Disconnected{nodeHost} -> withAttr negative $ str $ "connecting to " <> show nodeHost
         Connected{nodeHost} -> withAttr positive $ str $ "connected to " <> show nodeHost
 
+  commandList =
+    case s ^? dialogStateL of
+      Just Dialog{} -> ["[Esc] Cancel", "[↑] Move Up", "[↓] Move Down", "[Space] Select", "[Enter] Confirm"]
+      _ ->
+        case s ^? headStateL of
+          Just Idle -> ["[I]nit", "[Q]uit"]
+          Just Initializing{} -> ["[C]ommit", "[A]bort", "[Q]uit"]
+          Just Open{} -> ["[N]ew Transaction", "[C]lose", "[Q]uit"]
+          Just Closed{} -> ["[Q]uit"]
+          Just FanoutPossible -> ["[F]anout", "[Q]uit"]
+          Just Final{} -> ["[I]nit", "[Q]uit"]
+          Nothing -> ["[Q]uit"]
+
   drawRightPanel =
     case s ^? dialogStateL of
       Just (Dialog title form _) ->
@@ -601,9 +616,7 @@ draw Client{sk} CardanoClient{networkId} s =
           Just Idle ->
             withCommands
               [drawHeadState]
-              [ "[I]nit"
-              , "[Q]uit"
-              ]
+              commandList
           Just Initializing{remainingParties, utxo} ->
             withCommands
               [ drawHeadState
@@ -613,10 +626,7 @@ draw Client{sk} CardanoClient{networkId} s =
                     str "Waiting for parties to commit:"
                       <=> vBox (map drawParty remainingParties)
               ]
-              [ "[C]ommit"
-              , "[A]bort"
-              , "[Q]uit"
-              ]
+              commandList
           Just Open{utxo} ->
             withCommands
               [ drawHeadState
@@ -624,25 +634,19 @@ draw Client{sk} CardanoClient{networkId} s =
                   txt ("Head UTXO, total: " <> renderValue (balance @Tx utxo))
                     <=> padLeft (Pad 2) (drawUTxO utxo)
               ]
-              [ "[N]ew Transaction"
-              , "[C]lose"
-              , "[Q]uit"
-              ]
+              commandList
           Just Closed{contestationDeadline} ->
             withCommands
               [ drawHeadState
               , drawRemainingContestationPeriod contestationDeadline
               ]
-              [ "[Q]uit"
-              ]
+              commandList
           Just FanoutPossible ->
             withCommands
               [ drawHeadState
               , txt "Ready to fanout!"
               ]
-              [ "[F]anout"
-              , "[Q]uit"
-              ]
+              commandList
           Just Final{utxo} ->
             withCommands
               [ drawHeadState
@@ -650,15 +654,13 @@ draw Client{sk} CardanoClient{networkId} s =
                   txt ("Distributed UTXO, total: " <> renderValue (balance @Tx utxo))
                     <=> padLeft (Pad 2) (drawUTxO utxo)
               ]
-              [ "[I]nit"
-              , "[Q]uit"
-              ]
+              commandList
           -- Disconnected
           Nothing ->
             withCommands
               [ drawHeadState
               ]
-              ["[Q]uit"]
+              commandList
 
   drawRemainingContestationPeriod deadline =
     let remaining = diffUTCTime deadline (s ^. nowL)
