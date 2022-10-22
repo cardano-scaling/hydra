@@ -74,6 +74,7 @@ tuiContestationPeriod = UnsafeContestationPeriod 10
 --
 -- Model
 --
+data FeedbackState = Short | Full
 
 data State
   = Disconnected
@@ -86,6 +87,7 @@ data State
       , peers :: [NodeId]
       , headState :: HeadState
       , dialogState :: DialogState
+      , feedbackState :: FeedbackState
       , feedback :: [UserFeedback]
       , now :: UTCTime
       , pending :: Pending
@@ -135,6 +137,7 @@ makeLensesFor
   , ("clientState", "clientStateL")
   , ("dialogState", "dialogStateL")
   , ("feedback", "feedbackL")
+  , ("feedbackState", "feedbackStateL")
   , ("now", "nowL")
   , ("pending", "pendingL")
   ]
@@ -213,13 +216,27 @@ handleEvent client cardanoClient s = \case
       EvKey (KChar c) _ ->
         if
             | c `elem` ['<'] -> do
-              let vp = viewportScroll feedbackViewportName
-              vScrollPage vp Up
+              case s ^? feedbackStateL of
+                Just Full -> do
+                  let vp = viewportScroll fullFeedbackViewportName
+                  vScrollPage vp Up
+                _ -> do
+                  let vp = viewportScroll shortFeedbackViewportName
+                  hScrollPage vp Up
               continue s
             | c `elem` ['>'] -> do
-              let vp = viewportScroll feedbackViewportName
-              vScrollPage vp Down
+              case s ^? feedbackStateL of
+                Just Full -> do
+                  let vp = viewportScroll fullFeedbackViewportName
+                  vScrollPage vp Down
+                _ -> do
+                  let vp = viewportScroll shortFeedbackViewportName
+                  hScrollPage vp Down
               continue s
+            | c `elem` ['h', 'H'] ->
+              continue $ s & feedbackStateL .~ Full
+            | c `elem` ['s', 'S'] ->
+              continue $ s & feedbackStateL .~ Short
             | c `elem` ['q', 'Q'] ->
               halt s
             | c `elem` ['i', 'I'] ->
@@ -273,6 +290,7 @@ handleAppEvent s = \case
       , peers = []
       , headState = Idle
       , dialogState = NoDialog
+      , feedbackState = Short
       , feedback = []
       , now = s ^. nowL
       , pending = NotPending
@@ -488,30 +506,58 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
 --
 -- View
 --
-feedbackViewportName :: Name
-feedbackViewportName = "feedback-view-port"
+fullFeedbackViewportName :: Name
+fullFeedbackViewportName = "full-feedback-view-port"
+
+shortFeedbackViewportName :: Name
+shortFeedbackViewportName = "short-feedback-view-port"
 
 draw :: Client Tx m -> CardanoClient -> State -> [Widget Name]
 draw Client{sk} CardanoClient{networkId} s =
   pure $
     withBorderStyle ascii $
       joinBorders $
-        vBox
-          [ hBox
-              [ drawInfo
-              , vBorder
-              , drawRightPanel
-              ]
-          , hBorder
-          , withCommandsAndViewPort
-              feedbackViewportName
-              drawFeedback
-              [ "[<] scroll up"
-              , "[>] scroll down"
-              ]
-          ]
+        case s ^? feedbackStateL of
+          Just Full -> drawFullHistoryMode
+          _ -> drawShortFeedbackMode
  where
   vk = getVerificationKey sk
+
+  drawFullHistoryMode =
+    vBox
+      [ let panel = drawFullFeedback
+            cmds =
+              [ "[<] scroll up"
+              , "[>] scroll down"
+              , "[S]hort Feedback Mode"
+              ]
+         in hBox
+              [ hLimit 120 $ viewport fullFeedbackViewportName Vertical (vBox panel)
+              , vBorder
+              , padLeftRight 1 $ vBox (str <$> cmds)
+              ]
+      ]
+
+  drawShortFeedbackMode =
+    vBox
+      [ hBox
+          [ drawInfo
+          , vBorder
+          , drawRightPanel
+          ]
+      , hBorder
+      , let panel = drawShortFeedback
+            cmds =
+              [ "[<] scroll left"
+              , "[>] scroll right"
+              , "Full [H]istory Mode"
+              ]
+         in hBox
+              [ hLimit 120 $ viewport shortFeedbackViewportName Horizontal panel
+              , vBorder
+              , padLeftRight 1 $ vBox (str <$> cmds)
+              ]
+      ]
 
   drawInfo =
     hLimit 50 $
@@ -669,20 +715,29 @@ draw Client{sk} CardanoClient{networkId} s =
       , padLeftRight 1 $ vBox (str <$> cmds)
       ]
 
-  withCommandsAndViewPort name panel cmds =
-    hBox
-      [ hLimit 120 $ viewport name Vertical (vBox panel)
-      , vBorder
-      , padLeftRight 1 $ vBox (str <$> cmds)
-      ]
-
-  drawFeedback =
-    case s ^? (feedbackL . _head) of
-      Just UserFeedback{message, severity, time} ->
-        withAttr (severityToAttr severity) . txt <$> chunksOf 120 (show time <> " | " <> message)
+  drawFullFeedback =
+    case s ^? feedbackL of
+      Just feedbacks -> vBox . feedbackToWidget <$> feedbacks
+       where
+        feedbackToWidget =
+          ( \UserFeedback{message, severity, time} ->
+              let feedbackText = show time <> " | " <> message
+                  feedbackChunks = chunksOf 120 feedbackText
+                  feedbackDecorator = withAttr (severityToAttr severity) . txt
+               in feedbackDecorator <$> feedbackChunks
+          )
       Nothing ->
         -- Reserves the space and not have this area collapse
         [txt ""]
+
+  drawShortFeedback =
+    case s ^? (feedbackL . _head) of
+      Just UserFeedback{message, severity, time} ->
+        let errorMessage = withAttr (severityToAttr severity) . txt $ (show time <> " | " <> message)
+         in errorMessage
+      Nothing ->
+        -- Reserves the space and not have this area collapse
+        txt ""
 
   drawParties =
     case s ^? headStateL . partiesL of
