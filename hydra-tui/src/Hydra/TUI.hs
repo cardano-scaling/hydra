@@ -548,11 +548,12 @@ draw Client{sk} CardanoClient{networkId} s =
               , "[>] scroll right"
               , "Full [H]istory Mode"
               ]
-         in hBox
-              [ hLimit 120 $ viewport shortFeedbackViewportName Horizontal panel
-              , vBorder
-              , padLeftRight 1 $ vBox (str <$> cmds)
-              ]
+         in vLimit 3 $
+              hBox
+                [ hLimit 120 $ viewport shortFeedbackViewportName Horizontal panel
+                , vBorder
+                , padLeftRight 1 $ vBox (str <$> cmds)
+                ]
       ]
 
   drawInfo =
