@@ -729,11 +729,10 @@ draw Client{sk} CardanoClient{networkId} s =
   drawShortFeedback =
     case s ^? (feedbackL . _head) of
       Just UserFeedback{message, severity, time} ->
-        let errorMessage = withAttr (severityToAttr severity) . txt $ (show time <> " | " <> message)
-         in errorMessage
+        withAttr (severityToAttr severity) . str . toString $ (show time <> " | " <> message)
       Nothing ->
         -- Reserves the space and not have this area collapse
-        txt ""
+        str ""
 
   drawParties =
     case s ^? headStateL . partiesL of
