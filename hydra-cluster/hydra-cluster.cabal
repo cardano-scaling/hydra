@@ -248,6 +248,7 @@ test-suite integration
     , QuickCheck
     , regex-tdfa
     , say
+    , stm
     , strict-containers
     , temporary
     , text

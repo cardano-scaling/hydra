@@ -16,8 +16,9 @@ import CardanoClient (
   waitForUTxO,
  )
 import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
-import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.MVar (tryReadMVar)
+import Control.Concurrent.STM (newEmptyTMVarIO, newTVarIO, readTVarIO, takeTMVar)
+import Control.Concurrent.STM.TMVar (putTMVar)
+import Control.Concurrent.STM.TVar (writeTVar)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
@@ -75,21 +76,20 @@ spec = around showLogsOnFailure $ do
   it "can init and abort a head given nothing has been committed" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
+        (aliceCardanoVk, _) <- keysFor Alice
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
-        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Alice, Bob, Carol]
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Bob, Carol]
         aliceChainState <- initialChainState aliceChainConfig alice hydraScriptsTxId
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainState $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Bob setup
-            bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Bob, Carol]
+            bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Carol]
             bobChainState <- initialChainState bobChainConfig bob hydraScriptsTxId
             withDirectChainTest nullTracer bobChainConfig bobChainState $
               \bobChain@DirectChainTest{} -> do
                 -- Scenario
-                (aliceCardanoVk, _) <- keysFor Alice
-                seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-
                 postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
                 aliceChain `observesInTime` OnInitTx cperiod [alice, bob, carol]
                 bobChain `observesInTime` OnInitTx cperiod [alice, bob, carol]
@@ -165,7 +165,7 @@ spec = around showLogsOnFailure $ do
                 aliceChain `observesInTime` OnInitTx cperiod [alice, carol]
 
                 bobPostTx (AbortTx mempty)
-                  `shouldThrow` (== InvalidStateToPost @Tx (AbortTx mempty))
+                  `shouldThrow` (== InvalidStateToPost @Tx (AbortTx mempty) bobChainState)
 
   it "can commit" $ \tracer ->
     withTempDir "hydra-cluster" $ \tmp -> do
@@ -363,26 +363,26 @@ withDirectChainTest ::
   (DirectChainTest Tx IO -> IO a) ->
   IO a
 withDirectChainTest tracer config initialState action = do
-  mvar <- newEmptyMVar
-
-  let getState =
-        tryReadMVar mvar >>= \case
-          Just Observation{newChainState} -> pure $ newChainState
-          _nothingOrOtherEvent -> pure $ initialState
+  eventMVar <- newEmptyTMVarIO
+  stateVar <- newTVarIO initialState
 
   let callback = \cont -> do
-        cs <- getState
+        cs <- readTVarIO stateVar
         case cont cs of
           Nothing -> pure ()
-          Just ev -> putMVar mvar ev
+          Just ev -> atomically $ do
+            putTMVar eventMVar ev
+            case ev of
+              Observation{newChainState} -> writeTVar stateVar newChainState
+              _OtherEvent -> pure ()
 
   withDirectChain tracer config callback $ \Chain{postTx} -> do
     action
       DirectChainTest
         { postTx = \tx -> do
-            cs <- getState
+            cs <- readTVarIO stateVar
             postTx cs tx
-        , waitCallback = takeMVar mvar
+        , waitCallback = atomically $ takeTMVar eventMVar
         }
 
 observesInTime :: IsTx tx => DirectChainTest tx IO -> OnChainTx tx -> IO ()
