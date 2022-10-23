@@ -44,6 +44,8 @@ chainConfigFor :: Actor -> FilePath -> FilePath -> [Actor] -> IO ChainConfig
 chainConfigFor me targetDir nodeSocket them = do
   readConfigFile ("credentials" </> skName me) >>= writeFileBS (skTarget me)
   readConfigFile ("credentials" </> vkName me) >>= writeFileBS (vkTarget me)
+  forM_ them $ \actor ->
+    readConfigFile ("credentials" </> vkName actor) >>= writeFileBS (vkTarget actor)
   pure $
     defaultChainConfig
       { nodeSocket
