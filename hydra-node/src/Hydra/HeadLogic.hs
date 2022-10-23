@@ -68,12 +68,12 @@ data Event tx
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, Eq (ChainEvent tx)) => Eq (Event tx)
-deriving instance (IsTx tx, Show (ChainEvent tx)) => Show (Event tx)
-deriving instance (IsTx tx, ToJSON (ChainEvent tx)) => ToJSON (Event tx)
-deriving instance (IsTx tx, FromJSON (ChainEvent tx)) => FromJSON (Event tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (Event tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Show (Event tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => ToJSON (Event tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => FromJSON (Event tx)
 
-instance (IsTx tx, Arbitrary (ChainEvent tx)) => Arbitrary (Event tx) where
+instance (IsTx tx, IsChainState (ChainStateType tx)) => Arbitrary (Event tx) where
   arbitrary = genericArbitrary
 
 -- | Analogous to events, the pure head logic "core" can have effects emited to
@@ -88,13 +88,13 @@ data Effect tx
     OnChainEffect {onChainTx :: PostChainTx tx}
   deriving stock (Generic)
 
-instance IsTx tx => Arbitrary (Effect tx) where
-  arbitrary = genericArbitrary
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (Effect tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Show (Effect tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => ToJSON (Effect tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => FromJSON (Effect tx)
 
-deriving instance IsTx tx => Eq (Effect tx)
-deriving instance IsTx tx => Show (Effect tx)
-deriving instance IsTx tx => ToJSON (Effect tx)
-deriving instance IsTx tx => FromJSON (Effect tx)
+instance (IsTx tx, IsChainState (ChainStateType tx)) => Arbitrary (Effect tx) where
+  arbitrary = genericArbitrary
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
@@ -231,8 +231,8 @@ data Outcome tx
   | Wait WaitReason
   | Error (LogicError tx)
 
-deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (Outcome tx)
-deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (Outcome tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (Outcome tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Show (Outcome tx)
 
 data WaitReason
   = WaitOnNotApplicableTx {validationError :: ValidationError}

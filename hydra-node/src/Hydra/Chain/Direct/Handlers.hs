@@ -325,7 +325,7 @@ fromPostChainTx timeHandle wallet cst tx = do
     (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       pure (fanout st utxo deadlineSlot)
-    (_, _) -> throwIO $ InvalidStateToPost tx
+    (_, _) -> throwIO $ InvalidStateToPost{txTried = tx, chainState = cst}
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure

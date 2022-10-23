@@ -19,6 +19,7 @@ import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput))
+import Hydra.Chain (ChainStateType, IsChainState, PostTxError)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
@@ -65,7 +66,7 @@ type ServerCallback tx m = ClientInput tx -> m ()
 type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
 
 withAPIServer ::
-  IsTx tx =>
+  (IsTx tx, IsChainState (ChainStateType tx)) =>
   IP ->
   PortNumber ->
   Party ->
@@ -85,7 +86,7 @@ withAPIServer host port party tracer callback action = do
 
 runAPIServer ::
   forall tx.
-  IsTx tx =>
+  (IsTx tx, IsChainState (ChainStateType tx)) =>
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->

@@ -104,12 +104,12 @@ data HydraNodeLog tx
   | NodeOptions {runOptions :: RunOptions}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, Eq (Event tx), Eq (LogicError tx)) => Eq (HydraNodeLog tx)
-deriving instance (IsTx tx, Show (Event tx), Show (LogicError tx)) => Show (HydraNodeLog tx)
-deriving instance (IsTx tx, ToJSON (Event tx), ToJSON (LogicError tx)) => ToJSON (HydraNodeLog tx)
-deriving instance (IsTx tx, FromJSON (Event tx), FromJSON (LogicError tx)) => FromJSON (HydraNodeLog tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (HydraNodeLog tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Show (HydraNodeLog tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => ToJSON (HydraNodeLog tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => FromJSON (HydraNodeLog tx)
 
-instance (IsTx tx, Arbitrary (Event tx), Arbitrary (LogicError tx)) => Arbitrary (HydraNodeLog tx) where
+instance (IsTx tx, IsChainState (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 createHydraNode ::
@@ -210,6 +210,7 @@ processEffect ::
   ( MonadAsync m
   , MonadCatch m
   , IsTx tx
+  , IsChainState (ChainStateType tx)
   ) =>
   HydraNode tx m ->
   Tracer m (HydraNodeLog tx) ->

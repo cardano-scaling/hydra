@@ -114,14 +114,18 @@ data PostTxError tx
     PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
   | NoSeedInput
   | NoPaymentInput
-  | InvalidStateToPost {txTried :: PostChainTx tx}
+  | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
   | UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving (Generic)
 
-instance IsTx tx => Exception (PostTxError tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (PostTxError tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Show (PostTxError tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => ToJSON (PostTxError tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => FromJSON (PostTxError tx)
 
-instance IsTx tx => Arbitrary (PostTxError tx) where
+instance (IsTx tx, IsChainState (ChainStateType tx)) => Exception (PostTxError tx)
+
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary
 
 -- | Types of what to keep as L1 chain state.
@@ -129,7 +133,7 @@ type family ChainStateType tx
 
 -- | Interface available from a chain state. Expected to be instantiated by all
 -- 'ChainStateType tx'.
-class (ToJSON a, FromJSON a) => IsChainState a where
+class (Eq a, Show a, Arbitrary a, ToJSON a, FromJSON a) => IsChainState a where
   -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: a -> ChainSlot

@@ -3,7 +3,7 @@
 module Hydra.API.ServerOutput where
 
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (PostChainTx, PostTxError)
+import Hydra.Chain (ChainStateType, IsChainState, PostChainTx, PostTxError)
 import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
@@ -49,12 +49,12 @@ data ServerOutput tx
   | RolledBack
   deriving (Generic)
 
-deriving instance IsTx tx => Eq (ServerOutput tx)
-deriving instance IsTx tx => Show (ServerOutput tx)
-deriving instance IsTx tx => ToJSON (ServerOutput tx)
-deriving instance IsTx tx => FromJSON (ServerOutput tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (ServerOutput tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Show (ServerOutput tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => ToJSON (ServerOutput tx)
+deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => FromJSON (ServerOutput tx)
 
-instance IsTx tx => Arbitrary (ServerOutput tx) where
+instance (IsTx tx, IsChainState (ChainStateType tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
