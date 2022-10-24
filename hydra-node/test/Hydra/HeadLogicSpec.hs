@@ -14,7 +14,7 @@ import qualified Data.Set as Set
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
-  ChainSlot (ChainSlot),
+  ChainSlot (..),
   ChainStateType,
   HeadParameters (..),
   IsChainState,
@@ -36,7 +36,7 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
-import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), aValidTx, simpleLedger, utxoRef)
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (NodeId (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.Party (Party (..))
@@ -297,7 +297,7 @@ observationEvent observedTx =
     { chainEvent =
         Observation
           { observedTx
-          , newChainState = SimpleChainState
+          , newChainState = SimpleChainState{slot = ChainSlot 0}
           }
     }
 
@@ -338,13 +338,13 @@ inInitialState parties =
     , pendingCommits = Set.fromList parties
     , committed = mempty
     , previousRecoverableState = idleState
-    , chainState = SimpleChainState
+    , chainState = SimpleChainState{slot = ChainSlot 0}
     }
  where
   parameters = HeadParameters cperiod parties
 
   idleState =
-    IdleState{chainState = SimpleChainState}
+    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
 
 inOpenState ::
   [Party] ->
@@ -365,7 +365,7 @@ inOpenState' parties coordinatedHeadState =
     { parameters
     , coordinatedHeadState
     , previousRecoverableState
-    , chainState = SimpleChainState
+    , chainState = SimpleChainState{slot = ChainSlot 0}
     }
  where
   parameters = HeadParameters cperiod parties
@@ -376,11 +376,11 @@ inOpenState' parties coordinatedHeadState =
       , pendingCommits = mempty
       , committed = mempty
       , previousRecoverableState = idleState
-      , chainState = SimpleChainState
+      , chainState = SimpleChainState{slot = ChainSlot 0}
       }
 
   idleState =
-    IdleState{chainState = SimpleChainState}
+    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
@@ -396,7 +396,7 @@ inClosedState' parties confirmedSnapshot =
     , confirmedSnapshot
     , contestationDeadline
     , readyToFanoutSent = False
-    , chainState = SimpleChainState
+    , chainState = SimpleChainState{slot = ChainSlot 0}
     }
  where
   parameters = HeadParameters cperiod parties

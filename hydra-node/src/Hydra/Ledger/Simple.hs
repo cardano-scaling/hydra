@@ -20,7 +20,7 @@ import Data.Aeson (
  )
 import Data.List (maximum)
 import qualified Data.Set as Set
-import Hydra.Chain (ChainStateType, IsChainState)
+import Hydra.Chain (ChainSlot, ChainStateType, IsChainState (..), nextChainSlot)
 import Hydra.Ledger
 import Test.QuickCheck (choose, getSize, sublistOf)
 
@@ -78,17 +78,19 @@ instance FromCBOR SimpleTx where
 
 -- * Simple chain state
 
-data SimpleChainState = SimpleChainState
+data SimpleChainState = SimpleChainState {slot :: ChainSlot}
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 -- | The chain state type for Cardano 'Tx' is 'ChainState'.
 type instance ChainStateType SimpleTx = SimpleChainState
 
--- TODO: implement
-instance Arbitrary SimpleChainState
+instance Arbitrary SimpleChainState where
+  arbitrary = SimpleChainState <$> arbitrary
 
--- TODO: implement
-instance IsChainState SimpleChainState
+instance IsChainState SimpleChainState where
+  chainStateSlot SimpleChainState{slot} = slot
+
+  advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
 
 --
 -- MockTxIn

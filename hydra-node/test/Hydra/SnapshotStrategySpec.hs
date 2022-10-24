@@ -7,7 +7,7 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Data.List as List
-import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain (ChainSlot (..), HeadParameters (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
@@ -21,7 +21,7 @@ import Hydra.HeadLogic (
   newSn,
  )
 import Hydra.Ledger (Ledger (..))
-import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), aValidTx, simpleLedger)
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
@@ -157,7 +157,7 @@ inOpenState' parties coordinatedHeadState =
     { parameters
     , coordinatedHeadState
     , previousRecoverableState
-    , chainState = SimpleChainState
+    , chainState = SimpleChainState{slot = ChainSlot 0}
     }
  where
   parameters = HeadParameters cperiod parties
@@ -168,9 +168,9 @@ inOpenState' parties coordinatedHeadState =
       , pendingCommits = mempty
       , committed = mempty
       , previousRecoverableState = idleState
-      , chainState = SimpleChainState
+      , chainState = SimpleChainState{slot = ChainSlot 0}
       }
 
   idleState :: HeadState SimpleTx
   idleState =
-    IdleState{chainState = SimpleChainState}
+    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}

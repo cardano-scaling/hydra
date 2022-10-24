@@ -398,8 +398,8 @@ spec = parallel $ do
               -- FIXME: this is too cumbersome and maybe even incorrect (chain
               -- states), the simulated chain should provide a way to inject
               -- without providing a chain state?
-              injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState}
-              injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState}
+              injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+              injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> snapshotNumber == 0
@@ -535,7 +535,7 @@ withSimulatedChainAndNetwork ::
   (ConnectToChain SimpleTx m -> m ()) ->
   m ()
 withSimulatedChainAndNetwork action = do
-  chain <- simulatedChainAndNetwork SimpleChainState
+  chain <- simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0}
   action chain
   cancel $ tickThread chain
 
@@ -653,7 +653,8 @@ withHydraNode ::
 withHydraNode signingKey otherParties connectToChain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  node <- createHydraNode simpleLedger SimpleChainState signingKey otherParties outputs outputHistory connectToChain
+  let chainState = SimpleChainState{slot = ChainSlot 0}
+  node <- createHydraNode simpleLedger chainState signingKey otherParties outputs outputHistory connectToChain
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraNode outputs outputHistory node connectToChain)
 

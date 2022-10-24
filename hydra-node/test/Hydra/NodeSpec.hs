@@ -12,6 +12,7 @@ import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
+  ChainSlot (..),
   ChainStateType,
   HeadParameters (HeadParameters),
   IsChainState,
@@ -27,7 +28,7 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import Hydra.Ledger (IsTx)
-import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Network (..), NodeId (..))
 import Hydra.Network.Message (Message (..))
@@ -137,7 +138,7 @@ eventsToOpenHead =
       { chainEvent =
           Observation
             { observedTx
-            , newChainState = SimpleChainState
+            , newChainState = SimpleChainState{slot = ChainSlot 0}
             }
       }
 
@@ -161,7 +162,7 @@ createHydraNode ::
 createHydraNode signingKey otherParties events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
-  nodeState <- createNodeState $ IdleState{chainState = SimpleChainState}
+  nodeState <- createNodeState $ IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
   pure $
     HydraNode
       { eq
