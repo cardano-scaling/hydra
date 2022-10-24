@@ -147,6 +147,7 @@ prop_thereIsAlwaysALeader =
 -- Assertion utilities
 --
 
+-- XXX: DRY with HeadLogicSpec
 inOpenState' ::
   [Party] ->
   CoordinatedHeadState SimpleTx ->
