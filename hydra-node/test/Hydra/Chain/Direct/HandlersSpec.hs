@@ -21,19 +21,19 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   ChainCallback,
   ChainEvent (..),
+  ChainSlot (..),
   HeadParameters,
  )
 import Hydra.Chain.Direct.Handlers (
-  ChainStateAt (..),
   ChainSyncHandler (..),
   GetTimeHandle,
-  RecordedAt (..),
   TimeConversionException (..),
   chainSyncHandler,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (Idle),
+  ChainStateAt (..),
   IdleState (..),
   InitialState (..),
   ctxHeadParameters,
@@ -95,7 +95,7 @@ spec = do
       (timeHandle, slot) <- pickBlind genTimeHandleWithSlotInsideHorizon
       blk <- pickBlind $ genBlockAt slot []
 
-      chainState <- pickBlind genChainState
+      chainState <- pickBlind arbitrary
       (handler, getEvents) <- run $ recordEventsHandler chainState (pure timeHandle)
 
       run $ onRollForward handler blk
@@ -125,13 +125,14 @@ spec = do
     monadicIO $ do
       -- Generate a state and related transaction and a block containing it
       (st, tx, transition) <- pick genChainStateWithTx
+      let chainState = ChainStateAt{chainState = st, recordedAt = ChainSlot 0}
       blk <- pickBlind $ genBlockAt 1 [tx]
       monitor (label $ show transition)
 
       timeHandle <- pickBlind arbitrary
       let callback cont =
             -- Give chain state in which we expect the 'tx' to yield an 'Observation'.
-            case cont st of
+            case cont chainState of
               Nothing ->
                 -- XXX: We need this to debug as 'failure' (via 'run') does not
                 -- yield counter examples.
@@ -152,13 +153,13 @@ spec = do
 
   -- TODO: this test should only be about correctly yielding rollback events
   prop "can replay chain on (benign) rollback" $
-    forAllBlind genSequenceOfObservableBlocks $ \(st, blks) ->
+    forAllBlind genSequenceOfObservableBlocks $ \(chainState, blks) ->
       forAllShow (genRollbackPoint blks) showRollbackInfo $ \(rollbackDepth, rollbackPoint) -> do
         monadicIO $ do
           monitor $ label ("Rollback depth: " <> show rollbackDepth)
           timeHandle <- pickBlind arbitrary
           -- Mock callback which keeps the chain state in a tvar
-          stateVar <- run $ newTVarIO (currentChainState st) -- TODO: no need for a recursive data type
+          stateVar <- run $ newTVarIO chainState
           let callback cont = do
                 cs <- readTVarIO stateVar
                 case cont cs of
@@ -187,7 +188,7 @@ spec = do
 -- | Create a chain sync handler which records events as they are called back.
 -- NOTE: This 'ChainSyncHandler' does not handle chain state updates, but uses
 -- the given 'ChainState' constantly.
-recordEventsHandler :: ChainState -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
+recordEventsHandler :: ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler cs getTimeHandle = do
   eventsVar <- newTVarIO []
   let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle
@@ -218,8 +219,8 @@ withCounterExample blks headState step = do
       counterexample $
         toString $
           unlines
-            [ "Head state at (before rollback): " <> showChainStateAt stBefore
-            , "Head state at (after rollback):  " <> showChainStateAt stAfter
+            [ "Chain state at (before rollback): " <> show stBefore
+            , "Chain state at (after rollback):  " <> show stAfter
             , "Block sequence: \n"
                 <> unlines
                   ( fmap
@@ -309,10 +310,10 @@ genSequenceOfObservableBlocks = do
     pure $ snd $ fromJust $ observeCommit stInitial commitTx
 
 stAtGenesis :: ChainState -> ChainStateAt
-stAtGenesis currentChainState =
+stAtGenesis chainState =
   ChainStateAt
-    { currentChainState
-    , recordedAt = AtStart
+    { chainState
+    , recordedAt = ChainSlot 0
     }
 
 showRollbackInfo :: (Word, Point Block) -> String
@@ -322,9 +323,3 @@ showRollbackInfo (rollbackDepth, rollbackPoint) =
       [ "Rollback depth: " <> show rollbackDepth
       , "Rollback point: " <> show rollbackPoint
       ]
-
-showChainStateAt :: ChainStateAt -> Text
-showChainStateAt ChainStateAt{recordedAt, currentChainState} =
-  case recordedAt of
-    AtStart -> "AtStart " <> show currentChainState
-    AtPoint pt _ -> "AtPoint " <> show pt <> " " <> show currentChainState

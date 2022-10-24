@@ -44,6 +44,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
+  ChainStateAt (..),
   IdleState (IdleState, ctx),
   abort,
   close,
@@ -126,7 +127,7 @@ finalizeTx ::
   ChainStateType Tx ->
   ValidatedTx LedgerEra ->
   STM m (ValidatedTx LedgerEra)
-finalizeTx TinyWallet{sign, coverFee} chainState partialTx = do
+finalizeTx TinyWallet{sign, coverFee} ChainStateAt{chainState} partialTx = do
   let headUTxO = getKnownUTxO chainState
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
@@ -146,34 +147,6 @@ finalizeTx TinyWallet{sign, coverFee} chainState partialTx = do
       pure $ sign validatedTx
 
 -- * Following the Chain
-
--- | The on-chain head state is maintained in a mutually-recursive data-structure,
--- pointing to the previous chain state; This allows to easily rewind the state
--- to a point in the past when rolling backward due to a change of chain fork by
--- our local cardano-node.
-data ChainStateAt = ChainStateAt
-  { currentChainState :: ChainState
-  , recordedAt :: RecordedAt
-  }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
-
--- TODO: use a correct implementation, currently not possible because of cyclic
--- dependenices (see Arbitrary ChainState)
-instance Arbitrary ChainStateAt where
-  arbitrary = do
-    ctx <- arbitrary
-    pure $
-      ChainStateAt
-        { currentChainState = Idle $ IdleState{ctx}
-        , recordedAt = AtStart
-        }
-
--- | Records when a state was seen on-chain. 'AtStart' is used for states that
--- simply exist out of any chain events (e.g. the 'Idle' state).
-data RecordedAt
-  = AtStart
-  | AtPoint ChainPoint ChainStateAt
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 -- | A /handler/ that takes care of following the chain.
 data ChainSyncHandler m = ChainSyncHandler
@@ -241,14 +214,18 @@ chainSyncHandler tracer callback getTimeHandle =
         callback (const . Just $ Tick utcTime)
 
     forM_ receivedTxs $ \tx ->
-      callback $ \cs ->
+      callback $ \ChainStateAt{chainState = cs} ->
         case observeSomeTx tx cs of
           Nothing -> Nothing
-          Just (observedTx, newChainState) ->
+          Just (observedTx, cs') ->
             Just $
               Observation
                 { observedTx
-                , newChainState
+                , newChainState =
+                    ChainStateAt
+                      { chainState = cs'
+                      , recordedAt = chainSlotFromPoint point
+                      }
                 }
 
   slotNoFromPoint = \case
@@ -258,25 +235,6 @@ chainSyncHandler tracer callback getTimeHandle =
   chainSlotFromPoint p =
     let (SlotNo s) = slotNoFromPoint p
      in ChainSlot $ fromIntegral s
-
--- | Rewind some head state back to the first known state that is strictly
--- before the provided 'ChainPoint'.
---
--- This function also computes the /rollback depth/, e.g the number of observed states
--- that needs to be discarded given some rollback 'chainPoint'. This depth is used
--- in 'Hydra.HeadLogic.rollback' to discard corresponding off-chain state. Consequently
--- the two states /must/ be kept in sync in order for rollbacks to be handled properly.
-rollback :: ChainPoint -> ChainStateAt -> (ChainStateAt, Word)
-rollback chainPoint = backward 0
- where
-  backward n st =
-    case recordedAt st of
-      AtStart ->
-        (st, n)
-      AtPoint at previous ->
-        if at <= chainPoint
-          then (st, n)
-          else backward (succ n) previous
 
 -- | Hardcoded grace time for close transaction to be valid.
 -- TODO: make it a node configuration parameter
@@ -290,9 +248,9 @@ fromPostChainTx ::
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx timeHandle wallet cst tx = do
+fromPostChainTx timeHandle wallet cst@ChainStateAt{chainState} tx = do
   pointInTime <- throwLeft currentPointInTime
-  case (tx, cst) of
+  case (tx, chainState) of
     (InitTx params, Idle IdleState{ctx}) ->
       getFuelUTxO wallet >>= \case
         Just (fromLedgerTxIn -> seedInput, _) -> do

@@ -45,6 +45,7 @@ import Hydra.Chain (
   IsChainState (..),
   OnChainTx (..),
   PostTxError (..),
+  nextChainSlot,
  )
 import Hydra.Chain.Direct.ScriptRegistry (
   ScriptRegistry (..),
@@ -109,6 +110,26 @@ class HasKnownUTxO a where
 
 -- * States & transitions
 
+-- | The chain state type for Cardano 'Tx' is 'ChainState'.
+type instance ChainStateType Tx = ChainStateAt
+
+-- | The chain state used by the Hydra.Chain.Direct implementation. It records
+-- the actual 'ChainState' paired with a 'ChainSlot' (used to know up to which
+-- point to rewind on rollbacks).
+data ChainStateAt = ChainStateAt
+  { chainState :: ChainState
+  , recordedAt :: ChainSlot
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+instance Arbitrary ChainStateAt where
+  arbitrary = genericArbitrary
+
+instance IsChainState ChainStateAt where
+  chainStateSlot ChainStateAt{recordedAt} = recordedAt
+
+  advanceSlot cs@ChainStateAt{recordedAt} = cs{recordedAt = nextChainSlot recordedAt}
+
 -- | A definition of all transitions between 'ChainState's. Enumerable and
 -- bounded to be used as labels for checking coverage.
 data ChainTransition
@@ -129,12 +150,6 @@ data ChainState
   | Open OpenState
   | Closed ClosedState
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
-
--- | The chain state type for Cardano 'Tx' is 'ChainState'.
-type instance ChainStateType Tx = ChainState
-
--- TODO: implement
-instance IsChainState ChainState
 
 instance Arbitrary ChainState where
   arbitrary = genChainState

@@ -52,6 +52,7 @@ import Hydra.Cardano.Api (
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain (
   ChainComponent,
+  ChainSlot (..),
   ChainStateType,
   PostTxError (..),
  )
@@ -75,6 +76,7 @@ import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (Idle),
+  ChainStateAt (..),
   IdleState (..),
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
@@ -159,7 +161,10 @@ initialChainState config party hydraScriptsTxId = do
           , scriptRegistry
           }
   pure $
-    Idle IdleState{ctx}
+    ChainStateAt
+      { chainState = Idle IdleState{ctx}
+      , recordedAt = ChainSlot 0
+      }
  where
   DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} = config
 
