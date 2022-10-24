@@ -24,18 +24,19 @@ import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
+import Hydra.Chain (Chain (..), ChainEvent (..), ChainSlot (ChainSlot), ChainStateType, HeadParameters (..), IsChainState, OnChainTx (..), PostChainTx (..), advanceSlot)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Environment (..),
-  Event (ClientEvent, NetworkEvent, OnChainEvent),
+  Event (..),
   HeadState (IdleState),
+  chainState,
   defaultTTL,
  )
 import Hydra.Ledger (IsTx, Ledger, ValidationError (ValidationError))
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node (
@@ -44,7 +45,7 @@ import Hydra.Node (
   HydraNodeLog (..),
   Persistence (Persistence, load, save),
   createEventQueue,
-  createHydraHead,
+  createNodeState,
   runHydraNode,
  )
 import Hydra.Party (Party, deriveParty)
@@ -246,29 +247,29 @@ spec = parallel $ do
     it "sending two conflicting transactions should lead one being confirmed and one expired" $
       shouldRunInSim $
         failAfter 2 $ do
-          chain <- simulatedChainAndNetwork
-          withHydraNode aliceSk [bob] chain $ \n1 -> do
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
-              let tx' =
-                    SimpleTx
-                      { txSimpleId = 1
-                      , txInputs = utxoRef 1
-                      , txOutputs = utxoRef 10
-                      }
-                  tx'' =
-                    SimpleTx
-                      { txSimpleId = 2
-                      , txInputs = utxoRef 1
-                      , txOutputs = utxoRef 11
-                      }
-              send n1 (NewTx tx')
-              send n2 (NewTx tx'')
-              let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
-                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                  confirmed = SnapshotConfirmed snapshot sigs
-              waitUntil [n1, n2] confirmed
-              waitUntil [n1, n2] (TxExpired tx'')
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 -> do
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+                let tx' =
+                      SimpleTx
+                        { txSimpleId = 1
+                        , txInputs = utxoRef 1
+                        , txOutputs = utxoRef 10
+                        }
+                    tx'' =
+                      SimpleTx
+                        { txSimpleId = 2
+                        , txInputs = utxoRef 1
+                        , txOutputs = utxoRef 11
+                        }
+                send n1 (NewTx tx')
+                send n2 (NewTx tx'')
+                let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                    confirmed = SnapshotConfirmed snapshot sigs
+                waitUntil [n1, n2] confirmed
+                waitUntil [n1, n2] (TxExpired tx'')
 
     it "valid new transactions get snapshotted" $
       shouldRunInSim $ do
@@ -384,8 +385,11 @@ spec = parallel $ do
 
               -- Have n1 & n2 observe a close with not the latest snapshot
               let deadline = arbitrary `generateWith` 42
-              chainEvent n1 (Observation (OnCloseTx 0 deadline))
-              chainEvent n2 (Observation (OnCloseTx 0 deadline))
+              -- FIXME: this is too cumbersome and maybe even incorrect (slots,
+              -- chain states), the simulated chain should provide a way to
+              -- inject without providing a chain state?
+              injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, slot = ChainSlot 0, newChainState = SimpleChainState}
+              injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, slot = ChainSlot 0, newChainState = SimpleChainState}
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> snapshotNumber == 0
@@ -426,17 +430,18 @@ spec = parallel $ do
     roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
   describe "rolling back" $ do
-    it "resets head to just after init" $
+    it "does handle rolling back & forward past init" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 (Init testContestationPeriod)
             waitUntil [n1] $ ReadyToCommit (fromList [alice])
-            chainEvent n1 (Rollback 1)
+            -- We expect the Init to be rolled back and forward again
+            rollbackAndForward chain 1
             waitUntil [n1] RolledBack
             waitUntil [n1] $ ReadyToCommit (fromList [alice])
 
-    it "resets head to just after collect-com" $
+    it "does handle roll back & forward past open" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
@@ -445,8 +450,9 @@ spec = parallel $ do
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen (utxoRefs [1])
-            -- NOTE: Rollback affects the commit AND collect-com tx
-            chainEvent n1 (Rollback 2)
+            -- We expect one Commit AND the CollectCom to be rolled back and
+            -- forward again
+            rollbackAndForward chain 2
             waitUntil [n1] RolledBack
             waitUntil [n1] $ Committed alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen (utxoRefs [1])
@@ -454,7 +460,7 @@ spec = parallel $ do
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
 waitUntil ::
-  (HasCallStack, MonadThrow m, IsTx tx, MonadAsync m, MonadTimer m) =>
+  (HasCallStack, MonadThrow m, IsTx tx, MonadAsync m, MonadTimer m, IsChainState (ChainStateType tx)) =>
   [TestHydraNode tx m] ->
   ServerOutput tx ->
   m ()
@@ -496,25 +502,30 @@ waitMatch node predicate =
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
   { send :: ClientInput tx -> m ()
-  , chainEvent :: ChainEvent tx -> m ()
+  , injectChainEvent :: ChainEvent tx -> m ()
   , waitForNext :: m (ServerOutput tx)
   , serverOutputs :: m [ServerOutput tx]
   }
 
+-- | A simulated chain that just echoes 'PostChainTx' as 'Observation's of
+-- 'OnChainTx' onto all connected nodes. It can also 'rollbackAndForward' any
+-- number of these "transactions".
 data ConnectToChain tx m = ConnectToChain
   { chainComponent :: HydraNode tx m -> m (HydraNode tx m)
   , history :: TVar m [PostChainTx tx]
   , tickThread :: Async m ()
+  , rollbackAndForward :: Natural -> m ()
   }
 
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'
--- the 'tickThread'.
+-- the 'tickThread'. Also, this will fix tx to 'SimpleTx' so that it can pick an
+-- initial chain state to play back to our test nodes.
 withSimulatedChainAndNetwork ::
   (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m) =>
-  (ConnectToChain tx m -> m ()) ->
+  (ConnectToChain SimpleTx m -> m ()) ->
   m ()
 withSimulatedChainAndNetwork action = do
-  chain <- simulatedChainAndNetwork
+  chain <- simulatedChainAndNetwork SimpleChainState
   action chain
   cancel $ tickThread chain
 
@@ -523,11 +534,13 @@ withSimulatedChainAndNetwork action = do
 -- 'tickThread' needs to be 'cancel'ed after use. Use
 -- 'withSimulatedChainAndNetwork' instead where possible.
 simulatedChainAndNetwork ::
-  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m) =>
+  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m, IsChainState (ChainStateType tx)) =>
+  ChainStateType tx ->
   m (ConnectToChain tx m)
-simulatedChainAndNetwork = do
+simulatedChainAndNetwork initialChainState = do
   history <- newTVarIO []
   nodes <- newTVarIO []
+  chainStateVar <- newTVarIO initialChainState
   tickThread <- async $ simulateTicks nodes
   pure $
     ConnectToChain
@@ -535,11 +548,12 @@ simulatedChainAndNetwork = do
           atomically $ modifyTVar nodes (node :)
           pure $
             node
-              { oc = Chain{postTx = postTx nodes history}
+              { oc = Chain{postTx = \_cs -> postTx nodes history chainStateVar}
               , hn = Network{broadcast = broadcast node nodes}
               }
       , history
       , tickThread
+      , rollbackAndForward = rollbackAndForward nodes history chainStateVar
       }
  where
   blockTime = 20 -- seconds
@@ -548,15 +562,33 @@ simulatedChainAndNetwork = do
     now <- getCurrentTime
     readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
 
-  postTx nodes refHistory tx = do
-    res <- atomically $ do
+  postTx nodes refHistory chainStateVar tx = do
+    (cs', ns) <- atomically $ do
       modifyTVar' refHistory (tx :)
-      Just <$> readTVar nodes
-    case res of
-      Nothing -> pure ()
-      Just ns -> do
-        now <- getCurrentTime
-        mapM_ (`handleChainEvent` toOnChainTx now tx) ns
+      modifyTVar' chainStateVar advanceSlot
+      cs' <- readTVar chainStateVar
+      ns <- readTVar nodes
+      pure (cs', ns)
+    now <- getCurrentTime
+    let chainEvent =
+          Observation
+            { observedTx = toOnChainTx now tx
+            , slot = ChainSlot 0 -- TODO: constant slots?
+            , newChainState = cs'
+            }
+    forM_ ns $ \n ->
+      putEvent (eq n) $ OnChainEvent{chainEvent}
+
+  rollbackAndForward nodes history chainStateVar steps = do
+    toReplayTxs <- atomically $ do
+      (toReplay, kept) <- splitAt (fromIntegral steps) <$> readTVar history
+      writeTVar history kept
+      pure $ reverse toReplay
+    ns <- readTVarIO nodes
+    -- FIXME: using the initial chain state should not be possible
+    forM_ ns $ \n -> handleChainEvent n (Rollback $ ChainSlot 9999)
+    forM_ toReplayTxs $ \tx ->
+      postTx nodes history chainStateVar tx
 
   broadcast node nodes msg = do
     allNodes <- readTVarIO nodes
@@ -568,35 +600,37 @@ simulatedChainAndNetwork = do
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
 -- announces hard-coded contestationDeadlines.
-toOnChainTx :: UTCTime -> PostChainTx tx -> ChainEvent tx
-toOnChainTx now =
-  Observation . \case
-    InitTx HeadParameters{contestationPeriod, parties} ->
-      OnInitTx{contestationPeriod, parties}
-    (CommitTx pa ut) ->
-      OnCommitTx pa ut
-    AbortTx{} ->
-      OnAbortTx
-    CollectComTx{} ->
-      OnCollectComTx
-    (CloseTx confirmedSnapshot) ->
-      OnCloseTx
-        { snapshotNumber = number (getSnapshot confirmedSnapshot)
-        , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
-        }
-    ContestTx{confirmedSnapshot} ->
-      OnContestTx
-        { snapshotNumber = number (getSnapshot confirmedSnapshot)
-        }
-    FanoutTx{} ->
-      OnFanoutTx
+toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
+toOnChainTx now = \case
+  InitTx HeadParameters{contestationPeriod, parties} ->
+    OnInitTx{contestationPeriod, parties}
+  (CommitTx pa ut) ->
+    OnCommitTx pa ut
+  AbortTx{} ->
+    OnAbortTx
+  CollectComTx{} ->
+    OnCollectComTx
+  (CloseTx confirmedSnapshot) ->
+    OnCloseTx
+      { snapshotNumber = number (getSnapshot confirmedSnapshot)
+      , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
+      }
+  ContestTx{confirmedSnapshot} ->
+    OnContestTx
+      { snapshotNumber = number (getSnapshot confirmedSnapshot)
+      }
+  FanoutTx{} ->
+    OnFanoutTx
 
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: ContestationPeriod
 testContestationPeriod = UnsafeContestationPeriod 3600
 
 nothingHappensFor ::
-  (MonadTimer m, MonadThrow m, IsTx tx) => TestHydraNode tx m -> DiffTime -> m ()
+  (MonadTimer m, MonadThrow m, IsTx tx, IsChainState (ChainStateType tx)) =>
+  TestHydraNode tx m ->
+  DiffTime ->
+  m ()
 nothingHappensFor node secs =
   timeout secs (waitForNext node) >>= (`shouldBe` Nothing)
 
@@ -610,12 +644,12 @@ withHydraNode ::
 withHydraNode signingKey otherParties connectToChain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  node <- createHydraNode simpleLedger signingKey otherParties outputs outputHistory connectToChain
+  node <- createHydraNode simpleLedger SimpleChainState signingKey otherParties outputs outputHistory connectToChain
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraNode outputs outputHistory node connectToChain)
 
 createTestHydraNode ::
-  (MonadSTM m, MonadThrow m) =>
+  (MonadSTM m) =>
   TQueue m (ServerOutput tx) ->
   TVar m [ServerOutput tx] ->
   HydraNode tx m ->
@@ -624,39 +658,45 @@ createTestHydraNode ::
 createTestHydraNode outputs outputHistory node ConnectToChain{history} =
   TestHydraNode
     { send = handleClientInput node
-    , chainEvent = \e -> do
-        toReplay <- case e of
-          Rollback (fromIntegral -> n) -> do
-            atomically $ do
-              (toReplay, kept) <- splitAt n <$> readTVar history
-              toReplay <$ writeTVar history kept
-          _ ->
-            pure []
-        handleChainEvent node e
-        mapM_ (postTx (oc node)) (reverse toReplay)
-    , waitForNext = atomically (readTQueue outputs)
+    , injectChainEvent = \e -> undefined
+    , -- toReplay <- case e of
+      --   -- TODO: changed interface, we are not talking about rollbackAndForward number
+      --   -- of transitions anymore, but the tests ideall would like to express
+      --   -- themselves like that
+      --   Rollback _ -> do
+      --     let n = error "convert from n actions to slots and to something here"
+      --     atomically $ do
+      --       (toReplay, kept) <- splitAt n <$> readTVar history
+      --       toReplay <$ writeTVar history kept
+      --   _ ->
+      --     pure []
+      -- handleChainEvent node undefined e
+      -- mapM_ (postTx (oc node) undefined) (reverse toReplay)
+      waitForNext = atomically (readTQueue outputs)
     , serverOutputs = reverse <$> readTVarIO outputHistory
     }
 
 createHydraNode ::
   (MonadDelay m, MonadAsync m) =>
   Ledger tx ->
+  ChainStateType tx ->
   SigningKey HydraKey ->
   [Party] ->
   TQueue m (ServerOutput tx) ->
   TVar m [ServerOutput tx] ->
   ConnectToChain tx m ->
   m (HydraNode tx m)
-createHydraNode ledger signingKey otherParties outputs outputHistory connectToChain = do
+createHydraNode ledger chainState signingKey otherParties outputs outputHistory connectToChain = do
   eq <- createEventQueue
-  hh <- createHydraHead IdleState ledger
+  nodeState <- createNodeState $ IdleState{chainState}
   persistenceVar <- newTVarIO Nothing
   chainComponent connectToChain $
     HydraNode
       { eq
-      , hn = Network{broadcast = const $ pure ()}
-      , hh
-      , oc = Chain (const $ pure ())
+      , hn = Network{broadcast = \_ -> pure ()}
+      , nodeState
+      , ledger
+      , oc = Chain{postTx = \_ _ -> pure ()}
       , server =
           Server
             { sendOutput = \out -> atomically $ do
