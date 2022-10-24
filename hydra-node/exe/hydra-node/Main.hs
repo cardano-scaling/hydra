@@ -21,7 +21,7 @@ import Hydra.Ledger.Cardano.Configuration (
   readJsonFileThrow,
   shelleyGenesisFromJson,
  )
-import Hydra.Logging (Tracer, Verbosity (..), withTracer)
+import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network (Host (..))
@@ -29,6 +29,7 @@ import Hydra.Network.Heartbeat (withHeartbeat)
 import Hydra.Network.Ouroboros (withIOManager, withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
+  HydraNodeLog (..),
   Persistence,
   createEventQueue,
   createHydraNode,
@@ -63,6 +64,7 @@ main = do
     env@Environment{party} <- initEnvironment opts
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
+        traceWith (contramap Node tracer) (NodeOptions opts)
         eq <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         persistChainState <- createPersistence Proxy $ persistenceDir <> "/chainstate"

@@ -100,6 +100,7 @@ data HydraNodeLog tx
   | EndEffect {by :: Party, effect :: Effect tx}
   | CreatedState
   | LoadedState
+  | NodeOptions {runOptions :: RunOptions}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

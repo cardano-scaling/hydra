@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
@@ -18,6 +19,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   AddressInEra,
+  Key (SigningKey),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
@@ -27,6 +29,7 @@ import Hydra.Cardano.Api (
   lovelaceToValue,
   mkVkAddress,
   serialiseAddress,
+  writeFileTextEnvelope,
  )
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
@@ -48,14 +51,16 @@ import Hydra.Cluster.Fixture (
  )
 import Hydra.Cluster.Scenarios (restartANodeAfterHeadInitialized, singlePartyHeadFullLifeCycle)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
-import Hydra.Crypto (generateSigningKey)
+import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Options (ChainConfig (startChainFrom))
+import Hydra.Options (ChainConfig (startChainFrom), RunOptions)
 import Hydra.Party (deriveParty)
 import HydraNode (
+  CreateProcess (std_out),
   EndToEndLog (..),
+  StdStream (CreatePipe),
   getMetrics,
   input,
   output,
@@ -68,6 +73,10 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
  )
+import System.FilePath ((</>))
+import System.IO (hGetLine)
+import System.Process (cleanupProcess, createProcess)
+import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (generate)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
@@ -313,11 +322,25 @@ spec = around showLogsOnFailure $ do
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_events" `BS.isInfixOf`)
 
-    describe "hydra-node executable" $
+    describe "hydra-node executable" $ do
       it "display proper semantic version given it is passed --version argument" $ \_ ->
         failAfter 5 $ do
           version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
+      it "hydra-node logs it's command line arguments" $ \_ -> do
+        failAfter 60 $
+          withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
+            let hydraSK = dir </> "hydra.sk"
+            hydraSKey :: SigningKey HydraKey <- generate arbitrary
+            void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
+            bracket
+              (createProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe})
+              cleanupProcess
+              ( \(_, Just nodeOutput, _, _) -> do
+                  out <- hGetLine nodeOutput
+                  out ^? key "message" . key "node" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
+              )
+        hspec $ roundtripAndGoldenSpecs (Proxy @RunOptions)
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do

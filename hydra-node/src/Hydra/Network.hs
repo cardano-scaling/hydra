@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -30,6 +28,7 @@ module Hydra.Network (
 
 import Hydra.Prelude hiding (show)
 
+import Cardano.Ledger.Shelley.Orphans ()
 import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
@@ -37,6 +36,9 @@ import Network.TypedProtocol.Pipelined ()
 import Test.QuickCheck (elements, listOf, suchThat)
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
+
+deriving instance ToJSON IP
+deriving instance FromJSON IP
 
 -- * Hydra network interface
 
