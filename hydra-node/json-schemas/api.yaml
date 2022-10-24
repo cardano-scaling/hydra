@@ -1443,3 +1443,55 @@ components:
           minimum: 0
           description: >-
             Some non-negative lovelace value.
+
+    NetworkMagic:
+      type: object
+      description: |
+        NetworkMagic is used to differentiate between different networks during the initial handshake.
+      properties:
+        unNetworkMagic:
+          type: integer
+
+    ChainPoint:
+      oneOf:
+        - title: ChainPointAtGenesis
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPointAtGenesis"]
+        - title: ChainPoint
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPoint"]
+
+
+    ChainConfig:
+      type: object
+      description: |
+        Configuration for the cardano side of things in the hydra-node config
+      properties:
+        networkId:
+          oneOf:
+            - title: Mainnet
+              type: string
+              enum: [ "Mainnet" ]
+            - title: Testnet
+              type: object
+              $ref: "#/components/schemas/NetworkMagic"
+        nodeSocket:
+          type: string
+        cardanoSigningKey:
+          type: string
+        cardanoVerificationKeys:
+          type: array
+          items:
+            type: string
+        startChainFrom:
+          type: object
+          $ref: "#/components/schemas/ChainPoint"
