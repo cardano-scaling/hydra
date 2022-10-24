@@ -533,15 +533,18 @@ draw Client{sk} CardanoClient{networkId} s =
       [ drawHeadState
       , let panel = drawFullFeedback
             cmds =
-              commandList
-                <> [ "[<] scroll up"
-                   , "[>] scroll down"
-                   , "[S]hort Feedback Mode"
-                   ]
+              [ "[<] scroll up"
+              , "[>] scroll down"
+              , "[S]hort Feedback Mode"
+              ]
          in hBox
-              [ hLimit 120 $ viewport fullFeedbackViewportName Vertical (vBox panel)
+              [ hLimit 150 $ viewport fullFeedbackViewportName Vertical (vBox panel)
               , vBorder
-              , padLeftRight 1 . vBox $ (str <$> cmds)
+              , vBox
+                  [ padLeftRight 1 . vBox $ (str <$> commandList)
+                  , hBorder
+                  , padLeftRight 1 . vBox $ (str <$> cmds)
+                  ]
               ]
       ]
 
@@ -561,7 +564,7 @@ draw Client{sk} CardanoClient{networkId} s =
               ]
          in vLimit 3 $
               hBox
-                [ hLimit 120 $ viewport shortFeedbackViewportName Horizontal panel
+                [ hLimit 150 $ viewport shortFeedbackViewportName Horizontal panel
                 , vBorder
                 , padLeftRight 1 . vBox $ (str <$> cmds)
                 ]
@@ -718,7 +721,7 @@ draw Client{sk} CardanoClient{networkId} s =
 
   withCommands panel cmds =
     hBox
-      [ hLimit 70 (vBox panel)
+      [ hLimit 100 (vBox panel)
       , vBorder
       , padLeftRight 1 $ vBox (str <$> cmds)
       ]
@@ -730,7 +733,7 @@ draw Client{sk} CardanoClient{networkId} s =
         feedbackToWidget =
           ( \UserFeedback{message, severity, time} ->
               let feedbackText = show time <> " | " <> message
-                  feedbackChunks = chunksOf 120 feedbackText
+                  feedbackChunks = chunksOf 150 feedbackText
                   feedbackDecorator = withAttr (severityToAttr severity) . txt
                in feedbackDecorator <$> feedbackChunks
           )
