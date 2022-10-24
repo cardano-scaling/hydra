@@ -38,7 +38,6 @@ import Hydra.Chain.Direct.State (
   InitialState (..),
   ctxHeadParameters,
   deriveChainContexts,
-  genChainState,
   genChainStateWithTx,
   genCommit,
   genHydraContext,
@@ -51,17 +50,15 @@ import Hydra.Chain.Direct.State (
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
-import Ouroboros.Consensus.Block (Point, blockPoint)
+import Ouroboros.Consensus.Block (Point (BlockPoint, GenesisPoint), blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (
-  choose,
   counterexample,
   elements,
   forAllBlind,
-  forAllShow,
   label,
   (===),
  )
@@ -74,7 +71,6 @@ import Test.QuickCheck.Monadic (
   run,
   stop,
  )
-import qualified Prelude
 
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotInsideHorizon = do
@@ -121,69 +117,61 @@ spec = do
         onRollForward handler blk
           `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
 
-  prop "yields observed transactions rolling forward" $
-    monadicIO $ do
-      -- Generate a state and related transaction and a block containing it
-      (st, tx, transition) <- pick genChainStateWithTx
-      let chainState = ChainStateAt{chainState = st, recordedAt = ChainSlot 0}
-      blk <- pickBlind $ genBlockAt 1 [tx]
-      monitor (label $ show transition)
+  prop "yields observed transactions rolling forward" . monadicIO $ do
+    -- Generate a state and related transaction and a block containing it
+    (st, tx, transition) <- pick genChainStateWithTx
+    let chainState = ChainStateAt{chainState = st, recordedAt = ChainSlot 0}
+    blk <- pickBlind $ genBlockAt 1 [tx]
+    monitor (label $ show transition)
 
-      timeHandle <- pickBlind arbitrary
-      let callback cont =
-            -- Give chain state in which we expect the 'tx' to yield an 'Observation'.
-            case cont chainState of
-              Nothing ->
-                -- XXX: We need this to debug as 'failure' (via 'run') does not
-                -- yield counter examples.
-                failure . toString $
-                  unlines
-                    [ "expected continuation to yield an event"
-                    , "transition: " <> show transition
-                    , "chainState: " <> show st
-                    ]
-              Just Rollback{} ->
-                failure "rolled back but expected roll forward."
-              Just Tick{} -> pure ()
-              Just Observation{observedTx} ->
-                fst <$> observeSomeTx tx st `shouldBe` Just observedTx
+    timeHandle <- pickBlind arbitrary
+    let callback cont =
+          -- Give chain state in which we expect the 'tx' to yield an 'Observation'.
+          case cont chainState of
+            Nothing ->
+              -- XXX: We need this to debug as 'failure' (via 'run') does not
+              -- yield counter examples.
+              failure . toString $
+                unlines
+                  [ "expected continuation to yield an event"
+                  , "transition: " <> show transition
+                  , "chainState: " <> show st
+                  ]
+            Just Rollback{} ->
+              failure "rolled back but expected roll forward."
+            Just Tick{} -> pure ()
+            Just Observation{observedTx} ->
+              fst <$> observeSomeTx tx st `shouldBe` Just observedTx
 
-      let handler = chainSyncHandler nullTracer callback (pure timeHandle)
-      run $ onRollForward handler blk
+    let handler = chainSyncHandler nullTracer callback (pure timeHandle)
+    run $ onRollForward handler blk
 
-  -- TODO: this test should only be about correctly yielding rollback events
-  prop "can replay chain on (benign) rollback" $
-    forAllBlind genSequenceOfObservableBlocks $ \(chainState, blks) ->
-      forAllShow (genRollbackPoint blks) showRollbackInfo $ \(rollbackDepth, rollbackPoint) -> do
-        monadicIO $ do
-          monitor $ label ("Rollback depth: " <> show rollbackDepth)
-          timeHandle <- pickBlind arbitrary
-          -- Mock callback which keeps the chain state in a tvar
-          stateVar <- run $ newTVarIO chainState
-          let callback cont = do
-                cs <- readTVarIO stateVar
-                case cont cs of
-                  Nothing -> failure "expected contintution to yield observation"
-                  Just Tick{} -> pure ()
-                  Just Rollback{} -> failure "TODO: how to handle rollbacks in the test"
-                  Just Observation{newChainState} -> atomically $ writeTVar stateVar newChainState
-          let handler = chainSyncHandler nullTracer callback (pure timeHandle)
+  prop "yields rollback events onRollBackward" . monadicIO $ do
+    (chainState, blocks) <- pickBlind genSequenceOfObservableBlocks
+    (rollbackSlot, rollbackPoint) <- pick $ genRollbackPoint blocks
+    monitor $ label ("Rollback to: " <> show rollbackSlot <> " / " <> show (length blocks))
+    timeHandle <- pickBlind arbitrary
+    -- Mock callback which keeps the chain state in a tvar
+    stateVar <- run $ newTVarIO chainState
+    rolledBackTo <- run $ newEmptyTMVarIO
+    let callback cont = do
+          cs <- readTVarIO stateVar
+          case cont cs of
+            Nothing -> failure "expected contintution to yield observation"
+            Just Tick{} -> pure ()
+            Just (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
+            Just Observation{newChainState} -> atomically $ writeTVar stateVar newChainState
+    let handler = chainSyncHandler nullTracer callback (pure timeHandle)
+    -- Simulate some chain following
+    run $ mapM_ (onRollForward handler) blocks
+    -- Inject the rollback to somewhere between any of the previous state
+    result <- run $ try @_ @SomeException $ onRollBackward handler rollbackPoint
+    monitor . counterexample $ "try onRollBackward: " <> show result
+    assert $ isRight result
 
-          -- 1/ Simulate some chain following
-          st' <- run $ mapM_ (onRollForward handler) blks *> readTVarIO stateVar
-
-          -- 2/ Inject a rollback to somewhere between any of the previous state
-          -- TODO: use/remove withCounterExample blks headState $
-          result <- run $ try @_ @SomeException $ onRollBackward handler rollbackPoint
-          monitor $ counterexample (show result)
-          assert (isRight result)
-          -- TODO: expect that a rollback event was yieled to 'callback' and not do the following!?
-
-          -- 3/ Simulate chain-following replaying rolled back blocks, should re-apply
-          -- let toReplay = blks \\ [blk | blk <- blks, blockPoint blk <= rollbackPoint]
-          -- st'' <- run $ mapM_ (onRollForward handler) toReplay *> readTVarIO headState
-          -- assert (st' == st'')
-          pure ()
+    mSlot <- run . atomically $ tryReadTMVar rolledBackTo
+    monitor . counterexample $ "rolledBackTo: " <> show mSlot
+    assert $ mSlot == Just rollbackSlot
 
 -- | Create a chain sync handler which records events as they are called back.
 -- NOTE: This 'ChainSyncHandler' does not handle chain state updates, but uses
@@ -239,13 +227,16 @@ genBlockAt sl txs = do
     let body' = body{Praos.hbSlotNo = sl}
      in Praos.Header body' sig
 
-genRollbackPoint :: [Block] -> Gen (Word, Point Block)
-genRollbackPoint blks = do
-  let maxSlotNo = blockSlotNo (Prelude.last blks)
-  ix <- SlotNo <$> choose (1, unSlotNo maxSlotNo)
-  let rollbackDepth = length blks - length [blk | blk <- blks, blockSlotNo blk <= ix]
-  rollbackPoint <- blockPoint <$> genBlockAt ix []
-  pure (fromIntegral rollbackDepth, rollbackPoint)
+-- | Pick a block point in a list of blocks and return it along with the
+-- corresponding 'ChainSlot'.
+genRollbackPoint :: [Block] -> Gen (ChainSlot, Point Block)
+genRollbackPoint blocks = do
+  block <- elements blocks
+  let rollbackPoint = blockPoint block
+  let slot = case rollbackPoint of
+        GenesisPoint -> ChainSlot 0
+        BlockPoint (SlotNo s) _ -> ChainSlot $ fromIntegral s
+  pure (slot, rollbackPoint)
 
 -- | Generate a non-sparse sequence of blocks each containing an observable
 -- transaction, starting from the returned on-chain head state.
