@@ -23,15 +23,6 @@ import Hydra.Chain (
   ChainEvent (..),
   HeadParameters,
  )
-import Hydra.Chain.Direct.Context (
-  ctxHeadParameters,
-  deriveChainContexts,
-  genChainState,
-  genChainStateWithTx,
-  genCommit,
-  genHydraContext,
-  unsafeCommit,
- )
 import Hydra.Chain.Direct.Handlers (
   ChainStateAt (..),
   ChainSyncHandler (..),
@@ -45,10 +36,17 @@ import Hydra.Chain.Direct.State (
   ChainState (Idle),
   IdleState (..),
   InitialState (..),
+  ctxHeadParameters,
+  deriveChainContexts,
+  genChainState,
+  genChainStateWithTx,
+  genCommit,
+  genHydraContext,
   initialize,
   observeCommit,
   observeInit,
   observeSomeTx,
+  unsafeCommit,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)

@@ -29,8 +29,17 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   PostTxError (..),
  )
-import Hydra.Chain.Direct.Context (
+import Hydra.Chain.Direct.State (
+  ChainContext (..),
+  ChainState,
+  ClosedState,
+  HasKnownUTxO (getKnownUTxO),
   HydraContext (..),
+  IdleState (..),
+  InitialState (..),
+  OpenState,
+  abort,
+  commit,
   ctxHeadParameters,
   ctxParties,
   genChainStateWithTx,
@@ -44,26 +53,15 @@ import Hydra.Chain.Direct.Context (
   genInitTx,
   genStInitial,
   getContestationDeadline,
-  pickChainContext,
-  unsafeCommit,
-  unsafeObserveInitAndCommits,
- )
-import Hydra.Chain.Direct.State (
-  ChainContext (..),
-  ChainState,
-  ClosedState,
-  HasKnownUTxO (getKnownUTxO),
-  IdleState (..),
-  InitialState (..),
-  OpenState,
-  abort,
-  commit,
   getKnownUTxO,
   initialize,
   observeAbort,
   observeCommit,
   observeInit,
   observeSomeTx,
+  pickChainContext,
+  unsafeCommit,
+  unsafeObserveInitAndCommits,
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
