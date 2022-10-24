@@ -24,7 +24,17 @@ import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.Chain (Chain (..), ChainEvent (..), ChainSlot (ChainSlot), ChainStateType, HeadParameters (..), IsChainState, OnChainTx (..), PostChainTx (..), advanceSlot)
+import Hydra.Chain (
+  Chain (..),
+  ChainEvent (..),
+  ChainSlot (ChainSlot),
+  ChainStateType,
+  HeadParameters (..),
+  IsChainState,
+  OnChainTx (..),
+  PostChainTx (..),
+  advanceSlot,
+ )
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.HeadLogic (
@@ -36,7 +46,7 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import Hydra.Ledger (IsTx, Ledger, ValidationError (ValidationError))
-import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node (
@@ -385,11 +395,11 @@ spec = parallel $ do
 
               -- Have n1 & n2 observe a close with not the latest snapshot
               let deadline = arbitrary `generateWith` 42
-              -- FIXME: this is too cumbersome and maybe even incorrect (slots,
-              -- chain states), the simulated chain should provide a way to
-              -- inject without providing a chain state?
-              injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, slot = ChainSlot 0, newChainState = SimpleChainState}
-              injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, slot = ChainSlot 0, newChainState = SimpleChainState}
+              -- FIXME: this is too cumbersome and maybe even incorrect (chain
+              -- states), the simulated chain should provide a way to inject
+              -- without providing a chain state?
+              injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState}
+              injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState}
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> snapshotNumber == 0
@@ -573,7 +583,6 @@ simulatedChainAndNetwork initialChainState = do
     let chainEvent =
           Observation
             { observedTx = toOnChainTx now tx
-            , slot = ChainSlot 0 -- TODO: constant slots?
             , newChainState = cs'
             }
     forM_ ns $ \n ->

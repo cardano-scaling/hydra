@@ -296,8 +296,7 @@ observationEvent observedTx =
   OnChainEvent
     { chainEvent =
         Observation
-          { slot = ChainSlot 0
-          , observedTx
+          { observedTx
           , newChainState = SimpleChainState
           }
     }

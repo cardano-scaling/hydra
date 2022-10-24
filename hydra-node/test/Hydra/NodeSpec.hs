@@ -12,7 +12,6 @@ import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
-  ChainSlot (..),
   ChainStateType,
   HeadParameters (HeadParameters),
   IsChainState,
@@ -137,8 +136,7 @@ eventsToOpenHead =
     OnChainEvent
       { chainEvent =
           Observation
-            { slot = ChainSlot 0
-            , observedTx
+            { observedTx
             , newChainState = SimpleChainState
             }
       }

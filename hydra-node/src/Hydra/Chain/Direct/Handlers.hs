@@ -248,7 +248,6 @@ chainSyncHandler tracer callback getTimeHandle =
             Just $
               Observation
                 { observedTx
-                , slot = chainSlotFromPoint point
                 , newChainState
                 }
 
