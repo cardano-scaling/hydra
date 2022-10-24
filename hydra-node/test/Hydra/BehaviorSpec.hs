@@ -376,8 +376,6 @@ spec = parallel $ do
               send n1 Fanout
               send n2 Fanout
               waitUntil [n1, n2] $ HeadIsFinalized (utxoRefs [1, 2])
-              allTxs <- reverse <$> readTVarIO (history chain)
-              length (filter matchFanout allTxs) `shouldBe` 2
 
     it "contest automatically when detecting closing with old snapshot" $
       shouldRunInSim $ do
@@ -524,7 +522,6 @@ data TestHydraNode tx m = TestHydraNode
 -- number of these "transactions".
 data ConnectToChain tx m = ConnectToChain
   { chainComponent :: HydraNode tx m -> m (HydraNode tx m)
-  , history :: TVar m [PostChainTx tx]
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
   }
@@ -563,7 +560,6 @@ simulatedChainAndNetwork initialChainState = do
               { oc = Chain{postTx = \_cs -> postTx nodes history chainStateVar}
               , hn = Network{broadcast = broadcast node nodes}
               }
-      , history
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes history chainStateVar
       }
@@ -596,8 +592,8 @@ simulatedChainAndNetwork initialChainState = do
       writeTVar history kept
       pure $ reverse toReplay
     ns <- readTVarIO nodes
-    -- FIXME: using the initial chain state should not be possible
-    forM_ ns $ \n -> handleChainEvent n (Rollback $ ChainSlot 9999)
+    -- FIXME: WIP convert steps to slot
+    forM_ ns $ \n -> handleChainEvent n (Rollback $ ChainSlot 999)
     forM_ toReplayTxs $ \tx ->
       postTx nodes history chainStateVar tx
 
