@@ -395,9 +395,9 @@ spec = parallel $ do
 
               -- Have n1 & n2 observe a close with not the latest snapshot
               let deadline = arbitrary `generateWith` 42
-              -- FIXME: this is too cumbersome and maybe even incorrect (chain
-              -- states), the simulated chain should provide a way to inject
-              -- without providing a chain state?
+              -- XXX: This is a bit cumbersome and maybe even incorrect (chain
+              -- states), the simulated chain should provide a way to inject an
+              -- 'OnChainTx' without providing a chain state?
               injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
               injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
 
@@ -509,11 +509,13 @@ waitMatch node predicate =
     next <- waitForNext node
     maybe go pure (predicate next)
 
+-- XXX: The names of the following handles and functions are confusing.
+
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
   { send :: ClientInput tx -> m ()
-  , injectChainEvent :: ChainEvent tx -> m ()
   , waitForNext :: m (ServerOutput tx)
+  , injectChainEvent :: ChainEvent tx -> m ()
   , serverOutputs :: m [ServerOutput tx]
   }
 
@@ -656,33 +658,19 @@ withHydraNode signingKey otherParties connectToChain action = do
   let chainState = SimpleChainState{slot = ChainSlot 0}
   node <- createHydraNode simpleLedger chainState signingKey otherParties outputs outputHistory connectToChain
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
-    action (createTestHydraNode outputs outputHistory node connectToChain)
+    action (createTestHydraNode outputs outputHistory node)
 
 createTestHydraNode ::
   (MonadSTM m) =>
   TQueue m (ServerOutput tx) ->
   TVar m [ServerOutput tx] ->
   HydraNode tx m ->
-  ConnectToChain tx m ->
   TestHydraNode tx m
-createTestHydraNode outputs outputHistory node ConnectToChain{history} =
+createTestHydraNode outputs outputHistory node =
   TestHydraNode
     { send = handleClientInput node
-    , injectChainEvent = \e -> undefined
-    , -- toReplay <- case e of
-      --   -- TODO: changed interface, we are not talking about rollbackAndForward number
-      --   -- of transitions anymore, but the tests ideall would like to express
-      --   -- themselves like that
-      --   Rollback _ -> do
-      --     let n = error "convert from n actions to slots and to something here"
-      --     atomically $ do
-      --       (toReplay, kept) <- splitAt n <$> readTVar history
-      --       toReplay <$ writeTVar history kept
-      --   _ ->
-      --     pure []
-      -- handleChainEvent node undefined e
-      -- mapM_ (postTx (oc node) undefined) (reverse toReplay)
-      waitForNext = atomically (readTQueue outputs)
+    , waitForNext = atomically (readTQueue outputs)
+    , injectChainEvent = handleChainEvent node
     , serverOutputs = reverse <$> readTVarIO outputHistory
     }
 

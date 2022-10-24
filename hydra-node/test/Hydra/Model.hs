@@ -452,7 +452,7 @@ seedWorld seedKeys = do
       let party = deriveParty sk
           otherParties = filter (/= party) parties
       node <- createHydraNode ledger chainState sk otherParties outputs outputHistory connectToChain
-      let testNode = createTestHydraNode outputs outputHistory node connectToChain
+      let testNode = createTestHydraNode outputs outputHistory node
       void $ async $ runHydraNode tr node
       pure (party, testNode)
 
