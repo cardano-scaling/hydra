@@ -34,6 +34,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
   advanceSlot,
+  chainStateSlot,
  )
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
@@ -48,7 +49,6 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (IsTx, Ledger, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message)
 import Hydra.Node (
   EventQueue (putEvent),
   HydraNode (..),
@@ -63,15 +63,6 @@ import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
-
-handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
-handleClientInput HydraNode{eq} = putEvent eq . ClientEvent
-
-handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
-handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
-
-handleMessage :: HydraNode tx m -> Message tx -> m ()
-handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL
 
 spec :: Spec
 spec = parallel $ do
@@ -570,37 +561,52 @@ simulatedChainAndNetwork initialChainState = do
     now <- getCurrentTime
     readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
 
-  postTx nodes refHistory chainStateVar tx = do
-    (cs', ns) <- atomically $ do
-      modifyTVar' refHistory (tx :)
+  postTx nodes history chainStateVar tx = do
+    now <- getCurrentTime
+    chainEvent <- atomically $ do
       modifyTVar' chainStateVar advanceSlot
       cs' <- readTVar chainStateVar
-      ns <- readTVar nodes
-      pure (cs', ns)
-    now <- getCurrentTime
-    let chainEvent =
-          Observation
-            { observedTx = toOnChainTx now tx
-            , newChainState = cs'
-            }
+      pure $
+        Observation
+          { observedTx = toOnChainTx now tx
+          , newChainState = cs'
+          }
+    recordAndYieldEvent nodes history chainEvent
+
+  recordAndYieldEvent nodes history chainEvent = do
+    ns <- atomically $ do
+      modifyTVar' history (chainEvent :)
+      readTVar nodes
     forM_ ns $ \n ->
-      putEvent (eq n) $ OnChainEvent{chainEvent}
+      handleChainEvent n chainEvent
 
   rollbackAndForward nodes history chainStateVar steps = do
-    toReplayTxs <- atomically $ do
+    -- Split the history after given steps
+    (toReplay, kept) <- atomically $ do
       (toReplay, kept) <- splitAt (fromIntegral steps) <$> readTVar history
       writeTVar history kept
-      pure $ reverse toReplay
+      pure $ (reverse toReplay, kept)
+    -- Determine the new (last kept one) chainstate
+    let rolledBackChainState = case kept of
+          [] -> initialChainState
+          (Observation{newChainState} : _) -> newChainState
+          _NoObservation -> error "unexpected non-observation ChainEvent"
+    atomically $ writeTVar chainStateVar rolledBackChainState
+    -- Yield rollback events
     ns <- readTVarIO nodes
-    -- FIXME: WIP convert steps to slot
-    forM_ ns $ \n -> handleChainEvent n (Rollback $ ChainSlot 999)
-    forM_ toReplayTxs $ \tx ->
-      postTx nodes history chainStateVar tx
+    forM_ ns $ \n -> handleChainEvent n (Rollback $ chainStateSlot rolledBackChainState)
+    -- Re-play the observation events
+    forM_ toReplay $ \ev ->
+      recordAndYieldEvent nodes history ev
 
   broadcast node nodes msg = do
     allNodes <- readTVarIO nodes
     let otherNodes = filter (\n -> getNodeId n /= getNodeId node) allNodes
     mapM_ (`handleMessage` msg) otherNodes
+
+  handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
+
+  handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL
 
   getNodeId = getField @"party" . env
 
@@ -662,11 +668,11 @@ createTestHydraNode ::
   TVar m [ServerOutput tx] ->
   HydraNode tx m ->
   TestHydraNode tx m
-createTestHydraNode outputs outputHistory node =
+createTestHydraNode outputs outputHistory HydraNode{eq} =
   TestHydraNode
-    { send = handleClientInput node
+    { send = putEvent eq . ClientEvent
     , waitForNext = atomically (readTQueue outputs)
-    , injectChainEvent = handleChainEvent node
+    , injectChainEvent = putEvent eq . OnChainEvent
     , serverOutputs = reverse <$> readTVarIO outputHistory
     }
 
