@@ -519,6 +519,22 @@ definitions:
         tag:
           type: string
           enum: [ "LoadedState" ]
+    - title: NodeOptions
+      description: >-
+        Hydra node parsed command line arguments
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - runOptions
+      properties:
+        tag:
+          type: string
+          enum: [ "NodeOptions" ]
+        runOptions:
+          <<: { "$ref": "#/definitions/RunOptions" }
+          description: >-
+            Configuration needed to run the hydra node
 
   LogicError:
     oneOf:
@@ -1176,55 +1192,77 @@ definitions:
           type: string
           enum: [ "WaitOnContestationDeadline" ]
 
+  IP:
+    type: object
+    oneOf:
+      - title: IPv4
+        type: object
+        properties:
+          tag:
+            type: string
+            enum: ["IPv4"]
+          ipv4:
+            type: string
+      - title: IPv6
+        type: string
+        properties:
+          tag:
+            type: string
+            enum: ["IPv6"]
+          ipv6:
+            type: string
+
   RunOptions:
     type: object
-    additionalProperties: false
+    required:
+      - verbosity
+      - nodeId
+      - host
+      - port
+      - peers
+      - apiHost
+      - apiPort
+      - hydraSigningKey
+      - hydraVerificationKeys
+      - hydraScriptsTxId
+      - persistenceDir
+      - chainConfig
+      - ledgerConfig
     properties:
       verbosity:
-        type: object
+        oneOf:
+          - title: Quiet
+            properties:
+              tag:
+                type: string
+                enum: ["Quiet"]
+          - title: Verbose
+            properties:
+              tag:
+                type: string
+                enum: ["Verbose"]
+              contents:
+                type: string
       nodeId:
-        type: object
-        $ref: "api.yaml#/components/schemas/NodeId"
+        type: string
       host:
         type: object
-        oneOf:
-          - title: IPv4
-            type: object
-            properties:
-              ipv4:
-                type: object
-                enum: ["IPv4"]
-          - title: IPv6
-            type: object
-            properties:
-              ipv6:
-                type: object
-                enum: ["IPv6"]
+        $ref: "#/definitions/IP"
       port:
-        type: object
+        type: integer
       peers:
         type: array
         items:
           $ref: "api.yaml#/components/schemas/Host"
       apiHost:
         type: object
-        oneOf:
-          - title: IPv4
-            type: object
-            properties:
-              ipv4:
-                type: object
-                enum: ["IPv4"]
-          - title: IPv6
-            type: object
-            properties:
-              ipv6:
-                type: object
-                enum: ["IPv6"]
+        $ref: "#/definitions/IP"
       apiPort:
-        type: object
+        type: integer
       monitoringPort:
-        type: object
+        oneOf:
+          - type: "null"
+          - type: integer
       hydraSigningKey:
         type: string
       hydraVerificationKeys:
@@ -1232,12 +1270,10 @@ definitions:
         items:
           type: string
       hydraScriptsTxId:
-        type: object
         $ref: "api.yaml#/components/schemas/TxId"
       persistenceDir:
         type: string
       chainConfig:
-        type: object
         $ref: "api.yaml#/components/schemas/ChainConfig"
       ledgerConfig:
         type: object

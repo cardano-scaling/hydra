@@ -1445,17 +1445,31 @@ components:
             Some non-negative lovelace value.
 
     NetworkMagic:
-      type: object
       description: |
         NetworkMagic is used to differentiate between different networks during the initial handshake.
-      properties:
-        unNetworkMagic:
-          type: integer
+      oneOf:
+        - title: Mainnet
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["Mainnet"]
+
+        - title: Testnet
+          required:
+            - tag
+            - magic
+          properties:
+            tag:
+              type: string
+              enum: ["Testnet"]
+            magic:
+              type: integer
 
     ChainPoint:
       oneOf:
         - title: ChainPointAtGenesis
-          additionalProperties: false
           required:
             - tag
           properties:
@@ -1465,25 +1479,29 @@ components:
         - title: ChainPoint
           required:
             - tag
+            - slot
+            - blockHash
           properties:
             tag:
               type: string
               enum: ["ChainPoint"]
-
+            slot:
+              type: integer
+            blockHash:
+              type: string
 
     ChainConfig:
       type: object
       description: |
         Configuration for the cardano side of things in the hydra-node config
+      required:
+        - networkId
+        - nodeSocket
+        - cardanoSigningKey
+        - cardanoVerificationKeys
       properties:
         networkId:
-          oneOf:
-            - title: Mainnet
-              type: string
-              enum: [ "Mainnet" ]
-            - title: Testnet
-              type: object
-              $ref: "#/components/schemas/NetworkMagic"
+          $ref: "#/components/schemas/NetworkMagic"
         nodeSocket:
           type: string
         cardanoSigningKey:
@@ -1493,5 +1511,7 @@ components:
           items:
             type: string
         startChainFrom:
-          type: object
-          $ref: "#/components/schemas/ChainPoint"
+          oneOf:
+            - type: "null"
+            - type: object
+              $ref: "#/components/schemas/ChainPoint"
