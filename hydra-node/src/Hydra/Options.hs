@@ -339,8 +339,11 @@ cardanoVerificationKeyFileParser =
     ( long "cardano-verification-key"
         <> metavar "FILE"
         <> help
-          "Cardano verification key of another party in the Head. Can be \
-          \provided multiple times, once for each participant (current maximum limit is 4)."
+          ( "Cardano verification key of another party in the Head. Can be \
+            \provided multiple times, once for each participant (current maximum limit is "
+              <> show maximumNumberOfParties
+              <> ")."
+          )
     )
 
 hydraSigningKeyFileParser :: Parser FilePath
