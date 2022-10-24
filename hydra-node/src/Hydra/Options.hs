@@ -339,8 +339,11 @@ cardanoVerificationKeyFileParser =
     ( long "cardano-verification-key"
         <> metavar "FILE"
         <> help
-          "Cardano verification key of another party in the Head. Can be \
-          \provided multiple times, once for each participant."
+          ( "Cardano verification key of another party in the Head. Can be \
+            \provided multiple times, once for each participant (current maximum limit is "
+              <> show maximumNumberOfParties
+              <> ")."
+          )
     )
 
 hydraSigningKeyFileParser :: Parser FilePath
@@ -361,8 +364,11 @@ hydraVerificationKeyFileParser =
     ( long "hydra-verification-key"
         <> metavar "FILE"
         <> help
-          "Hydra verification key of another party in the Head. Can be \
-          \provided multiple times, once for each participant."
+          ( "Hydra verification key of another party in the Head. Can be \
+            \provided multiple times, once for each participant (current maximum limit is "
+              <> show maximumNumberOfParties
+              <> " )."
+          )
     )
 
 peerParser :: Parser Host
@@ -372,9 +378,12 @@ peerParser =
     ( long "peer"
         <> short 'P'
         <> help
-          "A peer address in the form <host>:<port>, where <host> can be an IP \
-          \address, or a host name. Can be provided multiple times, once for \
-          \each peer node."
+          ( "A peer address in the form <host>:<port>, where <host> can be an IP \
+            \address, or a host name. Can be provided multiple times, once for \
+            \each peer (current maximum limit is "
+              <> show maximumNumberOfParties
+              <> " peers)."
+          )
     )
 
 nodeIdParser :: Parser NodeId
@@ -533,6 +542,39 @@ hydraNodeCommand =
     infoOption
       (decodeUtf8 $ encodePretty Contract.scriptInfo)
       (long "script-info" <> help "Dump script info as JSON")
+
+data InvalidOptions
+  = MaximumNumberOfPartiesExceeded
+  | CardanoAndHydraKeysMissmatch
+  deriving (Eq, Show)
+
+-- | Hardcoded limit for maximum number of parties in a head protocol
+-- The value 4 is obtained from calculating the costs of running the scripts
+-- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
+maximumNumberOfParties :: Int
+maximumNumberOfParties = 4
+
+explain :: InvalidOptions -> String
+explain = \case
+  MaximumNumberOfPartiesExceeded -> "Maximum number of parties is currently set to: " <> show maximumNumberOfParties
+  CardanoAndHydraKeysMissmatch -> "Number of loaded cardano and hydra keys needs to match"
+
+-- | Validate cmd line arguments for hydra-node and check if they make sense before actually running the node.
+-- Rules we apply:
+--  - Check if number of parties is bigger than our hardcoded limit
+--      (by looking at loaded hydra or cardano keys and comparing it to the 'maximumNumberOfParties')
+--  - Check that number of loaded hydra keys match with the number of loaded cardano keys
+--      (by comparing lengths of the two lists)
+validateRunOptions :: RunOptions -> Either InvalidOptions ()
+validateRunOptions RunOptions{hydraVerificationKeys, chainConfig}
+  | numberOfOtherParties + 1 > maximumNumberOfParties = Left MaximumNumberOfPartiesExceeded
+  | length (cardanoVerificationKeys chainConfig) /= length hydraVerificationKeys =
+    Left CardanoAndHydraKeysMissmatch
+  | otherwise = Right ()
+ where
+  -- let's take the higher number of loaded cardano/hydra keys
+  numberOfOtherParties =
+    max (length hydraVerificationKeys) (length $ cardanoVerificationKeys chainConfig)
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraCommand :: IO Command

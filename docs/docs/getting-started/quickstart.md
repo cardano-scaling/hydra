@@ -25,16 +25,16 @@ The entire configuration of the `hydra-node` is provided through command-line op
 ```
 hydra-node - A prototype of Hydra Head protocol
 
-Usage: hydra-node ([-q|--quiet] (-n|--node-id NODE-ID) [-h|--host IP] 
-                    [-p|--port PORT] [-P|--peer ARG] [--api-host IP] 
-                    [--api-port PORT] [--monitoring-port PORT] 
+Usage: hydra-node ([-q|--quiet] (-n|--node-id NODE-ID) [-h|--host IP]
+                    [-p|--port PORT] [-P|--peer ARG] [--api-host IP]
+                    [--api-port PORT] [--monitoring-port PORT]
                     [--hydra-signing-key FILE] [--hydra-verification-key FILE]
-                    --hydra-scripts-tx-id TXID [--persistence-dir DIR] 
-                    [--network-id INTEGER] [--node-socket FILE] 
-                    [--cardano-signing-key FILE] 
-                    [--cardano-verification-key FILE] 
-                    [--start-chain-from SLOT.HEADER_HASH] 
-                    [--ledger-genesis FILE] 
+                    [--hydra-scripts-tx-id TXID] [--persistence-dir DIR]
+                    [--network-id INTEGER] [--node-socket FILE]
+                    [--cardano-signing-key FILE]
+                    [--cardano-verification-key FILE]
+                    [--start-chain-from SLOT.HEADER_HASH]
+                    [--ledger-genesis FILE]
                     [--ledger-protocol-parameters FILE] |
                     COMMAND) [--version] [--script-info]
 
@@ -46,12 +46,13 @@ Available options:
                            It is important to have a unique identifier in order
                            to be able distinguish between connected peers.
   -h,--host IP             Listen address for incoming Hydra network
-                           connections. (default: 0.0.0.0)
+                           connections. (default: 127.0.0.1)
   -p,--port PORT           Listen port for incoming Hydra network connections.
                            (default: 5001)
   -P,--peer ARG            A peer address in the form <host>:<port>, where
                            <host> can be an IP address, or a host name. Can be
-                           provided multiple times, once for each peer node.
+                           provided multiple times, once for each peer (current
+                           maximum limit is 4 peers).
   --api-host IP            Listen address for incoming client API connections.
                            (default: 127.0.0.1)
   --api-port PORT          Listen port for incoming client API connections.
@@ -64,7 +65,7 @@ Available options:
   --hydra-verification-key FILE
                            Hydra verification key of another party in the Head.
                            Can be provided multiple times, once for each
-                           participant.
+                           participant (current maximum limit is 4).
   --hydra-scripts-tx-id TXID
                            The transaction which is expected to have published
                            Hydra scripts as reference scripts in its outputs.
@@ -89,7 +90,7 @@ Available options:
   --cardano-verification-key FILE
                            Cardano verification key of another party in the
                            Head. Can be provided multiple times, once for each
-                           participant.
+                           participant (current maximum limit is 4).
   --start-chain-from SLOT.HEADER_HASH
                            The id of the block we want to start observing the
                            chain from. If not given, uses the chain tip at
@@ -112,16 +113,17 @@ Available options:
 Available commands:
   publish-scripts          Publish Hydra's Plutus scripts on chain to be used
                            by the hydra-node as --hydra-script-tx-id.
-                           
-                            ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ 
-                            ┃              ⚠ WARNING ⚠              ┃ 
-                            ┣═══════════════════════════════════════┫ 
-                            ┃    This costs money. About 50 Ada.    ┃ 
-                            ┃ Spent using the provided signing key. ┃ 
-                            ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ 
+
+                            ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+                            ┃              ⚠ WARNING ⚠              ┃
+                            ┣═══════════════════════════════════════┫
+                            ┃    This costs money. About 50 Ada.    ┃
+                            ┃ Spent using the provided signing key. ┃
+                            ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
 ```
 
-:::info  Dynamic Configuration
+:::info Dynamic Configuration
 
 We realise that the command-line in its current form isn't as user-friendly as it could, and is somewhat cumbersome to use for setting up large clusters.
 
@@ -244,7 +246,6 @@ E.g.:
   }
 }
 ```
-
 
 ## Example Setup
 

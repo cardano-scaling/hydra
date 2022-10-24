@@ -10,22 +10,42 @@ import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Options (
   ChainConfig (..),
   Command (..),
+  InvalidOptions (..),
   LedgerConfig (..),
   ParserResult (..),
   PublishOptions (..),
   RunOptions (..),
   defaultChainConfig,
   defaultLedgerConfig,
+  maximumNumberOfParties,
   parseHydraCommandFromArgs,
   toArgs,
+  validateRunOptions,
  )
-import Test.QuickCheck (Property, counterexample, forAll, property, (===))
+import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 
 spec :: Spec
 spec = parallel $
   describe "Hydra Node RunOptions" $ do
     -- NOTE: --node-id flag needs to be set so we set a default here
     let setFlags a = ["--node-id", "node-id-1"] <> a
+        genKeyString = vectorOf 10 $ chooseEnum ('a', 'z')
+        genCardanoAndHydraKeys f1 f2 = flip generateWith 42 $ do
+          cks <- replicateM (f1 maximumNumberOfParties) genKeyString
+          hks <- replicateM (f2 maximumNumberOfParties) genKeyString
+          pure (cks, hks)
+
+    it ("validateRunOptions: using more than " <> show maximumNumberOfParties <> " parties should error out") $ do
+      let (cardanoKeys, hydraKeys) = genCardanoAndHydraKeys (+ 2) (+ 1)
+          chainCfg = (chainConfig defaultRunOptions){cardanoVerificationKeys = cardanoKeys}
+      validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
+        `shouldBe` Left MaximumNumberOfPartiesExceeded
+    it "validateRunOptions: loaded cardano keys needs to match with the hydra keys length" $ do
+      let (cardanoKeys, hydraKeys) = genCardanoAndHydraKeys (subtract 2) (subtract 1)
+          chainCfg = (chainConfig defaultRunOptions){cardanoVerificationKeys = cardanoKeys}
+      validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
+        `shouldBe` Left CardanoAndHydraKeysMissmatch
+
     it "parses with default node-id set" $
       setFlags [] `shouldParse` Run defaultRunOptions
 
