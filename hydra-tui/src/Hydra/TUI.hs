@@ -393,6 +393,15 @@ handleDialogEvent (title, form, submit) s = \case
     case invalidFields form of
       [] -> submit s (formState form)
       fs -> continue $ s & warn ("Invalid fields: " <> Text.intercalate ", " fs)
+  EvKey (KChar c) _
+    | c `elem` ['<'] ->
+      scroll s Up *> continue s
+    | c `elem` ['>'] ->
+      scroll s Down *> continue s
+    | c `elem` ['h', 'H'] ->
+      continue $ s & feedbackStateL .~ Full
+    | c `elem` ['s', 'S'] ->
+      continue $ s & feedbackStateL .~ Short
   e -> do
     form' <- handleFormEvent (VtyEvent e) form
     continue $ s & dialogStateL .~ Dialog title form' submit
