@@ -353,8 +353,7 @@ onInitialChainCommitTx headState newChainState party parameters pendingCommits c
   NewState newHeadState $
     [ClientEffect $ Committed pt utxo]
       <> [ OnChainEffect
-          { -- XXX: Field access on sum-type.
-            chainState = getField @"chainState" headState
+          { chainState = newChainState
           , postChainTx = CollectComTx collectedUTxO
           }
          | canCollectCom
