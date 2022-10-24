@@ -20,8 +20,11 @@ import Data.Aeson (
  )
 import Data.List (maximum)
 import qualified Data.Set as Set
+import Hydra.Chain (ChainStateType, IsChainState)
 import Hydra.Ledger
 import Test.QuickCheck (choose, getSize, sublistOf)
+
+-- * Simple transactions
 
 -- | Simple transaction.
 -- A transaction is a 'SimpleId', a list of inputs and a list of outputs.
@@ -72,6 +75,20 @@ instance FromCBOR SimpleTx where
       <$> fromCBOR
       <*> fromCBOR
       <*> fromCBOR
+
+-- * Simple chain state
+
+data SimpleChainState = SimpleChainState
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+-- | The chain state type for Cardano 'Tx' is 'ChainState'.
+type instance ChainStateType SimpleTx = SimpleChainState
+
+-- TODO: implement
+instance Arbitrary SimpleChainState
+
+-- TODO: implement
+instance IsChainState SimpleChainState
 
 --
 -- MockTxIn

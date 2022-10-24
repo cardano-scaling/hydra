@@ -168,7 +168,7 @@ newtype Chain tx m = Chain
 
 data ChainEvent tx
   = Observation
-      { slot :: ChainSlot
+      { slot :: ChainSlot -- TODO: here or in chain state?
       , observedTx :: OnChainTx tx
       , newChainState :: ChainStateType tx
       }

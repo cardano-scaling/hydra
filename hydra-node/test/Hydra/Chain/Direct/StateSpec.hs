@@ -254,10 +254,6 @@ propIsValid forAllTx =
 -- QuickCheck Extras
 --
 
--- XXX: Orphan instance because of cyclic module dependencies
-instance Arbitrary ChainState where
-  arbitrary = genChainState
-
 genChainState :: Gen ChainState
 genChainState =
   oneof
