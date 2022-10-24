@@ -82,9 +82,6 @@ data ChainState
 type instance ChainStateType Tx = ChainState
 
 -- TODO: implement
-instance Arbitrary ChainState
-
--- TODO: implement
 instance IsChainState ChainState
 
 instance HasKnownUTxO ChainState where

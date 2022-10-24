@@ -26,6 +26,8 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.Context (
   ctxHeadParameters,
   deriveChainContexts,
+  genChainState,
+  genChainStateWithTx,
   genCommit,
   genHydraContext,
   unsafeCommit,
@@ -48,7 +50,6 @@ import Hydra.Chain.Direct.State (
   observeInit,
   observeSomeTx,
  )
-import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
