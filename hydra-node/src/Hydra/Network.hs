@@ -21,7 +21,6 @@ module Hydra.Network (
   readHost,
   PortNumber,
   readPort,
-  toIPv4w,
 
   -- * Utility functions
   close,
