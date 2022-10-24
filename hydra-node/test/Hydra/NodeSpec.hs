@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 module Hydra.NodeSpec where
 
@@ -11,8 +12,11 @@ import Hydra.API.ServerOutput (ServerOutput (PostTxOnChainFailed))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
-  ChainEvent (Observation),
+  ChainEvent (..),
+  ChainSlot (..),
+  ChainStateType,
   HeadParameters (HeadParameters),
+  IsChainState,
   OnChainTx (..),
   PostChainTx (InitTx),
   PostTxError (NoSeedInput),
@@ -25,9 +29,9 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import Hydra.Ledger (IsTx)
-import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
+import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Network (NodeId (..), Network (..))
+import Hydra.Network (Network (..), NodeId (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (
   EventQueue (..),
@@ -35,7 +39,7 @@ import Hydra.Node (
   HydraNodeLog,
   Persistence (Persistence, load, save),
   createEventQueue,
-  createHydraHead,
+  createNodeState,
   isEmpty,
   stepHydraNode,
  )
@@ -121,17 +125,30 @@ eventsToOpenHead :: [Event SimpleTx]
 eventsToOpenHead =
   [ NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = NodeId "NodeId1"}}
   , NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = NodeId "NodeId2"}}
-  , OnChainEvent
-      { chainEvent = Observation $ OnInitTx cperiod [alice, bob, carol]
-      }
+  , observationEvent $ OnInitTx cperiod [alice, bob, carol]
   , ClientEvent{clientInput = Commit (utxoRef 2)}
-  , OnChainEvent{chainEvent = Observation $ OnCommitTx carol (utxoRef 3)}
-  , OnChainEvent{chainEvent = Observation $ OnCommitTx bob (utxoRef 2)}
-  , OnChainEvent{chainEvent = Observation $ OnCommitTx alice (utxoRef 1)}
-  , OnChainEvent{chainEvent = Observation OnCollectComTx}
+  , observationEvent $ OnCommitTx carol (utxoRef 3)
+  , observationEvent $ OnCommitTx bob (utxoRef 2)
+  , observationEvent $ OnCommitTx alice (utxoRef 1)
+  , observationEvent OnCollectComTx
   ]
+ where
+  observationEvent :: OnChainTx SimpleTx -> Event SimpleTx
+  observationEvent observedTx =
+    OnChainEvent
+      { chainEvent =
+          Observation
+            { slot = ChainSlot 0
+            , observedTx
+            , newChainState = SimpleChainState
+            }
+      }
 
-runToCompletion :: IsTx tx => Tracer IO (HydraNodeLog tx) -> HydraNode tx IO -> IO ()
+runToCompletion ::
+  (IsTx tx, IsChainState (ChainStateType tx)) =>
+  Tracer IO (HydraNodeLog tx) ->
+  HydraNode tx IO ->
+  IO ()
 runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = go
  where
   go =
@@ -147,14 +164,15 @@ createHydraNode ::
 createHydraNode signingKey otherParties events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
-  hh <- createHydraHead IdleState simpleLedger
+  nodeState <- createNodeState $ IdleState{chainState = SimpleChainState}
   pure $
     HydraNode
       { eq
-      , hn = Network{broadcast = const $ pure ()}
-      , hh
-      , oc = Chain{postTx = const $ pure ()}
-      , server = Server{sendOutput = const $ pure ()}
+      , hn = Network{broadcast = \_ -> pure ()}
+      , nodeState
+      , oc = Chain{postTx = \_ _ -> pure ()}
+      , server = Server{sendOutput = \_ -> pure ()}
+      , ledger = simpleLedger
       , env =
           Environment
             { party
@@ -187,6 +205,10 @@ messageRecorder = do
  where
   appendMsg ref x = atomicModifyIORef' ref $ \old -> (old <> [x], ())
 
-throwExceptionOnPostTx :: IsTx tx => PostTxError tx -> HydraNode tx IO -> IO (HydraNode tx IO)
+throwExceptionOnPostTx ::
+  (IsTx tx, IsChainState (ChainStateType tx)) =>
+  PostTxError tx ->
+  HydraNode tx IO ->
+  IO (HydraNode tx IO)
 throwExceptionOnPostTx exception node =
-  pure node{oc = Chain{postTx = const $ throwIO exception}}
+  pure node{oc = Chain{postTx = \_ _ -> throwIO exception}}
