@@ -2,66 +2,7 @@
     "samples": [
         {
             "by": {
-                "vkey": "8a8be58e4ce40eb3bf723863bb86fe2ff1f227971a75500b4216658c13fdff82"
-            },
-            "effect": {
-                "serverOutput": {
-                    "parties": [
-                        {
-                            "vkey": "ff98402e35143e48e8a0ffcbf374f4d8543a318800fb16fab7d316ca3f0848c5"
-                        },
-                        {
-                            "vkey": "cfbc08bdab9ea09caa1b0d223d4fb0c454e0d2dc535b261deeeb1f945bbe272c"
-                        },
-                        {
-                            "vkey": "1bdee6bc3e255602b0db499ad52076fe55354c449825cdde7a37717fd5ce707c"
-                        },
-                        {
-                            "vkey": "cab54898db55b16a99a5b2e86c51aa6e55227f4584e03385354fbb72eef8bff6"
-                        },
-                        {
-                            "vkey": "7e4a0c85b43be997a8f6554f8f8216ef80c4aaeaf7474887829736e4b1c70514"
-                        },
-                        {
-                            "vkey": "2990804954c0a95cf6e27bc1da9af20941c64362dcf06023f441826ec0d49c51"
-                        },
-                        {
-                            "vkey": "c00d753d8939e37f4d3bbe1be6370515102253f48cd25f5b52e3451931eb2d34"
-                        },
-                        {
-                            "vkey": "5dfbacf413c8178a56083c6b3253c5bf0028c630aa740a15b6f2e009ed16cf9d"
-                        },
-                        {
-                            "vkey": "1153cfbd5d178e07e448d6d4deb1ba98413440ee80dad54f9dca04c98189481d"
-                        },
-                        {
-                            "vkey": "a79861591a239f5678e0d40aa19a5654b1e10302ee676bfe62430df7f01e6cae"
-                        },
-                        {
-                            "vkey": "54114ca4a12a97c8b788c82f95ab6e7624132f51fb5a1490574de22dc45ace2d"
-                        },
-                        {
-                            "vkey": "7f341aa89ea246448ad4e7d59c6e62b50b43967a26e9a5a7e4c4fd3fd60129a6"
-                        },
-                        {
-                            "vkey": "9e030f807d3e86857a09f59c7f92c61a498ee10e1d7b7b9a370d3339907f3f08"
-                        },
-                        {
-                            "vkey": "56ca1e79c7b8a8f4bfad1e643d4b81c1a540d5b4b7d0bb26282c4371dd4b87ce"
-                        },
-                        {
-                            "vkey": "a6b25cc34faaafce12a622bfc23a9525e4a769fab97b1b292048aa0e6de55082"
-                        }
-                    ],
-                    "tag": "ReadyToCommit"
-                },
-                "tag": "ClientEffect"
-            },
-            "tag": "BeginEffect"
-        },
-        {
-            "by": {
-                "vkey": "e7d5f8c80ee5309715be2553dc16759d3a7fb3dad30c1bd04abd2fb495301f45"
+                "vkey": "6f1dae94b768ec948959b988674e277dfaaa990d7a0f81c67b9b3b9017a1aebf"
             },
             "event": {
                 "clientInput": {
@@ -73,33 +14,47 @@
         },
         {
             "by": {
-                "vkey": "12487d8785d2aacdf5fb3f105dd40a51a6ecff92645688a56a5c74ef318372a2"
+                "vkey": "af6d75b038c94574a463808d9146276d70cc9f662c910008a0803ae301702a24"
             },
             "effect": {
                 "onChainTx": {
-                    "tag": "AbortTx",
-                    "utxo": [
-                        -29,
-                        -26,
-                        -24,
-                        -22,
-                        -20,
-                        -19,
-                        -18,
-                        -15,
-                        -9,
-                        -3,
-                        -2,
-                        0,
-                        1,
-                        2,
-                        4,
-                        5,
-                        12,
-                        16,
-                        19,
-                        23
-                    ]
+                    "confirmedSnapshot": {
+                        "signatures": {
+                            "multiSignature": [
+                                "307479614a0ace1ee5214035be923b5aac4eda70fb31946490a2f9440dce77d52c64d67d3c0fdd7bf48c89c2b3026477cd6258d09c7533851c1b3a5ce163be00",
+                                "025a7151543ea71501884b905726082aa65a9e0c9c0f53ab67f6806ab296f1f94e5078fd34a9932a58d6ca77825a1ad6f6a95dc7efcb1986460c8ad7afb9f901",
+                                "65dba143adbfaf6b1c5c1ae15863f47196093371a87dfeb1d20fc5d7dff658a57f33bf326cd0b69bda37bf657a5d335fbefc78450ab2f6920ec3522e37f24108",
+                                "cbd24edc1e76774c3598e31bb4a314b27f8ae9144d608c3d4475e4417fb5aee0ba95c80e14f9dee4eb4906e5cccbe6d133760d57f76ec575a0c8bb9c6b924f04",
+                                "a1582dd096b4b4b6c32da58eb2313d93b332466303cb60db87611afc3f73bb14efe5e56f37f35fc27457953aa1186b41a16784ae63a3030aecd42970bc03d907",
+                                "9bd5bfdcef082948f58e27cb35bf37863a2fe176694635bb31859f43c66a93b204620da361554e55f3eac900bbf5aebd480a2d6c02e5c9d644bf6de8dc9d7402",
+                                "b9edf321d4376c46da856ed78b0c48e62a437b408fe6b7ade54e418659f406de4cf390b27e62bd6b2b7239abfa850c30245f17cee597d1e1fb86f5b68c7d040f",
+                                "5d269e8a8a441d5a682b7804fce9b4404cba6b45db2607a42258df7bf8ee140c28d076b17741d69cd217da49bbe579a8c1518d69d46e25f4393b952931360f0f"
+                            ]
+                        },
+                        "snapshot": {
+                            "confirmedTransactions": [],
+                            "snapshotNumber": 11,
+                            "utxo": [
+                                -30,
+                                -27,
+                                -25,
+                                -23,
+                                -20,
+                                -19,
+                                -15,
+                                -14,
+                                0,
+                                8,
+                                10,
+                                11,
+                                25,
+                                26,
+                                28
+                            ]
+                        },
+                        "tag": "ConfirmedSnapshot"
+                    },
+                    "tag": "CloseTx"
                 },
                 "tag": "OnChainEffect"
             },
@@ -107,115 +62,81 @@
         },
         {
             "by": {
-                "vkey": "a53ced03bea236e7ce33db460478cff5894fe9a8e775ba2089efefa90b8135d8"
+                "vkey": "66c4c2f48fd5bbd981c3558bf67e462ce6207a9fdac2c40689950fba3eb609c3"
             },
             "event": {
-                "chainEvent": {
-                    "contents": {
-                        "tag": "OnCollectComTx"
-                    },
-                    "tag": "Observation"
+                "clientInput": {
+                    "contestationPeriod": 604800,
+                    "tag": "Init"
                 },
-                "tag": "OnChainEvent"
+                "tag": "ClientEvent"
             },
             "tag": "BeginEvent"
         },
         {
             "by": {
-                "vkey": "926221462cf6825be69c889f885ea33399fbc682fae0a2a4bf6ad16442273ed7"
+                "vkey": "6668571e8e36184a2e75817cf846779522a6b053280e78833a4382434e146073"
             },
             "event": {
-                "postChainTx": {
-                    "headParameters": {
-                        "contestationPeriod": 42562,
-                        "parties": [
-                            {
-                                "vkey": "c0bbca50f0397fcfbd7b6a3373942acfb89b20cf2a70f3a2c8540fa8779168fa"
-                            },
-                            {
-                                "vkey": "f555d2ac63ff601d58c6eaa7da24b77d57322e6507051b5a7d17e01a7f3c5516"
-                            },
-                            {
-                                "vkey": "ff8c53fd9fd433dade12970a1ac6f857155e11b636e5b26069b9bfcc0702b187"
-                            },
-                            {
-                                "vkey": "ead762276a2a162ec8191716bd39aa4dce909625b1c0cd578dd2881942c310b8"
-                            },
-                            {
-                                "vkey": "11ee05a5c44a28011a262a95ba71744898b41cf39de562479fd371d49819d326"
-                            },
-                            {
-                                "vkey": "38bb68465783e2d4bfff4a25056b435061a0bb54c9feb9b5c9daeff901113fb6"
-                            },
-                            {
-                                "vkey": "7a4f3f16c8b873d3dbacfcbcca972307f9d9ec50c8d246d1aef6e6d7731df810"
-                            },
-                            {
-                                "vkey": "7a7cdbf29d17159e87e5d9cfe3dda0371ab56be6fb5e7f6b3a036461a87c1062"
-                            },
-                            {
-                                "vkey": "c410327d97bd1c89303bd120bf17693252aaecba957f65cba93d9f19f74140b5"
-                            },
-                            {
-                                "vkey": "a89b15f3732d18acfab003ab405f4c0338d2450586a7a453ab290b0eeb517036"
-                            },
-                            {
-                                "vkey": "b2b959971e9ffcddf91d79e461f93bd00a78df7abc903db54a80f596d38fe774"
-                            },
-                            {
-                                "vkey": "a3745b9a0775046ebe6701a3c0064a28c58739d8cb5a9e27296a83cfa9c8a801"
-                            },
-                            {
-                                "vkey": "bac4075cdb44f9136bbec3738bbf549d0042b7133018ca5a3ed78c931ec3640a"
-                            },
-                            {
-                                "vkey": "a21a24616a344e2fc9fdb30e44fe5100af52c1f58bd21e155e3f59a095d7ece5"
-                            },
-                            {
-                                "vkey": "7f8c57eb0c4cddabbb3e0f1f8c150d7287d07a17ae340fb222e460aee85e8531"
-                            },
-                            {
-                                "vkey": "5d384aaabb440c2c92a31a1f9b8ca155151056eecf7e26f42d75e44e4a9d7073"
-                            },
-                            {
-                                "vkey": "a83727b8e5f146a2650550393a01d67f06aaecbec7f94d8321417b14dbc11f74"
-                            },
-                            {
-                                "vkey": "1933dee17bb23f85e900ef6b4a454161589bf9eb96793762c8e06d590ff3f64c"
-                            },
-                            {
-                                "vkey": "4fb99d113fdcd30a263511a61064b9d376118872d95c49fb3484b19dae1e819e"
-                            },
-                            {
-                                "vkey": "c01aeed1365f5e72325d05e2556b7adc48935afb5a1087da80cc3e8d658a21e2"
-                            },
-                            {
-                                "vkey": "a776ff0eec8b1a61f1d639e6237addc88646b98b87ce5e4a0f1cdddb6ddd9a27"
-                            },
-                            {
-                                "vkey": "ead30a8b0cc392408740977cfed63105ca260dc100ca0000b9c40aca83004a08"
-                            },
-                            {
-                                "vkey": "1f177048f82b2889fae2fe909dc4a9ff84eddf137e9fc02c5ca4124af52733ff"
-                            }
-                        ]
+                "message": {
+                    "party": {
+                        "vkey": "156a527b4b7fd845d909b92e5eaab32f70a69be175aa4f10fff7c32793c84200"
                     },
-                    "tag": "InitTx"
+                    "signed": "4d019b9b369b3481bf54d69b6321d77b7abbddc3669077293b7c02c31a683ce26630b96b6ccb7670851f44999ba859b1f656adbaf9e54a622e77d2c3bf56ec0a",
+                    "snapshotNumber": 25,
+                    "tag": "AckSn"
                 },
-                "postTxError": {
-                    "plutusDebugInfo": "'S\u0010\u000c\u0013\u0018",
-                    "plutusFailure": "=􀪁",
-                    "tag": "PlutusValidationFailed"
+                "tag": "NetworkEvent",
+                "ttl": 10
+            },
+            "tag": "EndEvent"
+        },
+        {
+            "by": {
+                "vkey": "fe879cd86b7e0b0a6ee85ca34e1ac416ef05160317ae1d15defc0c8ebb24747a"
+            },
+            "effect": {
+                "message": {
+                    "party": {
+                        "vkey": "995c0f36d48dcb6334f92c11c87b2ee2e6d455349797b96307383ac8f4956513"
+                    },
+                    "tag": "ReqTx",
+                    "transaction": {
+                        "id": 22,
+                        "inputs": [
+                            -30,
+                            -28,
+                            -26,
+                            -25,
+                            -23,
+                            -22,
+                            -16,
+                            -15,
+                            -12,
+                            -11,
+                            -9,
+                            -8,
+                            -3,
+                            8,
+                            9,
+                            19,
+                            22,
+                            27,
+                            30
+                        ],
+                        "outputs": [
+                            -30,
+                            -6,
+                            0,
+                            3,
+                            16
+                        ]
+                    }
                 },
-                "tag": "PostTxError"
+                "tag": "NetworkEffect"
             },
-            "reason": {
-                "actual": 7,
-                "expected": 7,
-                "tag": "InvalidSnapshot"
-            },
-            "tag": "ErrorHandlingEvent"
+            "tag": "BeginEffect"
         }
     ],
-    "seed": -1888410191
+    "seed": -1372142384
 }
