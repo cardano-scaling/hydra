@@ -13,12 +13,16 @@ import Hydra.Prelude
 import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Node (HydraNodeLog)
+import Hydra.Options (RunOptions)
 
 data HydraLog tx net
   = DirectChain {directChain :: DirectChainLog}
   | APIServer {api :: APIServerLog}
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
+  | CreatedState
+  | LoadedState
+  | NodeOptions {runOptions :: RunOptions}
   deriving (Generic)
 
 deriving instance (Eq net, Eq (HydraNodeLog tx)) => Eq (HydraLog tx net)

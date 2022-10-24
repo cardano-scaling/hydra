@@ -77,6 +77,7 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys} = do
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
 -- ** Create and run a hydra node
 
+-- | Main handle of a hydra node where all layers are tied together.
 data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
   , hn :: Network m (Message tx)
@@ -88,20 +89,12 @@ data HydraNode tx m = HydraNode
   , persistence :: Persistence (HeadState tx) m
   }
 
--- NOTE(AB): we use partial fields access here for convenience purpose, to
--- make serialisation To/From JSON straightforward
--- NOTE(AB): It's not needed to log the full events and effects both when starting
--- and ending the action, we should rather reference the event/effect processed
--- using some id when the action completest
 data HydraNodeLog tx
   = ErrorHandlingEvent {by :: Party, event :: Event tx, reason :: LogicError tx}
   | BeginEvent {by :: Party, event :: Event tx}
   | EndEvent {by :: Party, event :: Event tx}
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
-  | CreatedState
-  | LoadedState
-  | NodeOptions {runOptions :: RunOptions}
   deriving stock (Generic)
 
 deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (HydraNodeLog tx)
@@ -111,31 +104,6 @@ deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => FromJSON (Hydra
 
 instance (IsTx tx, IsChainState (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
-
-createHydraNode ::
-  (MonadSTM m, IsTx tx, FromJSON (ChainStateType tx)) =>
-  Tracer m (HydraNodeLog tx) ->
-  NodeState tx m ->
-  EventQueue m (Event tx) ->
-  Network m (Message tx) ->
-  Ledger tx ->
-  Chain tx m ->
-  Server tx m ->
-  Environment ->
-  -- | Persistence handle to load/save head state
-  Persistence (HeadState tx) m ->
-  m (HydraNode tx m)
-createHydraNode tracer nodeState eq hn ledger oc server env persistence = do
-  -- TODO: where to load?
-  hs <-
-    load persistence >>= \case
-      Nothing -> do
-        traceWith tracer CreatedState
-        pure IdleState{chainState = undefined}
-      Just a -> do
-        traceWith tracer LoadedState
-        pure a
-  pure HydraNode{eq, hn, nodeState, oc, server, ledger, env, persistence}
 
 runHydraNode ::
   ( MonadThrow m

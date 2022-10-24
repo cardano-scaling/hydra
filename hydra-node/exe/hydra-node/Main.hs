@@ -28,9 +28,10 @@ import Hydra.Network.Heartbeat (withHeartbeat)
 import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
+  HydraNode (..),
   NodeState (..),
+  Persistence (load),
   createEventQueue,
-  createHydraNode,
   createNodeState,
   createPersistence,
   initEnvironment,
@@ -61,22 +62,31 @@ main = do
     env@Environment{party} <- initEnvironment opts
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
-        traceWith (contramap Node tracer) (NodeOptions opts)
+        traceWith tracer (NodeOptions opts)
         eq <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
-        chainState <- initialChainState chainConfig party hydraScriptsTxId
-        nodeState <- createNodeState IdleState{chainState}
+        -- Load state from persistence or create new one
+        persistence <- createPersistence Proxy $ persistenceDir <> "/state"
+        hs <-
+          load persistence >>= \case
+            Nothing -> do
+              traceWith tracer CreatedState
+              chainState <- initialChainState chainConfig party hydraScriptsTxId
+              pure IdleState{chainState}
+            Just a -> do
+              traceWith tracer LoadedState
+              pure a
+        nodeState <- createNodeState hs
+
         withDirectChain (contramap DirectChain tracer) chainConfig (chainCallback nodeState eq) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
             withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
-              withCardanoLedger ledgerConfig $ \ledger -> do
-                let tr = contramap Node tracer
-                persistence <- createPersistence Proxy $ persistenceDir <> "/state"
-                node <- createHydraNode tr nodeState eq hn ledger chain server env persistence
-                runHydraNode tr node
+              withCardanoLedger ledgerConfig $ \ledger ->
+                runHydraNode (contramap Node tracer) $
+                  HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence}
 
   chainCallback :: NodeState Tx IO -> EventQueue IO (Event Tx) -> ChainCallback Tx IO
   chainCallback NodeState{queryHeadState} eq cont = do

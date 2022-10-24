@@ -300,26 +300,6 @@ definitions:
         contents:
           $ref: "#/definitions/Wallet"
 
-    - title: CreatedState
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: [ "CreatedState" ]
-
-    - title: LoadedState
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: [ "LoadedState" ]
-
   Wallet:
     oneOf:
     - title: InitializingWallet
@@ -484,40 +464,43 @@ definitions:
             The Party emitting the log entry.
         effect:
           $ref: "#/definitions/Effect"
-    - title: CreatedState
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: [ "CreatedState" ]
-    - title: LoadedState
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: [ "LoadedState" ]
-    - title: NodeOptions
-      description: >-
-        Hydra node parsed command line arguments
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - runOptions
-      properties:
-        tag:
-          type: string
-          enum: [ "NodeOptions" ]
-        runOptions:
-          <<: { "$ref": "#/definitions/RunOptions" }
-          description: >-
-            Configuration needed to run the hydra node
+
+  NodeOptions:
+    description: >-
+      Hydra node parsed command line arguments
+    type: object
+    additionalProperties: false
+    required:
+    - tag
+    - runOptions
+    properties:
+      tag:
+        type: string
+        enum: [ "NodeOptions" ]
+      runOptions:
+        <<: { "$ref": "#/definitions/RunOptions" }
+        description: >-
+          Configuration needed to run the hydra node
+
+  CreatedState:
+    type: object
+    additionalProperties: false
+    required:
+    - tag
+    properties:
+      tag:
+        type: string
+        enum: [ "CreatedState" ]
+
+  LoadedState:
+    type: object
+    additionalProperties: false
+    required:
+    - tag
+    properties:
+      tag:
+        type: string
+        enum: [ "LoadedState" ]
 
   LogicError:
     oneOf:
