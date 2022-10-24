@@ -96,7 +96,8 @@ source .env && hydra-node \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --network-id 42 \
-  --node-socket devnet/node.socket
+  --node-socket devnet/node.socket \
+  --persistence-dir persistence/alice
 ```
 
 </TerminalWindow>
@@ -120,7 +121,8 @@ source .env && hydra-node \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --network-id 42 \
-  --node-socket devnet/node.socket
+  --node-socket devnet/node.socket \
+  --persistence-dir persistence/bob
 ```
 
 </TerminalWindow>
@@ -144,7 +146,8 @@ source .env && hydra-node \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --network-id 42 \
-  --node-socket devnet/node.socket
+  --node-socket devnet/node.socket \
+  --persistence-dir persistence/carol
 ```
 
 </TerminalWindow>
