@@ -822,6 +822,19 @@ onCurrentChainRollback ::
   Outcome tx
 onCurrentChainRollback currentState slot =
   NewState (rollback slot currentState) [ClientEffect RolledBack]
+ where
+  rollback rollbackSlot hs
+    -- REVIEW: <= or >=?
+    | chainStateSlot (getChainState hs) <= rollbackSlot = hs
+    | otherwise =
+      case hs of
+        IdleState{} -> hs
+        InitialState{previousRecoverableState} ->
+          rollback rollbackSlot previousRecoverableState
+        OpenState{previousRecoverableState} ->
+          rollback rollbackSlot previousRecoverableState
+        ClosedState{previousRecoverableState} ->
+          rollback rollbackSlot previousRecoverableState
 
 -- | The "pure core" of the Hydra node, which handles the 'Event' against a
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
@@ -978,16 +991,3 @@ emitSnapshot env@Environment{party} effects = \case
         )
       _ -> (st, effects)
   st -> (st, effects)
-
--- TODO: document
-rollback ::
-  (IsChainState (ChainStateType tx)) =>
-  ChainSlot ->
-  HeadState tx ->
-  HeadState tx
-rollback rollbackSlot hs
-  -- REVIEW: <= or >=?
-  | currentSlot <= rollbackSlot = hs
-  | otherwise = rollback rollbackSlot (previousRecoverableState hs)
- where
-  currentSlot = chainStateSlot $ getChainState hs
