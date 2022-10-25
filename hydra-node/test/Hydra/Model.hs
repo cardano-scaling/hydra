@@ -52,7 +52,6 @@ import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (ChainSlot (..), HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
-import qualified Hydra.Chain.Direct.State as Chain
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (Committed (), PendingCommits)
@@ -441,15 +440,14 @@ seedWorld seedKeys = do
   tr <- gets logger
   nodes <- lift $ do
     let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
+    -- XXX: Defining the concrete 'ChainState' here is weird. The simulated
+    -- chain shares the provided chainState between all nodes. However, the
+    -- normal (non SimpleTx) chain state is node specific (it's context).
     let chainState =
           ChainStateAt
-            { chainState = Chain.Idle Chain.IdleState{ctx}
+            { chainState = error "should not access chainState"
             , recordedAt = ChainSlot 0
             }
-        -- FIXME: This is weird. We are using the `Tx` specific chain state here in a
-        -- simulated chain, which shares the chain state between all nodes. However,
-        -- the normal (`Tx`) chain state is node specific (it's context).
-        ctx = undefined
     connectToChain <- simulatedChainAndNetwork chainState
     forM seedKeys $ \(sk, _csk) -> do
       outputs <- atomically newTQueue
