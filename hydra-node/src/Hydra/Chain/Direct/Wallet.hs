@@ -191,7 +191,7 @@ data ErrCoverFee
   = ErrNoAvailableUTxO
   | ErrNotEnoughFunds ChangeError
   | ErrUnknownInput {input :: TxIn}
-  | ErrNoPaymentUTxOFound
+  | ErrNoPaymentUTxOFound Text
   | ErrScriptExecutionFailed Text
   | ErrCostEstimation Text
   deriving (Show, Generic, ToJSON)
@@ -263,7 +263,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
  where
   findUTxOToPayFees utxo = case findFuelUTxO utxo of
     Nothing ->
-      Left ErrNoPaymentUTxOFound
+      Left (ErrNoPaymentUTxOFound "Failed to find the UTXO to pay the fees")
     Just (i, o) ->
       Right (i, o)
 
