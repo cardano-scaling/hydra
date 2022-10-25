@@ -52,6 +52,7 @@ import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.CardanoClient (CardanoClient (..), mkCardanoClient)
 import Hydra.Chain.Direct.Util (isMarkedOutput)
 import Hydra.Client (Client (..), HydraEvent (..), withClient)
@@ -342,8 +343,13 @@ handleAppEvent s = \case
   Update InvalidInput{reason} ->
     s & warn ("Invalid input error: " <> toText reason)
   Update PostTxOnChainFailed{postTxError} ->
-    s & warn ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
-      & stopPending
+    case postTxError of
+      CannotCoverFees{reason} ->
+        s & warn reason
+          & stopPending
+      _ ->
+        s & warn ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
+          & stopPending
   Update RolledBack ->
     -- XXX: This is a bit of a mess as we do NOT know in which state the Hydra
     -- head is. Even worse, we have no way to find out!

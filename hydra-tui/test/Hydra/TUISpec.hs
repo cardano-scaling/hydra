@@ -153,16 +153,18 @@ spec = do
       let time' = 1 * hours + 1 * minutes + 15 * seconds
       renderTime (- time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
-  context "text rendering erors" $ do
+  context "text rendering errors" $ do
     around setupNotEnoughFundsNodeAndTUI $ do
-      it "supports the init & abort Head life cycle" $
+      it "should return cannot cover fees because not enough funds error" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "connected"
           shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
-          shouldRender "An error happened"
+          -- FIXME: We would like to see a much prettier error like:
+          -- "Fail to post InitTx on chain because you CannotCoverFees, reason:"
+          shouldRender "ErrNotEnoughFunds (ChangeError {inputBalance = Coin 2000000, outputBalance = Coin 7528800})"
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI action =
@@ -205,12 +207,16 @@ setupNotEnoughFundsNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNotEnoughFundsNodeAndTUI action =
   showLogsOnFailure $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
+      (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         chainConfig <- chainConfigFor Alice tmpDir nodeSocket []
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do
+          -- Fuel to pay hydra transactions
+          seedFromFaucet_ node aliceCardanoVk 2_000_000 Fuel (contramap FromFaucet tracer)
+
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
               ( runWithVty
