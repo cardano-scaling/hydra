@@ -149,9 +149,20 @@ spec = do
           days = hours * 24
           time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
       renderTime (time :: NominalDiffTime) `shouldBe` "10d 1h 1m 15s"
-      renderTime (-time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
+      renderTime (- time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
       let time' = 1 * hours + 1 * minutes + 15 * seconds
-      renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
+      renderTime (- time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
+
+  context "text rendering erors" $ do
+    around setupNotEnoughFundsNodeAndTUI $ do
+      it "supports the init & abort Head life cycle" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "connected"
+          shouldRender "Idle"
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "An error happened"
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI action =
@@ -169,6 +180,37 @@ setupNodeAndTUI action =
           -- Some ADA to commit
           seedFromFaucet_ node aliceCardanoVk 42_000_000 Normal (contramap FromFaucet tracer)
 
+          withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
+            race_
+              ( runWithVty
+                  buildVty
+                  Options
+                    { hydraNodeHost =
+                        Host
+                          { hostname = "127.0.0.1"
+                          , port = 4000 + fromIntegral hydraNodeId
+                          }
+                    , cardanoNodeSocket =
+                        nodeSocket
+                    , cardanoNetworkId =
+                        networkId
+                    , cardanoSigningKey =
+                        (cardanoSigningKey :: ChainConfig -> FilePath) chainConfig
+                    }
+              )
+              $ do
+                action brickTest
+
+setupNotEnoughFundsNodeAndTUI :: (TUITest -> IO ()) -> IO ()
+setupNotEnoughFundsNodeAndTUI action =
+  showLogsOnFailure $ \tracer ->
+    withTempDir "tui-end-to-end" $ \tmpDir -> do
+      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
+        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+        chainConfig <- chainConfigFor Alice tmpDir nodeSocket []
+        -- XXX(SN): API port id is inferred from nodeId, in this case 4001
+        let nodeId = 1
+        withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
               ( runWithVty
