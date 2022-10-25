@@ -11,8 +11,7 @@ import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.Data (Data (Data))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
-import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
+import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure (..), evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
 import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), getLanguageView, hashData, hashScriptIntegrity)
@@ -193,12 +192,12 @@ data ErrCoverFee
   | ErrNotEnoughFunds ChangeError
   | ErrUnknownInput {input :: TxIn}
   | ErrNoPaymentUTxOFound
-  | ErrScriptExecutionFailed (RdmrPtr, TransactionScriptFailure StandardCrypto)
-  | ErrTranslationError (TranslationError StandardCrypto)
-  deriving (Show)
+  | ErrScriptExecutionFailed Text
+  | ErrCostEstimation Text
+  deriving (Show, Generic, ToJSON)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
-  deriving (Show)
+  deriving (Show, Eq, Generic, ToJSON)
 
 -- | Cover fee for a transaction body using the given UTXO set. This calculate
 -- necessary fees and augments inputs / outputs / collateral accordingly to
@@ -359,10 +358,29 @@ estimateScriptsCost ::
   Either ErrCoverFee (Map RdmrPtr ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   case result of
-    Left translationError ->
-      Left $ ErrTranslationError translationError
+    Left _ ->
+      Left $ ErrCostEstimation "Failed to compute the script execution units"
     Right units ->
-      Map.traverseWithKey (\ptr -> left $ ErrScriptExecutionFailed . (ptr,)) units
+      traverse
+        ( \exUnits ->
+            let reduceError e =
+                  case e of
+                    RedeemerNotNeeded _ _ ->
+                      "A redeemer was supplied that does not point to a valid plutus evaluation site in the given transaction"
+                    RedeemerPointsToUnknownScriptHash _ ->
+                      "A redeemer was supplied which points to a script hash which we cannot connect to a Plutus script."
+                    MissingScript _ _ -> "Missing redeemer. Redeemer pointer cannot be resolved"
+                    MissingDatum _ -> "Missing datum."
+                    ValidationFailedV1 _ _ -> "Plutus V1 evaluation error."
+                    ValidationFailedV2 _ _ -> "Plutus V2 evaluation error."
+                    UnknownTxIn _ ->
+                      "A redeemer points to a transaction input which is not present in the current UTxO."
+                    InvalidTxIn _ -> "A redeemer points to a transaction input which is not plutus locked."
+                    IncompatibleBudget _ -> "The execution budget that was calculated by the Plutus evaluator is out of bounds."
+                    NoCostModelInLedgerState _ -> "There was no cost model for a given version of Plutus in the ledger state"
+             in left (ErrScriptExecutionFailed . reduceError) exUnits
+        )
+        units
  where
   result =
     evaluateTransactionExecutionUnits

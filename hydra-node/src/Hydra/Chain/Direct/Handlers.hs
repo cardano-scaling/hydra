@@ -144,7 +144,7 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
         ( CannotCoverFees
             { walletUTxO
             , headUTxO
-            , reason = show e
+            , reason = e
             , tx = fromLedgerTx partialTx
             } ::
             PostTxError Tx

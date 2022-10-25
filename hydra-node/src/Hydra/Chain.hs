@@ -20,6 +20,7 @@ import Hydra.Cardano.Api (
   SerialiseAsRawBytes (..),
   UsingRawBytesHex (..),
  )
+import Hydra.Chain.Direct.Wallet (ErrCoverFee)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
@@ -106,7 +107,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) whe
 data PostTxError tx
   = MoreThanOneUTxOCommitted
   | CannotSpendInput {input :: Text, walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx}
-  | CannotCoverFees {walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
+  | CannotCoverFees {walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx, reason :: ErrCoverFee, tx :: tx}
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
   | FailedToPostTx {failureReason :: Text}
   | -- NOTE: PlutusDebugInfo does not have much available instances so we put it in Text
