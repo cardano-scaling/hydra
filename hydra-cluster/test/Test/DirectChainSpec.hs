@@ -104,21 +104,19 @@ spec = around showLogsOnFailure $ do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
-        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Alice, Bob, Carol]
+        (aliceCardanoVk, _) <- keysFor Alice
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Bob, Carol]
         aliceChainState <- initialChainState aliceChainConfig alice hydraScriptsTxId
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainState $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Bob setup
-            bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Bob, Carol]
+            bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Carol]
             bobChainState <- initialChainState bobChainConfig bob hydraScriptsTxId
             withDirectChainTest (contramap (FromDirectChain "bob") tracer) bobChainConfig bobChainState $
               \bobChain@DirectChainTest{} -> do
                 -- Scenario
-                (aliceCardanoVk, _) <- keysFor Alice
-                seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-
                 let aliceCommitment = 66_000_000
-                -- REVIEW(SN): there is still some things unclear (why the seed needs to be here and not further down, after withDirectChain).
                 aliceUTxO <- seedFromFaucet node aliceCardanoVk aliceCommitment Normal (contramap FromFaucet tracer)
 
                 postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
@@ -147,20 +145,18 @@ spec = around showLogsOnFailure $ do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
-        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Alice, Carol]
+        (aliceCardanoVk, _) <- keysFor Alice
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Carol]
         aliceChainState <- initialChainState aliceChainConfig alice hydraScriptsTxId
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainState $
           \aliceChain@DirectChainTest{postTx = alicePostTx} -> do
             -- Bob setup
-            -- REVIEW: check if all three keys were used by Bob here
-            bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Bob, Carol]
+            bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Carol]
             bobChainState <- initialChainState bobChainConfig bob hydraScriptsTxId
             withDirectChainTest nullTracer bobChainConfig bobChainState $
               \DirectChainTest{postTx = bobPostTx} -> do
                 -- Scenario
-                (aliceCardanoVk, _) <- keysFor Alice
-                seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-
                 alicePostTx $ InitTx $ HeadParameters cperiod [alice, carol]
                 aliceChain `observesInTime` OnInitTx cperiod [alice, carol]
 
@@ -172,14 +168,13 @@ spec = around showLogsOnFailure $ do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
-        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Alice]
+        (aliceCardanoVk, _) <- keysFor Alice
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
         aliceChainState <- initialChainState aliceChainConfig alice hydraScriptsTxId
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainState $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
-            -- REVIEW: check whether using these here (not before direct chain) works now
-            (aliceCardanoVk, _) <- keysFor Alice
-            seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
             aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
@@ -204,14 +199,13 @@ spec = around showLogsOnFailure $ do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
-        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Alice]
+        (aliceCardanoVk, _) <- keysFor Alice
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
         aliceChainState <- initialChainState aliceChainConfig alice hydraScriptsTxId
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainState $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
-            (aliceCardanoVk, _) <- keysFor Alice
-            seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-
             postTx $ InitTx $ HeadParameters cperiod [alice]
             aliceChain `observesInTime` OnInitTx cperiod [alice]
 
@@ -223,13 +217,13 @@ spec = around showLogsOnFailure $ do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
-        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Alice]
+        (aliceCardanoVk, _) <- keysFor Alice
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
         aliceChainState <- initialChainState aliceChainConfig alice hydraScriptsTxId
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainState $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
-            (aliceCardanoVk, _) <- keysFor Alice
-            seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
             someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
@@ -283,7 +277,7 @@ spec = around showLogsOnFailure $ do
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
         -- Alice setup
-        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Alice]
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
         aliceChainState <- initialChainState aliceChainConfig alice hydraScriptsTxId
         -- Scenario
         tip <- withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainState $
@@ -310,7 +304,7 @@ spec = around showLogsOnFailure $ do
         let headerHash = unsafeDeserialiseFromRawBytesBase16 (B8.replicate 64 '0')
         let fakeTip = ChainPoint 42 headerHash
         aliceChainConfig <-
-          chainConfigFor Alice tmp nodeSocket [Alice]
+          chainConfigFor Alice tmp nodeSocket []
             <&> \cfg -> cfg{startChainFrom = Just fakeTip}
         aliceChainState <- initialChainState aliceChainConfig alice hydraScriptsTxId
         let action = withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainState $ \_ ->
@@ -343,7 +337,7 @@ spec = around showLogsOnFailure $ do
                     (removeTrailingNewline (encodeUtf8 hydraScriptsTxIdStr))
         failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
 
-data TestClusterLog
+data DirectChainTestLog
   = FromNode NodeLog
   | FromDirectChain Text DirectChainLog
   | FromFaucet FaucetLog

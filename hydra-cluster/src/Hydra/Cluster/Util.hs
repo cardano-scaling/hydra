@@ -18,6 +18,7 @@ import Hydra.Cluster.Fixture (Actor, actorName)
 import Hydra.Options (ChainConfig (..), defaultChainConfig)
 import qualified Paths_hydra_cluster as Pkg
 import System.FilePath ((<.>), (</>))
+import Test.Hydra.Prelude (failure)
 
 -- | Lookup a config file similar reading a file from disk.
 readConfigFile :: FilePath -> IO ByteString
@@ -40,8 +41,10 @@ keysFor actor = do
   asSigningKey :: AsType (SigningKey PaymentKey)
   asSigningKey = AsSigningKey AsPaymentKey
 
-chainConfigFor :: Actor -> FilePath -> FilePath -> [Actor] -> IO ChainConfig
+chainConfigFor :: HasCallStack => Actor -> FilePath -> FilePath -> [Actor] -> IO ChainConfig
 chainConfigFor me targetDir nodeSocket them = do
+  when (me `elem` them) $
+    failure $ show me <> " must not be in " <> show them
   readConfigFile ("credentials" </> skName me) >>= writeFileBS (skTarget me)
   readConfigFile ("credentials" </> vkName me) >>= writeFileBS (vkTarget me)
   forM_ them $ \actor ->
