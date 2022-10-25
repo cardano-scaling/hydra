@@ -49,7 +49,10 @@ import Hydra.Cluster.Fixture (
   carolSk,
   carolVk,
  )
-import Hydra.Cluster.Scenarios (restartANodeAfterHeadInitialized, singlePartyHeadFullLifeCycle)
+import Hydra.Cluster.Scenarios (
+  restartedNodeCanAbort,
+  singlePartyHeadFullLifeCycle,
+ )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Ledger (txId)
@@ -94,13 +97,6 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyHeadFullLifeCycle tracer tmpDir node
-
-    describe "backup restore of a hydra head" $ do
-      it "start a hydra node and restart it" $ \tracer -> do
-        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= restartANodeAfterHeadInitialized tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
@@ -168,6 +164,12 @@ spec = around showLogsOnFailure $ do
                   output "HeadIsFinalized" ["utxo" .= u0]
 
     describe "restarting nodes" $ do
+      it "can abort head after restart" $ \tracer -> do
+        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= restartedNodeCanAbort tracer tmpDir node
+
       it "can start chain from the past and replay on-chain events" $ \tracer ->
         withTempDir "end-to-end-chain-observer" $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
