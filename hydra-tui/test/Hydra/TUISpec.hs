@@ -163,7 +163,7 @@ spec = do
           shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
-          shouldRender "Expected address balance to be more than 7528800 but got 2000000 lovelace."
+          shouldRender "Not enough Fuel. Please provide more to the internal wallet and try again."
 
 setupNodeAndTUI' :: Lovelace -> (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI' lovelace action =

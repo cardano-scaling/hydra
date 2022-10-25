@@ -11,7 +11,7 @@ import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.Data (Data (Data))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
-import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure (..), evaluateTransactionExecutionUnits)
+import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
 import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
@@ -190,11 +190,14 @@ getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 
 -- | This are all the error that can happen during coverFee.
 data ErrCoverFee
-  = ErrNotEnoughFunds Text
+  = ErrNotEnoughFunds ChangeError
   | ErrNoFuelUTxOFound Text
   | ErrUnknownInput Text
   | ErrScriptExecutionFailed (TransactionScriptFailure StandardCrypto)
   | ErrTranslationError (TranslationError StandardCrypto)
+  deriving (Show)
+
+data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
   deriving (Show)
 
 -- | Cover fee for a transaction body using the given UTXO set. This calculate
@@ -285,13 +288,15 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
     [TxOut] ->
     [TxOut] ->
     Coin ->
-    Either Text TxOut
+    Either ChangeError TxOut
   mkChange (Ledger.Babbage.TxOut addr _ datum _) resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
       Left $
-        -- TODO: examine is Coin amount here the same as Lovelace?
-        "Expected address balance to be more than " <> show (unCoin totalOut) <> " but got " <> show (unCoin totalIn) <> " lovelace."
+        ChangeError
+          { inputBalance = totalIn
+          , outputBalance = totalOut
+          }
     | otherwise =
       Right $ Ledger.Babbage.TxOut addr (inject changeOut) datum refScript
    where
