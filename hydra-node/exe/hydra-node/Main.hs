@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
-import Hydra.Chain (ChainCallback)
+import Hydra.Chain (ChainCallback, ChainEvent (..))
 import Hydra.Chain.Direct (initialChainState, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair)
@@ -88,13 +88,21 @@ main = do
                 runHydraNode (contramap Node tracer) $
                   HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence}
 
+  -- TODO: This means that manual update to chainState in HeadLogic is not required
   chainCallback :: NodeState Tx IO -> EventQueue IO (Event Tx) -> ChainCallback Tx IO
-  chainCallback NodeState{queryHeadState} eq cont = do
-    st <- atomically $ queryHeadState
-    case cont $ getChainState st of
+  chainCallback NodeState{modifyHeadState} eq cont = do
+    -- Provide chain state to continuation and update it we get a newState
+    mEvent <- atomically . modifyHeadState $ \hs ->
+      case cont $ getChainState hs of
+        Nothing ->
+          (Nothing, hs)
+        Just ev@Observation{newChainState} ->
+          (Just ev, hs{chainState = newChainState})
+        Just ev ->
+          (Just ev, hs)
+    case mEvent of
       Nothing -> pure ()
-      Just chainEvent ->
-        putEvent eq $ OnChainEvent{chainEvent}
+      Just chainEvent -> putEvent eq $ OnChainEvent{chainEvent}
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
