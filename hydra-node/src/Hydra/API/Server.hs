@@ -19,7 +19,7 @@ import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput))
-import Hydra.Chain (ChainStateType, IsChainState, PostTxError)
+import Hydra.Chain (ChainStateType, IsChainState)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)

@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Hydra.Client where
 
 import Hydra.Prelude
@@ -14,7 +16,6 @@ import Hydra.Cardano.Api (
   SigningKey,
  )
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.Ledger (IsTx)
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.TUI.Options (Options (..))
 import Network.WebSockets (ConnectionException, receiveData, runClient, sendBinaryData)
@@ -24,7 +25,10 @@ data HydraEvent tx
   | ClientDisconnected
   | Update (ServerOutput tx)
   | Tick UTCTime
-  deriving (Eq, Show, Generic)
+  deriving (Generic)
+
+deriving instance (Eq (ServerOutput tx)) => Eq (HydraEvent tx)
+deriving instance (Show (ServerOutput tx)) => Show (HydraEvent tx)
 
 -- | Handle to interact with Hydra node
 data Client tx m = Client
@@ -40,7 +44,10 @@ type ClientCallback tx m = HydraEvent tx -> m ()
 type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 
 -- | Provide a component to interact with Hydra node.
-withClient :: IsTx tx => Options -> ClientComponent tx IO a
+withClient ::
+  (ToJSON (ClientInput tx), FromJSON (ServerOutput tx)) =>
+  Options ->
+  ClientComponent tx IO a
 withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey} callback action = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
   q <- newTBQueueIO 10
