@@ -189,7 +189,7 @@ getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 
 data ErrCoverFee
   = ErrNoAvailableUTxO
-  | ErrNotEnoughFunds ChangeError
+  | ErrNotEnoughFunds Text
   | ErrUnknownInput Text
   | ErrNoPaymentUTxOFound Text
   | ErrScriptExecutionFailed Text
@@ -287,15 +287,13 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
     [TxOut] ->
     [TxOut] ->
     Coin ->
-    Either ChangeError TxOut
+    Either Text TxOut
   mkChange (Ledger.Babbage.TxOut addr _ datum _) resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
       Left $
-        ChangeError
-          { inputBalance = totalIn
-          , outputBalance = totalOut
-          }
+        -- TODO: examine is Coin amount here the same as Lovelace?
+        "Expected balance to be more than " <> show (unCoin totalOut) <> " but got " <> show (unCoin totalIn) <> " lovelace."
     | otherwise =
       Right $ Ledger.Babbage.TxOut addr (inject changeOut) datum refScript
    where
