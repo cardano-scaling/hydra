@@ -5,6 +5,7 @@
 module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
+import qualified Prelude as P
 
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
@@ -188,16 +189,19 @@ getTxId ::
 getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 
 data ErrCoverFee
-  = ErrNoAvailableUTxO
-  | ErrNotEnoughFunds Text
+  = ErrNotEnoughFunds Text
   | ErrUnknownInput Text
   | ErrNoPaymentUTxOFound Text
   | ErrScriptExecutionFailed Text
   | ErrCostEstimation Text
-  deriving (Show, Generic, ToJSON)
+  deriving (Generic, ToJSON)
 
-data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
-  deriving (Show, Eq, Generic, ToJSON)
+instance Show ErrCoverFee where
+  show (ErrNotEnoughFunds t) = show t
+  show (ErrUnknownInput t) = show t
+  show (ErrNoPaymentUTxOFound t) = show t
+  show (ErrScriptExecutionFailed t) = show t
+  show (ErrCostEstimation t) = show t
 
 -- | Cover fee for a transaction body using the given UTXO set. This calculate
 -- necessary fees and augments inputs / outputs / collateral accordingly to
@@ -293,7 +297,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
     | totalIn <= totalOut =
       Left $
         -- TODO: examine is Coin amount here the same as Lovelace?
-        "Expected balance to be more than " <> show (unCoin totalOut) <> " but got " <> show (unCoin totalIn) <> " lovelace."
+        "Expected address balance to be more than " <> show (unCoin totalOut) <> " but got " <> show (unCoin totalIn) <> " lovelace."
     | otherwise =
       Right $ Ledger.Babbage.TxOut addr (inject changeOut) datum refScript
    where

@@ -164,7 +164,7 @@ spec = do
           threadDelay 1
           -- FIXME: We would like to see a much prettier error like:
           -- "Fail to post InitTx on chain because you CannotCoverFees, reason:"
-          shouldRender "ErrNotEnoughFunds \"Expected balance to be more than 7528800 but got 2000000 lovelace.\""
+          shouldRender "Expected address balance to be more than 7528800 but got 2000000 lovelace."
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI action =
