@@ -26,6 +26,7 @@ import Graphics.Vty (
   termName,
  )
 import Graphics.Vty.Image (DisplayRegion)
+import Hydra.Cardano.Api (Lovelace)
 import Hydra.Cluster.Faucet (
   FaucetLog,
   Marked (Fuel, Normal),
@@ -154,7 +155,7 @@ spec = do
       renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
   context "text rendering errors" $ do
-    around setupNotEnoughFundsNodeAndTUI $ do
+    around (setupNotEnoughFundsNodeAndTUI 2_000_000) $ do
       it "should return cannot cover fees because not enough funds error" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
@@ -162,8 +163,6 @@ spec = do
           shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
-          -- FIXME: We would like to see a much prettier error like:
-          -- "Fail to post InitTx on chain because you CannotCoverFees, reason:"
           shouldRender "Expected address balance to be more than 7528800 but got 2000000 lovelace."
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
@@ -200,11 +199,10 @@ setupNodeAndTUI action =
                         (cardanoSigningKey :: ChainConfig -> FilePath) chainConfig
                     }
               )
-              $ do
-                action brickTest
+              $ action brickTest
 
-setupNotEnoughFundsNodeAndTUI :: (TUITest -> IO ()) -> IO ()
-setupNotEnoughFundsNodeAndTUI action =
+setupNotEnoughFundsNodeAndTUI :: Lovelace -> (TUITest -> IO ()) -> IO ()
+setupNotEnoughFundsNodeAndTUI fundAmount action =
   showLogsOnFailure $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
@@ -215,7 +213,7 @@ setupNotEnoughFundsNodeAndTUI action =
         let nodeId = 1
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do
           -- Fuel to pay hydra transactions
-          seedFromFaucet_ node aliceCardanoVk 2_000_000 Fuel (contramap FromFaucet tracer)
+          seedFromFaucet_ node aliceCardanoVk fundAmount Fuel (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
@@ -227,16 +225,12 @@ setupNotEnoughFundsNodeAndTUI action =
                           { hostname = "127.0.0.1"
                           , port = 4000 + fromIntegral hydraNodeId
                           }
-                    , cardanoNodeSocket =
-                        nodeSocket
-                    , cardanoNetworkId =
-                        networkId
-                    , cardanoSigningKey =
-                        (cardanoSigningKey :: ChainConfig -> FilePath) chainConfig
+                    , cardanoNodeSocket = nodeSocket
+                    , cardanoNetworkId = networkId
+                    , cardanoSigningKey = (cardanoSigningKey :: ChainConfig -> FilePath) chainConfig
                     }
               )
-              $ do
-                action brickTest
+              $ action brickTest
 
 data TUITest = TUITest
   { buildVty :: IO Vty
