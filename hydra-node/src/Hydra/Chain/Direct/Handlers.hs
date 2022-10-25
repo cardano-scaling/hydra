@@ -314,8 +314,6 @@ data DirectChainLog
   | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
-  | CreatedState
-  | LoadedState
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 

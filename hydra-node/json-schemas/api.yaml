@@ -705,27 +705,6 @@ components:
       description: Hydra Node identifier
       example: "some hydra-node id"
 
-    Point:
-      description: |
-        A point on the blockchain.
-      oneOf:
-        - title: Origin
-          type: string
-          enum: ["Origin"]
-
-        - title: Any
-          type: object
-          required:
-            - slot
-            - hash
-          properties:
-            slot:
-              type: integer
-            hash:
-              type: string
-              contentEncoding: base16
-              example: "db7dbf9eaa609498b2ed4b9b735ce275345f348194a7e8e9200fec7d1cad008e"
-
     PostChainTx:
       description: |
         Description of outgoing On-Chain transactions for the Head protocol. As is
@@ -961,6 +940,7 @@ components:
           additionalProperties: false
           required:
           - tag
+          - chainState
           - txTried
           description: >-
             Attempted to post a transaction that's invalid given current protocol's state. This is definitely a **BUG**.
@@ -968,6 +948,8 @@ components:
             tag:
               type: string
               enum: ["InvalidStateToPost"]
+            chainState:
+              $ref: "#/components/schemas/ChainState"
             txTried:
               $ref: "#/components/schemas/PostChainTx"
         - title: PlutusValidationFailed
@@ -1488,3 +1470,6 @@ components:
             - type: "null"
             - type: object
               $ref: "#/components/schemas/ChainPoint"
+
+    # NOTE: We don't want anyone to depend on this!
+    ChainState: {}
