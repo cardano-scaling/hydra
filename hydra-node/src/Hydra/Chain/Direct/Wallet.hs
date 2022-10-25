@@ -190,7 +190,7 @@ getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 data ErrCoverFee
   = ErrNoAvailableUTxO
   | ErrNotEnoughFunds ChangeError
-  | ErrUnknownInput {input :: TxIn}
+  | ErrUnknownInput Text
   | ErrNoPaymentUTxOFound Text
   | ErrScriptExecutionFailed Text
   | ErrCostEstimation Text
@@ -279,7 +279,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
   resolveInput :: TxIn -> Either ErrCoverFee TxOut
   resolveInput i = do
     case Map.lookup i (lookupUTxO <> walletUTxO) of
-      Nothing -> Left $ ErrUnknownInput i
+      Nothing -> Left $ ErrUnknownInput "Could not find the wanted tx input in all known UTXOs"
       Just o -> Right o
 
   mkChange ::

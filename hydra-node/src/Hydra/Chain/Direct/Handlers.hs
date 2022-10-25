@@ -130,10 +130,10 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
   let headUTxO = getKnownUTxO someSt
   walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
-    Left ErrUnknownInput{input} -> do
+    Left (ErrUnknownInput t) -> do
       throwIO
         ( CannotSpendInput
-            { input = show input
+            { input = t
             , walletUTxO
             , headUTxO
             } ::
@@ -144,7 +144,7 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
         ( CannotCoverFees
             { walletUTxO
             , headUTxO
-            , reason = e
+            , reason = show e
             , tx = fromLedgerTx partialTx
             } ::
             PostTxError Tx
