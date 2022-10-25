@@ -26,7 +26,6 @@ import Hydra.Cardano.Api (
   fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
-  fromLedgerUTxO,
   toLedgerTx,
   toLedgerUTxO,
  )
@@ -125,25 +124,18 @@ finalizeTx ::
   TVar m ChainStateAt ->
   ValidatedTx LedgerEra ->
   STM m (ValidatedTx LedgerEra)
-finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
+finalizeTx TinyWallet{sign, coverFee} headState partialTx = do
   someSt <- currentChainState <$> readTVar headState
   let headUTxO = getKnownUTxO someSt
-  walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
-    Left (ErrUnknownInput t) -> do
-      throwIO
-        ( CannotSpendInput
-            { input = t
-            , walletUTxO
-            , headUTxO
-            } ::
-            PostTxError Tx
-        )
+    Left ErrNoFuelUTxOFound{} ->
+      throwIO (NotEnoughFuel :: PostTxError Tx)
+    Left ErrNotEnoughFunds{} ->
+      throwIO (NotEnoughFuel :: PostTxError Tx)
     Left e ->
       throwIO
-        ( CannotCoverFees
-            { walletUTxO
-            , headUTxO
+        ( InternalWalletError
+            { headUTxO
             , reason = show e
             , tx = fromLedgerTx partialTx
             } ::

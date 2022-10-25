@@ -150,12 +150,12 @@ spec = do
           days = hours * 24
           time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
       renderTime (time :: NominalDiffTime) `shouldBe` "10d 1h 1m 15s"
-      renderTime (-time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
+      renderTime (- time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
       let time' = 1 * hours + 1 * minutes + 15 * seconds
-      renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
+      renderTime (- time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
   context "text rendering errors" $ do
-    around (setupNotEnoughFundsNodeAndTUI 2_000_000) $ do
+    around setupNotEnoughFundsNodeAndTUI $ do
       it "should return cannot cover fees because not enough funds error" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
@@ -165,8 +165,8 @@ spec = do
           threadDelay 1
           shouldRender "Expected address balance to be more than 7528800 but got 2000000 lovelace."
 
-setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
-setupNodeAndTUI action =
+setupNodeAndTUI' :: Lovelace -> (TUITest -> IO ()) -> IO ()
+setupNodeAndTUI' lovelace action =
   showLogsOnFailure $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
@@ -177,7 +177,7 @@ setupNodeAndTUI action =
         let nodeId = 1
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do
           -- Fuel to pay hydra transactions
-          seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+          seedFromFaucet_ node aliceCardanoVk lovelace Fuel (contramap FromFaucet tracer)
           -- Some ADA to commit
           seedFromFaucet_ node aliceCardanoVk 42_000_000 Normal (contramap FromFaucet tracer)
 
@@ -201,36 +201,11 @@ setupNodeAndTUI action =
               )
               $ action brickTest
 
-setupNotEnoughFundsNodeAndTUI :: Lovelace -> (TUITest -> IO ()) -> IO ()
-setupNotEnoughFundsNodeAndTUI fundAmount action =
-  showLogsOnFailure $ \tracer ->
-    withTempDir "tui-end-to-end" $ \tmpDir -> do
-      (aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
-        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-        chainConfig <- chainConfigFor Alice tmpDir nodeSocket []
-        -- XXX(SN): API port id is inferred from nodeId, in this case 4001
-        let nodeId = 1
-        withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do
-          -- Fuel to pay hydra transactions
-          seedFromFaucet_ node aliceCardanoVk fundAmount Fuel (contramap FromFaucet tracer)
+setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
+setupNodeAndTUI = setupNodeAndTUI' 100_000_000
 
-          withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
-            race_
-              ( runWithVty
-                  buildVty
-                  Options
-                    { hydraNodeHost =
-                        Host
-                          { hostname = "127.0.0.1"
-                          , port = 4000 + fromIntegral hydraNodeId
-                          }
-                    , cardanoNodeSocket = nodeSocket
-                    , cardanoNetworkId = networkId
-                    , cardanoSigningKey = (cardanoSigningKey :: ChainConfig -> FilePath) chainConfig
-                    }
-              )
-              $ action brickTest
+setupNotEnoughFundsNodeAndTUI :: (TUITest -> IO ()) -> IO ()
+setupNotEnoughFundsNodeAndTUI = setupNodeAndTUI' 2_000_000
 
 data TUITest = TUITest
   { buildVty :: IO Vty

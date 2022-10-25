@@ -174,7 +174,7 @@ spec =
                                   True
                                     & label
                                       ( case err of
-                                          ErrNoPaymentUTxOFound -> "No payment UTxO found"
+                                          ErrNoFuelUTxOFound{} -> "No payment UTxO found"
                                           ErrNotEnoughFunds{} -> "Not enough funds"
                                           ErrUnknownInput{} -> "Unknown input"
                                           ErrScriptExecutionFailed{} -> "Script(s) execution failed"

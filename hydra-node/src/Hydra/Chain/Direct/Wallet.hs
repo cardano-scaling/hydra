@@ -5,7 +5,6 @@
 module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
-import qualified Prelude as P
 
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
@@ -13,6 +12,7 @@ import Cardano.Ledger.Alonzo.Data (Data (Data))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure (..), evaluateTransactionExecutionUnits)
+import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
 import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), getLanguageView, hashData, hashScriptIntegrity)
@@ -188,20 +188,14 @@ getTxId ::
   Ledger.TxId crypto
 getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 
+-- | This are all the error that can happen during coverFee.
 data ErrCoverFee
   = ErrNotEnoughFunds Text
+  | ErrNoFuelUTxOFound Text
   | ErrUnknownInput Text
-  | ErrNoPaymentUTxOFound Text
-  | ErrScriptExecutionFailed Text
-  | ErrCostEstimation Text
-  deriving (Generic, ToJSON)
-
-instance Show ErrCoverFee where
-  show (ErrNotEnoughFunds t) = show t
-  show (ErrUnknownInput t) = show t
-  show (ErrNoPaymentUTxOFound t) = show t
-  show (ErrScriptExecutionFailed t) = show t
-  show (ErrCostEstimation t) = show t
+  | ErrScriptExecutionFailed (TransactionScriptFailure StandardCrypto)
+  | ErrTranslationError (TranslationError StandardCrypto)
+  deriving (Show)
 
 -- | Cover fee for a transaction body using the given UTXO set. This calculate
 -- necessary fees and augments inputs / outputs / collateral accordingly to
@@ -267,7 +261,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
  where
   findUTxOToPayFees utxo = case findFuelUTxO utxo of
     Nothing ->
-      Left (ErrNoPaymentUTxOFound "Failed to find the UTXO to pay the fees")
+      Left (ErrNoFuelUTxOFound "Failed to find the UTXO to pay the fees")
     Just (i, o) ->
       Right (i, o)
 
@@ -360,29 +354,10 @@ estimateScriptsCost ::
   Either ErrCoverFee (Map RdmrPtr ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   case result of
-    Left _ ->
-      Left $ ErrCostEstimation "Failed to compute the script execution units"
+    Left tranlationError ->
+      Left $ ErrTranslationError tranlationError
     Right units ->
-      traverse
-        ( \exUnits ->
-            let reduceError e =
-                  case e of
-                    RedeemerNotNeeded _ _ ->
-                      "A redeemer was supplied that does not point to a valid plutus evaluation site in the given transaction"
-                    RedeemerPointsToUnknownScriptHash _ ->
-                      "A redeemer was supplied which points to a script hash which we cannot connect to a Plutus script."
-                    MissingScript _ _ -> "Missing redeemer. Redeemer pointer cannot be resolved"
-                    MissingDatum _ -> "Missing datum."
-                    ValidationFailedV1 _ _ -> "Plutus V1 evaluation error."
-                    ValidationFailedV2 _ _ -> "Plutus V2 evaluation error."
-                    UnknownTxIn _ ->
-                      "A redeemer points to a transaction input which is not present in the current UTxO."
-                    InvalidTxIn _ -> "A redeemer points to a transaction input which is not plutus locked."
-                    IncompatibleBudget _ -> "The execution budget that was calculated by the Plutus evaluator is out of bounds."
-                    NoCostModelInLedgerState _ -> "There was no cost model for a given version of Plutus in the ledger state"
-             in left (ErrScriptExecutionFailed . reduceError) exUnits
-        )
-        units
+      traverse (left ErrScriptExecutionFailed) units
  where
   result =
     evaluateTransactionExecutionUnits
