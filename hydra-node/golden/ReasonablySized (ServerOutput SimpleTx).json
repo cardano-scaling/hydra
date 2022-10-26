@@ -795,23 +795,7 @@
                 "tag": "CommitTx"
             },
             "postTxError": {
-                "headUTxO": [],
-                "reason": "d􄋓",
-                "tag": "CannotCoverFees",
-                "tx": {
-                    "id": 3,
-                    "inputs": [],
-                    "outputs": [
-                        1,
-                        2,
-                        4
-                    ]
-                },
-                "walletUTxO": [
-                    -3,
-                    4,
-                    5
-                ]
+                "tag": "NotEnoughFuel"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -928,7 +912,7 @@
             }
         },
         {
-            "peer": "grT",
+            "peer": "wiq",
             "tag": "PeerDisconnected"
         },
         {
@@ -1006,14 +990,24 @@
                 "utxo": []
             },
             "postTxError": {
-                "headUTxO": [],
-                "input": "\u0018x9\u0010\u0019",
-                "tag": "CannotSpendInput",
-                "walletUTxO": [
-                    -3,
+                "headUTxO": [
+                    -6,
+                    -1,
                     0,
+                    2,
                     5
-                ]
+                ],
+                "reason": "𡅳] h",
+                "tag": "InternalWalletError",
+                "tx": {
+                    "id": -6,
+                    "inputs": [
+                        -3,
+                        1,
+                        4
+                    ],
+                    "outputs": []
+                }
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -1088,7 +1082,7 @@
             }
         },
         {
-            "peer": "t땆\u0010\u0005",
+            "peer": "vrwx",
             "tag": "PeerDisconnected"
         },
         {
@@ -1131,7 +1125,7 @@
             ]
         },
         {
-            "peer": "",
+            "peer": "u",
             "tag": "PeerDisconnected"
         },
         {
@@ -1673,7 +1667,7 @@
             ]
         },
         {
-            "peer": "t𤾓\u0013\u000b",
+            "peer": "qex",
             "tag": "PeerDisconnected"
         },
         {
@@ -1855,7 +1849,7 @@
             "tag": "ReadyToFanout"
         },
         {
-            "peer": " ",
+            "peer": "fjattk",
             "tag": "PeerConnected"
         },
         {
@@ -1897,7 +1891,7 @@
             }
         },
         {
-            "peer": "󱦹]\u0004\u0007",
+            "peer": "f",
             "tag": "PeerConnected"
         },
         {
@@ -2136,7 +2130,7 @@
             }
         },
         {
-            "peer": "\u0007[u􎹕",
+            "peer": "pbx",
             "tag": "PeerDisconnected"
         },
         {
@@ -2163,7 +2157,7 @@
             "tag": "ReadyToCommit"
         },
         {
-            "peer": "9*\u0016",
+            "peer": "na",
             "tag": "PeerConnected"
         },
         {
@@ -2179,7 +2173,7 @@
             ]
         },
         {
-            "peer": "Ku`WK",
+            "peer": "x",
             "tag": "PeerConnected"
         },
         {
@@ -2192,7 +2186,7 @@
             "tag": "Greetings"
         },
         {
-            "peer": "󽝉<H\u0001",
+            "peer": "vbpbv",
             "tag": "PeerDisconnected"
         },
         {
@@ -2221,7 +2215,7 @@
             "tag": "HeadIsContested"
         },
         {
-            "peer": "[>􁓥\u000e",
+            "peer": "jq",
             "tag": "PeerConnected"
         },
         {

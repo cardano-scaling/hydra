@@ -26,6 +26,7 @@ import Graphics.Vty (
   termName,
  )
 import Graphics.Vty.Image (DisplayRegion)
+import Hydra.Cardano.Api (Lovelace)
 import Hydra.Cluster.Faucet (
   FaucetLog,
   Marked (Fuel, Normal),
@@ -153,8 +154,19 @@ spec = do
       let time' = 1 * hours + 1 * minutes + 15 * seconds
       renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
-setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
-setupNodeAndTUI action =
+  context "text rendering errors" $ do
+    around setupNotEnoughFundsNodeAndTUI $ do
+      it "should show not enough fuel message and suggestion" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "connected"
+          shouldRender "Idle"
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Not enough Fuel. Please provide more to the internal wallet and try again."
+
+setupNodeAndTUI' :: Lovelace -> (TUITest -> IO ()) -> IO ()
+setupNodeAndTUI' lovelace action =
   showLogsOnFailure $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
@@ -165,7 +177,7 @@ setupNodeAndTUI action =
         let nodeId = 1
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do
           -- Fuel to pay hydra transactions
-          seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+          seedFromFaucet_ node aliceCardanoVk lovelace Fuel (contramap FromFaucet tracer)
           -- Some ADA to commit
           seedFromFaucet_ node aliceCardanoVk 42_000_000 Normal (contramap FromFaucet tracer)
 
@@ -187,8 +199,13 @@ setupNodeAndTUI action =
                         (cardanoSigningKey :: ChainConfig -> FilePath) chainConfig
                     }
               )
-              $ do
-                action brickTest
+              $ action brickTest
+
+setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
+setupNodeAndTUI = setupNodeAndTUI' 100_000_000
+
+setupNotEnoughFundsNodeAndTUI :: (TUITest -> IO ()) -> IO ()
+setupNotEnoughFundsNodeAndTUI = setupNodeAndTUI' 2_000_000
 
 data TUITest = TUITest
   { buildVty :: IO Vty

@@ -105,8 +105,8 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) whe
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
   = MoreThanOneUTxOCommitted
-  | CannotSpendInput {input :: Text, walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx}
-  | CannotCoverFees {walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
+  | InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
+  | NotEnoughFuel
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
   | FailedToPostTx {failureReason :: Text}
   | -- NOTE: PlutusDebugInfo does not have much available instances so we put it in Text

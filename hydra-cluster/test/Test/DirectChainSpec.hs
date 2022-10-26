@@ -180,7 +180,7 @@ spec = around showLogsOnFailure $ do
 
             postTx (CommitTx alice someUTxOA)
               `shouldThrow` \case
-                (CannotSpendInput{} :: PostTxError Tx) -> True
+                (InternalWalletError{} :: PostTxError Tx) -> True
                 _ -> False
 
             postTx $ CommitTx alice aliceUTxO

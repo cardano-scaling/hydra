@@ -188,11 +188,11 @@ getTxId ::
   Ledger.TxId crypto
 getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 
+-- | This are all the error that can happen during coverFee.
 data ErrCoverFee
-  = ErrNoAvailableUTxO
-  | ErrNotEnoughFunds ChangeError
+  = ErrNotEnoughFunds ChangeError
+  | ErrNoFuelUTxOFound
   | ErrUnknownInput {input :: TxIn}
-  | ErrNoPaymentUTxOFound
   | ErrScriptExecutionFailed (RdmrPtr, TransactionScriptFailure StandardCrypto)
   | ErrTranslationError (TranslationError StandardCrypto)
   deriving (Show)
@@ -264,7 +264,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
  where
   findUTxOToPayFees utxo = case findFuelUTxO utxo of
     Nothing ->
-      Left ErrNoPaymentUTxOFound
+      Left ErrNoFuelUTxOFound
     Just (i, o) ->
       Right (i, o)
 
