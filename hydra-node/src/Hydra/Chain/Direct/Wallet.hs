@@ -193,7 +193,7 @@ data ErrCoverFee
   = ErrNotEnoughFunds ChangeError
   | ErrNoFuelUTxOFound
   | ErrUnknownInput {input :: TxIn}
-  | ErrScriptExecutionFailed (TransactionScriptFailure StandardCrypto)
+  | ErrScriptExecutionFailed (RdmrPtr, TransactionScriptFailure StandardCrypto)
   | ErrTranslationError (TranslationError StandardCrypto)
   deriving (Show)
 
@@ -359,10 +359,10 @@ estimateScriptsCost ::
   Either ErrCoverFee (Map RdmrPtr ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   case result of
-    Left tranlationError ->
-      Left $ ErrTranslationError tranlationError
+    Left translationError ->
+      Left $ ErrTranslationError translationError
     Right units ->
-      traverse (left ErrScriptExecutionFailed) units
+      Map.traverseWithKey (\ptr -> left $ ErrScriptExecutionFailed . (ptr,)) units
  where
   result =
     evaluateTransactionExecutionUnits
