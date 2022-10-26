@@ -886,40 +886,15 @@ components:
               description: >-
                 The Head protocol-relevant UTxO. Depending on the Head's current state, it includes the Head state thread output,
                 plus the ν_initial or ν_commit outputs.
-        - title: NotEnoughInput
+        - title: NotEnoughFuel
           type: object
           additionalProperties: false
           required:
           - tag
-          - walletUTxO
-          - headUTxO
-          - reason
-          - tx
-          description: >-
-            The DirectChain component's internal wallet has been unabled to cover the required fees to post the given
-            transaction. This could come from a variety of reason which are detailed in the 'reason' field.
           properties:
             tag:
               type: string
-              enum: ["NotEnoughInput"]
-            walletUTxO:
-              $ref: "#/components/schemas/UTxO"
-              description: >-
-                The UTxO observed from the chain relevant for the current party.
-                **Note**: In the current version, all fees are paid using a specially "marked" UTxO that is expected to
-                carry enough ADAs to pay for the Head protocol's advance and is consumed and produced upon each transaction.
-            headUTxO:
-              $ref: "#/components/schemas/UTxO"
-              description: >-
-                The Head protocol-relevant UTxO.
-            reason:
-              type: string
-              description: >-
-                Textual representation of the underlying failure to cover fees.
-            tx:
-              $ref: "#/components/schemas/Transaction"
-              description: >-
-                The partial transaction that was being posted.
+              enum: ["NotEnoughFuel"]
         - title: CannotFindOwnInitial
           type: object
           additionalProperties: false

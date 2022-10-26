@@ -128,7 +128,7 @@ finalizeTx TinyWallet{sign, coverFee} headState partialTx = do
   someSt <- currentChainState <$> readTVar headState
   let headUTxO = getKnownUTxO someSt
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
-    Left ErrNoFuelUTxOFound{} ->
+    Left ErrNoFuelUTxOFound ->
       throwIO (NotEnoughFuel :: PostTxError Tx)
     Left ErrNotEnoughFunds{} ->
       throwIO (NotEnoughFuel :: PostTxError Tx)
