@@ -150,13 +150,13 @@ spec = do
           days = hours * 24
           time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
       renderTime (time :: NominalDiffTime) `shouldBe` "10d 1h 1m 15s"
-      renderTime (- time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
+      renderTime (-time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
       let time' = 1 * hours + 1 * minutes + 15 * seconds
-      renderTime (- time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
+      renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
   context "text rendering errors" $ do
     around setupNotEnoughFundsNodeAndTUI $ do
-      it "should return cannot cover fees because not enough funds error" $
+      it "should show not enough fuel message and suggestion" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "connected"
