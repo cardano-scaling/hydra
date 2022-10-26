@@ -45,6 +45,11 @@ changes.
 
 - Added some sample Terraform-based configuration files to spin up GCP and AWS Hydra node
 - Log hydra-node command line arguments on start for easier debugging
+- Changed the following data constructor names:
+  - *CannotSpendInput* to *InternalWalletError*
+  - *CannotCoverFees* to *NotEnoughFuel*
+  - *ErrNoPaymentUTxOFound* to *ErrNoFuelUTxOFound*
+- Removed *ErrNoAvailableUTxO* data constructor
 
 #### Fixed
 

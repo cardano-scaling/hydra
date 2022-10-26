@@ -863,8 +863,8 @@ components:
           additionalProperties: false
           required:
             - tag
-            - input
-            - walletUTxO
+            - tx
+            - reason
             - headUTxO
           description: |
             Some input in a transaction cannot be resolved to a proper UTxO. This can happen either when some input
@@ -873,16 +873,14 @@ components:
             tag:
               type: string
               enum: ["InternalWalletError"]
-            input:
-              type: string
+            tx:
+              $ref: "#/components/schemas/Transaction"
               description: |
-                A representation of the faulty input, in the form 'txId#txIx'.
-                **NOTE**: We would like to use a proper TxIn type reference here but this is not possible because of
-                constraints in the codebase and whatnot. See https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/json-schemas/#/definitions/TxIn.
-            walletUTxO:
-              $ref: "#/components/schemas/UTxO"
+                A representation of the faulty transaction
+            reason:
+              type: string
               description: >-
-                The UTxO observed from the chain relevant for the current party.
+                The failure reason.
             headUTxO:
               $ref: "#/components/schemas/UTxO"
               description: >-
