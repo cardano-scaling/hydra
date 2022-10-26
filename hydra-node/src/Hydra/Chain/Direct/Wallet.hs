@@ -191,8 +191,8 @@ getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 -- | This are all the error that can happen during coverFee.
 data ErrCoverFee
   = ErrNotEnoughFunds ChangeError
-  | ErrNoFuelUTxOFound Text
-  | ErrUnknownInput Text
+  | ErrNoFuelUTxOFound
+  | ErrUnknownInput {input :: TxIn}
   | ErrScriptExecutionFailed (TransactionScriptFailure StandardCrypto)
   | ErrTranslationError (TranslationError StandardCrypto)
   deriving (Show)
@@ -264,7 +264,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
  where
   findUTxOToPayFees utxo = case findFuelUTxO utxo of
     Nothing ->
-      Left (ErrNoFuelUTxOFound "Failed to find the UTXO to pay the fees")
+      Left ErrNoFuelUTxOFound
     Just (i, o) ->
       Right (i, o)
 
@@ -280,7 +280,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
   resolveInput :: TxIn -> Either ErrCoverFee TxOut
   resolveInput i = do
     case Map.lookup i (lookupUTxO <> walletUTxO) of
-      Nothing -> Left $ ErrUnknownInput "Could not find the wanted tx input in all known UTXOs"
+      Nothing -> Left $ ErrUnknownInput i
       Just o -> Right o
 
   mkChange ::
