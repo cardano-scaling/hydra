@@ -75,11 +75,12 @@ consistent development environment via a `shell.nix`. So a simple call to
 `nix-shell` should put everything in place for building, testing and general
 development.
 
-Make sure the following caches are listed in your `nix.conf` for a speedy setup:
+Before that, make sure the following caches are listed in your `nix.conf` for a speedy setup and that you have activated flakes:
 
 ```
 substituters = https://cache.nixos.org https://iohk.cachix.org https://hydra.iohk.io
 trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+experimental-features = nix-command flakes
 ```
 
 From there you can:
