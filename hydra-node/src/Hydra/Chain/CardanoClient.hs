@@ -19,8 +19,8 @@ import Test.QuickCheck (oneof)
 type NodeSocket = FilePath
 
 data QueryException
-  = QueryAcquireException AcquireFailure
-  | QueryEraMismatchException EraMismatch
+  = QueryAcquireException !AcquireFailure
+  | QueryEraMismatchException !EraMismatch
   deriving (Eq, Show)
 
 instance Exception QueryException
@@ -29,8 +29,8 @@ instance Exception QueryException
 
 -- | Handle interface for abstract querying of a cardano node.
 data CardanoClient = CardanoClient
-  { queryUTxOByAddress :: [Address ShelleyAddr] -> IO UTxO
-  , networkId :: NetworkId
+  { queryUTxOByAddress :: !([Address ShelleyAddr] -> IO UTxO)
+  , networkId :: !NetworkId
   }
 
 -- | Construct a 'CardanoClient' handle.
@@ -134,8 +134,8 @@ submitTransaction networkId socket tx =
 -- Similarly, 'TxValidationError' shouldn't occur given that the transaction was
 -- safely constructed through 'buildTransaction'.
 data SubmitTransactionException
-  = SubmitEraMismatch EraMismatch
-  | SubmitTxValidationError (TxValidationErrorInMode CardanoMode)
+  = SubmitEraMismatch !EraMismatch
+  | SubmitTxValidationError !(TxValidationErrorInMode CardanoMode)
   deriving (Show)
 
 instance Exception SubmitTransactionException
@@ -166,7 +166,7 @@ awaitTransaction networkId socket tx =
 -- * Local state query
 
 -- | Describes whether to query at the tip or at a specific point.
-data QueryPoint = QueryTip | QueryAt ChainPoint
+data QueryPoint = QueryTip | QueryAt !ChainPoint
   deriving (Eq, Show, Generic)
 
 instance Arbitrary QueryPoint where

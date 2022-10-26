@@ -16,10 +16,10 @@ import Hydra.Ledger (IsTx)
 import Hydra.Node (HydraNodeLog)
 
 data HydraLog tx net
-  = DirectChain {directChain :: DirectChainLog}
-  | APIServer {api :: APIServerLog}
-  | Network {network :: net}
-  | Node {node :: HydraNodeLog tx}
+  = DirectChain {directChain :: !DirectChainLog}
+  | APIServer {api :: !APIServerLog}
+  | Network {network :: !net}
+  | Node {node :: !(HydraNodeLog tx)}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 

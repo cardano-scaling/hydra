@@ -28,16 +28,16 @@ type PointInTime = (SlotNo, UTCTime)
 
 data TimeHandle = TimeHandle
   { -- | Get the current 'PointInTime'
-    currentPointInTime :: Either Text PointInTime
+    currentPointInTime :: !(Either Text PointInTime)
   , -- | Lookup slot number given a 'UTCTime'. This will fail if the time is
     -- outside the "safe zone".
-    slotFromUTCTime :: UTCTime -> Either Text SlotNo
+    slotFromUTCTime :: !(UTCTime -> Either Text SlotNo)
   , -- | Convert a slot number to a 'UTCTime' using the stored epoch info. This
     -- will fail if the slot is outside the "safe zone".
-    slotToUTCTime :: SlotNo -> Either Text UTCTime
+    slotToUTCTime :: !(SlotNo -> Either Text UTCTime)
   , -- | Adjust a 'PointInTime' by some number of slots, positively or
     -- negatively.
-    adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
+    adjustPointInTime :: !(SlotNo -> PointInTime -> Either Text PointInTime)
   }
 
 -- | Generate consistent values for 'SystemStart' and 'EraHistory' which has

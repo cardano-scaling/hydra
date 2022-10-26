@@ -8,10 +8,10 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (IsTx, UTxOType)
 
 data ClientInput tx
-  = Init {contestationPeriod :: ContestationPeriod}
+  = Init {contestationPeriod :: !ContestationPeriod}
   | Abort
-  | Commit {utxo :: UTxOType tx}
-  | NewTx {transaction :: tx}
+  | Commit {utxo :: !(UTxOType tx)}
+  | NewTx {transaction :: !tx}
   | GetUTxO
   | Close
   | Contest

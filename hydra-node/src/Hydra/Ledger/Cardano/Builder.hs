@@ -32,8 +32,8 @@ unsafeBuildTransaction builder =
 -- | A runtime exception to capture (programmer) failures when building
 -- transactions. This should never happened in practice (famous last words...)!
 data InvalidTransactionException = InvalidTransactionException
-  { txBodyError :: TxBodyError
-  , builder :: TxBuilder
+  { txBodyError :: !TxBodyError
+  , builder :: !TxBuilder
   }
   deriving (Show)
 

@@ -13,11 +13,11 @@ import Hydra.Snapshot (Snapshot, SnapshotNumber)
 -- NOTE(SN): Every message comes from a 'Party', we might want to move it out of
 -- here into the 'NetworkEvent'
 data Message tx
-  = ReqTx {party :: Party, transaction :: tx}
-  | ReqSn {party :: Party, snapshotNumber :: SnapshotNumber, transactions :: [tx]}
-  | AckSn {party :: Party, signed :: Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
-  | Connected {nodeId :: NodeId}
-  | Disconnected {nodeId :: NodeId}
+  = ReqTx {party :: !Party, transaction :: !tx}
+  | ReqSn {party :: !Party, snapshotNumber :: !SnapshotNumber, transactions :: ![tx]}
+  | AckSn {party :: !Party, signed :: !(Signature (Snapshot tx)), snapshotNumber :: !SnapshotNumber}
+  | Connected {nodeId :: !NodeId}
+  | Disconnected {nodeId :: !NodeId}
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 

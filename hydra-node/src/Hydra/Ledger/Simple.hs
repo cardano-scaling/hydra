@@ -26,9 +26,9 @@ import Test.QuickCheck (choose, getSize, sublistOf)
 -- | Simple transaction.
 -- A transaction is a 'SimpleId', a list of inputs and a list of outputs.
 data SimpleTx = SimpleTx
-  { txSimpleId :: SimpleId
-  , txInputs :: UTxOType SimpleTx
-  , txOutputs :: UTxOType SimpleTx
+  { txSimpleId :: !SimpleId
+  , txInputs :: !(UTxOType SimpleTx)
+  , txOutputs :: !(UTxOType SimpleTx)
   }
   deriving stock (Eq, Ord, Generic, Show)
 

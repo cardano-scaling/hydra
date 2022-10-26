@@ -55,15 +55,15 @@ import Hydra.Ledger.Cardano (genTxOutAdaOnly)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry
-  { initialReference :: (TxIn, TxOut CtxUTxO)
-  , commitReference :: (TxIn, TxOut CtxUTxO)
+  { initialReference :: !(TxIn, TxOut CtxUTxO)
+  , commitReference :: !(TxIn, TxOut CtxUTxO)
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 data NewScriptRegistryException = MissingScript
-  { scriptName :: Text
-  , scriptHash :: ScriptHash
-  , discoveredScripts :: Set ScriptHash
+  { scriptName :: !Text
+  , scriptHash :: !ScriptHash
+  , discoveredScripts :: !(Set ScriptHash)
   }
   deriving (Eq, Show)
 

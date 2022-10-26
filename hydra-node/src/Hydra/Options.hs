@@ -71,8 +71,8 @@ import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
 
 data Command
-  = Run RunOptions
-  | Publish PublishOptions
+  = Run !RunOptions
+  | Publish !PublishOptions
   deriving (Show, Eq)
 
 commandParser :: Parser Command
@@ -113,9 +113,9 @@ commandParser =
         )
 
 data PublishOptions = PublishOptions
-  { publishNetworkId :: NetworkId
-  , publishNodeSocket :: FilePath
-  , publishSigningKey :: FilePath
+  { publishNetworkId :: !NetworkId
+  , publishNodeSocket :: !FilePath
+  , publishSigningKey :: !FilePath
   }
   deriving (Show, Eq)
 
@@ -127,21 +127,21 @@ publishOptionsParser =
     <*> cardanoSigningKeyFileParser
 
 data RunOptions = RunOptions
-  { verbosity :: Verbosity
-  , nodeId :: NodeId
+  { verbosity :: !Verbosity
+  , nodeId :: !NodeId
   , -- NOTE: Why not a 'Host'?
-    host :: IP
-  , port :: PortNumber
-  , peers :: [Host]
-  , apiHost :: IP
-  , apiPort :: PortNumber
-  , monitoringPort :: Maybe PortNumber
-  , hydraSigningKey :: FilePath
-  , hydraVerificationKeys :: [FilePath]
-  , hydraScriptsTxId :: TxId
-  , persistenceDir :: FilePath
-  , chainConfig :: ChainConfig
-  , ledgerConfig :: LedgerConfig
+    host :: !IP
+  , port :: !PortNumber
+  , peers :: ![Host]
+  , apiHost :: !IP
+  , apiPort :: !PortNumber
+  , monitoringPort :: !(Maybe PortNumber)
+  , hydraSigningKey :: !FilePath
+  , hydraVerificationKeys :: ![FilePath]
+  , hydraScriptsTxId :: !TxId
+  , persistenceDir :: !FilePath
+  , chainConfig :: !ChainConfig
+  , ledgerConfig :: !LedgerConfig
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -198,8 +198,8 @@ runOptionsParser =
     <*> ledgerConfigParser
 
 data LedgerConfig = CardanoLedgerConfig
-  { cardanoLedgerGenesisFile :: FilePath
-  , cardanoLedgerProtocolParametersFile :: FilePath
+  { cardanoLedgerGenesisFile :: !FilePath
+  , cardanoLedgerProtocolParametersFile :: !FilePath
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -248,11 +248,11 @@ cardanoLedgerProtocolParametersParser =
     )
 
 data ChainConfig = DirectChainConfig
-  { networkId :: NetworkId
-  , nodeSocket :: FilePath
-  , cardanoSigningKey :: FilePath
-  , cardanoVerificationKeys :: [FilePath]
-  , startChainFrom :: Maybe ChainPoint
+  { networkId :: !NetworkId
+  , nodeSocket :: !FilePath
+  , cardanoSigningKey :: !FilePath
+  , cardanoVerificationKeys :: ![FilePath]
+  , startChainFrom :: !(Maybe ChainPoint)
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 

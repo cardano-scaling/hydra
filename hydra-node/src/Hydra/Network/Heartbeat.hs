@@ -28,12 +28,12 @@ import Hydra.Network.Message (Message (Connected, Disconnected))
 data HeartbeatState = HeartbeatState
   { -- | The map of known 'Connected' parties with the last time they've been "seen".
     -- This is updated when we see a message from another node
-    alive :: Map NodeId Time
+    alive :: !(Map NodeId Time)
   , -- | The set of known parties which might be 'Disconnected'
     -- This is updated after some time no message has been received from a node.
-    suspected :: Set NodeId
+    suspected :: !(Set NodeId)
   , -- | The timestamp of the last sent message.
-    lastSent :: Maybe Time
+    lastSent :: !(Maybe Time)
   }
   deriving (Eq)
 
@@ -41,8 +41,8 @@ initialHeartbeatState :: HeartbeatState
 initialHeartbeatState = HeartbeatState{alive = mempty, suspected = mempty, lastSent = Nothing}
 
 data Heartbeat msg
-  = Data NodeId msg
-  | Ping NodeId
+  = Data !NodeId !msg
+  | Ping !NodeId
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

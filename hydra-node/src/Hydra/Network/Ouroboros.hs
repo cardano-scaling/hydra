@@ -274,14 +274,14 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       }
 
 data NetworkServerListenException = NetworkServerListenException
-  { ioException :: IOException
-  , localHost :: Host
+  { ioException :: !IOException
+  , localHost :: !Host
   }
   deriving (Show)
 
 instance Exception NetworkServerListenException
 
-data WithHost trace = WithHost Host trace
+data WithHost trace = WithHost !Host !trace
   deriving (Show)
 
 instance ToJSON trace => ToJSON (WithHost trace) where
@@ -298,12 +298,12 @@ instance FromJSON trace => FromJSON (WithHost trace) where
       <*> (obj .: "data")
 
 data TraceOuroborosNetwork msg
-  = TraceSubscriptions (WithIPList (SubscriptionTrace SockAddr))
-  | TraceErrorPolicy (WithAddr SockAddr ErrorPolicyTrace)
-  | TraceAcceptPolicy AcceptConnectionsPolicyTrace
-  | TraceHandshake (WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)))
-  | TraceMux (WithMuxBearer (ConnectionId SockAddr) MuxTrace)
-  | TraceSendRecv (TraceSendRecv (FireForget msg))
+  = TraceSubscriptions !(WithIPList (SubscriptionTrace SockAddr))
+  | TraceErrorPolicy !(WithAddr SockAddr ErrorPolicyTrace)
+  | TraceAcceptPolicy !AcceptConnectionsPolicyTrace
+  | TraceHandshake !(WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)))
+  | TraceMux !(WithMuxBearer (ConnectionId SockAddr) MuxTrace)
+  | TraceSendRecv !(TraceSendRecv (FireForget msg))
   deriving stock (Show, Generic)
 
 -- NOTE: cardano-node would have orphan ToObject instances for most of these

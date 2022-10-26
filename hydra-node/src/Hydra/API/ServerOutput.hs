@@ -12,40 +12,40 @@ import Hydra.Prelude
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 data ServerOutput tx
-  = PeerConnected {peer :: NodeId}
-  | PeerDisconnected {peer :: NodeId}
-  | ReadyToCommit {parties :: Set Party}
-  | Committed {party :: Party, utxo :: UTxOType tx}
-  | HeadIsOpen {utxo :: UTxOType tx}
+  = PeerConnected {peer :: !NodeId}
+  | PeerDisconnected {peer :: !NodeId}
+  | ReadyToCommit {parties :: !(Set Party)}
+  | Committed {party :: !Party, utxo :: !(UTxOType tx)}
+  | HeadIsOpen {utxo :: !(UTxOType tx)}
   | HeadIsClosed
-      { snapshotNumber :: SnapshotNumber
+      { snapshotNumber :: !SnapshotNumber
       , -- | Nominal deadline until which contest can be submitted and after
         -- which fanout is possible. NOTE: Use this only for informational
         -- purpose and wait for 'ReadyToFanout' instead before sending 'Fanout'
         -- as the ledger of our cardano-node might not have progressed
         -- sufficiently in time yet and we do not re-submit transactions (yet).
-        contestationDeadline :: UTCTime
+        contestationDeadline :: !UTCTime
       }
-  | HeadIsContested {snapshotNumber :: SnapshotNumber}
+  | HeadIsContested {snapshotNumber :: !SnapshotNumber}
   | ReadyToFanout
-  | HeadIsAborted {utxo :: UTxOType tx}
-  | HeadIsFinalized {utxo :: UTxOType tx}
-  | CommandFailed {clientInput :: ClientInput tx}
-  | TxSeen {transaction :: tx}
-  | TxValid {transaction :: tx}
-  | TxInvalid {utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
-  | TxExpired {transaction :: tx}
+  | HeadIsAborted {utxo :: !(UTxOType tx)}
+  | HeadIsFinalized {utxo :: !(UTxOType tx)}
+  | CommandFailed {clientInput :: !(ClientInput tx)}
+  | TxSeen {transaction :: !tx}
+  | TxValid {transaction :: !tx}
+  | TxInvalid {utxo :: !(UTxOType tx), transaction :: !tx, validationError :: !ValidationError}
+  | TxExpired {transaction :: !tx}
   | SnapshotConfirmed
-      { snapshot :: Snapshot tx
-      , signatures :: MultiSignature (Snapshot tx)
+      { snapshot :: !(Snapshot tx)
+      , signatures :: !(MultiSignature (Snapshot tx))
       }
-  | GetUTxOResponse {utxo :: UTxOType tx}
-  | InvalidInput {reason :: String, input :: Text}
+  | GetUTxOResponse {utxo :: !(UTxOType tx)}
+  | InvalidInput {reason :: !String, input :: !Text}
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
     -- only knows one).
-    Greetings {me :: Party}
-  | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+    Greetings {me :: !Party}
+  | PostTxOnChainFailed {postChainTx :: !(PostChainTx tx), postTxError :: !(PostTxError tx)}
   | RolledBack
   deriving (Generic)
 

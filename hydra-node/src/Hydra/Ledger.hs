@@ -53,15 +53,16 @@ data Ledger tx = Ledger
     -- TODO: 'ValidationError' should also include the UTxO, which is not
     -- necessarily the same as the given UTxO after some transactions
     applyTransactions ::
-      UTxOType tx ->
-      [tx] ->
-      Either (tx, ValidationError) (UTxOType tx)
+      !( UTxOType tx ->
+         [tx] ->
+         Either (tx, ValidationError) (UTxOType tx)
+       )
   , -- | Generates an initial UTXO set. This is only temporary as it does not
     -- allow to initialize the UTXO.
     --
     -- TODO: This seems redundant with the `Monoid (UTxOType tx)` constraints
     -- coming with `IsTx`. We probably want to dry this out.
-    initUTxO :: UTxOType tx
+    initUTxO :: !(UTxOType tx)
   }
 
 canApply :: Ledger tx -> UTxOType tx -> tx -> ValidationResult
@@ -71,7 +72,7 @@ canApply ledger utxo tx =
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult
   = Valid
-  | Invalid ValidationError
+  | Invalid !ValidationError
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

@@ -72,10 +72,10 @@ data ChainTransition
 -- case stores the relevant information to construct & observe transactions to
 -- other states.
 data ChainState
-  = Idle IdleState
-  | Initial InitialState
-  | Open OpenState
-  | Closed ClosedState
+  = Idle !IdleState
+  | Initial !InitialState
+  | Open !OpenState
+  | Closed !ClosedState
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance HasKnownUTxO ChainState where
@@ -89,11 +89,11 @@ instance HasKnownUTxO ChainState where
 -- | Read-only chain-specific data. This is different to 'HydraContext' as it
 -- only provide contains data known to single peer.
 data ChainContext = ChainContext
-  { networkId :: NetworkId
-  , peerVerificationKeys :: [VerificationKey PaymentKey]
-  , ownVerificationKey :: VerificationKey PaymentKey
-  , ownParty :: Party
-  , scriptRegistry :: ScriptRegistry
+  { networkId :: !NetworkId
+  , peerVerificationKeys :: ![VerificationKey PaymentKey]
+  , ownVerificationKey :: !(VerificationKey PaymentKey)
+  , ownParty :: !Party
+  , scriptRegistry :: !ScriptRegistry
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -132,12 +132,12 @@ instance HasKnownUTxO IdleState where
     registryUTxO scriptRegistry
 
 data InitialState = InitialState
-  { ctx :: ChainContext
-  , initialThreadOutput :: InitialThreadOutput
-  , initialInitials :: [UTxOWithScript]
-  , initialCommits :: [UTxOWithScript]
-  , initialHeadId :: HeadId
-  , initialHeadTokenScript :: PlutusScript
+  { ctx :: !ChainContext
+  , initialThreadOutput :: !InitialThreadOutput
+  , initialInitials :: ![UTxOWithScript]
+  , initialCommits :: ![UTxOWithScript]
+  , initialHeadId :: !HeadId
+  , initialHeadTokenScript :: !PlutusScript
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -158,11 +158,11 @@ instance HasKnownUTxO InitialState where
       } = st
 
 data OpenState = OpenState
-  { ctx :: ChainContext
-  , openThreadOutput :: OpenThreadOutput
-  , openHeadId :: HeadId
-  , openHeadTokenScript :: PlutusScript
-  , openUtxoHash :: UTxOHash
+  { ctx :: !ChainContext
+  , openThreadOutput :: !OpenThreadOutput
+  , openHeadId :: !HeadId
+  , openHeadTokenScript :: !PlutusScript
+  , openUtxoHash :: !UTxOHash
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -176,10 +176,10 @@ instance HasKnownUTxO OpenState where
       } = st
 
 data ClosedState = ClosedState
-  { ctx :: ChainContext
-  , closedThreadOutput :: ClosedThreadOutput
-  , closedHeadId :: HeadId
-  , closedHeadTokenScript :: PlutusScript
+  { ctx :: !ChainContext
+  , closedThreadOutput :: !ClosedThreadOutput
+  , closedHeadId :: !HeadId
+  , closedHeadTokenScript :: !PlutusScript
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 

@@ -159,8 +159,8 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
 -- to a point in the past when rolling backward due to a change of chain fork by
 -- our local cardano-node.
 data ChainStateAt = ChainStateAt
-  { currentChainState :: ChainState
-  , recordedAt :: RecordedAt
+  { currentChainState :: !ChainState
+  , recordedAt :: !RecordedAt
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -179,21 +179,21 @@ instance Arbitrary ChainStateAt where
 -- simply exist out of any chain events (e.g. the 'Idle' state).
 data RecordedAt
   = AtStart
-  | AtPoint ChainPoint ChainStateAt
+  | AtPoint !ChainPoint !ChainStateAt
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 -- | A /handler/ that takes care of following the chain.
 data ChainSyncHandler m = ChainSyncHandler
-  { onRollForward :: Block -> m ()
-  , onRollBackward :: Point Block -> m ()
+  { onRollForward :: !(Block -> m ())
+  , onRollBackward :: !(Point Block -> m ())
   }
 
 -- | Conversion of a slot number to a time failed. This can be usually be
 -- considered an internal error and may be happening because the used era
 -- history is too old.
 data TimeConversionException = TimeConversionException
-  { slotNo :: SlotNo
-  , reason :: Text
+  { slotNo :: !SlotNo
+  , reason :: !Text
   }
   deriving (Eq, Show, Exception)
 
@@ -367,14 +367,14 @@ getBabbageTxs = \case
 --
 
 data DirectChainLog
-  = ToPost {toPost :: PostChainTx Tx}
-  | PostingTx {txId :: Ledger.TxId StandardCrypto}
-  | PostedTx {txId :: Ledger.TxId StandardCrypto}
-  | PostingFailed {tx :: ValidatedTx LedgerEra, postTxError :: PostTxError Tx}
-  | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [Ledger.TxId StandardCrypto]}
-  | RolledForward {point :: SomePoint}
-  | RolledBackward {point :: SomePoint}
-  | Wallet TinyWalletLog
+  = ToPost {toPost :: !(PostChainTx Tx)}
+  | PostingTx {txId :: !(Ledger.TxId StandardCrypto)}
+  | PostedTx {txId :: !(Ledger.TxId StandardCrypto)}
+  | PostingFailed {tx :: !(ValidatedTx LedgerEra), postTxError :: !(PostTxError Tx)}
+  | ReceivedTxs {onChainTxs :: ![OnChainTx Tx], receivedTxs :: ![Ledger.TxId StandardCrypto]}
+  | RolledForward {point :: !SomePoint}
+  | RolledBackward {point :: !SomePoint}
+  | Wallet !TinyWalletLog
   | CreatedState
   | LoadedState
   deriving (Eq, Show, Generic)

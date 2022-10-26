@@ -69,24 +69,24 @@ instance FromJSON UTxOHash where
 
 -- | Representation of the Head output after an Init transaction.
 data InitialThreadOutput = InitialThreadOutput
-  { initialThreadUTxO :: UTxOWithScript
-  , initialContestationPeriod :: OnChain.ContestationPeriod
-  , initialParties :: [OnChain.Party]
+  { initialThreadUTxO :: !UTxOWithScript
+  , initialContestationPeriod :: !OnChain.ContestationPeriod
+  , initialParties :: ![OnChain.Party]
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 -- | Representation of the Head output after a CollectCom transaction.
 data OpenThreadOutput = OpenThreadOutput
-  { openThreadUTxO :: UTxOWithScript
-  , openContestationPeriod :: OnChain.ContestationPeriod
-  , openParties :: [OnChain.Party]
+  { openThreadUTxO :: !UTxOWithScript
+  , openContestationPeriod :: !OnChain.ContestationPeriod
+  , openParties :: ![OnChain.Party]
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 data ClosedThreadOutput = ClosedThreadOutput
-  { closedThreadUTxO :: UTxOWithScript
-  , closedParties :: [OnChain.Party]
-  , closedContestationDeadline :: Plutus.POSIXTime
+  { closedThreadUTxO :: !UTxOWithScript
+  , closedParties :: ![OnChain.Party]
+  , closedContestationDeadline :: !Plutus.POSIXTime
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -281,14 +281,14 @@ collectComTx networkId vk initialThreadOutput commits =
 -- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
 -- contains relevant chain state like the 'openUtxoHash'.
 data ClosingSnapshot
-  = CloseWithInitialSnapshot {openUtxoHash :: UTxOHash}
+  = CloseWithInitialSnapshot {openUtxoHash :: !UTxOHash}
   | CloseWithConfirmedSnapshot
-      { snapshotNumber :: SnapshotNumber
-      , closeUtxoHash :: UTxOHash
+      { snapshotNumber :: !SnapshotNumber
+      , closeUtxoHash :: !UTxOHash
       , -- XXX: This is a bit of a wart and stems from the fact that our
         -- SignableRepresentation of 'Snapshot' is in fact the snapshotNumber
         -- and the closeUtxoHash as also included above
-        signatures :: MultiSignature (Snapshot Tx)
+        signatures :: !(MultiSignature (Snapshot Tx))
       }
 
 -- | Create a transaction closing a head with either the initial snapshot or
@@ -544,13 +544,13 @@ data InitObservation = InitObservation
     -- transactions.
     -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
     -- XXX(SN): Data and [OnChain.Party] are overlapping
-    threadOutput :: InitialThreadOutput
-  , initials :: [UTxOWithScript]
-  , commits :: [UTxOWithScript]
-  , headId :: HeadId
-  , headTokenScript :: PlutusScript
-  , contestationPeriod :: ContestationPeriod
-  , parties :: [Party]
+    threadOutput :: !InitialThreadOutput
+  , initials :: ![UTxOWithScript]
+  , commits :: ![UTxOWithScript]
+  , headId :: !HeadId
+  , headTokenScript :: !PlutusScript
+  , contestationPeriod :: !ContestationPeriod
+  , parties :: ![Party]
   }
   deriving (Show, Eq)
 
@@ -624,9 +624,9 @@ observeInitTx networkId cardanoKeys party tx = do
     ]
 
 data CommitObservation = CommitObservation
-  { commitOutput :: UTxOWithScript
-  , party :: Party
-  , committed :: UTxO
+  { commitOutput :: !UTxOWithScript
+  , party :: !Party
+  , committed :: !UTxO
   }
 
 -- | Identify a commit tx by:
@@ -694,9 +694,9 @@ convertTxOut = \case
       Nothing -> error "couldn't deserialize serialized output in commit's datum."
 
 data CollectComObservation = CollectComObservation
-  { threadOutput :: OpenThreadOutput
-  , headId :: HeadId
-  , utxoHash :: UTxOHash
+  { threadOutput :: !OpenThreadOutput
+  , headId :: !HeadId
+  , utxoHash :: !UTxOHash
   }
   deriving (Show, Eq)
 
@@ -742,9 +742,9 @@ observeCollectComTx utxo tx = do
       _ -> Nothing
 
 data CloseObservation = CloseObservation
-  { threadOutput :: ClosedThreadOutput
-  , headId :: HeadId
-  , snapshotNumber :: SnapshotNumber
+  { threadOutput :: !ClosedThreadOutput
+  , headId :: !HeadId
+  , snapshotNumber :: !SnapshotNumber
   }
   deriving (Show, Eq)
 
@@ -789,9 +789,9 @@ observeCloseTx utxo tx = do
   headScript = fromPlutusScript Head.validatorScript
 
 data ContestObservation = ContestObservation
-  { contestedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData)
-  , headId :: HeadId
-  , snapshotNumber :: SnapshotNumber
+  { contestedThreadOutput :: !(TxIn, TxOut CtxUTxO, ScriptData)
+  , headId :: !HeadId
+  , snapshotNumber :: !SnapshotNumber
   }
   deriving (Show, Eq)
 

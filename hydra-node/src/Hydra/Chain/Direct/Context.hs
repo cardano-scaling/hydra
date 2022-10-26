@@ -53,10 +53,10 @@ import Test.QuickCheck (choose, elements, frequency, vector)
 -- other functions may rely on all parties and thus, we need both generation to
 -- be coherent.
 data HydraContext = HydraContext
-  { ctxVerificationKeys :: [VerificationKey PaymentKey]
-  , ctxHydraSigningKeys :: [SigningKey HydraKey]
-  , ctxNetworkId :: NetworkId
-  , ctxContestationPeriod :: ContestationPeriod
+  { ctxVerificationKeys :: ![VerificationKey PaymentKey]
+  , ctxHydraSigningKeys :: ![SigningKey HydraKey]
+  , ctxNetworkId :: !NetworkId
+  , ctxContestationPeriod :: !ContestationPeriod
   }
   deriving (Show)
 
@@ -199,14 +199,15 @@ genStClosed ctx utxo = do
   let (sn, snapshot, toFanout) = case confirmed of
         InitialSnapshot{} ->
           ( 0
-          , InitialSnapshot {initialUTxO = u0}
+          , InitialSnapshot{initialUTxO = u0}
           , u0
           )
         ConfirmedSnapshot{snapshot = snap, signatures} ->
           ( number snap
           , ConfirmedSnapshot
-            { snapshot = snap { utxo = utxo }
-            , signatures}
+              { snapshot = snap{utxo = utxo}
+              , signatures
+              }
           , utxo
           )
   pointInTime <- genPointInTime

@@ -251,9 +251,9 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoin
         }
 
 data ConnectException = ConnectException
-  { ioException :: IOException
-  , socketPath :: FilePath
-  , networkId :: NetworkId
+  { ioException :: !IOException
+  , socketPath :: !FilePath
+  , networkId :: !NetworkId
   }
   deriving (Show)
 

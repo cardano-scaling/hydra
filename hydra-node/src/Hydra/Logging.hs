@@ -52,15 +52,15 @@ import qualified Data.Text as Text
 import Test.QuickCheck.Instances.Text ()
 import Test.QuickCheck.Instances.Time ()
 
-data Verbosity = Quiet | Verbose Text
+data Verbosity = Quiet | Verbose !Text
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 -- | Provides logging metadata for entries.
 data Envelope a = Envelope
-  { timestamp :: UTCTime
-  , threadId :: Int
-  , namespace :: Text
-  , message :: a
+  { timestamp :: !UTCTime
+  , threadId :: !Int
+  , namespace :: !Text
+  , message :: !a
   }
   deriving (Eq, Show, Generic, FromJSON)
 

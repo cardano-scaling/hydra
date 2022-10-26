@@ -34,11 +34,11 @@ import Network.WebSockets (
 import Test.QuickCheck (oneof)
 
 data APIServerLog
-  = APIServerStarted {listeningPort :: PortNumber}
+  = APIServerStarted {listeningPort :: !PortNumber}
   | NewAPIConnection
-  | APIOutputSent {sentOutput :: Aeson.Value}
-  | APIInputReceived {receivedInput :: Aeson.Value}
-  | APIInvalidInput {reason :: String, inputReceived :: Text}
+  | APIOutputSent {sentOutput :: !Aeson.Value}
+  | APIInputReceived {receivedInput :: !Aeson.Value}
+  | APIInvalidInput {reason :: !String, inputReceived :: !Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -137,9 +137,9 @@ runAPIServer host port tracer history callback responseChannel = do
     sendTextDatas con $ foldl' encodeAndReverse [] hist
 
 data RunServerException = RunServerException
-  { ioException :: IOException
-  , host :: IP
-  , port :: PortNumber
+  { ioException :: !IOException
+  , host :: !IP
+  , port :: !PortNumber
   }
   deriving (Show)
 

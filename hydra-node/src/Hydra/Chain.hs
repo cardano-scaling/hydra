@@ -28,8 +28,8 @@ import Test.QuickCheck.Instances.Time ()
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
-  { contestationPeriod :: ContestationPeriod
-  , parties :: [Party] -- NOTE(SN): The order of this list is important for leader selection.
+  { contestationPeriod :: !ContestationPeriod
+  , parties :: ![Party] -- NOTE(SN): The order of this list is important for leader selection.
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -43,13 +43,13 @@ instance Arbitrary HeadParameters where
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
 data PostChainTx tx
-  = InitTx {headParameters :: HeadParameters}
-  | CommitTx {party :: Party, committed :: UTxOType tx}
-  | AbortTx {utxo :: UTxOType tx}
-  | CollectComTx {utxo :: UTxOType tx}
-  | CloseTx {confirmedSnapshot :: ConfirmedSnapshot tx}
-  | ContestTx {confirmedSnapshot :: ConfirmedSnapshot tx}
-  | FanoutTx {utxo :: UTxOType tx, contestationDeadline :: UTCTime}
+  = InitTx {headParameters :: !HeadParameters}
+  | CommitTx {party :: !Party, committed :: !(UTxOType tx)}
+  | AbortTx {utxo :: !(UTxOType tx)}
+  | CollectComTx {utxo :: !(UTxOType tx)}
+  | CloseTx {confirmedSnapshot :: !(ConfirmedSnapshot tx)}
+  | ContestTx {confirmedSnapshot :: !(ConfirmedSnapshot tx)}
+  | FanoutTx {utxo :: !(UTxOType tx), contestationDeadline :: !UTCTime}
   deriving stock (Generic)
 
 deriving instance IsTx tx => Eq (PostChainTx tx)
@@ -82,15 +82,15 @@ instance Arbitrary HeadId where
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
 data OnChainTx tx
-  = OnInitTx {contestationPeriod :: ContestationPeriod, parties :: [Party]}
-  | OnCommitTx {party :: Party, committed :: UTxOType tx}
+  = OnInitTx {contestationPeriod :: !ContestationPeriod, parties :: ![Party]}
+  | OnCommitTx {party :: !Party, committed :: !(UTxOType tx)}
   | OnAbortTx
   | OnCollectComTx
   | OnCloseTx
-      { snapshotNumber :: SnapshotNumber
-      , contestationDeadline :: UTCTime
+      { snapshotNumber :: !SnapshotNumber
+      , contestationDeadline :: !UTCTime
       }
-  | OnContestTx {snapshotNumber :: SnapshotNumber}
+  | OnContestTx {snapshotNumber :: !SnapshotNumber}
   | OnFanoutTx
   deriving (Generic)
 
@@ -105,17 +105,17 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) whe
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
   = MoreThanOneUTxOCommitted
-  | CannotSpendInput {input :: Text, walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx}
-  | CannotCoverFees {walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
-  | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
-  | FailedToPostTx {failureReason :: Text}
+  | CannotSpendInput {input :: !Text, walletUTxO :: !(UTxOType tx), headUTxO :: !(UTxOType tx)}
+  | CannotCoverFees {walletUTxO :: !(UTxOType tx), headUTxO :: !(UTxOType tx), reason :: !Text, tx :: !tx}
+  | CannotFindOwnInitial {knownUTxO :: !(UTxOType tx)}
+  | FailedToPostTx {failureReason :: !Text}
   | -- NOTE: PlutusDebugInfo does not have much available instances so we put it in Text
     -- form but it's lame
-    PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
+    PlutusValidationFailed {plutusFailure :: !Text, plutusDebugInfo :: !Text}
   | NoSeedInput
   | NoPaymentInput
-  | InvalidStateToPost {txTried :: PostChainTx tx}
-  | UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
+  | InvalidStateToPost {txTried :: !(PostChainTx tx)}
+  | UnsupportedLegacyOutput {byronAddress :: !(Address ByronAddr)}
   deriving (Exception, Generic, ToJSON, FromJSON)
 
 deriving instance IsTx tx => Eq (PostTxError tx)
@@ -137,9 +137,9 @@ newtype Chain tx m = Chain
   }
 
 data ChainEvent tx
-  = Observation (OnChainTx tx)
-  | Rollback Word
-  | Tick UTCTime
+  = Observation !(OnChainTx tx)
+  | Rollback !Word
+  | Tick !UTCTime
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

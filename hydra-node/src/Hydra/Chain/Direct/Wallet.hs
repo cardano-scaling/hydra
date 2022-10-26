@@ -84,13 +84,13 @@ type TxOut = Ledger.TxOut LedgerEra
 -- forward.
 data TinyWallet m = TinyWallet
   { -- | Return all known UTxO addressed to this wallet.
-    getUTxO :: STM m (Map TxIn TxOut)
-  , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
-  , coverFee :: Map TxIn TxOut -> ValidatedTx LedgerEra -> STM m (Either ErrCoverFee (ValidatedTx LedgerEra))
+    getUTxO :: !(STM m (Map TxIn TxOut))
+  , sign :: !(ValidatedTx LedgerEra -> ValidatedTx LedgerEra)
+  , coverFee :: !(Map TxIn TxOut -> ValidatedTx LedgerEra -> STM m (Either ErrCoverFee (ValidatedTx LedgerEra)))
   , -- | Reset the wallet state to some point.
-    reset :: QueryPoint -> m ()
+    reset :: !(QueryPoint -> m ())
   , -- | Update the wallet state given some 'Block'.
-    update :: Block -> m ()
+    update :: !(Block -> m ())
   }
 
 type ChainQuery m =
@@ -190,14 +190,14 @@ getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 
 data ErrCoverFee
   = ErrNoAvailableUTxO
-  | ErrNotEnoughFunds ChangeError
-  | ErrUnknownInput {input :: TxIn}
+  | ErrNotEnoughFunds !ChangeError
+  | ErrUnknownInput {input :: !TxIn}
   | ErrNoPaymentUTxOFound
-  | ErrScriptExecutionFailed (RdmrPtr, TransactionScriptFailure StandardCrypto)
-  | ErrTranslationError (TranslationError StandardCrypto)
+  | ErrScriptExecutionFailed !(RdmrPtr, TransactionScriptFailure StandardCrypto)
+  | ErrTranslationError !(TranslationError StandardCrypto)
   deriving (Show)
 
-data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
+data ChangeError = ChangeError {inputBalance :: !Coin, outputBalance :: !Coin}
   deriving (Show)
 
 -- | Cover fee for a transaction body using the given UTXO set. This calculate
@@ -383,9 +383,9 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
 --
 
 data TinyWalletLog
-  = InitializingWallet QueryPoint (Map TxIn TxOut)
-  | ApplyBlock (Map TxIn TxOut)
-  | LedgerEraMismatchError {expected :: Text, actual :: Text}
+  = InitializingWallet !QueryPoint !(Map TxIn TxOut)
+  | ApplyBlock !(Map TxIn TxOut)
+  | LedgerEraMismatchError {expected :: !Text, actual :: !Text}
   deriving (Eq, Generic, Show)
 
 instance ToJSON TinyWalletLog where

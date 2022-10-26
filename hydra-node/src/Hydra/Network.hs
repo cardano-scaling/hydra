@@ -95,8 +95,8 @@ instance ToCBOR NodeId where
 
 -- REVIEW(SN): This is also used in hydra-tui
 data Host = Host
-  { hostname :: Text
-  , port :: PortNumber
+  { hostname :: !Text
+  , port :: !PortNumber
   }
   deriving (Ord, Generic, Eq, ToJSON, FromJSON)
 

@@ -18,10 +18,10 @@ import Test.QuickCheck.Instances.Natural ()
 type SnapshotNumber = Natural
 
 data Snapshot tx = Snapshot
-  { number :: SnapshotNumber
-  , utxo :: UTxOType tx
+  { number :: !SnapshotNumber
+  , utxo :: !(UTxOType tx)
   , -- | The set of transactions that lead to 'utxo'
-    confirmed :: [tx]
+    confirmed :: ![tx]
   }
   deriving (Generic)
 
@@ -70,10 +70,10 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Snapshot tx) where
 
 -- | A snapshot that can be used to close a head with. Either the initial one, or when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
-  = InitialSnapshot { initialUTxO :: UTxOType tx }
+  = InitialSnapshot {initialUTxO :: !(UTxOType tx)}
   | ConfirmedSnapshot
-      { snapshot :: Snapshot tx
-      , signatures :: MultiSignature (Snapshot tx)
+      { snapshot :: !(Snapshot tx)
+      , signatures :: !(MultiSignature (Snapshot tx))
       }
   deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
@@ -88,10 +88,10 @@ getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{initialUTxO} ->
     Snapshot
-    { number = 0
-    , utxo = initialUTxO
-    , confirmed = []
-    }
+      { number = 0
+      , utxo = initialUTxO
+      , confirmed = []
+      }
   ConfirmedSnapshot{snapshot} -> snapshot
 
 -- | Tell whether a snapshot is the initial snapshot coming from the collect-com

@@ -78,13 +78,13 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys} = do
 -- ** Create and run a hydra node
 
 data HydraNode tx m = HydraNode
-  { eq :: EventQueue m (Event tx)
-  , hn :: Network m (Message tx)
-  , hh :: HydraHead tx m
-  , oc :: Chain tx m
-  , server :: Server tx m
-  , env :: Environment
-  , persistence :: Persistence (HeadState tx) m
+  { eq :: !(EventQueue m (Event tx))
+  , hn :: !(Network m (Message tx))
+  , hh :: !(HydraHead tx m)
+  , oc :: !(Chain tx m)
+  , server :: !(Server tx m)
+  , env :: !Environment
+  , persistence :: !(Persistence (HeadState tx) m)
   }
 
 -- NOTE(AB): we use partial fields access here for convenience purpose, to
@@ -93,14 +93,14 @@ data HydraNode tx m = HydraNode
 -- and ending the action, we should rather reference the event/effect processed
 -- using some id when the action completest
 data HydraNodeLog tx
-  = ErrorHandlingEvent {by :: Party, event :: Event tx, reason :: LogicError tx}
-  | BeginEvent {by :: Party, event :: Event tx}
-  | EndEvent {by :: Party, event :: Event tx}
-  | BeginEffect {by :: Party, effect :: Effect tx}
-  | EndEffect {by :: Party, effect :: Effect tx}
+  = ErrorHandlingEvent {by :: !Party, event :: !(Event tx), reason :: !(LogicError tx)}
+  | BeginEvent {by :: !Party, event :: !(Event tx)}
+  | EndEvent {by :: !Party, event :: !(Event tx)}
+  | BeginEffect {by :: !Party, effect :: !(Effect tx)}
+  | EndEffect {by :: !Party, effect :: !(Effect tx)}
   | CreatedState
   | LoadedState
-  | NodeOptions {runOptions :: RunOptions}
+  | NodeOptions {runOptions :: !RunOptions}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -222,10 +222,10 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
 -- NOTE(SN): handle pattern, but likely not required as there is no need for an
 -- alternative implementation
 data EventQueue m e = EventQueue
-  { putEvent :: e -> m ()
-  , putEventAfter :: NominalDiffTime -> e -> m ()
-  , nextEvent :: m e
-  , isEmpty :: m Bool
+  { putEvent :: !(e -> m ())
+  , putEventAfter :: !(NominalDiffTime -> e -> m ())
+  , nextEvent :: !(m e)
+  , isEmpty :: !(m Bool)
   }
 
 createEventQueue :: (MonadSTM m, MonadDelay m, MonadAsync m) => m (EventQueue m e)
@@ -257,7 +257,7 @@ createEventQueue = do
 -- | Handle to access and modify a Hydra Head's state.
 data HydraHead tx m = HydraHead
   { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> STM m a
-  , ledger :: Ledger tx
+  , ledger :: !(Ledger tx)
   }
 
 queryHeadState :: HydraHead tx m -> STM m (HeadState tx)

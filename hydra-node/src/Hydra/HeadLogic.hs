@@ -53,16 +53,16 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, ge
 -- from the client, the network and the chain.
 data Event tx
   = -- | Event received from clients via the "Hydra.API".
-    ClientEvent {clientInput :: ClientInput tx}
+    ClientEvent {clientInput :: !(ClientInput tx)}
   | -- | Event received from peers via a "Hydra.Network".
     --
     --  * `ttl` is a simple counter that's decreased every time the event is
     --    reenqueued due to a wait. It's default value is `defaultTTL`
-    NetworkEvent {ttl :: TTL, message :: Message tx}
+    NetworkEvent {ttl :: !TTL, message :: !(Message tx)}
   | -- | Event received from the chain via a "Hydra.Chain".
-    OnChainEvent {chainEvent :: ChainEvent tx}
+    OnChainEvent {chainEvent :: !(ChainEvent tx)}
   | -- | Event to re-ingest errors from 'postTx' for further processing.
-    PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+    PostTxError {postChainTx :: !(PostChainTx tx), postTxError :: !(PostTxError tx)}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -74,11 +74,11 @@ instance IsTx tx => Arbitrary (Event tx) where
 -- network and the chain.
 data Effect tx
   = -- | Effect to be handled by the "Hydra.API", results in sending this 'ServerOutput'.
-    ClientEffect {serverOutput :: ServerOutput tx}
+    ClientEffect {serverOutput :: !(ServerOutput tx)}
   | -- | Effect to be handled by a "Hydra.Network", results in a 'Hydra.Network.broadcast'.
-    NetworkEffect {message :: Message tx}
+    NetworkEffect {message :: !(Message tx)}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.
-    OnChainEffect {onChainTx :: PostChainTx tx}
+    OnChainEffect {onChainTx :: !(PostChainTx tx)}
   deriving stock (Generic)
 
 instance IsTx tx => Arbitrary (Effect tx) where
@@ -111,24 +111,24 @@ deriving instance IsTx tx => FromJSON (Effect tx)
 data HeadState tx
   = IdleState
   | InitialState
-      { parameters :: HeadParameters
-      , pendingCommits :: PendingCommits
-      , committed :: Committed tx
-      , previousRecoverableState :: HeadState tx
+      { parameters :: !HeadParameters
+      , pendingCommits :: !PendingCommits
+      , committed :: !(Committed tx)
+      , previousRecoverableState :: !(HeadState tx)
       }
   | OpenState
-      { parameters :: HeadParameters
-      , coordinatedHeadState :: CoordinatedHeadState tx
-      , previousRecoverableState :: HeadState tx
+      { parameters :: !HeadParameters
+      , coordinatedHeadState :: !(CoordinatedHeadState tx)
+      , previousRecoverableState :: !(HeadState tx)
       }
   | ClosedState
-      { parameters :: HeadParameters
-      , confirmedSnapshot :: ConfirmedSnapshot tx
-      , previousRecoverableState :: HeadState tx
-      , contestationDeadline :: UTCTime
+      { parameters :: !HeadParameters
+      , confirmedSnapshot :: !(ConfirmedSnapshot tx)
+      , previousRecoverableState :: !(HeadState tx)
+      , contestationDeadline :: !UTCTime
       , -- | Tracks whether we have informed clients already about being
         -- 'ReadyToFanout'.
-        readyToFanoutSent :: Bool
+        readyToFanoutSent :: !Bool
       }
   deriving stock (Generic)
 
@@ -145,13 +145,13 @@ type Committed tx = Map Party (UTxOType tx)
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
   { -- | The latest UTxO of the "seen ledger".
-    seenUTxO :: UTxOType tx
+    seenUTxO :: !(UTxOType tx)
   , -- | List of seen transactions.
-    seenTxs :: [tx]
+    seenTxs :: ![tx]
   , -- | The latest confirmed snapshot, representing the "confirmed ledger".
-    confirmedSnapshot :: ConfirmedSnapshot tx
+    confirmedSnapshot :: !(ConfirmedSnapshot tx)
   , -- | Whether we are currently collecting signatures for a snapshot.
-    seenSnapshot :: SeenSnapshot tx
+    seenSnapshot :: !(SeenSnapshot tx)
   }
   deriving stock (Generic)
 
@@ -169,8 +169,8 @@ data SeenSnapshot tx
   = NoSeenSnapshot
   | RequestedSnapshot
   | SeenSnapshot
-      { snapshot :: Snapshot tx
-      , signatories :: Map Party (Signature (Snapshot tx))
+      { snapshot :: !(Snapshot tx)
+      , signatories :: !(Map Party (Signature (Snapshot tx)))
       }
   deriving stock (Generic)
 
@@ -192,10 +192,10 @@ defaultTTL = 5
 -- | Preliminary type for collecting errors occurring during 'update'.
 -- TODO: Try to merge this (back) into 'Outcome'.
 data LogicError tx
-  = InvalidEvent (Event tx) (HeadState tx)
-  | InvalidState (HeadState tx)
-  | InvalidSnapshot {expected :: SnapshotNumber, actual :: SnapshotNumber}
-  | LedgerError ValidationError
+  = InvalidEvent !(Event tx) !(HeadState tx)
+  | InvalidState !(HeadState tx)
+  | InvalidSnapshot {expected :: !SnapshotNumber, actual :: !SnapshotNumber}
+  | LedgerError !ValidationError
   deriving stock (Generic)
 
 instance IsTx tx => Exception (LogicError tx)
@@ -209,17 +209,17 @@ deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
 deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 
 data Outcome tx
-  = OnlyEffects [Effect tx]
-  | NewState (HeadState tx) [Effect tx]
-  | Wait WaitReason
-  | Error (LogicError tx)
+  = OnlyEffects ![Effect tx]
+  | NewState !(HeadState tx) ![Effect tx]
+  | Wait !WaitReason
+  | Error !(LogicError tx)
 
 deriving instance IsTx tx => Eq (Outcome tx)
 deriving instance IsTx tx => Show (Outcome tx)
 
 data WaitReason
-  = WaitOnNotApplicableTx {validationError :: ValidationError}
-  | WaitOnSnapshotNumber {waitingFor :: SnapshotNumber}
+  = WaitOnNotApplicableTx {validationError :: !ValidationError}
+  | WaitOnSnapshotNumber {waitingFor :: !SnapshotNumber}
   | WaitOnSeenSnapshot
   | WaitOnContestationDeadline
   deriving stock (Generic, Eq, Show)
@@ -230,11 +230,11 @@ instance Arbitrary WaitReason where
 
 data Environment = Environment
   { -- | This is the p_i from the paper
-    party :: Party
+    party :: !Party
   , -- NOTE(MB): In the long run we would not want to keep the signing key in
     -- memory, i.e. have an 'Effect' for signing or so.
-    signingKey :: SigningKey HydraKey
-  , otherParties :: [Party]
+    signingKey :: !(SigningKey HydraKey)
+  , otherParties :: ![Party]
   }
 
 -- * The Coordinated Head protocol
@@ -824,13 +824,13 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     Error $ InvalidEvent ev st
 
 data SnapshotOutcome tx
-  = ShouldSnapshot SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
-  | ShouldNotSnapshot NoSnapshotReason
+  = ShouldSnapshot !SnapshotNumber ![tx] -- TODO(AB) : should really be a Set (TxId tx)
+  | ShouldNotSnapshot !NoSnapshotReason
   deriving (Eq, Show, Generic)
 
 data NoSnapshotReason
-  = NotLeader SnapshotNumber
-  | SnapshotInFlight SnapshotNumber
+  = NotLeader !SnapshotNumber
+  | SnapshotInFlight !SnapshotNumber
   | NoTransactionsToSnapshot
   deriving (Eq, Show, Generic)
 
