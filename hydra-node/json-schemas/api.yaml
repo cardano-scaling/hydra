@@ -858,7 +858,7 @@ components:
             tag:
               type: string
               enum: ["MoreThanOneUTxOCommitted"]
-        - title: CannotSpendInput
+        - title: InternalWalletError
           type: object
           additionalProperties: false
           required:
@@ -872,7 +872,7 @@ components:
           properties:
             tag:
               type: string
-              enum: ["CannotSpendInput"]
+              enum: ["InternalWalletError"]
             input:
               type: string
               description: |
@@ -888,7 +888,7 @@ components:
               description: >-
                 The Head protocol-relevant UTxO. Depending on the Head's current state, it includes the Head state thread output,
                 plus the ν_initial or ν_commit outputs.
-        - title: CannotCoverFees
+        - title: NotEnoughInput
           type: object
           additionalProperties: false
           required:
@@ -903,7 +903,7 @@ components:
           properties:
             tag:
               type: string
-              enum: ["CannotCoverFees"]
+              enum: ["NotEnoughInput"]
             walletUTxO:
               $ref: "#/components/schemas/UTxO"
               description: >-
