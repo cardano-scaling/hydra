@@ -88,10 +88,12 @@ main = do
                 runHydraNode (contramap Node tracer) $
                   HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence}
 
-  -- TODO: This means that manual update to chainState in HeadLogic is not required
   chainCallback :: NodeState Tx IO -> EventQueue IO (Event Tx) -> ChainCallback Tx IO
   chainCallback NodeState{modifyHeadState} eq cont = do
-    -- Provide chain state to continuation and update it we get a newState
+    -- Provide chain state to continuation and update it when we get a newState
+    -- NOTE: Although we do handle the chain state explictly in the 'HeadLogic',
+    -- this is required as multiple transactions may be observed and the chain
+    -- state shall accumulate the state changes coming with those observations.
     mEvent <- atomically . modifyHeadState $ \hs ->
       case cont $ getChainState hs of
         Nothing ->
