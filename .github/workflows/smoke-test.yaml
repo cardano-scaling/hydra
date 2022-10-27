@@ -56,7 +56,7 @@ jobs:
         if [ -n "${{inputs.hydra-scripts-tx-id}}" ]; then
           nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}} --state-directory state-${{inputs.network}}"
         else
-          nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --publish-scripts --state-directory state-${{inputs.network}}"
+          nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --publish-hydra-scripts --state-directory state-${{inputs.network}}"
         fi
 
     - name: 💾 Upload logs

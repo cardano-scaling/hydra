@@ -34,7 +34,7 @@ changes.
   + Renamed log entry prefixes `Processing -> Begin` and `Processed -> End`.
   + Added `PostingFailed` log entry.
 
-- **BREAKING** The `hydra-cluster` executable (our smoke test) does require `--publish-scripts` or `--hydra-scripts-tx-id` now as it may be provided with pre-published hydra scripts.
+- **BREAKING** The `hydra-cluster` executable (our smoke test) does require `--publish-hydra-scripts` or `--hydra-scripts-tx-id` now as it may be provided with pre-published hydra scripts.
   
 - The `hydra-node` does persist L1 and L2 states on disk now: [#187](https://github.com/input-output-hk/hydra-poc/issues/187)
   + New `--persistence-dir` command line argument to configure location.
