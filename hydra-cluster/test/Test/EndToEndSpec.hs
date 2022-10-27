@@ -350,7 +350,7 @@ spec = around showLogsOnFailure $ do
             withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
               \_ (Just nodeOutput) _ _ -> do
                 out <- hGetLine nodeOutput
-                out ^? key "message" . key "node" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
+                out ^? key "message" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
