@@ -8,57 +8,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.8.0] - UNRELEASED
+## [0.8.0] - 2022-10-27
 
-- **BREAKING** Keep track of `contestationDeadline` instead of `remainingContestationPeriod` and fix `ReadyToFanout`.
+- **BREAKING** Hydra keys now use the text envelope format.
+  + `hydra-tools` executable now produces keys in the same format as cardano keys so this should make key handling simpler.
+  +  Take a look at the [example](https://github.com/input-output-hk/hydra-poc/blob/master/docs/docs/getting-started/quickstart.md#hydra-keys) on how to use `hydra-tools` to generate necessary hydra keys.
+
+- **BREAKING** hydra-node command line flag `--node-id` is now mandatory.
+  + Instead of `Host` we are using the `node-id` in the server messages like + `PeerConnected/Disconnected` which are also used in
+  + the TUI to distinguish between different connected peers.
+  + This also changes the way how `NodeId`s are represented on the API.
+
+- **BREAKING** Keep track of `contestationDeadline` instead of `remainingContestationPeriod` and fix `ReadyToFanout`. [#483](https://github.com/input-output-hk/hydra-poc/pull/483)
   + Clients can now rely on `ReadyToFanout`, such that sending a `Fanout` input after seeing this output will never be "too early".
   + The `HeadIsClosed` server output now contains the deadline instead of the remaining time.
   + See `hydra-tui` for an example how to use the `contestationDeadline` and `ReadyToFanout`.
   + See [ADR20](./docs/adr/2022-08-02_020-handling-time.md) for details and the rationale.
 
-- **BREAKING** Changed logs to improve legibility and trace on-chain posting errors.
+- **BREAKING** Several changes to the API:
+  + The `InitialSnapshot` only contains the `initialUTxO` as the rest of the information was useless. [#533](https://github.com/input-output-hk/hydra-poc/pull/533) 
+  + Renamed `CannotSpendInput -> InternalWalletError` and `CannotCoverFees -> NotEnoughFuel`. [#582](https://github.com/input-output-hk/hydra-poc/pull/582)
+
+- **BREAKING** Changed logs to improve legibility and trace on-chain posting errors. [#472](https://github.com/input-output-hk/hydra-poc/pull/472)
   + Strip chain layer logs to only contain `TxId` instead of full transactions in the nominal cases.
   + Renamed log entry prefixes `Processing -> Begin` and `Processed -> End`.
   + Added `PostingFailed` log entry.
 
 - **BREAKING** The `hydra-cluster` executable (our smoke test) does require `--publish-scripts` or `--hydra-scripts-tx-id` now as it may be provided with pre-published hydra scripts.
-
-- **BREAKING** The `InitialSnapshot` only contains the `initialUTxO` as the rest of the information was useless.
-
-- **BREAKING** Hydra keys now use the text envelope format.
-  + `hydra-tools` executable now produces keys in the same format as cardano keys so this should make key handling simpler.
-  +  Take a look at the [example] (https://github.com/input-output-hk/hydra-poc/blob/master/docs/docs/getting-started/quickstart.md#hydra-keys)
-  +  on how to use `hydra-tools` to generate necessary hydra keys.
-
-- **BREAKING** hydra-node command line flag `--node-id` is now mandatory.
-  + Instead of `Host` we are using the `node-id` in the server messages like + `PeerConnected/Disconnected` which are also used in
-  + the TUI to distinguish between different connected peers.
-
-- The `hydra-node` does persist L1 and L2 states on disk now:
+  
+- The `hydra-node` does persist L1 and L2 states on disk now: [#187](https://github.com/input-output-hk/hydra-poc/issues/187)
   + New `--persistence-dir` command line argument to configure location.
   + Writes two JSON files `headstate` and `chainstate` to the persistence directory.
   + While introspectable, modification of these files is not recommended.
 
-- Added a `hydra-tools` executable, which provides basic commands to help working with Hydra Heads:
-  + Generate a pair of Hydra keys
-  + Output the marker datum hash
+- *Fixed bugs* in `hydra-node`:
+  + Crash after `3k` blocks because of a failed time conversion. [#523](https://github.com/input-output-hk/hydra-poc/pull/523)
+  + Internal wallet was losing memory of spent fuel UTxOs in presence of transaction failures. [#525](https://github.com/input-output-hk/hydra-poc/pull/525)
+  + Node does not see some UTxOs sent to the internal wallet on startup. [#526](https://github.com/input-output-hk/hydra-poc/pull/526)
+  + Prevent transactions from being resubmitted for application over and over. [#485](https://github.com/input-output-hk/hydra-poc/pull/485)
 
-- Added some sample Terraform-based configuration files to spin up GCP and AWS Hydra node
-- Log hydra-node command line arguments on start for easier debugging
-- Changed the following data constructor names:
-  - *CannotSpendInput* to *InternalWalletError*
-  - *CannotCoverFees* to *NotEnoughFuel*
-  - *ErrNoPaymentUTxOFound* to *ErrNoFuelUTxOFound*
-- Removed *ErrNoAvailableUTxO* data constructor
+- Prevent misconfiguration of `hydra-node` by logging the command line options used and error out when:
+  + provided number of Hydra parties exceeds a known working maximum (currently 4)
+  + number of provided Cardano and Hydra keys is not the same
 
-#### Fixed
+- Added a `hydra-tools` executable, to help with generating Hydra keys and get hold of the marker datum hash. [#474](https://github.com/input-output-hk/hydra-poc/pull/474)
 
-- Prevent transactions from being resubmitted for application over and over [#485](https://github.com/input-output-hk/hydra-poc/issues/485)
+- Compute transaction costs as a "min fee" and report it in the [tx-cost benchmark](https://hydra.family/head-protocol/benchmarks/transaction-cost/).
 
 - Update [hydra-node-options](https://hydra.family/head-protocol/docs/getting-started/quickstart/#hydra-node-options) section in docs.
-- Verify cmd line options for hydra node and error out if:
-   - loaded number of peers is exceeded (currently 4)
-   - number of loaded cardano and hydra keys is not the same
+
+- Publish test results on [website](https://hydra.family/head-protocol/benchmarks/tests/hydra-node/hspec-results). [#547](https://github.com/input-output-hk/hydra-poc/pull/547)
+
+- Improved `hydra-tui` user experience:
+  + Fixed too fast clearing of errors and other feedback [#506](https://github.com/input-output-hk/hydra-poc/pull/506)
+  + Introduced a pending state to avoid resubmission of transactions [#526](https://github.com/input-output-hk/hydra-poc/pull/526)
+  + Can show full history (scrollable) [#577](https://github.com/input-output-hk/hydra-poc/pull/577)
+   
+- Build & publish static Linux x86_64 executables on each [release](https://github.com/input-output-hk/hydra-poc/releases/tag/0.8.0) :point_down: [#546](https://github.com/input-output-hk/hydra-poc/pull/546)
 
 ## [0.7.0] - 2022-08-23
 
