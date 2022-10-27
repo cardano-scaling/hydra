@@ -138,9 +138,6 @@ class (Eq a, Show a, Arbitrary a, ToJSON a, FromJSON a) => IsChainState a where
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: a -> ChainSlot
 
-  -- TODO: document
-  advanceSlot :: a -> a
-
 -- | A generic description for a chain slot all implementions need to use.
 newtype ChainSlot = ChainSlot Natural
   deriving (Ord, Eq, Show, Generic)

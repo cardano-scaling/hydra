@@ -45,7 +45,6 @@ import Hydra.Chain (
   IsChainState (..),
   OnChainTx (..),
   PostTxError (..),
-  nextChainSlot,
  )
 import Hydra.Chain.Direct.ScriptRegistry (
   ScriptRegistry (..),
@@ -127,8 +126,6 @@ instance Arbitrary ChainStateAt where
 
 instance IsChainState ChainStateAt where
   chainStateSlot ChainStateAt{recordedAt} = recordedAt
-
-  advanceSlot cs@ChainStateAt{recordedAt} = cs{recordedAt = nextChainSlot recordedAt}
 
 -- | A definition of all transitions between 'ChainState's. Enumerable and
 -- bounded to be used as labels for checking coverage.

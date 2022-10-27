@@ -33,9 +33,10 @@ import Hydra.Chain (
   IsChainState,
   OnChainTx (..),
   PostChainTx (..),
-  advanceSlot,
   chainStateSlot,
+  nextChainSlot,
  )
+import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.HeadLogic (
@@ -528,12 +529,23 @@ withSimulatedChainAndNetwork action = do
   action chain
   cancel $ tickThread chain
 
+-- | Class to manipulate the chain state by advancing it's slot in
+-- 'simulatedChainAndNetwork'.
+class IsChainState a => IsChainStateTest a where
+  advanceSlot :: a -> a
+
+instance IsChainStateTest SimpleChainState where
+  advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
+
+instance IsChainStateTest ChainStateAt where
+  advanceSlot cs@ChainStateAt{recordedAt} = cs{recordedAt = nextChainSlot recordedAt}
+
 -- | Creates a simulated chain and network by returning a handle with a
 -- 'HydraNode' decorator to connect it to the simulated chain. NOTE: The
 -- 'tickThread' needs to be 'cancel'ed after use. Use
 -- 'withSimulatedChainAndNetwork' instead where possible.
 simulatedChainAndNetwork ::
-  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m, IsChainState (ChainStateType tx)) =>
+  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m, IsChainStateTest (ChainStateType tx)) =>
   ChainStateType tx ->
   m (ConnectToChain tx m)
 simulatedChainAndNetwork initialChainState = do

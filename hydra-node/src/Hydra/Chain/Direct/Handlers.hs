@@ -21,13 +21,11 @@ import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   LedgerEra,
-  SlotNo,
   Tx,
   TxId,
   fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
-  fromLedgerUTxO,
   getTxBody,
   getTxId,
   toLedgerTx,
