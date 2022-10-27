@@ -43,7 +43,7 @@ jobs:
         images: |
           ghcr.io/${{ github.repository_owner }}/${{ matrix.target }}
         tags: |
-          latest
+          unstable
           type=semver,pattern={{version}}
 
     - name: 🔨 Build and maybe push
