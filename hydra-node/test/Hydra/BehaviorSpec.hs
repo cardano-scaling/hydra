@@ -24,7 +24,7 @@ import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
+import Hydra.Chain (ChainEvent (..), ChainHandle (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.HeadLogic (
@@ -535,7 +535,7 @@ simulatedChainAndNetwork = do
           atomically $ modifyTVar nodes (node :)
           pure $
             node
-              { oc = Chain{postTx = postTx nodes history}
+              { oc = ChainHandle{postTx = postTx nodes history}
               , hn = Network{broadcast = broadcast node nodes}
               }
       , history
@@ -656,7 +656,7 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
       { eq
       , hn = Network{broadcast = const $ pure ()}
       , hh
-      , oc = Chain (const $ pure ())
+      , oc = ChainHandle (const $ pure ())
       , server =
           Server
             { sendOutput = \out -> atomically $ do

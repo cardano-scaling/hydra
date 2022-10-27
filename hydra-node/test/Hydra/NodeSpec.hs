@@ -10,8 +10,8 @@ import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (PostTxOnChainFailed))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
-  Chain (..),
   ChainEvent (Observation),
+  ChainHandle (..),
   HeadParameters (HeadParameters),
   OnChainTx (..),
   PostChainTx (InitTx),
@@ -27,7 +27,7 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Network (NodeId (..), Network (..))
+import Hydra.Network (Network (..), NodeId (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (
   EventQueue (..),
@@ -153,7 +153,7 @@ createHydraNode signingKey otherParties events = do
       { eq
       , hn = Network{broadcast = const $ pure ()}
       , hh
-      , oc = Chain{postTx = const $ pure ()}
+      , oc = ChainHandle{postTx = const $ pure ()}
       , server = Server{sendOutput = const $ pure ()}
       , env =
           Environment
@@ -189,4 +189,4 @@ messageRecorder = do
 
 throwExceptionOnPostTx :: IsTx tx => PostTxError tx -> HydraNode tx IO -> IO (HydraNode tx IO)
 throwExceptionOnPostTx exception node =
-  pure node{oc = Chain{postTx = const $ throwIO exception}}
+  pure node{oc = ChainHandle{postTx = const $ throwIO exception}}

@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (TxId, serialiseToRawBytesHex)
-import Hydra.Chain (Chain, ChainCallback)
+import Hydra.Chain (ChainCallback, ChainHandle)
 import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Chain.Direct.Handlers (ChainStateAt)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
@@ -108,7 +108,7 @@ withChain ::
   TxId ->
   Persistence ChainStateAt IO ->
   ChainConfig ->
-  (Chain Tx IO -> IO ()) ->
+  (ChainHandle Tx IO -> IO ()) ->
   IO ()
 withChain tracer party callback hydraScriptsTxId persistence config action = do
   keyPair@(vk, _) <- readKeyPair cardanoSigningKey

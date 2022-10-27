@@ -74,7 +74,7 @@ import Hydra.Chain.Direct.Handlers (
   DirectChainLog (..),
   RecordedAt (..),
   chainSyncHandler,
-  mkChain,
+  mkChainHandle,
   onRollBackward,
   onRollForward,
  )
@@ -195,7 +195,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoin
         pure a
   headState <- newTVarIO cs
   let chainHandle =
-        mkChain
+        mkChainHandle
           tracer
           (queryTimeHandle networkId socketPath)
           wallet

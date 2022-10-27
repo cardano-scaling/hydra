@@ -36,7 +36,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), PostTxError)
+import Hydra.Chain (ChainHandle (..), PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
@@ -81,7 +81,7 @@ data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
   , hn :: Network m (Message tx)
   , hh :: HydraHead tx m
-  , oc :: Chain tx m
+  , oc :: ChainHandle tx m
   , server :: Server tx m
   , env :: Environment
   , persistence :: Persistence (HeadState tx) m
@@ -113,7 +113,7 @@ createHydraNode ::
   EventQueue m (Event tx) ->
   Network m (Message tx) ->
   Ledger tx ->
-  Chain tx m ->
+  ChainHandle tx m ->
   Server tx m ->
   Environment ->
   -- | Persistence handle to load/save head state

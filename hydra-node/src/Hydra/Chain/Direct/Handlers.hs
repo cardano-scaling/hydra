@@ -30,8 +30,8 @@ import Hydra.Cardano.Api (
   toLedgerUTxO,
  )
 import Hydra.Chain (
-  Chain (..),
   ChainEvent (..),
+  ChainHandle (..),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
@@ -85,7 +85,7 @@ type GetTimeHandle m = m TimeHandle
 --
 -- NOTE: Given the constraints on `m` this function should work within `IOSim` and does not
 -- require any actual `IO`  to happen which makes it highly suitable for simulations and testing.
-mkChain ::
+mkChainHandle ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
@@ -93,9 +93,9 @@ mkChain ::
   TinyWallet m ->
   TVar m ChainStateAt ->
   SubmitTx m ->
-  Chain Tx m
-mkChain tracer queryTimeHandle wallet headState submitTx =
-  Chain
+  ChainHandle Tx m
+mkChainHandle tracer queryTimeHandle wallet headState submitTx =
+  ChainHandle
     { postTx = \tx -> do
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle

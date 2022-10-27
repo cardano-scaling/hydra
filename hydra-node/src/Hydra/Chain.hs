@@ -125,7 +125,7 @@ instance IsTx tx => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary
 
 -- | Handle to interface with the main chain network
-newtype Chain tx m = Chain
+newtype ChainHandle tx m = ChainHandle
   { -- | Construct and send a transaction to the main chain corresponding to the
     -- given 'OnChainTx' event. This function is not expected to block, so it is
     -- only responsible for submitting, but it should validate the created
@@ -156,4 +156,4 @@ instance
 type ChainCallback tx m = ChainEvent tx -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.
-type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a
+type ChainComponent tx m a = ChainCallback tx m -> (ChainHandle tx m -> m a) -> m a
