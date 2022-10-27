@@ -1,68 +1,76 @@
 {
     "samples": [
         {
-            "postChainTx": {
-                "contestationDeadline": "1864-04-14T01:38:38.594991689131Z",
-                "tag": "FanoutTx",
-                "utxo": [
-                    -29,
-                    -26,
-                    -25,
-                    -24,
-                    -23,
-                    -11,
-                    -10,
-                    -4,
-                    -2,
-                    -1,
-                    1,
-                    5,
-                    6,
-                    8,
-                    10,
-                    13,
-                    14,
-                    18,
-                    19,
-                    20,
-                    24,
-                    29
-                ]
-            },
-            "postTxError": {
-                "tag": "NoSeedInput"
-            },
-            "tag": "PostTxError"
-        },
-        {
-            "clientInput": {
-                "tag": "Abort"
-            },
-            "tag": "ClientEvent"
-        },
-        {
             "clientInput": {
                 "tag": "GetUTxO"
             },
             "tag": "ClientEvent"
         },
         {
-            "chainEvent": {
-                "contents": {
-                    "contestationDeadline": "1864-05-26T10:20:42.691999142989Z",
-                    "snapshotNumber": 15,
-                    "tag": "OnCloseTx"
+            "postChainTx": {
+                "confirmedSnapshot": {
+                    "signatures": {
+                        "multiSignature": [
+                            "e6bc0a4d42e802b4a27c0d86e06cb8c2d977881d60b75825ea464da081bd7820e096f61e74f83c7c22a697c03d85c602afe68934ea0f9925369c467cfb61c30d"
+                        ]
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "snapshotNumber": 16,
+                        "utxo": [
+                            -28,
+                            -24,
+                            -22,
+                            -20,
+                            -16,
+                            -7,
+                            -6,
+                            -2,
+                            -1,
+                            2,
+                            5,
+                            12,
+                            13,
+                            22,
+                            23,
+                            24,
+                            28,
+                            30
+                        ]
+                    },
+                    "tag": "ConfirmedSnapshot"
                 },
-                "tag": "Observation"
+                "tag": "ContestTx"
             },
-            "tag": "OnChainEvent"
+            "postTxError": {
+                "tag": "NotEnoughFuel"
+            },
+            "tag": "PostTxError"
         },
         {
-            "clientInput": {
-                "tag": "Abort"
+            "message": {
+                "nodeId": "syaeaa",
+                "tag": "Disconnected"
             },
-            "tag": "ClientEvent"
+            "tag": "NetworkEvent",
+            "ttl": 13
+        },
+        {
+            "message": {
+                "nodeId": "mfflqiudeaukplyg",
+                "tag": "Connected"
+            },
+            "tag": "NetworkEvent",
+            "ttl": 25
+        },
+        {
+            "message": {
+                "nodeId": "qoaxx",
+                "tag": "Disconnected"
+            },
+            "tag": "NetworkEvent",
+            "ttl": 9
         }
     ],
-    "seed": 589608564
+    "seed": -325705899
 }
