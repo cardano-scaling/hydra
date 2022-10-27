@@ -428,8 +428,8 @@ spec = parallel $ do
 
     roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
-  describe "rolling back" $ do
-    it "does handle rolling back & forward past init" $
+  describe "rolling back & forward" $ do
+    it "does work for rollbacks past init" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
@@ -440,7 +440,7 @@ spec = parallel $ do
             waitUntil [n1] RolledBack
             waitUntil [n1] $ ReadyToCommit (fromList [alice])
 
-    it "does handle roll back & forward past open" $
+    it "does work for rollbacks past open" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
