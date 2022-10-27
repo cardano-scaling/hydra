@@ -44,6 +44,9 @@ restartANodeAfterHeadInitialized tracer workDir cardanoNode hydraScriptsTxId = d
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
+-- | Step through the full life cycle of a Hydra Head with only a single
+-- participant. This scenario is also used by the smoke test run via the
+-- `hydra-cluster` executable.
 singlePartyHeadFullLifeCycle ::
   Tracer IO EndToEndLog ->
   FilePath ->
@@ -72,9 +75,10 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     deadline <- waitMatch 600 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       v ^? key "contestationDeadline" . _JSON
-    -- Expect to see ReadyToFanout within 3 seconds after deadline
+    -- Expect to see ReadyToFanout within 60 seconds after deadline.
+    -- XXX: We still would like to have a network-specific time here
     remainingTime <- diffUTCTime deadline <$> getCurrentTime
-    waitFor tracer (truncate $ remainingTime + 3) [n1] $
+    waitFor tracer (truncate $ remainingTime + 60) [n1] $
       output "ReadyToFanout" []
     send n1 $ input "Fanout" []
     waitFor tracer 600 [n1] $
