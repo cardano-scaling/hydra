@@ -72,9 +72,6 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 -- | A callback used to actually submit a transaction to the chain.
 type SubmitTx m = ValidatedTx LedgerEra -> m ()
 
--- | A way to acquire a 'TimeHandle'
-type GetTimeHandle m = m TimeHandle
-
 -- | Create a `Chain` component for posting "real" cardano transactions.
 --
 -- This component does not actually interact with a cardano-node, but creates
@@ -89,7 +86,7 @@ mkChainHandle ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
-  GetTimeHandle m ->
+  m TimeHandle ->
   TinyWallet m ->
   TVar m ChainStateAt ->
   SubmitTx m ->
@@ -209,7 +206,7 @@ chainSyncHandler ::
   -- | On-chain head-state.
   TVar m ChainStateAt ->
   -- | Means to acquire a new 'TimeHandle'.
-  GetTimeHandle m ->
+  m TimeHandle ->
   -- | A handle to save chain state
   Persistence ChainStateAt m ->
   -- | A chain-sync handler to use in a local-chain-sync client.

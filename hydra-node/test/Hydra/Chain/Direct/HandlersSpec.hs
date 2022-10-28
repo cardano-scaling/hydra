@@ -33,7 +33,6 @@ import Hydra.Chain.Direct.Context (
 import Hydra.Chain.Direct.Handlers (
   ChainStateAt (..),
   ChainSyncHandler (..),
-  GetTimeHandle,
   RecordedAt (..),
   TimeConversionException (..),
   chainSyncHandler,
@@ -175,7 +174,7 @@ spec = do
           st'' <- run $ mapM_ (onRollForward handler) toReplay *> readTVarIO headState
           assert (st' == st'')
 
-recordEventsHandler :: ChainState -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
+recordEventsHandler :: ChainState -> IO TimeHandle -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler st getTimeHandle = do
   headState <- newTVarIO $ stAtGenesis st
   eventsVar <- newTVarIO []
