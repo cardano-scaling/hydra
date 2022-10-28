@@ -49,6 +49,7 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (Ledger, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
+import Hydra.Network.Message (Message)
 import Hydra.Node (
   EventQueue (putEvent),
   HydraNode (..),
@@ -566,7 +567,7 @@ simulatedChainAndNetwork initialChainState = do
           pure $
             node
               { oc = Chain{postTx = \_cs -> postTx nodes history chainStateVar}
-              , hn = Network{broadcast = broadcast node nodes}
+              , hn = createMockNetwork node nodes
               }
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes history chainStateVar
@@ -616,12 +617,16 @@ simulatedChainAndNetwork initialChainState = do
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev
 
-  broadcast node nodes msg = do
+  handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
+
+createMockNetwork :: MonadSTM m => HydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
+createMockNetwork node nodes =
+  Network{broadcast}
+ where
+  broadcast msg = do
     allNodes <- readTVarIO nodes
     let otherNodes = filter (\n -> getNodeId n /= getNodeId node) allNodes
     mapM_ (`handleMessage` msg) otherNodes
-
-  handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
 
   handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL
 

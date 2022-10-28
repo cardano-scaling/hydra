@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -28,7 +29,7 @@ import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Monad.Class.MonadAsync (async)
-import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
+import Control.Monad.Class.MonadSTM (modifyTVar, newTQueue, newTVarIO)
 import Data.List (nub)
 import qualified Data.List as List
 import Data.Map ((!))
@@ -40,6 +41,7 @@ import qualified Hydra.API.ClientInput as Input
 import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
 import qualified Hydra.API.ServerOutput as Output
 import Hydra.BehaviorSpec (
+  ConnectToChain (..),
   TestHydraNode (..),
   createHydraNode,
   createTestHydraNode,
@@ -49,7 +51,7 @@ import Hydra.BehaviorSpec (
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
-import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain (Chain (..), ChainSlot (..), HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
@@ -58,7 +60,7 @@ import Hydra.HeadLogic (Committed (), PendingCommits)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genValue, mkSimpleTx)
 import Hydra.Logging (Tracer)
-import Hydra.Node (HydraNodeLog, runHydraNode)
+import Hydra.Node (HydraNode (..), HydraNodeLog, runHydraNode)
 import Hydra.Party (Party, deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
@@ -437,15 +439,15 @@ seedWorld seedKeys = do
   tr <- gets logger
   nodes <- lift $ do
     let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
-    -- XXX: Defining the concrete 'ChainState' here is weird. The simulated
-    -- chain shares the provided chainState between all nodes. However, the
-    -- normal (non SimpleTx) chain state is node specific (it's context).
-    let chainState =
+        -- XXX: Defining the concrete 'ChainState' here is weird. The simulated
+        -- chain shares the provided chainState between all nodes. However, the
+        -- normal (non SimpleTx) chain state is node specific (it's context).
+        chainState =
           ChainStateAt
             { chainState = error "should not access chainState"
             , recordedAt = Nothing
             }
-    connectToChain <- simulatedChainAndNetwork chainState
+    connectToChain <- mockChainAndNetwork
     forM seedKeys $ \(sk, _csk) -> do
       outputs <- atomically newTQueue
       outputHistory <- newTVarIO []
@@ -457,6 +459,15 @@ seedWorld seedKeys = do
       pure (party, testNode)
 
   modify $ \n -> n{nodes = Map.fromList nodes}
+
+mockChainAndNetwork :: Monad m => m (ConnectToChain Tx m)
+mockChainAndNetwork = do
+  let chainComponent = undefined
+
+      -- history :: TVar m [PostChainTx tx]
+      -- history =
+      tickThread = undefined
+  return ConnectToChain{..}
 
 performCommit ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
