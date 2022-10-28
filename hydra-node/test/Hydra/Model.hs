@@ -44,8 +44,8 @@ import Hydra.BehaviorSpec (
   ConnectToChain (..),
   TestHydraNode (..),
   createHydraNode,
+  createMockNetwork,
   createTestHydraNode,
-  simulatedChainAndNetwork,
   waitMatch,
   waitUntil,
   waitUntilMatch,
@@ -53,6 +53,7 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (Chain (..), ChainSlot (..), HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
+import Hydra.Chain.Direct.Handlers (DirectChainLog, mkChain)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
@@ -60,7 +61,8 @@ import Hydra.HeadLogic (Committed (), PendingCommits)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genValue, mkSimpleTx)
 import Hydra.Logging (Tracer)
-import Hydra.Node (HydraNode (..), HydraNodeLog, runHydraNode)
+import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
+import Hydra.Node (HydraNode (..), runHydraNode)
 import Hydra.Party (Party, deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
@@ -136,7 +138,7 @@ data Nodes m = Nodes
   , -- | Logger used by each node.
     -- The reason we put this here is because the concrete value needs to be
     -- instantiated upon the test run initialisation, outiside of the model.
-    logger :: Tracer m (HydraNodeLog Tx)
+    logger :: Tracer m (HydraLog Tx ())
   }
 
 newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
@@ -382,7 +384,7 @@ deriving instance Eq (Action WorldState a)
 -- * Running the model
 
 runModel ::
-  (MonadAsync m, MonadCatch m, MonadTimer m, MonadTime m) =>
+  (MonadAsync m, MonadCatch m, MonadTimer m, MonadTime m, MonadThrow (STM m)) =>
   RunModel WorldState (StateT (Nodes m) m)
 runModel = RunModel{perform}
  where
@@ -392,6 +394,7 @@ runModel = RunModel{perform}
     , MonadCatch m
     , MonadTimer m
     , MonadTime m
+    , MonadThrow (STM m)
     ) =>
     WorldState ->
     Action WorldState a ->
@@ -431,6 +434,8 @@ seedWorld ::
   , MonadAsync m
   , MonadCatch m
   , MonadTime m
+  , MonadTimer m
+  , MonadThrow (STM m)
   ) =>
   [(SigningKey HydraKey, b)] ->
   StateT (Nodes m) m ()
@@ -447,7 +452,7 @@ seedWorld seedKeys = do
             { chainState = error "should not access chainState"
             , recordedAt = Nothing
             }
-    connectToChain <- mockChainAndNetwork
+    connectToChain <- mockChainAndNetwork (contramap DirectChain tr)
     forM seedKeys $ \(sk, _csk) -> do
       outputs <- atomically newTQueue
       outputHistory <- newTVarIO []
@@ -455,19 +460,49 @@ seedWorld seedKeys = do
           otherParties = filter (/= party) parties
       node <- createHydraNode ledger chainState sk otherParties outputs outputHistory connectToChain
       let testNode = createTestHydraNode outputs outputHistory node
-      void $ async $ runHydraNode tr node
+      void $ async $ runHydraNode (contramap Node tr) node
       pure (party, testNode)
 
   modify $ \n -> n{nodes = Map.fromList nodes}
 
-mockChainAndNetwork :: Monad m => m (ConnectToChain Tx m)
-mockChainAndNetwork = do
-  let chainComponent = undefined
-
+mockChainAndNetwork ::
+  ( MonadSTM m
+  , MonadTime m
+  , MonadCatch m
+  , MonadTimer m
+  , MonadThrow (STM m)
+  ) =>
+  Tracer m DirectChainLog ->
+  m (Hydra.BehaviorSpec.ConnectToChain Tx m)
+mockChainAndNetwork tr = do
+  nodes <- newTVarIO []
+  let chainComponent = \node -> do
+        atomically $ modifyTVar nodes (node :)
+        pure $
+          node
+            { hn = createMockNetwork node nodes
+            , oc = createMockChain tr
+            }
       -- history :: TVar m [PostChainTx tx]
       -- history =
       tickThread = undefined
+      rollbackAndForward = undefined
   return ConnectToChain{..}
+
+createMockChain ::
+  ( MonadSTM m
+  , MonadTime m
+  , MonadCatch m
+  , MonadTimer m
+  , MonadThrow (STM m)
+  ) =>
+  Tracer m DirectChainLog ->
+  Chain Tx m
+createMockChain tracer =
+  let queryTimeHandle = undefined
+      wallet = undefined
+      submitTx = undefined
+   in mkChain tracer queryTimeHandle wallet submitTx
 
 performCommit ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
