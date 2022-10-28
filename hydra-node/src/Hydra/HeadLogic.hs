@@ -68,12 +68,17 @@ data Event tx
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (Event tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Show (Event tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => ToJSON (Event tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => FromJSON (Event tx)
+deriving instance (IsTx tx, IsChainState tx) => Eq (Event tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (Event tx)
+deriving instance (IsTx tx, IsChainState tx) => ToJSON (Event tx)
+deriving instance (IsTx tx, IsChainState tx) => FromJSON (Event tx)
 
-instance (IsTx tx, IsChainState (ChainStateType tx)) => Arbitrary (Event tx) where
+instance
+  ( IsTx tx
+  , Arbitrary (ChainStateType tx)
+  ) =>
+  Arbitrary (Event tx)
+  where
   arbitrary = genericArbitrary
 
 -- | Analogous to events, the pure head logic "core" can have effects emited to
@@ -88,12 +93,17 @@ data Effect tx
     OnChainEffect {chainState :: ChainStateType tx, postChainTx :: PostChainTx tx}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (Effect tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Show (Effect tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => ToJSON (Effect tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => FromJSON (Effect tx)
+deriving instance (IsTx tx, IsChainState tx) => Eq (Effect tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (Effect tx)
+deriving instance (IsTx tx, IsChainState tx) => ToJSON (Effect tx)
+deriving instance (IsTx tx, IsChainState tx) => FromJSON (Effect tx)
 
-instance (IsTx tx, IsChainState (ChainStateType tx)) => Arbitrary (Effect tx) where
+instance
+  ( IsTx tx
+  , Arbitrary (ChainStateType tx)
+  ) =>
+  Arbitrary (Effect tx)
+  where
   arbitrary = genericArbitrary
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
@@ -231,8 +241,8 @@ data Outcome tx
   | Wait WaitReason
   | Error (LogicError tx)
 
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (Outcome tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Show (Outcome tx)
+deriving instance (IsTx tx, IsChainState tx) => Eq (Outcome tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (Outcome tx)
 
 data WaitReason
   = WaitOnNotApplicableTx {validationError :: ValidationError}
@@ -816,7 +826,7 @@ onClosedChainFanoutTx newChainState confirmedSnapshot =
 --
 -- __Transition__: 'OpenState' → 'HeadState'
 onCurrentChainRollback ::
-  (IsChainState (ChainStateType tx)) =>
+  (IsChainState tx) =>
   HeadState tx ->
   ChainSlot ->
   Outcome tx
@@ -840,7 +850,7 @@ onCurrentChainRollback currentState slot =
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
 -- outcomes handled by the "Hydra.Node".
 update ::
-  (IsTx tx, IsChainState (ChainStateType tx)) =>
+  (IsTx tx, IsChainState tx) =>
   Environment ->
   Ledger tx ->
   HeadState tx ->

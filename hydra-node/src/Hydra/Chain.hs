@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Specifies the /Head-Chain Interaction/ part of the protocol
@@ -118,25 +120,33 @@ data PostTxError tx
   | UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
   deriving (Generic)
 
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (PostTxError tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Show (PostTxError tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => ToJSON (PostTxError tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => FromJSON (PostTxError tx)
+deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (PostTxError tx)
+deriving instance (IsTx tx, IsChainState tx) => ToJSON (PostTxError tx)
+deriving instance (IsTx tx, IsChainState tx) => FromJSON (PostTxError tx)
 
-instance (IsTx tx, IsChainState (ChainStateType tx)) => Exception (PostTxError tx)
+instance (IsTx tx, IsChainState tx) => Exception (PostTxError tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary
 
--- | Types of what to keep as L1 chain state.
-type family ChainStateType tx
-
 -- | Interface available from a chain state. Expected to be instantiated by all
 -- 'ChainStateType tx'.
-class (Eq a, Show a, Arbitrary a, ToJSON a, FromJSON a) => IsChainState a where
+class
+  ( IsTx tx
+  , Eq (ChainStateType tx)
+  , Show (ChainStateType tx)
+  , FromJSON (ChainStateType tx)
+  , ToJSON (ChainStateType tx)
+  ) =>
+  IsChainState tx
+  where
+  -- | Types of what to keep as L1 chain state.
+  type ChainStateType tx = c | c -> tx
+
   -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
   -- encountered, we assume monotonically increasing slots.
-  chainStateSlot :: a -> ChainSlot
+  chainStateSlot :: ChainStateType tx -> ChainSlot
 
 -- | A generic description for a chain slot all implementions need to use.
 newtype ChainSlot = ChainSlot Natural
@@ -160,7 +170,7 @@ newtype Chain tx m = Chain
     -- reasonable local view of the chain and throw an exception when invalid.
     --
     -- Does at least throw 'PostTxError'.
-    postTx :: MonadThrow m => ChainStateType tx -> PostChainTx tx -> m ()
+    postTx :: (IsChainState tx, MonadThrow m) => ChainStateType tx -> PostChainTx tx -> m ()
   }
 
 data ChainEvent tx

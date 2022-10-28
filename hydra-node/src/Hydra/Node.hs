@@ -98,20 +98,19 @@ data HydraNodeLog tx
   | EndEffect {by :: Party, effect :: Effect tx}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Eq (HydraNodeLog tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => Show (HydraNodeLog tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => ToJSON (HydraNodeLog tx)
-deriving instance (IsTx tx, IsChainState (ChainStateType tx)) => FromJSON (HydraNodeLog tx)
+deriving instance (IsTx tx, IsChainState tx) => Eq (HydraNodeLog tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (HydraNodeLog tx)
+deriving instance (IsTx tx, IsChainState tx) => ToJSON (HydraNodeLog tx)
+deriving instance (IsTx tx, IsChainState tx) => FromJSON (HydraNodeLog tx)
 
-instance (IsTx tx, IsChainState (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 runHydraNode ::
   ( MonadThrow m
   , MonadCatch m
   , MonadAsync m
-  , IsTx tx
-  , IsChainState (ChainStateType tx)
+  , IsChainState tx
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -125,8 +124,7 @@ stepHydraNode ::
   ( MonadThrow m
   , MonadCatch m
   , MonadAsync m
-  , IsTx tx
-  , IsChainState (ChainStateType tx)
+  , IsChainState tx
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -159,7 +157,7 @@ stepHydraNode tracer node = do
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
-  (IsTx tx, IsChainState (ChainStateType tx)) =>
+  (IsChainState tx) =>
   HydraNode tx m ->
   Event tx ->
   STM m (Outcome tx)
@@ -178,8 +176,7 @@ processNextEvent HydraNode{nodeState, ledger, env} e =
 processEffect ::
   ( MonadAsync m
   , MonadCatch m
-  , IsTx tx
-  , IsChainState (ChainStateType tx)
+  , IsChainState tx
   ) =>
   HydraNode tx m ->
   Tracer m (HydraNodeLog tx) ->

@@ -23,7 +23,7 @@ import GHC.Records (getField)
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Cardano.Api (SigningKey)
+import Hydra.Cardano.Api (SigningKey, Tx)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -46,7 +46,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   defaultTTL,
  )
-import Hydra.Ledger (IsTx, Ledger, ValidationError (ValidationError))
+import Hydra.Ledger (Ledger, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Node (
@@ -459,7 +459,7 @@ spec = parallel $ do
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
 waitUntil ::
-  (HasCallStack, MonadThrow m, IsTx tx, MonadAsync m, MonadTimer m, IsChainState (ChainStateType tx)) =>
+  (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m, IsChainState tx) =>
   [TestHydraNode tx m] ->
   ServerOutput tx ->
   m ()
@@ -532,12 +532,12 @@ withSimulatedChainAndNetwork action = do
 -- | Class to manipulate the chain state by advancing it's slot in
 -- 'simulatedChainAndNetwork'.
 class IsChainState a => IsChainStateTest a where
-  advanceSlot :: a -> a
+  advanceSlot :: ChainStateType a -> ChainStateType a
 
-instance IsChainStateTest SimpleChainState where
+instance IsChainStateTest SimpleTx where
   advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
 
-instance IsChainStateTest ChainStateAt where
+instance IsChainStateTest Tx where
   advanceSlot cs@ChainStateAt{recordedAt} = cs{recordedAt = nextChainSlot recordedAt}
 
 -- | Creates a simulated chain and network by returning a handle with a
@@ -545,7 +545,7 @@ instance IsChainStateTest ChainStateAt where
 -- 'tickThread' needs to be 'cancel'ed after use. Use
 -- 'withSimulatedChainAndNetwork' instead where possible.
 simulatedChainAndNetwork ::
-  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m, IsChainStateTest (ChainStateType tx)) =>
+  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m, IsChainStateTest tx) =>
   ChainStateType tx ->
   m (ConnectToChain tx m)
 simulatedChainAndNetwork initialChainState = do
@@ -651,7 +651,7 @@ testContestationPeriod :: ContestationPeriod
 testContestationPeriod = UnsafeContestationPeriod 3600
 
 nothingHappensFor ::
-  (MonadTimer m, MonadThrow m, IsTx tx, IsChainState (ChainStateType tx)) =>
+  (MonadTimer m, MonadThrow m, IsChainState tx) =>
   TestHydraNode tx m ->
   DiffTime ->
   m ()

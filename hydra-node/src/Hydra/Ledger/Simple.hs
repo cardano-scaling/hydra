@@ -81,13 +81,12 @@ instance FromCBOR SimpleTx where
 data SimpleChainState = SimpleChainState {slot :: ChainSlot}
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
--- | The chain state type for Cardano 'Tx' is 'ChainState'.
-type instance ChainStateType SimpleTx = SimpleChainState
-
 instance Arbitrary SimpleChainState where
   arbitrary = SimpleChainState <$> arbitrary
 
-instance IsChainState SimpleChainState where
+instance IsChainState SimpleTx where
+  type ChainStateType SimpleTx = SimpleChainState
+
   chainStateSlot SimpleChainState{slot} = slot
 
 --

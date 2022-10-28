@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Contains the a state-ful interface to transaction construction and observation.
 --
@@ -109,9 +110,6 @@ class HasKnownUTxO a where
 
 -- * States & transitions
 
--- | The chain state type for Cardano 'Tx' is 'ChainState'.
-type instance ChainStateType Tx = ChainStateAt
-
 -- | The chain state used by the Hydra.Chain.Direct implementation. It records
 -- the actual 'ChainState' paired with a 'ChainSlot' (used to know up to which
 -- point to rewind on rollbacks).
@@ -124,7 +122,9 @@ data ChainStateAt = ChainStateAt
 instance Arbitrary ChainStateAt where
   arbitrary = genericArbitrary
 
-instance IsChainState ChainStateAt where
+instance IsChainState Tx where
+  type ChainStateType Tx = ChainStateAt
+
   chainStateSlot ChainStateAt{recordedAt} = recordedAt
 
 -- | A definition of all transitions between 'ChainState's. Enumerable and

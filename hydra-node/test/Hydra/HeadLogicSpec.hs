@@ -15,7 +15,6 @@ import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
   ChainSlot (..),
-  ChainStateType,
   HeadParameters (..),
   IsChainState,
   OnChainTx (..),
@@ -35,7 +34,7 @@ import Hydra.HeadLogic (
   defaultTTL,
   update,
  )
-import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
+import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (NodeId (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
@@ -309,7 +308,7 @@ observationEvent observedTx =
           }
     }
 
-hasEffect :: (HasCallStack, IsTx tx, IsChainState (ChainStateType tx)) => Outcome tx -> Effect tx -> IO ()
+hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
 hasEffect (NewState _ effects) effect
   | effect `elem` effects = pure ()
   | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
@@ -318,13 +317,13 @@ hasEffect (OnlyEffects effects) effect
   | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
 hasEffect o _ = failure $ "Unexpected outcome: " <> show o
 
-hasEffectSatisfying :: (HasCallStack, IsTx tx, IsChainState (ChainStateType tx)) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
+hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
 hasEffectSatisfying (NewState s effects) match
   | any match effects = pure s
   | otherwise = failure $ "No effect matching predicate in produced effects: " <> show effects
 hasEffectSatisfying o _ = failure $ "Unexpected outcome: " <> show o
 
-hasNoEffectSatisfying :: (HasCallStack, IsTx tx, IsChainState (ChainStateType tx)) => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasNoEffectSatisfying (NewState _ effects) predicate
   | any predicate effects = failure $ "Found unwanted effect in: " <> show effects
 hasNoEffectSatisfying _ _ = pure ()
@@ -421,7 +420,7 @@ getConfirmedSnapshot = \case
     Nothing
 
 assertNewState ::
-  (IsTx tx, IsChainState (ChainStateType tx)) =>
+  (IsChainState tx) =>
   Outcome tx ->
   IO (HeadState tx)
 assertNewState = \case
@@ -431,7 +430,7 @@ assertNewState = \case
   Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
 
 assertOnlyEffects ::
-  (IsTx tx, IsChainState (ChainStateType tx)) =>
+  (IsChainState tx) =>
   Outcome tx ->
   IO ()
 assertOnlyEffects = \case
@@ -441,7 +440,7 @@ assertOnlyEffects = \case
   Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
 
 applyEvent ::
-  (IsTx tx, IsChainState (ChainStateType tx)) =>
+  (IsChainState tx) =>
   (HeadState tx -> Event tx -> Outcome tx) ->
   Event tx ->
   StateT (HeadState tx) IO ()
@@ -451,7 +450,7 @@ applyEvent action e = do
   put s'
 
 assertStateUnchangedFrom ::
-  (IsTx tx, IsChainState (ChainStateType tx)) =>
+  (IsChainState tx) =>
   HeadState tx ->
   Outcome tx ->
   Expectation
