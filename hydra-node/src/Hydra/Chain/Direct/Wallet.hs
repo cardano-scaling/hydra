@@ -74,7 +74,7 @@ type Address = Ledger.Addr StandardCrypto
 type TxIn = Ledger.TxIn StandardCrypto
 type TxOut = Ledger.TxOut LedgerEra
 
--- | A 'TinyWallet' is a small abstraction of a wallet with basic UTXO
+-- | A 'InternalWalletHandle' is a small abstraction of a wallet with basic UTXO
 -- management. The wallet is assumed to have only one address, and only one UTXO
 -- at that address. It can sign transactions and keeps track of its UTXO behind
 -- the scene.
@@ -82,7 +82,7 @@ type TxOut = Ledger.TxOut LedgerEra
 -- This wallet is not connecting to the node initially and when asked to
 -- 'reset'. Otherwise it can be fed blocks via 'update' as the chain rolls
 -- forward.
-data TinyWallet m = TinyWallet
+data InternalWalletHandle m = InternalWalletHandle
   { -- | Return all known UTxO addressed to this wallet.
     getUTxO :: STM m (Map TxIn TxOut)
   , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
@@ -105,19 +105,19 @@ type ChainQuery m =
   )
 
 -- | Get a single, marked as "fuel" UTxO.
-getFuelUTxO :: MonadSTM m => TinyWallet m -> STM m (Maybe (TxIn, TxOut))
-getFuelUTxO TinyWallet{getUTxO} =
+getFuelUTxO :: MonadSTM m => InternalWalletHandle m -> STM m (Maybe (TxIn, TxOut))
+getFuelUTxO InternalWalletHandle{getUTxO} =
   findFuelUTxO <$> getUTxO
 
-watchUTxOUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
-watchUTxOUntil predicate TinyWallet{getUTxO} = atomically $ do
+watchUTxOUntil :: (Map TxIn TxOut -> Bool) -> InternalWalletHandle IO -> IO (Map TxIn TxOut)
+watchUTxOUntil predicate InternalWalletHandle{getUTxO} = atomically $ do
   u <- getUTxO
   u <$ check (predicate u)
 
 -- | Create a new tiny wallet handle.
-newTinyWallet ::
+newInternalWalletHandle ::
   -- | A tracer for logging
-  Tracer IO TinyWalletLog ->
+  Tracer IO InternalWalletHandleLog ->
   -- | Network identifier to generate our address.
   NetworkId ->
   -- | Credentials of the wallet.
@@ -127,11 +127,11 @@ newTinyWallet ::
   -- | A function to query UTxO, pparams, system start and epoch info from the
   -- node. Initially and on demand later.
   ChainQuery IO ->
-  IO (TinyWallet IO)
-newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
+  IO (InternalWalletHandle IO)
+newInternalWalletHandle tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
   utxoVar <- newTVarIO =<< queryUTxOEtc (QueryAt chainPoint) address
   pure
-    TinyWallet
+    InternalWalletHandle
       { getUTxO =
           (\(u, _, _, _) -> u) <$> readTVar utxoVar
       , sign = Util.signWith sk
@@ -382,13 +382,13 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
 -- Logs
 --
 
-data TinyWalletLog
+data InternalWalletHandleLog
   = InitializingWallet QueryPoint (Map TxIn TxOut)
   | ApplyBlock (Map TxIn TxOut)
   | LedgerEraMismatchError {expected :: Text, actual :: Text}
   deriving (Eq, Generic, Show)
 
-instance ToJSON TinyWalletLog where
+instance ToJSON InternalWalletHandleLog where
   toJSON =
     \case
       (InitializingWallet point initialUTxO) ->
@@ -409,5 +409,5 @@ instance ToJSON TinyWalletLog where
           , "actual" .= actual
           ]
 
-instance Arbitrary TinyWalletLog where
+instance Arbitrary InternalWalletHandleLog where
   arbitrary = genericArbitrary

@@ -53,8 +53,8 @@ import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block, SomePoint (..))
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
-  TinyWallet (..),
-  TinyWalletLog,
+  InternalWalletHandle (..),
+  InternalWalletHandleLog,
   getFuelUTxO,
   getTxId,
  )
@@ -76,7 +76,7 @@ type SubmitTx m = ValidatedTx LedgerEra -> m ()
 --
 -- This component does not actually interact with a cardano-node, but creates
 -- cardano transactions from `PostChainTx` transactions emitted by a
--- `HydraNode`, balancing them using given `TinyWallet`, while maintaining some
+-- `HydraNode`, balancing them using given `InternalWalletHandle`, while maintaining some
 -- state in the `headState` variable and before handing it off to the given
 -- 'SubmitTx' callback.
 --
@@ -87,7 +87,7 @@ mkChainHandle ::
   Tracer m DirectChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
   m TimeHandle ->
-  TinyWallet m ->
+  InternalWalletHandle m ->
   TVar m ChainStateAt ->
   SubmitTx m ->
   ChainHandle Tx m
@@ -117,11 +117,11 @@ mkChainHandle tracer queryTimeHandle wallet headState submitTx =
 -- | Balance and sign the given partial transaction.
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
-  TinyWallet m ->
+  InternalWalletHandle m ->
   TVar m ChainStateAt ->
   ValidatedTx LedgerEra ->
   STM m (ValidatedTx LedgerEra)
-finalizeTx TinyWallet{sign, coverFee} headState partialTx = do
+finalizeTx InternalWalletHandle{sign, coverFee} headState partialTx = do
   someSt <- currentChainState <$> readTVar headState
   let headUTxO = getKnownUTxO someSt
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
@@ -292,7 +292,7 @@ closeGraceTime = 100
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
-  TinyWallet m ->
+  InternalWalletHandle m ->
   TVar m ChainStateAt ->
   PostChainTx Tx ->
   STM m Tx
@@ -363,7 +363,7 @@ data DirectChainLog
   | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [Ledger.TxId StandardCrypto]}
   | RolledForward {point :: SomePoint}
   | RolledBackward {point :: SomePoint}
-  | Wallet TinyWalletLog
+  | Wallet InternalWalletHandleLog
   | CreatedState
   | LoadedState
   deriving (Eq, Show, Generic)

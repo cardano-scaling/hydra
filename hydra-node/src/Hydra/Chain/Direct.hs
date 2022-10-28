@@ -92,9 +92,9 @@ import Hydra.Chain.Direct.Util (
   versions,
  )
 import Hydra.Chain.Direct.Wallet (
-  TinyWallet (..),
+  InternalWalletHandle (..),
   getTxId,
-  newTinyWallet,
+  newInternalWalletHandle,
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node (Persistence (load))
@@ -170,7 +170,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoin
   chainPoint <- case mpoint of
     Nothing -> queryTip networkId socketPath
     Just point -> pure point
-  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair chainPoint queryUTxOEtc
+  wallet <- newInternalWalletHandle (contramap Wallet tracer) networkId keyPair chainPoint queryUTxOEtc
   let (vk, _) = keyPair
   scriptRegistry <- queryScriptRegistry networkId socketPath hydraScriptsTxId
   let ctx =
@@ -277,7 +277,7 @@ ouroborosApplication ::
   Maybe (Point Block) ->
   TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
   ChainSyncHandler m ->
-  TinyWallet m ->
+  InternalWalletHandle m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
 ouroborosApplication tracer mpoint queue handler wallet nodeToClientV =
@@ -316,7 +316,7 @@ chainSyncClient ::
   forall m.
   (MonadSTM m, MonadThrow m) =>
   ChainSyncHandler m ->
-  TinyWallet m ->
+  InternalWalletHandle m ->
   Maybe (Point Block) ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
 chainSyncClient handler wallet = \case

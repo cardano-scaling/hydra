@@ -49,12 +49,12 @@ import Hydra.Chain.Direct.Util (markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
-  TinyWallet (..),
+  InternalWalletHandle (..),
   TxIn,
   TxOut,
   applyBlock,
   coverFee_,
-  newTinyWallet,
+  newInternalWalletHandle,
  )
 import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genTxIn, renderTx)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
@@ -91,11 +91,11 @@ spec = parallel $ do
   describe "coverFee" $ do
     prop "balances transaction with fees" prop_balanceTransaction
 
-  describe "newTinyWallet" $ do
+  describe "newInternalWalletHandle" $ do
     prop "initialises wallet by querying UTxO" $
       forAll genKeyPair $ \(vk, sk) ->
         forAll genChainPoint $ \cp -> do
-          wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) cp (mockQueryOneUtxo vk)
+          wallet <- newInternalWalletHandle nullTracer testNetworkId (vk, sk) cp (mockQueryOneUtxo vk)
           utxo <- atomically (getUTxO wallet)
           utxo `shouldSatisfy` \m -> Map.size m > 0
 
@@ -107,7 +107,7 @@ spec = parallel $ do
               pure (cp1, cp2)
          in forAll twoDistinctChainPoints $ \(cp1, cp2) -> do
               (queryFn, assertQueryPoint) <- setupQuery vk
-              wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) cp1 queryFn
+              wallet <- newInternalWalletHandle nullTracer testNetworkId (vk, sk) cp1 queryFn
               assertQueryPoint (QueryAt cp1)
               reset wallet (QueryAt cp2)
               assertQueryPoint $ QueryAt cp2
