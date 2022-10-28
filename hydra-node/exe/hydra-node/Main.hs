@@ -30,10 +30,10 @@ import Hydra.Network.Ouroboros (withIOManager, withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
   HydraNodeLog (..),
-  Persistence,
+  PersistenceHandle,
   createEventQueue,
   createHydraNode,
-  createPersistence,
+  createPersistenceHandle,
   initEnvironment,
   runHydraNode,
  )
@@ -67,7 +67,7 @@ main = do
         traceWith (contramap Node tracer) (NodeOptions opts)
         eq <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
-        persistChainState <- createPersistence Proxy $ persistenceDir <> "/chainstate"
+        persistChainState <- createPersistenceHandle Proxy $ persistenceDir <> "/chainstate"
         withChain tracer party (putEvent eq . OnChainEvent) hydraScriptsTxId persistChainState chainConfig $ \oc -> do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
@@ -76,7 +76,7 @@ main = do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig $ \ledger -> do
                 let tr = contramap Node tracer
-                persistHeadState <- createPersistence Proxy $ persistenceDir <> "/headstate"
+                persistHeadState <- createPersistenceHandle Proxy $ persistenceDir <> "/headstate"
                 node <- createHydraNode tr eq hn ledger oc server env persistHeadState
                 runHydraNode tr node
 
@@ -106,7 +106,7 @@ withChain ::
   Party ->
   ChainCallback Tx IO ->
   TxId ->
-  Persistence ChainStateAt IO ->
+  PersistenceHandle ChainStateAt IO ->
   ChainConfig ->
   (ChainHandle Tx IO -> IO ()) ->
   IO ()

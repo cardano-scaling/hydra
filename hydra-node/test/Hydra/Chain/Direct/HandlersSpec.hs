@@ -51,7 +51,7 @@ import Hydra.Chain.Direct.StateSpec (genChainState, genChainStateWithTx)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
-import Hydra.Node (Persistence (..))
+import Hydra.Node (PersistenceHandle (..))
 import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -117,7 +117,7 @@ spec = do
 
       chainState <- pickBlind genChainState
       headState <- run $ newTVarIO $ stAtGenesis chainState
-      let persistence = Persistence{save = const $ pure (), load = failure "unexpected load"}
+      let persistence = PersistenceHandle{save = const $ pure (), load = failure "unexpected load"}
       let handler =
             chainSyncHandler
               nullTracer
@@ -142,7 +142,7 @@ spec = do
       forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
         headState <- run $ newTVarIO $ stAtGenesis st
         timeHandle <- pickBlind arbitrary
-        let persistence = Persistence{save = const $ pure (), load = failure "unexpected load"}
+        let persistence = PersistenceHandle{save = const $ pure (), load = failure "unexpected load"}
         let handler = chainSyncHandler nullTracer callback headState (pure timeHandle) persistence
         run $ onRollForward handler blk
 
@@ -158,7 +158,7 @@ spec = do
           monitor $ label ("Rollback depth: " <> show rollbackDepth)
           headState <- run $ newTVarIO st
           timeHandle <- pickBlind arbitrary
-          let persistence = Persistence{save = const $ pure (), load = failure "unexpected load"}
+          let persistence = PersistenceHandle{save = const $ pure (), load = failure "unexpected load"}
           let handler = chainSyncHandler nullTracer callback headState (pure timeHandle) persistence
 
           -- 1/ Simulate some chain following
@@ -185,7 +185,7 @@ recordEventsHandler st getTimeHandle = do
 
   recordEvents var e = atomically $ modifyTVar var (e :)
 
-  persistence = Persistence{save = const $ pure (), load = failure "unexpected load"}
+  persistence = PersistenceHandle{save = const $ pure (), load = failure "unexpected load"}
 
 -- | Like 'pick' but using 'forAllBlind' under the hood.
 pickBlind :: Monad m => Gen a -> PropertyM m a

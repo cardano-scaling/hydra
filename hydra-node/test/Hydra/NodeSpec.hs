@@ -33,7 +33,7 @@ import Hydra.Node (
   EventQueue (..),
   HydraNode (..),
   HydraNodeLog,
-  Persistence (Persistence, load, save),
+  PersistenceHandle (PersistenceHandle, load, save),
   createEventQueue,
   createHydraHead,
   isEmpty,
@@ -162,7 +162,7 @@ createHydraNode signingKey otherParties events = do
             , otherParties
             }
       , persistence =
-          Persistence
+          PersistenceHandle
             { save = const $ pure ()
             , load = failure "unexpected load"
             }

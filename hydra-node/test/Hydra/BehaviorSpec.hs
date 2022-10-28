@@ -42,7 +42,7 @@ import Hydra.Node (
   EventQueue (putEvent),
   HydraNode (..),
   HydraNodeLog (..),
-  Persistence (Persistence, load, save),
+  PersistenceHandle (PersistenceHandle, load, save),
   createEventQueue,
   createHydraHead,
   runHydraNode,
@@ -670,7 +670,7 @@ createHydraNode ledger signingKey otherParties outputs outputHistory connectToCh
             , otherParties
             }
       , persistence =
-          Persistence
+          PersistenceHandle
             { save = atomically . writeTVar persistenceVar . Just
             , load = readTVarIO persistenceVar
             }

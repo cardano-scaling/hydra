@@ -84,7 +84,7 @@ data HydraNode tx m = HydraNode
   , oc :: ChainHandle tx m
   , server :: Server tx m
   , env :: Environment
-  , persistence :: Persistence (HeadState tx) m
+  , persistence :: PersistenceHandle (HeadState tx) m
   }
 
 -- NOTE(AB): we use partial fields access here for convenience purpose, to
@@ -116,8 +116,8 @@ createHydraNode ::
   ChainHandle tx m ->
   Server tx m ->
   Environment ->
-  -- | Persistence handle to load/save head state
-  Persistence (HeadState tx) m ->
+  -- | PersistenceHandle handle to load/save head state
+  PersistenceHandle (HeadState tx) m ->
   m (HydraNode tx m)
 createHydraNode tracer eq hn ledger oc server env persistence = do
   hs <-
@@ -176,7 +176,7 @@ stepHydraNode tracer node = do
 
   Environment{party} = env
 
-  Persistence{save} = persistence
+  PersistenceHandle{save} = persistence
 
   HydraNode{persistence, eq, env} = node
 
@@ -276,23 +276,23 @@ createHydraHead initialState ledger = do
 -- ** Save and load files
 
 -- | Handle to save and load files to/from disk using JSON encoding.
-data Persistence a m = Persistence
+data PersistenceHandle a m = PersistenceHandle
   { save :: ToJSON a => a -> m ()
   , load :: FromJSON a => m (Maybe a)
   }
 
-newtype PersistenceException
-  = PersistenceException String
+newtype PersistenceHandleException
+  = PersistenceHandleException String
   deriving (Eq, Show)
 
-instance Exception PersistenceException
+instance Exception PersistenceHandleException
 
 -- | Initialize persistence handle for given type 'a' at given file path.
-createPersistence :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (Persistence a m)
-createPersistence _ fp = do
+createPersistenceHandle :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (PersistenceHandle a m)
+createPersistenceHandle _ fp = do
   liftIO . createDirectoryIfMissing True $ takeDirectory fp
   pure $
-    Persistence
+    PersistenceHandle
       { save = \a -> do
           writeBinaryFileDurableAtomic fp . toStrict $ Aeson.encode a
       , load =
@@ -304,6 +304,6 @@ createPersistence _ fp = do
               if BS.null bs
                 then pure Nothing
                 else case Aeson.eitherDecodeStrict' bs of
-                  Left e -> throwIO $ PersistenceException e
+                  Left e -> throwIO $ PersistenceHandleException e
                   Right a -> pure $ Just a
       }

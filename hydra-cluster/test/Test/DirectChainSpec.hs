@@ -56,7 +56,7 @@ import Hydra.Crypto (aggregate, sign)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Node (createPersistence)
+import Hydra.Node (createPersistenceHandle)
 import Hydra.Options (
   ChainConfig (..),
   toArgNetworkId,
@@ -81,7 +81,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          persistence <- createPersistence Proxy $ tmp <> "/chainstate"
+          persistence <- createPersistenceHandle Proxy $ tmp <> "/chainstate"
           withDirectChain (contramap (FromDirectChain "alice") tracer) networkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId persistence (putMVar alicesCallback) $ \ChainHandle{postTx} -> do
             withDirectChain nullTracer networkId iocp nodeSocket bobKeys bob cardanoKeys Nothing hydraScriptsTxId persistence (putMVar bobsCallback) $ \_ -> do
               postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
@@ -104,7 +104,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          persistence <- createPersistence Proxy $ tmp <> "/chainstate"
+          persistence <- createPersistenceHandle Proxy $ tmp <> "/chainstate"
 
           let aliceCommitment = 66_000_000
           -- REVIEW(SN): there is still some things unclear (why the seed needs to be here and not further down, after withDirectChain).
@@ -145,7 +145,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          persistence <- createPersistence Proxy $ tmp <> "/chainstate"
+          persistence <- createPersistenceHandle Proxy $ tmp <> "/chainstate"
           withDirectChain (contramap (FromDirectChain "alice") tracer) networkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId persistence (putMVar alicesCallback) $ \ChainHandle{postTx = alicePostTx} -> do
             withDirectChain nullTracer networkId iocp nodeSocket bobKeys bob cardanoKeys Nothing hydraScriptsTxId persistence (putMVar bobsCallback) $ \ChainHandle{postTx = bobPostTx} -> do
               alicePostTx $ InitTx $ HeadParameters cperiod [alice, carol]
@@ -163,7 +163,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          persistence <- createPersistence Proxy $ tmp <> "/chainstate"
+          persistence <- createPersistenceHandle Proxy $ tmp <> "/chainstate"
 
           -- REVIEW(SN): there is still some things unclear (why the seed needs to be here and not further down, after withDirectChain).
           aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
@@ -195,7 +195,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          persistence <- createPersistence Proxy $ tmp <> "/chainstate"
+          persistence <- createPersistenceHandle Proxy $ tmp <> "/chainstate"
           withDirectChain (contramap (FromDirectChain "alice") tracer) networkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId persistence (putMVar alicesCallback) $ \ChainHandle{postTx} -> do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             alicesCallback `observesInTime` OnInitTx cperiod [alice]
@@ -216,7 +216,7 @@ spec = around showLogsOnFailure $ do
           -- REVIEW(SN): there is still some things unclear (why the seed needs to be here and not further down, after withDirectChain).
           someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
 
-          persistence <- createPersistence Proxy $ tmp <> "/chainstate"
+          persistence <- createPersistenceHandle Proxy $ tmp <> "/chainstate"
           withDirectChain (contramap (FromDirectChain "alice") tracer) networkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId persistence (putMVar alicesCallback) $ \ChainHandle{postTx} -> do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             alicesCallback `observesInTime` OnInitTx cperiod [alice]
@@ -271,7 +271,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          persistence <- createPersistence Proxy $ tmp <> "/chainstate"
+          persistence <- createPersistenceHandle Proxy $ tmp <> "/chainstate"
 
           tip <- withDirectChain (contramap (FromDirectChain "alice") tracer) networkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing hydraScriptsTxId persistence (putMVar alicesCallback) $ \ChainHandle{postTx = alicePostTx} -> do
             tip <- queryTip networkId nodeSocket
@@ -292,7 +292,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          persistence <- createPersistence Proxy $ tmp <> "/chainstate"
+          persistence <- createPersistenceHandle Proxy $ tmp <> "/chainstate"
 
           let headerHash = unsafeDeserialiseFromRawBytesBase16 (B8.replicate 64 '0')
           let fakeTip = ChainPoint 42 headerHash

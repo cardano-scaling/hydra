@@ -59,7 +59,7 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node (Persistence (Persistence, save))
+import Hydra.Node (PersistenceHandle (PersistenceHandle, save))
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..), blockPoint)
@@ -208,10 +208,10 @@ chainSyncHandler ::
   -- | Means to acquire a new 'TimeHandle'.
   m TimeHandle ->
   -- | A handle to save chain state
-  Persistence ChainStateAt m ->
+  PersistenceHandle ChainStateAt m ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback headState getTimeHandle Persistence{save} =
+chainSyncHandler tracer callback headState getTimeHandle PersistenceHandle{save} =
   ChainSyncHandler
     { onRollBackward
     , onRollForward

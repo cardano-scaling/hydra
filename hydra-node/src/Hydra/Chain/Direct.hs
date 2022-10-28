@@ -97,7 +97,7 @@ import Hydra.Chain.Direct.Wallet (
   newInternalWalletHandle,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node (Persistence (load))
+import Hydra.Node (PersistenceHandle (load))
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (
   GenTx (..),
@@ -162,7 +162,7 @@ withDirectChain ::
   -- | Transaction id at which Hydra scripts should be published.
   TxId ->
   -- | Persistence handle to load/save chain state
-  Persistence ChainStateAt IO ->
+  PersistenceHandle ChainStateAt IO ->
   ChainComponent Tx IO a
 withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoint hydraScriptsTxId persistence callback action = do
   queue <- newTQueueIO
