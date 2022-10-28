@@ -42,7 +42,7 @@ jobs:
           substituters = https://cache.nixos.org https://cache.iog.io
 
     - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v11
+      uses: cachix/cachix-action@v12
       with:
         name: hydra-node
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -126,7 +126,7 @@ jobs:
           substituters = https://cache.nixos.org https://cache.iog.io
 
     - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v11
+      uses: cachix/cachix-action@v12
       with:
         name: hydra-node
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -193,7 +193,7 @@ jobs:
           substituters = https://cache.nixos.org https://cache.iog.io https://iohk.cachix.org
 
     - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v11
+      uses: cachix/cachix-action@v12
       with:
         name: hydra-node
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
