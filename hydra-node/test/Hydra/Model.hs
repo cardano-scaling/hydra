@@ -55,6 +55,7 @@ import Hydra.Chain (Chain (..), ChainSlot (..), HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.Chain.Direct.Handlers (DirectChainLog, mkChain)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
+import qualified Hydra.Chain.Direct.State as S
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (Committed (), PendingCommits)
@@ -63,7 +64,7 @@ import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genValue,
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Node (HydraNode (..), runHydraNode)
-import Hydra.Party (Party, deriveParty)
+import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
@@ -384,7 +385,7 @@ deriving instance Eq (Action WorldState a)
 -- * Running the model
 
 runModel ::
-  (MonadAsync m, MonadCatch m, MonadTimer m, MonadTime m, MonadThrow (STM m)) =>
+  (MonadAsync m, MonadCatch m, MonadTimer m, MonadThrow (STM m)) =>
   RunModel WorldState (StateT (Nodes m) m)
 runModel = RunModel{perform}
  where
@@ -393,7 +394,6 @@ runModel = RunModel{perform}
     , MonadAsync m
     , MonadCatch m
     , MonadTimer m
-    , MonadTime m
     , MonadThrow (STM m)
     ) =>
     WorldState ->
@@ -433,14 +433,15 @@ seedWorld ::
   ( MonadDelay m
   , MonadAsync m
   , MonadCatch m
-  , MonadTime m
   , MonadTimer m
   , MonadThrow (STM m)
   ) =>
-  [(SigningKey HydraKey, b)] ->
+  [(SigningKey HydraKey, CardanoSigningKey)] ->
   StateT (Nodes m) m ()
 seedWorld seedKeys = do
   let parties = map (deriveParty . fst) seedKeys
+      -- TODO: how do we know which key belongs to us? Do we pick random one?
+      sKeys = getVerificationKey . signingKey . snd <$> seedKeys
   tr <- gets logger
   nodes <- lift $ do
     let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
@@ -452,7 +453,7 @@ seedWorld seedKeys = do
             { chainState = error "should not access chainState"
             , recordedAt = Nothing
             }
-    connectToChain <- mockChainAndNetwork (contramap DirectChain tr)
+    connectToChain <- mockChainAndNetwork (contramap DirectChain tr) sKeys
     forM seedKeys $ \(sk, _csk) -> do
       outputs <- atomically newTQueue
       outputHistory <- newTVarIO []
@@ -467,38 +468,46 @@ seedWorld seedKeys = do
 
 mockChainAndNetwork ::
   ( MonadSTM m
-  , MonadTime m
-  , MonadCatch m
   , MonadTimer m
   , MonadThrow (STM m)
   ) =>
   Tracer m DirectChainLog ->
+  [VerificationKey PaymentKey] ->
   m (Hydra.BehaviorSpec.ConnectToChain Tx m)
-mockChainAndNetwork tr = do
+mockChainAndNetwork tr vkeys = do
   nodes <- newTVarIO []
   let chainComponent = \node -> do
         atomically $ modifyTVar nodes (node :)
+        let ctx =
+              S.ChainContext
+                { networkId = testNetworkId
+                , peerVerificationKeys = vkeys
+                , ownVerificationKey = undefined
+                , ownParty = undefined
+                , scriptRegistry = undefined
+                }
+            cs =
+              S.ChainStateAt
+                { chainState = S.Idle S.IdleState{S.ctx = ctx}
+                , recordedAt = ChainSlot 0
+                }
+        headState <- newTVarIO cs
         pure $
           node
             { hn = createMockNetwork node nodes
-            , oc = createMockChain tr
+            , oc = createMockChain tr headState
             }
-      -- history :: TVar m [PostChainTx tx]
-      -- history =
+      history = undefined
       tickThread = undefined
       rollbackAndForward = undefined
   return ConnectToChain{..}
 
 createMockChain ::
-  ( MonadSTM m
-  , MonadTime m
-  , MonadCatch m
-  , MonadTimer m
-  , MonadThrow (STM m)
-  ) =>
+  (MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
+  TVar m ChainStateAt ->
   Chain Tx m
-createMockChain tracer =
+createMockChain tracer headState =
   let queryTimeHandle = undefined
       wallet = undefined
       submitTx = undefined
