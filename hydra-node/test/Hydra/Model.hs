@@ -15,8 +15,8 @@
 -- to another party in full, without any change.
 --
 -- More intricate and specialised models shall be developed once we get a firmer grasp of
--- the whole framework, injecting faults, taking into account more parts of the stack (eg.
--- `Direct` chain component), modelling more complex transactions schemes...
+-- the whole framework, injecting faults, taking into account more parts of the stack,
+-- modelling more complex transactions schemes...
 --
 -- **NOTE**: This is still pretty much a work-in-progress esp. regarding the execution
 -- model as we explore different ways of putting this at work.
@@ -28,8 +28,8 @@ import Hydra.Prelude hiding (Any, label)
 import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
-import Control.Monad.Class.MonadAsync (async)
-import Control.Monad.Class.MonadSTM (modifyTVar, newTQueue, newTVarIO)
+import Control.Monad.Class.MonadAsync (Async, async)
+import Control.Monad.Class.MonadSTM (modifyTVar, newTQueue, newTVarIO, readTVarIO)
 import Data.List (nub)
 import qualified Data.List as List
 import Data.Map ((!))
@@ -46,14 +46,16 @@ import Hydra.BehaviorSpec (
   createHydraNode,
   createMockNetwork,
   createTestHydraNode,
+  handleChainEvent,
   waitMatch,
   waitUntil,
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
-import Hydra.Chain (Chain (..), ChainSlot (..), HeadParameters (..))
+import Hydra.Chain (Chain (..), ChainEvent (..), ChainSlot (..), HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.Chain.Direct.Handlers (DirectChainLog, mkChain)
+import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import qualified Hydra.Chain.Direct.State as S
 import Hydra.ContestationPeriod (ContestationPeriod)
@@ -385,7 +387,7 @@ deriving instance Eq (Action WorldState a)
 -- * Running the model
 
 runModel ::
-  (MonadAsync m, MonadCatch m, MonadTimer m, MonadThrow (STM m)) =>
+  (MonadAsync m, MonadCatch m, MonadTimer m, MonadTime m, MonadThrow (STM m)) =>
   RunModel WorldState (StateT (Nodes m) m)
 runModel = RunModel{perform}
  where
@@ -394,6 +396,7 @@ runModel = RunModel{perform}
     , MonadAsync m
     , MonadCatch m
     , MonadTimer m
+    , MonadTime m
     , MonadThrow (STM m)
     ) =>
     WorldState ->
@@ -434,14 +437,15 @@ seedWorld ::
   , MonadAsync m
   , MonadCatch m
   , MonadTimer m
+  , MonadTime m
   , MonadThrow (STM m)
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   StateT (Nodes m) m ()
 seedWorld seedKeys = do
   let parties = map (deriveParty . fst) seedKeys
-      -- TODO: how do we know which key belongs to us? Do we pick random one?
-      sKeys = getVerificationKey . signingKey . snd <$> seedKeys
+      -- NB: we pick the first key to be our own
+      vKeys = getVerificationKey . signingKey . snd <$> seedKeys
   tr <- gets logger
   nodes <- lift $ do
     let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
@@ -453,18 +457,27 @@ seedWorld seedKeys = do
             { chainState = error "should not access chainState"
             , recordedAt = Nothing
             }
-    connectToChain <- mockChainAndNetwork (contramap DirectChain tr) sKeys
-    forM seedKeys $ \(sk, _csk) -> do
+    nodes <- newTVarIO []
+    tickThread <- async $ simulateTicks nodes
+    connectToChain <-
+      mockChainAndNetwork (contramap DirectChain tr) vKeys parties tickThread nodes
+    forM seedKeys $ \(hsk, _csk) -> do
       outputs <- atomically newTQueue
       outputHistory <- newTVarIO []
-      let party = deriveParty sk
+      let party = deriveParty hsk
           otherParties = filter (/= party) parties
-      node <- createHydraNode ledger chainState sk otherParties outputs outputHistory connectToChain
+      node <- createHydraNode ledger chainState hsk otherParties outputs outputHistory connectToChain
       let testNode = createTestHydraNode outputs outputHistory node
       void $ async $ runHydraNode (contramap Node tr) node
       pure (party, testNode)
 
   modify $ \n -> n{nodes = Map.fromList nodes}
+ where
+  blockTime = 20 -- seconds
+  simulateTicks nodes = forever $ do
+    threadDelay blockTime
+    now <- getCurrentTime
+    readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
 
 mockChainAndNetwork ::
   ( MonadSTM m
@@ -473,18 +486,28 @@ mockChainAndNetwork ::
   ) =>
   Tracer m DirectChainLog ->
   [VerificationKey PaymentKey] ->
+  [Party] ->
+  Async m () ->
+  TVar m [HydraNode Tx m] ->
   m (Hydra.BehaviorSpec.ConnectToChain Tx m)
-mockChainAndNetwork tr vkeys = do
-  nodes <- newTVarIO []
+mockChainAndNetwork tr (vkey : vkeys) (us : _parties) tickThread nodes = do
+  history <- newTVarIO []
   let chainComponent = \node -> do
         atomically $ modifyTVar nodes (node :)
         let ctx =
               S.ChainContext
                 { networkId = testNetworkId
                 , peerVerificationKeys = vkeys
-                , ownVerificationKey = undefined
-                , ownParty = undefined
-                , scriptRegistry = undefined
+                , ownVerificationKey = vkey
+                , ownParty = us
+                , scriptRegistry =
+                    -- TODO: we probably want different _scripts_ as initial and commit one
+                    let txIn = mkMockTxIn vkey 0
+                        txOut = TxOut (mkVkAddress testNetworkId vkey) (lovelaceToValue 10_000_000) TxOutDatumNone ReferenceScriptNone
+                     in ScriptRegistry
+                          { initialReference = (txIn, txOut)
+                          , commitReference = (txIn, txOut)
+                          }
                 }
             cs =
               S.ChainStateAt
@@ -497,8 +520,6 @@ mockChainAndNetwork tr vkeys = do
             { hn = createMockNetwork node nodes
             , oc = createMockChain tr headState
             }
-      history = undefined
-      tickThread = undefined
       rollbackAndForward = undefined
   return ConnectToChain{..}
 

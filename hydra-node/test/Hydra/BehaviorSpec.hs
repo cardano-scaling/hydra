@@ -617,7 +617,8 @@ simulatedChainAndNetwork initialChainState = do
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev
 
-  handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
+handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
+handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
 
 createMockNetwork :: MonadSTM m => HydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
 createMockNetwork node nodes =
