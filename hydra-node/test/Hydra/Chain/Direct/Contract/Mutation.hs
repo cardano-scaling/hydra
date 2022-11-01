@@ -599,8 +599,7 @@ addPTWithQuantity tx quantity =
     case mintedValue of
       TxMintValue v _ -> do
         -- NOTE: We do not expect Ada or any other assets to be minted, so
-        -- we can take the policy id from the headtake the policy id from
-        -- the head.
+        -- we can take the policy id from the head
         case Prelude.head $ valueToList v of
           (AdaAssetId, _) -> error "unexpected mint of Ada"
           (AssetId pid _an, _) -> do

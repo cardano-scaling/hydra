@@ -22,7 +22,7 @@ import Plutus.V2.Ledger.Api (
   Interval (..),
   LowerBound (LowerBound),
   OutputDatum (..),
-  POSIXTime,
+  POSIXTime (POSIXTime),
   PubKeyHash (getPubKeyHash),
   Script,
   ScriptContext (..),
@@ -45,8 +45,10 @@ import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 import qualified PlutusTx.Builtins as Builtins
+import qualified PlutusTx.Prelude as Plutus
 
 -- REVIEW: Functions not re-exported "as V2", but using the same data types.
+
 import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 
 type DatumType = State
@@ -299,9 +301,25 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
 -- | Checks that the datum
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
-  case ivTo (txInfoValidRange scriptContextTxInfo) of
-    UpperBound (Finite time) _ -> addContestationPeriod time cperiod
-    _ -> traceError "no upper bound validaty interval defined for close"
+  let txValidFrom = ivFrom (txInfoValidRange scriptContextTxInfo)
+      txValidTo = ivTo (txInfoValidRange scriptContextTxInfo)
+   in case (txValidFrom, txValidTo) of
+        (LowerBound (Finite startTime) _, UpperBound (Finite endTime) _) ->
+          -- calculate new upper bound by adding the upper bound to the contestation period
+          let newUpperBound = addContestationPeriod endTime cperiod
+              -- FIXME: what do we do here? We need to say contest deadline is within
+              -- the reasonable bounds (so not 10 years in the future) but from where
+              -- do we get this value? We have access to the contest deadline but not a
+              -- way of saying that this contest deadline is reasonable.
+              -- One way could be to add contestationDeadline to the Open constructor too?
+              contestDeadline = newUpperBound Plutus.+ 1000 -- ?
+              withinBounds = newUpperBound - startTime < contestDeadline
+           in if withinBounds
+                then newUpperBound
+                else
+                  traceError
+                    "Invalid contestation deadline."
+        _ -> traceError "no lower/upper bound validity interval defined for close tx"
 {-# INLINEABLE makeContestationDeadline #-}
 
 -- | The contest validator must verify that:

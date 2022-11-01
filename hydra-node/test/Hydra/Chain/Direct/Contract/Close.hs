@@ -64,7 +64,7 @@ healthyCloseTx =
       }
 
 healthySlotNo :: SlotNo
-healthySlotNo = arbitrary `generateWith` 42
+healthySlotNo = arbitrary `suchThat` (< (SlotNo 20)) `generateWith` 42
 
 healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =

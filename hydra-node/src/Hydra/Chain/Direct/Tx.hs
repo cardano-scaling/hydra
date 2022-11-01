@@ -310,6 +310,8 @@ closeTx vk closing (slotNo, utcTime) openThreadOutput =
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
       & setValidityUpperBound slotNo
+      -- TODO: check if this is ok? we are using the same slot for lower/upper tx bound
+      & setValidityLowerBound slotNo
  where
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore)
