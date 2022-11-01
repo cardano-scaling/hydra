@@ -29,7 +29,7 @@ import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Monad.Class.MonadAsync (Async, async)
-import Control.Monad.Class.MonadSTM (modifyTVar, newTQueue, newTVarIO, readTVarIO)
+import Control.Monad.Class.MonadSTM (MonadSTM (newEmptyTMVar), modifyTVar, newTQueue, newTQueueIO, newTVarIO, readTVarIO, takeTMVar, writeTQueue)
 import Data.List (nub)
 import qualified Data.List as List
 import Data.Map ((!))
@@ -54,10 +54,11 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (Chain (..), ChainEvent (..), ChainSlot (..), HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.Chain.Direct.Handlers (DirectChainLog, mkChain)
+import Hydra.Chain.Direct.Handlers (DirectChainLog, SubmitTx, mkChain)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import qualified Hydra.Chain.Direct.State as S
+import Hydra.Chain.Direct.TimeHandle (TimeHandle, queryTimeHandle)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (Committed (), PendingCommits)
@@ -458,9 +459,12 @@ seedWorld seedKeys = do
             , recordedAt = Nothing
             }
     nodes <- newTVarIO []
+    queue <- newTQueueIO
     tickThread <- async $ simulateTicks nodes
+    -- TODO: how to connect the test cardano node here? we need socket path
+    timeHandle <- undefined -- liftIO $ queryTimeHandle testNetworkId socketPath
     connectToChain <-
-      mockChainAndNetwork (contramap DirectChain tr) vKeys parties tickThread nodes
+      mockChainAndNetwork (contramap DirectChain tr) vKeys parties tickThread nodes (submitTx queue) (pure timeHandle)
     forM seedKeys $ \(hsk, _csk) -> do
       outputs <- atomically newTQueue
       outputHistory <- newTVarIO []
@@ -479,6 +483,13 @@ seedWorld seedKeys = do
     now <- getCurrentTime
     readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
 
+  submitTx queue vtx = do
+    response <- atomically $ do
+      response <- newEmptyTMVar
+      writeTQueue queue (vtx, response)
+      return response
+    atomically (takeTMVar response)
+
 mockChainAndNetwork ::
   ( MonadSTM m
   , MonadTimer m
@@ -489,9 +500,10 @@ mockChainAndNetwork ::
   [Party] ->
   Async m () ->
   TVar m [HydraNode Tx m] ->
-  m (Hydra.BehaviorSpec.ConnectToChain Tx m)
-mockChainAndNetwork tr (vkey : vkeys) (us : _parties) tickThread nodes = do
-  history <- newTVarIO []
+  SubmitTx m ->
+  m TimeHandle ->
+  m (ConnectToChain Tx m)
+mockChainAndNetwork tr (vkey : vkeys) (us : _parties) tickThread nodes submitTx timeHandle = do
   let chainComponent = \node -> do
         atomically $ modifyTVar nodes (node :)
         let ctx =
@@ -503,7 +515,12 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) tickThread nodes = do
                 , scriptRegistry =
                     -- TODO: we probably want different _scripts_ as initial and commit one
                     let txIn = mkMockTxIn vkey 0
-                        txOut = TxOut (mkVkAddress testNetworkId vkey) (lovelaceToValue 10_000_000) TxOutDatumNone ReferenceScriptNone
+                        txOut =
+                          TxOut
+                            (mkVkAddress testNetworkId vkey)
+                            (lovelaceToValue 10_000_000)
+                            TxOutDatumNone
+                            ReferenceScriptNone
                      in ScriptRegistry
                           { initialReference = (txIn, txOut)
                           , commitReference = (txIn, txOut)
@@ -514,11 +531,10 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) tickThread nodes = do
                 { chainState = S.Idle S.IdleState{S.ctx = ctx}
                 , recordedAt = ChainSlot 0
                 }
-        headState <- newTVarIO cs
         pure $
           node
             { hn = createMockNetwork node nodes
-            , oc = createMockChain tr headState
+            , oc = createMockChain tr submitTx timeHandle
             }
       rollbackAndForward = undefined
   return ConnectToChain{..}
@@ -526,13 +542,13 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) tickThread nodes = do
 createMockChain ::
   (MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
-  TVar m ChainStateAt ->
+  SubmitTx m ->
+  m TimeHandle ->
   Chain Tx m
-createMockChain tracer headState =
-  let queryTimeHandle = undefined
-      wallet = undefined
-      submitTx = undefined
-   in mkChain tracer queryTimeHandle wallet submitTx
+createMockChain tracer submitTx timeHandle =
+  -- TODO: hook wallet here
+  let wallet = undefined
+   in mkChain tracer timeHandle wallet submitTx
 
 performCommit ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
