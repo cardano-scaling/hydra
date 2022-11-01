@@ -80,8 +80,7 @@ jobs:
       # The default shell does not allocate a TTY which breaks some tests
       shell: 'script -q -e -c "bash -eo pipefail {0}"'
       env:
-        TERM: "ansi-cup"
-      continue-on-error: true
+        TERM: "xterm-color"
       run: |
         nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
