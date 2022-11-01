@@ -80,7 +80,7 @@ jobs:
       # The default shell does not allocate a TTY which breaks some tests
       shell: 'script -q -e -c "bash {0}"'
       env:
-        TERM: "xterm"
+        TERM: "xterm-color"
       continue-on-error: true
       run: |
         nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
@@ -89,7 +89,7 @@ jobs:
       if: steps.test_tui.outcome=='failure'
       shell: 'script -q -e -c "bash {0}"'
       env:
-        TERM: "xterm"
+        TERM: "xterm-color"
       run: |
         nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
