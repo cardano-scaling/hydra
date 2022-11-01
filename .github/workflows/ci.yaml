@@ -84,6 +84,14 @@ jobs:
       run: |
         nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
+    - name: 💾 Upload failed test artifacts
+      uses: actions/upload-artifact@v3
+      if: failure() && steps.test_tui.outcome != 'success'
+      with:
+        name: test-failed-results
+        path: |
+          ./**/dist-newstyle/build/x86_64-linux/ghc-8.10.7/hydra-tui-0.8.0/t/tests/test/hydra-tui-0.8.0-tests.log
+
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -91,14 +99,6 @@ jobs:
         path: |
           ./**/test-results.xml
           ./**/hspec-results.md
-          
-    - name: 💾 Upload failed test artifacts
-      uses: actions/upload-artifact@v3
-      if: always() && steps.test_tui.outcome != 'success'
-      with:
-        name: test-failed-results
-        path: |
-          ./**/dist-newstyle/build/x86_64-linux/ghc-8.10.7/hydra-tui-0.8.0/t/tests/test/hydra-tui-0.8.0-tests.log
 
   build-executables:
     name: "Build using nix"
