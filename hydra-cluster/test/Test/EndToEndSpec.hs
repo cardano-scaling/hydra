@@ -49,13 +49,16 @@ import Hydra.Cluster.Fixture (
   carolSk,
   carolVk,
  )
-import Hydra.Cluster.Scenarios (restartANodeAfterHeadInitialized, singlePartyHeadFullLifeCycle)
+import Hydra.Cluster.Scenarios (
+  restartedNodeCanAbort,
+  singlePartyHeadFullLifeCycle,
+ )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Options (ChainConfig (startChainFrom), RunOptions)
+import Hydra.Options (ChainConfig (startChainFrom))
 import Hydra.Party (deriveParty)
 import HydraNode (
   CreateProcess (std_out),
@@ -73,10 +76,10 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
  )
+import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import System.IO (hGetLine)
-import System.Process (cleanupProcess, createProcess)
-import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import System.Process (withCreateProcess)
 import Test.QuickCheck (generate)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
@@ -94,13 +97,6 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyHeadFullLifeCycle tracer tmpDir node
-
-    describe "backup restore of a hydra head" $ do
-      it "start a hydra node and restart it" $ \tracer -> do
-        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= restartANodeAfterHeadInitialized tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
@@ -167,14 +163,21 @@ spec = around showLogsOnFailure $ do
                 waitFor tracer 3 [n1] $
                   output "HeadIsFinalized" ["utxo" .= u0]
 
-    describe "start chain observer from the past" $
-      it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
-        withTempDir "end-to-end-chain-observer" $ \tmp -> do
+    describe "restarting nodes" $ do
+      it "can abort head after restart" $ \tracer -> do
+        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= restartedNodeCanAbort tracer tmpDir node
+
+      it "can start chain from the past and replay on-chain events" $ \tracer ->
+        withTempDir "end-to-end-chain-observer" $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            tip <- withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+            let nodeId = 1
+            tip <- withHydraNode tracer aliceChainConfig tmp nodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
               seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
               tip <- queryTip networkId nodeSocket
               let contestationPeriod = 10 :: Natural
@@ -182,6 +185,13 @@ spec = around showLogsOnFailure $ do
               waitFor tracer 10 [n1] $
                 output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
               return tip
+
+            -- REVIEW: Do we want to keep this --start-chain-from feature or
+            -- replace it with an event source load from persistence?
+
+            -- NOTE: Need to clear persistence as we would load the state and
+            -- not resynchronize from chain
+            removeDirectoryRecursive $ tmp </> "state-" <> show nodeId
 
             let aliceChainConfig' =
                   aliceChainConfig
@@ -191,9 +201,8 @@ spec = around showLogsOnFailure $ do
               waitFor tracer 10 [n1] $
                 output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
 
-    describe "contestation scenarios" $ do
-      it "close of an initial snapshot from restarting node is contested" $ \tracer -> do
-        withTempDir "end-to-end-chain-observer" $ \tmp -> do
+      it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
+        withTempDir "end-to-end-chain-observer" $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
 
@@ -240,6 +249,10 @@ spec = around showLogsOnFailure $ do
 
                 waitMatch 10 n1 $ \v -> do
                   guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+
+              -- NOTE: Need to clear state on disk to have bob close with
+              -- initial snapshot
+              removeDirectoryRecursive $ tmp </> "state-" <> show bobNodeId
 
               withBobNode $ \n2 -> do
                 waitMatch 10 n2 $ \v -> do
@@ -309,7 +322,7 @@ spec = around showLogsOnFailure $ do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [Bob, Carol]
             bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice, Carol]
-            carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket [Bob, Carol]
+            carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket [Alice, Bob]
             failAfter 20 $
               withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds hydraScriptsTxId $ \n1 ->
                 withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds hydraScriptsTxId $ \n2 ->
@@ -327,20 +340,17 @@ spec = around showLogsOnFailure $ do
         failAfter 5 $ do
           version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
-      it "hydra-node logs it's command line arguments" $ \_ -> do
+
+      it "logs its command line arguments" $ \_ -> do
         failAfter 60 $
           withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
             let hydraSK = dir </> "hydra.sk"
             hydraSKey :: SigningKey HydraKey <- generate arbitrary
             void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
-            bracket
-              (createProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe})
-              cleanupProcess
-              ( \(_, Just nodeOutput, _, _) -> do
-                  out <- hGetLine nodeOutput
-                  out ^? key "message" . key "node" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
-              )
-        hspec $ roundtripAndGoldenSpecs (Proxy @RunOptions)
+            withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
+              \_ (Just nodeOutput) _ _ -> do
+                out <- hGetLine nodeOutput
+                out ^? key "message" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do

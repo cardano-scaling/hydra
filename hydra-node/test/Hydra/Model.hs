@@ -49,8 +49,9 @@ import Hydra.BehaviorSpec (
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
-import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain (ChainSlot (..), HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
+import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (Committed (), PendingCommits)
@@ -439,14 +440,22 @@ seedWorld seedKeys = do
   tr <- gets logger
   nodes <- lift $ do
     let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
-    connectToChain <- simulatedChainAndNetwork
+    -- XXX: Defining the concrete 'ChainState' here is weird. The simulated
+    -- chain shares the provided chainState between all nodes. However, the
+    -- normal (non SimpleTx) chain state is node specific (it's context).
+    let chainState =
+          ChainStateAt
+            { chainState = error "should not access chainState"
+            , recordedAt = ChainSlot 0
+            }
+    connectToChain <- simulatedChainAndNetwork chainState
     forM seedKeys $ \(sk, _csk) -> do
       outputs <- atomically newTQueue
       outputHistory <- newTVarIO []
       let party = deriveParty sk
           otherParties = filter (/= party) parties
-      node <- createHydraNode ledger sk otherParties outputs outputHistory connectToChain
-      let testNode = createTestHydraNode outputs outputHistory node connectToChain
+      node <- createHydraNode ledger chainState sk otherParties outputs outputHistory connectToChain
+      let testNode = createTestHydraNode outputs outputHistory node
       void $ async $ runHydraNode tr node
       pure (party, testNode)
 

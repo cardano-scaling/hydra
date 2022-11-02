@@ -24,7 +24,10 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
+  ChainSlot,
+  ChainStateType,
   HeadParameters (..),
+  IsChainState (chainStateSlot),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError,
@@ -63,10 +66,19 @@ data Event tx
     OnChainEvent {chainEvent :: ChainEvent tx}
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving stock (Generic)
 
-instance IsTx tx => Arbitrary (Event tx) where
+deriving instance (IsTx tx, IsChainState tx) => Eq (Event tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (Event tx)
+deriving instance (IsTx tx, IsChainState tx) => ToJSON (Event tx)
+deriving instance (IsTx tx, IsChainState tx) => FromJSON (Event tx)
+
+instance
+  ( IsTx tx
+  , Arbitrary (ChainStateType tx)
+  ) =>
+  Arbitrary (Event tx)
+  where
   arbitrary = genericArbitrary
 
 -- | Analogous to events, the pure head logic "core" can have effects emited to
@@ -78,16 +90,21 @@ data Effect tx
   | -- | Effect to be handled by a "Hydra.Network", results in a 'Hydra.Network.broadcast'.
     NetworkEffect {message :: Message tx}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.
-    OnChainEffect {onChainTx :: PostChainTx tx}
+    OnChainEffect {chainState :: ChainStateType tx, postChainTx :: PostChainTx tx}
   deriving stock (Generic)
 
-instance IsTx tx => Arbitrary (Effect tx) where
-  arbitrary = genericArbitrary
+deriving instance (IsTx tx, IsChainState tx) => Eq (Effect tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (Effect tx)
+deriving instance (IsTx tx, IsChainState tx) => ToJSON (Effect tx)
+deriving instance (IsTx tx, IsChainState tx) => FromJSON (Effect tx)
 
-deriving instance IsTx tx => Eq (Effect tx)
-deriving instance IsTx tx => Show (Effect tx)
-deriving instance IsTx tx => ToJSON (Effect tx)
-deriving instance IsTx tx => FromJSON (Effect tx)
+instance
+  ( IsTx tx
+  , Arbitrary (ChainStateType tx)
+  ) =>
+  Arbitrary (Effect tx)
+  where
+  arbitrary = genericArbitrary
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
@@ -109,17 +126,19 @@ deriving instance IsTx tx => FromJSON (Effect tx)
 -- practice, clients should not send transactions right way but wait for a
 -- certain grace period to minimize the risk.
 data HeadState tx
-  = IdleState
+  = IdleState {chainState :: ChainStateType tx}
   | InitialState
       { parameters :: HeadParameters
       , pendingCommits :: PendingCommits
       , committed :: Committed tx
       , previousRecoverableState :: HeadState tx
+      , chainState :: ChainStateType tx
       }
   | OpenState
       { parameters :: HeadParameters
       , coordinatedHeadState :: CoordinatedHeadState tx
       , previousRecoverableState :: HeadState tx
+      , chainState :: ChainStateType tx
       }
   | ClosedState
       { parameters :: HeadParameters
@@ -129,16 +148,24 @@ data HeadState tx
       , -- | Tracks whether we have informed clients already about being
         -- 'ReadyToFanout'.
         readyToFanoutSent :: Bool
+      , chainState :: ChainStateType tx
       }
   deriving stock (Generic)
 
-instance IsTx tx => Arbitrary (HeadState tx) where
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
 
-deriving instance IsTx tx => Eq (HeadState tx)
-deriving instance IsTx tx => Show (HeadState tx)
-deriving instance IsTx tx => ToJSON (HeadState tx)
-deriving instance IsTx tx => FromJSON (HeadState tx)
+deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
+deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (HeadState tx)
+deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (HeadState tx)
+deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
+
+getChainState :: HeadState tx -> ChainStateType tx
+getChainState hs = case hs of
+  IdleState{chainState} -> chainState
+  InitialState{chainState} -> chainState
+  OpenState{chainState} -> chainState
+  ClosedState{chainState} -> chainState
 
 type Committed tx = Map Party (UTxOType tx)
 
@@ -198,15 +225,15 @@ data LogicError tx
   | LedgerError ValidationError
   deriving stock (Generic)
 
-instance IsTx tx => Exception (LogicError tx)
+instance (Typeable tx, Show (Event tx), Show (HeadState tx)) => Exception (LogicError tx)
 
-instance IsTx tx => Arbitrary (LogicError tx) where
+instance (Arbitrary (Event tx), Arbitrary (HeadState tx)) => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
 
-deriving instance IsTx tx => ToJSON (LogicError tx)
-deriving instance IsTx tx => FromJSON (LogicError tx)
 deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
 deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
+deriving instance (ToJSON (Event tx), ToJSON (HeadState tx)) => ToJSON (LogicError tx)
+deriving instance (FromJSON (Event tx), FromJSON (HeadState tx)) => FromJSON (LogicError tx)
 
 data Outcome tx
   = OnlyEffects [Effect tx]
@@ -214,8 +241,8 @@ data Outcome tx
   | Wait WaitReason
   | Error (LogicError tx)
 
-deriving instance IsTx tx => Eq (Outcome tx)
-deriving instance IsTx tx => Show (Outcome tx)
+deriving instance (IsTx tx, IsChainState tx) => Eq (Outcome tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (Outcome tx)
 
 data WaitReason
   = WaitOnNotApplicableTx {validationError :: ValidationError}
@@ -248,14 +275,16 @@ data Environment = Environment
 --
 -- __Transition__: 'IdleState' → 'IdleState'
 onIdleClientInit ::
+  -- | Current chain state
+  ChainStateType tx ->
   -- | Us
   Party ->
   -- | Others
   [Party] ->
   ContestationPeriod ->
   Outcome tx
-onIdleClientInit party otherParties contestationPeriod =
-  OnlyEffects [OnChainEffect (InitTx parameters)]
+onIdleClientInit chainState party otherParties contestationPeriod =
+  OnlyEffects [OnChainEffect{chainState, postChainTx = InitTx parameters}]
  where
   parameters =
     HeadParameters
@@ -267,14 +296,22 @@ onIdleClientInit party otherParties contestationPeriod =
 -- notify clients that they can now commit.
 --
 -- __Transition__: 'IdleState' → 'InitialState'
-onIdleChainInitTx :: [Party] -> ContestationPeriod -> Outcome tx
-onIdleChainInitTx parties contestationPeriod =
+onIdleChainInitTx ::
+  -- | Current head state.
+  HeadState tx ->
+  -- | New chain state.
+  ChainStateType tx ->
+  [Party] ->
+  ContestationPeriod ->
+  Outcome tx
+onIdleChainInitTx headState newChainState parties contestationPeriod =
   NewState
     ( InitialState
         { parameters = HeadParameters{contestationPeriod, parties}
         , pendingCommits = Set.fromList parties
         , committed = mempty
-        , previousRecoverableState = IdleState
+        , previousRecoverableState = headState
+        , chainState = newChainState
         }
     )
     [ClientEffect $ ReadyToCommit $ fromList parties]
@@ -285,16 +322,18 @@ onIdleChainInitTx parties contestationPeriod =
 --
 -- __Transition__: 'InitialState' → 'InitialState'
 onInitialClientCommit ::
+  -- | Current chain state
+  ChainStateType tx ->
   Party ->
   PendingCommits ->
   ClientInput tx ->
   Outcome tx
-onInitialClientCommit party pendingCommits clientInput =
+onInitialClientCommit chainState party pendingCommits clientInput =
   case clientInput of
     (Commit utxo)
       -- REVIEW: Is 'canCommit' something we want to handle here or have the OCV
       -- deal with it?
-      | canCommit -> OnlyEffects [OnChainEffect (CommitTx party utxo)]
+      | canCommit -> OnlyEffects [OnChainEffect{chainState, postChainTx = CommitTx party utxo}]
     _ -> OnlyEffects [ClientEffect $ CommandFailed clientInput]
  where
   canCommit = party `Set.member` pendingCommits
@@ -306,10 +345,12 @@ onInitialClientCommit party pendingCommits clientInput =
 -- __Transition__: 'InitialState' → 'InitialState'
 onInitialChainCommitTx ::
   Monoid (UTxOType tx) =>
+  -- | Current head state; recorded as previous recoverable state
+  HeadState tx ->
+  -- | New chain state
+  ChainStateType tx ->
   -- | Us
   Party ->
-  -- | Current state; recorded as previous recoverable state
-  HeadState tx ->
   HeadParameters ->
   PendingCommits ->
   Committed tx ->
@@ -318,17 +359,23 @@ onInitialChainCommitTx ::
   -- | Committed UTxO
   UTxOType tx ->
   Outcome tx
-onInitialChainCommitTx party previousRecoverableState parameters pendingCommits committed pt utxo =
+onInitialChainCommitTx headState newChainState party parameters pendingCommits committed pt utxo =
   NewState newHeadState $
     [ClientEffect $ Committed pt utxo]
-      <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
+      <> [ OnChainEffect
+          { chainState = newChainState
+          , postChainTx = CollectComTx collectedUTxO
+          }
+         | canCollectCom
+         ]
  where
   newHeadState =
     InitialState
       { parameters
       , pendingCommits = remainingParties
       , committed = newCommitted
-      , previousRecoverableState
+      , previousRecoverableState = headState
+      , chainState = newChainState
       }
   remainingParties = Set.delete pt pendingCommits
   newCommitted = Map.insert pt utxo committed
@@ -339,17 +386,29 @@ onInitialChainCommitTx party previousRecoverableState parameters pendingCommits 
 -- chain, reimbursing already committed UTxOs.
 --
 -- __Transition__: 'InitialState' → 'InitialState'
-onInitialClientAbort :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
-onInitialClientAbort committed =
-  OnlyEffects [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
+onInitialClientAbort ::
+  Monoid (UTxOType tx) =>
+  -- | Current chain state
+  ChainStateType tx ->
+  Committed tx ->
+  Outcome tx
+onInitialClientAbort chainState committed =
+  OnlyEffects [OnChainEffect{chainState, postChainTx = AbortTx (mconcat $ Map.elems committed)}]
 
 -- | Observe an abort transaction by switching the state and notifying clients
 -- about it.
 --
 -- __Transition__: 'InitialState' → 'IdleState'
-onInitialChainAbortTx :: Monoid (UTxOType tx) => Committed tx -> Outcome tx
-onInitialChainAbortTx committed =
-  NewState IdleState [ClientEffect $ HeadIsAborted $ fold committed]
+onInitialChainAbortTx ::
+  Monoid (UTxOType tx) =>
+  -- | New chain state
+  ChainStateType tx ->
+  Committed tx ->
+  Outcome tx
+onInitialChainAbortTx newChainState committed =
+  NewState
+    IdleState{chainState = newChainState}
+    [ClientEffect $ HeadIsAborted $ fold committed]
 
 -- | Observe a collectCom transaction. We initialize the 'OpenState' using the
 -- head parameters from 'IdleState' and construct an 'InitialSnapshot' holding
@@ -358,12 +417,14 @@ onInitialChainAbortTx committed =
 -- __Transition__: 'InitialState' → 'OpenState'
 onInitialChainCollectTx ::
   (Foldable t, Monoid (UTxOType tx)) =>
-  -- | Current state; recorded as previous recoverable state
+  -- | Current head state; recorded as previous recoverable state
   HeadState tx ->
+  -- | New chain state
+  ChainStateType tx ->
   HeadParameters ->
   t (UTxOType tx) ->
   Outcome tx
-onInitialChainCollectTx previousRecoverableState parameters committed =
+onInitialChainCollectTx headState newChainState parameters committed =
   -- TODO: We would want to check whether this even matches our local state.
   -- For example, we do expect `null remainingParties` but what happens if
   -- it's untrue?
@@ -374,7 +435,8 @@ onInitialChainCollectTx previousRecoverableState parameters committed =
             { parameters
             , coordinatedHeadState =
                 CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
-            , previousRecoverableState
+            , previousRecoverableState = headState
+            , chainState = newChainState
             }
         )
         [ClientEffect $ HeadIsOpen u0]
@@ -417,14 +479,16 @@ onOpenClientNewTx ledger party utxo tx =
 onOpenNetworkReqTx ::
   Ledger tx ->
   HeadParameters ->
-  -- | Current state; recorded as previous recoverable state
+  -- | Previous recoverable state (to re-create OpenState)
   HeadState tx ->
+  -- | Current chain state (to re-create OpenState)
+  ChainStateType tx ->
   -- | The offchain coordinated head state
   CoordinatedHeadState tx ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx ledger parameters previousRecoverableState headState@CoordinatedHeadState{seenTxs, seenUTxO} tx =
+onOpenNetworkReqTx ledger parameters previousRecoverableState chainState headState@CoordinatedHeadState{seenTxs, seenUTxO} tx =
   case applyTransactions ledger seenUTxO [tx] of
     Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
     Right utxo' ->
@@ -438,6 +502,7 @@ onOpenNetworkReqTx ledger parameters previousRecoverableState headState@Coordina
                       , seenUTxO = utxo'
                       }
                 , previousRecoverableState
+                , chainState
                 }
             )
             [ClientEffect $ TxSeen tx]
@@ -470,8 +535,10 @@ onOpenNetworkReqSn ::
   Ledger tx ->
   Party ->
   SigningKey HydraKey ->
-  -- | Current state; recorded as previous recoverable state
+  -- | Previous recoverable state (to re-create OpenState)
   HeadState tx ->
+  -- | Current chain state (to re-create OpenState)
+  ChainStateType tx ->
   HeadParameters ->
   -- | The offchain coordinated head state
   CoordinatedHeadState tx ->
@@ -486,6 +553,7 @@ onOpenNetworkReqSn
   party
   signingKey
   previousRecoverableState
+  chainState
   parameters
   s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}
   otherParty
@@ -513,6 +581,7 @@ onOpenNetworkReqSn
                     { parameters
                     , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
                     , previousRecoverableState
+                    , chainState
                     }
                 )
                 [NetworkEffect $ AckSn party snapshotSignature sn]
@@ -558,8 +627,10 @@ onOpenNetworkAckSn ::
   [Party] ->
   Party ->
   HeadParameters ->
-  -- | Current state; recorded as previous recoverable state
+  -- | Previous recoverable state (to re-create OpenState)
   HeadState tx ->
+  -- | Current chain state (to re-create OpenState)
+  ChainStateType tx ->
   Signature (Snapshot tx) ->
   -- | The offchain coordinated head state
   CoordinatedHeadState tx ->
@@ -570,6 +641,7 @@ onOpenNetworkAckSn
   otherParty
   parameters
   previousRecoverableState
+  chainState
   snapshotSignature
   headState@CoordinatedHeadState{seenSnapshot, seenTxs}
   sn =
@@ -601,6 +673,7 @@ onOpenNetworkAckSn
                               , seenTxs = seenTxs \\ confirmed snapshot
                               }
                         , previousRecoverableState
+                        , chainState
                         }
                     )
                     [ClientEffect $ SnapshotConfirmed snapshot multisig]
@@ -613,6 +686,7 @@ onOpenNetworkAckSn
                               { seenSnapshot = SeenSnapshot snapshot sigs'
                               }
                         , previousRecoverableState
+                        , chainState
                         }
                     )
                     []
@@ -623,9 +697,13 @@ onOpenNetworkAckSn
 -- chain using the latest confirmed snaphshot of the 'OpenState'.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
-onOpenClientClose :: ConfirmedSnapshot tx -> Outcome tx
-onOpenClientClose confirmedSnapshot =
-  OnlyEffects [OnChainEffect (CloseTx confirmedSnapshot)]
+onOpenClientClose ::
+  -- | Current chain state
+  ChainStateType tx ->
+  ConfirmedSnapshot tx ->
+  Outcome tx
+onOpenClientClose chainState confirmedSnapshot =
+  OnlyEffects [OnChainEffect{chainState, postChainTx = CloseTx confirmedSnapshot}]
 
 -- | Observe a close transaction. If the closed snapshot number is smaller than
 -- our last confirmed, we post a contest transaction. Also, we do schedule a
@@ -634,8 +712,10 @@ onOpenClientClose confirmedSnapshot =
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
   HeadParameters ->
-  -- | Current state; recorded as previous recoverable state
+  -- | Current head state; recorded as previous recoverable state
   HeadState tx ->
+  -- | New chain state
+  ChainStateType tx ->
   -- | The offchain coordinated head state
   CoordinatedHeadState tx ->
   SnapshotNumber ->
@@ -643,7 +723,8 @@ onOpenChainCloseTx ::
   Outcome tx
 onOpenChainCloseTx
   parameters
-  previousRecoverableState
+  headState
+  newChainState
   coordinatedHeadState
   closedSnapshotNumber
   contestationDeadline =
@@ -653,17 +734,24 @@ onOpenChainCloseTx
     --   b) Move to close state, using information from the close tx
     NewState closedState $
       ClientEffect headIsClosed :
-        [OnChainEffect ContestTx{confirmedSnapshot} | onChainEffectCondition]
+        [ OnChainEffect
+          { -- XXX: Field access on sum-type.
+            chainState = getField @"chainState" headState
+          , postChainTx = ContestTx{confirmedSnapshot}
+          }
+        | onChainEffectCondition
+        ]
    where
     CoordinatedHeadState{confirmedSnapshot} =
       coordinatedHeadState
     closedState =
       ClosedState
         { parameters
-        , previousRecoverableState
         , confirmedSnapshot
         , contestationDeadline
         , readyToFanoutSent = False
+        , previousRecoverableState = headState
+        , chainState = newChainState
         }
     headIsClosed =
       HeadIsClosed
@@ -677,12 +765,17 @@ onOpenChainCloseTx
 -- than our last confirmed snapshot, we post a contest transaction.
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
-onClosedChainContestTx :: ConfirmedSnapshot tx -> SnapshotNumber -> Outcome tx
-onClosedChainContestTx confirmedSnapshot snapshotNumber
+onClosedChainContestTx ::
+  -- | Current chain state
+  ChainStateType tx ->
+  ConfirmedSnapshot tx ->
+  SnapshotNumber ->
+  Outcome tx
+onClosedChainContestTx chainState confirmedSnapshot snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
     OnlyEffects
       [ ClientEffect HeadIsContested{snapshotNumber}
-      , OnChainEffect ContestTx{confirmedSnapshot}
+      , OnChainEffect{chainState, postChainTx = ContestTx{confirmedSnapshot}}
       ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
     -- TODO: A more recent snapshot number was succesfully contested, we will
@@ -695,24 +788,36 @@ onClosedChainContestTx confirmedSnapshot snapshotNumber
 -- latest confirmed snapshot from 'ClosedState'.
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
-onClosedClientFanout :: ConfirmedSnapshot tx -> UTCTime -> Outcome tx
-onClosedClientFanout confirmedSnapshot contestationDeadline =
+onClosedClientFanout ::
+  -- | Current chain state
+  ChainStateType tx ->
+  ConfirmedSnapshot tx ->
+  UTCTime ->
+  Outcome tx
+onClosedClientFanout chainState confirmedSnapshot contestationDeadline =
   OnlyEffects
     [ OnChainEffect
-        FanoutTx
-          { utxo = getField @"utxo" $ getSnapshot confirmedSnapshot
-          , contestationDeadline
-          }
+        { chainState
+        , postChainTx =
+            FanoutTx
+              { utxo = getField @"utxo" $ getSnapshot confirmedSnapshot
+              , contestationDeadline
+              }
+        }
     ]
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.
 --
 -- __Transition__: 'ClosedState' → 'IdleState'
-onClosedChainFanoutTx :: ConfirmedSnapshot tx -> Outcome tx
-onClosedChainFanoutTx confirmedSnapshot =
+onClosedChainFanoutTx ::
+  -- | New chain state
+  ChainStateType tx ->
+  ConfirmedSnapshot tx ->
+  Outcome tx
+onClosedChainFanoutTx newChainState confirmedSnapshot =
   NewState
-    IdleState
+    IdleState{chainState = newChainState}
     [ ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot
     ]
 
@@ -721,84 +826,102 @@ onClosedChainFanoutTx confirmedSnapshot =
 --
 -- __Transition__: 'OpenState' → 'HeadState'
 onCurrentChainRollback ::
+  (IsChainState tx) =>
   HeadState tx ->
-  -- | Number of transitions/states to rollback.
-  Word ->
+  ChainSlot ->
   Outcome tx
-onCurrentChainRollback currentState n =
-  NewState (rollback n currentState) [ClientEffect RolledBack]
+onCurrentChainRollback currentState slot =
+  NewState (rollback slot currentState) [ClientEffect RolledBack]
+ where
+  rollback rollbackSlot hs
+    | chainStateSlot (getChainState hs) <= rollbackSlot = hs
+    | otherwise =
+      case hs of
+        IdleState{} -> hs
+        InitialState{previousRecoverableState} ->
+          rollback rollbackSlot previousRecoverableState
+        OpenState{previousRecoverableState} ->
+          rollback rollbackSlot previousRecoverableState
+        ClosedState{previousRecoverableState} ->
+          rollback rollbackSlot previousRecoverableState
 
 -- | The "pure core" of the Hydra node, which handles the 'Event' against a
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
 -- outcomes handled by the "Hydra.Node".
 update ::
-  IsTx tx =>
+  (IsTx tx, IsChainState tx) =>
   Environment ->
   Ledger tx ->
   HeadState tx ->
   Event tx ->
   Outcome tx
 update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
-  (IdleState, ClientEvent (Init contestationPeriod)) ->
-    onIdleClientInit party otherParties contestationPeriod
-  (IdleState, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
-    onIdleChainInitTx parties contestationPeriod
-  (InitialState{pendingCommits}, ClientEvent clientInput@(Commit _)) ->
-    onInitialClientCommit party pendingCommits clientInput
-  ( previousRecoverableState@InitialState{parameters, pendingCommits, committed}
-    , OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})
+  (IdleState{chainState}, ClientEvent (Init contestationPeriod)) ->
+    onIdleClientInit chainState party otherParties contestationPeriod
+  (IdleState{}, OnChainEvent (Observation{observedTx = OnInitTx{contestationPeriod, parties}, newChainState})) ->
+    onIdleChainInitTx st newChainState parties contestationPeriod
+  (InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
+    onInitialClientCommit chainState party pendingCommits clientInput
+  ( InitialState{parameters, pendingCommits, committed}
+    , OnChainEvent (Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState})
     ) ->
-      onInitialChainCommitTx party previousRecoverableState parameters pendingCommits committed pt utxo
+      onInitialChainCommitTx st newChainState party parameters pendingCommits committed pt utxo
   (InitialState{committed}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
-  (InitialState{committed}, ClientEvent Abort) ->
-    onInitialClientAbort committed
-  (_, OnChainEvent (Observation OnCommitTx{})) ->
+  (InitialState{chainState, committed}, ClientEvent Abort) ->
+    onInitialClientAbort chainState committed
+  (_, OnChainEvent (Observation{observedTx = OnCommitTx{}})) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting (initial) state, if we do,
     --       there's an issue our logic or onChain layer.
     OnlyEffects []
-  (prev@InitialState{parameters, committed}, OnChainEvent (Observation OnCollectComTx{})) ->
-    onInitialChainCollectTx prev parameters committed
-  (InitialState{committed}, OnChainEvent (Observation OnAbortTx{})) ->
-    onInitialChainAbortTx committed
-  (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
-    onOpenClientClose confirmedSnapshot
-  (ClosedState{confirmedSnapshot, contestationDeadline}, ClientEvent Fanout) ->
-    onClosedClientFanout confirmedSnapshot contestationDeadline
+  (InitialState{parameters, committed}, OnChainEvent (Observation{observedTx = OnCollectComTx{}, newChainState})) ->
+    onInitialChainCollectTx st newChainState parameters committed
+  (InitialState{committed}, OnChainEvent (Observation{observedTx = OnAbortTx{}, newChainState})) ->
+    onInitialChainAbortTx newChainState committed
+  (OpenState{chainState, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
+    onOpenClientClose chainState confirmedSnapshot
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   ( OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}
     , ClientEvent (NewTx tx)
     ) ->
       onOpenClientNewTx ledger party utxo tx
-  (OpenState{parameters, coordinatedHeadState, previousRecoverableState}, NetworkEvent ttl (ReqTx _ tx))
+  (OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState}, NetworkEvent ttl (ReqTx _ tx))
     | ttl == 0 ->
       OnlyEffects [ClientEffect $ TxExpired tx]
     | otherwise ->
-      onOpenNetworkReqTx ledger parameters previousRecoverableState coordinatedHeadState tx
+      -- XXX: This is decomposing 'OpenState', only to re-compose it inside this
+      -- function. Create a dedicated OpenState type!
+      onOpenNetworkReqTx ledger parameters previousRecoverableState chainState coordinatedHeadState tx
   ( OpenState
       { parameters
       , coordinatedHeadState = s@CoordinatedHeadState{}
       , previousRecoverableState
+      , chainState
       }
     , evt@(NetworkEvent _ (ReqSn otherParty sn txs))
     ) ->
-      onOpenNetworkReqSn ledger party signingKey previousRecoverableState parameters s otherParty sn txs st evt
+      -- XXX: This is decomposing 'OpenState', only to re-compose it inside this
+      -- function. Create a dedicated OpenState type!
+      onOpenNetworkReqSn ledger party signingKey previousRecoverableState chainState parameters s otherParty sn txs st evt
   ( OpenState
       { parameters = parameters@HeadParameters{parties}
       , coordinatedHeadState = headState@CoordinatedHeadState{}
       , previousRecoverableState
+      , chainState
       }
     , NetworkEvent _ (AckSn otherParty snapshotSignature sn)
     ) ->
-      onOpenNetworkAckSn parties otherParty parameters previousRecoverableState snapshotSignature headState sn
-  ( prev@OpenState{parameters, coordinatedHeadState}
-    , OnChainEvent (Observation OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline})
+      -- XXX: This is decomposing 'OpenState', only to re-compose it inside this
+      -- function. Create a dedicated OpenState type!
+      onOpenNetworkAckSn parties otherParty parameters previousRecoverableState chainState snapshotSignature headState sn
+  ( OpenState{parameters, coordinatedHeadState}
+    , OnChainEvent (Observation{observedTx = OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState})
     ) ->
-      onOpenChainCloseTx parameters prev coordinatedHeadState closedSnapshotNumber contestationDeadline
-  (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnContestTx{snapshotNumber})) ->
-    onClosedChainContestTx confirmedSnapshot snapshotNumber
+      onOpenChainCloseTx parameters st newChainState coordinatedHeadState closedSnapshotNumber contestationDeadline
+  (ClosedState{chainState, confirmedSnapshot}, OnChainEvent (Observation{observedTx = OnContestTx{snapshotNumber}})) ->
+    onClosedChainContestTx chainState confirmedSnapshot snapshotNumber
   (cst@ClosedState{contestationDeadline, readyToFanoutSent}, OnChainEvent (Tick chainTime))
     | chainTime > contestationDeadline && not readyToFanoutSent ->
       NewState
@@ -806,10 +929,12 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         -- 'HeadState' to hold individual 'ClosedState' etc. types
         (cst{readyToFanoutSent = True})
         [ClientEffect ReadyToFanout]
-  (ClosedState{confirmedSnapshot}, OnChainEvent (Observation OnFanoutTx{})) ->
-    onClosedChainFanoutTx confirmedSnapshot
-  (currentState, OnChainEvent (Rollback n)) ->
-    onCurrentChainRollback currentState n
+  (ClosedState{chainState, confirmedSnapshot, contestationDeadline}, ClientEvent Fanout) ->
+    onClosedClientFanout chainState confirmedSnapshot contestationDeadline
+  (ClosedState{confirmedSnapshot}, OnChainEvent (Observation{observedTx = OnFanoutTx{}, newChainState})) ->
+    onClosedChainFanoutTx newChainState confirmedSnapshot
+  (currentState, OnChainEvent (Rollback slot)) ->
+    onCurrentChainRollback currentState slot
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
   (_, NetworkEvent _ (Connected nodeId)) ->
@@ -862,42 +987,16 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 -- 'onOpenNetworkReqTx' and 'onOpenNetworkAckSn'?
 emitSnapshot :: IsTx tx => Environment -> [Effect tx] -> HeadState tx -> (HeadState tx, [Effect tx])
 emitSnapshot env@Environment{party} effects = \case
-  st@OpenState{parameters, coordinatedHeadState, previousRecoverableState} ->
+  st@OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState} ->
     case newSn env parameters coordinatedHeadState of
       ShouldSnapshot sn txs ->
         ( OpenState
             { parameters
             , coordinatedHeadState = coordinatedHeadState{seenSnapshot = RequestedSnapshot}
             , previousRecoverableState
+            , chainState
             }
         , NetworkEffect (ReqSn party sn txs) : effects
         )
       _ -> (st, effects)
   st -> (st, effects)
-
--- | Unwind the 'HeadState' to some /depth/.
---
--- The 'HeadState' is rolled back a number of times to some previous state. It's an
--- 'error' to call this function with a 'depth' that's larger than the current state depth.
--- See 'Hydra.Chain.Direct.rollback' for the on-chain counterpart to this function.
-rollback ::
-  HasCallStack =>
-  -- | /Depth/ of states/transition to rollback.
-  Word ->
-  HeadState tx ->
-  HeadState tx
-rollback depth
-  | depth == 0 =
-    identity
-  | otherwise =
-    rollback (pred depth) . \case
-      IdleState ->
-        -- NOTE: Before we were erroring here, but as we now load the chain and
-        -- head state separately, this can actually happen. We can ignore it
-        IdleState
-      InitialState{previousRecoverableState} ->
-        previousRecoverableState
-      OpenState{previousRecoverableState} ->
-        previousRecoverableState
-      ClosedState{previousRecoverableState} ->
-        previousRecoverableState

@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Specifies the /Head-Chain Interaction/ part of the protocol
@@ -114,46 +116,90 @@ data PostTxError tx
     PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
   | NoSeedInput
   | NoPaymentInput
-  | InvalidStateToPost {txTried :: PostChainTx tx}
+  | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
   | UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
-  deriving (Exception, Generic, ToJSON, FromJSON)
+  deriving (Generic)
 
-deriving instance IsTx tx => Eq (PostTxError tx)
-deriving instance IsTx tx => Show (PostTxError tx)
+deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (PostTxError tx)
+deriving instance (IsTx tx, IsChainState tx) => ToJSON (PostTxError tx)
+deriving instance (IsTx tx, IsChainState tx) => FromJSON (PostTxError tx)
 
-instance IsTx tx => Arbitrary (PostTxError tx) where
+instance (IsTx tx, IsChainState tx) => Exception (PostTxError tx)
+
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PostTxError tx) where
+  arbitrary = genericArbitrary
+
+-- | Interface available from a chain state. Expected to be instantiated by all
+-- 'ChainStateType tx'.
+class
+  ( IsTx tx
+  , Eq (ChainStateType tx)
+  , Show (ChainStateType tx)
+  , FromJSON (ChainStateType tx)
+  , ToJSON (ChainStateType tx)
+  ) =>
+  IsChainState tx
+  where
+  -- | Types of what to keep as L1 chain state.
+  type ChainStateType tx = c | c -> tx
+
+  -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
+  -- encountered, we assume monotonically increasing slots.
+  chainStateSlot :: ChainStateType tx -> ChainSlot
+
+-- | A generic description for a chain slot all implementions need to use.
+newtype ChainSlot = ChainSlot Natural
+  deriving (Ord, Eq, Show, Generic)
+  deriving newtype (ToJSON, FromJSON)
+
+-- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'
+-- instances to 'ChainSlot'.
+nextChainSlot :: ChainSlot -> ChainSlot
+nextChainSlot (ChainSlot n) = ChainSlot (n + 1)
+
+instance Arbitrary ChainSlot where
   arbitrary = genericArbitrary
 
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain
   { -- | Construct and send a transaction to the main chain corresponding to the
-    -- given 'OnChainTx' event. This function is not expected to block, so it is
-    -- only responsible for submitting, but it should validate the created
-    -- transaction against a reasonable local view of the chain and throw an
-    -- exception when invalid.
+    -- given 'PostChainTx' description and the current 'ChainState'. This
+    -- function is not expected to block, so it is only responsible for
+    -- submitting, but it should validate the created transaction against a
+    -- reasonable local view of the chain and throw an exception when invalid.
     --
     -- Does at least throw 'PostTxError'.
-    postTx :: MonadThrow m => PostChainTx tx -> m ()
+    postTx :: (IsChainState tx, MonadThrow m) => ChainStateType tx -> PostChainTx tx -> m ()
   }
 
 data ChainEvent tx
-  = Observation (OnChainTx tx)
-  | Rollback Word
+  = Observation
+      { observedTx :: OnChainTx tx
+      , newChainState :: ChainStateType tx
+      }
+  | Rollback ChainSlot
   | Tick UTCTime
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving (Generic)
+
+deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ChainEvent tx)
+deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (ChainEvent tx)
+deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ChainEvent tx)
+deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ChainEvent tx)
 
 instance
   ( Arbitrary tx
   , Arbitrary (UTxOType tx)
   , Arbitrary (TxIdType tx)
+  , Arbitrary (ChainStateType tx)
   ) =>
   Arbitrary (ChainEvent tx)
   where
   arbitrary = genericArbitrary
 
--- | Handle to interface observed transactions.
-type ChainCallback tx m = ChainEvent tx -> m ()
+-- | A callback indicating receival of a potential Hydra transaction which is Maybe
+-- observing a relevant 'ChainEvent tx'.
+type ChainCallback tx m = (ChainStateType tx -> Maybe (ChainEvent tx)) -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.
 type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a

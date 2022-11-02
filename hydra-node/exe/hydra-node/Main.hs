@@ -5,13 +5,12 @@ module Main where
 import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
-import Hydra.Cardano.Api (TxId, serialiseToRawBytesHex)
-import Hydra.Chain (Chain, ChainCallback)
-import Hydra.Chain.Direct (withDirectChain)
-import Hydra.Chain.Direct.Handlers (ChainStateAt)
+import Hydra.Cardano.Api (serialiseToRawBytesHex)
+import Hydra.Chain (ChainCallback, ChainEvent (..))
+import Hydra.Chain.Direct (initialChainState, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
-import Hydra.Chain.Direct.Util (readKeyPair, readVerificationKey)
-import Hydra.HeadLogic (Environment (..), Event (..), defaultTTL)
+import Hydra.Chain.Direct.Util (readKeyPair)
+import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), defaultTTL, getChainState)
 import Hydra.Ledger.Cardano (Tx)
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
@@ -21,24 +20,24 @@ import Hydra.Ledger.Cardano.Configuration (
   readJsonFileThrow,
   shelleyGenesisFromJson,
  )
-import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
+import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network (Host (..))
 import Hydra.Network.Heartbeat (withHeartbeat)
-import Hydra.Network.Ouroboros (withIOManager, withOuroborosNetwork)
+import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
-  HydraNodeLog (..),
-  Persistence,
+  HydraNode (..),
+  NodeState (..),
+  Persistence (load),
   createEventQueue,
-  createHydraNode,
+  createNodeState,
   createPersistence,
   initEnvironment,
   runHydraNode,
  )
 import Hydra.Options (
-  ChainConfig (..),
   Command (Publish, Run),
   LedgerConfig (..),
   PublishOptions (..),
@@ -47,7 +46,6 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
-import Hydra.Party (Party)
 
 main :: IO ()
 main = do
@@ -64,21 +62,49 @@ main = do
     env@Environment{party} <- initEnvironment opts
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
-        traceWith (contramap Node tracer) (NodeOptions opts)
+        traceWith tracer (NodeOptions opts)
         eq <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
-        persistChainState <- createPersistence Proxy $ persistenceDir <> "/chainstate"
-        withChain tracer party (putEvent eq . OnChainEvent) hydraScriptsTxId persistChainState chainConfig $ \oc -> do
+        -- Load state from persistence or create new one
+        persistence <- createPersistence Proxy $ persistenceDir <> "/state"
+        hs <-
+          load persistence >>= \case
+            Nothing -> do
+              traceWith tracer CreatedState
+              chainState <- initialChainState chainConfig party hydraScriptsTxId
+              pure IdleState{chainState}
+            Just a -> do
+              traceWith tracer LoadedState
+              pure a
+        nodeState <- createNodeState hs
+
+        withDirectChain (contramap DirectChain tracer) chainConfig (chainCallback nodeState eq) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
             withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
-              withCardanoLedger ledgerConfig $ \ledger -> do
-                let tr = contramap Node tracer
-                persistHeadState <- createPersistence Proxy $ persistenceDir <> "/headstate"
-                node <- createHydraNode tr eq hn ledger oc server env persistHeadState
-                runHydraNode tr node
+              withCardanoLedger ledgerConfig $ \ledger ->
+                runHydraNode (contramap Node tracer) $
+                  HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence}
+
+  chainCallback :: NodeState Tx IO -> EventQueue IO (Event Tx) -> ChainCallback Tx IO
+  chainCallback NodeState{modifyHeadState} eq cont = do
+    -- Provide chain state to continuation and update it when we get a newState
+    -- NOTE: Although we do handle the chain state explictly in the 'HeadLogic',
+    -- this is required as multiple transactions may be observed and the chain
+    -- state shall accumulate the state changes coming with those observations.
+    mEvent <- atomically . modifyHeadState $ \hs ->
+      case cont $ getChainState hs of
+        Nothing ->
+          (Nothing, hs)
+        Just ev@Observation{newChainState} ->
+          (Just ev, hs{chainState = newChainState})
+        Just ev ->
+          (Just ev, hs)
+    case mEvent of
+      Nothing -> pure ()
+      Just chainEvent -> putEvent eq $ OnChainEvent{chainEvent}
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
@@ -100,35 +126,6 @@ main = do
         <$> readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
 
     action (Ledger.cardanoLedger globals ledgerEnv)
-
-withChain ::
-  Tracer IO (HydraLog Tx net) ->
-  Party ->
-  ChainCallback Tx IO ->
-  TxId ->
-  Persistence ChainStateAt IO ->
-  ChainConfig ->
-  (Chain Tx IO -> IO ()) ->
-  IO ()
-withChain tracer party callback hydraScriptsTxId persistence config action = do
-  keyPair@(vk, _) <- readKeyPair cardanoSigningKey
-  otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
-  withIOManager $ \iocp -> do
-    withDirectChain
-      (contramap DirectChain tracer)
-      networkId
-      iocp
-      nodeSocket
-      keyPair
-      party
-      (vk : otherCardanoKeys)
-      startChainFrom
-      hydraScriptsTxId
-      persistence
-      callback
-      action
- where
-  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys, startChainFrom} = config
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}

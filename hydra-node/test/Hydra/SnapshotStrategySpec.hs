@@ -12,7 +12,6 @@ import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
-  HeadState (..),
   NoSnapshotReason (..),
   SeenSnapshot (..),
   SnapshotOutcome (..),
@@ -20,10 +19,11 @@ import Hydra.HeadLogic (
   isLeader,
   newSn,
  )
+import Hydra.HeadLogicSpec (inOpenState')
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
-import Hydra.Party (Party, deriveParty)
+import Hydra.Party (deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, cperiod)
 import Test.QuickCheck (Property, counterexample, forAll, label, (==>))
@@ -104,9 +104,9 @@ spec = do
                   , seenSnapshot = NoSeenSnapshot
                   }
               st =
-                inOpenState' @SimpleTx threeParties coordinatedState
+                inOpenState' threeParties coordinatedState
               st' =
-                inOpenState' @SimpleTx threeParties $
+                inOpenState' threeParties $
                   coordinatedState{seenSnapshot = RequestedSnapshot}
 
           emitSnapshot (envFor aliceSk) [] st
@@ -142,23 +142,3 @@ prop_thereIsAlwaysALeader =
     forAll arbitrary $ \params@HeadParameters{parties} ->
       length parties > 0
         ==> any (\p -> isLeader params p sn) parties
-
---
--- Assertion utilities
---
-
-inOpenState' ::
-  [Party] ->
-  CoordinatedHeadState tx ->
-  HeadState tx
-inOpenState' parties coordinatedHeadState =
-  OpenState{parameters, coordinatedHeadState, previousRecoverableState}
- where
-  parameters = HeadParameters cperiod parties
-  previousRecoverableState =
-    InitialState
-      { parameters
-      , pendingCommits = mempty
-      , committed = mempty
-      , previousRecoverableState = IdleState
-      }

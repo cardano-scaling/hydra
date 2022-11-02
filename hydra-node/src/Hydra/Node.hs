@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Top-level module to run a single Hydra node.
@@ -36,7 +37,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), PostTxError)
+import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
@@ -77,65 +78,39 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys} = do
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
 -- ** Create and run a hydra node
 
+-- | Main handle of a hydra node where all layers are tied together.
 data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
   , hn :: Network m (Message tx)
-  , hh :: HydraHead tx m
+  , nodeState :: NodeState tx m
   , oc :: Chain tx m
   , server :: Server tx m
+  , ledger :: Ledger tx
   , env :: Environment
   , persistence :: Persistence (HeadState tx) m
   }
 
--- NOTE(AB): we use partial fields access here for convenience purpose, to
--- make serialisation To/From JSON straightforward
--- NOTE(AB): It's not needed to log the full events and effects both when starting
--- and ending the action, we should rather reference the event/effect processed
--- using some id when the action completest
 data HydraNodeLog tx
   = ErrorHandlingEvent {by :: Party, event :: Event tx, reason :: LogicError tx}
   | BeginEvent {by :: Party, event :: Event tx}
   | EndEvent {by :: Party, event :: Event tx}
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
-  | CreatedState
-  | LoadedState
-  | NodeOptions {runOptions :: RunOptions}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving stock (Generic)
 
-instance IsTx tx => Arbitrary (HydraNodeLog tx) where
+deriving instance (IsTx tx, IsChainState tx) => Eq (HydraNodeLog tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (HydraNodeLog tx)
+deriving instance (IsTx tx, IsChainState tx) => ToJSON (HydraNodeLog tx)
+deriving instance (IsTx tx, IsChainState tx) => FromJSON (HydraNodeLog tx)
+
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
-
-createHydraNode ::
-  (MonadSTM m, IsTx tx) =>
-  Tracer m (HydraNodeLog tx) ->
-  EventQueue m (Event tx) ->
-  Network m (Message tx) ->
-  Ledger tx ->
-  Chain tx m ->
-  Server tx m ->
-  Environment ->
-  -- | Persistence handle to load/save head state
-  Persistence (HeadState tx) m ->
-  m (HydraNode tx m)
-createHydraNode tracer eq hn ledger oc server env persistence = do
-  hs <-
-    load persistence >>= \case
-      Nothing -> do
-        traceWith tracer CreatedState
-        pure IdleState
-      Just a -> do
-        traceWith tracer LoadedState
-        pure a
-  hh <- createHydraHead hs ledger
-  pure HydraNode{eq, hn, hh, oc, server, env, persistence}
 
 runHydraNode ::
   ( MonadThrow m
-  , MonadAsync m
-  , IsTx tx
   , MonadCatch m
+  , MonadAsync m
+  , IsChainState tx
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -149,7 +124,7 @@ stepHydraNode ::
   ( MonadThrow m
   , MonadCatch m
   , MonadAsync m
-  , IsTx tx
+  , IsChainState tx
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -182,36 +157,38 @@ stepHydraNode tracer node = do
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
-  IsTx tx =>
+  (IsChainState tx) =>
   HydraNode tx m ->
   Event tx ->
   STM m (Outcome tx)
-processNextEvent HydraNode{hh, env} e =
-  modifyHeadState hh $ \s ->
-    case Logic.update env (ledger hh) s e of
+processNextEvent HydraNode{nodeState, ledger, env} e =
+  modifyHeadState $ \s ->
+    case Logic.update env ledger s e of
       OnlyEffects effects -> (OnlyEffects effects, s)
       NewState s' effects ->
         let (s'', effects') = emitSnapshot env effects s'
          in (NewState s'' effects', s'')
       Error err -> (Error err, s)
       Wait reason -> (Wait reason, s)
+ where
+  NodeState{modifyHeadState} = nodeState
 
 processEffect ::
   ( MonadAsync m
   , MonadCatch m
-  , IsTx tx
+  , IsChainState tx
   ) =>
   HydraNode tx m ->
   Tracer m (HydraNodeLog tx) ->
   Effect tx ->
   m ()
-processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e = do
+processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{party}} tracer e = do
   traceWith tracer $ BeginEffect party e
   case e of
     ClientEffect i -> sendOutput server i
     NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL msg)
-    OnChainEffect postChainTx ->
-      postTx oc postChainTx
+    OnChainEffect{chainState, postChainTx} ->
+      postTx chainState postChainTx
         `catch` \(postTxError :: PostTxError tx) ->
           putEvent eq $ PostTxError{postChainTx, postTxError}
   traceWith tracer $ EndEffect party e
@@ -252,26 +229,23 @@ createEventQueue = do
             pure (isEmpty' && n == 0)
       }
 
--- ** HydraHead handle to manage a single hydra head state concurrently
+-- ** Manage state
 
--- | Handle to access and modify a Hydra Head's state.
-data HydraHead tx m = HydraHead
+-- | Handle to access and modify the state in the Hydra Node.
+data NodeState tx m = NodeState
   { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> STM m a
-  , ledger :: Ledger tx
+  , queryHeadState :: STM m (HeadState tx)
   }
 
-queryHeadState :: HydraHead tx m -> STM m (HeadState tx)
-queryHeadState = (`modifyHeadState` \s -> (s, s))
-
-putState :: HydraHead tx m -> HeadState tx -> STM m ()
-putState HydraHead{modifyHeadState} new =
-  modifyHeadState $ const ((), new)
-
--- | Standard instance of a HydraHead state handle.
-createHydraHead :: MonadSTM m => HeadState tx -> Ledger tx -> m (HydraHead tx m)
-createHydraHead initialState ledger = do
+-- | Initialize a new 'NodeState'.
+createNodeState :: MonadSTM m => HeadState tx -> m (NodeState tx m)
+createNodeState initialState = do
   tv <- newTVarIO initialState
-  pure HydraHead{modifyHeadState = stateTVar tv, ledger}
+  pure
+    NodeState
+      { modifyHeadState = stateTVar tv
+      , queryHeadState = readTVar tv
+      }
 
 -- ** Save and load files
 

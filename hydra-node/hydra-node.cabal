@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-node
-version:            0.8.0
+version:            0.9.0
 synopsis:           The Hydra node
 author:             IOG
 copyright:          2022 IOG
@@ -80,7 +80,6 @@ library
     Hydra.Chain
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
-    Hydra.Chain.Direct.Context
     Hydra.Chain.Direct.Handlers
     Hydra.Chain.Direct.ScriptRegistry
     Hydra.Chain.Direct.State

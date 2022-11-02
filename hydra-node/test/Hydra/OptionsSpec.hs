@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.OptionsSpec where
 
 import Hydra.Prelude
@@ -22,6 +24,7 @@ import Hydra.Options (
   toArgs,
   validateRunOptions,
  )
+import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 
 spec :: Spec
@@ -211,7 +214,9 @@ spec = parallel $
             { hydraScriptsTxId = txId
             }
 
-    prop "roundtrip options" $
+    roundtripAndGoldenSpecs (Proxy @RunOptions)
+
+    prop "roundtrip parsing & printing" $
       forAll arbitrary canRoundtripRunOptionsAndPrettyPrinting
 
     describe "publish-scripts sub-command" $ do

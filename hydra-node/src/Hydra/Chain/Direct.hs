@@ -29,7 +29,6 @@ import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (
   newEmptyTMVar,
   newTQueueIO,
-  newTVarIO,
   putTMVar,
   readTQueue,
   takeTMVar,
@@ -37,18 +36,13 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Trans.Except (runExcept)
 import Control.Tracer (nullTracer)
-import Data.List ((\\))
 import Hydra.Cardano.Api (
   CardanoMode,
-  ChainPoint (..),
   EraHistory (EraHistory),
   LedgerEra,
   NetworkId,
-  PaymentKey,
-  SigningKey,
   Tx,
   TxId,
-  VerificationKey,
   fromConsensusPointHF,
   shelleyBasedEra,
   toConsensusPointHF,
@@ -58,6 +52,8 @@ import Hydra.Cardano.Api (
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain (
   ChainComponent,
+  ChainSlot (..),
+  ChainStateType,
   PostTxError (..),
  )
 import Hydra.Chain.CardanoClient (
@@ -69,10 +65,8 @@ import Hydra.Chain.CardanoClient (
   queryUTxO,
  )
 import Hydra.Chain.Direct.Handlers (
-  ChainStateAt (..),
   ChainSyncHandler,
   DirectChainLog (..),
-  RecordedAt (..),
   chainSyncHandler,
   mkChain,
   onRollBackward,
@@ -82,6 +76,7 @@ import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (Idle),
+  ChainStateAt (..),
   IdleState (..),
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
@@ -89,6 +84,8 @@ import Hydra.Chain.Direct.Util (
   Block,
   defaultCodecs,
   nullConnectTracers,
+  readKeyPair,
+  readVerificationKey,
   versions,
  )
 import Hydra.Chain.Direct.Wallet (
@@ -97,7 +94,7 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node (Persistence (load))
+import Hydra.Options (ChainConfig (..))
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (
   GenTx (..),
@@ -116,7 +113,6 @@ import Ouroboros.Network.Mux (
   RunMiniProtocol (..),
  )
 import Ouroboros.Network.NodeToClient (
-  IOManager,
   LocalAddress,
   NodeToClientProtocols (..),
   NodeToClientVersion,
@@ -142,90 +138,80 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
  )
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
-withDirectChain ::
-  -- | Tracer for logging
-  Tracer IO DirectChainLog ->
-  -- | Network identifer to which we expect to connect.
-  NetworkId ->
-  -- | A cross-platform abstraction for managing I/O operations on local sockets
-  IOManager ->
-  -- | Path to a domain socket used to connect to the server.
-  FilePath ->
-  -- | Key pair for the wallet.
-  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+-- | Create the initial state of the direct chain layer. This will query for the
+-- hydra scripts and initialize a 'ChainContext'.
+-- XXX: It's a bit weird that the 'ChainContext' is in the 'ChainState'
+initialChainState ::
+  ChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
-  -- | Cardano keys of all Head participants (including our key pair).
-  [VerificationKey PaymentKey] ->
-  -- | Point at which to start following the chain.
-  Maybe ChainPoint ->
-  -- | Transaction id at which Hydra scripts should be published.
+  -- | Transaction id at which to look for Hydra scripts.
   TxId ->
-  -- | Persistence handle to load/save chain state
-  Persistence ChainStateAt IO ->
-  ChainComponent Tx IO a
-withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoint hydraScriptsTxId persistence callback action = do
-  queue <- newTQueueIO
-  -- Select a chain point from which to start synchronizing
-  chainPoint <- case mpoint of
-    Nothing -> queryTip networkId socketPath
-    Just point -> pure point
-  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair chainPoint queryUTxOEtc
-  let (vk, _) = keyPair
-  scriptRegistry <- queryScriptRegistry networkId socketPath hydraScriptsTxId
+  IO (ChainStateType Tx)
+initialChainState config party hydraScriptsTxId = do
+  (vk, _) <- readKeyPair cardanoSigningKey
+  otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
+  scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
   let ctx =
         ChainContext
           { networkId
-          , peerVerificationKeys = cardanoKeys \\ [vk]
+          , peerVerificationKeys = otherCardanoKeys
           , ownVerificationKey = vk
           , ownParty = party
           , scriptRegistry
           }
-  cs <-
-    load persistence >>= \case
-      Nothing -> do
-        traceWith tracer CreatedState
-        pure $
-          ChainStateAt
-            { currentChainState = Idle IdleState{ctx}
-            , recordedAt = AtStart
-            }
-      Just a -> do
-        traceWith tracer LoadedState
-        pure a
-  headState <- newTVarIO cs
+  pure $
+    ChainStateAt
+      { chainState = Idle IdleState{ctx}
+      , recordedAt = ChainSlot 0
+      }
+ where
+  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} = config
+
+withDirectChain ::
+  Tracer IO DirectChainLog ->
+  ChainConfig ->
+  ChainComponent Tx IO a
+withDirectChain tracer config callback action = do
+  keyPair <- readKeyPair cardanoSigningKey
+  queue <- newTQueueIO
+  -- Select a chain point from which to start synchronizing
+  chainPoint <- case startChainFrom of
+    Nothing -> queryTip networkId nodeSocket
+    Just point -> pure point
+  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair chainPoint queryUTxOEtc
   let chainHandle =
         mkChain
           tracer
-          (queryTimeHandle networkId socketPath)
+          (queryTimeHandle networkId nodeSocket)
           wallet
-          headState
           (submitTx queue)
-  let getTimeHandle = queryTimeHandle networkId socketPath
+  let getTimeHandle = queryTimeHandle networkId nodeSocket
   res <-
     race
       ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback headState getTimeHandle persistence
-
-          let intersection = toConsensusPointHF <$> mpoint
+          let handler = chainSyncHandler tracer callback getTimeHandle
+          let intersection = toConsensusPointHF <$> startChainFrom
           let client = ouroborosApplication tracer intersection queue handler wallet
-
-          connectTo
-            (localSnocket iocp)
-            nullConnectTracers
-            (versions networkId client)
-            socketPath
+          withIOManager $ \iocp ->
+            connectTo
+              (localSnocket iocp)
+              nullConnectTracers
+              (versions networkId client)
+              nodeSocket
       )
       (action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
+  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, startChainFrom} = config
+
   queryUTxOEtc queryPoint address = do
-    utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath queryPoint [address]
-    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId socketPath queryPoint
-    systemStart <- querySystemStart networkId socketPath queryPoint
-    epochInfo <- toEpochInfo <$> queryEraHistory networkId socketPath queryPoint
+    utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket queryPoint [address]
+    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId nodeSocket queryPoint
+    systemStart <- querySystemStart networkId nodeSocket queryPoint
+    epochInfo <- toEpochInfo <$> queryEraHistory networkId nodeSocket queryPoint
     pure (utxo, pparams, systemStart, epochInfo)
 
   toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Either Text)
@@ -246,13 +232,13 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys mpoin
     throwIO $
       ConnectException
         { ioException
-        , socketPath
+        , nodeSocket
         , networkId
         }
 
 data ConnectException = ConnectException
   { ioException :: IOException
-  , socketPath :: FilePath
+  , nodeSocket :: FilePath
   , networkId :: NetworkId
   }
   deriving (Show)

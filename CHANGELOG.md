@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.9.0] - UNRELEASED
+
+- **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
+  + The `hydra-node` now only uses a single `state` file in `--persistence-dir` to keep it's state.
+  + Include the `chainState` in `InvalidStateToPost` errors.
+  + Moved received transaction ids into `RolledForward` log message.
+
 ## [0.8.0] - 2022-10-27
 
 - **BREAKING** Hydra keys now use the text envelope format.

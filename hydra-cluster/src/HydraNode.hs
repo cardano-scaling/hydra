@@ -180,11 +180,11 @@ queryNode nodeId =
     e -> throwIO e
 
 data EndToEndLog
-  = NodeStarted Int
-  | SentMessage Int Aeson.Value
-  | StartWaiting [Int] [Aeson.Value]
-  | ReceivedMessage Int Aeson.Value
-  | EndWaiting Int
+  = NodeStarted {nodeId :: Int}
+  | SentMessage {nodeId :: Int, message :: Aeson.Value}
+  | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
+  | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
+  | EndWaiting {nodeId :: Int}
   | FromCardanoNode NodeLog
   | FromFaucet FaucetLog
   | StartingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
@@ -197,6 +197,7 @@ data EndToEndLog
 -- XXX: The two lists need to be of same length. Also the verification keys can
 -- be derived from the signing keys.
 withHydraCluster ::
+  HasCallStack =>
   Tracer IO EndToEndLog ->
   FilePath ->
   FilePath ->
@@ -210,9 +211,10 @@ withHydraCluster ::
   (NonEmpty HydraClient -> IO ()) ->
   IO ()
 withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId action = do
-  -- We have been bitten by this in the past
   when (clusterSize == 0) $
-    error "Cannot run a cluster with 0 number of nodes"
+    failure "Cannot run a cluster with 0 number of nodes"
+  when (length allKeys /= length hydraKeys) $
+    failure "Not matching number of cardano/hydra keys"
 
   forM_ (zip allKeys allNodeIds) $ \((vk, sk), ix) -> do
     let vkFile = workDir </> show ix <.> "vk"

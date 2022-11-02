@@ -12,7 +12,6 @@ import Cardano.Binary (serialize)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   Tx,
@@ -30,47 +29,40 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   PostTxError (..),
  )
-import Hydra.Chain.Direct.Context (
-  HydraContext (..),
-  ctxHeadParameters,
-  ctxParties,
-  genCloseTx,
-  genCommit,
-  genCommits,
-  genFanoutTx,
-  genHydraContext,
-  genHydraContextFor,
-  genInitTx,
-  genStInitial,
-  genStOpen,
-  getContestationDeadline,
-  pickChainContext,
-  unsafeCommit,
-  unsafeObserveInitAndCommits,
- )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ChainState (Closed, Idle, Initial, Open),
-  ChainTransition (Close, Collect, Commit, Contest, Fanout, Init),
+  ChainState,
   ClosedState,
   HasKnownUTxO (getKnownUTxO),
+  HydraContext (..),
   IdleState (..),
   InitialState (..),
   OpenState,
   abort,
-  close,
-  collect,
   commit,
-  contest,
+  ctxHeadParameters,
+  ctxParties,
+  genChainStateWithTx,
+  genCloseTx,
+  genCollectComTx,
+  genCommit,
+  genCommits,
+  genContestTx,
+  genFanoutTx,
+  genHydraContext,
+  genInitTx,
+  genStInitial,
+  getContestationDeadline,
   getKnownUTxO,
   initialize,
   observeAbort,
-  observeClose,
   observeCommit,
   observeInit,
   observeSomeTx,
+  pickChainContext,
+  unsafeCommit,
+  unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genTxIn,
@@ -80,13 +72,10 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx',
-  genPointInTime,
-  genPointInTimeBefore,
   maxTxExecutionUnits,
   maxTxSize,
   renderEvaluationReportFailures,
  )
-import Hydra.Snapshot (genConfirmedSnapshot, getSnapshot, number)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude (
@@ -99,7 +88,6 @@ import Test.Hydra.Prelude (
   prop,
  )
 import Test.QuickCheck (
-  Positive (Positive),
   Property,
   Testable (property),
   checkCoverage,
@@ -111,7 +99,6 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShow,
   label,
-  oneof,
   sized,
   sublistOf,
   tabulate,
@@ -254,80 +241,6 @@ propIsValid forAllTx =
 -- QuickCheck Extras
 --
 
--- XXX: Orphan instance because of cyclic module dependencies
-instance Arbitrary ChainState where
-  arbitrary = genChainState
-
-genChainState :: Gen ChainState
-genChainState =
-  oneof
-    [ Idle <$> arbitrary
-    , Initial <$> genInitialState
-    , Open <$> genOpenState
-    , Closed <$> genClosedState
-    ]
- where
-  genInitialState = do
-    ctx <- genHydraContext 3
-    genStInitial ctx
-
-  genOpenState = do
-    ctx <- genHydraContext 3
-    snd <$> genStOpen ctx
-
-  genClosedState = do
-    -- XXX: Untangle the whole generator mess here
-    fst <$> genFanoutTx 3 70
-
-genChainStateWithTx :: Gen (ChainState, Tx, ChainTransition)
-genChainStateWithTx =
-  oneof
-    [ genInitWithState
-    , genCommitWithState
-    , genCollectWithState
-    , genCloseWithState
-    , genContestWithState
-    , genFanoutWithState
-    ]
- where
-  genInitWithState :: Gen (ChainState, Tx, ChainTransition)
-  genInitWithState = do
-    ctx <- genHydraContext 3
-    cctx <- pickChainContext ctx
-    seedInput <- genTxIn
-    let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-    pure (Idle $ IdleState cctx, tx, Init)
-
-  genCommitWithState :: Gen (ChainState, Tx, ChainTransition)
-  genCommitWithState = do
-    ctx <- genHydraContext 3
-    stInitial <- genStInitial ctx
-    utxo <- genCommit
-    let tx = unsafeCommit stInitial utxo
-    pure (Initial stInitial, tx, Commit)
-
-  genCollectWithState :: Gen (ChainState, Tx, ChainTransition)
-  genCollectWithState = do
-    (_, st, tx) <- genCollectComTx
-    pure (Initial st, tx, Collect)
-
-  genCloseWithState :: Gen (ChainState, Tx, ChainTransition)
-  genCloseWithState = do
-    (st, tx, _) <- genCloseTx 3
-    pure (Open st, tx, Close)
-
-  genContestWithState :: Gen (ChainState, Tx, ChainTransition)
-  genContestWithState = do
-    (_, _, st, tx) <- genContestTx
-    pure (Closed st, tx, Contest)
-
-  genFanoutWithState :: Gen (ChainState, Tx, ChainTransition)
-  genFanoutWithState = do
-    Positive numParties <- arbitrary
-    Positive numOutputs <- arbitrary
-    (st, tx) <- genFanoutTx numParties numOutputs
-    pure (Closed st, tx, Fanout)
-
 -- TODO: These forAllXX functions are hard to use and understand. Maybe simple
 -- 'Gen' or functions in 'PropertyM' are better combinable?
 
@@ -407,15 +320,6 @@ forAllCollectCom action =
     action stInitialized tx
       & counterexample ("Committed UTxO: " <> show committedUTxO)
 
-genCollectComTx :: Gen ([UTxO], InitialState, Tx)
-genCollectComTx = do
-  ctx <- genHydraContextFor 3
-  initTx <- genInitTx ctx
-  commits <- genCommits ctx initTx
-  cctx <- pickChainContext ctx
-  let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-  pure (committedUTxO, stInitialized, collect stInitialized)
-
 forAllClose ::
   (Testable property) =>
   (OpenState -> Tx -> property) ->
@@ -458,25 +362,6 @@ forAllContest action =
   oneWeek = oneDay * 7
   oneMonth = oneDay * 30
   oneYear = oneDay * 365
-
-genContestTx ::
-  Gen
-    ( HydraContext
-    , PointInTime
-    , ClosedState
-    , Tx
-    )
-genContestTx = do
-  ctx <- genHydraContextFor 3
-  (u0, stOpen) <- genStOpen ctx
-  confirmed <- genConfirmedSnapshot 0 u0 []
-  closePointInTime <- genPointInTime
-  let closeTx = close stOpen confirmed closePointInTime
-  let stClosed = snd $ fromJust $ observeClose stOpen closeTx
-  utxo <- arbitrary
-  contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
-  contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-  pure (ctx, closePointInTime, stClosed, contest stClosed contestSnapshot contestPointInTime)
 
 forAllFanout ::
   (Testable property) =>

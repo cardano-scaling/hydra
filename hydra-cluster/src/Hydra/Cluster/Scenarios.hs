@@ -21,8 +21,8 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (networkId, startChainFrom)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitMatch, withHydraNode)
 
-restartANodeAfterHeadInitialized :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
-restartANodeAfterHeadInitialized tracer workDir cardanoNode hydraScriptsTxId = do
+restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
   refuelIfNeeded tracer cardanoNode Alice 100_000_000
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket []

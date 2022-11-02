@@ -14,7 +14,9 @@ import qualified Data.Set as Set
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
+  ChainSlot (..),
   HeadParameters (..),
+  IsChainState,
   OnChainTx (..),
   PostChainTx (ContestTx),
  )
@@ -32,8 +34,8 @@ import Hydra.HeadLogic (
   defaultTTL,
   update,
  )
-import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
+import Hydra.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (NodeId (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.Party (Party (..))
@@ -213,15 +215,15 @@ spec = do
 
       it "cannot observe abort after collect com" $ do
         let s0 = inInitialState threeParties
-        s1 <- assertNewState $ update bobEnv ledger s0 (OnChainEvent $ Observation OnCollectComTx)
-        let invalidEvent = OnChainEvent $ Observation OnAbortTx
+        s1 <- assertNewState $ update bobEnv ledger s0 (observationEvent OnCollectComTx)
+        let invalidEvent = observationEvent OnAbortTx
         let s2 = update bobEnv ledger s1 invalidEvent
         s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
       it "cannot observe collect com after abort" $ do
         let s0 = inInitialState threeParties
-        s1 <- assertNewState $ update bobEnv ledger s0 (OnChainEvent $ Observation OnAbortTx)
-        let invalidEvent = OnChainEvent $ Observation OnCollectComTx
+        s1 <- assertNewState $ update bobEnv ledger s0 (observationEvent OnAbortTx)
+        let invalidEvent = observationEvent OnCollectComTx
         let s2 = update bobEnv ledger s1 invalidEvent
         s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
@@ -230,12 +232,11 @@ spec = do
             snapshotNumber = 0
             contestationDeadline = arbitrary `generateWith` 42
             observeCloseTx =
-              OnChainEvent $
-                Observation
-                  OnCloseTx
-                    { snapshotNumber
-                    , contestationDeadline
-                    }
+              observationEvent
+                OnCloseTx
+                  { snapshotNumber
+                  , contestationDeadline
+                  }
             clientEffect = ClientEffect HeadIsClosed{snapshotNumber, contestationDeadline}
         let outcome1 = update bobEnv ledger s0 observeCloseTx
         outcome1 `hasEffect` clientEffect
@@ -250,7 +251,7 @@ spec = do
 
       it "notify user on rollback" $
         forAll arbitrary $ \s -> monadicIO $ do
-          let rollback = OnChainEvent (Rollback 2)
+          let rollback = OnChainEvent (Rollback $ ChainSlot 2)
           let s' = update bobEnv ledger s rollback
           void $ run $ s' `hasEffect` ClientEffect RolledBack
 
@@ -266,8 +267,8 @@ spec = do
                   , seenSnapshot = NoSeenSnapshot
                   }
             deadline = arbitrary `generateWith` 42
-            closeTxEvent = OnChainEvent $ Observation $ OnCloseTx 0 deadline
-            contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
+            closeTxEvent = observationEvent $ OnCloseTx 0 deadline
+            contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
             s1 = update bobEnv ledger s0 closeTxEvent
         s1 `hasEffect` contestTxEffect
         s1 `shouldSatisfy` \case
@@ -278,8 +279,8 @@ spec = do
         let snapshot2 = Snapshot 2 mempty []
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
-            contestSnapshot1Event = OnChainEvent $ Observation $ OnContestTx 1
-            contestTxEffect = OnChainEffect $ ContestTx latestConfirmedSnapshot
+            contestSnapshot1Event = observationEvent $ OnContestTx 1
+            contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
             s1 = update bobEnv ledger s0 contestSnapshot1Event
         s1 `hasEffect` contestTxEffect
         assertOnlyEffects s1
@@ -288,7 +289,26 @@ spec = do
 -- Assertion utilities
 --
 
-hasEffect :: (HasCallStack, IsTx tx) => Outcome tx -> Effect tx -> IO ()
+-- | Create a chain effect with fixed chain state and slot.
+chainEffect :: PostChainTx SimpleTx -> Effect SimpleTx
+chainEffect postChainTx =
+  OnChainEffect
+    { postChainTx
+    , chainState = SimpleChainState{slot = ChainSlot 0}
+    }
+
+-- | Create an observation event with fixed chain state and slot.
+observationEvent :: OnChainTx SimpleTx -> Event SimpleTx
+observationEvent observedTx =
+  OnChainEvent
+    { chainEvent =
+        Observation
+          { observedTx
+          , newChainState = SimpleChainState{slot = ChainSlot 0}
+          }
+    }
+
+hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
 hasEffect (NewState _ effects) effect
   | effect `elem` effects = pure ()
   | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
@@ -297,13 +317,13 @@ hasEffect (OnlyEffects effects) effect
   | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
 hasEffect o _ = failure $ "Unexpected outcome: " <> show o
 
-hasEffectSatisfying :: (HasCallStack, IsTx tx) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
+hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
 hasEffectSatisfying (NewState s effects) match
   | any match effects = pure s
   | otherwise = failure $ "No effect matching predicate in produced effects: " <> show effects
 hasEffectSatisfying o _ = failure $ "Unexpected outcome: " <> show o
 
-hasNoEffectSatisfying :: (HasCallStack, IsTx tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasNoEffectSatisfying (NewState _ effects) predicate
   | any predicate effects = failure $ "Found unwanted effect in: " <> show effects
 hasNoEffectSatisfying _ _ = pure ()
@@ -324,15 +344,19 @@ inInitialState parties =
     { parameters
     , pendingCommits = Set.fromList parties
     , committed = mempty
-    , previousRecoverableState = IdleState
+    , previousRecoverableState = idleState
+    , chainState = SimpleChainState{slot = ChainSlot 0}
     }
  where
   parameters = HeadParameters cperiod parties
 
+  idleState =
+    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+
 inOpenState ::
   [Party] ->
-  Ledger tx ->
-  HeadState tx
+  Ledger SimpleTx ->
+  HeadState SimpleTx
 inOpenState parties Ledger{initUTxO} =
   inOpenState' parties $ CoordinatedHeadState u0 mempty snapshot0 NoSeenSnapshot
  where
@@ -341,19 +365,29 @@ inOpenState parties Ledger{initUTxO} =
 
 inOpenState' ::
   [Party] ->
-  CoordinatedHeadState tx ->
-  HeadState tx
+  CoordinatedHeadState SimpleTx ->
+  HeadState SimpleTx
 inOpenState' parties coordinatedHeadState =
-  OpenState{parameters, coordinatedHeadState, previousRecoverableState}
+  OpenState
+    { parameters
+    , coordinatedHeadState
+    , previousRecoverableState
+    , chainState = SimpleChainState{slot = ChainSlot 0}
+    }
  where
   parameters = HeadParameters cperiod parties
+
   previousRecoverableState =
     InitialState
       { parameters
       , pendingCommits = mempty
       , committed = mempty
-      , previousRecoverableState = IdleState
+      , previousRecoverableState = idleState
+      , chainState = SimpleChainState{slot = ChainSlot 0}
       }
+
+  idleState =
+    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
@@ -369,11 +403,14 @@ inClosedState' parties confirmedSnapshot =
     , confirmedSnapshot
     , contestationDeadline
     , readyToFanoutSent = False
+    , chainState = SimpleChainState{slot = ChainSlot 0}
     }
  where
   parameters = HeadParameters cperiod parties
-  previousRecoverableState = inOpenState parties simpleLedger
+
   contestationDeadline = arbitrary `generateWith` 42
+
+  previousRecoverableState = inOpenState parties simpleLedger
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
@@ -382,14 +419,20 @@ getConfirmedSnapshot = \case
   _ ->
     Nothing
 
-assertNewState :: IsTx tx => Outcome tx -> IO (HeadState tx)
+assertNewState ::
+  (IsChainState tx) =>
+  Outcome tx ->
+  IO (HeadState tx)
 assertNewState = \case
   NewState st _ -> pure st
   OnlyEffects effects -> failure $ "Unexpected 'OnlyEffects' outcome: " <> show effects
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
   Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
 
-assertOnlyEffects :: IsTx tx => Outcome tx -> IO ()
+assertOnlyEffects ::
+  (IsChainState tx) =>
+  Outcome tx ->
+  IO ()
 assertOnlyEffects = \case
   NewState st _ -> failure $ "Unexpected 'NewState' outcome: " <> show st
   OnlyEffects _ -> pure ()
@@ -397,7 +440,7 @@ assertOnlyEffects = \case
   Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
 
 applyEvent ::
-  IsTx tx =>
+  (IsChainState tx) =>
   (HeadState tx -> Event tx -> Outcome tx) ->
   Event tx ->
   StateT (HeadState tx) IO ()
@@ -406,7 +449,11 @@ applyEvent action e = do
   s' <- lift $ assertNewState (action s e)
   put s'
 
-assertStateUnchangedFrom :: IsTx tx => HeadState tx -> Outcome tx -> Expectation
+assertStateUnchangedFrom ::
+  (IsChainState tx) =>
+  HeadState tx ->
+  Outcome tx ->
+  Expectation
 assertStateUnchangedFrom st = \case
   NewState st' eff -> do
     st' `shouldBe` st

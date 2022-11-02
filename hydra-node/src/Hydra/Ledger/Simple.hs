@@ -20,8 +20,11 @@ import Data.Aeson (
  )
 import Data.List (maximum)
 import qualified Data.Set as Set
+import Hydra.Chain (ChainSlot, ChainStateType, IsChainState (..))
 import Hydra.Ledger
 import Test.QuickCheck (choose, getSize, sublistOf)
+
+-- * Simple transactions
 
 -- | Simple transaction.
 -- A transaction is a 'SimpleId', a list of inputs and a list of outputs.
@@ -72,6 +75,19 @@ instance FromCBOR SimpleTx where
       <$> fromCBOR
       <*> fromCBOR
       <*> fromCBOR
+
+-- * Simple chain state
+
+data SimpleChainState = SimpleChainState {slot :: ChainSlot}
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+instance Arbitrary SimpleChainState where
+  arbitrary = SimpleChainState <$> arbitrary
+
+instance IsChainState SimpleTx where
+  type ChainStateType SimpleTx = SimpleChainState
+
+  chainStateSlot SimpleChainState{slot} = slot
 
 --
 -- MockTxIn

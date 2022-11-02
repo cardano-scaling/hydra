@@ -1,15 +1,57 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
+-- | Contains the a state-ful interface to transaction construction and observation.
+--
+-- It defines the 'ChainStateType tx' to be used in the 'Hydra.Chain.Direct'
+-- layer and it's constituents.
 module Hydra.Chain.Direct.State where
 
-import Hydra.Cardano.Api
 import Hydra.Prelude hiding (init)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Data.List ((\\))
 import qualified Data.Map as Map
-import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
-import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..), genScriptRegistry, registryUTxO)
+import Data.Maybe (fromJust)
+import Hydra.Cardano.Api (
+  AssetName (AssetName),
+  CtxUTxO,
+  Hash,
+  Key (SigningKey, VerificationKey, verificationKeyHash),
+  NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
+  PaymentKey,
+  PlutusScript,
+  SerialiseAsRawBytes (serialiseToRawBytes),
+  SlotNo,
+  Tx,
+  TxIn,
+  TxOut,
+  UTxO,
+  UTxO' (UTxO),
+  Value,
+  txIns',
+  txOutValue,
+  pattern ByronAddressInEra,
+  pattern ShelleyAddressInEra,
+  pattern TxOut,
+ )
+import Hydra.Chain (
+  ChainSlot,
+  ChainStateType,
+  HeadId (..),
+  HeadParameters (..),
+  IsChainState (..),
+  OnChainTx (..),
+  PostTxError (..),
+ )
+import Hydra.Chain.Direct.ScriptRegistry (
+  ScriptRegistry (..),
+  genScriptRegistry,
+  registryUTxO,
+ )
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (AbortObservation),
@@ -42,13 +84,24 @@ import Hydra.Chain.Direct.Tx (
   observeFanoutTx,
   observeInitTx,
  )
+import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
-import Hydra.Ledger.Cardano (genVerificationKey)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genPointInTimeBefore, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
-import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
-import Test.QuickCheck (sized)
+import Hydra.Party (Party, deriveParty)
+import Hydra.Snapshot (
+  ConfirmedSnapshot (..),
+  Snapshot (..),
+  SnapshotNumber,
+  genConfirmedSnapshot,
+  getSnapshot,
+ )
+import Test.QuickCheck (choose, frequency, oneof, sized, vector)
+import Test.QuickCheck.Gen (elements)
+import Test.QuickCheck.Modifiers (Positive (Positive))
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
 -- all the relevant UTxO for resolving transaction inputs.
@@ -56,6 +109,23 @@ class HasKnownUTxO a where
   getKnownUTxO :: a -> UTxO
 
 -- * States & transitions
+
+-- | The chain state used by the Hydra.Chain.Direct implementation. It records
+-- the actual 'ChainState' paired with a 'ChainSlot' (used to know up to which
+-- point to rewind on rollbacks).
+data ChainStateAt = ChainStateAt
+  { chainState :: ChainState
+  , recordedAt :: ChainSlot
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+instance Arbitrary ChainStateAt where
+  arbitrary = genericArbitrary
+
+instance IsChainState Tx where
+  type ChainStateType Tx = ChainStateAt
+
+  chainStateSlot ChainStateAt{recordedAt} = recordedAt
 
 -- | A definition of all transitions between 'ChainState's. Enumerable and
 -- bounded to be used as labels for checking coverage.
@@ -77,6 +147,9 @@ data ChainState
   | Open OpenState
   | Closed ClosedState
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+instance Arbitrary ChainState where
+  arbitrary = genChainState
 
 instance HasKnownUTxO ChainState where
   getKnownUTxO :: ChainState -> UTxO
@@ -149,6 +222,8 @@ instance HasKnownUTxO InitialState where
       UTxO $
         Map.fromList $
           take2Of3 initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
+
+    take2Of3 (a, b, _c) = (a, b)
 
     InitialState
       { ctx = ChainContext{scriptRegistry}
@@ -284,6 +359,8 @@ abort st = do
     , initialHeadTokenScript
     } = st
 
+  tripleToPair (a, b, c) = (a, (b, c))
+
 -- | Construct a collect transaction based on the 'InitialState'. This will know
 -- collect all the committed outputs.
 collect ::
@@ -298,6 +375,8 @@ collect st = do
     , initialThreadOutput
     , initialCommits
     } = st
+
+  tripleToPair (a, b, c) = (a, (b, c))
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
 -- snapshot. The given 'PointInTime' will be used as an upper validity bound and
@@ -439,6 +518,8 @@ observeCommit st tx = do
     , initialInitials
     } = st
 
+  fst3 (a, _b, _c) = a
+
 -- | Observe an collect transition using a 'InitialState' and 'observeCollectComTx'.
 -- This function checks the head id and ignores if not relevant.
 observeCollect ::
@@ -550,13 +631,303 @@ observeFanout st tx = do
  where
   ClosedState{ctx} = st
 
--- * Helpers
+-- * Generators
 
-fst3 :: (a, b, c) -> a
-fst3 (a, _b, _c) = a
+-- | Maximum number of parties used in the generators.
+maxGenParties :: Int
+maxGenParties = 3
 
-tripleToPair :: (a, b, c) -> (a, (b, c))
-tripleToPair (a, b, c) = (a, (b, c))
+-- | Maximum number of assets (ADA or other tokens) used in the generators.
+maxGenAssets :: Int
+maxGenAssets = 70
 
-take2Of3 :: (a, b, c) -> (a, b)
-take2Of3 (a, b, _c) = (a, b)
+-- | Generate a 'ChainState' within known limits above.
+genChainState :: Gen ChainState
+genChainState =
+  oneof
+    [ Idle <$> arbitrary
+    , Initial <$> genInitialState
+    , Open <$> genOpenState
+    , Closed <$> genClosedState
+    ]
+ where
+  genInitialState = do
+    ctx <- genHydraContext maxGenParties
+    genStInitial ctx
+
+  genOpenState = do
+    ctx <- genHydraContext maxGenParties
+    snd <$> genStOpen ctx
+
+  genClosedState = do
+    -- XXX: Untangle the whole generator mess here
+    fst <$> genFanoutTx maxGenParties maxGenAssets
+
+-- | Generate a 'ChainState' within the known limits above, along with a
+-- transaction that results in a transition away from it.
+genChainStateWithTx :: Gen (ChainState, Tx, ChainTransition)
+genChainStateWithTx =
+  oneof
+    [ genInitWithState
+    , genCommitWithState
+    , genCollectWithState
+    , genCloseWithState
+    , genContestWithState
+    , genFanoutWithState
+    ]
+ where
+  genInitWithState :: Gen (ChainState, Tx, ChainTransition)
+  genInitWithState = do
+    ctx <- genHydraContext maxGenParties
+    cctx <- pickChainContext ctx
+    seedInput <- genTxIn
+    let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+    pure (Idle $ IdleState cctx, tx, Init)
+
+  genCommitWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCommitWithState = do
+    ctx <- genHydraContext maxGenParties
+    stInitial <- genStInitial ctx
+    utxo <- genCommit
+    let tx = unsafeCommit stInitial utxo
+    pure (Initial stInitial, tx, Commit)
+
+  genCollectWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCollectWithState = do
+    (_, st, tx) <- genCollectComTx
+    pure (Initial st, tx, Collect)
+
+  genCloseWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCloseWithState = do
+    (st, tx, _) <- genCloseTx maxGenParties
+    pure (Open st, tx, Close)
+
+  genContestWithState :: Gen (ChainState, Tx, ChainTransition)
+  genContestWithState = do
+    (_, _, st, tx) <- genContestTx
+    pure (Closed st, tx, Contest)
+
+  genFanoutWithState :: Gen (ChainState, Tx, ChainTransition)
+  genFanoutWithState = do
+    Positive numParties <- arbitrary
+    Positive numOutputs <- arbitrary
+    (st, tx) <- genFanoutTx numParties numOutputs
+    pure (Closed st, tx, Fanout)
+
+-- ** Warning zone
+
+-- | Define some 'global' context from which generators can pick
+-- values for generation. This allows to write fairly independent generators
+-- which however still make sense with one another within the context of a head.
+--
+-- For example, one can generate a head's _party_ from that global list, whereas
+-- other functions may rely on all parties and thus, we need both generation to
+-- be coherent.
+--
+-- Do not use this in production code, but only for generating test data.
+data HydraContext = HydraContext
+  { ctxVerificationKeys :: [VerificationKey PaymentKey]
+  , ctxHydraSigningKeys :: [SigningKey HydraKey]
+  , ctxNetworkId :: NetworkId
+  , ctxContestationPeriod :: ContestationPeriod
+  }
+  deriving (Show)
+
+ctxParties :: HydraContext -> [Party]
+ctxParties = fmap deriveParty . ctxHydraSigningKeys
+
+ctxHeadParameters ::
+  HydraContext ->
+  HeadParameters
+ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
+  HeadParameters ctxContestationPeriod (ctxParties ctx)
+
+-- | Generate a `HydraContext` for a bounded arbitrary number of parties.
+--
+-- 'maxParties'  sets the upper bound in the number of parties in the Head.
+genHydraContext :: Int -> Gen HydraContext
+genHydraContext maxParties = choose (1, maxParties) >>= genHydraContextFor
+
+-- | Generate a 'HydraContext' for a given number of parties.
+genHydraContextFor :: Int -> Gen HydraContext
+genHydraContextFor n = do
+  ctxVerificationKeys <- replicateM n genVerificationKey
+  ctxHydraSigningKeys <- fmap generateSigningKey <$> vector n
+  ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
+  ctxContestationPeriod <- arbitrary
+  pure $
+    HydraContext
+      { ctxVerificationKeys
+      , ctxHydraSigningKeys
+      , ctxNetworkId
+      , ctxContestationPeriod
+      }
+
+-- | Get all peer-specific 'ChainContext's from a 'HydraContext'. NOTE: This
+-- assumes that 'HydraContext' has same length 'ctxVerificationKeys' and
+-- 'ctxHydraSigningKeys'.
+deriveChainContexts :: HydraContext -> Gen [ChainContext]
+deriveChainContexts ctx = do
+  scriptRegistry <- genScriptRegistry
+  pure $
+    flip map (zip ctxVerificationKeys allParties) $ \(vk, p) ->
+      ChainContext
+        { networkId = ctxNetworkId
+        , peerVerificationKeys = ctxVerificationKeys \\ [vk]
+        , ownVerificationKey = vk
+        , ownParty = p
+        , scriptRegistry
+        }
+ where
+  allParties = ctxParties ctx
+
+  HydraContext
+    { ctxVerificationKeys
+    , ctxNetworkId
+    } = ctx
+
+-- | Pick one of the participants and derive the peer-specific 'ChainContext'
+-- from a 'HydraContext'. NOTE: This assumes that 'HydraContext' has same length
+-- 'ctxVerificationKeys' and 'ctxHydraSigningKeys'.
+pickChainContext :: HydraContext -> Gen ChainContext
+pickChainContext ctx =
+  deriveChainContexts ctx >>= elements
+
+genStInitial ::
+  HydraContext ->
+  Gen InitialState
+genStInitial ctx = do
+  seedInput <- genTxIn
+  cctx <- pickChainContext ctx
+  let txInit = initialize cctx (ctxHeadParameters ctx) seedInput
+  pure . snd . fromJust $ observeInit cctx txInit
+
+genInitTx ::
+  HydraContext ->
+  Gen Tx
+genInitTx ctx = do
+  cctx <- pickChainContext ctx
+  initialize cctx (ctxHeadParameters ctx) <$> genTxIn
+
+genCommits ::
+  HydraContext ->
+  Tx ->
+  Gen [Tx]
+genCommits ctx txInit = do
+  allChainContexts <- deriveChainContexts ctx
+  forM allChainContexts $ \cctx -> do
+    let (_, stInitial) = fromJust $ observeInit cctx txInit
+    unsafeCommit stInitial <$> genCommit
+
+genCommit :: Gen UTxO
+genCommit =
+  frequency
+    [ (1, pure mempty)
+    , (10, genVerificationKey >>= genOneUTxOFor)
+    ]
+
+genCollectComTx :: Gen ([UTxO], InitialState, Tx)
+genCollectComTx = do
+  ctx <- genHydraContextFor 3
+  txInit <- genInitTx ctx
+  commits <- genCommits ctx txInit
+  cctx <- pickChainContext ctx
+  let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
+  pure (committedUTxO, stInitialized, collect stInitialized)
+
+genCloseTx :: Int -> Gen (OpenState, Tx, ConfirmedSnapshot Tx)
+genCloseTx numParties = do
+  ctx <- genHydraContextFor numParties
+  (u0, stOpen) <- genStOpen ctx
+  snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
+  pointInTime <- genPointInTime
+  pure (stOpen, close stOpen snapshot pointInTime, snapshot)
+
+genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
+genContestTx = do
+  ctx <- genHydraContextFor 3
+  (u0, stOpen) <- genStOpen ctx
+  confirmed <- genConfirmedSnapshot 0 u0 []
+  closePointInTime <- genPointInTime
+  let txClose = close stOpen confirmed closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen txClose
+  utxo <- arbitrary
+  contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
+  contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+  pure (ctx, closePointInTime, stClosed, contest stClosed contestSnapshot contestPointInTime)
+
+genFanoutTx :: Int -> Int -> Gen (ClosedState, Tx)
+genFanoutTx numParties numOutputs = do
+  ctx <- genHydraContext numParties
+  utxo <- genUTxOAdaOnlyOfSize numOutputs
+  (_, toFanout, stClosed) <- genStClosed ctx utxo
+  let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
+  pure (stClosed, fanout stClosed toFanout deadlineSlotNo)
+
+getContestationDeadline :: ClosedState -> UTCTime
+getContestationDeadline
+  ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
+    posixToUTCTime closedContestationDeadline
+
+genStOpen ::
+  HydraContext ->
+  Gen (UTxO, OpenState)
+genStOpen ctx = do
+  txInit <- genInitTx ctx
+  commits <- genCommits ctx txInit
+  cctx <- pickChainContext ctx
+  let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
+  let txCollect = collect stInitial
+  pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
+
+genStClosed ::
+  HydraContext ->
+  UTxO ->
+  Gen (SnapshotNumber, UTxO, ClosedState)
+genStClosed ctx utxo = do
+  (u0, stOpen) <- genStOpen ctx
+  confirmed <- arbitrary
+  let (sn, snapshot, toFanout) = case confirmed of
+        InitialSnapshot{} ->
+          ( 0
+          , InitialSnapshot{initialUTxO = u0}
+          , u0
+          )
+        ConfirmedSnapshot{snapshot = snap, signatures} ->
+          ( number snap
+          , ConfirmedSnapshot
+              { snapshot = snap{utxo = utxo}
+              , signatures
+              }
+          , utxo
+          )
+  pointInTime <- genPointInTime
+  let txClose = close stOpen snapshot pointInTime
+  pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
+-- ** Danger zone
+
+unsafeCommit ::
+  HasCallStack =>
+  InitialState ->
+  UTxO ->
+  Tx
+unsafeCommit st u =
+  either (error . show) id $ commit st u
+
+unsafeObserveInitAndCommits ::
+  ChainContext ->
+  Tx ->
+  [Tx] ->
+  ([UTxO], InitialState)
+unsafeObserveInitAndCommits ctx txInit commits =
+  (utxo, stInitial')
+ where
+  (_, stInitial) = fromJust $ observeInit ctx txInit
+  (utxo, stInitial') = flip runState stInitial $ do
+    forM commits $ \txCommit -> do
+      st <- get
+      let (event, st') = fromJust $ observeCommit st txCommit
+      put st'
+      pure $ case event of
+        OnCommitTx{committed} -> committed
+        _ -> mempty

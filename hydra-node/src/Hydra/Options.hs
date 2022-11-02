@@ -248,11 +248,16 @@ cardanoLedgerProtocolParametersParser =
     )
 
 data ChainConfig = DirectChainConfig
-  { networkId :: NetworkId
-  , nodeSocket :: FilePath
-  , cardanoSigningKey :: FilePath
-  , cardanoVerificationKeys :: [FilePath]
-  , startChainFrom :: Maybe ChainPoint
+  { -- | Network identifer to which we expect to connect.
+    networkId :: NetworkId
+  , -- | Path to a domain socket used to connect to the server.
+    nodeSocket :: FilePath
+  , -- | Path to the cardano signing key of the internal wallet.
+    cardanoSigningKey :: FilePath
+  , -- | Paths to other node's verification keys.
+    cardanoVerificationKeys :: [FilePath]
+  , -- | Point at which to start following the chain.
+    startChainFrom :: Maybe ChainPoint
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 

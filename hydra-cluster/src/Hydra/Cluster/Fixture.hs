@@ -48,6 +48,7 @@ data Actor
   | Bob
   | Carol
   | Faucet
+  deriving (Eq, Show)
 
 actorName :: Actor -> String
 actorName = \case

@@ -15,9 +15,15 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
  )
-import Hydra.Chain.Direct.Context (
+import Hydra.Chain.Direct.State (
+  abort,
+  close,
+  collect,
+  commit,
+  contest,
   ctxHeadParameters,
   ctxHydraSigningKeys,
+  fanout,
   genCloseTx,
   genCommits,
   genHydraContext,
@@ -27,19 +33,11 @@ import Hydra.Chain.Direct.Context (
   genStInitial,
   genStOpen,
   getContestationDeadline,
-  pickChainContext,
-  unsafeObserveInitAndCommits,
- )
-import Hydra.Chain.Direct.State (
-  abort,
-  close,
-  collect,
-  commit,
-  contest,
-  fanout,
   getKnownUTxO,
   initialize,
   observeClose,
+  pickChainContext,
+  unsafeObserveInitAndCommits,
  )
 import Hydra.Ledger.Cardano (
   genOutput,

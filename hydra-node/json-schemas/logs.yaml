@@ -106,6 +106,47 @@ properties:
               network:
                 $ref: "#/definitions/Network"
 
+          - title: NodeOptions
+            description: >-
+              Hydra node parsed command line arguments
+            type: object
+            additionalProperties: false
+            required:
+            - tag
+            - runOptions
+            properties:
+              tag:
+                type: string
+                enum: [ "NodeOptions" ]
+              runOptions:
+                <<: { "$ref": "#/definitions/RunOptions" }
+                description: >-
+                  Configuration needed to run the hydra node
+
+          - title: CreatedState
+            description: >-
+              Created new state in persistence (instead of loading)
+            type: object
+            additionalProperties: false
+            required:
+            - tag
+            properties:
+              tag:
+                type: string
+                enum: [ "CreatedState" ]
+
+          - title: LoadedState
+            description: >-
+              Loaded state from persistence
+            type: object
+            additionalProperties: false
+            required:
+            - tag
+            properties:
+              tag:
+                type: string
+                enum: [ "LoadedState" ]
+
 definitions:
   APIServer:
     oneOf:
@@ -249,28 +290,6 @@ definitions:
           $ref: "api.yaml#/components/schemas/Transaction"
         postTxError:
           $ref: "api.yaml#/components/schemas/PostTxError"
-    - title: ReceivedTxs
-      description: >-
-        Some transactions relevant to the Head logic have been observed on-chain, provide both the
-        concrete on-chain representation and logical counterpart.
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - onChainTxs
-        - receivedTxs
-      properties:
-        tag:
-          type: string
-          enum: ["ReceivedTxs"]
-        onChainTxs:
-          type: array
-          items:
-            $ref: "#/definitions/OnChainEvent"
-        receivedTxs:
-          type: array
-          items:
-            type: integer
 
     - title: RolledForward
       description: >-
@@ -280,12 +299,17 @@ definitions:
       required:
         - tag
         - point
+        - receivedTxIds
       properties:
         tag:
           type: string
           enum: ["RolledForward"]
         point:
-          $ref: "api.yaml#/components/schemas/Point"
+          $ref: "api.yaml#/components/schemas/ChainPoint"
+        receivedTxIds:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/TxId"
 
     - title: RolledBackward
       description: >-
@@ -300,7 +324,7 @@ definitions:
           type: string
           enum: ["RolledBackward"]
         point:
-          $ref: "api.yaml#/components/schemas/Point"
+          $ref: "api.yaml#/components/schemas/ChainPoint"
 
     - title: Wallet
       description: >-
@@ -316,26 +340,6 @@ definitions:
           enum: ["Wallet"]
         contents:
           $ref: "#/definitions/Wallet"
-
-    - title: CreatedState
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: [ "CreatedState" ]
-
-    - title: LoadedState
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: [ "LoadedState" ]
 
   Wallet:
     oneOf:
@@ -501,40 +505,6 @@ definitions:
             The Party emitting the log entry.
         effect:
           $ref: "#/definitions/Effect"
-    - title: CreatedState
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: [ "CreatedState" ]
-    - title: LoadedState
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: [ "LoadedState" ]
-    - title: NodeOptions
-      description: >-
-        Hydra node parsed command line arguments
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - runOptions
-      properties:
-        tag:
-          type: string
-          enum: [ "NodeOptions" ]
-        runOptions:
-          <<: { "$ref": "#/definitions/RunOptions" }
-          description: >-
-            Configuration needed to run the hydra node
 
   LogicError:
     oneOf:
@@ -604,10 +574,13 @@ definitions:
       additionalProperties: false
       required:
         - tag
+        - chainState
       properties:
         tag:
           type: string
           enum: [ "IdleState" ]
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
     - title: "InitialState"
       additionalProperties: false
       required:
@@ -615,6 +588,7 @@ definitions:
         - pendingCommits
         - committed
         - previousRecoverableState
+        - chainState
       properties:
         tag:
           type: string
@@ -631,6 +605,8 @@ definitions:
             $ref: "api.yaml#/components/schemas/Party"
         previousRecoverableState:
           $ref: "#/definitions/HeadState"
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
     - title: "OpenState"
       additionalProperties: false
       required:
@@ -638,6 +614,7 @@ definitions:
         - parameters
         - coordinatedHeadState
         - previousRecoverableState
+        - chainState
       properties:
         tag:
           type: string
@@ -648,6 +625,8 @@ definitions:
           $ref: "#/definitions/CoordinatedHeadState"
         previousRecoverableState:
           $ref: "#/definitions/HeadState"
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
     - title: "ClosedState"
       additionalProperties: false
       required:
@@ -657,6 +636,7 @@ definitions:
         - confirmedSnapshot
         - contestationDeadline
         - readyToFanoutSent
+        - chainState
       properties:
         tag:
           type: string
@@ -671,6 +651,8 @@ definitions:
           $ref: "api.yaml#/components/schemas/UTCTime"
         readyToFanoutSent:
           type: boolean
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
 
   CoordinatedHeadState:
     type: object
@@ -891,13 +873,16 @@ definitions:
         additionalProperties: false
         required:
         - tag
-        - contents
+        - observedTx
+        - newChainState
         properties:
           tag:
             type: string
             enum: ["Observation"]
-          contents:
+          observedTx:
             $ref: "#/definitions/OnChainTx"
+          newChainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
 
       - title: Rollback
         type: object
@@ -1095,7 +1080,8 @@ definitions:
       additionalProperties: false
       required:
       - tag
-      - onChainTx
+      - chainState
+      - postChainTx
       description: >-
         An effect representing some transaction must be posted on-chain. Note
         that incoming transactions are represented by OnChainEvent which can be
@@ -1104,7 +1090,9 @@ definitions:
         tag:
           type: string
           enum: ["OnChainEffect"]
-        onChainTx:
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
+        postChainTx:
           $ref: "api.yaml#/components/schemas/PostChainTx"
     - title: Delay
       type: object

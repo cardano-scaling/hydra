@@ -2,119 +2,12 @@
     "samples": [
         {
             "by": {
-                "vkey": "8a8be58e4ce40eb3bf723863bb86fe2ff1f227971a75500b4216658c13fdff82"
-            },
-            "effect": {
-                "serverOutput": {
-                    "parties": [
-                        {
-                            "vkey": "ff98402e35143e48e8a0ffcbf374f4d8543a318800fb16fab7d316ca3f0848c5"
-                        },
-                        {
-                            "vkey": "cfbc08bdab9ea09caa1b0d223d4fb0c454e0d2dc535b261deeeb1f945bbe272c"
-                        },
-                        {
-                            "vkey": "1bdee6bc3e255602b0db499ad52076fe55354c449825cdde7a37717fd5ce707c"
-                        },
-                        {
-                            "vkey": "cab54898db55b16a99a5b2e86c51aa6e55227f4584e03385354fbb72eef8bff6"
-                        },
-                        {
-                            "vkey": "7e4a0c85b43be997a8f6554f8f8216ef80c4aaeaf7474887829736e4b1c70514"
-                        },
-                        {
-                            "vkey": "2990804954c0a95cf6e27bc1da9af20941c64362dcf06023f441826ec0d49c51"
-                        },
-                        {
-                            "vkey": "c00d753d8939e37f4d3bbe1be6370515102253f48cd25f5b52e3451931eb2d34"
-                        },
-                        {
-                            "vkey": "5dfbacf413c8178a56083c6b3253c5bf0028c630aa740a15b6f2e009ed16cf9d"
-                        },
-                        {
-                            "vkey": "1153cfbd5d178e07e448d6d4deb1ba98413440ee80dad54f9dca04c98189481d"
-                        },
-                        {
-                            "vkey": "a79861591a239f5678e0d40aa19a5654b1e10302ee676bfe62430df7f01e6cae"
-                        },
-                        {
-                            "vkey": "54114ca4a12a97c8b788c82f95ab6e7624132f51fb5a1490574de22dc45ace2d"
-                        },
-                        {
-                            "vkey": "7f341aa89ea246448ad4e7d59c6e62b50b43967a26e9a5a7e4c4fd3fd60129a6"
-                        },
-                        {
-                            "vkey": "9e030f807d3e86857a09f59c7f92c61a498ee10e1d7b7b9a370d3339907f3f08"
-                        },
-                        {
-                            "vkey": "56ca1e79c7b8a8f4bfad1e643d4b81c1a540d5b4b7d0bb26282c4371dd4b87ce"
-                        },
-                        {
-                            "vkey": "a6b25cc34faaafce12a622bfc23a9525e4a769fab97b1b292048aa0e6de55082"
-                        }
-                    ],
-                    "tag": "ReadyToCommit"
-                },
-                "tag": "ClientEffect"
-            },
-            "tag": "BeginEffect"
-        },
-        {
-            "by": {
-                "vkey": "e7d5f8c80ee5309715be2553dc16759d3a7fb3dad30c1bd04abd2fb495301f45"
-            },
-            "event": {
-                "clientInput": {
-                    "tag": "Fanout"
-                },
-                "tag": "ClientEvent"
-            },
-            "tag": "BeginEvent"
-        },
-        {
-            "by": {
-                "vkey": "12487d8785d2aacdf5fb3f105dd40a51a6ecff92645688a56a5c74ef318372a2"
-            },
-            "effect": {
-                "onChainTx": {
-                    "tag": "AbortTx",
-                    "utxo": [
-                        -29,
-                        -26,
-                        -24,
-                        -22,
-                        -20,
-                        -19,
-                        -18,
-                        -15,
-                        -9,
-                        -3,
-                        -2,
-                        0,
-                        1,
-                        2,
-                        4,
-                        5,
-                        12,
-                        16,
-                        19,
-                        23
-                    ]
-                },
-                "tag": "OnChainEffect"
-            },
-            "tag": "BeginEffect"
-        },
-        {
-            "by": {
-                "vkey": "a53ced03bea236e7ce33db460478cff5894fe9a8e775ba2089efefa90b8135d8"
+                "vkey": "e0fd432241097de20e23c8539e7c75e9d23cfb95142203036d63dd9c86e7ec21"
             },
             "event": {
                 "chainEvent": {
-                    "contents": {
-                        "tag": "OnCollectComTx"
-                    },
-                    "tag": "Observation"
+                    "contents": 9,
+                    "tag": "Rollback"
                 },
                 "tag": "OnChainEvent"
             },
@@ -122,100 +15,151 @@
         },
         {
             "by": {
-                "vkey": "926221462cf6825be69c889f885ea33399fbc682fae0a2a4bf6ad16442273ed7"
+                "vkey": "3bb9e29ecb946ea6cb64b16056bfa125de8177fafd6705f1cd1611123fa30546"
             },
             "event": {
-                "postChainTx": {
-                    "headParameters": {
-                        "contestationPeriod": 42562,
-                        "parties": [
-                            {
-                                "vkey": "c0bbca50f0397fcfbd7b6a3373942acfb89b20cf2a70f3a2c8540fa8779168fa"
-                            },
-                            {
-                                "vkey": "f555d2ac63ff601d58c6eaa7da24b77d57322e6507051b5a7d17e01a7f3c5516"
-                            },
-                            {
-                                "vkey": "ff8c53fd9fd433dade12970a1ac6f857155e11b636e5b26069b9bfcc0702b187"
-                            },
-                            {
-                                "vkey": "ead762276a2a162ec8191716bd39aa4dce909625b1c0cd578dd2881942c310b8"
-                            },
-                            {
-                                "vkey": "11ee05a5c44a28011a262a95ba71744898b41cf39de562479fd371d49819d326"
-                            },
-                            {
-                                "vkey": "38bb68465783e2d4bfff4a25056b435061a0bb54c9feb9b5c9daeff901113fb6"
-                            },
-                            {
-                                "vkey": "7a4f3f16c8b873d3dbacfcbcca972307f9d9ec50c8d246d1aef6e6d7731df810"
-                            },
-                            {
-                                "vkey": "7a7cdbf29d17159e87e5d9cfe3dda0371ab56be6fb5e7f6b3a036461a87c1062"
-                            },
-                            {
-                                "vkey": "c410327d97bd1c89303bd120bf17693252aaecba957f65cba93d9f19f74140b5"
-                            },
-                            {
-                                "vkey": "a89b15f3732d18acfab003ab405f4c0338d2450586a7a453ab290b0eeb517036"
-                            },
-                            {
-                                "vkey": "b2b959971e9ffcddf91d79e461f93bd00a78df7abc903db54a80f596d38fe774"
-                            },
-                            {
-                                "vkey": "a3745b9a0775046ebe6701a3c0064a28c58739d8cb5a9e27296a83cfa9c8a801"
-                            },
-                            {
-                                "vkey": "bac4075cdb44f9136bbec3738bbf549d0042b7133018ca5a3ed78c931ec3640a"
-                            },
-                            {
-                                "vkey": "a21a24616a344e2fc9fdb30e44fe5100af52c1f58bd21e155e3f59a095d7ece5"
-                            },
-                            {
-                                "vkey": "7f8c57eb0c4cddabbb3e0f1f8c150d7287d07a17ae340fb222e460aee85e8531"
-                            },
-                            {
-                                "vkey": "5d384aaabb440c2c92a31a1f9b8ca155151056eecf7e26f42d75e44e4a9d7073"
-                            },
-                            {
-                                "vkey": "a83727b8e5f146a2650550393a01d67f06aaecbec7f94d8321417b14dbc11f74"
-                            },
-                            {
-                                "vkey": "1933dee17bb23f85e900ef6b4a454161589bf9eb96793762c8e06d590ff3f64c"
-                            },
-                            {
-                                "vkey": "4fb99d113fdcd30a263511a61064b9d376118872d95c49fb3484b19dae1e819e"
-                            },
-                            {
-                                "vkey": "c01aeed1365f5e72325d05e2556b7adc48935afb5a1087da80cc3e8d658a21e2"
-                            },
-                            {
-                                "vkey": "a776ff0eec8b1a61f1d639e6237addc88646b98b87ce5e4a0f1cdddb6ddd9a27"
-                            },
-                            {
-                                "vkey": "ead30a8b0cc392408740977cfed63105ca260dc100ca0000b9c40aca83004a08"
-                            },
-                            {
-                                "vkey": "1f177048f82b2889fae2fe909dc4a9ff84eddf137e9fc02c5ca4124af52733ff"
-                            }
+                "clientInput": {
+                    "tag": "NewTx",
+                    "transaction": {
+                        "id": 21,
+                        "inputs": [
+                            -27,
+                            -26,
+                            -24,
+                            -22,
+                            -16,
+                            -14,
+                            -9,
+                            -8,
+                            -6,
+                            -5,
+                            -2,
+                            0,
+                            5,
+                            8,
+                            10,
+                            14,
+                            15,
+                            16,
+                            20,
+                            21,
+                            23,
+                            25,
+                            29
+                        ],
+                        "outputs": [
+                            -27,
+                            -26,
+                            -23,
+                            -21,
+                            -18,
+                            -17,
+                            -16,
+                            -15,
+                            -11,
+                            -9,
+                            -6,
+                            -4,
+                            -3,
+                            -2,
+                            1,
+                            6,
+                            9,
+                            18,
+                            19,
+                            24,
+                            25,
+                            30
                         ]
+                    }
+                },
+                "tag": "ClientEvent"
+            },
+            "tag": "EndEvent"
+        },
+        {
+            "by": {
+                "vkey": "16811b0eaf2a63175744ca75e3c4464348518cb8573152bb536a1d1032a51c5c"
+            },
+            "event": {
+                "chainEvent": {
+                    "newChainState": {
+                        "slot": 11
                     },
-                    "tag": "InitTx"
+                    "observedTx": {
+                        "snapshotNumber": 11,
+                        "tag": "OnContestTx"
+                    },
+                    "tag": "Observation"
                 },
-                "postTxError": {
-                    "plutusDebugInfo": "'S\u0010\u000c\u0013\u0018",
-                    "plutusFailure": "=􀪁",
-                    "tag": "PlutusValidationFailed"
+                "tag": "OnChainEvent"
+            },
+            "tag": "EndEvent"
+        },
+        {
+            "by": {
+                "vkey": "8954b941ddcb9291139b60a9d8bfa30092929f5f4d8f613d530386dfb45c654d"
+            },
+            "effect": {
+                "message": {
+                    "nodeId": "bywwpjmsyshjs",
+                    "tag": "Disconnected"
                 },
-                "tag": "PostTxError"
+                "tag": "NetworkEffect"
             },
-            "reason": {
-                "actual": 7,
-                "expected": 7,
-                "tag": "InvalidSnapshot"
+            "tag": "BeginEffect"
+        },
+        {
+            "by": {
+                "vkey": "f6d74e363529be8ea53086d44d916d3e73f7b1ae85a8218142466f2dfc65d511"
             },
-            "tag": "ErrorHandlingEvent"
+            "event": {
+                "message": {
+                    "party": {
+                        "vkey": "eec0b7d807689031b7146de858c74d1355fdb372a01832388fc30e1b0cbdc3e9"
+                    },
+                    "tag": "ReqTx",
+                    "transaction": {
+                        "id": 21,
+                        "inputs": [
+                            -29,
+                            -12,
+                            15,
+                            20,
+                            30
+                        ],
+                        "outputs": [
+                            -30,
+                            -27,
+                            -26,
+                            -25,
+                            -23,
+                            -21,
+                            -14,
+                            -12,
+                            -8,
+                            -6,
+                            0,
+                            1,
+                            2,
+                            7,
+                            11,
+                            14,
+                            15,
+                            17,
+                            18,
+                            20,
+                            22,
+                            27,
+                            29
+                        ]
+                    }
+                },
+                "tag": "NetworkEvent",
+                "ttl": 15
+            },
+            "tag": "EndEvent"
         }
     ],
-    "seed": -1888410191
+    "seed": -2088440374
 }
