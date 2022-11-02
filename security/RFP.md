@@ -8,9 +8,15 @@ See [CIP-52](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0052)
 
 > Submitters might also wish to explain mitigating actions that they have taken to protect against potential failures and attacks to the DApp.
 
-Implementation of a subset of [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf)
+Grab stuff from https://hydra.family/head-protocol/core-concepts
 
--> identify missing gaps from internal spec
+Implementation of a subset of [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf)
+In particular, the following simplifications are done in the actual implementation:
+
+* Kagg is a list of keys
+* snapshot is signed for every transaction and only snapshot can be used in close transaction
+* ...
+
 
 # *On-Chain Specification* 
 
@@ -22,11 +28,21 @@ Implementation of a subset of [Hydra: Fast Isomorphic State Channels](https://ep
 
 > A formal specification is recommended but not mandatory. 
 
+Grab stuff from https://hydra.family/head-protocol/haddock/hydra-plutus/index.html
+
+
 # *Off-Chain Specification*
 
 > For off-chain analysis additional information should be provided for the components and services interfaced:
 > * For all interfacing components, a specification shall be given detailing their expected behaviour in relation to the DApp, including any assumptions, constraints and requirements of the component that are expected to hold by the DApp developers.
 > * It also shall be stated whether any of the interfacing components have been certified.
+
+Grab stuff from https://hydra.family/head-protocol/haddock/hydra-node/index.html sub-sections of _Hydra.Chain.Direct_
+
+# *Layer 2 Specification*
+
+We should describe here what is layer 2 in Hydra. The fact that we run transactions, sign them together (snapshots) and the fact that we communicate on the network to do so.
+
 
 # *Testing*
 
@@ -40,6 +56,8 @@ Implementation of a subset of [Hydra: Fast Isomorphic State Channels](https://ep
 
 > In the case that off-chain code is included in the scope of the audit, testing should be able to assess the performance and robustness of the DApp against significant throughput, under substantial workload, and in the scenario of a DoS attack.
 
+We should share our test architecture/topology and also the test results here: https://hydra.family/head-protocol/benchmarks/tests/hydra-cluster/hspec-results
+
 # *Source code and version*
 
 > A final version of the source code should be provided that works with the use cases specified in the documentation. Information needs to be provided to allow the DApp to be built in an unambiguous and reproducible way, including any external components and services that the DApp uses.  This could be in the form of
@@ -48,6 +66,8 @@ Implementation of a subset of [Hydra: Fast Isomorphic State Channels](https://ep
 > * The URL for a commit to a repository.
 > * Build information for the DApp: a pure nix build is particularly suitable, since this will identify versions of  libraries, compilers, OS, etc.
 > * For the on-chain code for a DApp, the specific contracts to be audited.
+
+Assessment should be performed for version 0.9.0 of hydra-poc code.
 
 # *Versioning*
 
