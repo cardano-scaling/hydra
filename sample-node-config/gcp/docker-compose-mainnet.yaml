@@ -20,7 +20,7 @@ services:
       [ "run"
       , "--config", "/mainnet/cardano-node/config.json"
       , "--topology", "/mainnet/cardano-node/topology.json"
-      , "--database-path", "/devnet/db"
+      , "--database-path", "/mainnet/db"
       ]
 
   prometheus:

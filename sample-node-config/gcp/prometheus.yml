@@ -28,12 +28,12 @@ scrape_configs:
     static_configs:
     - targets: ['0.0.0.0:9090']
 
-  - job_name: 'hydra_nodes'
+  - job_name: 'cardano-node'
 
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.
 
     static_configs:
     - targets: [
-      'hydra-node:6001', # hydra-nodes
+      'cardano-node:12798', # hydra-nodes
       ]
