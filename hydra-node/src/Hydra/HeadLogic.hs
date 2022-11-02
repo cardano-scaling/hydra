@@ -834,7 +834,6 @@ onCurrentChainRollback currentState slot =
   NewState (rollback slot currentState) [ClientEffect RolledBack]
  where
   rollback rollbackSlot hs
-    -- REVIEW: <= or >=?
     | chainStateSlot (getChainState hs) <= rollbackSlot = hs
     | otherwise =
       case hs of
