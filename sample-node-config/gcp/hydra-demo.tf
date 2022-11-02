@@ -1,34 +1,26 @@
-resource "google_compute_instance" "hydra-demo" {
-  name         = "hydra-demo-1"
+variable "hydra_image_id" {
+  type        = string
+  description = "The image tag of hydra service to deploy"
+}
 
-  # https://cloud.google.com/compute/docs/compute-optimized-machines
-  machine_type = "c2d-standard-2"
-  allow_stopping_for_update = true
+variable "cardano_image_id" {
+  type        = string
+  description = "The image tag of cardano service to deploy"
+}
 
-  tags = [ "hydra", "testnet" ]
+resource "null_resource" "hydra-demo" {
 
-  metadata = {
-    sshKeys = file("ssh_keys")
-  }
-
-  boot_disk {
-    initialize_params {
-      size  = 50
-      image = "iog-hydra-1665828710"
-    }
-  }
-
-  network_interface {
-    network       = "default"
-    access_config {
-      nat_ip = google_compute_address.hydra-demo-address.address
-    }
+  # trigger a deployment of the aggregator whwen the
+  # image_id is updated
+  triggers = {
+    hydra_image_id = var.hydra_image_id
+    cardano_image_id = var.cardano_image_id
   }
 
   connection {
     type = "ssh"
     user = "curry"
-    host = self.network_interface.0.access_config.0.nat_ip
+    host = google_compute_instance.hydra-demo.network_interface.0.access_config.0.nat_ip
   }
 
   provisioner "file" {
@@ -43,7 +35,7 @@ resource "google_compute_instance" "hydra-demo" {
 
   provisioner "remote-exec" {
     inline = [
-      "mkdir keys"
+      "[ -d keys ] || mkdir keys"
     ]
   }
 
@@ -86,20 +78,9 @@ resource "google_compute_instance" "hydra-demo" {
   provisioner "remote-exec" {
     inline = [
       "chmod +x /home/curry/configure-testnet.sh",
-      "/home/curry/configure-testnet.sh"
+      "HYDRA_IMAGE_ID=${var.hydra_image_id} CARDANO_IMAGE_ID=${var.cardano_image_id} /home/curry/configure-testnet.sh"
     ]
   }
 
-}
 
-resource "google_compute_address" "hydra-demo-address" {
-  name = "hydra-demo-address"
-}
-
-output "hydra-demo-ip" {
-  value = google_compute_address.hydra-demo-address.address
-}
-
-output "project" {
-  value = google_compute_instance.hydra-demo.project
 }

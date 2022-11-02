@@ -11,36 +11,45 @@ ssh-keyscan github.com >> ~/.ssh/known_hosts
 curl https://api.github.com/users/abailly-iohk/gpg_keys | jq -r '.[] | .raw_key' | gpg --import
 
 # get cardano network configuration
-git clone https://github.com/input-output-hk/cardano-configurations
+if [[ -d cardano-configurations ]]; then
+  pushd cardano-configurations
+  git pull
+  popd
+else
+  git clone https://github.com/input-output-hk/cardano-configurations
+fi
 
 export NETWORK_MAGIC=$(jq .networkMagic cardano-configurations/network/preview/genesis/shelley.json)
 
 # this is manually hardcoded from https://github.com/input-output-hk/hydra-poc/releases/tag/0.7.0
 # perhaps there would be a way to look those up in the Chain?
-export HYDRA_SCRIPTS_TX_ID=bde2ca1f404200e78202ec37979174df9941e96fd35c05b3680d79465853a246
+export HYDRA_SCRIPTS_TX_ID=4081fab39728fa3c05c0edc4dc7c0e8c45129ca6b2b70bf8600c1203a79d2c6d
 
-ln -s cardano-configurations/network/preview devnet
+[[ -L devnet/preview ]] || ln -s cardano-configurations/network/preview devnet
 
 # Mithril stuff
-docker pull ghcr.io/input-output-hk/mithril-client:latest
-SNAPSHOT=$(curl -s https://aggregator.api.mithril.network/aggregator/snapshots | jq -r .[0].digest)
+# TODO: uncomment or make dependent on a flag?
+# docker pull ghcr.io/input-output-hk/mithril-client:latest
+# SNAPSHOT=$(curl -s https://aggregator.api.mithril.network/aggregator/snapshots | jq -r .[0].digest)
 
-GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey)
+# GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey)
 
-mithril_client () {
-  docker run --rm -ti -v $(pwd):/data \
-         -e AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator \
-         -e NETWORK=preview \
-         -e GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY} \
-         -w /data -u $(id -u) ghcr.io/input-output-hk/mithril-client:latest $@
-}
+# mithril_client () {
+#   docker run --rm -ti -v $(pwd):/data \
+#          -e AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator \
+#          -e NETWORK=preview \
+#          -e GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY} \
+#          -w /data -u $(id -u) ghcr.io/input-output-hk/mithril-client:latest $@
+# }
 
-echo "Restoring snapshot $SNAPSHOT"
-mithril_client show $SNAPSHOT
-mithril_client download $SNAPSHOT
-mithril_client restore $SNAPSHOT
+# echo "Restoring snapshot $SNAPSHOT"
+# mithril_client show $SNAPSHOT
+# mithril_client download $SNAPSHOT
+# mithril_client restore $SNAPSHOT
 
-mv -f data/preview/${SNAPSHOT}/db devnet/
+# [[ -d devnet/db ]] && rm -fr devnet/db
+
+# mv -f data/preview/${SNAPSHOT}/db devnet/
 
 docker-compose --profile hydraw up -d
 

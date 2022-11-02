@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   cardano-node:
-    image: inputoutput/cardano-node:latest
+    image: inputoutput/cardano-node:${CARDANO_IMAGE_ID:-latest}
     restart: always
     logging:
       driver: "json-file"
@@ -25,7 +25,7 @@ services:
 
 
   hydra-node:
-    image: ghcr.io/input-output-hk/hydra-node:latest
+    image: ghcr.io/input-output-hk/hydra-node:${HYDRA_IMAGE_ID:-latest}
     restart: always
     logging:
       driver: "json-file"
@@ -53,7 +53,7 @@ services:
       ]
 
   hydra-tui:
-    image: ghcr.io/input-output-hk/hydra-tui:latest
+    image: ghcr.io/input-output-hk/hydra-tui:${HYDRA_IMAGE_ID:-latest}
     profiles:
       - tui
     command:
