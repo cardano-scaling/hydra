@@ -61,8 +61,11 @@ TODO
 
 ## Tasks
 
+On a broad level, our goal is to ensure that the security properties proven in the original publication hold for the implementation, taking also into consideration the main entry points of a hydra node which are the network, the API and the Cardano ledger.
+
+
 Given the artifacts described above, 
-We expect the auditor to assess the follwing statements.
+We expect the auditor to assess the following statements.
 
 ### Hydra Head v1 Formal Specification is sound with the original publication
 
@@ -70,17 +73,27 @@ TODO
 
 Hydra implementation specification is compliant with the Hydra original paper to the extent that the proofs in the Hydra original paper apply to the Hydra implementation specification.
 
-### Hydra on-chain and off-chain code base is compliant with Hydra implementation specification
+### Hydra head protocol implementation is sound with Hydra implementation specification
 
 TODO
 
-### Hydra layer 2 code base is compliant with Hydra implementation specification
-
-TODO 
-
-### Given the security hypotheses, Hydra layer 2 code base is immune to side channel attacks through the network or the API or impersonating a user or any other attack you can think of.
+### Hydra head protocol implementation is immune to on-chain attacks
 
 TODO
+
+An attacker posts transactions on chain which mess with our implementation.
+
+### Hydra head protocol implementation is immune to network attacks
+
+TODO
+
+Define some security hypotheses regarding network connections and check that, under these hypotheses, our code prevent an attacker to mess with the head
+
+### Hydra head protocol implementation is immune to API attacks
+
+TODO
+
+If we state that API is only accessible through local loopback then it's probably just an obvious demonstration here. But it might lead to interesting discoveries like what installation instructions we share with the users to optimize for their security.
 
 ## Out of Scope
 
