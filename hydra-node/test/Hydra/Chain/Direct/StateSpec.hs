@@ -169,13 +169,13 @@ spec = parallel $ do
     prop "ignore aborts of other heads" $ do
       let twoDistinctHeads = do
             ctx <- genHydraContext 3
-            st1@InitialState{initialHeadId = h1} <- genStInitial ctx
-            st2@InitialState{initialHeadId = h2} <- genStInitial ctx
+            (ctx1, st1@InitialState{initialHeadId = h1}) <- genStInitial ctx
+            (ctx2, st2@InitialState{initialHeadId = h2}) <- genStInitial ctx
             when (h1 == h2) discard
-            pure (st1, st2)
-      forAll twoDistinctHeads $ \(stHead1, stHead2) ->
-        let observedIn1 = observeAbort stHead1 (abort stHead1)
-            observedIn2 = observeAbort stHead2 (abort stHead1)
+            pure ((ctx1, st1), (ctx2, st2))
+      forAll twoDistinctHeads $ \((ctx1, stHead1), (ctx2, stHead2)) ->
+        let observedIn1 = observeAbort stHead1 (abort ctx1 stHead1)
+            observedIn2 = observeAbort stHead2 (abort ctx2 stHead1)
          in conjoin
               [ observedIn1 =/= Nothing
               , observedIn2 === Nothing
@@ -267,7 +267,7 @@ forAllCommit ::
   Property
 forAllCommit action = do
   forAll (genHydraContext 3) $ \hctx ->
-    forAll (genStInitial hctx) $ \stInitial@InitialState{ctx} ->
+    forAll (genStInitial hctx) $ \(ctx, stInitial) ->
       forAllShow genCommit renderUTxO $ \utxo ->
         let tx = unsafeCommit ctx stInitial utxo
          in action stInitial tx
@@ -284,7 +284,7 @@ forAllNonEmptyByronCommit ::
   Property
 forAllNonEmptyByronCommit action = do
   forAll (genHydraContext 3) $ \hctx ->
-    forAll (genStInitial hctx) $ \stInitial@InitialState{ctx} ->
+    forAll (genStInitial hctx) $ \(ctx, stInitial) ->
       forAllShow genByronCommit renderUTxO $ \utxo ->
         case commit ctx stInitial utxo of
           Right{} -> property False
@@ -300,7 +300,7 @@ forAllAbort action = do
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
           let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-           in action stInitialized (abort stInitialized)
+           in action stInitialized (abort cctx stInitialized)
                 & classify
                   (null commits)
                   "Abort immediately, after 0 commits"

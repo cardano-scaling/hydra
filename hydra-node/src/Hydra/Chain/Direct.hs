@@ -77,7 +77,6 @@ import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (Idle),
   ChainStateAt (..),
-  IdleState (..),
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Util (
@@ -138,35 +137,13 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
  )
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
--- | Create the initial state of the direct chain layer. This will query for the
--- hydra scripts and initialize a 'ChainContext'.
--- XXX: It's a bit weird that the 'ChainContext' is in the 'ChainState'
-initialChainState ::
-  ChainConfig ->
-  -- | Hydra party of our hydra node.
-  Party ->
-  -- | Transaction id at which to look for Hydra scripts.
-  TxId ->
-  IO (ChainStateType Tx)
-initialChainState config party hydraScriptsTxId = do
-  (vk, _) <- readKeyPair cardanoSigningKey
-  otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
-  scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
-  let ctx =
-        ChainContext
-          { networkId
-          , peerVerificationKeys = otherCardanoKeys
-          , ownVerificationKey = vk
-          , ownParty = party
-          , scriptRegistry
-          }
-  pure $
-    ChainStateAt
-      { chainState = Idle IdleState{ctx}
-      , recordedAt = ChainSlot 0
-      }
- where
-  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} = config
+-- | Defines the starting state of the direct chain layer.
+initialChainState :: ChainStateType Tx
+initialChainState =
+  ChainStateAt
+    { chainState = Idle
+    , recordedAt = ChainSlot 0
+    }
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::

@@ -101,8 +101,7 @@ computeCommitCost = do
   genCommitTx utxo = do
     -- NOTE: number of parties is irrelevant for commit tx
     ctx <- genHydraContextFor 1
-    cctx <- pickChainContext ctx
-    stInitial <- genStInitial ctx
+    (cctx, stInitial) <- genStInitial ctx
     pure (commit cctx stInitial utxo, getKnownUTxO stInitial)
 
 computeCollectComCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
@@ -184,7 +183,7 @@ computeAbortCost =
     commits <- sublistOf =<< genCommits ctx initTx
     cctx <- pickChainContext ctx
     let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (abort stInitialized, getKnownUTxO stInitialized)
+    pure (abort cctx stInitialized, getKnownUTxO stInitialized)
 
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do

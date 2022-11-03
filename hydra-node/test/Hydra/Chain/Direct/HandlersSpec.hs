@@ -258,7 +258,7 @@ genSequenceOfObservableBlocks = do
     initTx <- stepInit cctx (ctxHeadParameters ctx)
     void $ stepCommits cctx initTx (map IdleState allContexts)
 
-  pure (cctx, stAtGenesis (Idle IdleState{ctx = cctx}), reverse blks)
+  pure (cctx, stAtGenesis Idle, reverse blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
   nextSlot = do

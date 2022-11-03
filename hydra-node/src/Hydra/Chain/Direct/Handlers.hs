@@ -44,7 +44,6 @@ import Hydra.Chain.Direct.State (
   ChainContext,
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
-  IdleState (IdleState),
   abort,
   close,
   collect,
@@ -254,14 +253,14 @@ fromPostChainTx ::
 fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
   pointInTime <- throwLeft currentPointInTime
   case (tx, chainState) of
-    (InitTx params, Idle IdleState{}) ->
+    (InitTx params, Idle) ->
       getFuelUTxO wallet >>= \case
         Just (fromLedgerTxIn -> seedInput, _) -> do
           pure $ initialize ctx params seedInput
         Nothing ->
           throwIO (NoSeedInput @Tx)
     (AbortTx{}, Initial st) ->
-      pure $ abort st
+      pure $ abort ctx st
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.

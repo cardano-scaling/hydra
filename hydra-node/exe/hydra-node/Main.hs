@@ -71,8 +71,7 @@ main = do
           load persistence >>= \case
             Nothing -> do
               traceWith tracer CreatedState
-              chainState <- initialChainState chainConfig party hydraScriptsTxId
-              pure IdleState{chainState}
+              pure IdleState{chainState = initialChainState}
             Just a -> do
               traceWith tracer LoadedState
               pure a
