@@ -6,10 +6,79 @@ Founded in 2015 by Charles Hoskinson and Jeremy Wood, IOG is a technology compan
 Hydra is the layer 2 scalability solution for Cardano, which aims to increase transaction speed through low latency and high throughput and minimize transaction cost.
 IOG's product Hydra Head is the first protocol of the Hydra family and embodies the foundation for more advanced deployment scenarios relying on isomorphic, multi-party state-channels. Detailed information can be found at https://hydra.family/head-protocol/.
 
+# 4 - Project Scope
 
+IOG is issuing this solicitation to perform an assessment of the security of the Hydra Head protocol implementation. IOG is lloking for a comprehensive and best practice Secuirty Audit to include, but not limited to, the areas of concern below. Any additional materials and documentation can be referenced and attached to your submission.
 
+Per [CIP-52](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0052),
+1. Any discrepancies, deviations or spotted vulnerabilities shall be described and classified with an appropriate severity level. Recommendations to rectify the identified deficiencies shall also be provided whenever appropriate.
+2. When automated tools are used as a replacement for manual review/code inspection, they shall be documented or referenced. Note that it’s the responsibility of the auditor to ensure that such tooling may not exhibit potential failures that can adversely affect the review outcome.
+3. Any strategies/methodologies used to assess the consistency, correctness and completeness of the requirements shall also be documented or referenced.
 
-See [CIP-52](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0052)
+## Context and artifacts
+
+The Hydra head protocol implementation is composed of several parts, on-chain code, off-chain code, layer 2 code and this implementation is based on general and specific specification which contain proofs of several properties of the protocol. The main goal of this audit is to validate that these properties and their proofs apply to the code produced.
+
+We will first describe the artifacts in the scope of this audit before explaining the specific statements we want the auditor to assess.
+
+![artifacts.png](artifacts.png)
+
+### Artifact 1: Original publication
+
+The Hydra head protocol has first been published in [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf). This paper describes several versions of the protocol (simple, with or without conflict resolution, incremental (de)commits, etc.). And provides the corresponding security proofs, especially that the following four properties hold:
+* Consistency: No two uncorrupted parties see conflicting transactions confirmed.
+* Liveness: If all parties remain uncorrupted and the adversary delivers all messages, then every transaction becomes confirmed at some point.
+* Soundness: The final UTxO set accepted on the mainchain results from a set of seen transactions.
+* Completeness: All transactions observed as confirmed by an honest party at the end of the protocol are considered on the mainchain.
+
+The Hydra Head protocol implementation should be considered as a subset of the Simple Protocol without Conflict Resolution.
+
+A study of the whole paper and possible variations of the protocol is out of scope of this solicitation.
+
+### Artifact 2: Hydra Head v1 Formal Specification
+
+The Hydra Head protocol implementation derives from the original publication in several ways. Especially some simplification have been introduced and generalizations removed.
+
+Hydra Head v1 Formal Specification captures these deviations in a formal specification.
+
+### Artifact 3: Hydra Head Protocol Implementation
+
+The Hydra Head Protocol Implementation is the software that is used to operate a node in a head. It allows its users to open a head, lock funds in it, connect to peers, perform transaction in a layer 2 environment, close a head and unlock the corresponding funds. It includes on-chain code, off-chain code, layer 2 code, network communication between peers, API for clients to connect and use the node.
+
+TODO describe the inputs and outputs of a hydra node
+
+#### Artifact 3.3: on-chain code
+
+TODO
+
+#### Artifact 3.4: off-chain code
+
+TODO
+
+#### Artifact 3.5: layer 2 code
+
+TODO
+
+## Tasks
+
+We provide the auditor with three artefact:
+* Hydra original paper
+* Hydra implementation specification
+* Hydra on-chain code base
+* Hydra off-chain code base
+* Hydra layser 2 code base
+
+We expect the auditor to assess these three statements:
+* Hydra implementation specification is compliant with the Hydra original paper to the extent that the proofs in the Hydra original paper apply to the Hydra implementation specification.
+* Hydra on-chain and off-chain code base is compliant with Hydra implementation specification
+* Hydra layer 2 code base is compliant with Hydra implementation specification
+* Given the security hypotheses, Hydra layer 2 code base is immune to side channel attacks through the network or the API or impersonating a user or any other attack you can think of.
+
+## Out of Scope
+
+The scope of this audit has been described in the above sections. What is not in scope is out of scope. In particular, the following items is out of scope of this audit.
+
+Verify the whole original paper and its proofs.
 
 # Submission
 
@@ -132,17 +201,4 @@ Auditors shall provide credentials for the following competencies:
 Disclosure
 It is common – but not universal – practice for disclosure/publication of audit report, for example as a part of a responsible disclosure policy. A typical policy would be to publish a report after a certain period (e.g. 30-90 day) or at the point that a DApp goes live, whichever is earlier.
 
-# Scope of the audit
 
-We provide the auditor with three artefact:
-* Hydra original paper
-* Hydra implementation specification
-* Hydra on-chain code base
-* Hydra off-chain code base
-* Hydra layser 2 code base
-
-We expect the auditor to assess these three statements:
-* Hydra implementation specification is compliant with the Hydra original paper to the extent that the proofs in the Hydra original paper apply to the Hydra implementation specification.
-* Hydra on-chain and off-chain code base is compliant with Hydra implementation specification
-* Hydra layer 2 code base is compliant with Hydra implementation specification
-* Given the security hypotheses, Hydra layer 2 code base is immune to side channel attacks through the network or the API or impersonating a user or any other attack you can think of.
