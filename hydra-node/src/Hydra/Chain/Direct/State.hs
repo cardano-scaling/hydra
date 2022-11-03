@@ -286,10 +286,11 @@ initialize ctx =
 -- for "our initial output" to spend and check the given 'UTxO' to be
 -- compatible. Hence, this function does fail if already committed.
 commit ::
+  ChainContext ->
   InitialState ->
   UTxO ->
   Either (PostTxError Tx) Tx
-commit st utxo = do
+commit ctx st utxo = do
   case ownInitial of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
@@ -303,9 +304,10 @@ commit st utxo = do
         _ ->
           Left (MoreThanOneUTxOCommitted @Tx)
  where
+  ChainContext{networkId, ownParty, ownVerificationKey} = ctx
+
   InitialState
-    { ctx = ChainContext{networkId, ownParty, ownVerificationKey}
-    , initialInitials
+    { initialInitials
     , initialHeadTokenScript
     } = st
 
@@ -452,7 +454,7 @@ observeSomeTx ctx cst tx = case cst of
   Idle IdleState{} ->
     second Initial <$> observeInit ctx tx
   Initial st ->
-    second Initial <$> observeCommit st tx
+    second Initial <$> observeCommit ctx st tx
       <|> second Idle <$> observeAbort st tx
       <|> second Open <$> observeCollect st tx
   Open st -> second Closed <$> observeClose st tx
@@ -493,10 +495,11 @@ observeInit ctx tx = do
 
 -- | Observe an commit transition using a 'InitialState' and 'observeCommitTx'.
 observeCommit ::
+  ChainContext ->
   InitialState ->
   Tx ->
   Maybe (OnChainTx Tx, InitialState)
-observeCommit st tx = do
+observeCommit ctx st tx = do
   let initials = fst3 <$> initialInitials
   observation <- observeCommitTx networkId initials tx
   let CommitObservation{commitOutput, party, committed} = observation
@@ -512,9 +515,10 @@ observeCommit st tx = do
           }
   pure (event, st')
  where
+  ChainContext{networkId} = ctx
+
   InitialState
-    { ctx = ChainContext{networkId}
-    , initialCommits
+    { initialCommits
     , initialInitials
     } = st
 
@@ -676,43 +680,44 @@ genChainStateWithTx =
     , genFanoutWithState
     ]
  where
-  genInitWithState :: Gen (ChainState, Tx, ChainTransition)
+  genInitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genInitWithState = do
     ctx <- genHydraContext maxGenParties
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
     let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-    pure (Idle $ IdleState cctx, tx, Init)
+    pure (cctx, Idle $ IdleState cctx, tx, Init)
 
-  genCommitWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCommitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genCommitWithState = do
     ctx <- genHydraContext maxGenParties
+    cctx <- pickChainContext ctx
     stInitial <- genStInitial ctx
     utxo <- genCommit
-    let tx = unsafeCommit stInitial utxo
-    pure (Initial stInitial, tx, Commit)
+    let tx = unsafeCommit cctx stInitial utxo
+    pure (cctx, Initial stInitial, tx, Commit)
 
-  genCollectWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCollectWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genCollectWithState = do
-    (_, st, tx) <- genCollectComTx
-    pure (Initial st, tx, Collect)
+    (_, st@InitialState{ctx}, tx) <- genCollectComTx
+    pure (ctx, Initial st, tx, Collect)
 
-  genCloseWithState :: Gen (ChainState, Tx, ChainTransition)
+  genCloseWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genCloseWithState = do
-    (st, tx, _) <- genCloseTx maxGenParties
-    pure (Open st, tx, Close)
+    (st@OpenState{ctx}, tx, _) <- genCloseTx maxGenParties
+    pure (ctx, Open st, tx, Close)
 
-  genContestWithState :: Gen (ChainState, Tx, ChainTransition)
+  genContestWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genContestWithState = do
-    (_, _, st, tx) <- genContestTx
-    pure (Closed st, tx, Contest)
+    (_, _, st@ClosedState{ctx}, tx) <- genContestTx
+    pure (ctx, Closed st, tx, Contest)
 
-  genFanoutWithState :: Gen (ChainState, Tx, ChainTransition)
+  genFanoutWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genFanoutWithState = do
     Positive numParties <- arbitrary
     Positive numOutputs <- arbitrary
-    (st, tx) <- genFanoutTx numParties numOutputs
-    pure (Closed st, tx, Fanout)
+    (st@ClosedState{ctx}, tx) <- genFanoutTx numParties numOutputs
+    pure (ctx, Closed st, tx, Fanout)
 
 -- ** Warning zone
 
@@ -817,7 +822,7 @@ genCommits ctx txInit = do
   allChainContexts <- deriveChainContexts ctx
   forM allChainContexts $ \cctx -> do
     let (_, stInitial) = fromJust $ observeInit cctx txInit
-    unsafeCommit stInitial <$> genCommit
+    unsafeCommit cctx stInitial <$> genCommit
 
 genCommit :: Gen UTxO
 genCommit =
@@ -908,11 +913,12 @@ genStClosed ctx utxo = do
 
 unsafeCommit ::
   HasCallStack =>
+  ChainContext ->
   InitialState ->
   UTxO ->
   Tx
-unsafeCommit st u =
-  either (error . show) id $ commit st u
+unsafeCommit ctx st u =
+  either (error . show) id $ commit ctx st u
 
 unsafeObserveInitAndCommits ::
   ChainContext ->
@@ -926,7 +932,7 @@ unsafeObserveInitAndCommits ctx txInit commits =
   (utxo, stInitial') = flip runState stInitial $ do
     forM commits $ \txCommit -> do
       st <- get
-      let (event, st') = fromJust $ observeCommit st txCommit
+      let (event, st') = fromJust $ observeCommit ctx st txCommit
       put st'
       pure $ case event of
         OnCommitTx{committed} -> committed

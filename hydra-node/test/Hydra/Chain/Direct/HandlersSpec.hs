@@ -256,7 +256,7 @@ genSequenceOfObservableBlocks = do
   cctx <- elements allContexts
   blks <- flip execStateT [] $ do
     initTx <- stepInit cctx (ctxHeadParameters ctx)
-    void $ stepCommits initTx (map IdleState allContexts)
+    void $ stepCommits cctx initTx (map IdleState allContexts)
 
   pure (cctx, stAtGenesis (Idle IdleState{ctx = cctx}), reverse blks)
  where
@@ -281,26 +281,28 @@ genSequenceOfObservableBlocks = do
     initTx <$ putNextBlock initTx
 
   stepCommits ::
+    ChainContext ->
     Tx ->
     [IdleState] ->
     StateT [Block] Gen [InitialState]
-  stepCommits initTx = \case
+  stepCommits ctx initTx = \case
     [] ->
       pure []
     stIdle : rest -> do
-      stInitialized <- stepCommit initTx stIdle
-      (stInitialized :) <$> stepCommits initTx rest
+      stInitialized <- stepCommit ctx initTx stIdle
+      (stInitialized :) <$> stepCommits ctx initTx rest
 
   stepCommit ::
+    ChainContext ->
     Tx ->
     IdleState ->
     StateT [Block] Gen InitialState
-  stepCommit initTx IdleState{ctx} = do
+  stepCommit ctx initTx IdleState{} = do
     let (_, stInitial) = fromJust $ observeInit ctx initTx
     utxo <- lift genCommit
-    let commitTx = unsafeCommit stInitial utxo
+    let commitTx = unsafeCommit ctx stInitial utxo
     putNextBlock commitTx
-    pure $ snd $ fromJust $ observeCommit stInitial commitTx
+    pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
 
 stAtGenesis :: ChainState -> ChainStateAt
 stAtGenesis chainState =
