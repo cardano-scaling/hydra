@@ -116,9 +116,9 @@ spec = parallel $ do
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $
       checkCoverage $
-        forAll genChainStateWithTx $ \(st, tx, transition) ->
+        forAll genChainStateWithTx $ \(ctx, st, tx, transition) ->
           genericCoverTable [transition] $
-            isJust (observeSomeTx tx st)
+            isJust (observeSomeTx ctx st tx)
               & counterexample "observeSomeTx returned Nothing"
 
   describe "init" $ do
@@ -139,8 +139,8 @@ spec = parallel $ do
     -- propIsValid forAllCommit XXX: not possible because it spends an "outside" UTxO
 
     prop "consumes all inputs that are committed" $
-      forAllCommit $ \st tx ->
-        case observeCommit st tx of
+      forAllCommit $ \st@InitialState{ctx} tx ->
+        case observeCommit ctx st tx of
           Just (_, st') ->
             let knownInputs = UTxO.inputSet (getKnownUTxO st')
              in knownInputs `Set.disjoint` txInputSet tx
@@ -148,10 +148,10 @@ spec = parallel $ do
             False
 
     prop "can only be applied / observed once" $
-      forAllCommit $ \st tx ->
-        case observeCommit st tx of
+      forAllCommit $ \st@InitialState{ctx} tx ->
+        case observeCommit ctx st tx of
           Just (_, st') ->
-            case observeCommit st' tx of
+            case observeCommit ctx st' tx of
               Just{} -> False
               Nothing -> True
           Nothing ->
@@ -266,10 +266,10 @@ forAllCommit ::
   (InitialState -> Tx -> property) ->
   Property
 forAllCommit action = do
-  forAll (genHydraContext 3) $ \ctx ->
-    forAll (genStInitial ctx) $ \stInitial ->
+  forAll (genHydraContext 3) $ \hctx ->
+    forAll (genStInitial hctx) $ \stInitial@InitialState{ctx} ->
       forAllShow genCommit renderUTxO $ \utxo ->
-        let tx = unsafeCommit stInitial utxo
+        let tx = unsafeCommit ctx stInitial utxo
          in action stInitial tx
               & classify
                 (null utxo)
@@ -283,10 +283,10 @@ forAllNonEmptyByronCommit ::
   (PostTxError Tx -> Property) ->
   Property
 forAllNonEmptyByronCommit action = do
-  forAll (genHydraContext 3) $ \ctx ->
-    forAll (genStInitial ctx) $ \stInitial ->
+  forAll (genHydraContext 3) $ \hctx ->
+    forAll (genStInitial hctx) $ \stInitial@InitialState{ctx} ->
       forAllShow genByronCommit renderUTxO $ \utxo ->
-        case commit stInitial utxo of
+        case commit ctx stInitial utxo of
           Right{} -> property False
           Left e -> action e
 

@@ -181,9 +181,11 @@ chainSyncHandler ::
   ChainCallback Tx m ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
+  -- | Contextual information about our chain connection.
+  ChainContext ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle =
+chainSyncHandler tracer callback getTimeHandle ctx =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -215,7 +217,7 @@ chainSyncHandler tracer callback getTimeHandle =
 
     forM_ receivedTxs $ \tx ->
       callback $ \ChainStateAt{chainState = cs} ->
-        case observeSomeTx tx cs of
+        case observeSomeTx ctx cs tx of
           Nothing -> Nothing
           Just (observedTx, cs') ->
             Just $
@@ -264,7 +266,7 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
     (CommitTx{committed}, Initial st) ->
-      either throwIO pure (commit st committed)
+      either throwIO pure (commit ctx st committed)
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from

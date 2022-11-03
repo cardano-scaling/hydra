@@ -220,7 +220,7 @@ withDirectChain tracer config ctx callback action = do
   res <-
     race
       ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback getTimeHandle
+          let handler = chainSyncHandler tracer callback getTimeHandle ctx
           let intersection = toConsensusPointHF <$> startChainFrom
           let client = ouroborosApplication tracer intersection queue handler wallet
           withIOManager $ \iocp ->

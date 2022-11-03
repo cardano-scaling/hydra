@@ -91,8 +91,9 @@ spec = do
       (timeHandle, slot) <- pickBlind genTimeHandleWithSlotInsideHorizon
       blk <- pickBlind $ genBlockAt slot []
 
+      chainContext <- pickBlind arbitrary
       chainState <- pickBlind arbitrary
-      (handler, getEvents) <- run $ recordEventsHandler chainState (pure timeHandle)
+      (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle)
 
       run $ onRollForward handler blk
 
@@ -110,8 +111,9 @@ spec = do
       (timeHandle, slot) <- pickBlind genTimeHandleWithSlotPastHorizon
       blk <- pickBlind $ genBlockAt slot []
 
+      chainContext <- pickBlind arbitrary
       let chainSyncCallback = \_cont -> failure "Unexpected callback"
-          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle)
+          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext
 
       run $
         onRollForward handler blk
@@ -119,7 +121,7 @@ spec = do
 
   prop "yields observed transactions rolling forward" . monadicIO $ do
     -- Generate a state and related transaction and a block containing it
-    (st, tx, transition) <- pick genChainStateWithTx
+    (ctx, st, tx, transition) <- pick genChainStateWithTx
     let chainState = ChainStateAt{chainState = st, recordedAt = ChainSlot 0}
     blk <- pickBlind $ genBlockAt 1 [tx]
     monitor (label $ show transition)
@@ -141,13 +143,13 @@ spec = do
               failure "rolled back but expected roll forward."
             Just Tick{} -> pure ()
             Just Observation{observedTx} ->
-              fst <$> observeSomeTx tx st `shouldBe` Just observedTx
+              fst <$> observeSomeTx ctx st tx `shouldBe` Just observedTx
 
-    let handler = chainSyncHandler nullTracer callback (pure timeHandle)
+    let handler = chainSyncHandler nullTracer callback (pure timeHandle) ctx
     run $ onRollForward handler blk
 
   prop "yields rollback events onRollBackward" . monadicIO $ do
-    (chainState, blocks) <- pickBlind genSequenceOfObservableBlocks
+    (chainContext, chainState, blocks) <- pickBlind genSequenceOfObservableBlocks
     (rollbackSlot, rollbackPoint) <- pick $ genRollbackPoint blocks
     monitor $ label ("Rollback to: " <> show rollbackSlot <> " / " <> show (length blocks))
     timeHandle <- pickBlind arbitrary
@@ -161,7 +163,7 @@ spec = do
             Just Tick{} -> pure ()
             Just (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
             Just Observation{newChainState} -> atomically $ writeTVar stateVar newChainState
-    let handler = chainSyncHandler nullTracer callback (pure timeHandle)
+    let handler = chainSyncHandler nullTracer callback (pure timeHandle) chainContext
     -- Simulate some chain following
     run $ mapM_ (onRollForward handler) blocks
     -- Inject the rollback to somewhere between any of the previous state
@@ -176,10 +178,10 @@ spec = do
 -- | Create a chain sync handler which records events as they are called back.
 -- NOTE: This 'ChainSyncHandler' does not handle chain state updates, but uses
 -- the given 'ChainState' constantly.
-recordEventsHandler :: ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
-recordEventsHandler cs getTimeHandle = do
+recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
+recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newTVarIO []
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx
   pure (handler, getEvents eventsVar)
  where
   getEvents = atomically . readTVar
@@ -244,7 +246,7 @@ genRollbackPoint blocks = do
 -- Note that this does not generate the entire spectrum of observable
 -- transactions in Hydra, but only init and commits, which is already sufficient
 -- to observe at least one state transition and different levels of rollback.
-genSequenceOfObservableBlocks :: Gen (ChainStateAt, [Block])
+genSequenceOfObservableBlocks :: Gen (ChainContext, ChainStateAt, [Block])
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext 3
   -- NOTE: commits must be generated from each participant POV, and thus, we
@@ -256,7 +258,7 @@ genSequenceOfObservableBlocks = do
     initTx <- stepInit cctx (ctxHeadParameters ctx)
     void $ stepCommits initTx (map IdleState allContexts)
 
-  pure (stAtGenesis (Idle IdleState{ctx = cctx}), reverse blks)
+  pure (cctx, stAtGenesis (Idle IdleState{ctx = cctx}), reverse blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
   nextSlot = do

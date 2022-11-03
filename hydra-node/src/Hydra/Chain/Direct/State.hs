@@ -447,9 +447,9 @@ fanout st utxo deadlineSlotNo = do
 -- | Observe a transition without knowing the starting or ending state. This
 -- function should try to observe all relevant transitions given some
 -- 'ChainState'.
-observeSomeTx :: Tx -> ChainState -> Maybe (OnChainTx Tx, ChainState)
-observeSomeTx tx = \case
-  Idle IdleState{ctx} ->
+observeSomeTx :: ChainContext -> ChainState -> Tx -> Maybe (OnChainTx Tx, ChainState)
+observeSomeTx ctx cst tx = case cst of
+  Idle IdleState{} ->
     second Initial <$> observeInit ctx tx
   Initial st ->
     second Initial <$> observeCommit st tx
@@ -663,9 +663,9 @@ genChainState =
     -- XXX: Untangle the whole generator mess here
     fst <$> genFanoutTx maxGenParties maxGenAssets
 
--- | Generate a 'ChainState' within the known limits above, along with a
+-- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
 -- transaction that results in a transition away from it.
-genChainStateWithTx :: Gen (ChainState, Tx, ChainTransition)
+genChainStateWithTx :: Gen (ChainContext, ChainState, Tx, ChainTransition)
 genChainStateWithTx =
   oneof
     [ genInitWithState
