@@ -139,7 +139,7 @@ spec = parallel $ do
     -- propIsValid forAllCommit XXX: not possible because it spends an "outside" UTxO
 
     prop "consumes all inputs that are committed" $
-      forAllCommit $ \st@InitialState{ctx} tx ->
+      forAllCommit $ \(ctx, st) tx ->
         case observeCommit ctx st tx of
           Just (_, st') ->
             let knownInputs = UTxO.inputSet (getKnownUTxO st')
@@ -148,7 +148,7 @@ spec = parallel $ do
             False
 
     prop "can only be applied / observed once" $
-      forAllCommit $ \st@InitialState{ctx} tx ->
+      forAllCommit $ \(ctx, st) tx ->
         case observeCommit ctx st tx of
           Just (_, st') ->
             case observeCommit ctx st' tx of
@@ -263,14 +263,14 @@ forAllInit action =
 
 forAllCommit ::
   (Testable property) =>
-  (InitialState -> Tx -> property) ->
+  ((ChainContext, InitialState) -> Tx -> property) ->
   Property
 forAllCommit action = do
   forAll (genHydraContext 3) $ \hctx ->
     forAll (genStInitial hctx) $ \(ctx, stInitial) ->
       forAllShow genCommit renderUTxO $ \utxo ->
         let tx = unsafeCommit ctx stInitial utxo
-         in action stInitial tx
+         in action (ctx, stInitial) tx
               & classify
                 (null utxo)
                 "Empty commit"
@@ -316,7 +316,7 @@ forAllCollectCom ::
   (InitialState -> Tx -> property) ->
   Property
 forAllCollectCom action =
-  forAllBlind genCollectComTx $ \(committedUTxO, stInitialized, tx) ->
+  forAllBlind genCollectComTx $ \(_ctx, committedUTxO, stInitialized, tx) ->
     action stInitialized tx
       & counterexample ("Committed UTxO: " <> show committedUTxO)
 

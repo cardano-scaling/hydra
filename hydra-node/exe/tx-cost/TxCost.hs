@@ -123,7 +123,7 @@ computeCollectComCost =
     initTx <- genInitTx ctx
     commits <- genCommits ctx initTx
     let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (stInitialized, collect stInitialized)
+    pure (stInitialized, collect cctx stInitialized)
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCloseCost = do

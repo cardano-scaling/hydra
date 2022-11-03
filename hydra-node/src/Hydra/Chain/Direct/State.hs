@@ -207,8 +207,7 @@ instance HasKnownUTxO IdleState where
     registryUTxO scriptRegistry
 
 data InitialState = InitialState
-  { ctx :: ChainContext
-  , initialThreadOutput :: InitialThreadOutput
+  { initialThreadOutput :: InitialThreadOutput
   , initialInitials :: [UTxOWithScript]
   , initialCommits :: [UTxOWithScript]
   , initialHeadId :: HeadId
@@ -218,18 +217,14 @@ data InitialState = InitialState
 
 instance HasKnownUTxO InitialState where
   getKnownUTxO st =
-    registryUTxO scriptRegistry <> headUtxo
+    UTxO $
+      Map.fromList $
+        take2Of3 initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
    where
-    headUtxo =
-      UTxO $
-        Map.fromList $
-          take2Of3 initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
-
     take2Of3 (a, b, _c) = (a, b)
 
     InitialState
-      { ctx = ChainContext{scriptRegistry}
-      , initialThreadOutput = InitialThreadOutput{initialThreadUTxO}
+      { initialThreadOutput = InitialThreadOutput{initialThreadUTxO}
       , initialInitials
       , initialCommits
       } = st
@@ -370,15 +365,17 @@ abort ctx st = do
 -- | Construct a collect transaction based on the 'InitialState'. This will know
 -- collect all the committed outputs.
 collect ::
+  ChainContext ->
   InitialState ->
   Tx
-collect st = do
+collect ctx st = do
   let commits = Map.fromList $ fmap tripleToPair initialCommits
    in collectComTx networkId ownVerificationKey initialThreadOutput commits
  where
+  ChainContext{networkId, ownVerificationKey} = ctx
+
   InitialState
-    { ctx = ChainContext{networkId, ownVerificationKey}
-    , initialThreadOutput
+    { initialThreadOutput
     , initialCommits
     } = st
 
@@ -482,18 +479,14 @@ observeInit ctx tx = do
 
   toState InitObservation{threadOutput, initials, commits, headId, headTokenScript} =
     InitialState
-      { ctx
-      , initialThreadOutput = threadOutput
+      { initialThreadOutput = threadOutput
       , initialInitials = initials
       , initialCommits = commits
       , initialHeadId = headId
       , initialHeadTokenScript = headTokenScript
       }
 
-  ChainContext
-    { networkId
-    , ownParty
-    } = ctx
+  ChainContext{networkId, ownParty} = ctx
 
 -- ** InitialState transitions
 
@@ -542,8 +535,7 @@ observeCollect st tx = do
   let event = OnCollectComTx
   let st' =
         OpenState
-          { ctx
-          , openThreadOutput = threadOutput
+          { openThreadOutput = threadOutput
           , openHeadId = initialHeadId
           , openHeadTokenScript = initialHeadTokenScript
           , openUtxoHash = utxoHash
@@ -551,8 +543,7 @@ observeCollect st tx = do
   pure (event, st')
  where
   InitialState
-    { ctx
-    , initialHeadId
+    { initialHeadId
     , initialHeadTokenScript
     } = st
 
@@ -695,7 +686,7 @@ genChainStateWithTx =
 
   genCollectWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genCollectWithState = do
-    (_, st@InitialState{ctx}, tx) <- genCollectComTx
+    (ctx, _, st, tx) <- genCollectComTx
     pure (ctx, Initial st, tx, Collect)
 
   genCloseWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -827,14 +818,14 @@ genCommit =
     , (10, genVerificationKey >>= genOneUTxOFor)
     ]
 
-genCollectComTx :: Gen ([UTxO], InitialState, Tx)
+genCollectComTx :: Gen (ChainContext, [UTxO], InitialState, Tx)
 genCollectComTx = do
   ctx <- genHydraContextFor 3
   txInit <- genInitTx ctx
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
   let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
-  pure (committedUTxO, stInitialized, collect stInitialized)
+  pure (cctx, committedUTxO, stInitialized, collect cctx stInitialized)
 
 genCloseTx :: Int -> Gen (OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
@@ -878,7 +869,7 @@ genStOpen ctx = do
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
-  let txCollect = collect stInitial
+  let txCollect = collect cctx stInitial
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
 
 genStClosed ::

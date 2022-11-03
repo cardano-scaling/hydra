@@ -274,7 +274,7 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
     (CollectComTx{}, Initial st) ->
-      pure $ collect st
+      pure $ collect ctx st
     (CloseTx{confirmedSnapshot}, Open st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (close st confirmedSnapshot shifted)
