@@ -39,7 +39,7 @@ import Hydra.Cluster.Fixture (
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (toNominalDiffTime)
-import Hydra.Logging (showLogsOnFailure)
+import Hydra.Logging (Verbosity (Verbose), withTracer)
 import Hydra.Network (Host (..))
 import Hydra.Options (ChainConfig (..))
 import Hydra.TUI (renderTime, runWithVty, tuiContestationPeriod)
@@ -150,9 +150,9 @@ spec = do
           days = hours * 24
           time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
       renderTime (time :: NominalDiffTime) `shouldBe` "10d 1h 1m 15s"
-      renderTime (-time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
+      renderTime (- time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
       let time' = 1 * hours + 1 * minutes + 15 * seconds
-      renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
+      renderTime (- time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
   context "text rendering errors" $ do
     around setupNotEnoughFundsNodeAndTUI $ do
@@ -167,7 +167,7 @@ spec = do
 
 setupNodeAndTUI' :: Lovelace -> (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI' lovelace action =
-  showLogsOnFailure $ \tracer ->
+  withTracer (Verbose "tui-spec") $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
