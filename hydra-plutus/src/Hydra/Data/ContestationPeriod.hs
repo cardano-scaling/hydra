@@ -14,6 +14,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Plutus.V1.Ledger.Time (DiffMilliSeconds, fromMilliSeconds)
 import Plutus.V2.Ledger.Api (POSIXTime (..))
 import qualified PlutusTx
+import Test.QuickCheck.Gen (choose)
 
 newtype ContestationPeriod = UnsafeContestationPeriod {milliseconds :: DiffMilliSeconds}
   deriving stock (Generic, Eq, Ord, Show)
@@ -22,7 +23,9 @@ newtype ContestationPeriod = UnsafeContestationPeriod {milliseconds :: DiffMilli
 PlutusTx.unstableMakeIsData ''ContestationPeriod
 
 instance Arbitrary ContestationPeriod where
-  arbitrary = fromInteger <$> arbitrary
+  arbitrary =
+    UnsafeContestationPeriod . fromInteger
+      <$> choose (5000, 3600000) -- between 5 seconds and one hour
 
 instance FromJSON ContestationPeriod where
   parseJSON =
@@ -63,3 +66,7 @@ posixFromUTCTime utcTime =
   -- since epoch with picosecond precision.
   posixSeconds :: Pico
   posixSeconds = nominalDiffTimeToSeconds $ utcTimeToPOSIXSeconds utcTime
+
+-- NOTE: hardcoded value set to one hour
+acceptableDifference :: POSIXTime
+acceptableDifference = POSIXTime 3600000

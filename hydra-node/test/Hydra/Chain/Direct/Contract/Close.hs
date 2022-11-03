@@ -41,9 +41,10 @@ healthyCloseTx =
     closeTx
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
-      (healthySlotNo, slotNoToUTCTime healthySlotNo)
+      startSlot
+      (endSlot, slotNoToUTCTime endSlot)
       openThreadOutput
-
+  (startSlot, endSlot) = healthySlotsWithDifference 20
   headInput = generateWith arbitrary 42
 
   headResolvedInput =
@@ -64,7 +65,13 @@ healthyCloseTx =
       }
 
 healthySlotNo :: SlotNo
-healthySlotNo = arbitrary `suchThat` (< (SlotNo 20)) `generateWith` 42
+healthySlotNo = arbitrary `generateWith` 42
+
+healthySlotsWithDifference :: Word64 -> (SlotNo, SlotNo)
+healthySlotsWithDifference i =
+  let startSlot = arbitrary `generateWith` 42
+      endSlot = startSlot + SlotNo i
+   in (startSlot, endSlot)
 
 healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =

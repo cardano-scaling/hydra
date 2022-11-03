@@ -298,20 +298,21 @@ closeTx ::
   VerificationKey PaymentKey ->
   -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
+  -- | Lower bound slot for the tx
+  SlotNo ->
   -- | Current slot and UTC time to compute the contestation deadline time.
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
   Tx
-closeTx vk closing (slotNo, utcTime) openThreadOutput =
+closeTx vk closing txStartSlot (slotNo, utcTime) openThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
       & setValidityUpperBound slotNo
-      -- TODO: check if this is ok? we are using the same slot for lower/upper tx bound
-      & setValidityLowerBound slotNo
+      & setValidityLowerBound txStartSlot
  where
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore)
