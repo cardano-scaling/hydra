@@ -61,24 +61,36 @@ TODO
 
 ## Tasks
 
-We provide the auditor with three artefact:
-* Hydra original paper
-* Hydra implementation specification
-* Hydra on-chain code base
-* Hydra off-chain code base
-* Hydra layser 2 code base
+Given the artifacts described above, 
+We expect the auditor to assess the follwing statements.
 
-We expect the auditor to assess these three statements:
-* Hydra implementation specification is compliant with the Hydra original paper to the extent that the proofs in the Hydra original paper apply to the Hydra implementation specification.
-* Hydra on-chain and off-chain code base is compliant with Hydra implementation specification
-* Hydra layer 2 code base is compliant with Hydra implementation specification
-* Given the security hypotheses, Hydra layer 2 code base is immune to side channel attacks through the network or the API or impersonating a user or any other attack you can think of.
+### Hydra Head v1 Formal Specification is sound with the original publication
+
+TODO
+
+Hydra implementation specification is compliant with the Hydra original paper to the extent that the proofs in the Hydra original paper apply to the Hydra implementation specification.
+
+### Hydra on-chain and off-chain code base is compliant with Hydra implementation specification
+
+TODO
+
+### Hydra layer 2 code base is compliant with Hydra implementation specification
+
+TODO 
+
+### Given the security hypotheses, Hydra layer 2 code base is immune to side channel attacks through the network or the API or impersonating a user or any other attack you can think of.
+
+TODO
 
 ## Out of Scope
 
 The scope of this audit has been described in the above sections. What is not in scope is out of scope. In particular, the following items is out of scope of this audit.
 
 Verify the whole original paper and its proofs.
+
+---
+DO NOT READ AFTER THIS LINE
+---
 
 # Submission
 
