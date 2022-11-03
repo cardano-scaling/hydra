@@ -168,11 +168,40 @@ initialChainState config party hydraScriptsTxId = do
  where
   DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} = config
 
+-- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
+loadChainContext ::
+  ChainConfig ->
+  -- | Hydra party of our hydra node.
+  Party ->
+  -- | Transaction id at which to look for Hydra scripts.
+  TxId ->
+  IO ChainContext
+loadChainContext config party hydraScriptsTxId = do
+  (vk, _) <- readKeyPair cardanoSigningKey
+  otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
+  scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
+  pure $
+    ChainContext
+      { networkId
+      , peerVerificationKeys = otherCardanoKeys
+      , ownVerificationKey = vk
+      , ownParty = party
+      , scriptRegistry
+      }
+ where
+  DirectChainConfig
+    { networkId
+    , nodeSocket
+    , cardanoSigningKey
+    , cardanoVerificationKeys
+    } = config
+
 withDirectChain ::
   Tracer IO DirectChainLog ->
   ChainConfig ->
+  ChainContext ->
   ChainComponent Tx IO a
-withDirectChain tracer config callback action = do
+withDirectChain tracer config ctx callback action = do
   keyPair <- readKeyPair cardanoSigningKey
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
@@ -185,6 +214,7 @@ withDirectChain tracer config callback action = do
           tracer
           (queryTimeHandle networkId nodeSocket)
           wallet
+          ctx
           (submitTx queue)
   let getTimeHandle = queryTimeHandle networkId nodeSocket
   res <-

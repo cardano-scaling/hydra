@@ -41,9 +41,10 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
+  ChainContext,
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
-  IdleState (IdleState, ctx),
+  IdleState (IdleState),
   abort,
   close,
   collect,
@@ -93,9 +94,10 @@ mkChain ::
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
   TinyWallet m ->
+  ChainContext ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet submitTx =
+mkChain tracer queryTimeHandle wallet ctx submitTx =
   Chain
     { postTx = \chainState tx -> do
         traceWith tracer $ ToPost{toPost = tx}
@@ -112,7 +114,7 @@ mkChain tracer queryTimeHandle wallet submitTx =
               -- details needed to establish connection to the other peers and
               -- to bootstrap the init transaction. For now, we bear with it and
               -- keep the static keys in context.
-              fromPostChainTx timeHandle wallet chainState tx
+              fromPostChainTx timeHandle wallet ctx chainState tx
                 >>= finalizeTx wallet chainState . toLedgerTx
             )
         submitTx vtx
@@ -243,13 +245,14 @@ fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
   TinyWallet m ->
+  ChainContext ->
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx timeHandle wallet cst@ChainStateAt{chainState} tx = do
+fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
   pointInTime <- throwLeft currentPointInTime
   case (tx, chainState) of
-    (InitTx params, Idle IdleState{ctx}) ->
+    (InitTx params, Idle IdleState{}) ->
       getFuelUTxO wallet >>= \case
         Just (fromLedgerTxIn -> seedInput, _) -> do
           pure $ initialize ctx params seedInput
