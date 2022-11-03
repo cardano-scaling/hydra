@@ -326,7 +326,7 @@ forAllClose ::
   Property
 forAllClose action = do
   -- FIXME: we should not hardcode number of parties but generate it within bounds
-  forAll (genCloseTx 3) $ \(st, tx, sn) ->
+  forAll (genCloseTx 3) $ \(_ctx, st, tx, sn) ->
     action st tx
       & label (Prelude.head . Prelude.words . show $ sn)
 

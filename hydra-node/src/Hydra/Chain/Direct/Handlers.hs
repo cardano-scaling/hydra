@@ -277,7 +277,7 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
       pure $ collect ctx st
     (CloseTx{confirmedSnapshot}, Open st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (close st confirmedSnapshot shifted)
+      pure (close ctx st confirmedSnapshot shifted)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (contest st confirmedSnapshot shifted)

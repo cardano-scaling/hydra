@@ -230,8 +230,7 @@ instance HasKnownUTxO InitialState where
       } = st
 
 data OpenState = OpenState
-  { ctx :: ChainContext
-  , openThreadOutput :: OpenThreadOutput
+  { openThreadOutput :: OpenThreadOutput
   , openHeadId :: HeadId
   , openHeadTokenScript :: PlutusScript
   , openUtxoHash :: UTxOHash
@@ -240,11 +239,10 @@ data OpenState = OpenState
 
 instance HasKnownUTxO OpenState where
   getKnownUTxO st =
-    registryUTxO scriptRegistry <> UTxO.singleton (i, o)
+    UTxO.singleton (i, o)
    where
     OpenState
-      { ctx = ChainContext{scriptRegistry}
-      , openThreadOutput = OpenThreadOutput{openThreadUTxO = (i, o, _)}
+      { openThreadOutput = OpenThreadOutput{openThreadUTxO = (i, o, _)}
       } = st
 
 data ClosedState = ClosedState
@@ -385,11 +383,12 @@ collect ctx st = do
 -- snapshot. The given 'PointInTime' will be used as an upper validity bound and
 -- will define the start of the contestation period.
 close ::
+  ChainContext ->
   OpenState ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
   Tx
-close st confirmedSnapshot pointInTime =
+close ctx st confirmedSnapshot pointInTime =
   closeTx ownVerificationKey closingSnapshot pointInTime openThreadOutput
  where
   closingSnapshot = case confirmedSnapshot of
@@ -403,9 +402,10 @@ close st confirmedSnapshot pointInTime =
         , signatures
         }
 
+  ChainContext{ownVerificationKey} = ctx
+
   OpenState
-    { ctx = ChainContext{ownVerificationKey}
-    , openThreadOutput
+    { openThreadOutput
     , openUtxoHash
     } = st
 
@@ -578,16 +578,14 @@ observeClose st tx = do
           }
   let st' =
         ClosedState
-          { ctx
-          , closedThreadOutput = threadOutput
+          { closedThreadOutput = threadOutput
           , closedHeadId = headId
           , closedHeadTokenScript = openHeadTokenScript
           }
   pure (event, st')
  where
   OpenState
-    { ctx
-    , openHeadId
+    { openHeadId
     , openHeadTokenScript
     } = st
 
@@ -691,7 +689,7 @@ genChainStateWithTx =
 
   genCloseWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genCloseWithState = do
-    (st@OpenState{ctx}, tx, _) <- genCloseTx maxGenParties
+    (ctx, st, tx, _) <- genCloseTx maxGenParties
     pure (ctx, Open st, tx, Close)
 
   genContestWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -827,13 +825,14 @@ genCollectComTx = do
   let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
   pure (cctx, committedUTxO, stInitialized, collect cctx stInitialized)
 
-genCloseTx :: Int -> Gen (OpenState, Tx, ConfirmedSnapshot Tx)
+genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen) <- genStOpen ctx
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
   pointInTime <- genPointInTime
-  pure (stOpen, close stOpen snapshot pointInTime, snapshot)
+  cctx <- pickChainContext ctx
+  pure (cctx, stOpen, close cctx stOpen snapshot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
@@ -841,7 +840,8 @@ genContestTx = do
   (u0, stOpen) <- genStOpen ctx
   confirmed <- genConfirmedSnapshot 0 u0 []
   closePointInTime <- genPointInTime
-  let txClose = close stOpen confirmed closePointInTime
+  cctx <- pickChainContext ctx
+  let txClose = close cctx stOpen confirmed closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
@@ -894,7 +894,8 @@ genStClosed ctx utxo = do
           , utxo
           )
   pointInTime <- genPointInTime
-  let txClose = close stOpen snapshot pointInTime
+  cctx <- pickChainContext ctx
+  let txClose = close cctx stOpen snapshot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 -- ** Danger zone
 

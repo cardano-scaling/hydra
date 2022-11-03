@@ -132,7 +132,7 @@ computeCloseCost = do
   pure $ interesting <> limit
  where
   compute numParties = do
-    (st, tx, _sn) <- generate $ genCloseTx numParties
+    (_, st, tx, _sn) <- generate $ genCloseTx numParties
     let utxo = getKnownUTxO st
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
@@ -206,7 +206,8 @@ computeFanOutCost = do
     (_committed, stOpen) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
     closePoint <- genPointInTime
-    let closeTx = close stOpen snapshot closePoint
+    cctx <- pickChainContext ctx
+    let closeTx = close cctx stOpen snapshot closePoint
     let stClosed = snd . fromJust $ observeClose stOpen closeTx
     let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
     pure (getKnownUTxO stClosed, fanout stClosed utxo deadlineSlotNo)
