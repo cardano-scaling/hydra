@@ -25,13 +25,8 @@ import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCol
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx)
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
-import Hydra.Chain.Direct.Contract.Init (genHealthyIdleState, genInitMutation, genObserveInitMutation, healthyInitTx)
-import Hydra.Chain.Direct.Contract.Mutation (
-  propMutationOffChain,
-  propMutationOnChain,
-  propTransactionValidates,
- )
-import Hydra.Chain.Direct.State (ChainState (Idle))
+import Hydra.Chain.Direct.Contract.Init (genInitMutation, healthyInitTx)
+import Hydra.Chain.Direct.Contract.Mutation (propMutation, propTransactionValidates)
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Head (
   verifyPartySignature,
@@ -88,10 +83,8 @@ spec = parallel $ do
   describe "Init" $ do
     prop "is healthy" $
       propTransactionValidates healthyInitTx
-    prop "does not survive random adversarial mutations (on-chain)" $
-      propMutationOnChain healthyInitTx genInitMutation
-    prop "does not survive random adversarial mutations (off-chain)" $
-      propMutationOffChain healthyInitTx genObserveInitMutation (Idle <$> genHealthyIdleState)
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyInitTx genInitMutation
 
   describe "Abort" $ do
     prop "is healthy" $
@@ -101,32 +94,32 @@ spec = parallel $ do
         , propHasInitial healthyAbortTx
         ]
     prop "does not survive random adversarial mutations" $
-      propMutationOnChain healthyAbortTx genAbortMutation
+      propMutation healthyAbortTx genAbortMutation
   describe "Commit" $ do
     prop "is healthy" $
       propTransactionValidates healthyCommitTx
     prop "does not survive random adversarial mutations" $
-      propMutationOnChain healthyCommitTx genCommitMutation
+      propMutation healthyCommitTx genCommitMutation
   describe "CollectCom" $ do
     prop "is healthy" $
       propTransactionValidates healthyCollectComTx
     prop "does not survive random adversarial mutations" $
-      propMutationOnChain healthyCollectComTx genCollectComMutation
+      propMutation healthyCollectComTx genCollectComMutation
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
     prop "does not survive random adversarial mutations" $
-      propMutationOnChain healthyCloseTx genCloseMutation
+      propMutation healthyCloseTx genCloseMutation
   describe "Contest" $ do
     prop "is healthy" $
       propTransactionValidates healthyContestTx
     prop "does not survive random adversarial mutations" $
-      propMutationOnChain healthyContestTx genContestMutation
+      propMutation healthyContestTx genContestMutation
   describe "Fanout" $ do
     prop "is healthy" $
       propTransactionValidates healthyFanoutTx
     prop "does not survive random adversarial mutations" $
-      propMutationOnChain healthyFanoutTx genFanoutMutation
+      propMutation healthyFanoutTx genFanoutMutation
 
 --
 -- Properties
