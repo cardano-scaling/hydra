@@ -35,7 +35,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
+import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (Observation), ChainStateType, IsChainState, PostTxError, newChainState)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
@@ -46,6 +46,7 @@ import Hydra.HeadLogic (
   Outcome (..),
   defaultTTL,
   emitSnapshot,
+  getChainState,
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
@@ -243,3 +244,56 @@ createNodeState initialState = do
       { modifyHeadState = stateTVar tv
       , queryHeadState = readTVar tv
       }
+
+-- ** Save and load files
+
+-- | Handle to save and load files to/from disk using JSON encoding.
+data Persistence a m = Persistence
+  { save :: ToJSON a => a -> m ()
+  , load :: FromJSON a => m (Maybe a)
+  }
+
+newtype PersistenceException
+  = PersistenceException String
+  deriving (Eq, Show)
+
+instance Exception PersistenceException
+
+-- | Initialize persistence handle for given type 'a' at given file path.
+createPersistence :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (Persistence a m)
+createPersistence _ fp = do
+  liftIO . createDirectoryIfMissing True $ takeDirectory fp
+  pure $
+    Persistence
+      { save = \a -> do
+          writeBinaryFileDurableAtomic fp . toStrict $ Aeson.encode a
+      , load =
+          liftIO (doesFileExist fp) >>= \case
+            False -> pure Nothing
+            True -> do
+              bs <- readFileBS fp
+              -- XXX: This is weird and smelly
+              if BS.null bs
+                then pure Nothing
+                else case Aeson.eitherDecodeStrict' bs of
+                  Left e -> throwIO $ PersistenceException e
+                  Right a -> pure $ Just a
+      }
+
+chainCallback :: NodeState tx IO -> EventQueue IO (Event tx) -> ChainCallback tx IO
+chainCallback NodeState{modifyHeadState} eq cont = do
+  -- Provide chain state to continuation and update it when we get a newState
+  -- NOTE: Although we do handle the chain state explictly in the 'HeadLogic',
+  -- this is required as multiple transactions may be observed and the chain
+  -- state shall accumulate the state changes coming with those observations.
+  mEvent <- atomically . modifyHeadState $ \hs ->
+    case cont $ getChainState hs of
+      Nothing ->
+        (Nothing, hs)
+      Just ev@Observation{newChainState} ->
+        (Just ev, hs{chainState = newChainState})
+      Just ev ->
+        (Just ev, hs)
+  case mEvent of
+    Nothing -> pure ()
+    Just chainEvent -> putEvent eq $ OnChainEvent{chainEvent}
