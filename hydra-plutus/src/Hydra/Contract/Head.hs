@@ -55,6 +55,9 @@ type RedeemerType = Input
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
 
+stToken :: TokenName
+stToken = TokenName hydraHeadV1
+
 {-# INLINEABLE headValidator #-}
 headValidator ::
   State ->
@@ -190,6 +193,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant context headContext
+    && outputContainsSTtoken (txInfoOutputs txInfo)
  where
   everyoneHasCommitted =
     traceIfFalse "not everyone committed" $
@@ -271,7 +275,9 @@ checkClose ::
   ContestationPeriod ->
   Bool
 checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod =
-  checkSnapshot && mustBeSignedByParticipant ctx headContext
+  checkSnapshot
+    && mustBeSignedByParticipant ctx headContext
+    && outputContainsSTtoken (txInfoOutputs (scriptContextTxInfo ctx))
  where
   checkSnapshot
     | snapshotNumber == 0 =
@@ -332,6 +338,7 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} headContext contestationDead
     && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline})
     && mustBeSignedByParticipant ctx headContext
     && mustBeWithinContestationPeriod
+    && outputContainsSTtoken (txInfoOutputs scriptContextTxInfo)
  where
   mustBeNewer =
     traceIfFalse "too old snapshot" $
@@ -384,7 +391,8 @@ checkFanout ::
   ScriptContext ->
   Bool
 checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
-  hasSameUTxOHash && afterContestationDeadline
+  hasSameUTxOHash
+    && afterContestationDeadline
  where
   hasSameUTxOHash = traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == utxoHash
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
@@ -463,6 +471,26 @@ findTxOutDatum txInfo o =
     OutputDatumHash dh -> fromMaybe (traceError "datum not found") $ findDatum dh txInfo
     OutputDatum d -> d
 {-# INLINEABLE findTxOutDatum #-}
+
+-- | Check if the ST token is present in the outputs
+outputContainsSTtoken :: [TxOut] -> Bool
+outputContainsSTtoken txOuts =
+  and $ findSTtoken <$> txOuts
+ where
+  findSTtoken txOut =
+    let (Value outValue) = txOutValue txOut
+        results = loop (Map.toList outValue)
+     in case results of
+          [a] -> a
+          _ -> traceError "Expected only one ST token in output"
+   where
+    loop = \case
+      [] -> []
+      (_, assets) : rest ->
+        case filter ((stToken, 1) ==) (Map.toList assets) of
+          [] -> loop rest
+          _ -> True : loop rest
+{-# INLINEABLE outputContainsSTtoken #-}
 
 -- | Hash a potentially unordered list of commits by sorting them, concatenating
 -- their 'preSerializedOutput' bytes and creating a SHA2_256 digest over that.
