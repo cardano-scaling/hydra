@@ -182,6 +182,15 @@ genCloseMutation (tx, _utxo) =
         lb <- arbitrary
         ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
         pure (lb, ub)
+    , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
+        lb <- arbitrary
+        ub <-
+          arbitrary
+            `suchThat` ( \case
+                          TxValidityUpperBound ub' -> ub' > lb + 72500000
+                          TxValidityNoUpperBound -> False
+                       )
+        pure (TxValidityLowerBound lb, ub)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
