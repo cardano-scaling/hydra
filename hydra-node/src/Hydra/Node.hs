@@ -280,7 +280,7 @@ createPersistence _ fp = do
                   Right a -> pure $ Just a
       }
 
-chainCallback :: NodeState tx IO -> EventQueue IO (Event tx) -> ChainCallback tx IO
+chainCallback :: MonadSTM m => NodeState tx m -> EventQueue m (Event tx) -> ChainCallback tx m
 chainCallback NodeState{modifyHeadState} eq cont = do
   -- Provide chain state to continuation and update it when we get a newState
   -- NOTE: Although we do handle the chain state explictly in the 'HeadLogic',

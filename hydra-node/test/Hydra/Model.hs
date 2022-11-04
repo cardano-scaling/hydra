@@ -54,7 +54,7 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (Chain (..), ChainEvent (..), ChainSlot (..), HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.Chain.Direct.Handlers (DirectChainLog, SubmitTx, mkChain)
+import Hydra.Chain.Direct.Handlers (ChainSyncHandler, DirectChainLog, SubmitTx, chainSyncHandler, mkChain)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import qualified Hydra.Chain.Direct.State as S
@@ -66,7 +66,7 @@ import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genValue, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
-import Hydra.Node (HydraNode (..), runHydraNode)
+import Hydra.Node (HydraNode (..), chainCallback, runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
@@ -477,21 +477,21 @@ mockChainAndNetwork ::
   forall m.
   ( MonadSTM m
   , MonadTimer m
-  , MonadThrow (STM m)
+  , MonadThrow m
   , MonadTime m
   , MonadAsync m
+  , MonadThrow (STM m)
   ) =>
   Tracer m DirectChainLog ->
   [VerificationKey PaymentKey] ->
   [Party] ->
-  TVar m [HydraNode Tx m] ->
+  TVar m [MockHydraNode m] ->
   m (ConnectToChain Tx m)
 mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
   history <- newTVarIO []
   queue <- newTQueueIO
   tickThread <- async simulateTicks
   let chainComponent = \node -> do
-        atomically $ modifyTVar nodes (node :)
         let ctx =
               S.ChainContext
                 { networkId = testNetworkId
@@ -517,13 +517,20 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
                 { chainState = S.Idle S.IdleState{S.ctx = ctx}
                 , recordedAt = ChainSlot 0
                 }
-        pure $
-          node
-            { hn =
-                createMockNetwork node nodes
-            , oc =
-                createMockChain tr (submitTx queue) timeHandle
-            }
+        let HydraNode{nodeState, eq} = node
+        let callback = chainCallback nodeState eq
+        let getTimeHandle = pure $ arbitrary `generateWith` 42
+        let chainHandler = chainSyncHandler tr callback getTimeHandle
+        let node' =
+              node
+                { hn =
+                    createMockNetwork node nodes
+                , oc =
+                    createMockChain tr (submitTx queue) timeHandle
+                }
+        let mockNode = MockHydraNode{node = node', chainHandler}
+        atomically $ modifyTVar nodes (mockNode :)
+        pure node'
       rollbackAndForward = undefined
   return ConnectToChain{..}
  where
@@ -539,9 +546,15 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
   submitTx queue vtx = do
     response <- atomically $ do
       response <- newEmptyTMVar
-      writeTQueue queue (vtx, response)
+      -- writeTQueue queue (vtx, response)
       return response
+
     atomically (takeTMVar response)
+
+data MockHydraNode m = MockHydraNode
+  { node :: HydraNode Tx m
+  , chainHandler :: ChainSyncHandler m
+  }
 
 createMockChain ::
   (MonadTimer m, MonadThrow (STM m)) =>
