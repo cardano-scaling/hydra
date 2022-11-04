@@ -459,12 +459,8 @@ seedWorld seedKeys = do
             , recordedAt = Nothing
             }
     nodes <- newTVarIO []
-    queue <- newTQueueIO
-    tickThread <- async $ simulateTicks nodes
-    -- TODO: how to connect the test cardano node here? we need socket path
-    timeHandle <- undefined -- liftIO $ queryTimeHandle testNetworkId socketPath
     connectToChain <-
-      mockChainAndNetwork (contramap DirectChain tr) vKeys parties tickThread nodes (submitTx queue) (pure timeHandle)
+      mockChainAndNetwork (contramap DirectChain tr) vKeys parties nodes
     forM seedKeys $ \(hsk, _csk) -> do
       outputs <- atomically newTQueue
       outputHistory <- newTVarIO []
@@ -476,34 +472,24 @@ seedWorld seedKeys = do
       pure (party, testNode)
 
   modify $ \n -> n{nodes = Map.fromList nodes}
- where
-  blockTime = 20 -- seconds
-  simulateTicks nodes = forever $ do
-    threadDelay blockTime
-    now <- getCurrentTime
-    readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
-
-  submitTx queue vtx = do
-    response <- atomically $ do
-      response <- newEmptyTMVar
-      writeTQueue queue (vtx, response)
-      return response
-    atomically (takeTMVar response)
 
 mockChainAndNetwork ::
+  forall m.
   ( MonadSTM m
   , MonadTimer m
   , MonadThrow (STM m)
+  , MonadTime m
+  , MonadAsync m
   ) =>
   Tracer m DirectChainLog ->
   [VerificationKey PaymentKey] ->
   [Party] ->
-  Async m () ->
   TVar m [HydraNode Tx m] ->
-  SubmitTx m ->
-  m TimeHandle ->
   m (ConnectToChain Tx m)
-mockChainAndNetwork tr (vkey : vkeys) (us : _parties) tickThread nodes submitTx timeHandle = do
+mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
+  history <- newTVarIO []
+  queue <- newTQueueIO
+  tickThread <- async simulateTicks
   let chainComponent = \node -> do
         atomically $ modifyTVar nodes (node :)
         let ctx =
@@ -533,11 +519,29 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) tickThread nodes submitTx 
                 }
         pure $
           node
-            { hn = createMockNetwork node nodes
-            , oc = createMockChain tr submitTx timeHandle
+            { hn =
+                createMockNetwork node nodes
+            , oc =
+                createMockChain tr (submitTx queue) timeHandle
             }
       rollbackAndForward = undefined
   return ConnectToChain{..}
+ where
+  blockTime = 20 -- seconds
+  simulateTicks = forever $ do
+    threadDelay blockTime
+    now <- getCurrentTime
+    readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
+
+  timeHandle :: m TimeHandle
+  timeHandle = undefined
+
+  submitTx queue vtx = do
+    response <- atomically $ do
+      response <- newEmptyTMVar
+      writeTQueue queue (vtx, response)
+      return response
+    atomically (takeTMVar response)
 
 createMockChain ::
   (MonadTimer m, MonadThrow (STM m)) =>
