@@ -10,7 +10,7 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
-import Hydra.Data.ContestationPeriod (ContestationPeriod, acceptableDifference, addContestationPeriod)
+import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
@@ -22,7 +22,7 @@ import Plutus.V2.Ledger.Api (
   Interval (..),
   LowerBound (LowerBound),
   OutputDatum (..),
-  POSIXTime,
+  POSIXTime (POSIXTime),
   PubKeyHash (getPubKeyHash),
   Script,
   ScriptContext (..),
@@ -303,16 +303,17 @@ makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
   case (txValidFrom, txValidTo) of
     (LowerBound (Finite startTime) _, UpperBound (Finite endTime) _) ->
-      -- calculate new upper bound by adding the upper bound to the contestation period
-      let newUpperBound = addContestationPeriod endTime cperiod
-          withinBounds = newUpperBound - startTime < acceptableDifference
-       in if withinBounds
-            then newUpperBound
+      -- calculate the deadline by adding the contestation period to the upper bound
+      let deadline = addContestationPeriod endTime cperiod
+          txIsWithinBounds = endTime - startTime < oneHour
+       in if txIsWithinBounds
+            then deadline
             else traceError $ "Invalid contestation deadline."
     _ -> traceError "no lower/upper bound validity interval defined for close tx"
  where
   txValidFrom = ivFrom (txInfoValidRange scriptContextTxInfo)
   txValidTo = ivTo (txInfoValidRange scriptContextTxInfo)
+  oneHour = POSIXTime 3600000
 {-# INLINEABLE makeContestationDeadline #-}
 
 -- | The contest validator must verify that:

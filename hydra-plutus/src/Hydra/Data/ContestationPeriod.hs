@@ -66,8 +66,3 @@ posixFromUTCTime utcTime =
   -- since epoch with picosecond precision.
   posixSeconds :: Pico
   posixSeconds = nominalDiffTimeToSeconds $ utcTimeToPOSIXSeconds utcTime
-
--- NOTE: hardcoded value set to one hour and one minute
--- so it is higher than what the arbitrary instance can produce
-acceptableDifference :: POSIXTime
-acceptableDifference = POSIXTime 3660000

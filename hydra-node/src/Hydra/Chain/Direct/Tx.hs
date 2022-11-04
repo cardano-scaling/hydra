@@ -300,7 +300,7 @@ closeTx ::
   ClosingSnapshot ->
   -- | Lower bound slot for the tx
   SlotNo ->
-  -- | Current slot and UTC time to compute the contestation deadline time.
+  -- | Upper bound slot and UTC time to compute the contestation deadline time.
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->

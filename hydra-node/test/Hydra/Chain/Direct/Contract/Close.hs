@@ -20,7 +20,7 @@ import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTimeWithSlotDifference, slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
@@ -69,8 +69,8 @@ healthySlotNo = arbitrary `generateWith` 42
 
 healthySlotsWithDifference :: Word64 -> (SlotNo, SlotNo)
 healthySlotsWithDifference i =
-  let startSlot = arbitrary `generateWith` 42
-      endSlot = startSlot + SlotNo i
+  let (startSlot, (endSlot, _)) =
+        genPointInTimeWithSlotDifference i `generateWith` 88
    in (startSlot, endSlot)
 
 healthyClosingSnapshot :: ClosingSnapshot
