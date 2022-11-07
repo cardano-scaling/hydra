@@ -36,6 +36,7 @@ import Data.Map ((!))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
+import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
 import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
@@ -44,7 +45,6 @@ import Hydra.BehaviorSpec (
   ConnectToChain (..),
   TestHydraNode (..),
   createHydraNode,
-  createMockNetwork,
   createTestHydraNode,
   handleChainEvent,
   waitMatch,
@@ -61,12 +61,14 @@ import qualified Hydra.Chain.Direct.State as S
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, queryTimeHandle)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (Committed (), PendingCommits)
+import Hydra.HeadLogic (Committed (), Environment (party), Event (NetworkEvent), PendingCommits, defaultTTL)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genValue, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
-import Hydra.Node (HydraNode (..), chainCallback, runHydraNode)
+import Hydra.Network (Network (..))
+import Hydra.Network.Message (Message)
+import Hydra.Node (HydraNode (..), chainCallback, putEvent, runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
@@ -538,7 +540,7 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
   simulateTicks = forever $ do
     threadDelay blockTime
     now <- getCurrentTime
-    readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
+    fmap node <$> readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
 
   timeHandle :: m TimeHandle
   timeHandle = undefined
@@ -550,6 +552,20 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
       return response
 
     atomically (takeTMVar response)
+
+-- TODO: unify with BehaviorSpec's ?
+createMockNetwork :: MonadSTM m => HydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
+createMockNetwork myNode nodes =
+  Network{broadcast}
+ where
+  broadcast msg = do
+    allNodes <- fmap node <$> readTVarIO nodes
+    let otherNodes = filter (\n -> getNodeId n /= getNodeId myNode) allNodes
+    mapM_ (`handleMessage` msg) otherNodes
+
+  handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL
+
+  getNodeId = party . env
 
 data MockHydraNode m = MockHydraNode
   { node :: HydraNode Tx m
