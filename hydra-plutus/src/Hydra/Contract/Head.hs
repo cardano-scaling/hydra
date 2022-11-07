@@ -282,7 +282,8 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
               , utxoHash = initialUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
               }
-       in checkHeadOutputDatum ctx expectedOutputDatum
+       in traceIfFalse "s == 0" $
+            checkHeadOutputDatum ctx expectedOutputDatum
     | snapshotNumber > 0 =
       let expectedOutputDatum =
             Closed
@@ -291,12 +292,12 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
               , utxoHash = closedUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
               }
-       in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
-            && checkHeadOutputDatum ctx expectedOutputDatum
+       in traceIfFalse "s > 0" $
+            verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
+              && checkHeadOutputDatum ctx expectedOutputDatum
     | otherwise = traceError "negative snapshot number"
 {-# INLINEABLE checkClose #-}
 
--- | Checks that the datum
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
   case ivTo (txInfoValidRange scriptContextTxInfo) of
@@ -346,6 +347,8 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} headContext contestationDead
       _ -> traceError "no upper bound validity interval defined for contest"
 {-# INLINEABLE checkContest #-}
 
+-- | Check that the output datum of this script corresponds to an expected
+-- value. Takes care of resolving datum hashes and inline datums.
 checkHeadOutputDatum :: ToData a => ScriptContext -> a -> Bool
 checkHeadOutputDatum ctx d =
   case ownDatum of

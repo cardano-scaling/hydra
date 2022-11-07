@@ -41,7 +41,7 @@ healthyCloseTx =
     closeTx
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
-      (healthySlotNo, slotNoToUTCTime healthySlotNo)
+      (healthyCloseUpperBoundSlotNo, slotNoToUTCTime healthyCloseUpperBoundSlotNo)
       openThreadOutput
 
   headInput = generateWith arbitrary 42
@@ -63,8 +63,8 @@ healthyCloseTx =
       , openContestationPeriod = healthyContestationPeriod
       }
 
-healthySlotNo :: SlotNo
-healthySlotNo = arbitrary `generateWith` 42
+healthyCloseUpperBoundSlotNo :: SlotNo
+healthyCloseUpperBoundSlotNo = arbitrary `generateWith` 42
 
 healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =
@@ -132,8 +132,15 @@ data CloseMutation
   | MutateParties
   | MutateRequiredSigner
   | MutateCloseUTxOHash
-  | MutateValidityInterval
-  | MutateCloseContestationDeadline
+  | -- | Mutate the tx upper bound, which makes it inconsistent with the deadline
+    -- set in the output datum.
+    MutateValidityIntervalToBeInconsistent
+  | -- | Mutate the output datum's contestation deadline such that it is
+    -- inconsistent with the upper bound set on the transaction.
+    MutateContestationDeadlineToBeInconsistent
+  | -- | Mutate the upper tx validity bound and output datum (consistently!) to
+    -- be much further in the future than the agreed contestation period.
+    MutateUpperValidityToBeFarInTheFuture
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -170,11 +177,31 @@ genCloseMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
-    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0 <$> mutateClosedContestationDeadline
-    , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
+    , SomeMutation MutateContestationDeadlineToBeInconsistent . ChangeOutput 0 <$> mutateClosedContestationDeadline
+    , SomeMutation MutateValidityIntervalToBeInconsistent . ChangeValidityInterval <$> do
         lb <- arbitrary
-        ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
+        ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthyCloseUpperBoundSlotNo)
         pure (lb, ub)
+    , SomeMutation MutateUpperValidityToBeFarInTheFuture <$> do
+        muchGreaterThanContestationPeriod <-
+          SlotNo . fromIntegral
+            <$> arbitrary `suchThat` (> healthyContestationPeriodSeconds)
+        let mutatedUpperBound = healthyCloseUpperBoundSlotNo + muchGreaterThanContestationPeriod
+            deadlineUTCTime = addUTCTime (fromInteger healthyContestationPeriodSeconds) (slotNoToUTCTime mutatedUpperBound)
+        let doMutation = \case
+              Head.Closed{snapshotNumber, utxoHash, parties} ->
+                Head.Closed
+                  { snapshotNumber
+                  , utxoHash
+                  , parties
+                  , contestationDeadline = posixFromUTCTime deadlineUTCTime
+                  }
+              st -> error $ "unexpected state " <> show st
+        pure $
+          Changes
+            [ ChangeValidityInterval (TxValidityNoLowerBound, TxValidityUpperBound mutatedUpperBound)
+            , ChangeOutput 0 $ changeHeadOutputDatum (doMutation) headTxOut
+            ]
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
@@ -215,7 +242,7 @@ genCloseMutation (tx, _utxo) =
         , utxoHash
         , parties
         , contestationDeadline =
-            let closingTime = slotNoToUTCTime healthySlotNo
+            let closingTime = slotNoToUTCTime healthyCloseUpperBoundSlotNo
              in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
         }
     st -> error $ "unexpected state " <> show st
