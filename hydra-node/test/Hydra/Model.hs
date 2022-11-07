@@ -28,15 +28,15 @@ import Hydra.Prelude hiding (Any, label)
 import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
-import Control.Monad.Class.MonadAsync (Async, async)
-import Control.Monad.Class.MonadSTM (MonadSTM (newEmptyTMVar), modifyTVar, newTQueue, newTQueueIO, newTVarIO, readTVarIO, takeTMVar, writeTQueue)
+import qualified Cardano.Ledger.Babbage.Tx as Ledger
+import Control.Monad.Class.MonadAsync (async)
+import Control.Monad.Class.MonadSTM (modifyTVar, newTQueue, newTQueueIO, newTVarIO, readTVarIO, tryReadTQueue, writeTQueue)
 import Data.List (nub)
 import qualified Data.List as List
 import Data.Map ((!))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
-import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
 import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
@@ -54,11 +54,12 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (Chain (..), ChainEvent (..), ChainSlot (..), HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.Chain.Direct.Handlers (ChainSyncHandler, DirectChainLog, SubmitTx, chainSyncHandler, mkChain)
+import Hydra.Chain.Direct.Handlers (ChainSyncHandler, DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollForward)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import qualified Hydra.Chain.Direct.State as S
-import Hydra.Chain.Direct.TimeHandle (TimeHandle, queryTimeHandle)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle)
+import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (Committed (), Environment (party), Event (NetworkEvent), PendingCommits, defaultTTL)
@@ -492,7 +493,7 @@ mockChainAndNetwork ::
 mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
   history <- newTVarIO []
   queue <- newTQueueIO
-  tickThread <- async simulateTicks
+  tickThread <- async (simulateTicks queue)
   let chainComponent = \node -> do
         let ctx =
               S.ChainContext
@@ -528,7 +529,7 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
                 { hn =
                     createMockNetwork node nodes
                 , oc =
-                    createMockChain tr (submitTx queue) getTimeHandle
+                    createMockChain tr (atomically . writeTQueue queue) getTimeHandle
                 }
         let mockNode = MockHydraNode{node = node', chainHandler}
         atomically $ modifyTVar nodes (mockNode :)
@@ -537,18 +538,20 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
   return ConnectToChain{..}
  where
   blockTime = 20 -- seconds
-  simulateTicks = forever $ do
+  simulateTicks queue = forever $ do
     threadDelay blockTime
     now <- getCurrentTime
+    hasTx <- atomically $ tryReadTQueue queue
     fmap node <$> readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
+    case hasTx of
+      Just tx -> do
+        let block = mkBlock tx
+        allHandlers <- fmap chainHandler <$> readTVarIO nodes
+        forM_ allHandlers (`onRollForward` block)
+      Nothing -> pure ()
 
-  submitTx queue vtx = do
-    response <- atomically $ do
-      response <- newEmptyTMVar
-      -- writeTQueue queue (vtx, response)
-      return response
-
-    atomically (takeTMVar response)
+mkBlock :: Ledger.ValidatedTx LedgerEra -> Util.Block
+mkBlock = undefined
 
 -- TODO: unify with BehaviorSpec's ?
 createMockNetwork :: MonadSTM m => HydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
