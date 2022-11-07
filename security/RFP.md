@@ -23,23 +23,26 @@ We will first describe the artifacts in the scope of this audit before explainin
 
 ![artifacts.png](artifacts.png)
 
+TODO: describe hypothesis / security definition / environments (e.g. API is used locally)..
+
 ### Artifact 1: Original publication
 
 The Hydra head protocol has first been published in [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf). This paper describes several versions of the protocol (simple, with or without conflict resolution, incremental (de)commits, etc.). And provides the corresponding security proofs, especially that the following four properties hold:
+
 * Consistency: No two uncorrupted parties see conflicting transactions confirmed.
 * Liveness: If all parties remain uncorrupted and the adversary delivers all messages, then every transaction becomes confirmed at some point.
 * Soundness: The final UTxO set accepted on the mainchain results from a set of seen transactions.
 * Completeness: All transactions observed as confirmed by an honest party at the end of the protocol are considered on the mainchain.
 
-The Hydra Head protocol implementation should be considered as a subset of the Simple Protocol without Conflict Resolution.
-
-A study of the whole paper and possible variations of the protocol is out of scope of this solicitation.
+A study of the whole paper and possible variations of the protocol is out of scope of this solicitation, but it serves as a good starting point and introduction to the overall protocol. Note that the implemented Hydra Head protocol - name **Coordinated Hydra Head** - can be considered a subset of the "Simple Protocol without Conflict Resolution". That is, we recommend reading Chapters 2-6, where the off-chain "Head protocol" is different in the actual specification.
 
 ### Artifact 2: Hydra Head v1 Formal Specification
 
 The Hydra Head protocol implementation derives from the original publication in several ways. Especially some simplification have been introduced and generalizations removed.
 
-Hydra Head v1 Formal Specification captures these deviations in a formal specification.
+The [Hydra Head v1 Formal Specification](https://docs.google.com/document/d/1XQ0C7Ko3Ifo5a4TOcW1fDT8gMYryB54PCEgOiFaAwGE/) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
+
+Note that it is lacking some structure and introductory sections and we recommend to see Artifact 1 for that.
 
 FIXME the following list is probably not usefull since it should be in the spec
 In particular, the following simplifications are done in the actual implementation:
@@ -47,13 +50,17 @@ In particular, the following simplifications are done in the actual implementati
 * snapshot is signed for every transaction and only snapshot can be used in close transaction
 * ...
 
-
-
 ### Artifact 3: Hydra Head Protocol Implementation
 
-The Hydra Head Protocol Implementation is the software that is used to operate a node in a head. It allows its users to open a head, lock funds in it, connect to peers, perform transaction in a layer 2 environment, close a head and unlock the corresponding funds. It includes on-chain code, off-chain code, layer 2 code, network communication between peers, API for clients to connect and use the node.
+With Hydra Head Protocol Implementation we refer to the software component that is used to operate a node in the Hydra Head protocol. The `hydra-node` allows its users to open a head, lock funds in it, connect to peers, process transactions as a layer 2, close a head and unlock the corresponding funds. It includes on-chain code, off-chain code, layer 2 code, network communication between peers, and an API for clients to connect and use the node.
+
+The implementation can be found in this [Github repository](https://github.com/input-output-hk/hydra-poc)
+
+Version to be audited: [0.9.0](https://github.com/input-output-hk/hydra-poc/releases/tag/0.9.0)
 
 TODO describe the inputs and outputs of a hydra node
+
+TODO: clarify which artifacts we need to introduce
 
 #### Artifact 3.3: on-chain code
 
@@ -75,25 +82,38 @@ TODO
 
 On a broad level, our goal is to ensure that the security properties proven in the original publication hold for the implementation, taking also into consideration the main entry points of a hydra node which are the network, the API and the Cardano ledger.
 
+TODO: say something about increasing confidence to our users in using the hydra-node and the protocol implemented by it;
+
 
 Given the artifacts described above, 
 We expect the auditor to assess the following statements.
 
-### Hydra Head v1 Formal Specification is sound with the original publication
+### Hydra Head v1 Formal Specification is sound
+
+...against the original publication?
+...and consistent with itself?
+
+TODO when we redo the proofs for the V1 spec, it should be enough to have this audited to be "consistent in itself"
+
+- Check that Hydra Head v1 specification is compliant with the Hydra original paper to the extent that the proofs in the Hydra Head paper also apply to the specification.
+- ~~Provide feedback whether the Hydra Head v1 specification on clarity, ambiguity, readability and comprehensibility; it is fit to serve as a foundation for the implementation of the protocol.~~
+
+### Hydra head protocol implementation is sound with Hydra Head V1 specification
 
 TODO
-
-Hydra implementation specification is compliant with the Hydra original paper to the extent that the proofs in the Hydra original paper apply to the Hydra implementation specification.
-
-### Hydra head protocol implementation is sound with Hydra implementation specification
-
-TODO
+- The on-chain code checks the specified transaction constraints. (Reading code)
+- The off-chain code creates transactions as specified (TODO: which modules / packages are relevant? how much code is this?)
+- The L2 code handles chain & network events as specified
+- 
 
 ### Hydra head protocol implementation is immune to on-chain attacks
 
 TODO
 
 An attacker posts transactions on chain which mess with our implementation.
+- Do perform some attacks
+- Review the testing strategy (i.e. mutation tests)
+- ...
 
 ### Hydra head protocol implementation is immune to network attacks
 
