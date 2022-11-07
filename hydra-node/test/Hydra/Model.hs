@@ -528,7 +528,7 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
                 { hn =
                     createMockNetwork node nodes
                 , oc =
-                    createMockChain tr (submitTx queue) timeHandle
+                    createMockChain tr (submitTx queue) getTimeHandle
                 }
         let mockNode = MockHydraNode{node = node', chainHandler}
         atomically $ modifyTVar nodes (mockNode :)
@@ -541,9 +541,6 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
     threadDelay blockTime
     now <- getCurrentTime
     fmap node <$> readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
-
-  timeHandle :: m TimeHandle
-  timeHandle = undefined
 
   submitTx queue vtx = do
     response <- atomically $ do
