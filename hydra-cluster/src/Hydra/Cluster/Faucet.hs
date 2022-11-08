@@ -111,7 +111,7 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
 
   theOutputDatum = case marked of
     Fuel -> TxOutDatumHash markerDatumHash
-    Normal -> TxOutDatumNone
+    Normal -> TxOutDatumInline (toScriptData HeadContract.validatorHash)
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
