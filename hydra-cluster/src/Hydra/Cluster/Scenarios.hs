@@ -12,14 +12,55 @@ import Data.Aeson (object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
-import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet)
-import Hydra.Cluster.Fixture (Actor (Alice), actorName, alice, aliceSk)
+import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (networkId, startChainFrom)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitMatch, withHydraNode)
+
+restartedNodeCanAbortOnPreviousTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+restartedNodeCanAbortOnPreviousTx tracer workDir cardanoNode hydraScriptsTxId = do
+  let clients = [Alice, Bob]
+  -- forM_ clients (\actor -> refuelIfNeeded tracer cardanoNode actor 100_000_000)
+  [(aliceCardanoVk, _), (bobCardanoVk, _)] <- forM clients keysFor
+  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket [Bob]
+      -- we delibelately do not start from a chain point here to highlight the
+      -- need for persistence
+      <&> \config -> config{networkId, startChainFrom = Nothing}
+
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket [Alice]
+      -- we delibelately do not start from a chain point here to highlight the
+      -- need for persistence
+      <&> \config -> config{networkId, startChainFrom = Nothing}
+
+  withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n1 -> do
+    let contestationPeriod = 1 :: Natural
+    withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
+      send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+      -- XXX: might need to tweak the wait time
+      waitFor tracer 10 [n1, n2] $
+        output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
+
+    -- n1 does a commit while n2 is down
+    send n1 $ input "Commit" ["utxo" .= object mempty]
+    waitFor tracer 10 [n1] $
+      output "Committed" ["party" .= bob, "utxo" .= object mempty]
+
+    -- n2 is back and can abort
+    withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
+      send n2 $ input "Abort" []
+      waitFor tracer 10 [n1, n2] $
+        output "HeadIsAborted" ["utxo" .= object mempty]
+ where
+  RunningNode{nodeSocket, networkId} = cardanoNode
 
 restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
