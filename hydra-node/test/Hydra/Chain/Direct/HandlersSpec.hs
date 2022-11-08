@@ -34,7 +34,6 @@ import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (Idle),
   ChainStateAt (..),
-  IdleState (..),
   InitialState (..),
   ctxHeadParameters,
   deriveChainContexts,
@@ -159,7 +158,8 @@ spec = do
     let callback cont = do
           cs <- readTVarIO stateVar
           case cont cs of
-            Nothing -> failure "expected contintution to yield observation"
+            Nothing -> do
+              failure "expected continuation to yield observation"
             Just Tick{} -> pure ()
             Just (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
             Just Observation{newChainState} -> atomically $ writeTVar stateVar newChainState
@@ -256,7 +256,8 @@ genSequenceOfObservableBlocks = do
   cctx <- elements allContexts
   blks <- flip execStateT [] $ do
     initTx <- stepInit cctx (ctxHeadParameters ctx)
-    void $ stepCommits cctx initTx (map IdleState allContexts)
+    -- Commit using all contexts
+    void $ stepCommits initTx allContexts
 
   pure (cctx, stAtGenesis Idle, reverse blks)
  where
@@ -281,23 +282,22 @@ genSequenceOfObservableBlocks = do
     initTx <$ putNextBlock initTx
 
   stepCommits ::
-    ChainContext ->
+    -- | The init transaction
     Tx ->
-    [IdleState] ->
+    [ChainContext] ->
     StateT [Block] Gen [InitialState]
-  stepCommits ctx initTx = \case
+  stepCommits initTx = \case
     [] ->
       pure []
-    stIdle : rest -> do
-      stInitialized <- stepCommit ctx initTx stIdle
-      (stInitialized :) <$> stepCommits ctx initTx rest
+    ctx : rest -> do
+      stInitialized <- stepCommit ctx initTx
+      (stInitialized :) <$> stepCommits initTx rest
 
   stepCommit ::
     ChainContext ->
     Tx ->
-    IdleState ->
     StateT [Block] Gen InitialState
-  stepCommit ctx initTx IdleState{} = do
+  stepCommit ctx initTx = do
     let (_, stInitial) = fromJust $ observeInit ctx initTx
     utxo <- lift genCommit
     let commitTx = unsafeCommit ctx stInitial utxo

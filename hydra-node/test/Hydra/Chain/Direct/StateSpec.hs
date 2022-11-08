@@ -35,7 +35,6 @@ import Hydra.Chain.Direct.State (
   ClosedState,
   HasKnownUTxO (getKnownUTxO),
   HydraContext (..),
-  IdleState (..),
   InitialState (..),
   OpenState,
   abort,
@@ -246,14 +245,14 @@ propIsValid forAllTx =
 
 forAllInit ::
   (Testable property) =>
-  (IdleState -> Tx -> property) ->
+  (() -> Tx -> property) ->
   Property
 forAllInit action =
   forAllBlind (genHydraContext 3) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll genTxIn $ \seedInput -> do
         let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-         in action (IdleState cctx) tx
+         in action () tx
               & classify
                 (length (peerVerificationKeys cctx) == 0)
                 "1 party"

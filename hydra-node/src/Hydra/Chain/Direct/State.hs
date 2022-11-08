@@ -50,7 +50,6 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.ScriptRegistry (
   ScriptRegistry (..),
   genScriptRegistry,
-  registryUTxO,
  )
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
@@ -192,19 +191,6 @@ instance Arbitrary ChainContext where
 allVerificationKeys :: ChainContext -> [VerificationKey PaymentKey]
 allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
   ownVerificationKey : peerVerificationKeys
-
--- | The idle state does not contain any head-specific information and exists to
--- be used as a starting and terminal state.
-newtype IdleState = IdleState {ctx :: ChainContext}
-  deriving (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary IdleState where
-  arbitrary = IdleState <$> arbitrary
-
-instance HasKnownUTxO IdleState where
-  getKnownUTxO IdleState{ctx = ChainContext{scriptRegistry}} =
-    registryUTxO scriptRegistry
 
 data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput
