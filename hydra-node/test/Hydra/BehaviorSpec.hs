@@ -54,6 +54,8 @@ import Hydra.Node (
   EventQueue (putEvent),
   HydraNode (..),
   HydraNodeLog (..),
+  NodeState,
+  Persistence (Persistence, load, save),
   createEventQueue,
   createNodeState,
   runHydraNode,
@@ -680,8 +682,8 @@ withHydraNode ::
 withHydraNode signingKey otherParties connectToChain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  let chainState = SimpleChainState{slot = ChainSlot 0}
-  node <- createHydraNode simpleLedger chainState signingKey otherParties outputs outputHistory connectToChain
+  nodeState <- createNodeState $ IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory connectToChain
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraNode outputs outputHistory node)
 
@@ -702,16 +704,15 @@ createTestHydraNode outputs outputHistory HydraNode{eq} =
 createHydraNode ::
   (MonadDelay m, MonadAsync m) =>
   Ledger tx ->
-  ChainStateType tx ->
+  NodeState tx m ->
   SigningKey HydraKey ->
   [Party] ->
   TQueue m (ServerOutput tx) ->
   TVar m [ServerOutput tx] ->
   ConnectToChain tx m ->
   m (HydraNode tx m)
-createHydraNode ledger chainState signingKey otherParties outputs outputHistory connectToChain = do
+createHydraNode ledger nodeState signingKey otherParties outputs outputHistory connectToChain = do
   eq <- createEventQueue
-  nodeState <- createNodeState $ IdleState{chainState}
   persistenceVar <- newTVarIO Nothing
   chainComponent connectToChain $
     HydraNode

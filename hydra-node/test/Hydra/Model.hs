@@ -63,16 +63,24 @@ import Hydra.Chain.Direct.State (ChainStateAt (..))
 import qualified Hydra.Chain.Direct.State as S
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import qualified Hydra.Chain.Direct.Util as Util
+import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (Committed (), Environment (party), Event (NetworkEvent), PendingCommits, defaultTTL)
+import Hydra.HeadLogic (
+  Committed (),
+  Environment (party),
+  Event (NetworkEvent),
+  HeadState (..),
+  PendingCommits,
+  defaultTTL,
+ )
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genValue, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Node (HydraNode (..), chainCallback, putEvent, runHydraNode)
+import Hydra.Node (HydraNode (..), NodeState (NodeState), chainCallback, createNodeState, modifyHeadState, putEvent, queryHeadState, runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
@@ -457,32 +465,30 @@ seedWorld seedKeys = do
   let parties = map (deriveParty . fst) seedKeys
       -- NB: we pick the first key to be our own
       vKeys = getVerificationKey . signingKey . snd <$> seedKeys
+      dummyNodeState =
+        NodeState
+          { modifyHeadState = error "undefined"
+          , queryHeadState = error "undefined"
+          }
   tr <- gets logger
   nodes <- lift $ do
     let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
-        -- XXX: Defining the concrete 'ChainState' here is weird. The simulated
-        -- chain shares the provided chainState between all nodes. However, the
-        -- normal (non SimpleTx) chain state is node specific (it's context).
-        chainState =
-          ChainStateAt
-            { chainState = error "should not access chainState"
-            , recordedAt = Nothing
-            }
     nodes <- newTVarIO []
-    connectToChain <-
-      mockChainAndNetwork (contramap DirectChain tr) vKeys parties nodes
     forM seedKeys $ \(hsk, _csk) -> do
       outputs <- atomically newTQueue
+      connectToChain <-
+        mockChainAndNetwork (contramap DirectChain tr) vKeys parties nodes
       outputHistory <- newTVarIO []
       let party = deriveParty hsk
           otherParties = filter (/= party) parties
-      node <- createHydraNode ledger chainState hsk otherParties outputs outputHistory connectToChain
+      node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain
       let testNode = createTestHydraNode outputs outputHistory node
       void $ async $ runHydraNode (contramap Node tr) node
       pure (party, testNode)
 
   modify $ \n -> n{nodes = Map.fromList nodes}
 
+-- | Provide the logic to connect a list of `MockHydraNode` through a dummy chain.
 mockChainAndNetwork ::
   forall m.
   ( MonadSTM m
@@ -498,13 +504,38 @@ mockChainAndNetwork ::
   TVar m [MockHydraNode m] ->
   m (ConnectToChain Tx m)
 mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
-  history <- newTVarIO []
   queue <- newTQueueIO
   tickThread <- async (simulateTicks queue)
   let chainComponent = \node -> do
-        let HydraNode{nodeState, eq} = node
-        let callback = chainCallback nodeState eq
+        let ctx =
+              S.ChainContext
+                { networkId = testNetworkId
+                , peerVerificationKeys = vkeys
+                , ownVerificationKey = vkey
+                , ownParty = us
+                , scriptRegistry =
+                    -- TODO: we probably want different _scripts_ as initial and commit one
+                    let txIn = mkMockTxIn vkey 0
+                        txOut =
+                          TxOut
+                            (mkVkAddress testNetworkId vkey)
+                            (lovelaceToValue 10_000_000)
+                            TxOutDatumNone
+                            ReferenceScriptNone
+                     in ScriptRegistry
+                          { initialReference = (txIn, txOut)
+                          , commitReference = (txIn, txOut)
+                          }
+                }
+            chainState =
+              S.ChainStateAt
+                { chainState = S.Idle S.IdleState{S.ctx = ctx}
+                , recordedAt = ChainSlot 0
+                }
         let getTimeHandle = pure $ arbitrary `generateWith` 42
+        nodeState <- createNodeState $ IdleState{chainState}
+        let HydraNode{eq} = node
+        let callback = chainCallback nodeState eq
         let chainHandler = chainSyncHandler tr callback getTimeHandle
         let node' =
               node
@@ -512,13 +543,14 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
                     createMockNetwork node nodes
                 , oc =
                     createMockChain tr (atomically . writeTQueue queue) getTimeHandle
+                , nodeState
                 }
         let mockNode = MockHydraNode{node = node', chainHandler}
         atomically $ modifyTVar nodes (mockNode :)
         pure node'
       -- NOTE: this is not used (yet) but could be used to trigger arbitrary rollbacks
       -- in the run model
-      rollbackAndForward = undefined
+      rollbackAndForward = error "Not implemented, should never be called"
   return ConnectToChain{..}
  where
   blockTime = 20 -- seconds
@@ -533,6 +565,8 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         forM_ allHandlers (`onRollForward` block)
       Nothing -> pure ()
+mockChainAndNetwork _ _ _ _ =
+  error "Cannot connect chain and network without keys"
 
 mkBlock :: Ledger.ValidatedTx LedgerEra -> Util.Block
 mkBlock ledgerTx =
@@ -566,8 +600,15 @@ createMockChain ::
   m TimeHandle ->
   Chain Tx m
 createMockChain tracer submitTx timeHandle =
-  -- TODO: hook wallet here
-  let wallet = undefined
+  -- NOTE: The wallet basically does nothing
+  let wallet =
+        TinyWallet
+          { getUTxO = pure mempty
+          , sign = id
+          , coverFee = \_ tx -> pure (Right tx)
+          , reset = const $ pure ()
+          , update = const $ pure ()
+          }
    in mkChain tracer timeHandle wallet submitTx
 
 performCommit ::
