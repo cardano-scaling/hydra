@@ -250,7 +250,7 @@ forAllInit action =
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll ((,) <$> genTxIn <*> genOutput (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
         let tx = initialize cctx (ctxHeadParameters ctx) seedIn
-            utxo = UTxO.singleton (seedIn, seedOut) <> registryUTxO (scriptRegistry cctx)
+            utxo = UTxO.singleton (seedIn, seedOut) <> getKnownUTxO cctx
          in action utxo tx
               & classify
                 (length (peerVerificationKeys cctx) == 0)
@@ -265,7 +265,7 @@ forAllCommit ::
   Property
 forAllCommit action =
   forAllCommit' $ \ctx st toCommit tx ->
-    let utxo = getKnownUTxO st <> toCommit <> registryUTxO (scriptRegistry ctx)
+    let utxo = getKnownUTxO st <> toCommit <> getKnownUTxO ctx
      in action utxo tx
 
 forAllCommit' ::
@@ -307,7 +307,7 @@ forAllAbort action = do
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
           let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-              utxo = getKnownUTxO stInitialized <> registryUTxO (scriptRegistry cctx)
+              utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
            in action utxo (abort cctx stInitialized)
                 & classify
                   (null commits)
@@ -325,7 +325,7 @@ forAllCollectCom ::
   Property
 forAllCollectCom action =
   forAllBlind genCollectComTx $ \(ctx, committedUTxO, stInitialized, tx) ->
-    let utxo = getKnownUTxO stInitialized <> registryUTxO (scriptRegistry ctx)
+    let utxo = getKnownUTxO stInitialized <> getKnownUTxO ctx
      in action utxo tx
           & counterexample ("Committed UTxO: " <> show committedUTxO)
 
@@ -336,7 +336,7 @@ forAllClose ::
 forAllClose action = do
   -- FIXME: we should not hardcode number of parties but generate it within bounds
   forAll (genCloseTx 3) $ \(ctx, st, tx, sn) ->
-    let utxo = getKnownUTxO st <> registryUTxO (scriptRegistry ctx)
+    let utxo = getKnownUTxO st <> getKnownUTxO ctx
      in action utxo tx
           & label (Prelude.head . Prelude.words . show $ sn)
 
@@ -349,7 +349,7 @@ forAllContest action =
     -- XXX: Pick an arbitrary context to contest. We will stumble over this when
     -- we make contests only possible once per party.
     forAllBlind (pickChainContext hctx) $ \ctx ->
-      let utxo = getKnownUTxO stClosed <> registryUTxO (scriptRegistry ctx)
+      let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
        in action utxo tx
             & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
             & counterexample ("Contestation period: " <> show ctxContestationPeriod)
@@ -385,7 +385,7 @@ forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
   forAll (sized $ \n -> genFanoutTx 3 (n `min` maxSupported)) $ \(hctx, stClosed, tx) ->
     forAllBlind (pickChainContext hctx) $ \ctx ->
-      let utxo = getKnownUTxO stClosed <> registryUTxO (scriptRegistry ctx)
+      let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
        in action utxo tx
             & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where

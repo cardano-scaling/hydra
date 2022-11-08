@@ -50,6 +50,7 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.ScriptRegistry (
   ScriptRegistry (..),
   genScriptRegistry,
+  registryUTxO,
  )
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
@@ -170,6 +171,9 @@ data ChainContext = ChainContext
   , scriptRegistry :: ScriptRegistry
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+instance HasKnownUTxO ChainContext where
+  getKnownUTxO ChainContext{scriptRegistry} = registryUTxO scriptRegistry
 
 instance Arbitrary ChainContext where
   arbitrary = sized $ \n -> do

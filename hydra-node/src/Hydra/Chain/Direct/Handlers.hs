@@ -114,7 +114,7 @@ mkChain tracer queryTimeHandle wallet ctx submitTx =
               -- to bootstrap the init transaction. For now, we bear with it and
               -- keep the static keys in context.
               fromPostChainTx timeHandle wallet ctx chainState tx
-                >>= finalizeTx wallet chainState . toLedgerTx
+                >>= finalizeTx wallet ctx chainState . toLedgerTx
             )
         submitTx vtx
     }
@@ -123,11 +123,12 @@ mkChain tracer queryTimeHandle wallet ctx submitTx =
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
+  ChainContext ->
   ChainStateType Tx ->
   ValidatedTx LedgerEra ->
   STM m (ValidatedTx LedgerEra)
-finalizeTx TinyWallet{sign, coverFee} ChainStateAt{chainState} partialTx = do
-  let headUTxO = getKnownUTxO chainState
+finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = do
+  let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
       throwIO (NotEnoughFuel :: PostTxError Tx)
