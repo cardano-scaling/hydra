@@ -32,6 +32,7 @@ import Hydra.Chain.Direct.ScriptRegistry (
 import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
+import qualified Hydra.Contract.Head as HeadContract
 import Hydra.Ledger.Cardano ()
 
 data Marked = Fuel | Normal
@@ -106,7 +107,7 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
       (shelleyAddressInEra receivingAddress)
       (lovelaceToValue lovelace)
       theOutputDatum
-      ReferenceScriptNone
+      (mkScriptRef HeadContract.validatorScript)
 
   theOutputDatum = case marked of
     Fuel -> TxOutDatumHash markerDatumHash

@@ -475,7 +475,7 @@ findTxOutDatum txInfo o =
 -- | Check if the ST token is present in the outputs
 outputContainsSTtoken :: [TxOut] -> Bool
 outputContainsSTtoken txOuts =
-  and $ findSTtoken <$> txOuts
+  or $ findSTtoken <$> txOuts
  where
   findSTtoken txOut =
     let (Value outValue) = txOutValue txOut
