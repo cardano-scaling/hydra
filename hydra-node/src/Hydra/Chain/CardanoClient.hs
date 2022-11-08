@@ -67,6 +67,8 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
+  tipSlot <- queryTipSlotNo networkId socket
+  let txUpperBound = tipSlot + 10000
   pure $
     second balancedTxBody $
       makeTransactionBodyAutoBalance
@@ -76,14 +78,14 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
         pparams
         stakePools
         (UTxO.toApi utxoToSpend)
-        (bodyContent pparams)
+        (bodyContent pparams txUpperBound)
         changeAddress
         Nothing
  where
   -- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.
   dummyFeeForBalancing = TxFeeExplicit 0
 
-  bodyContent pparams =
+  bodyContent pparams txUpperBound =
     TxBodyContent
       (withWitness <$> toList (UTxO.inputSet utxoToSpend))
       (TxInsCollateral collateral)
@@ -92,7 +94,7 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
       TxTotalCollateralNone
       TxReturnCollateralNone
       dummyFeeForBalancing
-      (TxValidityNoLowerBound, TxValidityNoUpperBound)
+      (TxValidityNoLowerBound, TxValidityUpperBound txUpperBound)
       TxMetadataNone
       TxAuxScriptsNone
       TxExtraKeyWitnessesNone
