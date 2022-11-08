@@ -28,7 +28,9 @@ import Hydra.Prelude hiding (Any, label)
 import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
+import Cardano.Ledger.Alonzo.TxSeq (TxSeq (TxSeq))
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
+import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (modifyTVar, newTQueue, newTQueueIO, newTVarIO, readTVarIO, tryReadTQueue, writeTQueue)
 import Data.List (nub)
@@ -36,6 +38,7 @@ import qualified Data.List as List
 import Data.Map ((!))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
@@ -72,6 +75,10 @@ import Hydra.Network.Message (Message)
 import Hydra.Node (HydraNode (..), chainCallback, putEvent, runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
+import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
+import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
+import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
+import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), LookUp, RunModel (..), StateModel (..), Var)
@@ -495,31 +502,6 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
   queue <- newTQueueIO
   tickThread <- async (simulateTicks queue)
   let chainComponent = \node -> do
-        let ctx =
-              S.ChainContext
-                { networkId = testNetworkId
-                , peerVerificationKeys = vkeys
-                , ownVerificationKey = vkey
-                , ownParty = us
-                , scriptRegistry =
-                    -- TODO: we probably want different _scripts_ as initial and commit one
-                    let txIn = mkMockTxIn vkey 0
-                        txOut =
-                          TxOut
-                            (mkVkAddress testNetworkId vkey)
-                            (lovelaceToValue 10_000_000)
-                            TxOutDatumNone
-                            ReferenceScriptNone
-                     in ScriptRegistry
-                          { initialReference = (txIn, txOut)
-                          , commitReference = (txIn, txOut)
-                          }
-                }
-            cs =
-              S.ChainStateAt
-                { chainState = S.Idle S.IdleState{S.ctx = ctx}
-                , recordedAt = ChainSlot 0
-                }
         let HydraNode{nodeState, eq} = node
         let callback = chainCallback nodeState eq
         let getTimeHandle = pure $ arbitrary `generateWith` 42
@@ -534,6 +516,8 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
         let mockNode = MockHydraNode{node = node', chainHandler}
         atomically $ modifyTVar nodes (mockNode :)
         pure node'
+      -- NOTE: this is not used (yet) but could be used to trigger arbitrary rollbacks
+      -- in the run model
       rollbackAndForward = undefined
   return ConnectToChain{..}
  where
@@ -551,7 +535,10 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
       Nothing -> pure ()
 
 mkBlock :: Ledger.ValidatedTx LedgerEra -> Util.Block
-mkBlock = undefined
+mkBlock ledgerTx =
+  let header = (arbitrary :: Gen (Praos.Header StandardCrypto)) `generateWith` 42
+      body = TxSeq . StrictSeq.fromList $ [ledgerTx]
+   in BlockBabbage $ mkShelleyBlock $ Ledger.Block header body
 
 -- TODO: unify with BehaviorSpec's ?
 createMockNetwork :: MonadSTM m => HydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
