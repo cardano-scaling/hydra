@@ -29,14 +29,13 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   PostTxError (..),
  )
+import Hydra.Chain.Direct.ScriptRegistry (registryUTxO)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState,
-  ClosedState,
   HasKnownUTxO (getKnownUTxO),
   HydraContext (..),
   InitialState (..),
-  OpenState,
   abort,
   commit,
   ctxHeadParameters,
@@ -64,6 +63,7 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
+  genOutput,
   genTxIn,
   genValue,
   renderTx,
@@ -122,7 +122,7 @@ spec = parallel $ do
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
-    -- propIsValid forAllInit XXX: not possible because it spends an "outside" UTxO
+    propIsValid forAllInit
 
     prop "is not observed if not invited" $
       forAll2 (genHydraContext 3) (genHydraContext 3) $ \(ctxA, ctxB) ->
@@ -135,10 +135,10 @@ spec = parallel $ do
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
-    -- propIsValid forAllCommit XXX: not possible because it spends an "outside" UTxO
+    propIsValid forAllCommit
 
     prop "consumes all inputs that are committed" $
-      forAllCommit $ \(ctx, st) tx ->
+      forAllCommit' $ \ctx st _ tx ->
         case observeCommit ctx st tx of
           Just (_, st') ->
             let knownInputs = UTxO.inputSet (getKnownUTxO st')
@@ -147,7 +147,7 @@ spec = parallel $ do
             False
 
     prop "can only be applied / observed once" $
-      forAllCommit $ \(ctx, st) tx ->
+      forAllCommit' $ \ctx st _ tx ->
         case observeCommit ctx st tx of
           Just (_, st') ->
             case observeCommit ctx st' tx of
@@ -202,7 +202,7 @@ spec = parallel $ do
 
 propBelowSizeLimit ::
   Natural ->
-  ((a -> Tx -> Property) -> Property) ->
+  ((UTxO -> Tx -> Property) -> Property) ->
   SpecWith ()
 propBelowSizeLimit txSizeLimit forAllTx =
   prop ("transaction size is below " <> showKB txSizeLimit) $
@@ -218,21 +218,19 @@ propBelowSizeLimit txSizeLimit forAllTx =
 
 -- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionValidates?
 propIsValid ::
-  HasKnownUTxO a =>
-  ((a -> Tx -> Property) -> Property) ->
+  ((UTxO -> Tx -> Property) -> Property) ->
   SpecWith ()
 propIsValid forAllTx =
   prop "validates within maxTxExecutionUnits" $
-    forAllTx $ \st tx -> do
-      let lookupUTxO = getKnownUTxO st
-      case evaluateTx' maxTxExecutionUnits tx lookupUTxO of
+    forAllTx $ \utxo tx -> do
+      case evaluateTx' maxTxExecutionUnits tx utxo of
         Left validityError ->
           property False
-            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample ("Tx: " <> renderTxWithUTxO utxo tx)
             & counterexample ("Evaluation failed: " <> show validityError)
         Right evaluationReport ->
           all isRight (Map.elems evaluationReport)
-            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample ("Tx: " <> renderTxWithUTxO utxo tx)
             & counterexample (toString $ "Failures: " <> renderEvaluationReportFailures evaluationReport)
             & counterexample "Phase-2 validation failed"
 
@@ -245,14 +243,15 @@ propIsValid forAllTx =
 
 forAllInit ::
   (Testable property) =>
-  (() -> Tx -> property) ->
+  (UTxO -> Tx -> property) ->
   Property
 forAllInit action =
   forAllBlind (genHydraContext 3) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx -> do
-      forAll genTxIn $ \seedInput -> do
-        let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-         in action () tx
+      forAll ((,) <$> genTxIn <*> genOutput (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
+        let tx = initialize cctx (ctxHeadParameters ctx) seedIn
+            utxo = UTxO.singleton (seedIn, seedOut) <> registryUTxO (scriptRegistry cctx)
+         in action utxo tx
               & classify
                 (length (peerVerificationKeys cctx) == 0)
                 "1 party"
@@ -262,19 +261,28 @@ forAllInit action =
 
 forAllCommit ::
   (Testable property) =>
-  ((ChainContext, InitialState) -> Tx -> property) ->
+  (UTxO -> Tx -> property) ->
   Property
-forAllCommit action = do
+forAllCommit action =
+  forAllCommit' $ \ctx st toCommit tx ->
+    let utxo = getKnownUTxO st <> toCommit <> registryUTxO (scriptRegistry ctx)
+     in action utxo tx
+
+forAllCommit' ::
+  (Testable property) =>
+  (ChainContext -> InitialState -> UTxO -> Tx -> property) ->
+  Property
+forAllCommit' action = do
   forAll (genHydraContext 3) $ \hctx ->
     forAll (genStInitial hctx) $ \(ctx, stInitial) ->
-      forAllShow genCommit renderUTxO $ \utxo ->
-        let tx = unsafeCommit ctx stInitial utxo
-         in action (ctx, stInitial) tx
+      forAllShow genCommit renderUTxO $ \toCommit ->
+        let tx = unsafeCommit ctx stInitial toCommit
+         in action ctx stInitial toCommit tx
               & classify
-                (null utxo)
+                (null toCommit)
                 "Empty commit"
               & classify
-                (not (null utxo))
+                (not (null toCommit))
                 "Non-empty commit"
               & counterexample ("tx: " <> renderTx tx)
 
@@ -291,7 +299,7 @@ forAllNonEmptyByronCommit action = do
 
 forAllAbort ::
   (Testable property) =>
-  (InitialState -> Tx -> property) ->
+  (UTxO -> Tx -> property) ->
   Property
 forAllAbort action = do
   forAll (genHydraContext 3) $ \ctx ->
@@ -299,7 +307,8 @@ forAllAbort action = do
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
           let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-           in action stInitialized (abort cctx stInitialized)
+              utxo = getKnownUTxO stInitialized <> registryUTxO (scriptRegistry cctx)
+           in action utxo (abort cctx stInitialized)
                 & classify
                   (null commits)
                   "Abort immediately, after 0 commits"
@@ -312,35 +321,41 @@ forAllAbort action = do
 
 forAllCollectCom ::
   (Testable property) =>
-  (InitialState -> Tx -> property) ->
+  (UTxO -> Tx -> property) ->
   Property
 forAllCollectCom action =
-  forAllBlind genCollectComTx $ \(_ctx, committedUTxO, stInitialized, tx) ->
-    action stInitialized tx
-      & counterexample ("Committed UTxO: " <> show committedUTxO)
+  forAllBlind genCollectComTx $ \(ctx, committedUTxO, stInitialized, tx) ->
+    let utxo = getKnownUTxO stInitialized <> registryUTxO (scriptRegistry ctx)
+     in action utxo tx
+          & counterexample ("Committed UTxO: " <> show committedUTxO)
 
 forAllClose ::
   (Testable property) =>
-  (OpenState -> Tx -> property) ->
+  (UTxO -> Tx -> property) ->
   Property
 forAllClose action = do
   -- FIXME: we should not hardcode number of parties but generate it within bounds
-  forAll (genCloseTx 3) $ \(_ctx, st, tx, sn) ->
-    action st tx
-      & label (Prelude.head . Prelude.words . show $ sn)
+  forAll (genCloseTx 3) $ \(ctx, st, tx, sn) ->
+    let utxo = getKnownUTxO st <> registryUTxO (scriptRegistry ctx)
+     in action utxo tx
+          & label (Prelude.head . Prelude.words . show $ sn)
 
 forAllContest ::
   (Testable property) =>
-  (ClosedState -> Tx -> property) ->
+  (UTxO -> Tx -> property) ->
   Property
 forAllContest action =
-  forAllBlind genContestTx $ \(HydraContext{ctxContestationPeriod}, closePointInTime, stClosed, tx) ->
-    action stClosed tx
-      & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
-      & counterexample ("Contestation period: " <> show ctxContestationPeriod)
-      & counterexample ("Close point: " <> show closePointInTime)
-      & tabulate "Contestation period" (tabulateContestationPeriod ctxContestationPeriod)
-      & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
+  forAllBlind genContestTx $ \(hctx@HydraContext{ctxContestationPeriod}, closePointInTime, stClosed, tx) ->
+    -- XXX: Pick an arbitrary context to contest. We will stumble over this when
+    -- we make contests only possible once per party.
+    forAllBlind (pickChainContext hctx) $ \ctx ->
+      let utxo = getKnownUTxO stClosed <> registryUTxO (scriptRegistry ctx)
+       in action utxo tx
+            & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
+            & counterexample ("Contestation period: " <> show ctxContestationPeriod)
+            & counterexample ("Close point: " <> show closePointInTime)
+            & tabulate "Contestation period" (tabulateContestationPeriod ctxContestationPeriod)
+            & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
  where
   tabulateNum x
     | x > 0 = ["> 0"]
@@ -364,13 +379,15 @@ forAllContest action =
 
 forAllFanout ::
   (Testable property) =>
-  (ClosedState -> Tx -> property) ->
+  (UTxO -> Tx -> property) ->
   Property
 forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
-  forAll (sized $ \n -> genFanoutTx 3 (n `min` maxSupported)) $ \(_, stClosed, tx) ->
-    action stClosed tx
-      & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
+  forAll (sized $ \n -> genFanoutTx 3 (n `min` maxSupported)) $ \(hctx, stClosed, tx) ->
+    forAllBlind (pickChainContext hctx) $ \ctx ->
+      let utxo = getKnownUTxO stClosed <> registryUTxO (scriptRegistry ctx)
+       in action utxo tx
+            & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
   maxSupported = 70
 
