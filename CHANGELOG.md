@@ -16,6 +16,9 @@ changes.
   + Include the `chainState` in `InvalidStateToPost` errors.
   + Moved received transaction ids into `RolledForward` log message.
 
+- **BREAKING** Changed logs to help with debugging:
+  + Split `ApplyBlock` into `ApplyingBlock` and `AppliedBlock` [#600](https://github.com/input-output-hk/hydra-poc/pull/600)
+
 ## [0.8.0] - 2022-10-27
 
 - **BREAKING** Hydra keys now use the text envelope format.
