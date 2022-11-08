@@ -224,7 +224,7 @@ spec = around showLogsOnFailure $ do
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainState $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
-            someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
+            someUTxO <- seedFromFaucet node aliceCardanoVk 40_000_000 Normal (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
             aliceChain `observesInTime` OnInitTx cperiod [alice]
