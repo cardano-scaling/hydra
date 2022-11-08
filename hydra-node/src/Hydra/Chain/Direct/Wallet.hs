@@ -37,7 +37,6 @@ import Control.Monad.Class.MonadSTM (
   newTVarIO,
   writeTVar,
  )
-import Data.Aeson (Value (String), object, (.=))
 import Data.Array (array)
 import qualified Data.List as List
 import Data.Map.Strict ((!))
@@ -56,6 +55,7 @@ import Hydra.Cardano.Api (
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
+  fromConsensusPointHF,
   makeShelleyAddress,
   shelleyAddressInEra,
   toLedgerAddr,
@@ -66,6 +66,7 @@ import Hydra.Chain.CardanoClient (QueryPoint (QueryAt))
 import Hydra.Chain.Direct.Util (Block, markerDatum)
 import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Logging (Tracer, traceWith)
+import Ouroboros.Consensus.Block (blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..))
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
@@ -143,12 +144,14 @@ newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
           atomically $ writeTVar utxoVar res
           traceWith tracer $ InitializingWallet point u
       , update = \block -> do
+          let point = fromConsensusPointHF $ blockPoint block
+          traceWith tracer $ ApplyingBlock{point}
           utxo' <- atomically $ do
             (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar
             let utxo' = applyBlock block (== ledgerAddress) utxo
             writeTVar utxoVar (utxo', pparams, systemStart, epochInfo)
             pure utxo'
-          traceWith tracer $ ApplyBlock utxo'
+          traceWith tracer $ AppliedBlock utxo'
       }
  where
   address =
@@ -384,30 +387,12 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
 
 data TinyWalletLog
   = InitializingWallet QueryPoint (Map TxIn TxOut)
-  | ApplyBlock (Map TxIn TxOut)
+  | ApplyingBlock {point :: ChainPoint}
+  | AppliedBlock (Map TxIn TxOut)
   | LedgerEraMismatchError {expected :: Text, actual :: Text}
   deriving (Eq, Generic, Show)
 
-instance ToJSON TinyWalletLog where
-  toJSON =
-    \case
-      (InitializingWallet point initialUTxO) ->
-        object
-          [ "tag" .= String "InitializingWallet"
-          , "point" .= show @Text point
-          , "initialUTxO" .= initialUTxO
-          ]
-      (ApplyBlock utxo') ->
-        object
-          [ "tag" .= String "ApplyBlock"
-          , "newUTxO" .= utxo'
-          ]
-      LedgerEraMismatchError{expected, actual} ->
-        object
-          [ "tag" .= String "EraMismatchError"
-          , "expected" .= expected
-          , "actual" .= actual
-          ]
+deriving instance ToJSON TinyWalletLog
 
 instance Arbitrary TinyWalletLog where
   arbitrary = genericArbitrary

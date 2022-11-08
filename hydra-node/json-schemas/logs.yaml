@@ -362,9 +362,22 @@ definitions:
             type: string
           initialUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
-      - title: ApplyBlock
+      - title: ApplyingBlock
         description: >-
-          The wallet has discovered and applied a new block of interest.
+          The wallet has been given a new block.
+        additionalProperties: false
+        required:
+          - tag
+          - point
+        properties:
+          tag:
+            type: string
+            enum: ["ApplyingBlock"]
+          point:
+            $ref: "api.yaml#/components/schemas/ChainPoint"
+      - title: AppliedBlock
+        description: >-
+          The wallet applied a block resulting in given UTxOs.
         additionalProperties: false
         required:
           - tag
@@ -372,7 +385,7 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["ApplyBlock"]
+            enum: ["AppliedBlock"]
           newUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
       - title: EraMismatchError
