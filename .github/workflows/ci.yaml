@@ -47,19 +47,6 @@ jobs:
         name: hydra-node
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-    - name: Checkout actions/cache@v3
-      uses: actions/checkout@v3
-      with:
-        repository: actions/cache
-        ref: v3
-        path: .tmp/actions/cache
-
-    - name: Make actions/cache@v3 run always, not only when job succeeds
-      # Tweak `action.yml` of `actions/cache@v3` to remove its `post-if`
-      # condition, making it default to `post-if: always()`.
-      run: |
-        sed -i -e '/ post-if: /d' .tmp/actions/cache/action.yml
-
     - name: 🔁 Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       uses: actions/cache@v3
       with:
@@ -86,10 +73,6 @@ jobs:
       run: |
         nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
-    - name: 🔨 Prepare core dump
-      run: |
-        echo "$PWD/cores/corefile-%e-%p-%t" | sudo tee /proc/sys/kernel/core_pattern
-
     - name: ❓ Test (TUI)
       id: test_tui
       if: ${{ matrix.package == 'hydra-tui' }}
@@ -97,28 +80,18 @@ jobs:
       # The default shell does not allocate a TTY which breaks some tests
       shell: 'script -q -e -c "bash {0}"'
       env:
-        TERM: "xterm-color"
+        TERM: "xterm"
+      continue-on-error: true
       run: |
-        ulimit -c               # should output 0 if disabled
-        ulimit -c unlimited
-        ulimit -c               # should output 'unlimited' now
         nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
-    - name: 💾 Upload core dumps
-      uses: actions/upload-artifact@v3
-      if: failure() && steps.test_tui.outcome != 'success'
-      with:
-        name: test-core-dumps
-        path: |
-          "$PWD/cores"
-
-    - name: 💾 Upload failed test artifacts
-      uses: actions/upload-artifact@v3
-      if: failure() && steps.test_tui.outcome != 'success'
-      with:
-        name: test-failed-results
-        path: |
-          ./**/dist-newstyle/build/x86_64-linux/ghc-8.10.7/hydra-tui-0.8.0/t/tests/test/hydra-tui-0.8.0-tests.log
+    - name: ⁉ Test (TUI, retry)
+      if: steps.test_tui.outcome=='failure'
+      shell: 'script -q -e -c "bash {0}"'
+      env:
+        TERM: "xterm"
+      run: |
+        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
