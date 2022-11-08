@@ -102,7 +102,7 @@ jobs:
         ulimit -c               # should output 0 if disabled
         ulimit -c unlimited
         ulimit -c               # should output 'unlimited' now
-        nix-shell --arg withoutDevTools true --run 'cabal test --test-wrapper strace ${{ matrix.package }}'
+        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
     - name: 💾 Upload core dumps
       uses: actions/upload-artifact@v3
