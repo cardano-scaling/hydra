@@ -280,7 +280,7 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
       pure (close ctx st confirmedSnapshot shifted)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (contest st confirmedSnapshot shifted)
+      pure (contest ctx st confirmedSnapshot shifted)
     (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       pure (fanout st utxo deadlineSlot)

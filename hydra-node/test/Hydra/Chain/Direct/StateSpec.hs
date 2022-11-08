@@ -369,7 +369,7 @@ forAllFanout ::
   Property
 forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
-  forAll (sized $ \n -> genFanoutTx 3 (n `min` maxSupported)) $ \(stClosed, tx) ->
+  forAll (sized $ \n -> genFanoutTx 3 (n `min` maxSupported)) $ \(_, stClosed, tx) ->
     action stClosed tx
       & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where

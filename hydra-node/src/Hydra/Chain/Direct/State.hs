@@ -246,8 +246,7 @@ instance HasKnownUTxO OpenState where
       } = st
 
 data ClosedState = ClosedState
-  { ctx :: ChainContext
-  , closedThreadOutput :: ClosedThreadOutput
+  { closedThreadOutput :: ClosedThreadOutput
   , closedHeadId :: HeadId
   , closedHeadTokenScript :: PlutusScript
   }
@@ -255,11 +254,10 @@ data ClosedState = ClosedState
 
 instance HasKnownUTxO ClosedState where
   getKnownUTxO st =
-    registryUTxO scriptRegistry <> UTxO.singleton (i, o)
+    UTxO.singleton (i, o)
    where
     ClosedState
-      { ctx = ChainContext{scriptRegistry}
-      , closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}
+      { closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}
       } = st
 
 -- * Constructing transactions
@@ -413,11 +411,12 @@ close ctx st confirmedSnapshot pointInTime =
 -- snapshot. The given 'PointInTime' will be used as an upper validity bound and
 -- needs to be before the deadline.
 contest ::
+  ChainContext ->
   ClosedState ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
   Tx
-contest st confirmedSnapshot pointInTime = do
+contest ctx st confirmedSnapshot pointInTime = do
   contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput
  where
   (sn, sigs) =
@@ -425,9 +424,10 @@ contest st confirmedSnapshot pointInTime = do
       ConfirmedSnapshot{signatures} -> (getSnapshot confirmedSnapshot, signatures)
       _ -> (getSnapshot confirmedSnapshot, mempty)
 
+  ChainContext{ownVerificationKey} = ctx
+
   ClosedState
-    { ctx = ChainContext{ownVerificationKey}
-    , closedThreadOutput
+    { closedThreadOutput
     } = st
 
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
@@ -651,7 +651,8 @@ genChainState =
 
   genClosedState = do
     -- XXX: Untangle the whole generator mess here
-    fst <$> genFanoutTx maxGenParties maxGenAssets
+    (_, st, _) <- genFanoutTx maxGenParties maxGenAssets
+    pure st
 
 -- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
 -- transaction that results in a transition away from it.
@@ -694,14 +695,16 @@ genChainStateWithTx =
 
   genContestWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genContestWithState = do
-    (_, _, st@ClosedState{ctx}, tx) <- genContestTx
+    (hctx, _, st, tx) <- genContestTx
+    ctx <- pickChainContext hctx
     pure (ctx, Closed st, tx, Contest)
 
   genFanoutWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genFanoutWithState = do
     Positive numParties <- arbitrary
     Positive numOutputs <- arbitrary
-    (st@ClosedState{ctx}, tx) <- genFanoutTx numParties numOutputs
+    (hctx, st, tx) <- genFanoutTx numParties numOutputs
+    ctx <- pickChainContext hctx
     pure (ctx, Closed st, tx, Fanout)
 
 -- ** Warning zone
@@ -846,15 +849,15 @@ genContestTx = do
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-  pure (ctx, closePointInTime, stClosed, contest stClosed contestSnapshot contestPointInTime)
+  pure (ctx, closePointInTime, stClosed, contest cctx stClosed contestSnapshot contestPointInTime)
 
-genFanoutTx :: Int -> Int -> Gen (ClosedState, Tx)
+genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
 genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
   utxo <- genUTxOAdaOnlyOfSize numOutputs
   (_, toFanout, stClosed) <- genStClosed ctx utxo
   let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
-  pure (stClosed, fanout stClosed toFanout deadlineSlotNo)
+  pure (ctx, stClosed, fanout stClosed toFanout deadlineSlotNo)
 
 getContestationDeadline :: ClosedState -> UTCTime
 getContestationDeadline

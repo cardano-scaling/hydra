@@ -159,9 +159,10 @@ computeContestCost = do
     ctx <- genHydraContextFor numParties
     utxo <- arbitrary
     (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
+    cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (stClosed, contest stClosed snapshot pointInTime)
+    pure (stClosed, contest cctx stClosed snapshot pointInTime)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeAbortCost =
