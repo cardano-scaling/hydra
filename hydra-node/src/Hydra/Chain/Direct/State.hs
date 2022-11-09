@@ -17,7 +17,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   AssetName (AssetName),
-  ChainPoint,
+  ChainPoint (..),
   CtxUTxO,
   Hash,
   Key (SigningKey, VerificationKey, verificationKeyHash),
@@ -26,7 +26,7 @@ import Hydra.Cardano.Api (
   PaymentKey,
   PlutusScript,
   SerialiseAsRawBytes (serialiseToRawBytes),
-  SlotNo,
+  SlotNo (SlotNo),
   Tx,
   TxIn,
   TxOut,
@@ -40,6 +40,7 @@ import Hydra.Cardano.Api (
   pattern TxOut,
  )
 import Hydra.Chain (
+  ChainSlot (ChainSlot),
   ChainStateType,
   HeadId (..),
   HeadParameters (..),
@@ -125,7 +126,16 @@ instance Arbitrary ChainStateAt where
 instance IsChainState Tx where
   type ChainStateType Tx = ChainStateAt
 
-  chainStatePoint ChainStateAt{recordedAt} = recordedAt
+  chainStateSlot ChainStateAt{recordedAt} = chainSlotFromPoint recordedAt
+
+chainSlotFromPoint :: ChainPoint -> ChainSlot
+chainSlotFromPoint p =
+  let (SlotNo s) = slotNoFromPoint p
+   in ChainSlot $ fromIntegral s
+ where
+  slotNoFromPoint = \case
+    ChainPointAtGenesis -> 0
+    ChainPoint s _ -> s
 
 -- | A definition of all transitions between 'ChainState's. Enumerable and
 -- bounded to be used as labels for checking coverage.

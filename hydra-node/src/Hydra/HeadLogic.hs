@@ -22,12 +22,12 @@ import qualified Data.Set as Set
 import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Cardano.Api (ChainPoint)
 import Hydra.Chain (
   ChainEvent (..),
+  ChainSlot,
   ChainStateType,
   HeadParameters (..),
-  IsChainState (chainStatePoint),
+  IsChainState (chainStateSlot),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError,
@@ -832,22 +832,22 @@ onClosedChainFanoutTx newChainState confirmedSnapshot =
 onCurrentChainRollback ::
   (IsChainState tx) =>
   HeadState tx ->
-  ChainPoint ->
+  ChainSlot ->
   Outcome tx
-onCurrentChainRollback currentState chainPoint =
-  NewState (rollback chainPoint currentState) [ClientEffect RolledBack]
+onCurrentChainRollback currentState slot =
+  NewState (rollback slot currentState) [ClientEffect RolledBack]
  where
-  rollback rollbackPoint hs
-    | chainStatePoint (getChainState hs) <= rollbackPoint = hs
+  rollback rollbackSlot hs
+    | chainStateSlot (getChainState hs) <= rollbackSlot = hs
     | otherwise =
       case hs of
         IdleState{} -> hs
         InitialState{previousRecoverableState} ->
-          rollback rollbackPoint previousRecoverableState
+          rollback rollbackSlot previousRecoverableState
         OpenState{previousRecoverableState} ->
-          rollback rollbackPoint previousRecoverableState
+          rollback rollbackSlot previousRecoverableState
         ClosedState{previousRecoverableState} ->
-          rollback rollbackPoint previousRecoverableState
+          rollback rollbackSlot previousRecoverableState
 
 -- | The "pure core" of the Hydra node, which handles the 'Event' against a
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'

@@ -50,7 +50,6 @@ import Hydra.Chain.Direct.State (
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
-import Hydra.Options (genChainPoint)
 import Ouroboros.Consensus.Block (Point (BlockPoint, GenesisPoint), blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -163,7 +162,7 @@ spec = do
             Nothing -> do
               failure "expected continuation to yield observation"
             Just Tick{} -> pure ()
-            Just (Rollback point) -> atomically $ putTMVar rolledBackTo point
+            Just (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
             Just Observation{newChainState} -> atomically $ writeTVar stateVar newChainState
     let handler = chainSyncHandler nullTracer callback (pure timeHandle) chainContext
     -- Simulate some chain following
@@ -173,9 +172,9 @@ spec = do
     monitor . counterexample $ "try onRollBackward: " <> show result
     assert $ isRight result
 
-    mPoint <- run . atomically $ tryReadTMVar rolledBackTo
-    monitor . counterexample $ "rolledBackTo: " <> show mPoint
-    assert $ mPoint == Just rollbackPoint
+    mSlot <- run . atomically $ tryReadTMVar rolledBackTo
+    monitor . counterexample $ "rolledBackTo: " <> show mSlot
+    assert $ mSlot == Just rollbackSlot
 
 -- | Create a chain sync handler which records events as they are called back.
 -- NOTE: This 'ChainSyncHandler' does not handle chain state updates, but uses
@@ -310,7 +309,7 @@ stAtGenesis :: ChainState -> ChainStateAt
 stAtGenesis chainState =
   ChainStateAt
     { chainState
-    , recordedAt = ChainSlot 0
+    , recordedAt = ChainPointAtGenesis
     }
 
 showRollbackInfo :: (Word, Point Block) -> String

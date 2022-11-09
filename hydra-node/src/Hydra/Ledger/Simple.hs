@@ -20,8 +20,7 @@ import Data.Aeson (
  )
 import Data.List (maximum)
 import qualified Data.Set as Set
-import Hydra.Cardano.Api (ChainPoint)
-import Hydra.Chain (ChainStateType, IsChainState (..))
+import Hydra.Chain (ChainSlot, ChainStateType, IsChainState (..))
 import Hydra.Ledger
 import Test.QuickCheck (choose, getSize, sublistOf)
 
@@ -79,7 +78,7 @@ instance FromCBOR SimpleTx where
 
 -- * Simple chain state
 
-data SimpleChainState = SimpleChainState {point :: ChainPoint}
+data SimpleChainState = SimpleChainState {slot :: ChainSlot}
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance Arbitrary SimpleChainState where
@@ -88,7 +87,7 @@ instance Arbitrary SimpleChainState where
 instance IsChainState SimpleTx where
   type ChainStateType SimpleTx = SimpleChainState
 
-  chainStatePoint SimpleChainState{point} = point
+  chainStateSlot SimpleChainState{slot} = slot
 
 --
 -- MockTxIn

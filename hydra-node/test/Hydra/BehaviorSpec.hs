@@ -23,7 +23,7 @@ import GHC.Records (getField)
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Cardano.Api (SigningKey, Tx)
+import Hydra.Cardano.Api (ChainPoint (..), SigningKey, SlotNo (SlotNo), Tx)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -36,7 +36,7 @@ import Hydra.Chain (
   chainStateSlot,
   nextChainSlot,
  )
-import Hydra.Chain.Direct.State (ChainStateAt (..))
+import Hydra.Chain.Direct.State (ChainStateAt (..), chainSlotFromPoint)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.HeadLogic (
@@ -538,7 +538,11 @@ instance IsChainStateTest SimpleTx where
   advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
 
 instance IsChainStateTest Tx where
-  advanceSlot cs@ChainStateAt{recordedAt} = cs{recordedAt = nextChainSlot recordedAt}
+  advanceSlot cs@ChainStateAt{recordedAt} =
+    let (ChainPoint _ blockHash) = recordedAt
+        (ChainSlot newSlotNo) = nextChainSlot (chainSlotFromPoint recordedAt)
+     in -- TODO: should we generate the new blockHash each time and not re-use the same?
+        cs{recordedAt = ChainPoint (SlotNo $ fromIntegral newSlotNo) blockHash}
 
 -- | Creates a simulated chain and network by returning a handle with a
 -- 'HydraNode' decorator to connect it to the simulated chain. NOTE: The

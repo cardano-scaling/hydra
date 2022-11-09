@@ -207,7 +207,6 @@ type ActualCommitted = UTxOType Payment
 -- | Basic instantiation of `StateModel` for our `WorldState` state.
 instance StateModel WorldState where
   data Action WorldState a where
-    -- | Creation of the world.
     Seed :: {seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]} -> Action WorldState ()
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
     -- different return values.
@@ -215,9 +214,7 @@ instance StateModel WorldState where
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
     Abort :: Party -> Action WorldState ()
     NewTx :: Party -> Payment -> Action WorldState ()
-    -- | Wait some amount of time
     Wait :: DiffTime -> Action WorldState ()
-    -- | Observe some transaction has been confirmed at all nodes
     ObserveConfirmedTx :: Payment -> Action WorldState ()
 
   initialState =
@@ -446,7 +443,7 @@ seedWorld seedKeys = do
     let chainState =
           ChainStateAt
             { chainState = error "should not access chainState"
-            , recordedAt = ChainSlot 0
+            , recordedAt = ChainPointAtGenesis
             }
     connectToChain <- simulatedChainAndNetwork chainState
     forM seedKeys $ \(sk, _csk) -> do
