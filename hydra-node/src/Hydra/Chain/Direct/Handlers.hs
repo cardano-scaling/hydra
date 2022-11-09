@@ -195,7 +195,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
   onRollBackward rollbackPoint = do
     let point = fromConsensusPointHF rollbackPoint
     traceWith tracer $ RolledBackward{point}
-    callback (const . Just $ Rollback $ chainSlotFromPoint point)
+    callback (const . Just $ Rollback point)
 
   onRollForward :: Block -> m ()
   onRollForward blk = do
@@ -226,7 +226,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
                 , newChainState =
                     ChainStateAt
                       { chainState = cs'
-                      , recordedAt = chainSlotFromPoint point
+                      , recordedAt = point
                       }
                 }
 

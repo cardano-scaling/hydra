@@ -18,6 +18,7 @@ import Data.List (nub)
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
+  ChainPoint,
   HasTypeProxy (..),
   SerialiseAsRawBytes (..),
   UsingRawBytesHex (..),
@@ -146,7 +147,7 @@ class
 
   -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
   -- encountered, we assume monotonically increasing slots.
-  chainStateSlot :: ChainStateType tx -> ChainSlot
+  chainStatePoint :: ChainStateType tx -> ChainPoint
 
 -- | A generic description for a chain slot all implementions need to use.
 newtype ChainSlot = ChainSlot Natural
@@ -178,7 +179,7 @@ data ChainEvent tx
       { observedTx :: OnChainTx tx
       , newChainState :: ChainStateType tx
       }
-  | Rollback ChainSlot
+  | Rollback ChainPoint
   | Tick UTCTime
   deriving (Generic)
 

@@ -22,12 +22,12 @@ import qualified Data.Set as Set
 import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.Cardano.Api (ChainPoint)
 import Hydra.Chain (
   ChainEvent (..),
-  ChainSlot,
   ChainStateType,
   HeadParameters (..),
-  IsChainState (chainStateSlot),
+  IsChainState (chainStatePoint),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError,
@@ -832,13 +832,14 @@ onClosedChainFanoutTx newChainState confirmedSnapshot =
 onCurrentChainRollback ::
   (IsChainState tx) =>
   HeadState tx ->
-  ChainSlot ->
+  ChainPoint ->
   Outcome tx
-onCurrentChainRollback currentState slot =
+onCurrentChainRollback currentState chainPoint =
   NewState (rollback slot currentState) [ClientEffect RolledBack]
  where
+  slot = undefined
   rollback rollbackSlot hs
-    | chainStateSlot (getChainState hs) <= rollbackSlot = hs
+    | chainStatePoint (getChainState hs) <= rollbackSlot = hs
     | otherwise =
       case hs of
         IdleState{} -> hs

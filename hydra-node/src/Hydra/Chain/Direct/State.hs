@@ -17,6 +17,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   AssetName (AssetName),
+  ChainPoint,
   CtxUTxO,
   Hash,
   Key (SigningKey, VerificationKey, verificationKeyHash),
@@ -39,7 +40,6 @@ import Hydra.Cardano.Api (
   pattern TxOut,
  )
 import Hydra.Chain (
-  ChainSlot,
   ChainStateType,
   HeadId (..),
   HeadParameters (..),
@@ -115,7 +115,7 @@ class HasKnownUTxO a where
 -- point to rewind on rollbacks).
 data ChainStateAt = ChainStateAt
   { chainState :: ChainState
-  , recordedAt :: ChainSlot
+  , recordedAt :: ChainPoint
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -125,7 +125,7 @@ instance Arbitrary ChainStateAt where
 instance IsChainState Tx where
   type ChainStateType Tx = ChainStateAt
 
-  chainStateSlot ChainStateAt{recordedAt} = recordedAt
+  chainStatePoint ChainStateAt{recordedAt} = recordedAt
 
 -- | A definition of all transitions between 'ChainState's. Enumerable and
 -- bounded to be used as labels for checking coverage.
