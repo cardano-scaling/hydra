@@ -128,15 +128,6 @@ instance IsChainState Tx where
 
   chainStateSlot ChainStateAt{recordedAt} = chainSlotFromPoint recordedAt
 
-chainSlotFromPoint :: ChainPoint -> ChainSlot
-chainSlotFromPoint p =
-  let (SlotNo s) = slotNoFromPoint p
-   in ChainSlot $ fromIntegral s
- where
-  slotNoFromPoint = \case
-    ChainPointAtGenesis -> 0
-    ChainPoint s _ -> s
-
 -- | A definition of all transitions between 'ChainState's. Enumerable and
 -- bounded to be used as labels for checking coverage.
 data ChainTransition
@@ -928,3 +919,13 @@ unsafeObserveInitAndCommits ctx txInit commits =
       pure $ case event of
         OnCommitTx{committed} -> committed
         _ -> mempty
+
+chainSlotFromPoint :: ChainPoint -> ChainSlot
+chainSlotFromPoint p =
+  let (SlotNo s) = slotNoFromPoint p
+   in ChainSlot $ fromIntegral s
+
+slotNoFromPoint :: ChainPoint -> SlotNo
+slotNoFromPoint = \case
+  ChainPointAtGenesis -> 0
+  ChainPoint s _ -> s

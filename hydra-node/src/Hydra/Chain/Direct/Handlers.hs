@@ -15,7 +15,7 @@ import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import Cardano.Slotting.Slot (SlotNo (SlotNo))
+import Cardano.Slotting.Slot (SlotNo)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
@@ -35,7 +35,6 @@ import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainEvent (..),
-  ChainSlot (ChainSlot),
   ChainStateType,
   PostChainTx (..),
   PostTxError (..),
@@ -45,6 +44,7 @@ import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
+  chainSlotFromPoint,
   close,
   collect,
   commit,
@@ -53,6 +53,7 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialize,
   observeSomeTx,
+  slotNoFromPoint,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block)
@@ -229,14 +230,6 @@ chainSyncHandler tracer callback getTimeHandle ctx =
                       , recordedAt = point
                       }
                 }
-
-  slotNoFromPoint = \case
-    ChainPointAtGenesis -> 0
-    ChainPoint s _ -> s
-
-  chainSlotFromPoint p =
-    let (SlotNo s) = slotNoFromPoint p
-     in ChainSlot $ fromIntegral s
 
 -- | Hardcoded grace time for close transaction to be valid.
 -- TODO: make it a node configuration parameter
