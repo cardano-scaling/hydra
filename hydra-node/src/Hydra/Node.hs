@@ -36,8 +36,9 @@ import Control.Monad.Class.MonadSTM (
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Hydra.API.Server (Server, sendOutput)
-import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
+import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), ChainPoint)
+import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError, chainStatePoint)
+import Hydra.Chain.Direct.State (recordedAt)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
@@ -49,6 +50,7 @@ import Hydra.HeadLogic (
   Outcome (..),
   defaultTTL,
   emitSnapshot,
+  getChainState,
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
@@ -137,10 +139,11 @@ stepHydraNode tracer node = do
     -- does trace and not throw!
     Error err -> traceWith tracer (ErrorHandlingEvent party e err)
     Wait _reason -> putEventAfter eq 0.1 (decreaseTTL e) >> traceWith tracer (EndEvent party e)
-    NewState s effs -> do
-      save s
-      forM_ effs (processEffect node tracer)
-      traceWith tracer (EndEvent party e)
+    NewState s effs -> trace "Saving state" $
+      trace (show $ chainStatePoint (getChainState s)) $ do
+        save s
+        forM_ effs (processEffect node tracer)
+        traceWith tracer (EndEvent party e)
     OnlyEffects effs ->
       forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
  where

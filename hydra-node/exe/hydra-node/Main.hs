@@ -8,7 +8,11 @@ import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain (ChainCallback, ChainEvent (..))
 import Hydra.Chain.Direct (initialChainState, loadChainContext, withDirectChain)
+import Hydra.Cardano.Api (ChainPoint, serialiseToRawBytesHex)
+import Hydra.Chain (ChainCallback, ChainEvent (..), ChainStateType, chainStatePoint)
+import Hydra.Chain.Direct (initialChainState, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
+import Hydra.Chain.Direct.State (recordedAt)
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), defaultTTL, getChainState)
 import Hydra.Ledger.Cardano (Tx)
@@ -49,6 +53,7 @@ import Hydra.Options (
 
 main :: IO ()
 main = do
+  print "MAIN"
   command <- parseHydraCommand
   case command of
     Run options -> do
@@ -58,7 +63,7 @@ main = do
       publish options
  where
   run opts = do
-    let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
+    let RunOptions{verbosity, monitoringPort, persistenceDir, nodeId} = opts
     env@Environment{party} <- initEnvironment opts
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
@@ -71,9 +76,11 @@ main = do
           load persistence >>= \case
             Nothing -> do
               traceWith tracer CreatedState
-              pure IdleState{chainState = initialChainState}
+              chainState <- initialChainState chainConfig party hydraScriptsTxId
+              print $ show nodeId <> show (chainStatePoint chainState)
+              pure IdleState{chainState}
             Just a -> do
-              traceWith tracer LoadedState
+              print $ show nodeId <> show (chainStatePoint (chainState a))
               pure a
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party hydraScriptsTxId

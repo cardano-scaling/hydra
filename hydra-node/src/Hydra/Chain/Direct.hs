@@ -184,10 +184,11 @@ withDirectChain tracer config ctx chainState callback action = do
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- case chainStatePoint chainState of
-    Nothing -> queryTip networkId nodeSocket
-    Just s -> case startChainFrom of
-      Nothing -> pure s
-      Just point -> pure $ min point s
+    Nothing -> trace "querying the tip, no saved state" $ queryTip networkId nodeSocket
+    Just s -> trace "we have saved state, ask the user what to do, the loaded state is: " $
+      trace (show s) $ case startChainFrom of
+        Nothing -> trace "user didn't want to load any state" $ trace (show s) $ pure s
+        Just point -> trace "user wanted to load some state" $ trace "user wanted: " $ trace (show point) $ trace "existing state: " $ trace (show s) $ trace "found state: " $ trace (show point) pure $ min point s
   wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair chainPoint queryUTxOEtc
   let chainHandle =
         mkChain
