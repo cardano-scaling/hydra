@@ -90,17 +90,21 @@ We expect the auditor to assess the following statements detailed above:
 
 -- pen and paper stuff
 1. Hydra Head v1 Formal Specification is sound with the original publication
+
 TODO: ask Yun what she thinks
 
 --plutus stuff
+
 2. on-chain code is consistent with Hydra Head v1 specification
 3. on-chain code is immune to common Cardano smart-contract weaknesses
 
 -- hydra node implementation is behaving as an honest actor (out of memory denial of service...)
+
 4. off-chain code generates transactions which are consistent with Hydra Head v1 specification
 5. Head Logic code implementation is consistent with Hydra Head v1 specification
 
 -- robust against the environment whatever
+
 6. Hydra head protocol implementation is immune to attacks via chain transactions
 7. Hydra head protocol implementation is immune to attacks via network messages
 8. Hydra head protocol implementation faithfully reflects the head state through the API
