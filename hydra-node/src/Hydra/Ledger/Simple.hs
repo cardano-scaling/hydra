@@ -88,6 +88,7 @@ instance IsChainState SimpleTx where
   type ChainStateType SimpleTx = SimpleChainState
 
   chainStateSlot SimpleChainState{slot} = slot
+  chainStatePoint SimpleChainState{} = Nothing
 
 --
 -- MockTxIn

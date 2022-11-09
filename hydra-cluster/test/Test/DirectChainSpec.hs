@@ -396,9 +396,7 @@ waitMatch DirectChainTest{waitCallback} match = go
  where
   go = do
     a <- waitCallback
-    case match a of
-      Nothing -> go
-      Just b -> pure b
+    maybe go pure (match a)
 
 delayUntil :: (MonadDelay m, MonadTime m) => UTCTime -> m ()
 delayUntil target = do

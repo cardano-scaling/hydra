@@ -77,7 +77,8 @@ main = do
               pure a
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party hydraScriptsTxId
-        withDirectChain (contramap DirectChain tracer) chainConfig ctx (chainCallback nodeState eq) $ \chain -> do
+        let chainState = getChainState hs
+        withDirectChain (contramap DirectChain tracer) chainConfig ctx chainState (chainCallback nodeState eq) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts

@@ -127,6 +127,7 @@ instance IsChainState Tx where
   type ChainStateType Tx = ChainStateAt
 
   chainStateSlot ChainStateAt{recordedAt} = chainSlotFromPoint recordedAt
+  chainStatePoint ChainStateAt{recordedAt} = Just recordedAt
 
 -- | A definition of all transitions between 'ChainState's. Enumerable and
 -- bounded to be used as labels for checking coverage.
