@@ -36,7 +36,7 @@ import Hydra.Chain (
   chainStateSlot,
   nextChainSlot,
  )
-import Hydra.Chain.Direct.State (ChainStateAt (..), chainSlotFromPoint)
+import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.HeadLogic (
@@ -539,10 +539,16 @@ instance IsChainStateTest SimpleTx where
 
 instance IsChainStateTest Tx where
   advanceSlot cs@ChainStateAt{recordedAt} =
-    let (ChainPoint _ blockHash) = recordedAt
-        (ChainSlot newSlotNo) = nextChainSlot (chainSlotFromPoint recordedAt)
-     in -- TODO: should we generate the new blockHash each time and not re-use the same?
-        cs{recordedAt = ChainPoint (SlotNo $ fromIntegral newSlotNo) blockHash}
+    let newChainPoint =
+          case recordedAt of
+            ChainPointAtGenesis ->
+              ChainPoint (SlotNo 1) (error "we don't use block header hashes in tests")
+            -- TODO: should we generate the new blockHash each time and not re-use the same?
+            ChainPoint (SlotNo slotNo) bh ->
+              let (ChainSlot n) = nextChainSlot (ChainSlot $ fromIntegral slotNo)
+                  newSlot = SlotNo $ fromIntegral n
+               in ChainPoint newSlot bh
+     in cs{recordedAt = newChainPoint}
 
 -- | Creates a simulated chain and network by returning a handle with a
 -- 'HydraNode' decorator to connect it to the simulated chain. NOTE: The
