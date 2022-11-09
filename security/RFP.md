@@ -86,7 +86,34 @@ TODO: say something about increasing confidence to our users in using the hydra-
 
 
 Given the artifacts described above, 
-We expect the auditor to assess the following statements.
+We expect the auditor to assess the following statements detailed above:
+
+-- pen and paper stuff
+1. Hydra Head v1 Formal Specification is sound with the original publication
+TODO: ask Yun what she thinks
+
+--plutus stuff
+2. on-chain code is consistent with Hydra Head v1 specification
+3. on-chain code is immune to common Cardano smart-contract weaknesses
+
+-- hydra node implementation is behaving as an honest actor (out of memory denial of service...)
+4. off-chain code generates transactions which are consistent with Hydra Head v1 specification
+5. Head Logic code implementation is consistent with Hydra Head v1 specification
+
+-- robust against the environment whatever
+6. Hydra head protocol implementation is immune to attacks via chain transactions
+7. Hydra head protocol implementation is immune to attacks via network messages
+8. Hydra head protocol implementation faithfully reflects the head state through the API
+
+Out os scope:
+1. Hydra head protocol implementation is immune to API attacks -- out of scope because trusted
+
+FIXME: on-chain -> Hydra plutus scripts
+       off-chain -> Hydra node chain layer
+       HeadLogic -> Hydra node logic layer
+
+FIXME: split the RFP or give the option to respond partially
+
 
 ### Hydra Head v1 Formal Specification is sound
 
@@ -98,13 +125,30 @@ TODO when we redo the proofs for the V1 spec, it should be enough to have this a
 - Check that Hydra Head v1 specification is compliant with the Hydra original paper to the extent that the proofs in the Hydra Head paper also apply to the specification.
 - ~~Provide feedback whether the Hydra Head v1 specification on clarity, ambiguity, readability and comprehensibility; it is fit to serve as a foundation for the implementation of the protocol.~~
 
+### on-chain code is sound with Hydra Head v1 specification
+
+The on-chain code checks the specified transaction constraints. (Reading codei and exploring mutation testing of on-chain code).
+
+### on-chain code is immune to common Cardano smart contract weaknesses
+
+TODO see section 4.3 of Marlowe's RFP
+
+Evaluate the Hydra Head protocol implementation validators' susceptibility to common possible vulnerabilities for Cardano smart contracts,, such as but not limited to the following attacks:
+* Execution cost limits;
+* Double satisfaction;
+* Replay;
+* Denial of service.
+
+See, for example, https://github.com/Plutonomicon/plutonomicon/blob/main/vulnerabilities.md.
+
+See the draft https://plutus--4604.org.readthedocs.build/en/4604/reference/common-weaknesses/index.html.
+
 ### Hydra head protocol implementation is sound with Hydra Head V1 specification
 
 TODO
-- The on-chain code checks the specified transaction constraints. (Reading code)
 - The off-chain code creates transactions as specified (TODO: which modules / packages are relevant? how much code is this?)
 - The L2 code handles chain & network events as specified
-- 
+- The core protocol code is sound and all surrounding parts chain->code network->core are sound
 
 ### Hydra head protocol implementation is immune to on-chain attacks
 
@@ -115,11 +159,15 @@ An attacker posts transactions on chain which mess with our implementation.
 - Review the testing strategy (i.e. mutation tests)
 - ...
 
+Deny of Service with wrongful initialilizeHead transaction
+
 ### Hydra head protocol implementation is immune to network attacks
 
 TODO
 
 Define some security hypotheses regarding network connections and check that, under these hypotheses, our code prevent an attacker to mess with the head
+
+Denial of service through the network (contesting a close becoming impossible, etc.)
 
 ### Hydra head protocol implementation is immune to API attacks
 
