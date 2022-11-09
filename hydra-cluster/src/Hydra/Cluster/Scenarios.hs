@@ -56,6 +56,9 @@ restartedNodeCanAbortOnPreviousTx tracer workDir cardanoNode hydraScriptsTxId = 
 
     -- n2 is back and can abort
     withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
+      waitFor tracer 10 [n2] $
+        output "Committed" ["party" .= bob, "utxo" .= object mempty]
+
       send n2 $ input "Abort" []
       waitFor tracer 10 [n1, n2] $
         output "HeadIsAborted" ["utxo" .= object mempty]
