@@ -150,8 +150,8 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = d
 
 -- | A /handler/ that takes care of following the chain.
 data ChainSyncHandler m = ChainSyncHandler
-  { onRollForward :: Block -> m ()
-  , onRollBackward :: Point Block -> m ()
+  { onRollForward :: ChainPoint -> m ()
+  , onRollBackward :: ChainPoint -> m ()
   }
 
 -- | Conversion of a slot number to a time failed. This can be usually be
@@ -191,19 +191,20 @@ chainSyncHandler tracer callback getTimeHandle ctx =
     , onRollForward
     }
  where
-  onRollBackward :: Point Block -> m ()
+  onRollBackward :: ChainPoint -> m ()
   onRollBackward rollbackPoint = do
     let point = fromConsensusPointHF rollbackPoint
     traceWith tracer $ RolledBackward{point}
     callback (const . Just $ Rollback point)
 
-  onRollForward :: Block -> m ()
-  onRollForward blk = do
-    let point = fromConsensusPointHF $ blockPoint blk
+  onRollForward :: ChainPoint -> m ()
+  onRollForward chainPoint@(ChainPoint _ blockHash) = do
+    let point = toConsensusPointHF chainPoint
     let receivedTxs = map fromLedgerTx . toList $ getBabbageTxs blk
+    let receivedTxs = map fromLedgerTx . toList $ getBabbageTxs blockHash
     traceWith tracer $
       RolledForward
-        { point
+        { chainPoint
         , receivedTxIds = getTxId . getTxBody <$> receivedTxs
         }
 

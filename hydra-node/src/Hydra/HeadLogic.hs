@@ -835,20 +835,19 @@ onCurrentChainRollback ::
   ChainPoint ->
   Outcome tx
 onCurrentChainRollback currentState chainPoint =
-  NewState (rollback slot currentState) [ClientEffect RolledBack]
+  NewState (rollback chainPoint currentState) [ClientEffect RolledBack]
  where
-  slot = undefined
-  rollback rollbackSlot hs
-    | chainStatePoint (getChainState hs) <= rollbackSlot = hs
+  rollback rollbackPoint hs
+    | chainStatePoint (getChainState hs) <= rollbackPoint = hs
     | otherwise =
       case hs of
         IdleState{} -> hs
         InitialState{previousRecoverableState} ->
-          rollback rollbackSlot previousRecoverableState
+          rollback rollbackPoint previousRecoverableState
         OpenState{previousRecoverableState} ->
-          rollback rollbackSlot previousRecoverableState
+          rollback rollbackPoint previousRecoverableState
         ClosedState{previousRecoverableState} ->
-          rollback rollbackSlot previousRecoverableState
+          rollback rollbackPoint previousRecoverableState
 
 -- | The "pure core" of the Hydra node, which handles the 'Event' against a
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'

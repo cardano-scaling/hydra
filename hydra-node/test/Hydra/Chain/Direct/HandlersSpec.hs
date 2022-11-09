@@ -13,6 +13,7 @@ import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Cardano.Api (
+  ChainPoint (ChainPointAtGenesis),
   SlotNo (..),
   Tx,
   blockSlotNo,
@@ -49,6 +50,7 @@ import Hydra.Chain.Direct.State (
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
+import Hydra.Options (genChainPoint)
 import Ouroboros.Consensus.Block (Point (BlockPoint, GenesisPoint), blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -121,7 +123,7 @@ spec = do
   prop "yields observed transactions rolling forward" . monadicIO $ do
     -- Generate a state and related transaction and a block containing it
     (ctx, st, tx, transition) <- pick genChainStateWithTx
-    let chainState = ChainStateAt{chainState = st, recordedAt = ChainSlot 0}
+    let chainState = ChainStateAt{chainState = st, recordedAt = ChainPointAtGenesis}
     blk <- pickBlind $ genBlockAt 1 [tx]
     monitor (label $ show transition)
 
@@ -154,14 +156,14 @@ spec = do
     timeHandle <- pickBlind arbitrary
     -- Mock callback which keeps the chain state in a tvar
     stateVar <- run $ newTVarIO chainState
-    rolledBackTo <- run $ newEmptyTMVarIO
+    rolledBackTo <- run newEmptyTMVarIO
     let callback cont = do
           cs <- readTVarIO stateVar
           case cont cs of
             Nothing -> do
               failure "expected continuation to yield observation"
             Just Tick{} -> pure ()
-            Just (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
+            Just (Rollback point) -> atomically $ putTMVar rolledBackTo point
             Just Observation{newChainState} -> atomically $ writeTVar stateVar newChainState
     let handler = chainSyncHandler nullTracer callback (pure timeHandle) chainContext
     -- Simulate some chain following
@@ -171,9 +173,9 @@ spec = do
     monitor . counterexample $ "try onRollBackward: " <> show result
     assert $ isRight result
 
-    mSlot <- run . atomically $ tryReadTMVar rolledBackTo
-    monitor . counterexample $ "rolledBackTo: " <> show mSlot
-    assert $ mSlot == Just rollbackSlot
+    mPoint <- run . atomically $ tryReadTMVar rolledBackTo
+    monitor . counterexample $ "rolledBackTo: " <> show mPoint
+    assert $ mPoint == Just rollbackPoint
 
 -- | Create a chain sync handler which records events as they are called back.
 -- NOTE: This 'ChainSyncHandler' does not handle chain state updates, but uses
@@ -184,7 +186,7 @@ recordEventsHandler ctx cs getTimeHandle = do
   let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx
   pure (handler, getEvents eventsVar)
  where
-  getEvents = atomically . readTVar
+  getEvents = readTVarIO
 
   recordEvents :: TVar IO [ChainEvent Tx] -> ChainCallback Tx IO
   recordEvents var cont = do
