@@ -156,9 +156,7 @@ TODO: should we ask, and how, the auditor for feedbacks about potential scripts 
 
 ### Hydra plutus scripts are immune to common Cardano smart-contract weaknesses
 
-TODO see section 4.3 of Marlowe's RFP
-
-Evaluate the Hydra Head protocol implementation validators' susceptibility to common possible vulnerabilities for Cardano smart contracts,, such as but not limited to the following attacks:
+Evaluate the Hydra plutus scripts susceptibility to common possible vulnerabilities for Cardano smart contracts, such as but not limited to the following attacks:
 * Execution cost limits;
 * Double satisfaction;
 * Replay;
@@ -170,8 +168,9 @@ See the draft https://plutus--4604.org.readthedocs.build/en/4604/reference/commo
 
 ### Hydra node chain layer code generates transactions which are consistent with Hydra Head v1 specification
 
-TODO
-- The off-chain code creates transactions as specified (TODO: which modules / packages are relevant? how much code is this?)
+The Coordinated Hydra Head V1 specification defines the transactions the off-chain code should build and post to evolve the head status on-chain.
+
+You will review the corresponding artifacts described above to assess that the Hydra node chain layer code can only build transactions which are consistent with the Coordinated Hydra Head V1 specification.
 
 ### Hydra node logic layer code is consistent with Hydra Head v1 specification
 
