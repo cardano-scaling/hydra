@@ -231,11 +231,13 @@ TODO: should we explicitly state that we are not interested in network denial of
 
 ### Hydra head protocol implementation faithfully reflects the head state through the API
 
-TODO
+Under the previously defined hypotheses, the API is only accessible locally from the trusted machine running the Hydra node. Moreover, we don't consider the client API as an adversarial party so any attack through the API is considered out of scope. However, it is important that a running node would faithfully reflects to its API client the current state of a head.
 
-We don't care about being attacked through the API.
+You will review the Hydra node API layer and the corresponding artifacts. The outcome of the review should include, but not being limited to:
+* identification of network attack that would lead to an unfaithful reprensentation of a hydra head through the API
+* identification of transactions or a suite of transactions that would lead to an unfaithful reprensentation of a hydra head through the API
+* identification of a chain of events that would lead to an unfaithful reprensentation of a hydra head through the API
 
-If we state that API is only accessible through local loopback then it's probably just an obvious demonstration here. But it might lead to interesting discoveries like what installation instructions we share with the users to optimize for their security.
 
 ## Out of Scope
 
