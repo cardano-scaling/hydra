@@ -2,7 +2,7 @@
 
 ### *Run* the hydra demo
 
-See Hydra in action by following [these instructions](../docs/getting-started/demo).
+See Hydra in action by following [these instructions](https://hydra.family/head-protocol/docs/getting-started/demo/).
 
 ### *Tell* us about your use cases
 
@@ -10,7 +10,7 @@ Are you building on Cardano already? Could hydra help you scale? We have set up 
 
 ### *Review* the lightpapers
 
-We are exploring use cases and how to empower them with Hydra ourselves and with our partners. Check out the [use cases section](../use-cases/) and the [Hydra for Payments light paper](https://iohk.io/en/blog/posts/2022/11/10/hydra-for-payments-introducing-developer-tooling-to-unlock-micropayments-on-cardano/).
+We are exploring use cases and how to empower them with Hydra ourselves and with our partners. Check out the [use cases section](https://hydra.family/head-protocol/use-cases) and the [Hydra for Payments light paper](https://iohk.io/en/blog/posts/2022/11/10/hydra-for-payments-introducing-developer-tooling-to-unlock-micropayments-on-cardano/).
 
 ### *Comment* on the roadmap
 
