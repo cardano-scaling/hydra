@@ -101,8 +101,8 @@ computeCommitCost = do
   genCommitTx utxo = do
     -- NOTE: number of parties is irrelevant for commit tx
     ctx <- genHydraContextFor 1
-    stInitial <- genStInitial ctx
-    pure (commit stInitial utxo, getKnownUTxO stInitial)
+    (cctx, stInitial) <- genStInitial ctx
+    pure (commit cctx stInitial utxo, getKnownUTxO stInitial)
 
 computeCollectComCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCollectComCost =
@@ -123,7 +123,7 @@ computeCollectComCost =
     initTx <- genInitTx ctx
     commits <- genCommits ctx initTx
     let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (stInitialized, collect stInitialized)
+    pure (stInitialized, collect cctx stInitialized)
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCloseCost = do
@@ -132,7 +132,7 @@ computeCloseCost = do
   pure $ interesting <> limit
  where
   compute numParties = do
-    (st, tx, _sn) <- generate $ genCloseTx numParties
+    (_, st, tx, _sn) <- generate $ genCloseTx numParties
     let utxo = getKnownUTxO st
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
@@ -159,9 +159,10 @@ computeContestCost = do
     ctx <- genHydraContextFor numParties
     utxo <- arbitrary
     (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
+    cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (stClosed, contest stClosed snapshot pointInTime)
+    pure (stClosed, contest cctx stClosed snapshot pointInTime)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeAbortCost =
@@ -183,7 +184,7 @@ computeAbortCost =
     commits <- sublistOf =<< genCommits ctx initTx
     cctx <- pickChainContext ctx
     let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (abort stInitialized, getKnownUTxO stInitialized)
+    pure (abort cctx stInitialized, getKnownUTxO stInitialized)
 
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do
@@ -206,7 +207,8 @@ computeFanOutCost = do
     (_committed, stOpen) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
     closePoint <- genPointInTime
-    let closeTx = close stOpen snapshot closePoint
+    cctx <- pickChainContext ctx
+    let closeTx = close cctx stOpen snapshot closePoint
     let stClosed = snd . fromJust $ observeClose stOpen closeTx
     let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
     pure (getKnownUTxO stClosed, fanout stClosed utxo deadlineSlotNo)

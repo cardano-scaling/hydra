@@ -12,6 +12,7 @@ changes.
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
   + The `hydra-node` now only uses a single `state` file in `--persistence-dir` to keep it's state.
+  + The `chainState` does not include read-only chain context information anymore (is smaller now).
   + Include the `chainState` in `InvalidStateToPost` errors.
   + Moved received transaction ids into `RolledForward` log message.
 

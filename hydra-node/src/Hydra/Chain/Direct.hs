@@ -77,7 +77,6 @@ import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (Idle),
   ChainStateAt (..),
-  IdleState (..),
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Util (
@@ -138,41 +137,48 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
  )
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
--- | Create the initial state of the direct chain layer. This will query for the
--- hydra scripts and initialize a 'ChainContext'.
--- XXX: It's a bit weird that the 'ChainContext' is in the 'ChainState'
-initialChainState ::
+-- | Defines the starting state of the direct chain layer.
+initialChainState :: ChainStateType Tx
+initialChainState =
+  ChainStateAt
+    { chainState = Idle
+    , recordedAt = ChainSlot 0
+    }
+
+-- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
+loadChainContext ::
   ChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
   -- | Transaction id at which to look for Hydra scripts.
   TxId ->
-  IO (ChainStateType Tx)
-initialChainState config party hydraScriptsTxId = do
+  IO ChainContext
+loadChainContext config party hydraScriptsTxId = do
   (vk, _) <- readKeyPair cardanoSigningKey
   otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
   scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
-  let ctx =
-        ChainContext
-          { networkId
-          , peerVerificationKeys = otherCardanoKeys
-          , ownVerificationKey = vk
-          , ownParty = party
-          , scriptRegistry
-          }
   pure $
-    ChainStateAt
-      { chainState = Idle IdleState{ctx}
-      , recordedAt = ChainSlot 0
+    ChainContext
+      { networkId
+      , peerVerificationKeys = otherCardanoKeys
+      , ownVerificationKey = vk
+      , ownParty = party
+      , scriptRegistry
       }
  where
-  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} = config
+  DirectChainConfig
+    { networkId
+    , nodeSocket
+    , cardanoSigningKey
+    , cardanoVerificationKeys
+    } = config
 
 withDirectChain ::
   Tracer IO DirectChainLog ->
   ChainConfig ->
+  ChainContext ->
   ChainComponent Tx IO a
-withDirectChain tracer config callback action = do
+withDirectChain tracer config ctx callback action = do
   keyPair <- readKeyPair cardanoSigningKey
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
@@ -185,12 +191,13 @@ withDirectChain tracer config callback action = do
           tracer
           (queryTimeHandle networkId nodeSocket)
           wallet
+          ctx
           (submitTx queue)
   let getTimeHandle = queryTimeHandle networkId nodeSocket
   res <-
     race
       ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback getTimeHandle
+          let handler = chainSyncHandler tracer callback getTimeHandle ctx
           let intersection = toConsensusPointHF <$> startChainFrom
           let client = ouroborosApplication tracer intersection queue handler wallet
           withIOManager $ \iocp ->

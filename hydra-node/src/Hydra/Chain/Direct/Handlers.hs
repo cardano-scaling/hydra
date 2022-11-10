@@ -41,9 +41,9 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
+  ChainContext,
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
-  IdleState (IdleState, ctx),
   abort,
   close,
   collect,
@@ -93,9 +93,10 @@ mkChain ::
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
   TinyWallet m ->
+  ChainContext ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet submitTx =
+mkChain tracer queryTimeHandle wallet ctx submitTx =
   Chain
     { postTx = \chainState tx -> do
         traceWith tracer $ ToPost{toPost = tx}
@@ -112,8 +113,8 @@ mkChain tracer queryTimeHandle wallet submitTx =
               -- details needed to establish connection to the other peers and
               -- to bootstrap the init transaction. For now, we bear with it and
               -- keep the static keys in context.
-              fromPostChainTx timeHandle wallet chainState tx
-                >>= finalizeTx wallet chainState . toLedgerTx
+              fromPostChainTx timeHandle wallet ctx chainState tx
+                >>= finalizeTx wallet ctx chainState . toLedgerTx
             )
         submitTx vtx
     }
@@ -122,11 +123,12 @@ mkChain tracer queryTimeHandle wallet submitTx =
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
+  ChainContext ->
   ChainStateType Tx ->
   ValidatedTx LedgerEra ->
   STM m (ValidatedTx LedgerEra)
-finalizeTx TinyWallet{sign, coverFee} ChainStateAt{chainState} partialTx = do
-  let headUTxO = getKnownUTxO chainState
+finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = do
+  let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
       throwIO (NotEnoughFuel :: PostTxError Tx)
@@ -179,9 +181,11 @@ chainSyncHandler ::
   ChainCallback Tx m ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
+  -- | Contextual information about our chain connection.
+  ChainContext ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle =
+chainSyncHandler tracer callback getTimeHandle ctx =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -213,7 +217,7 @@ chainSyncHandler tracer callback getTimeHandle =
 
     forM_ receivedTxs $ \tx ->
       callback $ \ChainStateAt{chainState = cs} ->
-        case observeSomeTx tx cs of
+        case observeSomeTx ctx cs tx of
           Nothing -> Nothing
           Just (observedTx, cs') ->
             Just $
@@ -243,25 +247,26 @@ fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
   TinyWallet m ->
+  ChainContext ->
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx timeHandle wallet cst@ChainStateAt{chainState} tx = do
+fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
   pointInTime <- throwLeft currentPointInTime
   case (tx, chainState) of
-    (InitTx params, Idle IdleState{ctx}) ->
+    (InitTx params, Idle) ->
       getFuelUTxO wallet >>= \case
         Just (fromLedgerTxIn -> seedInput, _) -> do
           pure $ initialize ctx params seedInput
         Nothing ->
           throwIO (NoSeedInput @Tx)
     (AbortTx{}, Initial st) ->
-      pure $ abort st
+      pure $ abort ctx st
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
     (CommitTx{committed}, Initial st) ->
-      either throwIO pure (commit st committed)
+      either throwIO pure (commit ctx st committed)
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from
@@ -270,13 +275,13 @@ fromPostChainTx timeHandle wallet cst@ChainStateAt{chainState} tx = do
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
     (CollectComTx{}, Initial st) ->
-      pure $ collect st
+      pure $ collect ctx st
     (CloseTx{confirmedSnapshot}, Open st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (close st confirmedSnapshot shifted)
+      pure (close ctx st confirmedSnapshot shifted)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (contest st confirmedSnapshot shifted)
+      pure (contest ctx st confirmedSnapshot shifted)
     (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       pure (fanout st utxo deadlineSlot)
