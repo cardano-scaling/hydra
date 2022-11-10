@@ -10,7 +10,7 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
-import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod)
+import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
@@ -47,6 +47,8 @@ import qualified PlutusTx.AssocMap as Map
 import qualified PlutusTx.Builtins as Builtins
 
 -- REVIEW: Functions not re-exported "as V2", but using the same data types.
+
+import Plutus.V1.Ledger.Time (fromMilliSeconds)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 
 type DatumType = State
@@ -273,12 +275,11 @@ checkClose ::
   ContestationPeriod ->
   Bool
 checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod =
-  hasBoundedValidity && checkSnapshot && mustBeSignedByParticipant ctx headContext
+  hasBoundedValidity
+    && checkSnapshot
+    && mustBeSignedByParticipant ctx headContext
  where
-  hasBoundedValidity =
-    tMax <= tMin + cperiod
-  tMax = traceError "define tMax"
-  tMin = traceError "define tMin"
+  hasBoundedValidity = tMax - tMin <= cp
 
   checkSnapshot
     | snapshotNumber == 0 =
@@ -303,6 +304,18 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
             verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
               && checkHeadOutputDatum ctx expectedOutputDatum
     | otherwise = traceError "negative snapshot number"
+
+  cp = fromMilliSeconds (milliseconds cperiod)
+
+  tMax = case ivTo $ txInfoValidRange txInfo of
+    UpperBound (Finite t) _ -> t
+    _InfiniteBound -> traceError "infinite upper bound"
+
+  tMin = case ivFrom $ txInfoValidRange txInfo of
+    LowerBound (Finite t) _ -> t
+    _InfiniteBound -> traceError "infinite lower bound"
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
 
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
