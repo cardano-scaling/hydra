@@ -443,7 +443,7 @@ seedWorld seedKeys = do
     let chainState =
           ChainStateAt
             { chainState = error "should not access chainState"
-            , recordedAt = ChainPointAtGenesis
+            , recordedAt = Nothing
             }
     connectToChain <- simulatedChainAndNetwork chainState
     forM seedKeys $ \(sk, _csk) -> do

@@ -539,16 +539,12 @@ instance IsChainStateTest SimpleTx where
 
 instance IsChainStateTest Tx where
   advanceSlot cs@ChainStateAt{recordedAt} =
-    let newChainPoint =
-          case recordedAt of
-            ChainPointAtGenesis ->
-              ChainPoint (SlotNo 1) (error "we don't use block header hashes in tests")
+    let newChainPoint = case recordedAt of
+          Just (ChainPoint (SlotNo slotNo) bh) -> ChainPoint (SlotNo slotNo + 1) bh
+          _ ->
             -- TODO: should we generate the new blockHash each time and not re-use the same?
-            ChainPoint (SlotNo slotNo) bh ->
-              let (ChainSlot n) = nextChainSlot (ChainSlot $ fromIntegral slotNo)
-                  newSlot = SlotNo $ fromIntegral n
-               in ChainPoint newSlot bh
-     in cs{recordedAt = newChainPoint}
+            ChainPoint (SlotNo 1) (error "we don't use block header hashes in tests")
+     in cs{recordedAt = Just newChainPoint}
 
 -- | Creates a simulated chain and network by returning a handle with a
 -- 'HydraNode' decorator to connect it to the simulated chain. NOTE: The

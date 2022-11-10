@@ -13,7 +13,6 @@ import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Cardano.Api (
-  ChainPoint (ChainPointAtGenesis),
   SlotNo (..),
   Tx,
   blockSlotNo,
@@ -49,7 +48,7 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
-import Hydra.HeadLogic (HeadState (IdleState(..)))
+import Hydra.HeadLogic (HeadState (IdleState))
 import Hydra.Ledger.Cardano (genTxIn)
 import Ouroboros.Consensus.Block (Point (BlockPoint, GenesisPoint), blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
@@ -123,7 +122,7 @@ spec = do
   prop "yields observed transactions rolling forward" . monadicIO $ do
     -- Generate a state and related transaction and a block containing it
     (ctx, st, tx, transition) <- pick genChainStateWithTx
-    let chainState = ChainStateAt{chainState = st, recordedAt = ChainPointAtGenesis}
+    let chainState = ChainStateAt{chainState = st, recordedAt = Nothing}
     blk <- pickBlind $ genBlockAt 1 [tx]
     monitor (label $ show transition)
 
