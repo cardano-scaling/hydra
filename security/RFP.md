@@ -93,9 +93,11 @@ TODO define some hypotheses about the running environment to consider while asse
 * Host machine of the node being considered secure
 * Hydra/cardano signing key management being done securely
 * Network bandwidth being protected and good enough, whatever that means
+* cardano node is fair and on the local machine (which is secure)
 * ...
 
 Any discovery not compliant with one of these hypotheses would not be considered valid.
+We would accept recommandations about how to ensure this hypotheses on a running environment.
 
 
 ## Tasks
@@ -134,6 +136,7 @@ Out os scope:
 1. Hydra head protocol implementation is immune to API attacks -- out of scope because trusted
 
 FIXME: split the RFP or give the option to respond partially. Ask for a detailed estimation of each of the tasks so that we may choose to not ask for everything.
+FIXME: we want the respondant to explain what kind of analysis they will use for each of the assessments.
 
 ### Coordinated Hydra Head V1 specification is consistent with the original publication
 
@@ -145,6 +148,7 @@ This specification provides several important security proofs, especially that t
 * Liveness: If all parties remain uncorrupted and the adversary delivers all messages, then every transaction becomes confirmed at some point.
 * Soundness: The final UTxO set accepted on the mainchain results from a set of seen transactions.
 * Completeness: All transactions observed as confirmed by an honest party at the end of the protocol are considered on the mainchain.
+FIXME: in the above properties, which one ensures that we don't lock funds in the head?
 
 You will review this specification to give us comments and assess that the above properties hold. The outcome of the review should include, but not being limited to:
 * Identification of any inconsistencies or lack of generality within the specification;
@@ -197,14 +201,14 @@ This review should consider fair management of the input and output to and from 
 
 ### Hydra head protocol implementation is immune to attacks via chain transactions
 
-TODO
+The Hydra node chain layer is in charge of observing transactions posted on the Cardano blockchain
+and filtering _interesting_ transaction to submit them to the logic layer. The hydra node logic layer
+then analyse those transactions and react to them to make a head status evolve.
 
-An attacker posts transactions on chain which mess with our implementation.
-- Do perform some attacks
-- Review the testing strategy (i.e. mutation tests)
-- ...
-
-Deny of Service with wrongful initialilizeHead transaction
+You will review the Hydra node chain and logic layers and the corresponding artifacts in presence of
+invalid, unexpected or maliciously forged transactions. The outcome of the review should include, but not being limited to:
+* identification of transactions or a suite of transaction that would mislead a hydra node to an incorrect head state
+* identification of transactions or a suite of transactions that would invalidate one of the security properties of the Coordinated Hydra Head V1 specification.
 
 ### Hydra head protocol implementation is immune to attacks via network
 
