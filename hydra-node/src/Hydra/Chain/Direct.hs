@@ -55,7 +55,6 @@ import Hydra.Chain (
   ChainComponent,
   ChainStateType,
   PostTxError (..),
-  chainStatePoint,
  )
 import Hydra.Chain.CardanoClient (
   queryEraHistory,
@@ -179,28 +178,14 @@ withDirectChain ::
   ChainContext ->
   ChainStateType Tx ->
   ChainComponent Tx IO a
-<<<<<<< HEAD
-withDirectChain tracer config ctx chainState callback action = do
-=======
-withDirectChain tracer config chainState callback action = do
->>>>>>> eee6920e (Clean up traces added)
+withDirectChain tracer config ctx ChainStateAt{recordedAt} callback action = do
   keyPair <- readKeyPair cardanoSigningKey
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
-  chainPoint <-
-    case chainStatePoint chainState of
-      Nothing -> queryTip networkId nodeSocket
-<<<<<<< HEAD
-      Just s ->
-        case startChainFrom of
-          Nothing -> pure s
-          Just point -> pure $ min point s
-
-=======
-      Just s -> case startChainFrom of
-        Nothing -> pure s
-        Just point -> pure $ min point s
->>>>>>> eee6920e (Clean up traces added)
+  chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
+    (min <$> startChainFrom <*> recordedAt)
+      <|> recordedAt
+      <|> startChainFrom
   wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair chainPoint queryUTxOEtc
   let chainHandle =
         mkChain
