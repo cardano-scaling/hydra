@@ -68,6 +68,17 @@ const config = {
       'content-docs',
       /** @type {import('@docusaurus/plugin-content-docs').Options} */
       ({
+        id: 'standalone',
+        path: 'standalone',
+        routeBasePath: '/',
+        editUrl,
+        editLocalizedFiles: true
+      })
+    ],
+    [
+      'content-docs',
+      /** @type {import('@docusaurus/plugin-content-docs').Options} */
+      ({
         id: 'core-concepts',
         path: 'core-concepts',
         routeBasePath: 'core-concepts',
