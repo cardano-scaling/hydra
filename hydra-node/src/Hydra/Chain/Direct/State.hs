@@ -116,7 +116,7 @@ class HasKnownUTxO a where
 -- point to rewind on rollbacks).
 data ChainStateAt = ChainStateAt
   { chainState :: ChainState
-  , recordedAt :: ChainPoint
+  , recordedAt :: Maybe ChainPoint
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -126,8 +126,8 @@ instance Arbitrary ChainStateAt where
 instance IsChainState Tx where
   type ChainStateType Tx = ChainStateAt
 
-  chainStateSlot ChainStateAt{recordedAt} = chainSlotFromPoint recordedAt
-  chainStatePoint ChainStateAt{recordedAt} = Just recordedAt
+  chainStateSlot ChainStateAt{recordedAt} =
+    maybe (ChainSlot 0) chainSlotFromPoint recordedAt
 
 -- | A definition of all transitions between 'ChainState's. Enumerable and
 -- bounded to be used as labels for checking coverage.

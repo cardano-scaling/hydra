@@ -38,7 +38,6 @@ import Control.Monad.Trans.Except (runExcept)
 import Control.Tracer (nullTracer)
 import Hydra.Cardano.Api (
   CardanoMode,
-  ChainPoint (ChainPointAtGenesis),
   EraHistory (EraHistory),
   LedgerEra,
   NetworkId,
@@ -141,7 +140,7 @@ initialChainState :: ChainStateType Tx
 initialChainState =
   ChainStateAt
     { chainState = Idle
-    , recordedAt = ChainPointAtGenesis
+    , recordedAt = Nothing
     }
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.

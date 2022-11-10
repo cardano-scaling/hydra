@@ -227,7 +227,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
                 , newChainState =
                     ChainStateAt
                       { chainState = cs'
-                      , recordedAt = point
+                      , recordedAt = Just point
                       }
                 }
 

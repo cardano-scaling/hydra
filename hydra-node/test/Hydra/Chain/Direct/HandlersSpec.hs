@@ -49,6 +49,7 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
+import Hydra.HeadLogic (HeadState (IdleState(..)))
 import Hydra.Ledger.Cardano (genTxIn)
 import Ouroboros.Consensus.Block (Point (BlockPoint, GenesisPoint), blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
@@ -259,8 +260,12 @@ genSequenceOfObservableBlocks = do
     initTx <- stepInit cctx (ctxHeadParameters ctx)
     -- Commit using all contexts
     void $ stepCommits initTx allContexts
-
-  pure (cctx, stAtGenesis Idle, reverse blks)
+  let chainState =
+        ChainStateAt
+          { chainState = Idle IdleState{ctx = cctx}
+          , recordedAt = Nothing
+          }
+  pure (cctx, chainState Idle, reverse blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
   nextSlot = do
@@ -304,13 +309,6 @@ genSequenceOfObservableBlocks = do
     let commitTx = unsafeCommit ctx stInitial utxo
     putNextBlock commitTx
     pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
-
-stAtGenesis :: ChainState -> ChainStateAt
-stAtGenesis chainState =
-  ChainStateAt
-    { chainState
-    , recordedAt = ChainPointAtGenesis
-    }
 
 showRollbackInfo :: (Word, Point Block) -> String
 showRollbackInfo (rollbackDepth, rollbackPoint) =
