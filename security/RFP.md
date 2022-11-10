@@ -241,8 +241,9 @@ You will review the Hydra node API layer and the corresponding artifacts. The ou
 
 ## Out of Scope
 
-The scope of this audit has been described in the above sections. What is not in scope is out of scope. In particular, the following items is out of scope of this audit.
+The scope of this audit has been described in the above sections. What is not in scope is out of scope. In particular, the following items are out of scope of this audit.
 
 Verify the whole original paper and its proofs.
 
 1. Hydra head protocol implementation is immune to API attacks -- out of scope because trusted
+2. Any attack which would be invalid under the above stated hypotheses.
