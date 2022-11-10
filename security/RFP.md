@@ -42,11 +42,11 @@ The Hydra head protocol has first been published in [Hydra: Fast Isomorphic Stat
 
 A study of the whole paper and possible variations of the protocol is out of scope of this solicitation, but it serves as a good starting point and introduction to the overall protocol. Note that the implemented Hydra Head protocol - name **Coordinated Hydra Head** - can be considered a subset of the "Simple Protocol without Conflict Resolution". That is, we recommend reading Chapters 2-6, where the off-chain "Head protocol" is different in the actual specification.
 
-### Artifact 2: Hydra Head v1 Formal Specification
+### Artifact 2: Coordinated Hydra Head V1 Specification
 
 The Hydra Head protocol implementation derives from the original publication in several ways. Especially some simplification have been introduced and generalizations removed.
 
-The [Hydra Head v1 Formal Specification](https://docs.google.com/document/d/1XQ0C7Ko3Ifo5a4TOcW1fDT8gMYryB54PCEgOiFaAwGE/) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
+The [Coordinated Hydra Head V1 specification](https://docs.google.com/document/d/1XQ0C7Ko3Ifo5a4TOcW1fDT8gMYryB54PCEgOiFaAwGE/) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
 
 Note that it is lacking some structure and introductory sections and we recommend to see Artifact 1 for that.
 
@@ -98,7 +98,7 @@ We expect the auditor to assess several statements which will be detailed in the
 
 By order of priority:
 -- pen and paper stuff
-1. Hydra Head v1 Formal Specification is consistent with the original publication
+1. Coordinated Hydra Head V1 specification is consistent with the original publication
 
 TODO: ask Yun what she thinks about that
 
@@ -123,7 +123,7 @@ Out os scope:
 
 FIXME: split the RFP or give the option to respond partially. Ask for a detailed estimation of each of the tasks so that we may choose to not ask for everything.
 
-### Hydra Head v1 Formal Specification is consistent with the original publication
+### Coordinated Hydra Head V1 specification is consistent with the original publication
 
 The Hydra Head v1 specification describes Coordinated Hydra Head V1 Protocol.
 
