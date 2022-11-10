@@ -186,8 +186,14 @@ You will review the corresponding artifacts described above to assess that the H
 
 ### Hydra node logic layer code is consistent with Hydra Head v1 specification
 
-TODO
-- The L2 code handles chain & network events as specified
+The Coordinated Hydra Head V1 specification defines the off-chain logic of a hydra head to create, maintain and close a head. The Hydra node logic layer code implements this off-chain logic.
+
+You will review the corresponding artifacts described above to assess that the Hydra node logic layer code faithfully implements the off-chain logic described in the Coordinated Hydra Head V1 specification. The outcome of the review should include, bo not being limited to:
+* identify any discrepancy with the off-chain logic from the specification;
+* for any such discrepancy, what security property could be impacted;
+* a review of the tests applied to the Hydra node logic layer and, in particular, any situation that would not be covered by the tests.
+
+This review should consider fair management of the input and output to and from the Hydra node logic layer.
 
 ### Hydra head protocol implementation is immune to attacks via chain transactions
 
