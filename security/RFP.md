@@ -86,6 +86,18 @@ Grab stuff from https://hydra.family/head-protocol/haddock/hydra-node/index.html
 
 TODO
 
+## Hypotheses
+
+TODO define some hypotheses about the running environment to consider while assessing the security:
+* API being accessed locally
+* Host machine of the node being considered secure
+* Hydra/cardano signing key management being done securely
+* Network bandwidth being protected and good enough, whatever that means
+* ...
+
+Any discovery not compliant with one of these hypotheses would not be considered valid.
+
+
 ## Tasks
 
 On a broad level, our goal is to ensure that the security properties proven in the original publication hold for the implementation, taking also into consideration the main entry points of a hydra node which are the network, the API and the Cardano ledger.
