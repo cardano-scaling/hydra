@@ -540,10 +540,10 @@ instance IsChainStateTest SimpleTx where
 instance IsChainStateTest Tx where
   advanceSlot cs@ChainStateAt{recordedAt} =
     let newChainPoint = case recordedAt of
-          Just (ChainPoint (SlotNo slotNo) bh) -> ChainPoint (SlotNo slotNo + 1) bh
-          _ ->
-            -- TODO: should we generate the new blockHash each time and not re-use the same?
-            ChainPoint (SlotNo 1) (error "we don't use block header hashes in tests")
+          Just (ChainPoint (SlotNo slotNo) bh) ->
+            ChainPoint (SlotNo slotNo + 1) bh
+          _NothingOrGenesis ->
+            ChainPoint (SlotNo 1) (error "should not use block header hash in tests")
      in cs{recordedAt = Just newChainPoint}
 
 -- | Creates a simulated chain and network by returning a handle with a
