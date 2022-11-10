@@ -96,6 +96,9 @@ TODO define some hypotheses about the running environment to consider while asse
 * cardano node is fair and on the local machine (which is secure)
 * ...
 
+FIXME: these hypotheses should come straight from the specification. See section 6.1.2 of the paper for instance
+> Our protocol gives different security guarantees depending on the level of adversarial corruption. It provides correctness independently of both, the number of corrupted head parties and the network conditions. But the guarantee that the protocol makes progress (i.e., that new transactions get confirmed in the head) is only provided in the case that no head parties are corrupted and that the network conditions are good.
+
 Any discovery not compliant with one of these hypotheses would not be considered valid.
 We would accept recommandations about how to ensure this hypotheses on a running environment.
 
@@ -207,16 +210,24 @@ then analyse those transactions and react to them to make a head status evolve.
 
 You will review the Hydra node chain and logic layers and the corresponding artifacts in presence of
 invalid, unexpected or maliciously forged transactions. The outcome of the review should include, but not being limited to:
-* identification of transactions or a suite of transaction that would mislead a hydra node to an incorrect head state
+* identification of transactions or a suite of transactions that would mislead a hydra node to an incorrect head state
+* identification of transactions or a suite of transactions that would lead to a denial of service for the hydra node
 * identification of transactions or a suite of transactions that would invalidate one of the security properties of the Coordinated Hydra Head V1 specification.
 
 ### Hydra head protocol implementation is immune to attacks via network
 
-TODO
+The Hydra node network layer is in charge of receiving peers messages and connections and sending network
+messages to peers. It decodes received messages andsubmit them to the logic layer. The hydra node logic layer
+then analyse those messages and react to them to make a head status evolve.
 
-Define some security hypotheses regarding network connections and check that, under these hypotheses, our code prevent an attacker to mess with the head
+You will review the Hydra node network and logic layers and the corresponding artifacts in presence of
+invalid, unexpected or maliciously forged network messages. The outcome of the review should include, but not being
+limited to:
+* identification of network attack that would mislead a hydra node to an incorrect head state
+* identification of network attack that would lead to a denial of service for the hydra node
+* identification of network attack that would invalidate one of the security properties of the Coordinated Hydra Head V1 specification.
 
-Denial of service through the network (contesting a close becoming impossible, etc.)
+TODO: should we explicitly state that we are not interested in network denial of service attack? In the hypotheses, should we consider only that locally submited transaction will end up reaching the cardano network or should we enforce stronger network propoerties? For instance, if a node totally loose its network connection, is it OK? For how long is it OK?
 
 ### Hydra head protocol implementation faithfully reflects the head state through the API
 
