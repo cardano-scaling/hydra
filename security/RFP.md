@@ -145,7 +145,14 @@ FIXME: v1 version of the specification with proof needed.
 
 ### Hydra plutus scripts are consistent with Hydra Head v1 specification
 
-The Hydra plutus scripts checks the specified transaction constraints. (Reading code and exploring mutation testing of Hydra plutus scripts).
+The Coordinated Hydra Head V1 specification defines the controls the on-chain validators must implement for a functionning hydra head.
+
+You will review the corresponding artifacts described above to assess that the Hydra plutus scripts are consistent with the Coordinated Hydra Head V1 specification. The outcome of the review should include, bo not being limited to:
+* a review and comment of the mutation based tests applied to the Hydra plutus scripts and, in particular, any adversarial situation that would not be covered by them but should be in the context of this audit;
+* a validation that the Hydra plutus scripts validators do check the transaction constraints defined in the Coordinated Hydra Head V1 specification;
+* any comment about practical Cardano smart contract issue, absent form the specification, which would not be handled by the Hydra plutus scripts;
+
+TODO: should we ask, and how, the auditor for feedbacks about potential scripts optimizations?
 
 ### Hydra plutus scripts are immune to common Cardano smart-contract weaknesses
 
