@@ -21,8 +21,8 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (networkId, startChainFrom)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitMatch, withHydraNode)
 
-restartedNodeCanAbortOnPreviousTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
-restartedNodeCanAbortOnPreviousTx tracer workDir cardanoNode hydraScriptsTxId = do
+restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
   let clients = [Alice, Bob]
   -- forM_ clients (\actor -> refuelIfNeeded tracer cardanoNode actor 100_000_000)
   [(aliceCardanoVk, _), (bobCardanoVk, _)] <- forM clients keysFor
@@ -58,10 +58,6 @@ restartedNodeCanAbortOnPreviousTx tracer workDir cardanoNode hydraScriptsTxId = 
     withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
       waitFor tracer 10 [n2] $
         output "Committed" ["party" .= bob, "utxo" .= object mempty]
-
-      send n2 $ input "Abort" []
-      waitFor tracer 10 [n1, n2] $
-        output "HeadIsAborted" ["utxo" .= object mempty]
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 

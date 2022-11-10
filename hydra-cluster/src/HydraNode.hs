@@ -304,9 +304,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
               { std_out = UseHandle out
               }
       withCreateProcess p $
-        \_stdin stdout _stderr processHandle -> do
-          print $ "Hydra node stdout: " <> show hydraNodeId
-          print stdout
+        \_stdin _stdout _stderr processHandle -> do
           result <-
             race
               (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)

@@ -183,12 +183,14 @@ withDirectChain tracer config ctx chainState callback action = do
   keyPair <- readKeyPair cardanoSigningKey
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
-  chainPoint <- case chainStatePoint chainState of
-    Nothing -> trace "querying the tip, no saved state" $ queryTip networkId nodeSocket
-    Just s -> trace "we have saved state, ask the user what to do, the loaded state is: " $
-      trace (show s) $ case startChainFrom of
-        Nothing -> trace "user didn't want to load any state" $ trace (show s) $ pure s
-        Just point -> trace "user wanted to load some state" $ trace "user wanted: " $ trace (show point) $ trace "existing state: " $ trace (show s) $ trace "found state: " $ trace (show point) pure $ min point s
+  chainPoint <-
+    case chainStatePoint chainState of
+      Nothing -> queryTip networkId nodeSocket
+      Just s ->
+        case startChainFrom of
+          Nothing -> pure s
+          Just point -> pure $ min point s
+
   wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair chainPoint queryUTxOEtc
   let chainHandle =
         mkChain
@@ -202,7 +204,7 @@ withDirectChain tracer config ctx chainState callback action = do
     race
       ( handle onIOException $ do
           let handler = chainSyncHandler tracer callback getTimeHandle ctx
-          let intersection = toConsensusPointHF <$> startChainFrom
+          let intersection = toConsensusPointHF chainPoint
           let client = ouroborosApplication tracer intersection queue handler wallet
           withIOManager $ \iocp ->
             connectTo
@@ -271,20 +273,20 @@ instance Exception IntersectionNotFoundException
 ouroborosApplication ::
   (MonadST m, MonadTimer m, MonadThrow m) =>
   Tracer m DirectChainLog ->
-  Maybe (Point Block) ->
+  Point Block ->
   TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
   ChainSyncHandler m ->
   TinyWallet m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-ouroborosApplication tracer mpoint queue handler wallet nodeToClientV =
+ouroborosApplication tracer point queue handler wallet nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClient handler wallet mpoint
+                  let peer = chainSyncClient handler wallet point
                    in MuxPeer nullTracer cChainSyncCodec (chainSyncClientPeer peer)
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
@@ -314,49 +316,17 @@ chainSyncClient ::
   (MonadSTM m, MonadThrow m) =>
   ChainSyncHandler m ->
   TinyWallet m ->
-  Maybe (Point Block) ->
+  Point Block ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient handler wallet = \case
-  Nothing ->
-    ChainSyncClient (pure initStIdle)
-  Just startingPoint ->
-    ChainSyncClient $
-      pure $ do
-        SendMsgFindIntersect
-          [startingPoint]
-          ( clientStIntersect
-              (\_ -> throwIO (IntersectionNotFound startingPoint))
-          )
+chainSyncClient handler wallet startingPoint =
+  ChainSyncClient $
+    pure $
+      SendMsgFindIntersect
+        [startingPoint]
+        ( clientStIntersect
+            (\_ -> throwIO (IntersectionNotFound startingPoint))
+        )
  where
-  -- NOTE:
-  -- We fast-forward the chain client to the current node's tip on start, and
-  -- from there, follow the chain block by block as they arrive. This is why the
-  -- chain client here has no state (and needs no persistence of previously seen
-  -- headers). It fits with the narrative of heads being online all-the-time;
-  -- history prior to when the client is created is thus not needed.
-  --
-  -- To acquire the chain tip, we leverage the fact that in any responses, the
-  -- server will send its current tip, which can then find an intersection with.
-  -- Hence the first `SendMsgRequestNext` which sole purpose is to get the
-  -- server's tip. Note that the findIntersect can fail after that if the server
-  -- switches to a different chain fork in between the two calls, in which case
-  -- we'll start over the last step with the new tip.
-  initStIdle :: ClientStIdle Block (Point Block) (Tip Block) m ()
-  initStIdle = SendMsgRequestNext initStNext (pure initStNext)
-   where
-    initStNext :: ClientStNext Block (Point Block) (Tip Block) m ()
-    initStNext =
-      ClientStNext
-        { recvMsgRollForward = \_ (getTipPoint -> tip) ->
-            ChainSyncClient $ findIntersect tip
-        , recvMsgRollBackward = \_ (getTipPoint -> tip) ->
-            ChainSyncClient $ findIntersect tip
-        }
-
-    findIntersect :: Point Block -> m (ClientStIdle Block (Point Block) (Tip Block) m ())
-    findIntersect tip =
-      pure $ SendMsgFindIntersect [tip] (clientStIntersect findIntersect)
-
   clientStIntersect ::
     (Point Block -> m (ClientStIdle Block (Point Block) (Tip Block) m ())) ->
     ClientStIntersect Block (Point Block) (Tip Block) m ()

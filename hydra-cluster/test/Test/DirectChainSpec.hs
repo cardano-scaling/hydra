@@ -59,6 +59,7 @@ import Hydra.Crypto (aggregate, sign)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
+import Hydra.Network (NodeId (NodeId))
 import Hydra.Options (
   ChainConfig (..),
   toArgNetworkId,

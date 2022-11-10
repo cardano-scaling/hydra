@@ -8,11 +8,7 @@ import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain (ChainCallback, ChainEvent (..))
 import Hydra.Chain.Direct (initialChainState, loadChainContext, withDirectChain)
-import Hydra.Cardano.Api (ChainPoint, serialiseToRawBytesHex)
-import Hydra.Chain (ChainCallback, ChainEvent (..), ChainStateType, chainStatePoint)
-import Hydra.Chain.Direct (initialChainState, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
-import Hydra.Chain.Direct.State (recordedAt)
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), defaultTTL, getChainState)
 import Hydra.Ledger.Cardano (Tx)
@@ -53,7 +49,6 @@ import Hydra.Options (
 
 main :: IO ()
 main = do
-  print "MAIN"
   command <- parseHydraCommand
   case command of
     Run options -> do
@@ -77,16 +72,14 @@ main = do
             Nothing -> do
               traceWith tracer CreatedState
               chainState <- initialChainState chainConfig party hydraScriptsTxId
-              print $ show nodeId <> show (chainStatePoint chainState)
               pure IdleState{chainState}
             Just a -> do
-              print $ show nodeId <> show (chainStatePoint (chainState a))
               pure a
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party hydraScriptsTxId
         let chainState = getChainState hs
         withDirectChain (contramap DirectChain tracer) chainConfig ctx chainState (chainCallback nodeState eq) $ \chain -> do
-          let RunOptions{host, port, peers, nodeId} = opts
+          let RunOptions{host, port, peers} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
             withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
