@@ -88,20 +88,25 @@ TODO
 
 ## Hypotheses
 
-TODO define some hypotheses about the running environment to consider while assessing the security:
-* API being accessed locally
-* Host machine of the node being considered secure
-* Hydra/cardano signing key management being done securely
-* Network bandwidth being protected and good enough, whatever that means
-* cardano node is fair and on the local machine (which is secure)
-* ...
+The Coordinated Hydra Head V1 Specification defines several hypotheses under which the security properties defined hold. Any assessment performed during this audit must be done under these hypotheses.
 
-FIXME: these hypotheses should come straight from the specification. See section 6.1.2 of the paper for instance
+FIXME: there are currently no hypotheses defined in the specification. See section 6.1.2 of the paper for instance
 > Our protocol gives different security guarantees depending on the level of adversarial corruption. It provides correctness independently of both, the number of corrupted head parties and the network conditions. But the guarantee that the protocol makes progress (i.e., that new transactions get confirmed in the head) is only provided in the case that no head parties are corrupted and that the network conditions are good.
 
-Any discovery not compliant with one of these hypotheses would not be considered valid.
-We would accept recommandations about how to ensure this hypotheses on a running environment.
+In addition to these hypotheses, the following hypotheses are to be considered about the running environment while assessing the Hydra node implementation::
+* The cardano-node and the hydra-node software both run on the same machine;
+* The cardano-node and the hydra-node software communicate through local unix socket;
+* The cardano-node software is trusted;
+* The hydra-node software is trusted;
+* The hydra-node API is only accessible from the local machine;
+* For any client software connecting to the hydra-node through its API, the hydro-node and the client software both run on the same machine;
+* The local machine running a hydra-node is trusted;
+* The hydra and cardano signing keys storage and operation are trusted.
+* For any legitimate hydra-node, the network is resilient enough that it can synchronize the cardano blockchain at regular interval smaller than any head contestation period they participate in.
 
+Any discovery not compliant with one of these hypotheses is out of scope.
+
+Responder can formulate comments about the above hypothesis. Especially if they can suggest less restricting hypothesis under which the security properties of Hydra still hold. Or if they would suggest practical suggestion on how to implement this hypothesis. We would accept recommandations about how to ensure this hypotheses on a running environment.
 
 ## Tasks
 
