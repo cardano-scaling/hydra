@@ -7,7 +7,11 @@ import Hydra.Prelude
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain (ChainCallback, ChainEvent (..))
+<<<<<<< HEAD
 import Hydra.Chain.Direct (initialChainState, loadChainContext, withDirectChain)
+=======
+import Hydra.Chain.Direct (initialChainState, withDirectChain)
+>>>>>>> eee6920e (Clean up traces added)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), defaultTTL, getChainState)
@@ -58,7 +62,7 @@ main = do
       publish options
  where
   run opts = do
-    let RunOptions{verbosity, monitoringPort, persistenceDir, nodeId} = opts
+    let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
     env@Environment{party} <- initEnvironment opts
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
@@ -74,12 +78,21 @@ main = do
               chainState <- initialChainState chainConfig party hydraScriptsTxId
               pure IdleState{chainState}
             Just a -> do
+<<<<<<< HEAD
+=======
+              traceWith tracer LoadedState
+>>>>>>> eee6920e (Clean up traces added)
               pure a
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party hydraScriptsTxId
         let chainState = getChainState hs
+<<<<<<< HEAD
         withDirectChain (contramap DirectChain tracer) chainConfig ctx chainState (chainCallback nodeState eq) $ \chain -> do
           let RunOptions{host, port, peers} = opts
+=======
+        withDirectChain (contramap DirectChain tracer) chainConfig chainState (chainCallback nodeState eq) $ \chain -> do
+          let RunOptions{host, port, peers, nodeId} = opts
+>>>>>>> eee6920e (Clean up traces added)
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
             withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
