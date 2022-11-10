@@ -29,7 +29,6 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   PostTxError (..),
  )
-import Hydra.Chain.Direct.ScriptRegistry (registryUTxO)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState,
