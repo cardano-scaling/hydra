@@ -29,6 +29,7 @@ We will first describe the artifacts in the scope of this audit before explainin
 
 TODO: describe hypothesis / security definition / environments (e.g. API is used locally)..
 
+
 ### Artifact 1: Original publication
 
 The Hydra head protocol has first been published in [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf). This paper describes several versions of the protocol (simple, with or without conflict resolution, incremental (de)commits, etc.). And provides the corresponding security proofs, especially that the following four properties hold:
@@ -94,7 +95,7 @@ We expect the auditor to assess several statements which will be detailed in the
 
 By order of priority:
 -- pen and paper stuff
-1. Hydra Head v1 Formal Specification is consistent with the original publication ("check this and give us comments")
+1. Hydra Head v1 Formal Specification is consistent with the original publication
 
 TODO: ask Yun what she thinks about that
 
@@ -119,8 +120,9 @@ Out os scope:
 
 FIXME: split the RFP or give the option to respond partially
 
+### Hydra Head v1 Formal Specification is consistent with the original publication
 
-### Hydra Head v1 Formal Specification is sound
+"check this and give us comments"
 
 ...against the original publication?
 ...and consistent with itself?
@@ -148,14 +150,17 @@ See, for example, https://github.com/Plutonomicon/plutonomicon/blob/main/vulnera
 
 See the draft https://plutus--4604.org.readthedocs.build/en/4604/reference/common-weaknesses/index.html.
 
-### Hydra head protocol implementation is sound with Hydra Head V1 specification
+### Hydra node chain layer code generates transactions which are consistent with Hydra Head v1 specification
 
 TODO
 - The off-chain code creates transactions as specified (TODO: which modules / packages are relevant? how much code is this?)
-- The L2 code handles chain & network events as specified
-- The core protocol code is sound and all surrounding parts chain->code network->core are sound
 
-### Hydra head protocol implementation is immune to on-chain attacks
+### Hydra node logic layer code is consistent with Hydra Head v1 specification
+
+TODO
+- The L2 code handles chain & network events as specified
+
+### Hydra head protocol implementation is immune to attacks via chain transactions
 
 TODO
 
@@ -166,7 +171,7 @@ An attacker posts transactions on chain which mess with our implementation.
 
 Deny of Service with wrongful initialilizeHead transaction
 
-### Hydra head protocol implementation is immune to network attacks
+### Hydra head protocol implementation is immune to attacks via network
 
 TODO
 
@@ -174,9 +179,11 @@ Define some security hypotheses regarding network connections and check that, un
 
 Denial of service through the network (contesting a close becoming impossible, etc.)
 
-### Hydra head protocol implementation is immune to API attacks
+### Hydra head protocol implementation faithfully reflects the head state through the API
 
 TODO
+
+We don't care about being attacked through the API.
 
 If we state that API is only accessible through local loopback then it's probably just an obvious demonstration here. But it might lead to interesting discoveries like what installation instructions we share with the users to optimize for their security.
 
@@ -185,6 +192,8 @@ If we state that API is only accessible through local loopback then it's probabl
 The scope of this audit has been described in the above sections. What is not in scope is out of scope. In particular, the following items is out of scope of this audit.
 
 Verify the whole original paper and its proofs.
+
+1. Hydra head protocol implementation is immune to API attacks -- out of scope because trusted
 
 ---
 DO NOT READ AFTER THIS LINE
