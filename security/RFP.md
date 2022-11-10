@@ -121,19 +121,27 @@ TODO: ask Yun what she thinks about that
 Out os scope:
 1. Hydra head protocol implementation is immune to API attacks -- out of scope because trusted
 
-FIXME: split the RFP or give the option to respond partially
+FIXME: split the RFP or give the option to respond partially. Ask for a detailed estimation of each of the tasks so that we may choose to not ask for everything.
 
 ### Hydra Head v1 Formal Specification is consistent with the original publication
 
-"check this and give us comments"
+The Hydra Head v1 specification describes Coordinated Hydra Head V1 Protocol.
 
-...against the original publication?
-...and consistent with itself?
+This specification provides several important security proofs, especially that the following four properties hold:
 
-TODO when we redo the proofs for the V1 spec, it should be enough to have this audited to be "consistent in itself"
+* Consistency: No two uncorrupted parties see conflicting transactions confirmed.
+* Liveness: If all parties remain uncorrupted and the adversary delivers all messages, then every transaction becomes confirmed at some point.
+* Soundness: The final UTxO set accepted on the mainchain results from a set of seen transactions.
+* Completeness: All transactions observed as confirmed by an honest party at the end of the protocol are considered on the mainchain.
 
-- Check that Hydra Head v1 specification is compliant with the Hydra original paper to the extent that the proofs in the Hydra Head paper also apply to the specification.
-- ~~Provide feedback whether the Hydra Head v1 specification on clarity, ambiguity, readability and comprehensibility; it is fit to serve as a foundation for the implementation of the protocol.~~
+You will review this specification to give us comments and assess that the above properties hold. The outcome of the review should include, but not being limited to:
+* Identification of any inconsistencies or lack of generality within the specification;
+* Identification of any inconsistencies in the proofs exposed in the specification;
+* Identification of any behavior that could lead, with an adverserial mindset, to one of the above properties to be falsified.
+
+TODO: should we ask, and how, the auditor to provide feedback about the Hydra Head v1 specification on clarity, ambiguity, readability and comprehensibility; it is fit to serve as a foundation for the implementation of the protocol?
+
+FIXME: v1 version of the specification with proof needed.
 
 ### Hydra plutus scripts are consistent with Hydra Head v1 specification
 
