@@ -14,6 +14,7 @@ IOG's product Hydra Head is the first protocol of the Hydra family and embodies 
 # 4 - Project Scope
 
 IOG is issuing this solicitation to perform an assessment of the security of the Hydra Head protocol implementation. IOG is lloking for a comprehensive and best practice Secuirty Audit to include, but not limited to, the areas of concern below. Any additional materials and documentation can be referenced and attached to your submission.
+
 Per [CIP-52](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0052),
 1. Any discrepancies, deviations or spotted vulnerabilities shall be described and classified with an appropriate severity level. Recommendations to rectify the identified deficiencies shall also be provided whenever appropriate.
 2. When automated tools are used as a replacement for manual review/code inspection, they shall be documented or referenced. Note that it’s the responsibility of the auditor to ensure that such tooling may not exhibit potential failures that can adversely affect the review outcome.
@@ -66,6 +67,8 @@ Version to be audited: [0.9.0](https://github.com/input-output-hk/hydra-poc/rele
 TODO describe the inputs and outputs of a hydra node
 
 TODO: clarify which artifacts we need to introduce
+
+TODO:We should share our test architecture/topology and also the test results here: https://hydra.family/head-protocol/benchmarks/tests/hydra-cluster/hspec-results
 
 #### Artifact 3.3: Hydra plutus scripts
 
@@ -194,43 +197,3 @@ The scope of this audit has been described in the above sections. What is not in
 Verify the whole original paper and its proofs.
 
 1. Hydra head protocol implementation is immune to API attacks -- out of scope because trusted
-
----
-DO NOT READ AFTER THIS LINE
----
-
-# Submission
-
-## *Testing*
-
-> Ideally, submitters should submit a description of how the DApp has been tested, the results of the tests, and details of how those test results can be replicated.In particular:
-> * The test cases and their results shall be recorded or reproducible in a machine-readable format to facilitate subsequent analysis.
-> * Tests are to be performed for each targeted platform (browser, wallet etc).
-> * The identity, configuration and version of all test components involved shall be documented.
-> * The checksum and version of the DApp submitted for certification shall correspond to the same version making the subject of the test report. 
-> * An evaluation of the test coverage and test completion should be provided. 
-
-
-> In the case that off-chain code is included in the scope of the audit, testing should be able to assess the performance and robustness of the DApp against significant throughput, under substantial workload, and in the scenario of a DoS attack.
-
-We should share our test architecture/topology and also the test results here: https://hydra.family/head-protocol/benchmarks/tests/hydra-cluster/hspec-results
-
-## *Source code and version*
-
-> A final version of the source code should be provided that works with the use cases specified in the documentation. Information needs to be provided to allow the DApp to be built in an unambiguous and reproducible way, including any external components and services that the DApp uses.  This could be in the form of
-
-
-> * The URL for a commit to a repository.
-> * Build information for the DApp: a pure nix build is particularly suitable, since this will identify versions of  libraries, compilers, OS, etc.
-> * For the on-chain code for a DApp, the specific contracts to be audited.
-
-Assessment should be performed for version 0.9.0 of hydra-poc code.
-
-## *Versioning*
-
-> Versioning information needs to be given in a way that allows end users of a DApp to determine whether or not the version of the DApp that they are using is covered by certification information held on blockchain.
-
-
-> This can be done in a number of different ways, depending on the type of audit. These include:
-> 1. The hash of a URL for a commit to a publicly-available repository.
-> 2. A hash that identifies the files that contain the on-chain code that has been audited, e,g computing, from the root of the repository, listed in lexicographic order.
