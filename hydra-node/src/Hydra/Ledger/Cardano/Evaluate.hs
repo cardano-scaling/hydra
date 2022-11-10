@@ -70,7 +70,7 @@ import Ouroboros.Consensus.HardFork.History (
  )
 import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
-import Test.QuickCheck (choose)
+import Test.QuickCheck (choose, suchThat)
 
 -- | Thin wrapper around 'evaluateTransactionExecutionUnits', which uses
 -- fixtures for system start, era history and protocol parameters. See
@@ -262,6 +262,13 @@ genPointInTime = do
   slot <- SlotNo <$> arbitrary
   let time = slotNoToUTCTime slot
   pure (slot, time)
+
+genPointInTimeWithSlotDifference :: Word64 -> Gen (SlotNo, (SlotNo, UTCTime))
+genPointInTimeWithSlotDifference i = do
+  endSlot <- SlotNo <$> arbitrary `suchThat` (> i)
+  let time = slotNoToUTCTime endSlot
+      startSlot = endSlot - SlotNo i
+  pure (startSlot, (endSlot, time))
 
 genPointInTimeBefore :: UTCTime -> Gen (SlotNo, UTCTime)
 genPointInTimeBefore deadline = do

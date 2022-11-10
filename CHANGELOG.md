@@ -55,7 +55,7 @@ changes.
 
 - `hydra-cardano-api` now published on [Cardano Haskell Packages (CHaP)](https://input-output-hk.github.io/cardano-haskell-packages/package/hydra-cardano-api-0.8.0/). [#504](https://github.com/input-output-hk/hydra/issues/504)
 
-- **BREAKING** `hydra-plutus` scripts changed.
+- **BREAKING** `hydra-plutus` scripts changed.H
 
 ## [0.8.0] - 2022-10-27
 

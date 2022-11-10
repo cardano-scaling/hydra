@@ -20,7 +20,7 @@ import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTimeWithSlotDifference, slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
@@ -41,10 +41,12 @@ healthyCloseTx =
     closeTx
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
-      (healthyCloseUpperBoundSlotNo, slotNoToUTCTime healthyCloseUpperBoundSlotNo)
+      pointInTime
+      startSlot
       openThreadOutput
 
   headInput = generateWith arbitrary 42
+  (startSlot, pointInTime) = genPointInTimeWithSlotDifference 20 `generateWith` 42
 
   headResolvedInput =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum
@@ -65,6 +67,9 @@ healthyCloseTx =
 
 healthyCloseUpperBoundSlotNo :: SlotNo
 healthyCloseUpperBoundSlotNo = arbitrary `generateWith` 42
+
+healthyCloseLowerBoundSlotNo :: SlotNo -> SlotNo
+healthyCloseLowerBoundSlotNo n = arbitrary `suchThat` (< n) `generateWith` 42
 
 healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =

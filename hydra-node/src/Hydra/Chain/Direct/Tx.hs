@@ -307,16 +307,19 @@ closeTx ::
   ClosingSnapshot ->
   -- | Current slot and UTC time to compute the contestation deadline time.
   PointInTime ->
+  -- | tx validity lower bound
+  SlotNo ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
   Tx
-closeTx vk closing (slotNo, utcTime) openThreadOutput =
+closeTx vk closing (endSlotNo, utcTime) startSlotNo openThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValidityUpperBound slotNo
+      & setValidityUpperBound endSlotNo
+      & setValidityLowerBound startSlotNo
  where
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore)

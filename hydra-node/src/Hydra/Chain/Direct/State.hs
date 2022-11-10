@@ -91,7 +91,7 @@ import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genPointInTimeBefore, slotNoFromUTCTime)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genPointInTimeWithSlotDifference, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (
@@ -386,9 +386,10 @@ close ::
   OpenState ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
+  SlotNo ->
   Tx
-close ctx st confirmedSnapshot pointInTime =
-  closeTx ownVerificationKey closingSnapshot pointInTime openThreadOutput
+close ctx st confirmedSnapshot pointInTime startSlotNo =
+  closeTx ownVerificationKey closingSnapshot pointInTime startSlotNo openThreadOutput
  where
   closingSnapshot = case confirmedSnapshot of
     -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
@@ -834,18 +835,18 @@ genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen) <- genStOpen ctx
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
-  pointInTime <- genPointInTime
   cctx <- pickChainContext ctx
-  pure (cctx, stOpen, close cctx stOpen snapshot pointInTime, snapshot)
+  (startSlot, pointInTime) <- genPointInTimeWithSlotDifference 20
+  pure (cctx, stOpen, close cctx stOpen snapshot pointInTime startSlot, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
   ctx <- genHydraContextFor 3
   (u0, stOpen) <- genStOpen ctx
   confirmed <- genConfirmedSnapshot 0 u0 []
-  closePointInTime <- genPointInTime
   cctx <- pickChainContext ctx
-  let txClose = close cctx stOpen confirmed closePointInTime
+  (startSlot, closePointInTime) <- genPointInTimeWithSlotDifference 20
+  let txClose = close cctx stOpen confirmed closePointInTime startSlot
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
@@ -897,9 +898,9 @@ genStClosed ctx utxo = do
               }
           , utxo
           )
-  pointInTime <- genPointInTime
   cctx <- pickChainContext ctx
-  let txClose = close cctx stOpen snapshot pointInTime
+  (startSlot, pointInTime) <- genPointInTimeWithSlotDifference 20
+  let txClose = close cctx stOpen snapshot pointInTime startSlot
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 -- ** Danger zone
 

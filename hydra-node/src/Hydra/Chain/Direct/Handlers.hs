@@ -244,7 +244,7 @@ fromPostChainTx ::
   PostChainTx Tx ->
   STM m Tx
 fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
-  pointInTime <- throwLeft currentPointInTime
+  pointInTime@(startSlotNo, _) <- throwLeft currentPointInTime
   case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
@@ -270,7 +270,8 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
       pure $ collect ctx st
     (CloseTx{confirmedSnapshot}, Open st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (close ctx st confirmedSnapshot shifted)
+      -- REVIEW: what do we use for lower bound slot here?
+      pure (close st confirmedSnapshot shifted startSlotNo)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (contest ctx st confirmedSnapshot shifted)
