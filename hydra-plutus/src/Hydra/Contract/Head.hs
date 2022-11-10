@@ -253,6 +253,8 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
 {-# INLINEABLE checkCollectCom #-}
 
 -- | The close validator must verify that:
+--   * Check that the closing tx validity is bounded by contestation period
+--     `T_max <= T_min + CP`
 --
 --   * The closing snapshot number and signature is correctly signed
 --
@@ -271,8 +273,13 @@ checkClose ::
   ContestationPeriod ->
   Bool
 checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod =
-  checkSnapshot && mustBeSignedByParticipant ctx headContext
+  hasBoundedValidity && checkSnapshot && mustBeSignedByParticipant ctx headContext
  where
+  hasBoundedValidity =
+    tMax <= tMin + cperiod
+  tMax = traceError "define tMax"
+  tMin = traceError "define tMin"
+
   checkSnapshot
     | snapshotNumber == 0 =
       let expectedOutputDatum =
