@@ -20,6 +20,8 @@ changes.
   + Split `ApplyBlock` into `BeginUpdate` and `EndUpdate`
   + Split `InitializedWallet` into `BeginInitialize` and `EndInitialize`
 
+- Fixed chain following when loading persistent state.
+
 ## [0.8.0] - 2022-10-27
 
 - **BREAKING** Hydra keys now use the text envelope format.
