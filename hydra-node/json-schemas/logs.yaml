@@ -345,19 +345,30 @@ definitions:
     oneOf:
       - title: InitializingWallet
         description: >-
-          The wallet has been initialized to some point on the chain and will start syncing block by block from there.
+          The wallet (re-)initializes to given point on the chain.
         type: object
         additionalProperties: false
         required:
           - tag
           - point
-          - initialUTxO
         properties:
           tag:
             type: string
             enum: ["InitializingWallet"]
           point:
             $ref: "api.yaml#/components/schemas/ChainPoint"
+      - title: InitializedWallet
+        description: >-
+          The wallet has been initialized with these UTxOs.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - initialUTxO
+        properties:
+          tag:
+            type: string
+            enum: ["InitializingWallet"]
           initialUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
       - title: ApplyingBlock

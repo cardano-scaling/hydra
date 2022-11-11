@@ -140,9 +140,10 @@ newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
           (walletUTxO, pparams, systemStart, epochInfo) <- readTVar utxoVar
           pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
       , reset = \point -> do
+          traceWith tracer $ InitializingWallet{point}
           res@(initialUTxO, _, _, _) <- queryUTxOEtc (QueryAt point) address
           atomically $ writeTVar utxoVar res
-          traceWith tracer $ InitializingWallet{point, initialUTxO}
+          traceWith tracer $ InitializedWallet{initialUTxO}
       , update = \block -> do
           let point = fromConsensusPointHF $ blockPoint block
           traceWith tracer $ ApplyingBlock{point}
@@ -386,7 +387,8 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
 --
 
 data TinyWalletLog
-  = InitializingWallet {point :: ChainPoint, initialUTxO :: Map TxIn TxOut}
+  = InitializingWallet {point :: ChainPoint}
+  | InitializedWallet {initialUTxO :: Map TxIn TxOut}
   | ApplyingBlock {point :: ChainPoint}
   | AppliedBlock {newUTxO :: Map TxIn TxOut}
   deriving (Eq, Generic, Show)
