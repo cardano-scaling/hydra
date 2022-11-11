@@ -48,7 +48,6 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
-import Hydra.HeadLogic (HeadState (IdleState))
 import Hydra.Ledger.Cardano (genTxIn)
 import Ouroboros.Consensus.Block (Point (BlockPoint, GenesisPoint), blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
@@ -261,10 +260,10 @@ genSequenceOfObservableBlocks = do
     void $ stepCommits initTx allContexts
   let chainState =
         ChainStateAt
-          { chainState = Idle IdleState{ctx = cctx}
+          { chainState = Idle
           , recordedAt = Nothing
           }
-  pure (cctx, chainState Idle, reverse blks)
+  pure (cctx, chainState, reverse blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
   nextSlot = do

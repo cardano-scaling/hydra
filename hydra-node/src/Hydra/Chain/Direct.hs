@@ -38,6 +38,7 @@ import Control.Monad.Trans.Except (runExcept)
 import Control.Tracer (nullTracer)
 import Hydra.Cardano.Api (
   CardanoMode,
+  ChainPoint,
   EraHistory (EraHistory),
   LedgerEra,
   NetworkId,
@@ -175,15 +176,15 @@ withDirectChain ::
   Tracer IO DirectChainLog ->
   ChainConfig ->
   ChainContext ->
-  ChainStateType Tx ->
+  Maybe ChainPoint ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx ChainStateAt{recordedAt} callback action = do
+withDirectChain tracer config ctx persistedPoint callback action = do
   keyPair <- readKeyPair cardanoSigningKey
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
-    (min <$> startChainFrom <*> recordedAt)
-      <|> recordedAt
+    (min <$> startChainFrom <*> persistedPoint)
+      <|> persistedPoint
       <|> startChainFrom
   wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair chainPoint queryUTxOEtc
   let chainHandle =
