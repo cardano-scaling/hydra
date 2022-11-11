@@ -109,7 +109,7 @@ spec = parallel $ do
               (queryFn, assertQueryPoint) <- setupQuery vk
               wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) cp1 queryFn
               assertQueryPoint (QueryAt cp1)
-              reset wallet (QueryAt cp2)
+              reset wallet cp2
               assertQueryPoint $ QueryAt cp2
 
 setupQuery ::

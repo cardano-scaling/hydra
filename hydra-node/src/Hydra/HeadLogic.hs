@@ -499,7 +499,11 @@ onOpenNetworkReqTx ledger parameters previousRecoverableState chainState headSta
                 , coordinatedHeadState =
                     headState
                       { seenTxs = newSeenTxs
-                      , seenUTxO = utxo'
+                      , -- FIXME: This is never reset otherwise. For example if
+                        -- some other party was not up for some txs, but is up
+                        -- again later and we would not agree with them on the
+                        -- seen ledger.
+                        seenUTxO = utxo'
                       }
                 , previousRecoverableState
                 , chainState

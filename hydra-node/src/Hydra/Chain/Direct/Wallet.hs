@@ -37,7 +37,6 @@ import Control.Monad.Class.MonadSTM (
   newTVarIO,
   writeTVar,
  )
-import Data.Aeson (Value (String), object, (.=))
 import Data.Array (array)
 import qualified Data.List as List
 import Data.Map.Strict ((!))
@@ -56,6 +55,7 @@ import Hydra.Cardano.Api (
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
+  fromConsensusPointHF,
   makeShelleyAddress,
   shelleyAddressInEra,
   toLedgerAddr,
@@ -66,6 +66,7 @@ import Hydra.Chain.CardanoClient (QueryPoint (QueryAt))
 import Hydra.Chain.Direct.Util (Block, markerDatum)
 import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Logging (Tracer, traceWith)
+import Ouroboros.Consensus.Block (blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..))
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
@@ -88,7 +89,7 @@ data TinyWallet m = TinyWallet
   , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
   , coverFee :: Map TxIn TxOut -> ValidatedTx LedgerEra -> STM m (Either ErrCoverFee (ValidatedTx LedgerEra))
   , -- | Reset the wallet state to some point.
-    reset :: QueryPoint -> m ()
+    reset :: ChainPoint -> m ()
   , -- | Update the wallet state given some 'Block'.
     update :: Block -> m ()
   }
@@ -139,16 +140,19 @@ newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
           (walletUTxO, pparams, systemStart, epochInfo) <- readTVar utxoVar
           pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
       , reset = \point -> do
-          res@(u, _, _, _) <- queryUTxOEtc point address
+          traceWith tracer $ BeginInitialize{point}
+          res@(initialUTxO, _, _, _) <- queryUTxOEtc (QueryAt point) address
           atomically $ writeTVar utxoVar res
-          traceWith tracer $ InitializingWallet point u
+          traceWith tracer $ EndInitialize{initialUTxO}
       , update = \block -> do
+          let point = fromConsensusPointHF $ blockPoint block
+          traceWith tracer $ BeginUpdate{point}
           utxo' <- atomically $ do
             (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar
             let utxo' = applyBlock block (== ledgerAddress) utxo
             writeTVar utxoVar (utxo', pparams, systemStart, epochInfo)
             pure utxo'
-          traceWith tracer $ ApplyBlock utxo'
+          traceWith tracer $ EndUpdate utxo'
       }
  where
   address =
@@ -383,31 +387,13 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
 --
 
 data TinyWalletLog
-  = InitializingWallet QueryPoint (Map TxIn TxOut)
-  | ApplyBlock (Map TxIn TxOut)
-  | LedgerEraMismatchError {expected :: Text, actual :: Text}
+  = BeginInitialize {point :: ChainPoint}
+  | EndInitialize {initialUTxO :: Map TxIn TxOut}
+  | BeginUpdate {point :: ChainPoint}
+  | EndUpdate {newUTxO :: Map TxIn TxOut}
   deriving (Eq, Generic, Show)
 
-instance ToJSON TinyWalletLog where
-  toJSON =
-    \case
-      (InitializingWallet point initialUTxO) ->
-        object
-          [ "tag" .= String "InitializingWallet"
-          , "point" .= show @Text point
-          , "initialUTxO" .= initialUTxO
-          ]
-      (ApplyBlock utxo') ->
-        object
-          [ "tag" .= String "ApplyBlock"
-          , "newUTxO" .= utxo'
-          ]
-      LedgerEraMismatchError{expected, actual} ->
-        object
-          [ "tag" .= String "EraMismatchError"
-          , "expected" .= expected
-          , "actual" .= actual
-          ]
+deriving instance ToJSON TinyWalletLog
 
 instance Arbitrary TinyWalletLog where
   arbitrary = genericArbitrary

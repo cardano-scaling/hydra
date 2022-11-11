@@ -20,10 +20,10 @@ properties:
       type: object
       additionalProperties: false
       required:
-      - namespace
-      - timestamp
-      - threadId
-      - message
+        - namespace
+        - timestamp
+        - threadId
+        - message
       properties:
         namespace:
           type: string
@@ -45,519 +45,524 @@ properties:
 
         message:
           oneOf:
-          - title: APIServer
-            type: object
-            additionalProperties: false
-            required:
-            - tag
-            - api
-            description: >-
-              A log entry produced by the API server.
-            properties:
-              tag:
-                type: string
-                enum: ["APIServer"]
-              api:
-                $ref: "#/definitions/APIServer"
+            - title: APIServer
+              type: object
+              additionalProperties: false
+              required:
+                - tag
+                - api
+              description: >-
+                A log entry produced by the API server.
+              properties:
+                tag:
+                  type: string
+                  enum: ["APIServer"]
+                api:
+                  $ref: "#/definitions/APIServer"
 
-          - title: Node
-            type: object
-            additionalProperties: false
-            required:
-            - tag
-            - node
-            description: >-
-              A log entry denoting events and effects processed by the Node as part
-              of the Head protocol.
-            properties:
-              tag:
-                type: string
-                enum: ["Node"]
-              node:
-                $ref: "#/definitions/Node"
+            - title: Node
+              type: object
+              additionalProperties: false
+              required:
+                - tag
+                - node
+              description: >-
+                A log entry denoting events and effects processed by the Node as part
+                of the Head protocol.
+              properties:
+                tag:
+                  type: string
+                  enum: ["Node"]
+                node:
+                  $ref: "#/definitions/Node"
 
-          - title: DirectChain
-            type: object
-            additionalProperties: false
-            required:
-            - tag
-            - directChain
-            description: >-
-              A log entry produced by the chain component watching the chain.
-            properties:
-              tag:
-                type: string
-                enum: ["DirectChain"]
-              directChain:
-                $ref: "#/definitions/DirectChain"
+            - title: DirectChain
+              type: object
+              additionalProperties: false
+              required:
+                - tag
+                - directChain
+              description: >-
+                A log entry produced by the chain component watching the chain.
+              properties:
+                tag:
+                  type: string
+                  enum: ["DirectChain"]
+                directChain:
+                  $ref: "#/definitions/DirectChain"
 
-          - title: Network
-            type: object
-            additionalProperties: false
-            required:
-            - tag
-            - network
-            description: >-
-              A log entry from the Hydra network (i.e. the layer-two network between Hydra nodes).
-            properties:
-              tag:
-                type: string
-                enum: ["Network"]
-              network:
-                $ref: "#/definitions/Network"
+            - title: Network
+              type: object
+              additionalProperties: false
+              required:
+                - tag
+                - network
+              description: >-
+                A log entry from the Hydra network (i.e. the layer-two network between Hydra nodes).
+              properties:
+                tag:
+                  type: string
+                  enum: ["Network"]
+                network:
+                  $ref: "#/definitions/Network"
 
-          - title: NodeOptions
-            description: >-
-              Hydra node parsed command line arguments
-            type: object
-            additionalProperties: false
-            required:
-            - tag
-            - runOptions
-            properties:
-              tag:
-                type: string
-                enum: [ "NodeOptions" ]
-              runOptions:
-                <<: { "$ref": "#/definitions/RunOptions" }
-                description: >-
-                  Configuration needed to run the hydra node
+            - title: NodeOptions
+              description: >-
+                Hydra node parsed command line arguments
+              type: object
+              additionalProperties: false
+              required:
+                - tag
+                - runOptions
+              properties:
+                tag:
+                  type: string
+                  enum: ["NodeOptions"]
+                runOptions:
+                  <<: { "$ref": "#/definitions/RunOptions" }
+                  description: >-
+                    Configuration needed to run the hydra node
 
-          - title: CreatedState
-            description: >-
-              Created new state in persistence (instead of loading)
-            type: object
-            additionalProperties: false
-            required:
-            - tag
-            properties:
-              tag:
-                type: string
-                enum: [ "CreatedState" ]
+            - title: CreatedState
+              description: >-
+                Created new state in persistence (instead of loading)
+              type: object
+              additionalProperties: false
+              required:
+                - tag
+              properties:
+                tag:
+                  type: string
+                  enum: ["CreatedState"]
 
-          - title: LoadedState
-            description: >-
-              Loaded state from persistence
-            type: object
-            additionalProperties: false
-            required:
-            - tag
-            properties:
-              tag:
-                type: string
-                enum: [ "LoadedState" ]
+            - title: LoadedState
+              description: >-
+                Loaded state from persistence
+              type: object
+              additionalProperties: false
+              required:
+                - tag
+              properties:
+                tag:
+                  type: string
+                  enum: ["LoadedState"]
 
 definitions:
   APIServer:
     oneOf:
-    - title: APIServerStarted
-      description: >-
-        API Server has started and is ready, listening for incoming client
-        connections on given port.
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - listeningPort
-      properties:
-        tag:
-          type: string
-          enum: ["APIServerStarted"]
-        listeningPort:
-          type: integer
-          minimum: 0
-          maximum: 65535
-    - title: NewAPIConnection
-      description: >-
-        A new client has connected to the API Server.
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: ["NewAPIConnection"]
-    - title: APIOutputSent
-      description: >-
-        Some output has been sent to a client.
-      additionalProperties: false
-      required:
-      - tag
-      - sentOutput
-      properties:
-        tag:
-          type: string
-          enum: ["APIOutputSent"]
-        sentOutput:
-          type: object
-    - title: APIInputReceived
-      description: >-
-        Some input has been received from a client.
-      additionalProperties: false
-      required:
-      - tag
-      - receivedInput
-      properties:
-        tag:
-          type: string
-          enum: ["APIInputReceived"]
-        receivedInput:
-          oneOf:
-            - type: "null"
-            - type: object
-    - title: APIInvalidInput
-      description: >-
-        Some input sent by a client is invalid.
-      additionalProperties: false
-      required:
-      - tag
-      - reason
-      - inputReceived
-      properties:
-        tag:
-          type: string
-          enum: ["APIInvalidInput"]
-        reason:
-          type: string
-          description: >-
-            A textual description of the reason why this input is invalid.
-        inputReceived:
-          type: string
-          description: >-
-            A rendering in text of the input received. This input is invalid
-            hence it's potentially invalid JSON so we just encode it as a proper
-            JSON string. Note that if the input contained invalid UTF-8
-            characters they will be ignored.
+      - title: APIServerStarted
+        description: >-
+          API Server has started and is ready, listening for incoming client
+          connections on given port.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - listeningPort
+        properties:
+          tag:
+            type: string
+            enum: ["APIServerStarted"]
+          listeningPort:
+            type: integer
+            minimum: 0
+            maximum: 65535
+      - title: NewAPIConnection
+        description: >-
+          A new client has connected to the API Server.
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["NewAPIConnection"]
+      - title: APIOutputSent
+        description: >-
+          Some output has been sent to a client.
+        additionalProperties: false
+        required:
+          - tag
+          - sentOutput
+        properties:
+          tag:
+            type: string
+            enum: ["APIOutputSent"]
+          sentOutput:
+            type: object
+      - title: APIInputReceived
+        description: >-
+          Some input has been received from a client.
+        additionalProperties: false
+        required:
+          - tag
+          - receivedInput
+        properties:
+          tag:
+            type: string
+            enum: ["APIInputReceived"]
+          receivedInput:
+            oneOf:
+              - type: "null"
+              - type: object
+      - title: APIInvalidInput
+        description: >-
+          Some input sent by a client is invalid.
+        additionalProperties: false
+        required:
+          - tag
+          - reason
+          - inputReceived
+        properties:
+          tag:
+            type: string
+            enum: ["APIInvalidInput"]
+          reason:
+            type: string
+            description: >-
+              A textual description of the reason why this input is invalid.
+          inputReceived:
+            type: string
+            description: >-
+              A rendering in text of the input received. This input is invalid
+              hence it's potentially invalid JSON so we just encode it as a proper
+              JSON string. Note that if the input contained invalid UTF-8
+              characters they will be ignored.
 
   DirectChain:
     oneOf:
-    - title: ToPost
-      description: >-
-        Head logic requests submission of a Head protocol transaction.
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - toPost
-      properties:
-        tag:
-          type: string
-          enum: ["ToPost"]
-        toPost:
-          $ref: "api.yaml#/components/schemas/PostChainTx"
-    - title: PostingTx
-      description: >-
-        A transaction with given id is about to be submitted on-chain.
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - txId
-      properties:
-        tag:
-          type: string
-          enum: ["PostingTx"]
-        txId:
-          $ref: "api.yaml#/components/schemas/TxId"
-    - title: PostedTx
-      description: >-
-        A transaction with given id has been successfully submitted to the chain.
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - txId
-      properties:
-        tag:
-          type: string
-          enum: ["PostedTx"]
-        txId:
-          $ref: "api.yaml#/components/schemas/TxId"
-    - title: PostingFailed
-      description: >-
-        Submitting the transaction to the node failed
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - tx
-        - postTxError
-      properties:
-        tag:
-          type: string
-          enum: ["PostingFailed"]
-        tx:
-          $ref: "api.yaml#/components/schemas/Transaction"
-        postTxError:
-          $ref: "api.yaml#/components/schemas/PostTxError"
-
-    - title: RolledForward
-      description: >-
-        Chain sync rolled forward by receiving a block with transactions.
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - point
-        - receivedTxIds
-      properties:
-        tag:
-          type: string
-          enum: ["RolledForward"]
-        point:
-          $ref: "api.yaml#/components/schemas/ChainPoint"
-        receivedTxIds:
-          type: array
-          items:
+      - title: ToPost
+        description: >-
+          Head logic requests submission of a Head protocol transaction.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - toPost
+        properties:
+          tag:
+            type: string
+            enum: ["ToPost"]
+          toPost:
+            $ref: "api.yaml#/components/schemas/PostChainTx"
+      - title: PostingTx
+        description: >-
+          A transaction with given id is about to be submitted on-chain.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - txId
+        properties:
+          tag:
+            type: string
+            enum: ["PostingTx"]
+          txId:
             $ref: "api.yaml#/components/schemas/TxId"
+      - title: PostedTx
+        description: >-
+          A transaction with given id has been successfully submitted to the chain.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - txId
+        properties:
+          tag:
+            type: string
+            enum: ["PostedTx"]
+          txId:
+            $ref: "api.yaml#/components/schemas/TxId"
+      - title: PostingFailed
+        description: >-
+          Submitting the transaction to the node failed
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - tx
+          - postTxError
+        properties:
+          tag:
+            type: string
+            enum: ["PostingFailed"]
+          tx:
+            $ref: "api.yaml#/components/schemas/Transaction"
+          postTxError:
+            $ref: "api.yaml#/components/schemas/PostTxError"
 
-    - title: RolledBackward
-      description: >-
-        Chain sync rolled backward to some point.
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - point
-      properties:
-        tag:
-          type: string
-          enum: ["RolledBackward"]
-        point:
-          $ref: "api.yaml#/components/schemas/ChainPoint"
+      - title: RolledForward
+        description: >-
+          Chain sync rolled forward by receiving a block with transactions.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - point
+          - receivedTxIds
+        properties:
+          tag:
+            type: string
+            enum: ["RolledForward"]
+          point:
+            $ref: "api.yaml#/components/schemas/ChainPoint"
+          receivedTxIds:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/TxId"
 
-    - title: Wallet
-      description: >-
-        Logs coming from the wallet.
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - contents
-      properties:
-        tag:
-          type: string
-          enum: ["Wallet"]
-        contents:
-          $ref: "#/definitions/Wallet"
+      - title: RolledBackward
+        description: >-
+          Chain sync rolled backward to some point.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - point
+        properties:
+          tag:
+            type: string
+            enum: ["RolledBackward"]
+          point:
+            $ref: "api.yaml#/components/schemas/ChainPoint"
+
+      - title: Wallet
+        description: >-
+          Logs coming from the wallet.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - contents
+        properties:
+          tag:
+            type: string
+            enum: ["Wallet"]
+          contents:
+            $ref: "#/definitions/Wallet"
 
   Wallet:
     oneOf:
-    - title: InitializingWallet
-      description: >-
-        The wallet has been initialized to some point on the chain and will start syncing block by block from there.
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - point
-      - initialUTxO
-      properties:
-        tag:
-          type: string
-          enum: ["InitializingWallet"]
-        point:
-          description: >-
-            Whether we queried the tip or some point on the chain.
-          type: string
-        initialUTxO:
-          $ref: "api.yaml#/components/schemas/UTxO"
-    - title: ApplyBlock
-      description: >-
-        The wallet has discovered and applied a new block of interest.
-      additionalProperties: false
-      required:
-      - tag
-      - newUTxO
-      properties:
-        tag:
-          type: string
-          enum: ["ApplyBlock"]
-        newUTxO:
-          $ref: "api.yaml#/components/schemas/UTxO"
-    - title: EraMismatchError
-      description: >-
-        The wallet received a block from an era different than the one expected. This should not be a problem as it probably
-        signals the wallet is catching up with the chain.
-      additionalProperties: false
-      required:
-      - tag
-      - expected
-      - actual
-      properties:
-        tag:
-          type: string
-          enum: ["EraMismatchError"]
-        expected:
-          type: string
-        actual:
-          type: string
+      - title: BeginInitialize
+        description: >-
+          The wallet (re-)initializes to given point on the chain.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - point
+        properties:
+          tag:
+            type: string
+            enum: ["BeginInitialize"]
+          point:
+            $ref: "api.yaml#/components/schemas/ChainPoint"
+      - title: EndInitialize
+        description: >-
+          The wallet has initialized with these UTxOs.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - initialUTxO
+        properties:
+          tag:
+            type: string
+            enum: ["EndInitialize"]
+          initialUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+      - title: BeginUpdate
+        description: >-
+          The wallet has been given a new block to update it's state.
+        additionalProperties: false
+        required:
+          - tag
+          - point
+        properties:
+          tag:
+            type: string
+            enum: ["BeginUpdate"]
+          point:
+            $ref: "api.yaml#/components/schemas/ChainPoint"
+      - title: EndUpdate
+        description: >-
+          The wallet updated it's state by applying a block resulting in given UTxOs.
+        additionalProperties: false
+        required:
+          - tag
+          - newUTxO
+        properties:
+          tag:
+            type: string
+            enum: ["EndUpdate"]
+          newUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
 
   # TODO: Fill the gap!
   Network: {}
 
   Node:
     oneOf:
-    - title: ErrorHandlingEvent
-      # This should be removed from the Log's description as soon as we have some proper
-      # error handling strategy in place, be it simply "Close the head" and bail out.
-      description: >-
-        Some error happened while processing an event, provides enough context
-        information to troubleshoot the origin of the error.
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - by
-      - event
-      properties:
-        tag:
-          type: string
-          enum: [ "ErrorHandlingEvent" ]
-        by:
-          <<: { "$ref": "api.yaml#/components/schemas/Party" }
-          description: >-
-            The Party emitting the log entry.
-        event:
-          <<: { "$ref": "#/definitions/Event" }
-          description: >-
-            The event causing the error.
-        reason:
-          <<: { "$ref": "#/definitions/LogicError" }
-          description: >-
-            Structured description of the cause of the error.
-    - title: BeginEvent
-      description: >-
-        Head has started processing an event drawn from some pool or queue of
-        events to process.
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - by
-      - event
-      properties:
-        tag:
-          type: string
-          enum: [ "BeginEvent" ]
-        by:
-          <<: { "$ref": "api.yaml#/components/schemas/Party" }
-          description: >-
-            The Party emitting the log entry.
-        event:
-          <<: { "$ref": "#/definitions/Event" }
-    - title: EndEvent
-      description: >-
-        Head has succesfully finished processing an event.
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - by
-      - event
-      properties:
-        tag:
-          type: string
-          enum: [ "EndEvent" ]
-        by:
-          <<: { "$ref": "api.yaml#/components/schemas/Party" }
-          description: >-
-            The Party emitting the log entry.
-        event:
-          $ref: "#/definitions/Event"
-    - title: BeginEffect
-      description: >-
-        Head has started processing an effect produced by some transition in the
-        protocol.
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - by
-      - effect
-      properties:
-        tag:
-          type: string
-          enum: [ "BeginEffect" ]
-        by:
-          <<: { "$ref": "api.yaml#/components/schemas/Party" }
-          description: >-
-            The Party emitting the log entry.
-        effect:
-          $ref: "#/definitions/Effect"
-    - title: EndEffect
-      description: >-
-        Head has finished processing an effect produced by some transition in
-        the protocol.
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - by
-      - effect
-      properties:
-        tag:
-          type: string
-          enum: [ "EndEffect" ]
-        by:
-          <<: { "$ref": "api.yaml#/components/schemas/Party" }
-          description: >-
-            The Party emitting the log entry.
-        effect:
-          $ref: "#/definitions/Effect"
+      - title: ErrorHandlingEvent
+        # This should be removed from the Log's description as soon as we have some proper
+        # error handling strategy in place, be it simply "Close the head" and bail out.
+        description: >-
+          Some error happened while processing an event, provides enough context
+          information to troubleshoot the origin of the error.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - by
+          - event
+        properties:
+          tag:
+            type: string
+            enum: ["ErrorHandlingEvent"]
+          by:
+            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            description: >-
+              The Party emitting the log entry.
+          event:
+            <<: { "$ref": "#/definitions/Event" }
+            description: >-
+              The event causing the error.
+          reason:
+            <<: { "$ref": "#/definitions/LogicError" }
+            description: >-
+              Structured description of the cause of the error.
+      - title: BeginEvent
+        description: >-
+          Head has started processing an event drawn from some pool or queue of
+          events to process.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - by
+          - event
+        properties:
+          tag:
+            type: string
+            enum: ["BeginEvent"]
+          by:
+            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            description: >-
+              The Party emitting the log entry.
+          event:
+            <<: { "$ref": "#/definitions/Event" }
+      - title: EndEvent
+        description: >-
+          Head has succesfully finished processing an event.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - by
+          - event
+        properties:
+          tag:
+            type: string
+            enum: ["EndEvent"]
+          by:
+            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            description: >-
+              The Party emitting the log entry.
+          event:
+            $ref: "#/definitions/Event"
+      - title: BeginEffect
+        description: >-
+          Head has started processing an effect produced by some transition in the
+          protocol.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - by
+          - effect
+        properties:
+          tag:
+            type: string
+            enum: ["BeginEffect"]
+          by:
+            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            description: >-
+              The Party emitting the log entry.
+          effect:
+            $ref: "#/definitions/Effect"
+      - title: EndEffect
+        description: >-
+          Head has finished processing an effect produced by some transition in
+          the protocol.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - by
+          - effect
+        properties:
+          tag:
+            type: string
+            enum: ["EndEffect"]
+          by:
+            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            description: >-
+              The Party emitting the log entry.
+          effect:
+            $ref: "#/definitions/Effect"
 
   LogicError:
     oneOf:
-    - title: InvalidEvent
-      additionalProperties: false
-      required:
-        - tag
-        - contents
-      properties:
-        tag:
-          type: string
-          enum: [ "InvalidEvent" ]
-        contents:
-          type: array
-          prefixItems:
-            - $ref: "#/definitions/Event"
-            - $ref: "#/definitions/HeadState"
-    - title: InvalidState
-      additionalProperties: false
-      required:
-        - tag
-        - contents
-      properties:
-        tag:
-          type: string
-          enum: [ "InvalidState" ]
-        contents:
-          $ref: "#/definitions/HeadState"
-    - title: InvalidSnapshot
-      additionalProperties: false
-      required:
-      - tag
-      - expected
-      - actual
-      properties:
-        tag:
-          type: string
-          enum: [ "InvalidSnapshot" ]
-        expected:
-          $ref: "api.yaml#/components/schemas/SnapshotNumber"
-        actual:
-          $ref: "api.yaml#/components/schemas/SnapshotNumber"
-    - title: LedgerError
-      additionalProperties: false
-      required:
-        - tag
-        - contents
-      properties:
-        tag:
-          type: string
-          enum: [ "LedgerError" ]
-        contents:
-          $ref: "#/definitions/ValidationError"
+      - title: InvalidEvent
+        additionalProperties: false
+        required:
+          - tag
+          - contents
+        properties:
+          tag:
+            type: string
+            enum: ["InvalidEvent"]
+          contents:
+            type: array
+            prefixItems:
+              - $ref: "#/definitions/Event"
+              - $ref: "#/definitions/HeadState"
+      - title: InvalidState
+        additionalProperties: false
+        required:
+          - tag
+          - contents
+        properties:
+          tag:
+            type: string
+            enum: ["InvalidState"]
+          contents:
+            $ref: "#/definitions/HeadState"
+      - title: InvalidSnapshot
+        additionalProperties: false
+        required:
+          - tag
+          - expected
+          - actual
+        properties:
+          tag:
+            type: string
+            enum: ["InvalidSnapshot"]
+          expected:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+          actual:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+      - title: LedgerError
+        additionalProperties: false
+        required:
+          - tag
+          - contents
+        properties:
+          tag:
+            type: string
+            enum: ["LedgerError"]
+          contents:
+            $ref: "#/definitions/ValidationError"
 
   ValidationError:
     type: object
@@ -570,98 +575,98 @@ definitions:
 
   HeadState:
     oneOf:
-    - title: "IdleState"
-      additionalProperties: false
-      required:
-        - tag
-        - chainState
-      properties:
-        tag:
-          type: string
-          enum: [ "IdleState" ]
-        chainState:
-          $ref: "api.yaml#/components/schemas/ChainState"
-    - title: "InitialState"
-      additionalProperties: false
-      required:
-        - tag
-        - pendingCommits
-        - committed
-        - previousRecoverableState
-        - chainState
-      properties:
-        tag:
-          type: string
-          enum: [ "InitialState" ]
-        parameters:
-          $ref: "api.yaml#/components/schemas/HeadParameters"
-        pendingCommits:
-          type: array
-          items:
-            $ref: "api.yaml#/components/schemas/Party"
-        committed:
-          type: array
-          items:
-            $ref: "api.yaml#/components/schemas/Party"
-        previousRecoverableState:
-          $ref: "#/definitions/HeadState"
-        chainState:
-          $ref: "api.yaml#/components/schemas/ChainState"
-    - title: "OpenState"
-      additionalProperties: false
-      required:
-        - tag
-        - parameters
-        - coordinatedHeadState
-        - previousRecoverableState
-        - chainState
-      properties:
-        tag:
-          type: string
-          enum: [ "OpenState" ]
-        parameters:
-          $ref: "api.yaml#/components/schemas/HeadParameters"
-        coordinatedHeadState:
-          $ref: "#/definitions/CoordinatedHeadState"
-        previousRecoverableState:
-          $ref: "#/definitions/HeadState"
-        chainState:
-          $ref: "api.yaml#/components/schemas/ChainState"
-    - title: "ClosedState"
-      additionalProperties: false
-      required:
-        - tag
-        - parameters
-        - previousRecoverableState
-        - confirmedSnapshot
-        - contestationDeadline
-        - readyToFanoutSent
-        - chainState
-      properties:
-        tag:
-          type: string
-          enum: [ "ClosedState" ]
-        parameters:
-          $ref: "api.yaml#/components/schemas/HeadParameters"
-        previousRecoverableState:
-          $ref: "#/definitions/HeadState"
-        confirmedSnapshot:
-          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
-        contestationDeadline:
-          $ref: "api.yaml#/components/schemas/UTCTime"
-        readyToFanoutSent:
-          type: boolean
-        chainState:
-          $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "IdleState"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["IdleState"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "InitialState"
+        additionalProperties: false
+        required:
+          - tag
+          - pendingCommits
+          - committed
+          - previousRecoverableState
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["InitialState"]
+          parameters:
+            $ref: "api.yaml#/components/schemas/HeadParameters"
+          pendingCommits:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/Party"
+          committed:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/Party"
+          previousRecoverableState:
+            $ref: "#/definitions/HeadState"
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "OpenState"
+        additionalProperties: false
+        required:
+          - tag
+          - parameters
+          - coordinatedHeadState
+          - previousRecoverableState
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["OpenState"]
+          parameters:
+            $ref: "api.yaml#/components/schemas/HeadParameters"
+          coordinatedHeadState:
+            $ref: "#/definitions/CoordinatedHeadState"
+          previousRecoverableState:
+            $ref: "#/definitions/HeadState"
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "ClosedState"
+        additionalProperties: false
+        required:
+          - tag
+          - parameters
+          - previousRecoverableState
+          - confirmedSnapshot
+          - contestationDeadline
+          - readyToFanoutSent
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["ClosedState"]
+          parameters:
+            $ref: "api.yaml#/components/schemas/HeadParameters"
+          previousRecoverableState:
+            $ref: "#/definitions/HeadState"
+          confirmedSnapshot:
+            $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+          contestationDeadline:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+          readyToFanoutSent:
+            type: boolean
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
 
   CoordinatedHeadState:
     type: object
     additionalProperties: false
     required:
-    - seenUTxO
-    - seenTxs
-    - confirmedSnapshot
-    - seenSnapshot
+      - seenUTxO
+      - seenTxs
+      - confirmedSnapshot
+      - seenSnapshot
     properties:
       seenUTxO:
         $ref: "api.yaml#/components/schemas/UTxO"
@@ -682,90 +687,90 @@ definitions:
       a Head needs to interact with: Clients, other peers through the Network,
       main Chain.
     oneOf:
-    - title: ClientEvent
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - clientInput
-      description: >-
-        An event representing some input from a client.
-      properties:
-        tag:
-          type: string
-          enum: ["ClientEvent"]
-        clientInput:
-          oneOf:
-            - $ref: "api.yaml#/components/messages/Init/payload"
-            - $ref: "api.yaml#/components/messages/Abort/payload"
-            - $ref: "api.yaml#/components/messages/Commit/payload"
-            - $ref: "api.yaml#/components/messages/NewTx/payload"
-            - $ref: "api.yaml#/components/messages/GetUTxO/payload"
-            - $ref: "api.yaml#/components/messages/Close/payload"
-            - $ref: "api.yaml#/components/messages/Contest/payload"
-            - $ref: "api.yaml#/components/messages/Fanout/payload"
+      - title: ClientEvent
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - clientInput
+        description: >-
+          An event representing some input from a client.
+        properties:
+          tag:
+            type: string
+            enum: ["ClientEvent"]
+          clientInput:
+            oneOf:
+              - $ref: "api.yaml#/components/messages/Init/payload"
+              - $ref: "api.yaml#/components/messages/Abort/payload"
+              - $ref: "api.yaml#/components/messages/Commit/payload"
+              - $ref: "api.yaml#/components/messages/NewTx/payload"
+              - $ref: "api.yaml#/components/messages/GetUTxO/payload"
+              - $ref: "api.yaml#/components/messages/Close/payload"
+              - $ref: "api.yaml#/components/messages/Contest/payload"
+              - $ref: "api.yaml#/components/messages/Fanout/payload"
 
-    - title: NetworkEvent
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - ttl
-      - message
-      description: >-
-        An event representing some message received from peers in the network.
-      properties:
-        tag:
-          type: string
-          enum: ["NetworkEvent"]
-        message:
-          $ref: "#/definitions/Message"
-        ttl:
-          type: number
-    - title: OnChainEvent
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - chainEvent
-      description: >-
-        An event representing the confirmation that some transaction part of the
-        Head protocol has been confirmed on the main chain.
-      properties:
-        tag:
-          type: string
-          enum: ["OnChainEvent"]
-        chainEvent:
-          $ref: "#/definitions/OnChainEvent"
-    - title: ShouldPostFanout
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      description: >-
-        An placeholder event denoting the Head should post a Fanout transaction
-        to finalize the head.
-      properties:
-        tag:
-          type: string
-          enum: ["ShouldPostFanout"]
-    - title: PostTxError
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - postChainTx
-      - postTxError
-      description: >-
-        Event emitted when posting a transaction on the main chain failed.
-      properties:
-        tag:
-          type: string
-          enum: ["PostTxError"]
-        postChainTx:
-          $ref: "api.yaml#/components/schemas/PostChainTx"
-        postTxError:
-          $ref: "api.yaml#/components/schemas/PostTxError"
+      - title: NetworkEvent
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - ttl
+          - message
+        description: >-
+          An event representing some message received from peers in the network.
+        properties:
+          tag:
+            type: string
+            enum: ["NetworkEvent"]
+          message:
+            $ref: "#/definitions/Message"
+          ttl:
+            type: number
+      - title: OnChainEvent
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - chainEvent
+        description: >-
+          An event representing the confirmation that some transaction part of the
+          Head protocol has been confirmed on the main chain.
+        properties:
+          tag:
+            type: string
+            enum: ["OnChainEvent"]
+          chainEvent:
+            $ref: "#/definitions/OnChainEvent"
+      - title: ShouldPostFanout
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+        description: >-
+          An placeholder event denoting the Head should post a Fanout transaction
+          to finalize the head.
+        properties:
+          tag:
+            type: string
+            enum: ["ShouldPostFanout"]
+      - title: PostTxError
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - postChainTx
+          - postTxError
+        description: >-
+          Event emitted when posting a transaction on the main chain failed.
+        properties:
+          tag:
+            type: string
+            enum: ["PostTxError"]
+          postChainTx:
+            $ref: "api.yaml#/components/schemas/PostChainTx"
+          postTxError:
+            $ref: "api.yaml#/components/schemas/PostTxError"
 
   Message:
     description: >-
@@ -775,9 +780,9 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - party
-        - transaction
+          - tag
+          - party
+          - transaction
         description: >-
           Request to sign some transaction and add it to the confirmed Head
           ledger.
@@ -793,10 +798,10 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - party
-        - snapshotNumber
-        - transactions
+          - tag
+          - party
+          - snapshotNumber
+          - transactions
         description: >-
           Request from the current snapshot leader to sign some snapshot, eg. a
           bunch of transactions.
@@ -816,10 +821,10 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - party
-        - signed
-        - snapshotNumber
+          - tag
+          - party
+          - signed
+          - snapshotNumber
         description: >-
           Signature of a snapshot by a party.
         properties:
@@ -841,8 +846,8 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - nodeId
+          - tag
+          - nodeId
         description: >-
           Given party is known to be connected to the network.
         properties:
@@ -855,8 +860,8 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - nodeId
+          - tag
+          - nodeId
         description: >-
           Given peer is probably disconnected from the network.
         properties:
@@ -872,9 +877,9 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - observedTx
-        - newChainState
+          - tag
+          - observedTx
+          - newChainState
         properties:
           tag:
             type: string
@@ -888,8 +893,8 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - contents
+          - tag
+          - contents
         properties:
           tag:
             type: string
@@ -904,8 +909,8 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - contents
+          - tag
+          - contents
         properties:
           tag:
             type: string
@@ -923,9 +928,9 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - contestationPeriod
-        - parties
+          - tag
+          - contestationPeriod
+          - parties
         description: >-
           The initial transaction of the Head, announcing various parameters and
           the parties, has been posted on-chain.
@@ -946,9 +951,9 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - party
-        - committed
+          - tag
+          - party
+          - committed
         description: >-
           The commit transaction from a party, committing some UTxO set to the
           Head.
@@ -964,7 +969,7 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
+          - tag
         properties:
           tag:
             type: string
@@ -973,7 +978,7 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
+          - tag
         properties:
           tag:
             type: string
@@ -982,9 +987,9 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - snapshotNumber
-        - contestationDeadline
+          - tag
+          - snapshotNumber
+          - contestationDeadline
         properties:
           tag:
             type: string
@@ -998,8 +1003,8 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
-        - snapshotNumber
+          - tag
+          - snapshotNumber
         properties:
           tag:
             type: string
@@ -1011,7 +1016,7 @@ definitions:
         type: object
         additionalProperties: false
         required:
-        - tag
+          - tag
         properties:
           tag:
             type: string
@@ -1024,161 +1029,161 @@ definitions:
       for notification purpose, to other heads, or to the chain as part of the
       protocol.
     oneOf:
-    - title: ClientEffect
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - serverOutput
-      description: >-
-        An effect representing some output to send to the client.
-      properties:
-        tag:
-          type: string
-          enum: ["ClientEffect"]
-        serverOutput:
-          oneOf:
-            - $ref: "api.yaml#/components/messages/Greetings/payload"
-            - $ref: "api.yaml#/components/messages/PeerConnected/payload"
-            - $ref: "api.yaml#/components/messages/PeerDisconnected/payload"
-            - $ref: "api.yaml#/components/messages/ReadyToCommit/payload"
-            - $ref: "api.yaml#/components/messages/Committed/payload"
-            - $ref: "api.yaml#/components/messages/HeadIsOpen/payload"
-            - $ref: "api.yaml#/components/messages/HeadIsClosed/payload"
-            - $ref: "api.yaml#/components/messages/HeadIsContested/payload"
-            - $ref: "api.yaml#/components/messages/ReadyToFanout/payload"
-            - $ref: "api.yaml#/components/messages/HeadIsAborted/payload"
-            - $ref: "api.yaml#/components/messages/HeadIsFinalized/payload"
-            - $ref: "api.yaml#/components/messages/TxSeen/payload"
-            - $ref: "api.yaml#/components/messages/TxValid/payload"
-            - $ref: "api.yaml#/components/messages/TxInvalid/payload"
-            - $ref: "api.yaml#/components/messages/TxExpired/payload"
-            - $ref: "api.yaml#/components/messages/SnapshotConfirmed/payload"
-            - $ref: "api.yaml#/components/messages/GetUTxOResponse/payload"
-            - $ref: "api.yaml#/components/messages/InvalidInput/payload"
-            - $ref: "api.yaml#/components/messages/PostTxOnChainFailed/payload"
-            - $ref: "api.yaml#/components/messages/CommandFailed/payload"
-            - $ref: "api.yaml#/components/messages/RolledBack/payload"
+      - title: ClientEffect
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - serverOutput
+        description: >-
+          An effect representing some output to send to the client.
+        properties:
+          tag:
+            type: string
+            enum: ["ClientEffect"]
+          serverOutput:
+            oneOf:
+              - $ref: "api.yaml#/components/messages/Greetings/payload"
+              - $ref: "api.yaml#/components/messages/PeerConnected/payload"
+              - $ref: "api.yaml#/components/messages/PeerDisconnected/payload"
+              - $ref: "api.yaml#/components/messages/ReadyToCommit/payload"
+              - $ref: "api.yaml#/components/messages/Committed/payload"
+              - $ref: "api.yaml#/components/messages/HeadIsOpen/payload"
+              - $ref: "api.yaml#/components/messages/HeadIsClosed/payload"
+              - $ref: "api.yaml#/components/messages/HeadIsContested/payload"
+              - $ref: "api.yaml#/components/messages/ReadyToFanout/payload"
+              - $ref: "api.yaml#/components/messages/HeadIsAborted/payload"
+              - $ref: "api.yaml#/components/messages/HeadIsFinalized/payload"
+              - $ref: "api.yaml#/components/messages/TxSeen/payload"
+              - $ref: "api.yaml#/components/messages/TxValid/payload"
+              - $ref: "api.yaml#/components/messages/TxInvalid/payload"
+              - $ref: "api.yaml#/components/messages/TxExpired/payload"
+              - $ref: "api.yaml#/components/messages/SnapshotConfirmed/payload"
+              - $ref: "api.yaml#/components/messages/GetUTxOResponse/payload"
+              - $ref: "api.yaml#/components/messages/InvalidInput/payload"
+              - $ref: "api.yaml#/components/messages/PostTxOnChainFailed/payload"
+              - $ref: "api.yaml#/components/messages/CommandFailed/payload"
+              - $ref: "api.yaml#/components/messages/RolledBack/payload"
 
-    - title: NetworkEffect
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - message
-      description: >-
-        An effect representing some message to broadcast to other parties in the
-        Head.
-      properties:
-        tag:
-          type: string
-          enum: ["NetworkEffect"]
-        message:
-          $ref: "#/definitions/Message"
-    - title: OnChainEffect
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - chainState
-      - postChainTx
-      description: >-
-        An effect representing some transaction must be posted on-chain. Note
-        that incoming transactions are represented by OnChainEvent which can be
-        different from outgoing transactions.
-      properties:
-        tag:
-          type: string
-          enum: ["OnChainEffect"]
-        chainState:
-          $ref: "api.yaml#/components/schemas/ChainState"
-        postChainTx:
-          $ref: "api.yaml#/components/schemas/PostChainTx"
-    - title: Delay
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - delay
-      - reason
-      - event
-      description: >-
-        A special effect requesting the given event to be delayed from
-        processing for some amount of time. Delays can happen in the protocol
-        because messages can be received out-of-order due to the asynchronous
-        nature of the network, hence an otherwise invalid event could become
-        invalid in the future.
-      properties:
-        tag:
-          type: string
-          enum: ["Delay"]
-        delay:
-          type: number
-          minimum: 0
-          description: >-
-            The length of the delay, in seconds.
-        reason:
-          $ref: "#/definitions/WaitReason"
-        event:
-          $ref: "#/definitions/Event"
+      - title: NetworkEffect
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - message
+        description: >-
+          An effect representing some message to broadcast to other parties in the
+          Head.
+        properties:
+          tag:
+            type: string
+            enum: ["NetworkEffect"]
+          message:
+            $ref: "#/definitions/Message"
+      - title: OnChainEffect
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+          - postChainTx
+        description: >-
+          An effect representing some transaction must be posted on-chain. Note
+          that incoming transactions are represented by OnChainEvent which can be
+          different from outgoing transactions.
+        properties:
+          tag:
+            type: string
+            enum: ["OnChainEffect"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+          postChainTx:
+            $ref: "api.yaml#/components/schemas/PostChainTx"
+      - title: Delay
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - delay
+          - reason
+          - event
+        description: >-
+          A special effect requesting the given event to be delayed from
+          processing for some amount of time. Delays can happen in the protocol
+          because messages can be received out-of-order due to the asynchronous
+          nature of the network, hence an otherwise invalid event could become
+          invalid in the future.
+        properties:
+          tag:
+            type: string
+            enum: ["Delay"]
+          delay:
+            type: number
+            minimum: 0
+            description: >-
+              The length of the delay, in seconds.
+          reason:
+            $ref: "#/definitions/WaitReason"
+          event:
+            $ref: "#/definitions/Event"
 
   WaitReason:
     oneOf:
-    - title: WaitOnNotApplicableTx
-      description: >-
-        A transaction failed to apply, but could apply later on.
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - validationError
-      properties:
-        tag:
-          type: string
-          enum: [ "WaitOnNotApplicableTx" ]
-        validationError:
-          <<: { "$ref": "#/definitions/ValidationError" }
-          description: >-
-            Description of the cause of the validation failure.
-    - title: WaitOnSnapshotNumber
-      description: >-
-        Current observed snapshot is not the right one, waiting for some other
-        number.
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      - waitingFor
-      properties:
-        tag:
-          type: string
-          enum: [ "WaitOnSnapshotNumber" ]
-        waitingFor:
-          <<: { "$ref": "api.yaml#/components/schemas/SnapshotNumber" }
-          description: >-
-            The expected number.
-    - title: WaitOnSeenSnapshot
-      description: >-
-        No current snapshot is available, waiting for some snapshot to start.
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: [ "WaitOnSeenSnapshot" ]
-    - title: WaitOnContestationDeadline
-      description: >-
-        Contestation period is not over yet.
-      type: object
-      additionalProperties: false
-      required:
-      - tag
-      properties:
-        tag:
-          type: string
-          enum: [ "WaitOnContestationDeadline" ]
+      - title: WaitOnNotApplicableTx
+        description: >-
+          A transaction failed to apply, but could apply later on.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - validationError
+        properties:
+          tag:
+            type: string
+            enum: ["WaitOnNotApplicableTx"]
+          validationError:
+            <<: { "$ref": "#/definitions/ValidationError" }
+            description: >-
+              Description of the cause of the validation failure.
+      - title: WaitOnSnapshotNumber
+        description: >-
+          Current observed snapshot is not the right one, waiting for some other
+          number.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - waitingFor
+        properties:
+          tag:
+            type: string
+            enum: ["WaitOnSnapshotNumber"]
+          waitingFor:
+            <<: { "$ref": "api.yaml#/components/schemas/SnapshotNumber" }
+            description: >-
+              The expected number.
+      - title: WaitOnSeenSnapshot
+        description: >-
+          No current snapshot is available, waiting for some snapshot to start.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["WaitOnSeenSnapshot"]
+      - title: WaitOnContestationDeadline
+        description: >-
+          Contestation period is not over yet.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["WaitOnContestationDeadline"]
 
   IP:
     type: object

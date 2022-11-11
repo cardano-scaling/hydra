@@ -16,6 +16,10 @@ changes.
   + Include the `chainState` in `InvalidStateToPost` errors.
   + Moved received transaction ids into `RolledForward` log message.
 
+- **BREAKING** Changed internal wallet logs to help with debugging [#600](https://github.com/input-output-hk/hydra-poc/pull/600)
+  + Split `ApplyBlock` into `BeginUpdate` and `EndUpdate`
+  + Split `InitializedWallet` into `BeginInitialize` and `EndInitialize`
+
 ## [0.8.0] - 2022-10-27
 
 - **BREAKING** Hydra keys now use the text envelope format.
