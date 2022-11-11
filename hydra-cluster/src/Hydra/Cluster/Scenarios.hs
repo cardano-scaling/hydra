@@ -18,7 +18,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (networkId, startChainFrom)
+import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitMatch, withHydraNode)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
@@ -30,11 +30,11 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
 
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket [Bob]
-      <&> \config -> config{networkId}
+      <&> \config -> (config :: ChainConfig){networkId}
 
   bobChainConfig <-
     chainConfigFor Bob workDir nodeSocket [Alice]
-      <&> \config -> config{networkId}
+      <&> \config -> (config :: ChainConfig){networkId}
 
   withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n1 -> do
     let contestationPeriod = 1 :: Natural
