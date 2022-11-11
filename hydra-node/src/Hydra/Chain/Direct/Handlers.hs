@@ -23,6 +23,7 @@ import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
   TxId,
+  chainPointToSlotNo,
   fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
@@ -53,7 +54,6 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialize,
   observeSomeTx,
-  slotNoFromPoint,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block)
@@ -208,13 +208,15 @@ chainSyncHandler tracer callback getTimeHandle ctx =
         , receivedTxIds = getTxId . getTxBody <$> receivedTxs
         }
 
-    let slotNo = slotNoFromPoint point
-    timeHandle <- getTimeHandle
-    case slotToUTCTime timeHandle slotNo of
-      Left reason ->
-        throwIO TimeConversionException{slotNo, reason}
-      Right utcTime ->
-        callback (const . Just $ Tick utcTime)
+    case chainPointToSlotNo point of
+      Nothing -> pure ()
+      Just slotNo -> do
+        timeHandle <- getTimeHandle
+        case slotToUTCTime timeHandle slotNo of
+          Left reason ->
+            throwIO TimeConversionException{slotNo, reason}
+          Right utcTime ->
+            callback (const . Just $ Tick utcTime)
 
     forM_ receivedTxs $ \tx ->
       callback $ \ChainStateAt{chainState = cs} ->

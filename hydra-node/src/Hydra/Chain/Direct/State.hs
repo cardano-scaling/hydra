@@ -33,6 +33,7 @@ import Hydra.Cardano.Api (
   UTxO,
   UTxO' (UTxO),
   Value,
+  chainPointToSlotNo,
   txIns',
   txOutValue,
   pattern ByronAddressInEra,
@@ -128,6 +129,14 @@ instance IsChainState Tx where
 
   chainStateSlot ChainStateAt{recordedAt} =
     maybe (ChainSlot 0) chainSlotFromPoint recordedAt
+
+-- | Get a generic 'ChainSlot' from a Cardano 'ChainPoint'. Slot 0 is used for
+-- the genesis point.
+chainSlotFromPoint :: ChainPoint -> ChainSlot
+chainSlotFromPoint p =
+  case chainPointToSlotNo p of
+    Nothing -> ChainSlot 0
+    Just (SlotNo s) -> ChainSlot $ fromIntegral s
 
 -- | A definition of all transitions between 'ChainState's. Enumerable and
 -- bounded to be used as labels for checking coverage.
@@ -920,13 +929,3 @@ unsafeObserveInitAndCommits ctx txInit commits =
       pure $ case event of
         OnCommitTx{committed} -> committed
         _ -> mempty
-
-chainSlotFromPoint :: ChainPoint -> ChainSlot
-chainSlotFromPoint p =
-  let (SlotNo s) = slotNoFromPoint p
-   in ChainSlot $ fromIntegral s
-
-slotNoFromPoint :: ChainPoint -> SlotNo
-slotNoFromPoint = \case
-  ChainPointAtGenesis -> 0
-  ChainPoint s _ -> s
