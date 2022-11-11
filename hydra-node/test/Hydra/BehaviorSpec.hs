@@ -23,7 +23,7 @@ import GHC.Records (getField)
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Cardano.Api (SigningKey, Tx)
+import Hydra.Cardano.Api (ChainPoint (..), SigningKey, SlotNo (SlotNo), Tx)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -538,7 +538,13 @@ instance IsChainStateTest SimpleTx where
   advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
 
 instance IsChainStateTest Tx where
-  advanceSlot cs@ChainStateAt{recordedAt} = cs{recordedAt = nextChainSlot recordedAt}
+  advanceSlot cs@ChainStateAt{recordedAt} =
+    let newChainPoint = case recordedAt of
+          Just (ChainPoint (SlotNo slotNo) bh) ->
+            ChainPoint (SlotNo slotNo + 1) bh
+          _NothingOrGenesis ->
+            ChainPoint (SlotNo 1) (error "should not use block header hash in tests")
+     in cs{recordedAt = Just newChainPoint}
 
 -- | Creates a simulated chain and network by returning a handle with a
 -- 'HydraNode' decorator to connect it to the simulated chain. NOTE: The

@@ -17,6 +17,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   AssetName (AssetName),
+  ChainPoint (..),
   CtxUTxO,
   Hash,
   Key (SigningKey, VerificationKey, verificationKeyHash),
@@ -25,13 +26,14 @@ import Hydra.Cardano.Api (
   PaymentKey,
   PlutusScript,
   SerialiseAsRawBytes (serialiseToRawBytes),
-  SlotNo,
+  SlotNo (SlotNo),
   Tx,
   TxIn,
   TxOut,
   UTxO,
   UTxO' (UTxO),
   Value,
+  chainPointToSlotNo,
   txIns',
   txOutValue,
   pattern ByronAddressInEra,
@@ -39,7 +41,7 @@ import Hydra.Cardano.Api (
   pattern TxOut,
  )
 import Hydra.Chain (
-  ChainSlot,
+  ChainSlot (ChainSlot),
   ChainStateType,
   HeadId (..),
   HeadParameters (..),
@@ -115,7 +117,7 @@ class HasKnownUTxO a where
 -- point to rewind on rollbacks).
 data ChainStateAt = ChainStateAt
   { chainState :: ChainState
-  , recordedAt :: ChainSlot
+  , recordedAt :: Maybe ChainPoint
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -125,7 +127,16 @@ instance Arbitrary ChainStateAt where
 instance IsChainState Tx where
   type ChainStateType Tx = ChainStateAt
 
-  chainStateSlot ChainStateAt{recordedAt} = recordedAt
+  chainStateSlot ChainStateAt{recordedAt} =
+    maybe (ChainSlot 0) chainSlotFromPoint recordedAt
+
+-- | Get a generic 'ChainSlot' from a Cardano 'ChainPoint'. Slot 0 is used for
+-- the genesis point.
+chainSlotFromPoint :: ChainPoint -> ChainSlot
+chainSlotFromPoint p =
+  case chainPointToSlotNo p of
+    Nothing -> ChainSlot 0
+    Just (SlotNo s) -> ChainSlot $ fromIntegral s
 
 -- | A definition of all transitions between 'ChainState's. Enumerable and
 -- bounded to be used as labels for checking coverage.

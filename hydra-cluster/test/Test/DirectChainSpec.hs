@@ -371,7 +371,7 @@ withDirectChainTest tracer config ctx action = do
               Observation{newChainState} -> writeTVar stateVar newChainState
               _OtherEvent -> pure ()
 
-  withDirectChain tracer config ctx callback $ \Chain{postTx} -> do
+  withDirectChain tracer config ctx Nothing callback $ \Chain{postTx} -> do
     action
       DirectChainTest
         { postTx = \tx -> do
@@ -396,9 +396,7 @@ waitMatch DirectChainTest{waitCallback} match = go
  where
   go = do
     a <- waitCallback
-    case match a of
-      Nothing -> go
-      Just b -> pure b
+    maybe go pure (match a)
 
 delayUntil :: (MonadDelay m, MonadTime m) => UTCTime -> m ()
 delayUntil target = do

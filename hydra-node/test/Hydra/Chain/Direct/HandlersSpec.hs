@@ -121,7 +121,7 @@ spec = do
   prop "yields observed transactions rolling forward" . monadicIO $ do
     -- Generate a state and related transaction and a block containing it
     (ctx, st, tx, transition) <- pick genChainStateWithTx
-    let chainState = ChainStateAt{chainState = st, recordedAt = ChainSlot 0}
+    let chainState = ChainStateAt{chainState = st, recordedAt = Nothing}
     blk <- pickBlind $ genBlockAt 1 [tx]
     monitor (label $ show transition)
 
@@ -154,7 +154,7 @@ spec = do
     timeHandle <- pickBlind arbitrary
     -- Mock callback which keeps the chain state in a tvar
     stateVar <- run $ newTVarIO chainState
-    rolledBackTo <- run $ newEmptyTMVarIO
+    rolledBackTo <- run newEmptyTMVarIO
     let callback cont = do
           cs <- readTVarIO stateVar
           case cont cs of
@@ -184,7 +184,7 @@ recordEventsHandler ctx cs getTimeHandle = do
   let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx
   pure (handler, getEvents eventsVar)
  where
-  getEvents = atomically . readTVar
+  getEvents = readTVarIO
 
   recordEvents :: TVar IO [ChainEvent Tx] -> ChainCallback Tx IO
   recordEvents var cont = do
@@ -258,8 +258,12 @@ genSequenceOfObservableBlocks = do
     initTx <- stepInit cctx (ctxHeadParameters ctx)
     -- Commit using all contexts
     void $ stepCommits initTx allContexts
-
-  pure (cctx, stAtGenesis Idle, reverse blks)
+  let chainState =
+        ChainStateAt
+          { chainState = Idle
+          , recordedAt = Nothing
+          }
+  pure (cctx, chainState, reverse blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
   nextSlot = do
@@ -303,13 +307,6 @@ genSequenceOfObservableBlocks = do
     let commitTx = unsafeCommit ctx stInitial utxo
     putNextBlock commitTx
     pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
-
-stAtGenesis :: ChainState -> ChainStateAt
-stAtGenesis chainState =
-  ChainStateAt
-    { chainState
-    , recordedAt = ChainSlot 0
-    }
 
 showRollbackInfo :: (Word, Point Block) -> String
 showRollbackInfo (rollbackDepth, rollbackPoint) =

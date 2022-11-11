@@ -15,7 +15,7 @@ import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import Cardano.Slotting.Slot (SlotNo (SlotNo))
+import Cardano.Slotting.Slot (SlotNo)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
@@ -23,6 +23,7 @@ import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
   TxId,
+  chainPointToSlotNo,
   fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
@@ -35,7 +36,6 @@ import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainEvent (..),
-  ChainSlot (ChainSlot),
   ChainStateType,
   PostChainTx (..),
   PostTxError (..),
@@ -45,6 +45,7 @@ import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
+  chainSlotFromPoint,
   close,
   collect,
   commit,
@@ -207,13 +208,15 @@ chainSyncHandler tracer callback getTimeHandle ctx =
         , receivedTxIds = getTxId . getTxBody <$> receivedTxs
         }
 
-    let slotNo = slotNoFromPoint point
-    timeHandle <- getTimeHandle
-    case slotToUTCTime timeHandle slotNo of
-      Left reason ->
-        throwIO TimeConversionException{slotNo, reason}
-      Right utcTime ->
-        callback (const . Just $ Tick utcTime)
+    case chainPointToSlotNo point of
+      Nothing -> pure ()
+      Just slotNo -> do
+        timeHandle <- getTimeHandle
+        case slotToUTCTime timeHandle slotNo of
+          Left reason ->
+            throwIO TimeConversionException{slotNo, reason}
+          Right utcTime ->
+            callback (const . Just $ Tick utcTime)
 
     forM_ receivedTxs $ \tx ->
       callback $ \ChainStateAt{chainState = cs} ->
@@ -226,17 +229,9 @@ chainSyncHandler tracer callback getTimeHandle ctx =
                 , newChainState =
                     ChainStateAt
                       { chainState = cs'
-                      , recordedAt = chainSlotFromPoint point
+                      , recordedAt = Just point
                       }
                 }
-
-  slotNoFromPoint = \case
-    ChainPointAtGenesis -> 0
-    ChainPoint s _ -> s
-
-  chainSlotFromPoint p =
-    let (SlotNo s) = slotNoFromPoint p
-     in ChainSlot $ fromIntegral s
 
 -- | Hardcoded grace time for close transaction to be valid.
 -- TODO: make it a node configuration parameter
