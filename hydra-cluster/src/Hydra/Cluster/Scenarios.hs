@@ -24,22 +24,17 @@ import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitMatch, wit
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
   let clients = [Alice, Bob]
-  -- forM_ clients (\actor -> refuelIfNeeded tracer cardanoNode actor 100_000_000)
   [(aliceCardanoVk, _), (bobCardanoVk, _)] <- forM clients keysFor
   seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
   seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket [Bob]
-      -- we delibelately do not start from a chain point here to highlight the
-      -- need for persistence
-      <&> \config -> config{networkId, startChainFrom = Nothing}
+      <&> \config -> config{networkId}
 
   bobChainConfig <-
     chainConfigFor Bob workDir nodeSocket [Alice]
-      -- we delibelately do not start from a chain point here to highlight the
-      -- need for persistence
-      <&> \config -> config{networkId, startChainFrom = Nothing}
+      <&> \config -> config{networkId}
 
   withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n1 -> do
     let contestationPeriod = 1 :: Natural
@@ -54,7 +49,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
     waitFor tracer 10 [n1] $
       output "Committed" ["party" .= bob, "utxo" .= object mempty]
 
-    -- n2 is back and can abort
+    -- n2 is back and does observe the commit
     withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
       waitFor tracer 10 [n2] $
         output "Committed" ["party" .= bob, "utxo" .= object mempty]
