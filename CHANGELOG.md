@@ -16,8 +16,9 @@ changes.
   + Include the `chainState` in `InvalidStateToPost` errors.
   + Moved received transaction ids into `RolledForward` log message.
 
-- **BREAKING** Changed logs to help with debugging:
-  + Split `ApplyBlock` into `ApplyingBlock` and `AppliedBlock` [#600](https://github.com/input-output-hk/hydra-poc/pull/600)
+- **BREAKING** Changed logs to help with debugging [#600](https://github.com/input-output-hk/hydra-poc/pull/600)
+  + Split `ApplyBlock` into `ApplyingBlock` and `AppliedBlock`
+  + Use proper `point` serialization in `InitializingWallet`
 
 ## [0.8.0] - 2022-10-27
 

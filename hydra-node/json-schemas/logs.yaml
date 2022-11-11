@@ -357,9 +357,7 @@ definitions:
             type: string
             enum: ["InitializingWallet"]
           point:
-            description: >-
-              Whether we queried the tip or some point on the chain.
-            type: string
+            $ref: "api.yaml#/components/schemas/ChainPoint"
           initialUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
       - title: ApplyingBlock
