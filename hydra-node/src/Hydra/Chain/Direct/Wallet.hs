@@ -140,19 +140,19 @@ newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
           (walletUTxO, pparams, systemStart, epochInfo) <- readTVar utxoVar
           pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
       , reset = \point -> do
-          traceWith tracer $ InitializingWallet{point}
+          traceWith tracer $ BeginInitialize{point}
           res@(initialUTxO, _, _, _) <- queryUTxOEtc (QueryAt point) address
           atomically $ writeTVar utxoVar res
-          traceWith tracer $ InitializedWallet{initialUTxO}
+          traceWith tracer $ EndInitialize{initialUTxO}
       , update = \block -> do
           let point = fromConsensusPointHF $ blockPoint block
-          traceWith tracer $ ApplyingBlock{point}
+          traceWith tracer $ BeginUpdate{point}
           utxo' <- atomically $ do
             (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar
             let utxo' = applyBlock block (== ledgerAddress) utxo
             writeTVar utxoVar (utxo', pparams, systemStart, epochInfo)
             pure utxo'
-          traceWith tracer $ AppliedBlock utxo'
+          traceWith tracer $ EndUpdate utxo'
       }
  where
   address =
@@ -387,10 +387,10 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
 --
 
 data TinyWalletLog
-  = InitializingWallet {point :: ChainPoint}
-  | InitializedWallet {initialUTxO :: Map TxIn TxOut}
-  | ApplyingBlock {point :: ChainPoint}
-  | AppliedBlock {newUTxO :: Map TxIn TxOut}
+  = BeginInitialize {point :: ChainPoint}
+  | EndInitialize {initialUTxO :: Map TxIn TxOut}
+  | BeginUpdate {point :: ChainPoint}
+  | EndUpdate {newUTxO :: Map TxIn TxOut}
   deriving (Eq, Generic, Show)
 
 deriving instance ToJSON TinyWalletLog

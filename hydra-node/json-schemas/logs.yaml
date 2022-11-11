@@ -343,7 +343,7 @@ definitions:
 
   Wallet:
     oneOf:
-      - title: InitializingWallet
+      - title: BeginInitialize
         description: >-
           The wallet (re-)initializes to given point on the chain.
         type: object
@@ -354,12 +354,12 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["InitializingWallet"]
+            enum: ["BeginInitialize"]
           point:
             $ref: "api.yaml#/components/schemas/ChainPoint"
-      - title: InitializedWallet
+      - title: EndInitialize
         description: >-
-          The wallet has been initialized with these UTxOs.
+          The wallet has initialized with these UTxOs.
         type: object
         additionalProperties: false
         required:
@@ -368,12 +368,12 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["InitializingWallet"]
+            enum: ["EndInitialize"]
           initialUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
-      - title: ApplyingBlock
+      - title: BeginUpdate
         description: >-
-          The wallet has been given a new block.
+          The wallet has been given a new block to update it's state.
         additionalProperties: false
         required:
           - tag
@@ -381,12 +381,12 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["ApplyingBlock"]
+            enum: ["BeginUpdate"]
           point:
             $ref: "api.yaml#/components/schemas/ChainPoint"
-      - title: AppliedBlock
+      - title: EndUpdate
         description: >-
-          The wallet applied a block resulting in given UTxOs.
+          The wallet updated it's state by applying a block resulting in given UTxOs.
         additionalProperties: false
         required:
           - tag
@@ -394,7 +394,7 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["AppliedBlock"]
+            enum: ["EndUpdate"]
           newUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
 
