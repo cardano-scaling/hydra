@@ -386,23 +386,6 @@ definitions:
             enum: ["AppliedBlock"]
           newUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
-      - title: EraMismatchError
-        description: >-
-          The wallet received a block from an era different than the one expected. This should not be a problem as it probably
-          signals the wallet is catching up with the chain.
-        additionalProperties: false
-        required:
-          - tag
-          - expected
-          - actual
-        properties:
-          tag:
-            type: string
-            enum: ["EraMismatchError"]
-          expected:
-            type: string
-          actual:
-            type: string
 
   # TODO: Fill the gap!
   Network: {}

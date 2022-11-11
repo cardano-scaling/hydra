@@ -57,7 +57,6 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.CardanoClient (
-  QueryPoint (QueryAt),
   queryEraHistory,
   queryProtocolParameters,
   querySystemStart,
@@ -378,7 +377,7 @@ chainSyncClient handler wallet = \case
           pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
-          reset wallet $ QueryAt (fromConsensusPointHF point)
+          reset wallet $ fromConsensusPointHF point
           -- Rollback main chain sync handler
           onRollBackward handler point
           pure clientStIdle

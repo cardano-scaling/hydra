@@ -89,7 +89,7 @@ data TinyWallet m = TinyWallet
   , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
   , coverFee :: Map TxIn TxOut -> ValidatedTx LedgerEra -> STM m (Either ErrCoverFee (ValidatedTx LedgerEra))
   , -- | Reset the wallet state to some point.
-    reset :: QueryPoint -> m ()
+    reset :: ChainPoint -> m ()
   , -- | Update the wallet state given some 'Block'.
     update :: Block -> m ()
   }
@@ -140,9 +140,9 @@ newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
           (walletUTxO, pparams, systemStart, epochInfo) <- readTVar utxoVar
           pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
       , reset = \point -> do
-          res@(u, _, _, _) <- queryUTxOEtc point address
+          res@(initialUTxO, _, _, _) <- queryUTxOEtc (QueryAt point) address
           atomically $ writeTVar utxoVar res
-          traceWith tracer $ InitializingWallet point u
+          traceWith tracer $ InitializingWallet{point, initialUTxO}
       , update = \block -> do
           let point = fromConsensusPointHF $ blockPoint block
           traceWith tracer $ ApplyingBlock{point}
@@ -386,10 +386,9 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
 --
 
 data TinyWalletLog
-  = InitializingWallet QueryPoint (Map TxIn TxOut)
+  = InitializingWallet {point :: ChainPoint, initialUTxO :: Map TxIn TxOut}
   | ApplyingBlock {point :: ChainPoint}
-  | AppliedBlock (Map TxIn TxOut)
-  | LedgerEraMismatchError {expected :: Text, actual :: Text}
+  | AppliedBlock {newUTxO :: Map TxIn TxOut}
   deriving (Eq, Generic, Show)
 
 deriving instance ToJSON TinyWalletLog
