@@ -23,6 +23,30 @@ services:
       , "--database-path", "/mainnet/db"
       ]
 
+  kupo:
+    image: cardanosolutions/kupo:latest
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    volumes:
+      - .:/data
+      - ./mainnet:/mainnet
+    working_dir: /data
+    ports:
+      - 1442:1442
+    command:
+      [ "--node-socket", "/mainnet/node.socket"
+      , "--node-config",  "/mainnet/cardano-node/config.json"
+      , "--since", "origin"
+      , "--defer-db-indexes"
+      , "--match", "*/stake_vkh14hkp0sncfkt76spuqydtww4r900hfmsseezztzlh9sjkkjx6d7q"
+      , "--workdir", "/data"
+      ]
+
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus

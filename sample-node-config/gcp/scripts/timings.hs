@@ -11,6 +11,7 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE MultiWayIf #-}
 
+import Debug.Trace(trace)
 import System.IO
 import Text.Regex.TDFA
 import Control.Monad
@@ -23,22 +24,29 @@ main =  do
  where
   processStat :: Handle -> String -> IO ()
   processStat file stat =
-    case getAllTextMatches (stat =~ ("([0-9]+)(k|M|G)?" :: String)) :: [String] of
-      -- ["1667463706","46","5","49","0","0","1255M","13G","38M","907M","2323k","29k","0","0","0","0"]
-      [ts , cpu, _, _, _ , _ , mem, _, _, _, netR, _ , _ , diskW,_, _] -> do
+    case getAllTextMatches (stat =~ ("([0-9]+)(B|k|M|G)?" :: String)) :: [String] of
+      -- --epoch--- --total-cpu-usage-- ------memory-usage----- -net/total- -dsk/total- --io/total-
+      -- epoch   |usr sys idl wai stl| used  free  buff  cach| recv  send| read  writ| read  writ
+      -- 1667980233| 19   1  80   0   0| 348M 4268M   89M   11G|   0     0 |6796M   11G|  51k   57k
+      m@[ts , cpu, _, _, _ , _ , mem, _, _, _, netR, _ , diskW, _, _, _] -> do
         let cpuUsage = show ((read cpu :: Double) / 100)
-            memUsage = show $ toGiga mem
+            memUsage = show $ toGiga mem / mAX_MEM
             networkRead = show $ toMega netR
             diskWrite = show $ toMega diskW
         hPutStrLn file $ concat $ intersperse "\t" [ ts, cpuUsage, memUsage, networkRead, diskWrite ]
       -- ignore non matching lines, probably headers or garbage
-      _ -> pure ()
+      m -> pure ()
+
+-- Maximum memory available in GB
+mAX_MEM :: Double
+mAX_MEM = 16
 
 toGiga :: String -> Double
 toGiga num =
   let len = length num
       raw = read $ take (len - 1) num
   in  if
+    | "B" `isSuffixOf` num -> raw / 1_000_000_000
     | "k" `isSuffixOf` num -> raw / 1_000_000
     | "M" `isSuffixOf` num -> raw / 1_000
     | "G" `isSuffixOf` num -> raw
@@ -49,6 +57,7 @@ toMega num =
   let len = length num
       raw = read $ take (len - 1) num
   in  if
+    | "B" `isSuffixOf` num -> raw / 1_000_000
     | "k" `isSuffixOf` num -> raw / 1_000
     | "M" `isSuffixOf` num -> raw
     | "G" `isSuffixOf` num -> raw * 1_000

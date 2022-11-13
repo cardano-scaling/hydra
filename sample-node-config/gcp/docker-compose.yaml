@@ -34,6 +34,7 @@ services:
         max-file: "5"
     volumes:
       - .:/data:ro
+      - hydra-data:/hydra-data:rw
       - ./devnet:/devnet
     ports:
       - "4001:4001"
@@ -50,6 +51,7 @@ services:
       , "--ledger-protocol-parameters", "/data/protocol-parameters.json"
       , "--network-id", "${NETWORK_MAGIC}"
       , "--node-socket", "/devnet/node.socket"
+      , "--persistence-dir", "/hydra-data"
       ]
 
   hydra-tui:
@@ -89,3 +91,6 @@ services:
     - --config.file=/etc/prometheus/prometheus.yml
     volumes:
     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+volumes:
+  hydra-data:
