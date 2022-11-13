@@ -1,15 +1,15 @@
 ---
-sidebar_label: 'Custodial Head'
+sidebar_label: 'Delegated Head'
 sidebar_position: 4
 ---
 
-# Custodial Head Network
+# Delegated Head Network
 
-This document details the behaviour of so-called _Custodial Hydra Head Network_.
+This document details the behaviour of so-called _Delegated Hydra Head Network_.
 
 ## Summary
 
-A _Custodial Hydra Head Network_ comprises the following type of actors:
+A _Delegated Hydra Head Network_ comprises the following type of actors:
 
 * _Operator_ nodes with low expected downtime, probably operated by some company or organisation with enough resources to host this service,
 * _Client_ nodes, either DApp instances, or mobile/personal wallets, which might not be always online and possibly can come and go.
@@ -17,7 +17,7 @@ A _Custodial Hydra Head Network_ comprises the following type of actors:
 <p align="center">
   <img
     src={require('./custodial-head.png').default}
-    alt="Custodial Hydra Head"
+    alt="Delegated Hydra Head"
     height={400}
   />
 </p>
