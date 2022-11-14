@@ -111,6 +111,7 @@ library
     Hydra.Node.Version
     Hydra.Options
     Hydra.Party
+    Hydra.Persistence
     Hydra.Snapshot
 
   other-modules:   Paths_hydra_node
@@ -289,7 +290,6 @@ test-suite tests
     Hydra.NodeSpec
     Hydra.OptionsSpec
     Hydra.PartySpec
-    Hydra.Persistence
     Hydra.SnapshotStrategySpec
     Paths_hydra_node
     Spec

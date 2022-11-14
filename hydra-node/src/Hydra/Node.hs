@@ -33,8 +33,6 @@ import Control.Monad.Class.MonadSTM (
   stateTVar,
   writeTQueue,
  )
-import qualified Data.Aeson as Aeson
-import qualified Data.ByteString as BS
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
@@ -57,9 +55,7 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
-import System.Directory (createDirectoryIfMissing, doesFileExist)
-import System.FilePath (takeDirectory)
-import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
+import Hydra.Persistence (Persistence (..))
 
 -- * Environment Handling
 

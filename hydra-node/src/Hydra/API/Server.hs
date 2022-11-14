@@ -22,8 +22,8 @@ import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput))
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
-import Hydra.Node (Persistence)
 import Hydra.Party (Party)
+import Hydra.Persistence (Persistence)
 import Network.WebSockets (
   acceptRequest,
   receiveData,

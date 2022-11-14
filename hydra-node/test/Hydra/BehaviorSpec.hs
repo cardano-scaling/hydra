@@ -53,12 +53,12 @@ import Hydra.Node (
   EventQueue (putEvent),
   HydraNode (..),
   HydraNodeLog (..),
-  Persistence (Persistence, load, save),
   createEventQueue,
   createNodeState,
   runHydraNode,
  )
 import Hydra.Party (Party, deriveParty)
+import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
@@ -602,7 +602,7 @@ simulatedChainAndNetwork initialChainState = do
     (toReplay, kept) <- atomically $ do
       (toReplay, kept) <- splitAt (fromIntegral steps) <$> readTVar history
       writeTVar history kept
-      pure $ (reverse toReplay, kept)
+      pure (reverse toReplay, kept)
     -- Determine the new (last kept one) chainstate
     let rolledBackChainState = case kept of
           [] -> initialChainState
