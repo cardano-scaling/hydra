@@ -22,6 +22,7 @@ import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput))
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
+import Hydra.Node (Persistence)
 import Hydra.Party (Party)
 import Network.WebSockets (
   acceptRequest,
@@ -69,9 +70,10 @@ withAPIServer ::
   IP ->
   PortNumber ->
   Party ->
+  Persistence [ServerOutput tx] IO ->
   Tracer IO APIServerLog ->
   ServerComponent tx IO ()
-withAPIServer host port party tracer callback action = do
+withAPIServer host port party persistence tracer callback action = do
   responseChannel <- newBroadcastTChanIO
   history <- newTVarIO [Greetings party]
   race_

@@ -52,6 +52,7 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Scenarios (
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
+  restartedNodeCanReplayEventsToAPIClient,
   singlePartyHeadFullLifeCycle,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -171,13 +172,13 @@ spec = around showLogsOnFailure $ do
             publishHydraScriptsAs node Faucet
               >>= restartedNodeCanAbort tracer tmpDir node
 
-      fit "can observe a commit tx after a restart, even when a tx happened while down" $ \tracer -> do
+      it "can observe a commit tx after a restart, even when a tx happened while down" $ \tracer -> do
         withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= restartedNodeCanObserveCommitTx tracer tmpDir node
 
-      it "can replay events to API client after a restart" $ \tracer -> do
+      fit "can replay events to API client after a restart" $ \tracer -> do
         withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
