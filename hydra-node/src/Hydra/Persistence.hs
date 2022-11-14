@@ -6,7 +6,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
-import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
+import UnliftIO.IO.File (withBinaryFileDurableAtomic, writeBinaryFileDurableAtomic)
 
 -- ** Save and load files
 
@@ -33,13 +33,16 @@ createPersistence _ fp = do
           writeBinaryFileDurableAtomic fp . toStrict $ Aeson.encode a
       , load =
           liftIO (doesFileExist fp) >>= \case
-            False -> pure Nothing
+            False -> pure []
             True -> do
               bs <- readFileBS fp
               -- XXX: This is weird and smelly
               if BS.null bs
-                then pure Nothing
+                then pure []
                 else case Aeson.eitherDecodeStrict' bs of
                   Left e -> throwIO $ PersistenceException e
-                  Right a -> pure $ Just a
+                  Right a -> pure a
+      , append = \a -> do
+          let bytes = toStrict $ Aeson.encode a
+          liftIO $ withBinaryFileDurableAtomic fp AppendMode (`BS.hPut` bytes)
       }
