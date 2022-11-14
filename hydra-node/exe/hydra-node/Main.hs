@@ -45,7 +45,7 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
-import Hydra.Persistence (Persistence (load), createPersistence)
+import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceClient)
 
 main :: IO ()
 main = do
@@ -83,7 +83,7 @@ main = do
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
 
-            apiPersistence <- createPersistence Proxy $ persistenceDir <> "/server-output"
+            apiPersistence <- createPersistenceClient Proxy $ persistenceDir <> "/server-output"
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig $ \ledger ->

@@ -24,7 +24,7 @@ import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
-import Hydra.Persistence (Persistence (..))
+import Hydra.Persistence (PersistenceClient (..))
 import Network.WebSockets (
   acceptRequest,
   receiveData,
@@ -71,13 +71,13 @@ withAPIServer ::
   IP ->
   PortNumber ->
   Party ->
-  Persistence (ServerOutput tx) IO ->
+  PersistenceClient (ServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   ServerComponent tx IO ()
-withAPIServer host port party Persistence{save, load, append} tracer callback action = do
+withAPIServer host port party PersistenceClient{loadAll, append} tracer callback action = do
   responseChannel <- newBroadcastTChanIO
   h <-
-    load <&> \case
+    loadAll <&> \case
       [] -> [Greetings party]
       as -> as
   history <- newTVarIO h
