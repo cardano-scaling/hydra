@@ -69,6 +69,7 @@ createPersistenceClient _ fp = do
                   Left e -> throwIO $ PersistenceException e
                   Right a -> pure a
       , append = \a -> do
+          -- atomicity in file writing implies a file copy everytime we append something to it
           let bytes = toStrict $ Aeson.encode a
           liftIO $ withBinaryFileDurableAtomic fp AppendMode (`BS.hPut` bytes)
       }
