@@ -14,7 +14,7 @@ import Hydra.Prelude hiding (TVar, readTVar)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
+import Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
@@ -23,7 +23,7 @@ import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
-import Hydra.Persistence (Persistence)
+import Hydra.Persistence (Persistence (..))
 import Network.WebSockets (
   acceptRequest,
   receiveData,
@@ -73,16 +73,21 @@ withAPIServer ::
   Persistence [ServerOutput tx] IO ->
   Tracer IO APIServerLog ->
   ServerComponent tx IO ()
-withAPIServer host port party persistence tracer callback action = do
+withAPIServer host port party Persistence{save, load} tracer callback action = do
   responseChannel <- newBroadcastTChanIO
-  history <- newTVarIO [Greetings party]
+  history <- newTVarIO =<< fromMaybe [Greetings party] <$> load
   race_
     (runAPIServer host port tracer history callback responseChannel)
     . action
     $ Server
-      { sendOutput = \output -> atomically $ do
-          modifyTVar' history (output :)
-          writeTChan responseChannel output
+      { sendOutput = \output -> do
+          newHistory <- atomically $ do
+            h <- readTVar history
+            let h' = (output : h)
+            writeTVar history h'
+            pure h'
+          save newHistory
+          atomically $ writeTChan responseChannel output
       }
 
 runAPIServer ::
