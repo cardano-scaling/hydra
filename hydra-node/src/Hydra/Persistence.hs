@@ -12,8 +12,9 @@ import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
 
 -- | Handle to save and load files to/from disk using JSON encoding.
 data Persistence a m = Persistence
-  { save :: ToJSON a => a -> m ()
-  , load :: FromJSON a => m (Maybe a)
+  { save :: ToJSON a => [a] -> m ()
+  , load :: FromJSON a => m [a]
+  , append :: ToJSON a => a -> m ()
   }
 
 newtype PersistenceException

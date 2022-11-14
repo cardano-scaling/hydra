@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module Hydra.API.Server (
   Server (..),
@@ -14,7 +15,7 @@ import Hydra.Prelude hiding (TVar, readTVar)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
+import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
@@ -70,24 +71,25 @@ withAPIServer ::
   IP ->
   PortNumber ->
   Party ->
-  Persistence [ServerOutput tx] IO ->
+  Persistence (ServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   ServerComponent tx IO ()
-withAPIServer host port party Persistence{save, load} tracer callback action = do
+withAPIServer host port party Persistence{save, load, append} tracer callback action = do
   responseChannel <- newBroadcastTChanIO
-  history <- newTVarIO =<< fromMaybe [Greetings party] <$> load
+  h <-
+    load <&> \case
+      [] -> [Greetings party]
+      as -> as
+  history <- newTVarIO h
   race_
     (runAPIServer host port tracer history callback responseChannel)
     . action
     $ Server
       { sendOutput = \output -> do
-          newHistory <- atomically $ do
-            h <- readTVar history
-            let h' = (output : h)
-            writeTVar history h'
-            pure h'
-          save newHistory
-          atomically $ writeTChan responseChannel output
+          append output
+          atomically $ do
+            modifyTVar' history (output :)
+            writeTChan responseChannel output
       }
 
 runAPIServer ::
