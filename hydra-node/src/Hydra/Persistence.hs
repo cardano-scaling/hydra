@@ -6,6 +6,7 @@ import Hydra.Prelude
 
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as C8
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
 import UnliftIO.IO.File (withBinaryFileDurableAtomic, writeBinaryFileDurableAtomic)
@@ -65,11 +66,16 @@ createPersistenceClient _ fp = do
               -- XXX: This is weird and smelly
               if BS.null bs
                 then pure []
-                else case Aeson.eitherDecodeStrict' bs of
-                  Left e -> throwIO $ PersistenceException e
-                  Right a -> pure a
+                else do
+                  -- If 'a' already contains newlines then our persistence breaks
+                  let eresults = forM (C8.lines bs) $ \t -> Aeson.eitherDecodeStrict' t
+                  case eresults of
+                    Left e -> throwIO $ PersistenceException e
+                    Right decoded -> pure decoded
       , append = \a -> do
+          -- REVIEW: what happens if the `a` here already contains the newline character? It would break all persistence!
+          -- Use DB?
+          let bytes = toStrict $ Aeson.encode a <> "\n"
           -- atomicity in file writing implies a file copy everytime we append something to it
-          let bytes = toStrict $ Aeson.encode a
           liftIO $ withBinaryFileDurableAtomic fp AppendMode (`BS.hPut` bytes)
       }
