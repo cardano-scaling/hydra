@@ -7,7 +7,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
-import UnliftIO.IO.File (withBinaryFileDurableAtomic, writeBinaryFileDurableAtomic)
+import UnliftIO.IO.File (withBinaryFileDurable, writeBinaryFileDurableAtomic)
 
 -- ** Save and load files
 
@@ -65,15 +65,10 @@ createPersistenceIncremental _ fp = do
               if BS.null bs
                 then pure []
                 else do
-                  -- If 'a' already contains newlines then our persistence breaks
-                  let eresults = forM (C8.lines bs) $ \t -> Aeson.eitherDecodeStrict' t
-                  case eresults of
+                  case forM (C8.lines bs) $ Aeson.eitherDecodeStrict' of
                     Left e -> throwIO $ PersistenceException e
                     Right decoded -> pure decoded
       , append = \a -> do
-          -- REVIEW: what happens if the `a` here already contains the newline character? It would break all persistence!
-          -- Use DB?
           let bytes = toStrict $ Aeson.encode a <> "\n"
-          -- atomicity in file writing implies a file copy everytime we append something to it
-          liftIO $ withBinaryFileDurableAtomic fp AppendMode (`BS.hPut` bytes)
+          liftIO $ withBinaryFileDurable fp AppendMode (`BS.hPut` bytes)
       }
