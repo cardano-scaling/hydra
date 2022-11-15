@@ -256,7 +256,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
 
 -- | The close validator must verify that:
 --   * Check that the closing tx validity is bounded by contestation period
---     `T_max <= T_min + CP`
+--     Expressed in our spec as: `T_max <= T_min + CP`
 --
 --   * The closing snapshot number and signature is correctly signed
 --

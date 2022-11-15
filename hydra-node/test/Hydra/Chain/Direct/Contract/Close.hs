@@ -46,7 +46,7 @@ healthyCloseTx =
       openThreadOutput
 
   headInput = generateWith arbitrary 42
-  (startSlot, pointInTime) = genPointInTimeWithSlotDifference 20 `generateWith` 42
+  (startSlot, pointInTime) = genPointInTimeWithSlotDifference 1 `generateWith` 42
 
   headResolvedInput =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum
