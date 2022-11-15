@@ -208,7 +208,7 @@ genCloseMutation (tx, _utxo) =
         pure $
           Changes
             [ ChangeValidityInterval (TxValidityNoLowerBound, TxValidityUpperBound mutatedUpperBound)
-            , ChangeOutput 0 $ changeHeadOutputDatum (doMutation) headTxOut
+            , ChangeOutput 0 $ changeHeadOutputDatum doMutation headTxOut
             ]
     ]
  where
