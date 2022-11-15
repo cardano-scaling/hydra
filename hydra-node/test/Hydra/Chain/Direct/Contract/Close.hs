@@ -46,8 +46,8 @@ healthyCloseTx =
       openThreadOutput
 
   headInput = generateWith arbitrary 42
-  (startSlot, pointInTime) = genPointInTimeWithSlotDifference 1 `generateWith` 42
-
+  (startSlot, pointInTime) =
+    genPointInTimeWithSlotDifference (fromIntegral healthyContestationPeriodSeconds) `generateWith` 42
   headResolvedInput =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum
       & addParticipationTokens healthyParties
@@ -92,6 +92,7 @@ healthyCloseUTxO =
   (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyUTxO))
     `generateWith` 42
 
+-- TODO: generate arbitrary SnapshotNumber too?
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotNumber = 1
 
@@ -106,8 +107,10 @@ healthyCloseDatum =
 healthyContestationPeriod :: OnChain.ContestationPeriod
 healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
 
+-- NB: We don't want to wait too long for contestation period to pass
+-- so constraining this to < 100
 healthyContestationPeriodSeconds :: Integer
-healthyContestationPeriodSeconds = 10
+healthyContestationPeriodSeconds = arbitrary `suchThat` (< 100) `generateWith` 42
 
 healthyUTxO :: UTxO
 healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
