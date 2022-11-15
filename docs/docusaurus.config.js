@@ -227,13 +227,29 @@ const config = {
               },
             ],
           },
+          {
+            title: 'Legal',
+            items: [
+              {
+                label: 'Terms & Conditions',
+                to: "https://static.iohk.io/terms/iohktermsandconditions.pdf"
+              },
+              {
+                label: 'Privacy Policy',
+                to: "https://static.iohk.io/terms/iog-privacy-policy.pdf"
+              },
+              {
+                label: 'Contributors',
+                to: "https://github.com/input-output-hk/hydra-poc/graphs/contributors"
+              }
+            ],
+          },
         ],
         copyright:
           `
-          Copyright © ${new Date().getFullYear()} 
-              <strong>Input Output</strong><br/>
-              <small>Built with Docusaurus</small><br/>
-              <small>Last time updated: ${docsMetadataJson.site.lastUpdatedAt}</small>
+          <small>
+          Built with Docusaurus on ${docsMetadataJson.site.lastUpdatedAt}
+          </small>
           `
       },
       prism: {
