@@ -290,8 +290,7 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
               , utxoHash = initialUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
               }
-       in traceIfFalse "s == 0" $
-            checkHeadOutputDatum ctx expectedOutputDatum
+       in checkHeadOutputDatum ctx expectedOutputDatum
     | snapshotNumber > 0 =
       let expectedOutputDatum =
             Closed
@@ -300,9 +299,8 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
               , utxoHash = closedUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
               }
-       in traceIfFalse "s > 0" $
-            verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
-              && checkHeadOutputDatum ctx expectedOutputDatum
+       in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
+            && checkHeadOutputDatum ctx expectedOutputDatum
     | otherwise = traceError "negative snapshot number"
 
   cp = fromMilliSeconds (milliseconds cperiod)

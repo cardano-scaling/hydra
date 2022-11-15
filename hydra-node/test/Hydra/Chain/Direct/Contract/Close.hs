@@ -71,9 +71,6 @@ healthyCloseTx =
 healthyCloseUpperBoundSlotNo :: SlotNo
 healthyCloseUpperBoundSlotNo = arbitrary `generateWith` 42
 
-healthyCloseLowerBoundSlotNo :: SlotNo -> SlotNo
-healthyCloseLowerBoundSlotNo n = arbitrary `suchThat` (< n) `generateWith` 42
-
 healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =
   CloseWithConfirmedSnapshot
