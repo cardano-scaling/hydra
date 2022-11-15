@@ -9,19 +9,24 @@ import Data.Aeson (Value (..))
 import qualified Data.Aeson as Aeson
 import qualified Data.Text as Text
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import Test.QuickCheck (elements, generate, oneof)
+import Test.QuickCheck (collect, elements, oneof, (===))
 import Test.QuickCheck.Gen (listOf)
+import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run, stop)
 
 spec :: Spec
 spec =
   describe "PersistenceIncremental" $
     it "is consistent after multiple append calls" $
-      withTempDir "hydra-persistence" $ \tmpDir -> do
-        items :: [Aeson.Value] <- generate $ listOf genPersistenceItem
-        print items
-        PersistenceIncremental{loadAll, append} <- createPersistenceIncremental Proxy $ tmpDir <> "/data"
-        forM_ items append
-        loadAll `shouldReturn` items
+      -- withTempDir "hydra-persistence" $ \tmpDir -> do
+      monadicIO $ do
+        items :: [Aeson.Value] <- pick $ listOf genPersistenceItem
+        monitor (collect items)
+        -- print items
+        let tmpDir = ""
+        PersistenceIncremental{loadAll, append} <- run $ createPersistenceIncremental Proxy $ tmpDir <> "/data"
+        run $ forM_ items append
+        actualResult <- run loadAll
+        stop $ actualResult === items
 
 genPersistenceItem :: Gen Aeson.Value
 genPersistenceItem =
