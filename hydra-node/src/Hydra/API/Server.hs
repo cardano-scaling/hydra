@@ -75,11 +75,11 @@ withAPIServer ::
   ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
   responseChannel <- newBroadcastTChanIO
-  h <-
-    loadAll <&> \case
-      [] -> [Greetings party]
-      as -> as
-  history <- newTVarIO h
+  h <- loadAll
+  -- NOTE: We will add a 'Greetings' message on each API server start. This is
+  -- important to make sure the latest configured 'party' is reaching the
+  -- client.
+  history <- newTVarIO (Greetings party : h)
   race_
     (runAPIServer host port tracer history callback responseChannel)
     . action

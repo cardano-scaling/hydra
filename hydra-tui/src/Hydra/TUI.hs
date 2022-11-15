@@ -290,6 +290,7 @@ handleAppEvent s = \case
       }
   Update Greetings{me} ->
     s & meL ?~ me
+      & peersL .~ []
   Update (PeerConnected p) ->
     s & peersL %~ \cp -> nub $ cp <> [p]
   Update (PeerDisconnected p) ->
