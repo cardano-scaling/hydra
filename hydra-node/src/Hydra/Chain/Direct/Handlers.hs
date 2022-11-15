@@ -271,7 +271,7 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
     (CloseTx{confirmedSnapshot}, Open st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       -- REVIEW: what do we use for lower bound slot here?
-      pure (close st confirmedSnapshot shifted startSlotNo)
+      pure (close ctx st confirmedSnapshot shifted startSlotNo)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (contest ctx st confirmedSnapshot shifted)
