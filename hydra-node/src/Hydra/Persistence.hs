@@ -13,23 +13,17 @@ import UnliftIO.IO.File (withBinaryFileDurableAtomic, writeBinaryFileDurableAtom
 
 -- ** Save and load files
 
--- | Handle to save and load files to/from disk using JSON encoding.
-data Persistence a m = Persistence
-  { save :: ToJSON a => a -> m ()
-  , load :: FromJSON a => m (Maybe a)
-  }
-
--- | Handle to append and load files to/from disk using JSON encoding.
-data PersistenceClient a m = PersistenceClient
-  { loadAll :: FromJSON a => m [a]
-  , append :: ToJSON a => a -> m ()
-  }
-
 newtype PersistenceException
   = PersistenceException String
   deriving (Eq, Show)
 
 instance Exception PersistenceException
+
+-- | Handle to save and load files to/from disk using JSON encoding.
+data Persistence a m = Persistence
+  { save :: ToJSON a => a -> m ()
+  , load :: FromJSON a => m (Maybe a)
+  }
 
 -- | Initialize persistence handle for given type 'a' at given file path.
 createPersistence :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (Persistence a m)
@@ -52,12 +46,18 @@ createPersistence _ fp = do
                   Right a -> pure (Just a)
       }
 
+-- | Handle to save incrementally and load files to/from disk using JSON encoding.
+data PersistenceIncremental a m = PersistenceIncremental
+  { loadAll :: FromJSON a => m [a]
+  , append :: ToJSON a => a -> m ()
+  }
+
 -- | Initialize persistence handle for given type 'a' at given file path.
-createPersistenceClient :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (PersistenceClient a m)
-createPersistenceClient _ fp = do
+createPersistenceIncremental :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (PersistenceIncremental a m)
+createPersistenceIncremental _ fp = do
   liftIO . createDirectoryIfMissing True $ takeDirectory fp
   pure $
-    PersistenceClient
+    PersistenceIncremental
       { loadAll =
           liftIO (doesFileExist fp) >>= \case
             False -> pure []
