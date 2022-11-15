@@ -9,7 +9,7 @@ import Data.Aeson (Value (..))
 import qualified Data.Aeson as Aeson
 import qualified Data.Text as Text
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import Test.QuickCheck (counterexample, elements, label, oneof, (===))
+import Test.QuickCheck (checkCoverage, counterexample, elements, oneof, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
@@ -17,16 +17,17 @@ spec :: Spec
 spec =
   describe "PersistenceIncremental" $
     it "is consistent after multiple append calls" $
-      monadicIO $ do
-        items :: [Aeson.Value] <- pick $ listOf genPersistenceItem
-        monitor (label "foo")
-        monitor (counterexample $ "items: " <> (show items))
-        actualResult <- run $
-          withTempDir "hydra-persistence" $ \tmpDir -> do
-            PersistenceIncremental{loadAll, append} <- createPersistenceIncremental Proxy $ tmpDir <> "/data"
-            forM_ items append
-            loadAll
-        pure $ actualResult === items
+      checkCoverage $
+        monadicIO $ do
+          items :: [Aeson.Value] <- pick $ listOf genPersistenceItem
+          monitor (genericCoverTable [labelItems items])
+          monitor (counterexample $ "items: " <> (show items))
+          actualResult <- run $
+            withTempDir "hydra-persistence" $ \tmpDir -> do
+              PersistenceIncremental{loadAll, append} <- createPersistenceIncremental Proxy $ tmpDir <> "/data"
+              forM_ items append
+              loadAll
+          pure $ actualResult === items
 
 genPersistenceItem :: Gen Aeson.Value
 genPersistenceItem =
@@ -39,3 +40,16 @@ genSomeText :: Gen Text
 genSomeText = do
   let t = ['A' .. 'z'] <> ['\n', '\t', '\r']
   Text.pack <$> listOf (elements t)
+
+data PersistenceItemsLabel
+  = Empty
+  | Newline
+  | AnythingElse
+  deriving (Enum, Bounded, Show)
+
+labelItems :: [Aeson.Value] -> PersistenceItemsLabel
+labelItems = \case
+  [] -> Empty
+  (i : is) -> case i of
+    String t | "\n" `Text.isInfixOf` t -> Newline
+    _ -> labelItems is
