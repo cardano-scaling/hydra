@@ -66,7 +66,7 @@ main = do
         eq <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         -- Load state from persistence or create new one
-        persistence <- createPersistence Proxy $ persistenceDir <> "/state"
+        persistence <- createPersistence $ persistenceDir <> "/state"
         hs <-
           load persistence >>= \case
             Nothing -> do
@@ -83,7 +83,7 @@ main = do
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
 
-            apiPersistence <- createPersistenceIncremental Proxy $ persistenceDir <> "/server-output"
+            apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig $ \ledger ->

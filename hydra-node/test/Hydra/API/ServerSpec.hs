@@ -33,7 +33,7 @@ spec = parallel $ do
     failAfter 5 $
       withFreePort $ \port -> do
         withTempDir "server-spec-tmp-dir" $ \tmp -> do
-          apiPersistence <- createPersistenceIncremental Proxy $ tmp <> "/server-output"
+          apiPersistence <- createPersistenceIncremental $ tmp <> "/server-output"
           withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice apiPersistence nullTracer noop $ \_ -> do
             withClient port $ \conn -> do
               received <- receiveData conn
@@ -46,7 +46,7 @@ spec = parallel $ do
     showLogsOnFailure $ \tracer -> failAfter 5 $
       withFreePort $ \port -> do
         withTempDir "server-spec-tmp-dir" $ \tmp -> do
-          apiPersistence <- createPersistenceIncremental Proxy $ tmp <> "/server-output"
+          apiPersistence <- createPersistenceIncremental $ tmp <> "/server-output"
           withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice apiPersistence tracer noop $ \Server{sendOutput} -> do
             semaphore <- newTVarIO 0
             withAsync
@@ -69,7 +69,7 @@ spec = parallel $ do
     run . failAfter 5 $ do
       withFreePort $ \port -> do
         withTempDir "server-spec-tmp-dir" $ \tmp -> do
-          apiPersistence <- createPersistenceIncremental Proxy $ tmp <> "/server-output"
+          apiPersistence <- createPersistenceIncremental $ tmp <> "/server-output"
           withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice apiPersistence nullTracer noop $ \Server{sendOutput} -> do
             mapM_ sendOutput (msgs :: [ServerOutput SimpleTx])
             withClient port $ \conn -> do
@@ -85,7 +85,7 @@ spec = parallel $ do
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   withTempDir "server-spec-tmp-dir" $ \tmp -> do
-    apiPersistence <- createPersistenceIncremental Proxy $ tmp <> "/server-output"
+    apiPersistence <- createPersistenceIncremental $ tmp <> "/server-output"
     withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice apiPersistence nullTracer noop $ \_server -> do
       withClient port $ \con -> do
         _greeting :: ByteString <- receiveData con

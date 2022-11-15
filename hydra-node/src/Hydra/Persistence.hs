@@ -26,10 +26,9 @@ data Persistence a m = Persistence
 -- | Initialize persistence handle for given type 'a' at given file path.
 createPersistence ::
   (MonadIO m, MonadThrow m) =>
-  Proxy a ->
   FilePath ->
   m (Persistence a m)
-createPersistence _ fp = do
+createPersistence fp = do
   liftIO . createDirectoryIfMissing True $ takeDirectory fp
   pure $
     Persistence
@@ -56,10 +55,9 @@ data PersistenceIncremental a m = PersistenceIncremental
 -- | Initialize persistence handle for given type 'a' at given file path.
 createPersistenceIncremental ::
   (MonadIO m, MonadThrow m) =>
-  Proxy a ->
   FilePath ->
   m (PersistenceIncremental a m)
-createPersistenceIncremental _ fp = do
+createPersistenceIncremental fp = do
   liftIO . createDirectoryIfMissing True $ takeDirectory fp
   pure $
     PersistenceIncremental

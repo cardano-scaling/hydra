@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
-
 module Hydra.PersistenceSpec where
 
 import Hydra.Prelude hiding (label)
@@ -20,16 +18,16 @@ spec = do
       withTempDir "hydra-persistence" $ \tmpDir -> do
         let fp = tmpDir <> "/data"
         writeFileBS fp ""
-        Persistence{load} <- createPersistence (Proxy :: Proxy Aeson.Value) fp
-        load `shouldReturn` Nothing
+        Persistence{load} <- createPersistence fp
+        load `shouldReturn` (Nothing :: Maybe Aeson.Value)
 
     it "is consistent after save/load roundtrip" $
       checkCoverage $
         monadicIO $ do
-          item :: Aeson.Value <- pick genPersistenceItem
+          item <- pick genPersistenceItem
           actualResult <- run $
             withTempDir "hydra-persistence" $ \tmpDir -> do
-              Persistence{save, load} <- createPersistence Proxy $ tmpDir <> "/data"
+              Persistence{save, load} <- createPersistence $ tmpDir <> "/data"
               save item
               load
           pure $ actualResult === Just item
@@ -39,19 +37,19 @@ spec = do
       withTempDir "hydra-persistence" $ \tmpDir -> do
         let fp = tmpDir <> "/data"
         writeFileBS fp ""
-        PersistenceIncremental{loadAll} <- createPersistenceIncremental (Proxy :: Proxy Aeson.Value) fp
-        loadAll `shouldReturn` []
+        PersistenceIncremental{loadAll} <- createPersistenceIncremental fp
+        loadAll `shouldReturn` ([] :: [Aeson.Value])
 
     it "is consistent after multiple append calls in presence of new-lines" $
       checkCoverage $
         monadicIO $ do
-          items :: [Aeson.Value] <- pick $ listOf genPersistenceItem
+          items <- pick $ listOf genPersistenceItem
           monitor (cover 1 (null items) "no items stored")
           monitor (cover 10 (containsNewLine items) "some item contains a new line")
 
           actualResult <- run $
             withTempDir "hydra-persistence" $ \tmpDir -> do
-              PersistenceIncremental{loadAll, append} <- createPersistenceIncremental Proxy $ tmpDir <> "/data"
+              PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir <> "/data"
               forM_ items append
               loadAll
           pure $ actualResult === items
