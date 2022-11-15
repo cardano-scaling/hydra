@@ -1,3 +1,5 @@
+-- | Handles to save/load files across the hydra-node. We use a simple JSON
+-- encoding and two modes of operation to store things: Full and Incremental.
 module Hydra.Persistence where
 
 import Hydra.Prelude
@@ -8,8 +10,6 @@ import qualified Data.ByteString.Char8 as C8
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
 import UnliftIO.IO.File (withBinaryFileDurable, writeBinaryFileDurableAtomic)
-
--- ** Save and load files
 
 newtype PersistenceException
   = PersistenceException String
@@ -24,7 +24,11 @@ data Persistence a m = Persistence
   }
 
 -- | Initialize persistence handle for given type 'a' at given file path.
-createPersistence :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (Persistence a m)
+createPersistence ::
+  (MonadIO m, MonadThrow m) =>
+  Proxy a ->
+  FilePath ->
+  m (Persistence a m)
 createPersistence _ fp = do
   liftIO . createDirectoryIfMissing True $ takeDirectory fp
   pure $
@@ -36,7 +40,6 @@ createPersistence _ fp = do
             False -> pure Nothing
             True -> do
               bs <- readFileBS fp
-              -- XXX: This is weird and smelly
               if BS.null bs
                 then pure Nothing
                 else case Aeson.eitherDecodeStrict' bs of
@@ -46,29 +49,32 @@ createPersistence _ fp = do
 
 -- | Handle to save incrementally and load files to/from disk using JSON encoding.
 data PersistenceIncremental a m = PersistenceIncremental
-  { loadAll :: FromJSON a => m [a]
-  , append :: ToJSON a => a -> m ()
+  { append :: ToJSON a => a -> m ()
+  , loadAll :: FromJSON a => m [a]
   }
 
 -- | Initialize persistence handle for given type 'a' at given file path.
-createPersistenceIncremental :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (PersistenceIncremental a m)
+createPersistenceIncremental ::
+  (MonadIO m, MonadThrow m) =>
+  Proxy a ->
+  FilePath ->
+  m (PersistenceIncremental a m)
 createPersistenceIncremental _ fp = do
   liftIO . createDirectoryIfMissing True $ takeDirectory fp
   pure $
     PersistenceIncremental
-      { loadAll =
+      { append = \a -> do
+          let bytes = toStrict $ Aeson.encode a <> "\n"
+          liftIO $ withBinaryFileDurable fp AppendMode (`BS.hPut` bytes)
+      , loadAll =
           liftIO (doesFileExist fp) >>= \case
             False -> pure []
             True -> do
               bs <- readFileBS fp
-              -- XXX: This is weird and smelly
-              if BS.null bs
-                then pure []
-                else do
-                  case forM (C8.lines bs) $ Aeson.eitherDecodeStrict' of
-                    Left e -> throwIO $ PersistenceException e
-                    Right decoded -> pure decoded
-      , append = \a -> do
-          let bytes = toStrict $ Aeson.encode a <> "\n"
-          liftIO $ withBinaryFileDurable fp AppendMode (`BS.hPut` bytes)
+              -- NOTE: We require the whole file to be loadable. It might
+              -- happen that the data written by 'append' is only there
+              -- partially and then this will fail (which we accept now).
+              case forM (C8.lines bs) Aeson.eitherDecodeStrict' of
+                Left e -> throwIO $ PersistenceException e
+                Right decoded -> pure decoded
       }
