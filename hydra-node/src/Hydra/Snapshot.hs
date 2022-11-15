@@ -38,6 +38,9 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) wher
     , confirmed' <- shrink (confirmed s)
     ]
 
+genSnapShot :: Gen SnapshotNumber
+genSnapShot = arbitrary
+
 -- | Binary representation of snapshot signatures
 -- TODO: document CDDL format, either here or on in 'Hydra.Contract.Head.verifyPartySignature'
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
@@ -70,7 +73,7 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Snapshot tx) where
 
 -- | A snapshot that can be used to close a head with. Either the initial one, or when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
-  = InitialSnapshot { initialUTxO :: UTxOType tx }
+  = InitialSnapshot {initialUTxO :: UTxOType tx}
   | ConfirmedSnapshot
       { snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
@@ -88,10 +91,10 @@ getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{initialUTxO} ->
     Snapshot
-    { number = 0
-    , utxo = initialUTxO
-    , confirmed = []
-    }
+      { number = 0
+      , utxo = initialUTxO
+      , confirmed = []
+      }
   ConfirmedSnapshot{snapshot} -> snapshot
 
 -- | Tell whether a snapshot is the initial snapshot coming from the collect-com

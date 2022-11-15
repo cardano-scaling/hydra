@@ -22,7 +22,7 @@ import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeWithSlotDifference, slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber, genSnapShot)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
@@ -92,9 +92,8 @@ healthyCloseUTxO =
   (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyUTxO))
     `generateWith` 42
 
--- TODO: generate arbitrary SnapshotNumber too?
 healthySnapshotNumber :: SnapshotNumber
-healthySnapshotNumber = 1
+healthySnapshotNumber = genSnapShot `generateWith` 42
 
 healthyCloseDatum :: Head.State
 healthyCloseDatum =
