@@ -16,6 +16,9 @@ changes.
   + Include the `chainState` in `InvalidStateToPost` errors.
   + Moved received transaction ids into `RolledForward` log message.
 
+- After restarting `hydra-node`, clients will receive the whole history now.  [#580](https://github.com/input-output-hk/hydra-poc/issues/580)
+  + This history will be kept as `server-output` state in `--persistence-dir`.
+
 - **BREAKING** Changed internal wallet logs to help with debugging [#600](https://github.com/input-output-hk/hydra-poc/pull/600)
   + Split `ApplyBlock` into `BeginUpdate` and `EndUpdate`
   + Split `InitializedWallet` into `BeginInitialize` and `EndInitialize`
