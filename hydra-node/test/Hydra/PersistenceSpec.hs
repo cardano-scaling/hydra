@@ -2,14 +2,14 @@
 
 module Hydra.PersistenceSpec where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Data.Aeson (Value (..))
 import qualified Data.Aeson as Aeson
 import qualified Data.Text as Text
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import Test.QuickCheck (collect, counterexample, elements, oneof, (===))
+import Test.QuickCheck (counterexample, elements, label, oneof, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
@@ -19,7 +19,7 @@ spec =
     it "is consistent after multiple append calls" $
       monadicIO $ do
         items :: [Aeson.Value] <- pick $ listOf genPersistenceItem
-        monitor (collect items)
+        monitor (label "foo")
         monitor (counterexample $ "items: " <> (show items))
         actualResult <- run $
           withTempDir "hydra-persistence" $ \tmpDir -> do
