@@ -1,5 +1,3 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-
 module Hydra.Persistence where
 
 import Hydra.Prelude

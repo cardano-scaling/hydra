@@ -1,17 +1,15 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-local-binds #-}
 
 module Hydra.JSONSchema where
 
 import Hydra.Prelude
 
-import Control.Lens (Traversal', at, to, (?~), (^..), (^?))
+import Control.Lens (Traversal', at, (?~), (^..))
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Lens (AsValue, key, _Array, _String)
+import Data.Aeson.Lens (key, _Array, _String)
 import Data.Char (isSpace)
 import Data.List (dropWhileEnd)
 import qualified Data.Map.Strict as Map
@@ -25,9 +23,8 @@ import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
 import System.IO.Error (IOError, ioeGetErrorType)
 import System.Process (readProcessWithExitCode)
-import Test.Hspec (pendingWith)
 import Test.Hydra.Prelude (createSystemTempDirectory, failure)
-import Test.QuickCheck (Property, conjoin, counterexample, forAllBlind, forAllShrink, vectorOf, withMaxSuccess)
+import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, vectorOf)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import qualified Prelude
 
