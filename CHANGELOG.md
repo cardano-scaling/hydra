@@ -18,6 +18,7 @@ changes.
 
 - After restarting `hydra-node`, clients will receive the whole history now.  [#580](https://github.com/input-output-hk/hydra-poc/issues/580)
   + This history will be kept as `server-output` state in `--persistence-dir`.
+  + Clients should use `Greetings` to identify the end of a restart/replay of events.
 
 - **BREAKING** Changed internal wallet logs to help with debugging [#600](https://github.com/input-output-hk/hydra-poc/pull/600)
   + Split `ApplyBlock` into `BeginUpdate` and `EndUpdate`
