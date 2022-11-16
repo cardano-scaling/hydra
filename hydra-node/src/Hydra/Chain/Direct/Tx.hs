@@ -305,14 +305,14 @@ closeTx ::
   VerificationKey PaymentKey ->
   -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
+  -- | 'Tx' validity lower bound
+  SlotNo ->
   -- | Current slot and UTC time to compute the contestation deadline time.
   PointInTime ->
-  -- | tx validity lower bound
-  SlotNo ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
   Tx
-closeTx vk closing (endSlotNo, utcTime) startSlotNo openThreadOutput =
+closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]

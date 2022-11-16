@@ -383,6 +383,7 @@ collect ctx st = do
 --  - 'SlotNo' parameter will be used as the 'Tx' lower bound.
 --  - 'PointInTime' parameter will be used as an upper validity bound and
 --       will define the start of the contestation period.
+-- NB: lower and upper bound slot difference should not exceed contestation period
 close ::
   ChainContext ->
   OpenState ->
@@ -393,7 +394,7 @@ close ::
   PointInTime ->
   Tx
 close ctx st confirmedSnapshot startSlotNo pointInTime =
-  closeTx ownVerificationKey closingSnapshot pointInTime startSlotNo openThreadOutput
+  closeTx ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput
  where
   closingSnapshot = case confirmedSnapshot of
     -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
