@@ -85,3 +85,20 @@ instance
     Greetings me -> Greetings <$> shrink me
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     RolledBack -> []
+
+data TimedServerOutput tx = TimedServerOutput
+  { output :: ServerOutput tx
+  , time :: UTCTime
+  -- slotNo in chain related outputs?
+  -- snapshotNo in chain related outputs?
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance
+  ( IsTx tx
+  , Arbitrary (ChainStateType tx)
+  ) =>
+  Arbitrary (TimedServerOutput tx)
+  where
+  arbitrary = genericArbitrary

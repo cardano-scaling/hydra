@@ -17,7 +17,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import qualified Data.Aeson as Aeson
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), input)
+import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), TimedServerOutput (..), input)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
@@ -36,7 +36,7 @@ spec = parallel $ do
           withClient port $ \conn -> do
             received <- receiveData conn
             case Aeson.eitherDecode received of
-              Right msg -> msg `shouldBe` greeting
+              Right TimedServerOutput{output = msg} -> msg `shouldBe` greeting
               Left{} -> failure $ "Failed to decode greeting " <> show received
 
   it "sends sendOutput to all connected clients" $ do
@@ -94,13 +94,14 @@ spec = parallel $ do
     monitor $ cover 100 (length msgs == 1) "only one message when reconnecting"
     monitor $ cover 100 (length msgs > 1) "more than one message when reconnecting"
     run . failAfter 5 $ do
-      withFreePort $ \port -> do
+      withFreePort $ \port ->
         withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
-          mapM_ sendOutput (msgs :: [ServerOutput SimpleTx])
+          mapM_ sendOutput $ output <$> (msgs :: [TimedServerOutput SimpleTx])
           withClient port $ \conn -> do
             received <- replicateM (length msgs + 1) (receiveData conn)
             case traverse Aeson.eitherDecode received of
-              Right msgs' -> msgs' `shouldBe` greeting : msgs
+              Right msgs' ->
+                (output <$> msgs') `shouldBe` greeting : (output <$> msgs)
               Left{} -> failure $ "Failed to decode messages " <> show msgs
 
   it "sends an error when input cannot be decoded" $
@@ -114,8 +115,8 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
       _greeting :: ByteString <- receiveData con
       sendBinaryData con invalidInput
       msg <- receiveData con
-      case Aeson.eitherDecode @(ServerOutput SimpleTx) msg of
-        Right resp -> resp `shouldSatisfy` isInvalidInput
+      case Aeson.eitherDecode @(TimedServerOutput SimpleTx) msg of
+        Right TimedServerOutput{output = resp} -> resp `shouldSatisfy` isInvalidInput
         Left{} -> failure $ "Failed to decode output " <> show msg
  where
   invalidInput = "not a valid message"
@@ -136,7 +137,7 @@ testClient queue semaphore cnx = do
   atomically $ modifyTVar' semaphore (+ 1)
   msg <- receiveData cnx
   case Aeson.eitherDecode msg of
-    Right resp -> do
+    Right TimedServerOutput{output = resp} -> do
       atomically (writeTQueue queue resp)
       testClient queue semaphore cnx
     Left{} -> failure $ "Failed to decode message " <> show msg

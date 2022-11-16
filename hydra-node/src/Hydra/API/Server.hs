@@ -18,7 +18,7 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput))
+import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..))
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
@@ -70,7 +70,7 @@ withAPIServer ::
   IP ->
   PortNumber ->
   Party ->
-  PersistenceIncremental (ServerOutput tx) IO ->
+  PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
@@ -83,15 +83,19 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   -- list in memory but in order on disk
   history <- newTVarIO (reverse h)
 
-  appendToHistory history $ Greetings party
+  now <- getCurrentTime
+  let greetings = TimedServerOutput{output = Greetings party, time = now}
+  appendToHistory history greetings
   race_
     (runAPIServer host port tracer history callback responseChannel)
     . action
     $ Server
       { sendOutput = \output -> do
-          appendToHistory history output
+          now' <- getCurrentTime
+          let timedOutput = TimedServerOutput{output, time = now'}
+          appendToHistory history timedOutput
           atomically $
-            writeTChan responseChannel output
+            writeTChan responseChannel timedOutput
       }
  where
   appendToHistory history event = do
@@ -105,9 +109,9 @@ runAPIServer ::
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->
-  TVar [ServerOutput tx] ->
+  TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
-  TChan (ServerOutput tx) ->
+  TChan (TimedServerOutput tx) ->
   IO ()
 runAPIServer host port tracer history callback responseChannel = do
   traceWith tracer (APIServerStarted port)
@@ -144,7 +148,9 @@ runAPIServer host port tracer history callback responseChannel = do
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
         -- message to memory
         let clientInput = decodeUtf8With lenientDecode $ toStrict msg
-        sendTextData con $ Aeson.encode $ InvalidInput @tx e clientInput
+        now' <- getCurrentTime
+        let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time = now'}
+        sendTextData con $ Aeson.encode timedOutput
         traceWith tracer (APIInvalidInput e clientInput)
 
   forwardHistory con = do
