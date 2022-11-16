@@ -159,7 +159,6 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
       { txIns = map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) [txin]
       , txOuts = outs
       , txFee = TxFeeExplicit fee
-      , txValidityRange = (TxValidityLowerBound 0, TxValidityUpperBound 1)
       }
 
   outs =
