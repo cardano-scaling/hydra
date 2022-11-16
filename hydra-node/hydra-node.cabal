@@ -333,8 +333,8 @@ test-suite tests
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
-    , io-classes
-    , io-sim
+    , io-classes                        <0.3.0.0
+    , io-sim                            <0.3.0.0
     , iproute
     , lens
     , lens-aeson

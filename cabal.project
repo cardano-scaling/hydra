@@ -11,8 +11,14 @@ repository cardano-haskell-packages
     d4a35cd3121aa00d18544bb0ac01c3e1691d618f462c46129271bccf39f7e8ee
 
 -- See CONTRIBUTING.md for information about when and how to update these.
+
+-- NOTE: We need to have the hackage index-state twice because of
+-- cabal/haskell.nix oddities. That is, cabal ignores this one
 index-state: 2022-10-21T00:00:00Z
-index-state: cardano-haskell-packages 2022-10-21T00:00:00Z
+index-state:
+  -- while haskell.nix, ignores this one
+  , hackage.haskell.org 2022-10-21T00:00:00Z
+  , cardano-haskell-packages 2022-11-16T00:00:00Z
 
 packages:
   hydra-cluster
