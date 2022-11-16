@@ -54,19 +54,23 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialize,
   observeSomeTx,
+  openThreadOutput,
  )
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (..), slotFromUTCTime')
+import Hydra.Chain.Direct.Tx (openContestationPeriod)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
  )
+import Hydra.Data.ContestationPeriod (ContestationPeriod (milliseconds), posixToUTCTime)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..), blockPoint)
 import Plutus.Orphans ()
+import Plutus.V1.Ledger.Time (fromMilliSeconds)
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
@@ -244,7 +248,7 @@ fromPostChainTx ::
   PostChainTx Tx ->
   STM m Tx
 fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
-  pointInTime@(startSlotNo, _) <- throwLeft currentPointInTime
+  pointInTime@(endSlotNo, _) <- throwLeft currentPointInTime
   case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
@@ -270,7 +274,15 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
       pure $ collect ctx st
     (CloseTx{confirmedSnapshot}, Open st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      -- REVIEW: what do we use for lower bound slot here?
+      contestationPeriodInSlots <-
+        throwLeft $
+          slotFromUTCTime'
+            . posixToUTCTime
+            . fromMilliSeconds
+            . milliseconds
+            . openContestationPeriod
+            $ openThreadOutput st
+      let startSlotNo = endSlotNo - contestationPeriodInSlots
       pure (close ctx st confirmedSnapshot shifted startSlotNo)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
