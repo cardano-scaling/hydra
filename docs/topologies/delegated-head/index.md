@@ -16,7 +16,7 @@ A _Delegated Hydra Head Network_ comprises the following type of actors:
 
 <p align="center">
   <img
-    src={require('./custodial-head.png').default}
+    src={require('./delegated-head.png').default}
     alt="Delegated Hydra Head"
     height={400}
   />
