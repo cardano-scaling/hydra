@@ -95,7 +95,9 @@ mkTimeHandle now systemStart eraHistory = do
   (EraHistory _ interpreter) = eraHistory
 
 -- | Query node for system start and era history before constructing a
--- 'TimeHandle' using 'getCurrentTime'.
+-- 'TimeHandle' using 'getCurrentTime'. i.e. it will be using the wall clock
+-- time as the "current" point in time. NOTE: This is different to what the node
+-- currently sees as current (a.k.a. the tip).
 queryTimeHandle :: NetworkId -> FilePath -> IO TimeHandle
 queryTimeHandle networkId socketPath = do
   tip <- queryTip networkId socketPath
