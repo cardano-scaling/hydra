@@ -208,7 +208,7 @@ computeFanOutCost = do
     snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     (startSlot, closePoint) <- genPointInTimeWithSlotDifference 42
-    let closeTx = close cctx stOpen snapshot closePoint startSlot
+    let closeTx = close cctx stOpen snapshot startSlot closePoint
     let stClosed = snd . fromJust $ observeClose stOpen closeTx
     let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
     pure (getKnownUTxO stClosed, fanout stClosed utxo deadlineSlotNo)

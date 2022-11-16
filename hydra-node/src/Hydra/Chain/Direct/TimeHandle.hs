@@ -68,31 +68,31 @@ mkTimeHandle ::
 mkTimeHandle now systemStart eraHistory = do
   TimeHandle
     { currentPointInTime = do
-        currentSlotNo <- slotFromUTCTime' now
-        pt <- slotToUTCTime' currentSlotNo
+        currentSlotNo <- slotFromUTCTime now
+        pt <- slotToUTCTime currentSlotNo
         pure (currentSlotNo, pt)
-    , slotFromUTCTime = slotFromUTCTime'
-    , slotToUTCTime = slotToUTCTime'
+    , slotFromUTCTime
+    , slotToUTCTime
     , adjustPointInTime = \n (slot, _) -> do
         let adjusted = slot + n
         time <- slotToUTCTime adjusted
         pure (adjusted, time)
     }
  where
+  slotToUTCTime :: HasCallStack => SlotNo -> Either Text UTCTime
+  slotToUTCTime slot =
+    case interpretQuery interpreter (slotToWallclock slot) of
+      Left pastHorizonEx -> Left $ show pastHorizonEx
+      Right (relativeTime, _slotLength) -> pure $ fromRelativeTime systemStart relativeTime
+
+  slotFromUTCTime :: HasCallStack => UTCTime -> Either Text SlotNo
+  slotFromUTCTime utcTime = do
+    let relativeTime = toRelativeTime systemStart utcTime
+    case interpretQuery interpreter (wallclockToSlot relativeTime) of
+      Left pastHorizonEx -> Left $ show pastHorizonEx
+      Right (slotNo, _timeSpentInSlot, _timeLeftInSlot) -> pure slotNo
+
   (EraHistory _ interpreter) = eraHistory
-
-slotToUTCTime' :: HasCallStack => SlotNo -> Either Text UTCTime
-slotToUTCTime' slot =
-  case interpretQuery interpreter (slotToWallclock slot) of
-    Left pastHorizonEx -> Left $ show pastHorizonEx
-    Right (relativeTime, _slotLength) -> pure $ fromRelativeTime systemStart relativeTime
-
-slotFromUTCTime' :: HasCallStack => UTCTime -> Either Text SlotNo
-slotFromUTCTime' utcTime = do
-  let relativeTime = toRelativeTime systemStart utcTime
-  case interpretQuery interpreter (wallclockToSlot relativeTime) of
-    Left pastHorizonEx -> Left $ show pastHorizonEx
-    Right (slotNo, _timeSpentInSlot, _timeLeftInSlot) -> pure slotNo
 
 -- | Query node for system start and era history before constructing a
 -- 'TimeHandle' using 'getCurrentTime'. i.e. it will be using the wall clock

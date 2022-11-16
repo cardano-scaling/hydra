@@ -56,7 +56,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
   openThreadOutput,
  )
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (..), slotFromUTCTime')
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Tx (openContestationPeriod)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Chain.Direct.Wallet (
@@ -275,15 +275,15 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
     (CloseTx{confirmedSnapshot}, Open st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       contestationPeriodInSlots <-
-        throwLeft $
-          slotFromUTCTime'
-            . posixToUTCTime
-            . fromMilliSeconds
-            . milliseconds
-            . openContestationPeriod
-            $ openThreadOutput st
+        throwLeft
+          . slotFromUTCTime
+          . posixToUTCTime
+          . fromMilliSeconds
+          . milliseconds
+          . openContestationPeriod
+          $ openThreadOutput st
       let startSlotNo = endSlotNo - contestationPeriodInSlots
-      pure (close ctx st confirmedSnapshot shifted startSlotNo)
+      pure (close ctx st confirmedSnapshot startSlotNo shifted)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (contest ctx st confirmedSnapshot shifted)

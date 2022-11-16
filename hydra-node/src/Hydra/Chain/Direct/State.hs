@@ -379,16 +379,20 @@ collect ctx st = do
   tripleToPair (a, b, c) = (a, (b, c))
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
--- snapshot. The given 'PointInTime' will be used as an upper validity bound and
--- will define the start of the contestation period.
+-- snapshot.
+--  - 'SlotNo' parameter will be used as the 'Tx' lower bound.
+--  - 'PointInTime' parameter will be used as an upper validity bound and
+--       will define the start of the contestation period.
 close ::
   ChainContext ->
   OpenState ->
   ConfirmedSnapshot Tx ->
-  PointInTime ->
+  -- | 'Tx' validity lower bound
   SlotNo ->
+  -- | 'Tx' validity upper bound
+  PointInTime ->
   Tx
-close ctx st confirmedSnapshot pointInTime startSlotNo =
+close ctx st confirmedSnapshot startSlotNo pointInTime =
   closeTx ownVerificationKey closingSnapshot pointInTime startSlotNo openThreadOutput
  where
   closingSnapshot = case confirmedSnapshot of
@@ -838,7 +842,7 @@ genCloseTx numParties = do
   cctx <- pickChainContext ctx
   (startSlot, pointInTime) <- genPointInTimeWithSlotDifference 20
   -- XXX: The difference between startSlot and pointInTime needs to be < contestationPeriod
-  pure (cctx, stOpen, close cctx stOpen snapshot pointInTime startSlot, snapshot)
+  pure (cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
@@ -847,7 +851,7 @@ genContestTx = do
   confirmed <- genConfirmedSnapshot 0 u0 []
   cctx <- pickChainContext ctx
   (startSlot, closePointInTime) <- genPointInTimeWithSlotDifference 20
-  let txClose = close cctx stOpen confirmed closePointInTime startSlot
+  let txClose = close cctx stOpen confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
@@ -901,7 +905,7 @@ genStClosed ctx utxo = do
           )
   cctx <- pickChainContext ctx
   (startSlot, pointInTime) <- genPointInTimeWithSlotDifference 20
-  let txClose = close cctx stOpen snapshot pointInTime startSlot
+  let txClose = close cctx stOpen snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 -- ** Danger zone
 
