@@ -837,6 +837,7 @@ genCloseTx numParties = do
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   (startSlot, pointInTime) <- genPointInTimeWithSlotDifference 20
+  -- XXX: The diffrence between startSlot and pointInTime needs to be < contestationPeriod
   pure (cctx, stOpen, close cctx stOpen snapshot pointInTime startSlot, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
