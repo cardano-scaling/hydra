@@ -27,7 +27,6 @@ import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
-import Test.QuickCheck.Instances ()
 
 --
 -- CloseTx
@@ -41,8 +40,8 @@ healthyCloseTx =
     closeTx
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
-      pointInTime
       startSlot
+      pointInTime
       openThreadOutput
 
   headInput = generateWith arbitrary 42
@@ -50,7 +49,7 @@ healthyCloseTx =
   -- since if tx validity bound difference is bigger than contestation period our close validator
   -- will fail
   (startSlot, pointInTime) =
-    genPointInTimeWithSlotDifference (fromIntegral genContestationPeriodSeconds) `generateWith` 42
+    genPointInTimeWithSlotDifference (fromIntegral healthyContestationPeriodSeconds) `generateWith` 42
   headResolvedInput =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum
       & addParticipationTokens healthyParties
@@ -74,15 +73,15 @@ healthyCloseUpperBoundSlotNo = arbitrary `generateWith` 42
 healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =
   CloseWithConfirmedSnapshot
-    { snapshotNumber = genSnapshotNumber
+    { snapshotNumber = healthySnapshotNumber
     , closeUtxoHash = UTxOHash $ hashUTxO @Tx healthyCloseUTxO
-    , signatures = healthySignature genSnapshotNumber
+    , signatures = healthySignature healthySnapshotNumber
     }
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
   Snapshot
-    { number = genSnapshotNumber
+    { number = healthySnapshotNumber
     , utxo = healthyCloseUTxO
     , confirmed = []
     }
@@ -92,8 +91,8 @@ healthyCloseUTxO =
   (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyUTxO))
     `generateWith` 42
 
-genSnapshotNumber :: SnapshotNumber
-genSnapshotNumber = genSnapShot `generateWith` 42
+healthySnapshotNumber :: SnapshotNumber
+healthySnapshotNumber = genSnapShot `generateWith` 42
 
 healthyCloseDatum :: Head.State
 healthyCloseDatum =
@@ -104,12 +103,12 @@ healthyCloseDatum =
     }
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
-healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger genContestationPeriodSeconds
+healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
 
 -- NB: We don't want to wait too long for contestation period to pass
 -- so constraining this to < 100
-genContestationPeriodSeconds :: Integer
-genContestationPeriodSeconds = arbitrary `suchThat` (< 100) `generateWith` 42
+healthyContestationPeriodSeconds :: Integer
+healthyContestationPeriodSeconds = arbitrary `suchThat` (< 100) `generateWith` 42
 
 healthyUTxO :: UTxO
 healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
@@ -160,8 +159,8 @@ genCloseMutation (tx, _utxo) =
     [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         closeRedeemer (number healthySnapshot) <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
     , SomeMutation MutateSnapshotNumberButNotSignature . ChangeHeadRedeemer <$> do
-        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= genSnapshotNumber && n > 0)
-        pure (closeRedeemer mutatedSnapshotNumber $ healthySignature genSnapshotNumber)
+        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
+        pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
     , SomeMutation MutateSnapshotToIllFormedValue . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
         let mutatedSignature =
@@ -192,9 +191,9 @@ genCloseMutation (tx, _utxo) =
     , SomeMutation MutateUpperValidityToBeFarInTheFuture <$> do
         muchGreaterThanContestationPeriod <-
           SlotNo . fromIntegral
-            <$> arbitrary `suchThat` (> genContestationPeriodSeconds)
+            <$> arbitrary `suchThat` (> healthyContestationPeriodSeconds)
         let mutatedUpperBound = healthyCloseUpperBoundSlotNo + muchGreaterThanContestationPeriod
-            deadlineUTCTime = addUTCTime (fromInteger genContestationPeriodSeconds) (slotNoToUTCTime mutatedUpperBound)
+            deadlineUTCTime = addUTCTime (fromInteger healthyContestationPeriodSeconds) (slotNoToUTCTime mutatedUpperBound)
         let doMutation = \case
               Head.Closed{snapshotNumber, utxoHash, parties} ->
                 Head.Closed
@@ -239,7 +238,7 @@ genCloseMutation (tx, _utxo) =
   mutateClosedContestationDeadline = do
     -- NOTE: we need to be sure the generated contestation period is large enough to have an impact on the on-chain
     -- deadline computation, which means having a resolution of seconds instead of the default picoseconds
-    contestationPeriodSeconds <- arbitrary @Integer `suchThat` (/= genContestationPeriodSeconds)
+    contestationPeriodSeconds <- arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds)
     pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
 
   mutateContestationDeadline contestationPeriod = \case
