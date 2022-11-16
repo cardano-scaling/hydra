@@ -86,7 +86,7 @@ import Hydra.Chain.Direct.Tx (
   observeFanoutTx,
   observeInitTx,
  )
-import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromChain)
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
@@ -840,8 +840,9 @@ genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen) <- genStOpen ctx
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
+  let deadlineSlotNo = getOpenContestationDeadlineInSlots stOpen
   cctx <- pickChainContext ctx
-  (startSlot, pointInTime) <- genPointInTimeWithSlotDifference 20
+  (startSlot, pointInTime) <- genPointInTimeWithSlotDifference deadlineSlotNo
   -- XXX: The difference between startSlot and pointInTime needs to be < contestationPeriod
   pure (cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
 
@@ -856,7 +857,7 @@ genContestTx = do
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
-  contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+  contestPointInTime <- genPointInTimeBefore (getCloseContestationDeadline stClosed)
   pure (ctx, closePointInTime, stClosed, contest cctx stClosed contestSnapshot contestPointInTime)
 
 genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
@@ -864,13 +865,19 @@ genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
   utxo <- genUTxOAdaOnlyOfSize numOutputs
   (_, toFanout, stClosed) <- genStClosed ctx utxo
-  let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
+  let deadlineSlotNo = slotNoFromUTCTime (getCloseContestationDeadline stClosed)
   pure (ctx, stClosed, fanout stClosed toFanout deadlineSlotNo)
 
-getContestationDeadline :: ClosedState -> UTCTime
-getContestationDeadline
+getCloseContestationDeadline :: ClosedState -> UTCTime
+getCloseContestationDeadline
   ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
     posixToUTCTime closedContestationDeadline
+
+getOpenContestationDeadlineInSlots :: OpenState -> Word64
+getOpenContestationDeadlineInSlots
+  OpenState{openThreadOutput = OpenThreadOutput{openContestationPeriod}} =
+    let UnsafeContestationPeriod slots = fromChain openContestationPeriod
+     in fromIntegral slots
 
 genStOpen ::
   HydraContext ->

@@ -263,11 +263,13 @@ genPointInTime = do
   let time = slotNoToUTCTime slot
   pure (slot, time)
 
+-- | Parameter here is the contestation period (cp) so we need to generate
+-- start (tMin) and end (tMax) tx validity bound such that `tMax - tMin <= cp`
 genPointInTimeWithSlotDifference :: Word64 -> Gen (SlotNo, (SlotNo, UTCTime))
 genPointInTimeWithSlotDifference i = do
-  endSlot <- SlotNo <$> arbitrary `suchThat` (> i)
+  startSlot@(SlotNo start) <- SlotNo <$> arbitrary
+  endSlot <- SlotNo <$> arbitrary `suchThat` (\a -> a < start + i)
   let time = slotNoToUTCTime endSlot
-      startSlot = endSlot - SlotNo i
   pure (startSlot, (endSlot, time))
 
 genPointInTimeBefore :: UTCTime -> Gen (SlotNo, UTCTime)

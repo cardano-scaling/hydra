@@ -4,6 +4,7 @@ import Hydra.Prelude hiding (catch)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
+import Cardano.Ledger.Slot (SlotNo (SlotNo))
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -32,8 +33,9 @@ import Hydra.Chain.Direct.State (
   genStClosed,
   genStInitial,
   genStOpen,
-  getContestationDeadline,
+  getCloseContestationDeadline,
   getKnownUTxO,
+  getOpenContestationDeadlineInSlots,
   initialize,
   observeClose,
   pickChainContext,
@@ -161,7 +163,7 @@ computeContestCost = do
     (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
     cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
-    pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+    pointInTime <- genPointInTimeBefore (getCloseContestationDeadline stClosed)
     pure (stClosed, contest cctx stClosed snapshot pointInTime)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
@@ -207,10 +209,11 @@ computeFanOutCost = do
     (_committed, stOpen) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
-    (startSlot, closePoint) <- genPointInTimeWithSlotDifference 42
+    let closeDeadlineSlot = getOpenContestationDeadlineInSlots stOpen
+    (startSlot, closePoint) <- genPointInTimeWithSlotDifference closeDeadlineSlot
     let closeTx = close cctx stOpen snapshot startSlot closePoint
     let stClosed = snd . fromJust $ observeClose stOpen closeTx
-    let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
+    let deadlineSlotNo = slotNoFromUTCTime (getCloseContestationDeadline stClosed)
     pure (getKnownUTxO stClosed, fanout stClosed utxo deadlineSlotNo)
 
 newtype NumParties = NumParties Int
