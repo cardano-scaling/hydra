@@ -30,7 +30,7 @@ Operator nodes hold the _Hydra keys_ used by the protocol to sign snapshots, and
 
 ## Use Cases
 
-This deployment model has the undesirable property of requiring trust from clients to operators and custodianship of funds committed to the Head. In effect, it's a simple way to create a _Side-chain-a-la-carte_ with the _Operators_ being responsible for its safety and liveness.
+This deployment model has the undesirable property of requiring trust from clients to operators and custodianship of funds committed to the Head. In effect, it's a simple way to create a _Side-chain-a-la-carte_ with the _Operators_ being responsible for its safety and liveness. Such "alternative chains" can be easily created and deployed in an ad-hoc way without requiring the complexity associated with "classic" Side-chains.
 
 This deployment model could be interesting in scenarios where:
 
