@@ -106,12 +106,13 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
     append timedOutput
     pure timedOutput
 
-  nextSequenceNumber h = do
-    historyList <- readTVar h
-    pure $
-      case historyList of
-        [] -> 0
-        (TimedServerOutput{seq} : _) -> seq + 1
+nextSequenceNumber :: TVar [TimedServerOutput tx] -> STM.STM Natural
+nextSequenceNumber history = do
+  historyList <- readTVar history
+  pure $
+    case historyList of
+      [] -> 0
+      (TimedServerOutput{seq} : _) -> seq + 1
 
 runAPIServer ::
   forall tx.
@@ -158,8 +159,9 @@ runAPIServer host port tracer history callback responseChannel = do
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
         -- message to memory
         let clientInput = decodeUtf8With lenientDecode $ toStrict msg
-        now' <- getCurrentTime
-        let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time = now'}
+        time <- getCurrentTime
+        seq <- atomically $ nextSequenceNumber history
+        let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time, seq}
         sendTextData con $ Aeson.encode timedOutput
         traceWith tracer (APIInvalidInput e clientInput)
 
