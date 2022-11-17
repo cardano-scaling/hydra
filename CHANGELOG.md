@@ -15,6 +15,7 @@ changes.
   + The `chainState` does not include read-only chain context information anymore (is smaller now).
   + Include the `chainState` in `InvalidStateToPost` errors.
   + Moved received transaction ids into `RolledForward` log message.
+  + Reduce log size by removing ChainContext. [#598](https://github.com/input-output-hk/hydra-poc/issues/598)
 
 - **BREAKING** Changed internal wallet logs to help with debugging [#600](https://github.com/input-output-hk/hydra-poc/pull/600)
   + Split `ApplyBlock` into `BeginUpdate` and `EndUpdate`
@@ -24,11 +25,9 @@ changes.
   + This history will be stored in the `server-output` file in `--persistence-dir`.
   + Clients should use `Greetings` to identify the end of a [restart/replay of events](https://hydra.family/head-protocol/core-concepts/behavior#replay-of-past-server-outputs).
 
-- *Fixes and Improvements* about persistency in `hydra-node`:
-  + Store the L1 point in state to catch-up on restart. [599](https://github.com/input-output-hk/hydra-poc/issues/599)
-  + Reduce log size by removing ChainContext. [#598](https://github.com/input-output-hk/hydra-poc/issues/598)
+- Fixed observing the chain for Hydra L1 transactions after restart. [599](https://github.com/input-output-hk/hydra-poc/issues/599)
 
-- hydra-cardano-api now published in [iohk hackage instance](https://input-output-hk.github.io/cardano-haskell-packages/package/hydra-cardano-api-0.8.0/). [#504](https://github.com/input-output-hk/hydra-poc/issues/504)
+- `hydra-cardano-api` now published on [Cardano Haskell Packages (CHaP)](https://input-output-hk.github.io/cardano-haskell-packages/package/hydra-cardano-api-0.8.0/). [#504](https://github.com/input-output-hk/hydra-poc/issues/504)
 
 ## [0.8.0] - 2022-10-27
 
