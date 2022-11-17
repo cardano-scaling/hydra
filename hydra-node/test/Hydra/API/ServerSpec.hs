@@ -20,6 +20,7 @@ import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), input)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
+import Hydra.Persistence (PersistenceIncremental (..))
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
@@ -30,8 +31,8 @@ spec :: Spec
 spec = parallel $ do
   it "greets" $ do
     failAfter 5 $
-      withFreePort $ \port ->
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice nullTracer noop $ \_ -> do
+      withFreePort $ \port -> do
+        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \_ -> do
           withClient port $ \conn -> do
             received <- receiveData conn
             case Aeson.eitherDecode received of
@@ -41,8 +42,8 @@ spec = parallel $ do
   it "sends sendOutput to all connected clients" $ do
     queue <- atomically newTQueue
     showLogsOnFailure $ \tracer -> failAfter 5 $
-      withFreePort $ \port ->
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice tracer noop $ \Server{sendOutput} -> do
+      withFreePort $ \port -> do
+        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence tracer noop $ \Server{sendOutput} -> do
           semaphore <- newTVarIO 0
           withAsync
             ( concurrently_
@@ -62,8 +63,8 @@ spec = parallel $ do
     monitor $ cover 100 (length msgs == 1) "only one message when reconnecting"
     monitor $ cover 100 (length msgs > 1) "more than one message when reconnecting"
     run . failAfter 5 $ do
-      withFreePort $ \port ->
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice nullTracer noop $ \Server{sendOutput} -> do
+      withFreePort $ \port -> do
+        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
           mapM_ sendOutput (msgs :: [ServerOutput SimpleTx])
           withClient port $ \conn -> do
             received <- replicateM (length msgs + 1) (receiveData conn)
@@ -77,7 +78,7 @@ spec = parallel $ do
 
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
-  withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice nullTracer noop $ \_server -> do
+  withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \_server -> do
     withClient port $ \con -> do
       _greeting :: ByteString <- receiveData con
       sendBinaryData con invalidInput
@@ -117,3 +118,11 @@ withClient port action = do
   failAfter 5 retry
  where
   retry = runClient "127.0.0.1" port "/" action `catch` \(_ :: IOException) -> retry
+
+-- | Mocked persistence handle which just does nothing.
+mockPersistence :: Applicative m => PersistenceIncremental a m
+mockPersistence =
+  PersistenceIncremental
+    { append = \_ -> pure ()
+    , loadAll = pure []
+    }

@@ -73,6 +73,9 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
       output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
 
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+    -- Also expect to see past server outputs replayed
+    waitFor tracer 10 [n1] $
+      output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
     send n1 $ input "Abort" []
     waitFor tracer 10 [n1] $
       output "HeadIsAborted" ["utxo" .= object mempty]

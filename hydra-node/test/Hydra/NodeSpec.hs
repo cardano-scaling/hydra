@@ -34,13 +34,13 @@ import Hydra.Node (
   EventQueue (..),
   HydraNode (..),
   HydraNodeLog,
-  Persistence (Persistence, load, save),
   createEventQueue,
   createNodeState,
   isEmpty,
   stepHydraNode,
  )
 import Hydra.Party (Party, deriveParty)
+import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 

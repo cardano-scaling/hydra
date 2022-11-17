@@ -31,10 +31,8 @@ import Hydra.Node (
   EventQueue (..),
   HydraNode (..),
   NodeState (..),
-  Persistence (load),
   createEventQueue,
   createNodeState,
-  createPersistence,
   initEnvironment,
   runHydraNode,
  )
@@ -47,6 +45,7 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
+import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
 
 main :: IO ()
 main = do
@@ -67,7 +66,7 @@ main = do
         eq <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         -- Load state from persistence or create new one
-        persistence <- createPersistence Proxy $ persistenceDir <> "/state"
+        persistence <- createPersistence $ persistenceDir <> "/state"
         hs <-
           load persistence >>= \case
             Nothing -> do
@@ -83,7 +82,9 @@ main = do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
-            withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
+
+            apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig $ \ledger ->
                 runHydraNode (contramap Node tracer) $

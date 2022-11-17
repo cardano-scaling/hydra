@@ -23,6 +23,7 @@ import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
+import Hydra.Persistence (PersistenceIncremental (..))
 import Network.WebSockets (
   acceptRequest,
   receiveData,
@@ -69,18 +70,25 @@ withAPIServer ::
   IP ->
   PortNumber ->
   Party ->
+  PersistenceIncremental (ServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   ServerComponent tx IO ()
-withAPIServer host port party tracer callback action = do
+withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
   responseChannel <- newBroadcastTChanIO
-  history <- newTVarIO [Greetings party]
+  h <- loadAll
+  -- NOTE: We will add a 'Greetings' message on each API server start. This is
+  -- important to make sure the latest configured 'party' is reaching the
+  -- client.
+  history <- newTVarIO (Greetings party : h)
   race_
     (runAPIServer host port tracer history callback responseChannel)
     . action
     $ Server
-      { sendOutput = \output -> atomically $ do
-          modifyTVar' history (output :)
-          writeTChan responseChannel output
+      { sendOutput = \output -> do
+          append output
+          atomically $ do
+            modifyTVar' history (output :)
+            writeTChan responseChannel output
       }
 
 runAPIServer ::

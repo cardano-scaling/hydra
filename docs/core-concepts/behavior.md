@@ -16,3 +16,6 @@ Not pictured is the `CommandFailed` output, which is implicit emitted whenever a
 
 A special case is the `RolledBack` output. This means that the chain rolled back, but it includes no particular information in which state the Hydra Head is now. Frankly, this is quite hard to use - we will improve on this!, but should not invalidate any of the behavioral rules.
 
+## Replay of past server outputs
+
+When a `hydra-node` restarts, it will load it's history from persistence and replay previous server outputs to enable clients to re-establish their state upon re-connection. If that happens, obviously some of these outputs are not relevant anymore. One example of this is the `PeerConnected` and `PeerDisconnected`. To make it possible to determine the end of replayed history, client applications can use the `Greetings`, which will be emitted on every `hydra-node` start. See the `hydra-tui` example client for how this is handled.
