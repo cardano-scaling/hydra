@@ -22,7 +22,7 @@ import Plutus.V2.Ledger.Api (
   Interval (..),
   LowerBound (LowerBound),
   OutputDatum (..),
-  POSIXTime (getPOSIXTime),
+  POSIXTime,
   PubKeyHash (getPubKeyHash),
   Script,
   ScriptContext (..),
@@ -280,7 +280,7 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
     && checkSnapshot
     && mustBeSignedByParticipant ctx headContext
  where
-  hasBoundedValidity = traceError ("CP: " <> debugInteger cpDebug <> " tMax : " <> debugInteger (getPOSIXTime tMax) <> " tMin: " <> debugInteger (getPOSIXTime tMin)) $ tMax - tMin <= cp
+  hasBoundedValidity = traceError "hasBoundedValidity check failed" $ tMax - tMin <= cp
 
   checkSnapshot
     | snapshotNumber == 0 =
@@ -305,7 +305,6 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
     | otherwise = traceError "negative snapshot number"
 
   cp = fromMilliSeconds (milliseconds cperiod)
-  (DiffMilliSeconds cpDebug) = milliseconds cperiod
 
   tMax = case ivTo $ txInfoValidRange txInfo of
     UpperBound (Finite t) _ -> t
@@ -317,24 +316,6 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
-
--- | Show an 'Integer' as decimal number. This is very inefficient and only
--- should be used for debugging.
-debugInteger :: Integer -> BuiltinString
-debugInteger i
-  | i == 0 = "0"
-  | i == 1 = "1"
-  | i == 2 = "2"
-  | i == 3 = "3"
-  | i == 4 = "4"
-  | i == 5 = "5"
-  | i == 6 = "6"
-  | i == 7 = "7"
-  | i == 8 = "8"
-  | i == 9 = "9"
-  | i >= 10 = debugInteger (i `quotient` 10) `appendString` "0"
-  | otherwise = "-" `appendString` debugInteger (negate i)
-{-# INLINEABLE debugInteger #-}
 
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =

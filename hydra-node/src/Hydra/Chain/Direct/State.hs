@@ -91,7 +91,7 @@ import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genPointInTimeWithSlotDifference, slotNoFromUTCTime)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genSlotWithPointInTimeFromCP, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (
@@ -842,7 +842,7 @@ genCloseTx numParties = do
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
   let deadlineSlotNo = getOpenContestationDeadlineInSlots stOpen
   cctx <- pickChainContext ctx
-  (startSlot, pointInTime) <- genPointInTimeWithSlotDifference deadlineSlotNo
+  (startSlot, pointInTime) <- genSlotWithPointInTimeFromCP deadlineSlotNo
   -- XXX: The difference between startSlot and pointInTime needs to be < contestationPeriod
   pure (cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
 
@@ -852,7 +852,7 @@ genContestTx = do
   (u0, stOpen) <- genStOpen ctx
   confirmed <- genConfirmedSnapshot 0 u0 []
   cctx <- pickChainContext ctx
-  (startSlot, closePointInTime) <- genPointInTimeWithSlotDifference 20
+  (startSlot, closePointInTime) <- genSlotWithPointInTimeFromCP 20
   let txClose = close cctx stOpen confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
@@ -873,6 +873,7 @@ getCloseContestationDeadline
   ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
     posixToUTCTime closedContestationDeadline
 
+-- | NB: Slot number returned here is still using the _on-chain_ 'OnChain.ContestationPeriod'
 getOpenContestationDeadlineInSlots :: OpenState -> Word64
 getOpenContestationDeadlineInSlots
   OpenState{openThreadOutput = OpenThreadOutput{openContestationPeriod}} =
@@ -912,7 +913,7 @@ genStClosed ctx utxo = do
           , utxo
           )
   cctx <- pickChainContext ctx
-  (startSlot, pointInTime) <- genPointInTimeWithSlotDifference 20
+  (startSlot, pointInTime) <- genSlotWithPointInTimeFromCP 20
   let txClose = close cctx stOpen snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 -- ** Danger zone

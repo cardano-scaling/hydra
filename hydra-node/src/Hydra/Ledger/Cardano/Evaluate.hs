@@ -70,7 +70,8 @@ import Ouroboros.Consensus.HardFork.History (
  )
 import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
-import Test.QuickCheck (choose, suchThat)
+import Test.QuickCheck (choose)
+import Test.QuickCheck.Gen (chooseWord64)
 
 -- | Thin wrapper around 'evaluateTransactionExecutionUnits', which uses
 -- fixtures for system start, era history and protocol parameters. See
@@ -264,11 +265,13 @@ genPointInTime = do
   pure (slot, time)
 
 -- | Parameter here is the contestation period (cp) so we need to generate
--- start (tMin) and end (tMax) tx validity bound such that `tMax - tMin <= cp`
-genPointInTimeWithSlotDifference :: Word64 -> Gen (SlotNo, (SlotNo, UTCTime))
-genPointInTimeWithSlotDifference i = do
+-- start (tMin) and end (tMax) tx validity bound such that their difference
+-- is not higher than the cp
+genSlotWithPointInTimeFromCP :: Word64 -> Gen (SlotNo, (SlotNo, UTCTime))
+genSlotWithPointInTimeFromCP i = do
   startSlot@(SlotNo start) <- SlotNo <$> arbitrary
-  endSlot <- SlotNo <$> arbitrary `suchThat` (\a -> a < start + i)
+  let end = start + (abs $ i - 1)
+  endSlot <- SlotNo <$> chooseWord64 (start, end)
   let time = slotNoToUTCTime endSlot
   pure (startSlot, (endSlot, time))
 

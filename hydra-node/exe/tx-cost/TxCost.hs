@@ -50,7 +50,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   estimateMinFee,
   evaluateTx,
   genPointInTimeBefore,
-  genPointInTimeWithSlotDifference,
+  genSlotWithPointInTimeFromCP,
   maxCpu,
   maxMem,
   maxTxSize,
@@ -210,7 +210,7 @@ computeFanOutCost = do
     snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let closeDeadlineSlot = getOpenContestationDeadlineInSlots stOpen
-    (startSlot, closePoint) <- genPointInTimeWithSlotDifference closeDeadlineSlot
+    (startSlot, closePoint) <- genSlotWithPointInTimeFromCP closeDeadlineSlot
     let closeTx = close cctx stOpen snapshot startSlot closePoint
     let stClosed = snd . fromJust $ observeClose stOpen closeTx
     let deadlineSlotNo = slotNoFromUTCTime (getCloseContestationDeadline stClosed)

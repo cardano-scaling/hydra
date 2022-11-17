@@ -20,9 +20,9 @@ import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTimeWithSlotDifference, slotNoToUTCTime)
+import Hydra.Ledger.Cardano.Evaluate (genSlotWithPointInTimeFromCP, slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber, genSnapShot)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
@@ -49,7 +49,7 @@ healthyCloseTx =
   -- since if tx validity bound difference is bigger than contestation period our close validator
   -- will fail
   (startSlot, pointInTime) =
-    genPointInTimeWithSlotDifference (fromIntegral healthyContestationPeriodSeconds) `generateWith` 42
+    genSlotWithPointInTimeFromCP (fromIntegral healthyContestationPeriodSeconds) `generateWith` 42
   headResolvedInput =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum
       & addParticipationTokens healthyParties
@@ -92,7 +92,7 @@ healthyCloseUTxO =
     `generateWith` 42
 
 healthySnapshotNumber :: SnapshotNumber
-healthySnapshotNumber = genSnapShot `generateWith` 42
+healthySnapshotNumber = 1
 
 healthyCloseDatum :: Head.State
 healthyCloseDatum =
@@ -105,10 +105,8 @@ healthyCloseDatum =
 healthyContestationPeriod :: OnChain.ContestationPeriod
 healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
 
--- NB: We don't want to wait too long for contestation period to pass
--- so constraining this to < 100
 healthyContestationPeriodSeconds :: Integer
-healthyContestationPeriodSeconds = arbitrary `suchThat` (< 100) `generateWith` 42
+healthyContestationPeriodSeconds = 10
 
 healthyUTxO :: UTxO
 healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42

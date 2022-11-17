@@ -38,9 +38,6 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) wher
     , confirmed' <- shrink (confirmed s)
     ]
 
-genSnapShot :: Gen SnapshotNumber
-genSnapShot = arbitrary
-
 -- | Binary representation of snapshot signatures
 -- TODO: document CDDL format, either here or on in 'Hydra.Contract.Head.verifyPartySignature'
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
