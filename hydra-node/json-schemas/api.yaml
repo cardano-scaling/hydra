@@ -677,6 +677,7 @@ components:
         required:
         - tag
         - clientInput
+        - seq
         - timestamp
         properties:
           tag:
@@ -692,6 +693,8 @@ components:
               - $ref: "#/components/messages/Close/payload"
               - $ref: "#/components/messages/Contest/payload"
               - $ref: "#/components/messages/Fanout/payload"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
