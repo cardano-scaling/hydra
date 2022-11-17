@@ -36,8 +36,8 @@ spec = parallel $ do
           withClient port $ \conn -> do
             received <- receiveData conn
             case Aeson.eitherDecode received of
-              Right TimedServerOutput{output = msg} -> msg `shouldBe` greeting
               Left{} -> failure $ "Failed to decode greeting " <> show received
+              Right TimedServerOutput{output = msg} -> msg `shouldBe` greeting
 
   it "sends sendOutput to all connected clients" $ do
     queue <- atomically newTQueue
@@ -102,9 +102,9 @@ spec = parallel $ do
             withClient port $ \conn -> do
               received <- replicateM (length outputs + 1) (receiveData conn)
               case traverse Aeson.eitherDecode received of
+                Left{} -> failure $ "Failed to decode messages:\n" <> show received
                 Right timedOutputs ->
                   (output <$> timedOutputs) `shouldBe` greeting : outputs
-                Left{} -> failure $ "Failed to decode messages:\n" <> show received
 
   it "sequence numbers are continuous and strictly monotonically increasing" $
     monadicIO $ do
@@ -116,9 +116,9 @@ spec = parallel $ do
             withClient port $ \conn -> do
               received <- replicateM (length outputs + 1) (receiveData conn)
               case traverse Aeson.eitherDecode received of
+                Left{} -> failure $ "Failed to decode messages:\n" <> show received
                 Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
                   seq <$> timedOutputs `shouldSatisfy` strictlyMonotonic
-                Left{} -> failure $ "Failed to decode messages:\n" <> show received
 
   it "sends an error when input cannot be decoded" $
     failAfter 5 $
@@ -138,8 +138,8 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
       sendBinaryData con invalidInput
       msg <- receiveData con
       case Aeson.eitherDecode @(TimedServerOutput SimpleTx) msg of
-        Right TimedServerOutput{output = resp} -> resp `shouldSatisfy` isInvalidInput
         Left{} -> failure $ "Failed to decode output " <> show msg
+        Right TimedServerOutput{output = resp} -> resp `shouldSatisfy` isInvalidInput
  where
   invalidInput = "not a valid message"
   isInvalidInput = \case
@@ -159,10 +159,10 @@ testClient queue semaphore cnx = do
   atomically $ modifyTVar' semaphore (+ 1)
   msg <- receiveData cnx
   case Aeson.eitherDecode msg of
+    Left{} -> failure $ "Failed to decode message " <> show msg
     Right TimedServerOutput{output = resp} -> do
       atomically (writeTQueue queue resp)
       testClient queue semaphore cnx
-    Left{} -> failure $ "Failed to decode message " <> show msg
 
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
