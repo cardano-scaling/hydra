@@ -10,15 +10,14 @@ import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
 import Hydra.Party (Party)
-import Hydra.Prelude
+import Hydra.Prelude hiding (seq)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
   { output :: ServerOutput tx
+  , seq :: Natural
   , time :: UTCTime
-  -- TODO: Add also a sequence counter for continuity purposes. Also, time is
-  -- annoying and might not be strictly monotonic
   }
   deriving stock (Eq, Show, Generic)
 
@@ -26,14 +25,15 @@ instance Arbitrary (ServerOutput tx) => Arbitrary (TimedServerOutput tx) where
   arbitrary = genericArbitrary
 
 instance (ToJSON tx, IsChainState tx) => ToJSON (TimedServerOutput tx) where
-  toJSON TimedServerOutput{output, time} =
+  toJSON TimedServerOutput{output, seq, time} =
     case toJSON output of
-      Object o -> Object $ KeyMap.insert "timestamp" (toJSON time) o
+      Object o ->
+        Object $ o <> KeyMap.fromList [("seq", toJSON seq), ("timestamp", toJSON time)]
       _NotAnObject -> error "expected ServerOutput to serialize to an Object"
 
 instance (FromJSON tx, IsChainState tx) => FromJSON (TimedServerOutput tx) where
   parseJSON v = flip (withObject "TimedServerOutput") v $ \o ->
-    TimedServerOutput <$> parseJSON v <*> o .: "timestamp"
+    TimedServerOutput <$> parseJSON v <*> o .: "seq" <*> o .: "timestamp"
 
 -- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
