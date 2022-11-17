@@ -59,8 +59,6 @@ spec = parallel $ do
               failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
 
   it "sends all sendOutput history to all connected clients after a restart" $ do
-    queue1 <- atomically newTQueue
-    queue2 <- atomically newTQueue
     showLogsOnFailure $ \tracer -> failAfter 5 $
       withTempDir "ServerSpec" $ \tmpDir -> do
         let persistentFile = tmpDir <> "/history"
@@ -71,6 +69,8 @@ spec = parallel $ do
           withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice persistence tracer noop $ \Server{sendOutput} -> do
             sendOutput arbitraryMsg
 
+        queue1 <- atomically newTQueue
+        queue2 <- atomically newTQueue
         persistence' <- createPersistenceIncremental persistentFile
         withFreePort $ \port -> do
           withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice persistence' tracer noop $ \Server{sendOutput} -> do
