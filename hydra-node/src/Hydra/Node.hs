@@ -35,7 +35,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (Observation), ChainStateType, IsChainState, PostTxError, newChainState)
+import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
@@ -245,42 +245,13 @@ createNodeState initialState = do
       , queryHeadState = readTVar tv
       }
 
--- ** Save and load files
-
--- | Handle to save and load files to/from disk using JSON encoding.
-data Persistence a m = Persistence
-  { save :: ToJSON a => a -> m ()
-  , load :: FromJSON a => m (Maybe a)
-  }
-
-newtype PersistenceException
-  = PersistenceException String
-  deriving (Eq, Show)
-
-instance Exception PersistenceException
-
--- | Initialize persistence handle for given type 'a' at given file path.
-createPersistence :: (MonadIO m, MonadThrow m) => Proxy a -> FilePath -> m (Persistence a m)
-createPersistence _ fp = do
-  liftIO . createDirectoryIfMissing True $ takeDirectory fp
-  pure $
-    Persistence
-      { save = \a -> do
-          writeBinaryFileDurableAtomic fp . toStrict $ Aeson.encode a
-      , load =
-          liftIO (doesFileExist fp) >>= \case
-            False -> pure Nothing
-            True -> do
-              bs <- readFileBS fp
-              -- XXX: This is weird and smelly
-              if BS.null bs
-                then pure Nothing
-                else case Aeson.eitherDecodeStrict' bs of
-                  Left e -> throwIO $ PersistenceException e
-                  Right a -> pure $ Just a
-      }
-
-chainCallback :: MonadSTM m => NodeState tx m -> EventQueue m (Event tx) -> ChainCallback tx m
+chainCallback ::
+  MonadSTM m =>
+  -- |
+  NodeState tx m ->
+  -- |
+  EventQueue m (Event tx) ->
+  ChainCallback tx m
 chainCallback NodeState{modifyHeadState} eq cont = do
   -- Provide chain state to continuation and update it when we get a newState
   -- NOTE: Although we do handle the chain state explictly in the 'HeadLogic',

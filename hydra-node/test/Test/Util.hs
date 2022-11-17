@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Test.Util where
 
@@ -80,4 +81,17 @@ shouldContain actual expected
 -- which requires 'Typeable' constraint. To retrieve the trace use 'selectTraceEventsDynamic'
 -- applied to the correct type.
 traceInIOSim :: Typeable a => Tracer (IOSim s) a
-traceInIOSim = Tracer $ \a -> traceM a
+traceInIOSim = Tracer traceM
+
+-- | Useful when one needs to /also/ trace logs to `stderr`.
+-- Thanks to the monoidal nature of `Tracer` it's straightforward to add this to
+-- any existing tracer:
+--
+-- @@
+-- someCode tracer = do
+--   foo <- makeFoo
+--   withTracer (tr <> traceDebug) SomeTraceFoo
+-- ...
+-- @@
+traceDebug :: (Applicative m, Show a) => Tracer m a
+traceDebug = Tracer (\a -> trace (show a) $ pure ())

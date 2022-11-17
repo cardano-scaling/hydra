@@ -55,11 +55,11 @@ import Hydra.BehaviorSpec (
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
-import Hydra.Chain (Chain (..), ChainEvent (..), ChainSlot (..), HeadParameters (..))
+import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.Chain.Direct.Handlers (ChainSyncHandler, DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollForward)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
-import Hydra.Chain.Direct.State (ChainStateAt (..))
+import Hydra.Chain.Direct.State (ChainContext, ChainStateAt (..))
 import qualified Hydra.Chain.Direct.State as S
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import qualified Hydra.Chain.Direct.Util as Util
@@ -75,12 +75,21 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genValue, mkSimpleTx)
+import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genTxIn, genValue, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Node (HydraNode (..), NodeState (NodeState), chainCallback, createNodeState, modifyHeadState, putEvent, queryHeadState, runHydraNode)
+import Hydra.Node (
+  HydraNode (..),
+  NodeState (NodeState),
+  chainCallback,
+  createNodeState,
+  modifyHeadState,
+  putEvent,
+  queryHeadState,
+  runHydraNode,
+ )
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
@@ -529,20 +538,21 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
                 }
             chainState =
               S.ChainStateAt
-                { chainState = S.Idle S.IdleState{S.ctx = ctx}
-                , recordedAt = ChainSlot 0
+                { chainState = S.Idle
+                , recordedAt = Nothing
                 }
         let getTimeHandle = pure $ arbitrary `generateWith` 42
+        let seedInput = genTxIn `generateWith` 42
         nodeState <- createNodeState $ IdleState{chainState}
         let HydraNode{eq} = node
         let callback = chainCallback nodeState eq
-        let chainHandler = chainSyncHandler tr callback getTimeHandle
+        let chainHandler = chainSyncHandler tr callback getTimeHandle ctx
         let node' =
               node
                 { hn =
                     createMockNetwork node nodes
                 , oc =
-                    createMockChain tr (atomically . writeTQueue queue) getTimeHandle
+                    createMockChain tr ctx (atomically . writeTQueue queue) getTimeHandle seedInput
                 , nodeState
                 }
         let mockNode = MockHydraNode{node = node', chainHandler}
@@ -596,20 +606,23 @@ data MockHydraNode m = MockHydraNode
 createMockChain ::
   (MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
+  ChainContext ->
   SubmitTx m ->
   m TimeHandle ->
+  TxIn ->
   Chain Tx m
-createMockChain tracer submitTx timeHandle =
+createMockChain tracer ctx submitTx timeHandle seedInput =
   -- NOTE: The wallet basically does nothing
   let wallet =
         TinyWallet
           { getUTxO = pure mempty
+          , getSeedInput = pure (Just seedInput)
           , sign = id
           , coverFee = \_ tx -> pure (Right tx)
           , reset = const $ pure ()
           , update = const $ pure ()
           }
-   in mkChain tracer timeHandle wallet submitTx
+   in mkChain tracer timeHandle wallet ctx submitTx
 
 performCommit ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>

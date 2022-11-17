@@ -55,7 +55,6 @@ import Hydra.Node (
   HydraNode (..),
   HydraNodeLog (..),
   NodeState,
-  Persistence (Persistence, load, save),
   createEventQueue,
   createNodeState,
   runHydraNode,

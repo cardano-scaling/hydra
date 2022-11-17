@@ -27,7 +27,6 @@ import Hydra.Cardano.Api (
   chainPointToSlotNo,
   fromConsensusPointInMode,
   fromLedgerTx,
-  fromLedgerTxIn,
   getTxBody,
   getTxId,
   toLedgerTx,
@@ -62,7 +61,6 @@ import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
-  getFuelUTxO,
  )
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
@@ -249,8 +247,8 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
   pointInTime <- throwLeft currentPointInTime
   case (tx, chainState) of
     (InitTx params, Idle) ->
-      getFuelUTxO wallet >>= \case
-        Just (fromLedgerTxIn -> seedInput, _) -> do
+      getSeedInput wallet >>= \case
+        Just seedInput ->
           pure $ initialize ctx params seedInput
         Nothing ->
           throwIO (NoSeedInput @Tx)

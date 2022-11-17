@@ -66,6 +66,7 @@ import Hydra.Cardano.Api (
  )
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))
+import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 import Hydra.Chain.Direct.Util (Block, markerDatum)
 import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Logging (Tracer, traceWith)
@@ -88,6 +89,10 @@ type TxOut = Ledger.TxOut LedgerEra
 data TinyWallet m = TinyWallet
   { -- | Return all known UTxO addressed to this wallet.
     getUTxO :: STM m (Map TxIn TxOut)
+  , -- | Returns the /seed input/
+    -- This is the special input needed by `Direct` chain component to initialise
+    -- a head
+    getSeedInput :: STM m (Maybe Api.TxIn)
   , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
   , coverFee ::
       Map TxIn TxOut ->
@@ -112,11 +117,6 @@ data WalletInfoOnChain = WalletInfoOnChain
 
 type ChainQuery m = QueryPoint -> Api.Address ShelleyAddr -> m WalletInfoOnChain
 
--- | Get a single, marked as "fuel" UTxO.
-getFuelUTxO :: MonadSTM m => TinyWallet m -> STM m (Maybe (TxIn, TxOut))
-getFuelUTxO TinyWallet{getUTxO} =
-  findFuelUTxO <$> getUTxO
-
 watchUTxOUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
 watchUTxOUntil predicate TinyWallet{getUTxO} = atomically $ do
   u <- getUTxO
@@ -140,6 +140,8 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
   pure
     TinyWallet
       { getUTxO = readTVar walletInfoVar <&> walletUTxO
+      , getSeedInput =
+          (\(u, _, _, _) -> (fromLedgerTxIn . fst) <$> findFuelUTxO u) <$> readTVar utxoVar
       , sign = Util.signWith sk
       , coverFee = \lookupUTxO partialTx -> do
           -- XXX: We should query pparams here. If not, we likely will have

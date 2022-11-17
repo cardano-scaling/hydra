@@ -96,7 +96,7 @@ import Test.QuickCheck.DynamicLogic (
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, RunModel, Step ((:=)), runActions, stateAfter, pattern Actions)
-import Test.Util (printTrace, traceInIOSim)
+import Test.Util (printTrace, traceDebug, traceInIOSim)
 
 spec :: Spec
 spec = do
@@ -109,7 +109,8 @@ spec = do
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
-  forAllDL_ conflictFreeLiveness prop_HydraModel
+  within 20000000 $
+    forAllDL_ conflictFreeLiveness prop_HydraModel
 
 prop_HydraModel :: Actions WorldState -> Property
 prop_HydraModel actions = property $
@@ -234,7 +235,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
 runIOSimProp :: Testable a => (forall s. PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) a) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty traceInIOSim)
+  let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty (traceInIOSim <> traceDebug))
       traceDump = printTrace (Proxy :: Proxy Tx) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
   case traceResult False tr of
