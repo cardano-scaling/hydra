@@ -2,6 +2,8 @@
 
 module Hydra.API.ServerOutput where
 
+import Data.Aeson (Value (..), withObject, (.:))
+import qualified Data.Aeson.KeyMap as KeyMap
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (ChainStateType, IsChainState, PostChainTx, PostTxError)
 import Hydra.Crypto (MultiSignature)
@@ -19,10 +21,19 @@ data TimedServerOutput tx = TimedServerOutput
   -- annoying and might not be strictly monotonic
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary (ServerOutput tx) => Arbitrary (TimedServerOutput tx) where
   arbitrary = genericArbitrary
+
+instance (ToJSON tx, IsChainState tx) => ToJSON (TimedServerOutput tx) where
+  toJSON TimedServerOutput{output, time} =
+    case toJSON output of
+      Object o -> Object $ KeyMap.insert "timestamp" (toJSON time) o
+      _NotAnObject -> error "expected ServerOutput to serialize to an Object"
+
+instance (FromJSON tx, IsChainState tx) => FromJSON (TimedServerOutput tx) where
+  parseJSON v = flip (withObject "TimedServerOutput") v $ \o ->
+    TimedServerOutput <$> parseJSON v <*> o .: "timestamp"
 
 -- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.

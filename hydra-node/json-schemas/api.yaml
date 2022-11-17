@@ -213,13 +213,13 @@ components:
         type: object
         required:
           - tag
-          - timestamp
           - me
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["Greetings"]
-          time:
+          timestamp:
             $ref: "#/components/schemas/UTCTime"
           me:
             $ref: "#/components/schemas/Party"
