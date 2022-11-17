@@ -47,7 +47,7 @@ in
       networkMagic = "2";
     in
     {
-      image = "ghcr.io/input-output-hk/hydra-node:0.8.0";
+      image = "ghcr.io/input-output-hk/hydra-node:0.8.1";
       volumes = [
         "/data/cardano-node:/cardano-node:ro"
         "/data/hydra-node:/data:ro"

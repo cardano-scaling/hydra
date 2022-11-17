@@ -18,7 +18,7 @@ The quickest way to get a hydra-node running is to use our Docker images:
 <TerminalWindow>
 
 ```
-docker pull ghcr.io/input-output-hk/hydra-node:0.8.0
+docker pull ghcr.io/input-output-hk/hydra-node:0.8.1
 docker run --rm ghcr.io/input-output-hk/hydra-node --help
 ```
 
@@ -30,7 +30,7 @@ docker run --rm ghcr.io/input-output-hk/hydra-node --help
 We provide builds for `hydra-node`, `hydra-tools` and `hydra-tui` as statically
 linked `x64_86` binaries. These binaries can be found in our CI or attached to
 [github releases](https://github.com/input-output-hk/hydra-poc/releases)
-starting with version `0.8.0`.
+starting with version `0.8.1`.
 
 ## Building from source
 
