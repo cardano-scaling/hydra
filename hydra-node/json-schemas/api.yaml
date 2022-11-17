@@ -214,6 +214,7 @@ components:
         required:
           - tag
           - me
+          - seq
           - timestamp
         properties:
           tag:
@@ -221,6 +222,8 @@ components:
             enum: ["Greetings"]
           me:
             $ref: "#/components/schemas/Party"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -233,6 +236,7 @@ components:
         required:
           - tag
           - peer
+          - seq
           - timestamp
         properties:
           tag:
@@ -240,6 +244,8 @@ components:
             enum: ["PeerConnected"]
           peer:
             $ref: "#/components/schemas/NodeId"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -252,6 +258,7 @@ components:
         required:
           - tag
           - peer
+          - seq
           - timestamp
         properties:
           tag:
@@ -259,6 +266,8 @@ components:
             enum: ["PeerDisconnected"]
           peer:
             $ref: "#/components/schemas/NodeId"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -271,6 +280,7 @@ components:
         required:
           - tag
           - parties
+          - seq
           - timestamp
         properties:
           tag:
@@ -280,6 +290,8 @@ components:
             type: array
             items:
               $ref: "#/components/schemas/Party"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -293,6 +305,7 @@ components:
           - tag
           - party
           - utxo
+          - seq
           - timestamp
         properties:
           tag:
@@ -302,6 +315,8 @@ components:
             $ref: "#/components/schemas/Party"
           utxo:
             $ref: "#/components/schemas/UTxO"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -314,6 +329,7 @@ components:
         required:
           - tag
           - utxo
+          - seq
           - timestamp
         properties:
           tag:
@@ -321,6 +337,8 @@ components:
             enum: ["HeadIsOpen"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -334,6 +352,7 @@ components:
           - tag
           - snapshotNumber
           - contestationDeadline
+          - seq
           - timestamp
         properties:
           tag:
@@ -343,6 +362,8 @@ components:
             $ref: "#/components/schemas/SnapshotNumber"
           contestationDeadline:
             $ref: "#/components/schemas/UTCTime"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -357,6 +378,7 @@ components:
         required:
           - tag
           - snapshotNumber
+          - seq
           - timestamp
         properties:
           tag:
@@ -364,6 +386,8 @@ components:
             enum: ["HeadIsContested"]
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -376,11 +400,14 @@ components:
         type: object
         required:
           - tag
+          - seq
           - timestamp
         properties:
           tag:
             type: string
             enum: ["ReadyToFanout"]
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -393,6 +420,7 @@ components:
         required:
           - tag
           - utxo
+          - seq
           - timestamp
         properties:
           tag:
@@ -400,6 +428,8 @@ components:
             enum: ["HeadIsAborted"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -412,6 +442,7 @@ components:
         required:
           - tag
           - utxo
+          - seq
           - timestamp
         properties:
           tag:
@@ -419,6 +450,8 @@ components:
             enum: ["HeadIsFinalized"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -431,6 +464,7 @@ components:
         required:
           - tag
           - transaction
+          - seq
           - timestamp
         properties:
           tag:
@@ -438,6 +472,8 @@ components:
             enum: ["TxSeen"]
           transaction:
             $ref: "#/components/schemas/Transaction"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -450,6 +486,7 @@ components:
         required:
           - tag
           - transaction
+          - seq
           - timestamp
         properties:
           tag:
@@ -457,6 +494,8 @@ components:
             enum: ["TxValid"]
           transaction:
             $ref: "#/components/schemas/Transaction"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
       
@@ -472,6 +511,7 @@ components:
         - utxo
         - transaction
         - validationError
+        - seq
         - timestamp
         properties:
           tag:
@@ -486,6 +526,8 @@ components:
             properties:
               reason:
                 type: string
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -498,6 +540,7 @@ components:
         required:
         - tag
         - transaction
+        - seq
         - timestamp
         properties:
           tag:
@@ -505,6 +548,8 @@ components:
             enum: ["TxExpired"]
           transaction:
             $ref: "#/components/schemas/Transaction"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
               $ref: "#/components/schemas/UTCTime"
 
@@ -517,6 +562,7 @@ components:
         required:
           - tag
           - snapshot
+          - seq
           - timestamp
         properties:
           tag:
@@ -524,6 +570,8 @@ components:
             enum: ["SnapshotConfirmed"]
           snapshot:
             $ref: "#/components/schemas/Snapshot"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -536,6 +584,7 @@ components:
         required:
         - tag
         - utxo
+        - seq
         - timestamp
         properties:
           tag:
@@ -543,6 +592,8 @@ components:
             enum: ["GetUTxOResponse"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -556,6 +607,7 @@ components:
         - tag
         - reason
         - input
+        - seq
         - timestamp
         properties:
           tag:
@@ -565,6 +617,8 @@ components:
             type: string
           input:
             type: string
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -579,6 +633,7 @@ components:
         - tag
         - postChainTx
         - postTxError
+        - seq
         - timestamp
         properties:
           tag:
@@ -588,6 +643,8 @@ components:
             $ref: "#/components/schemas/PostChainTx"
           postTxError:
             $ref: "#/components/schemas/PostTxError"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
