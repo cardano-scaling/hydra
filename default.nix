@@ -14,7 +14,7 @@
 
   # NOTE: use the 'repo' branch of CHaP which contains the index
 , CHaP ? (builtins.fetchTarball
-    "https://github.com/input-output-hk/cardano-haskell-packages/archive/ceaae5355c81453d7cb092acadec3441bf57ed11.tar.gz")
+    "https://github.com/input-output-hk/cardano-haskell-packages/archive/695c91a740abfeef0860056227c605abf6375edd.tar.gz")
 
   # nixpkgs-unstable as also used by cardano-node, cardano-ledger et al
 , nixpkgsSrc ? haskellNix.sources.nixpkgs-unstable
