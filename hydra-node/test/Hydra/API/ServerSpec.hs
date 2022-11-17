@@ -125,7 +125,10 @@ spec = parallel $ do
       withFreePort $ \port -> sendsAnErrorWhenInputCannotBeDecoded port
 
 strictlyMonotonic :: [Natural] -> Bool
-strictlyMonotonic = const False
+strictlyMonotonic = \case
+  [] -> True
+  [_] -> True
+  (a : b : as) -> a + 1 == b && strictlyMonotonic (b : as)
 
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
