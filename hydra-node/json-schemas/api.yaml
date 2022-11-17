@@ -219,10 +219,10 @@ components:
           tag:
             type: string
             enum: ["Greetings"]
-          timestamp:
-            $ref: "#/components/schemas/UTCTime"
           me:
             $ref: "#/components/schemas/Party"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     PeerConnected:
       title: PeerConnected
@@ -238,10 +238,10 @@ components:
           tag:
             type: string
             enum: ["PeerConnected"]
-          timestamp:
-            $ref: "#/components/schemas/UTCTime"
           peer:
             $ref: "#/components/schemas/NodeId"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     PeerDisconnected:
       title: PeerDisconnected
@@ -252,12 +252,15 @@ components:
         required:
           - tag
           - peer
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["PeerDisconnected"]
           peer:
             $ref: "#/components/schemas/NodeId"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     ReadyToCommit:
       title: ReadyToCommit
@@ -268,6 +271,7 @@ components:
         required:
           - tag
           - parties
+          - timestamp
         properties:
           tag:
             type: string
@@ -276,6 +280,8 @@ components:
             type: array
             items:
               $ref: "#/components/schemas/Party"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     Committed:
       title: Committed
@@ -287,6 +293,7 @@ components:
           - tag
           - party
           - utxo
+          - timestamp
         properties:
           tag:
             type: string
@@ -295,6 +302,8 @@ components:
             $ref: "#/components/schemas/Party"
           utxo:
             $ref: "#/components/schemas/UTxO"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     HeadIsOpen:
       title: HeadIsOpen
@@ -305,12 +314,15 @@ components:
         required:
           - tag
           - utxo
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["HeadIsOpen"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     HeadIsClosed:
       title: HeadIsClosed
@@ -322,6 +334,7 @@ components:
           - tag
           - snapshotNumber
           - contestationDeadline
+          - timestamp
         properties:
           tag:
             type: string
@@ -329,6 +342,8 @@ components:
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
           contestationDeadline:
+            $ref: "#/components/schemas/UTCTime"
+          timestamp:
             $ref: "#/components/schemas/UTCTime"
 
     HeadIsContested:
@@ -342,12 +357,15 @@ components:
         required:
           - tag
           - snapshotNumber
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["HeadIsContested"]
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     ReadyToFanout:
       title: ReadyToFanout
@@ -358,10 +376,13 @@ components:
         type: object
         required:
           - tag
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["ReadyToFanout"]
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     HeadIsAborted:
       title: HeadIsAborted
@@ -372,12 +393,15 @@ components:
         required:
           - tag
           - utxo
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["HeadIsAborted"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     HeadIsFinalized:
       title: HeadIsFinalized
@@ -388,12 +412,15 @@ components:
         required:
           - tag
           - utxo
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["HeadIsFinalized"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     TxSeen:
       title: TxSeen
@@ -404,12 +431,15 @@ components:
         required:
           - tag
           - transaction
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["TxSeen"]
           transaction:
             $ref: "#/components/schemas/Transaction"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     TxValid:
       title: TxValid
@@ -420,12 +450,15 @@ components:
         required:
           - tag
           - transaction
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["TxValid"]
           transaction:
             $ref: "#/components/schemas/Transaction"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
       
     TxInvalid:
       title: TxInvalid
@@ -439,6 +472,7 @@ components:
         - utxo
         - transaction
         - validationError
+        - timestamp
         properties:
           tag:
             type: string
@@ -452,6 +486,8 @@ components:
             properties:
               reason:
                 type: string
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     TxExpired:
       title: TxExpired
@@ -462,12 +498,15 @@ components:
         required:
         - tag
         - transaction
+        - timestamp
         properties:
           tag:
             type: string
             enum: ["TxExpired"]
           transaction:
             $ref: "#/components/schemas/Transaction"
+          timestamp:
+              $ref: "#/components/schemas/UTCTime"
 
     SnapshotConfirmed:
       title: SnapshotConfirmed
@@ -478,12 +517,15 @@ components:
         required:
           - tag
           - snapshot
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["SnapshotConfirmed"]
           snapshot:
             $ref: "#/components/schemas/Snapshot"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     GetUTxOResponse:
       title: GetUTxOResponse
@@ -494,12 +536,15 @@ components:
         required:
         - tag
         - utxo
+        - timestamp
         properties:
           tag:
             type: string
             enum: ["GetUTxOResponse"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     InvalidInput:
       title: InvalidInput
@@ -511,6 +556,7 @@ components:
         - tag
         - reason
         - input
+        - timestamp
         properties:
           tag:
             type: string
@@ -519,6 +565,8 @@ components:
             type: string
           input:
             type: string
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     PostTxOnChainFailed:
       title: PostTxOnChainFailed
@@ -531,6 +579,7 @@ components:
         - tag
         - postChainTx
         - postTxError
+        - timestamp
         properties:
           tag:
             type: string
@@ -539,6 +588,8 @@ components:
             $ref: "#/components/schemas/PostChainTx"
           postTxError:
             $ref: "#/components/schemas/PostTxError"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     RolledBack:
       title: RolledBack
@@ -566,6 +617,7 @@ components:
         required:
         - tag
         - clientInput
+        - timestamp
         properties:
           tag:
             type: string
@@ -580,7 +632,8 @@ components:
               - $ref: "#/components/messages/Close/payload"
               - $ref: "#/components/messages/Contest/payload"
               - $ref: "#/components/messages/Fanout/payload"
-
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
   ########
   #
