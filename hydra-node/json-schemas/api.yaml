@@ -233,10 +233,13 @@ components:
         required:
           - tag
           - peer
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["PeerConnected"]
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
           peer:
             $ref: "#/components/schemas/NodeId"
 
@@ -546,10 +549,13 @@ components:
         additionalProperties: false
         required:
         - tag
+        - timestamp
         properties:
           tag:
             type: string
             enum: ["RolledBack"]
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     CommandFailed:
       title: CommandFailed
