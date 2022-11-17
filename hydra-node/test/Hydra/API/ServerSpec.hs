@@ -24,8 +24,8 @@ import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremen
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
-import Test.QuickCheck (cover)
-import Test.QuickCheck.Monadic (monadicIO, monitor, run)
+import Test.QuickCheck (checkCoverage, cover)
+import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
 spec :: Spec
 spec = parallel $ do
@@ -89,20 +89,22 @@ spec = parallel $ do
                 failAfter 1 $ atomically (replicateM 1 (readTQueue queue2)) `shouldReturn` [arbitraryMsg]
                 failAfter 1 $ atomically (tryReadTQueue queue1) `shouldReturn` Nothing
 
-  prop "echoes history (past outputs) to client upon reconnection" $ \msgs -> monadicIO $ do
-    monitor $ cover 100 (null msgs) "no message when reconnecting"
-    monitor $ cover 100 (length msgs == 1) "only one message when reconnecting"
-    monitor $ cover 100 (length msgs > 1) "more than one message when reconnecting"
-    run . failAfter 5 $ do
-      withFreePort $ \port ->
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
-          mapM_ sendOutput $ output <$> (msgs :: [TimedServerOutput SimpleTx])
-          withClient port $ \conn -> do
-            received <- replicateM (length msgs + 1) (receiveData conn)
-            case traverse Aeson.eitherDecode received of
-              Right msgs' ->
-                (output <$> msgs') `shouldBe` greeting : (output <$> msgs)
-              Left{} -> failure $ "Failed to decode messages " <> show msgs
+  it "echoes history (past outputs) to client upon reconnection" $
+    checkCoverage . monadicIO $ do
+      outputs <- pick arbitrary
+      monitor $ cover 0.1 (null outputs) "no message when reconnecting"
+      monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
+      monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
+      run . failAfter 5 $ do
+        withFreePort $ \port ->
+          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+            mapM_ sendOutput outputs
+            withClient port $ \conn -> do
+              received <- replicateM (length outputs + 1) (receiveData conn)
+              case traverse Aeson.eitherDecode received of
+                Right timedOutputs ->
+                  (output <$> timedOutputs) `shouldBe` greeting : outputs
+                Left{} -> failure $ "Failed to decode messages:\n" <> show received
 
   it "sends an error when input cannot be decoded" $
     failAfter 5 $
