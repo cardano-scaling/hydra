@@ -9,7 +9,7 @@ module Hydra.API.Server (
   APIServerLog,
 ) where
 
-import Hydra.Prelude hiding (TVar, readTVar)
+import Hydra.Prelude hiding (TVar, readTVar, seq)
 
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
@@ -66,6 +66,7 @@ type ServerCallback tx m = ClientInput tx -> m ()
 type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
 
 withAPIServer ::
+  forall tx.
   (IsChainState tx) =>
   IP ->
   PortNumber ->
@@ -76,32 +77,41 @@ withAPIServer ::
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
   responseChannel <- newBroadcastTChanIO
   h <- loadAll
-  -- NOTE: We will add a 'Greetings' message on each API server start. This is
-  -- important to make sure the latest configured 'party' is reaching the
-  -- client.
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
   history <- newTVarIO (reverse h)
 
-  now <- getCurrentTime
-  let greetings = TimedServerOutput{output = Greetings party, time = now}
-  appendToHistory history greetings
+  -- NOTE: We will add a 'Greetings' message on each API server start. This is
+  -- important to make sure the latest configured 'party' is reaching the
+  -- client.
+  void $ appendToHistory history (Greetings party)
   race_
     (runAPIServer host port tracer history callback responseChannel)
     . action
     $ Server
       { sendOutput = \output -> do
-          now' <- getCurrentTime
-          let timedOutput = TimedServerOutput{output, time = now'}
-          appendToHistory history timedOutput
+          timedOutput <- appendToHistory history output
           atomically $
             writeTChan responseChannel timedOutput
       }
  where
-  appendToHistory history event = do
-    append event
-    atomically $
-      modifyTVar' history (event :)
+  appendToHistory :: TVar [TimedServerOutput tx] -> ServerOutput tx -> IO (TimedServerOutput tx)
+  appendToHistory history output = do
+    time <- getCurrentTime
+    timedOutput <- atomically $ do
+      seq <- nextSequenceNumber history
+      let timedOutput = TimedServerOutput{output, time, seq}
+      modifyTVar' history (timedOutput :)
+      pure timedOutput
+    append timedOutput
+    pure timedOutput
+
+  nextSequenceNumber h = do
+    historyList <- readTVar h
+    pure $
+      case historyList of
+        [] -> 0
+        (TimedServerOutput{seq} : _) -> seq + 1
 
 runAPIServer ::
   forall tx.
