@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.9.0] - UNRELEASED
+## [0.8.1] - 2022-11-17
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
   + The `hydra-node` now only uses a single `state` file in `--persistence-dir` to keep it's state.
@@ -16,15 +16,19 @@ changes.
   + Include the `chainState` in `InvalidStateToPost` errors.
   + Moved received transaction ids into `RolledForward` log message.
 
-- After restarting `hydra-node`, clients will receive the whole history now.  [#580](https://github.com/input-output-hk/hydra-poc/issues/580)
-  + This history will be kept as `server-output` state in `--persistence-dir`.
-  + Clients should use `Greetings` to identify the end of a restart/replay of events.
-
 - **BREAKING** Changed internal wallet logs to help with debugging [#600](https://github.com/input-output-hk/hydra-poc/pull/600)
   + Split `ApplyBlock` into `BeginUpdate` and `EndUpdate`
   + Split `InitializedWallet` into `BeginInitialize` and `EndInitialize`
 
-- Fixed chain following when loading persistent state.
+- After restarting `hydra-node`, clients will receive the whole history.  [#580](https://github.com/input-output-hk/hydra-poc/issues/580)
+  + This history will be stored in the `server-output` file in `--persistence-dir`.
+  + Clients should use `Greetings` to identify the end of a [restart/replay of events](https://hydra.family/head-protocol/core-concepts/behavior#replay-of-past-server-outputs).
+
+- *Fixes and Improvements* about persistency in `hydra-node`:
+  + Store the L1 point in state to catch-up on restart. [599](https://github.com/input-output-hk/hydra-poc/issues/599)
+  + Reduce log size by removing ChainContext. [#598](https://github.com/input-output-hk/hydra-poc/issues/598)
+
+- hydra-cardano-api now published in [iohk hackage instance](https://input-output-hk.github.io/cardano-haskell-packages/package/hydra-cardano-api-0.8.0/). [#504](https://github.com/input-output-hk/hydra-poc/issues/504)
 
 ## [0.8.0] - 2022-10-27
 
