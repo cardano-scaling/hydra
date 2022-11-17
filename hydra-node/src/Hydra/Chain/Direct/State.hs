@@ -873,7 +873,6 @@ getCloseContestationDeadline
   ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
     posixToUTCTime closedContestationDeadline
 
--- | NB: Slot number returned here is still using the _on-chain_ 'OnChain.ContestationPeriod'
 getOpenContestationDeadlineInSlots :: OpenState -> Word64
 getOpenContestationDeadlineInSlots
   OpenState{openThreadOutput = OpenThreadOutput{openContestationPeriod}} =

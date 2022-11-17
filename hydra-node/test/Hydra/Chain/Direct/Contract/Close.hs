@@ -27,6 +27,7 @@ import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
+import Test.QuickCheck.Instances ()
 
 --
 -- CloseTx
@@ -42,14 +43,17 @@ healthyCloseTx =
       healthyClosingSnapshot
       startSlot
       pointInTime
+      -- (healthySlotNo, slotNoToUTCTime healthySlotNo)
       openThreadOutput
 
   headInput = generateWith arbitrary 42
+
   -- here we need to pass in contestation period when generating start/end tx validity slots/time
   -- since if tx validity bound difference is bigger than contestation period our close validator
   -- will fail
   (startSlot, pointInTime) =
-    genSlotWithPointInTimeFromCP (fromIntegral healthyContestationPeriodSeconds) `generateWith` 42
+    genSlotWithPointInTimeFromCP (fromInteger healthyContestationPeriodSeconds) `generateWith` 42
+
   headResolvedInput =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum
       & addParticipationTokens healthyParties
@@ -67,8 +71,8 @@ healthyCloseTx =
       , openContestationPeriod = healthyContestationPeriod
       }
 
-healthyCloseUpperBoundSlotNo :: SlotNo
-healthyCloseUpperBoundSlotNo = arbitrary `generateWith` 42
+healthySlotNo :: SlotNo
+healthySlotNo = arbitrary `generateWith` 42
 
 healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =
@@ -136,15 +140,8 @@ data CloseMutation
   | MutateParties
   | MutateRequiredSigner
   | MutateCloseUTxOHash
-  | -- | Mutate the tx upper bound, which makes it inconsistent with the deadline
-    -- set in the output datum.
-    MutateValidityIntervalToBeInconsistent
-  | -- | Mutate the output datum's contestation deadline such that it is
-    -- inconsistent with the upper bound set on the transaction.
-    MutateContestationDeadlineToBeInconsistent
-  | -- | Mutate the upper tx validity bound and output datum (consistently!) to
-    -- be much further in the future than the agreed contestation period.
-    MutateUpperValidityToBeFarInTheFuture
+  | MutateValidityInterval
+  | MutateCloseContestationDeadline
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -181,31 +178,11 @@ genCloseMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
-    , SomeMutation MutateContestationDeadlineToBeInconsistent . ChangeOutput 0 <$> mutateClosedContestationDeadline
-    , SomeMutation MutateValidityIntervalToBeInconsistent . ChangeValidityInterval <$> do
+    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0 <$> mutateClosedContestationDeadline
+    , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
-        ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthyCloseUpperBoundSlotNo)
+        ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
         pure (lb, ub)
-    , SomeMutation MutateUpperValidityToBeFarInTheFuture <$> do
-        muchGreaterThanContestationPeriod <-
-          SlotNo . fromIntegral
-            <$> arbitrary `suchThat` (> healthyContestationPeriodSeconds)
-        let mutatedUpperBound = healthyCloseUpperBoundSlotNo + muchGreaterThanContestationPeriod
-            deadlineUTCTime = addUTCTime (fromInteger healthyContestationPeriodSeconds) (slotNoToUTCTime mutatedUpperBound)
-        let doMutation = \case
-              Head.Closed{snapshotNumber, utxoHash, parties} ->
-                Head.Closed
-                  { snapshotNumber
-                  , utxoHash
-                  , parties
-                  , contestationDeadline = posixFromUTCTime deadlineUTCTime
-                  }
-              st -> error $ "unexpected state " <> show st
-        pure $
-          Changes
-            [ ChangeValidityInterval (TxValidityNoLowerBound, TxValidityUpperBound mutatedUpperBound)
-            , ChangeOutput 0 $ changeHeadOutputDatum doMutation headTxOut
-            ]
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
@@ -246,7 +223,7 @@ genCloseMutation (tx, _utxo) =
         , utxoHash
         , parties
         , contestationDeadline =
-            let closingTime = slotNoToUTCTime healthyCloseUpperBoundSlotNo
+            let closingTime = slotNoToUTCTime healthySlotNo
              in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
         }
     st -> error $ "unexpected state " <> show st
