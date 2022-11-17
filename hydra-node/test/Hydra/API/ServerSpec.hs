@@ -20,7 +20,7 @@ import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), input)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Persistence (PersistenceIncremental (..))
+import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
@@ -57,6 +57,37 @@ spec = parallel $ do
               sendOutput arbitraryMsg
               failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
               failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
+
+  it "sends all sendOutput history to all connected clients after a restart" $ do
+    queue1 <- atomically newTQueue
+    queue2 <- atomically newTQueue
+    showLogsOnFailure $ \tracer -> failAfter 5 $
+      withTempDir "ServerSpec" $ \tmpDir -> do
+        let persistentFile = tmpDir <> "/history"
+        let arbitraryMsg = ReadyToCommit mempty
+
+        persistence <- createPersistenceIncremental persistentFile
+        withFreePort $ \port -> do
+          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice persistence tracer noop $ \Server{sendOutput} -> do
+            sendOutput arbitraryMsg
+
+        persistence' <- createPersistenceIncremental persistentFile
+        withFreePort $ \port -> do
+          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice persistence' tracer noop $ \Server{sendOutput} -> do
+            semaphore <- newTVarIO 0
+            withAsync
+              ( concurrently_
+                  (withClient port $ testClient queue1 semaphore)
+                  (withClient port $ testClient queue2 semaphore)
+              )
+              $ \_ -> do
+                waitForClients semaphore
+                failAfter 1 $ atomically (replicateM 3 (readTQueue queue1)) `shouldReturn` [greeting, arbitraryMsg, greeting]
+                failAfter 1 $ atomically (replicateM 3 (readTQueue queue2)) `shouldReturn` [greeting, arbitraryMsg, greeting]
+                sendOutput arbitraryMsg
+                failAfter 1 $ atomically (replicateM 1 (readTQueue queue1)) `shouldReturn` [arbitraryMsg]
+                failAfter 1 $ atomically (replicateM 1 (readTQueue queue2)) `shouldReturn` [arbitraryMsg]
+                failAfter 1 $ atomically (tryReadTQueue queue1) `shouldReturn` Nothing
 
   prop "echoes history (past outputs) to client upon reconnection" $ \msgs -> monadicIO $ do
     monitor $ cover 100 (null msgs) "no message when reconnecting"

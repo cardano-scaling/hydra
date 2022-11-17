@@ -79,17 +79,25 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
-  history <- newTVarIO (Greetings party : h)
+  -- NOTE: we need to reverse the list because we store history in a reversed
+  -- list in memory but in order on disk
+  history <- newTVarIO (reverse h)
+
+  appendToHistory history $ Greetings party
   race_
     (runAPIServer host port tracer history callback responseChannel)
     . action
     $ Server
       { sendOutput = \output -> do
-          append output
-          atomically $ do
-            modifyTVar' history (output :)
+          appendToHistory history output
+          atomically $
             writeTChan responseChannel output
       }
+ where
+  appendToHistory history event = do
+    append event
+    atomically $
+      modifyTVar' history (event :)
 
 runAPIServer ::
   forall tx.
