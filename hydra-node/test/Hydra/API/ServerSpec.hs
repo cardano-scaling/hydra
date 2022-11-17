@@ -2,7 +2,7 @@
 
 module Hydra.API.ServerSpec where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (seq)
 import Test.Hydra.Prelude
 
 import Control.Exception (IOException)
@@ -106,9 +106,26 @@ spec = parallel $ do
                   (output <$> timedOutputs) `shouldBe` greeting : outputs
                 Left{} -> failure $ "Failed to decode messages:\n" <> show received
 
+  it "sequence numbers are continuous and strictly monotonically increasing" $
+    monadicIO $ do
+      outputs :: [ServerOutput SimpleTx] <- pick arbitrary
+      run . failAfter 5 $ do
+        withFreePort $ \port ->
+          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+            mapM_ sendOutput outputs
+            withClient port $ \conn -> do
+              received <- replicateM (length outputs + 1) (receiveData conn)
+              case traverse Aeson.eitherDecode received of
+                Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
+                  seq <$> timedOutputs `shouldSatisfy` strictlyMonotonic
+                Left{} -> failure $ "Failed to decode messages:\n" <> show received
+
   it "sends an error when input cannot be decoded" $
     failAfter 5 $
       withFreePort $ \port -> sendsAnErrorWhenInputCannotBeDecoded port
+
+strictlyMonotonic :: [Natural] -> Bool
+strictlyMonotonic = const False
 
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
