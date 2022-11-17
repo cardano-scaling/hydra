@@ -4,7 +4,6 @@ import Hydra.Prelude hiding (catch)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
-import Cardano.Ledger.Slot (SlotNo (SlotNo))
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
