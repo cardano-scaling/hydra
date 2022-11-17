@@ -171,7 +171,7 @@ To perform a release of next `<version>`
 + Refer to `<version>` in deployment instructions, e.g. `docker-compose.yaml` files.
 + Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601)
 + Create a signed, annotated git tag of the version: `git tag -as <version>`
-+ Use the released changes as annotation
+  - Copy/paste this release CHANGELOG as annotation
 + Create a github release page containing
   - The released changes (formatted) and giving credit where credit is due
   - Attach static binaries to the release (or link the CI artifact)
