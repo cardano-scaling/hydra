@@ -136,6 +136,7 @@ conflictFreeLiveness = do
       action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx payment)
     _ -> pass
+  action Model.StopTheWorld
  where
   nonConflictingTx st = withGenQ (genPayment st) (const [])
   eventually a = action (Wait 10) >> action a

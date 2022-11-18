@@ -31,7 +31,6 @@ import Cardano.Binary (serialize', unsafeDeserialize')
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (TxSeq))
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (modifyTVar, newTQueue, newTQueueIO, newTVarIO, readTVarIO, tryReadTQueue, writeTQueue)
 import Data.List (nub)
 import qualified Data.List as List
@@ -170,6 +169,7 @@ data Nodes m = Nodes
     -- The reason we put this here is because the concrete value needs to be
     -- instantiated upon the test run initialisation, outiside of the model.
     logger :: Tracer m (HydraLog Tx ())
+  , threads :: [Async m ()]
   }
 
 newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
@@ -251,6 +251,8 @@ instance StateModel WorldState where
     NewTx :: Party -> Payment -> Action WorldState ()
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Payment -> Action WorldState ()
+    -- | Symmetric to `Seed`
+    StopTheWorld :: Action WorldState ()
 
   initialState =
     WorldState
@@ -306,6 +308,8 @@ instance StateModel WorldState where
   precondition _ Wait{} =
     True
   precondition WorldState{hydraState = Open{}} ObserveConfirmedTx{} =
+    True
+  precondition _ StopTheWorld =
     True
   precondition _ _ =
     False
@@ -386,6 +390,7 @@ instance StateModel WorldState where
           _ -> error "unexpected state"
       Wait _ -> s
       ObserveConfirmedTx _ -> s
+      StopTheWorld -> s
 
   postcondition :: WorldState -> Action WorldState a -> LookUp -> a -> Bool
   postcondition _st (Commit _party expectedCommitted) _ actualCommitted =
@@ -442,7 +447,7 @@ runModel = RunModel{perform}
       Init party contestationPeriod ->
         party `sendsInput` Input.Init{contestationPeriod}
       Abort party -> do
-        party `sendsInput` Input.Abort
+        performAbort party
       Wait timeout ->
         lift $ threadDelay timeout
       ObserveConfirmedTx tx -> do
@@ -452,6 +457,31 @@ runModel = RunModel{perform}
           waitForUTxOToSpend mempty (to tx) (value tx) party node 1000 >>= \case
             Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
             Right _ -> pure ()
+      StopTheWorld ->
+        stopTheWorld
+
+performAbort :: MonadDelay m => Party -> StateT (Nodes m) m ()
+performAbort party = do
+  Nodes{nodes} <- get
+  lift $ waitForReadyToCommit party nodes
+  party `sendsInput` Input.Abort
+
+waitForReadyToCommit :: MonadDelay m => Party -> Map Party (TestHydraNode tx m) -> m ()
+waitForReadyToCommit party nodes = do
+  outs <- serverOutputs (nodes ! party)
+  let matchReadyToCommit = \case
+        Output.ReadyToCommit{} -> True
+        _ -> False
+  case find matchReadyToCommit outs of
+    Nothing ->
+      threadDelay 10 >> waitForReadyToCommit party nodes
+    Just{} ->
+      pure ()
+
+stopTheWorld :: MonadAsync m => StateT (Nodes m) m ()
+stopTheWorld = trace "StoppingTheWorld" $ do
+  Nodes{threads} <- get
+  forM_ threads (lift . cancel)
 
 sendsInput :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 sendsInput party command = do
@@ -493,9 +523,13 @@ seedWorld seedKeys = do
       node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain
       let testNode = createTestHydraNode outputs outputHistory node
       void $ async $ runHydraNode (contramap Node tr) node
-      pure (party, testNode)
+      pure ((party, testNode), tickThread)
 
-  modify $ \n -> n{nodes = Map.fromList nodes}
+  modify $ \n ->
+    n
+      { nodes = Map.fromList (fst <$> nodes)
+      , threads = snd <$> nodes
+      }
 
 -- | Provide the logic to connect a list of `MockHydraNode` through a dummy chain.
 mockChainAndNetwork ::
@@ -563,7 +597,7 @@ mockChainAndNetwork tr seedKeys _parties nodes = do
       -- NOTE: this is not used (yet) but could be used to trigger arbitrary rollbacks
       -- in the run model
       rollbackAndForward = error "Not implemented, should never be called"
-  return ConnectToChain{..}
+  return (ConnectToChain{..}, tickThread)
  where
   blockTime = 20 -- seconds
   simulateTicks queue = forever $ do
@@ -658,8 +692,7 @@ performCommit parties party paymentUTxO = do
         lift $
           waitMatch actorNode $ \case
             Committed{party = cp, utxo = committedUTxO}
-              | cp == party ->
-                Just committedUTxO
+              | cp == party -> Just committedUTxO
             _ -> Nothing
       pure $ fromUtxo observedUTxO
  where
