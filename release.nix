@@ -2,7 +2,7 @@
 
 {
   # this is passed in by hydra to provide us with the revision
-  hydra-poc ? { outPath = ./.; rev = "abcdef"; }
+  hydra ? { outPath = ./.; rev = "abcdef"; }
 , ...
 }:
 let
@@ -38,7 +38,7 @@ rec {
       hydraw
       shell
       # Added to be sure that hydra notify even if there is no change in above jobs:
-      (project.pkgs.writeText "revision.txt" hydra-poc.rev)
+      (project.pkgs.writeText "revision.txt" hydra.rev)
     ];
   };
 

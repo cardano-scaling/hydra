@@ -13,7 +13,7 @@
   },
   "link.item.label.Coding Standards": {
     "message": "Conventions de programmation",
-    "description": "The label of footer link with label=Coding Standards linking to https://github.com/input-output-hk/hydra-poc/wiki/Coding-Standards"
+    "description": "The label of footer link with label=Coding Standards linking to https://github.com/input-output-hk/hydra/wiki/Coding-Standards"
   },
   "link.item.label.Architectural Decision Records": {
     "message": "Décisions Architecturales",
@@ -21,7 +21,7 @@
   },
   "link.item.label.Testing Strategy": {
     "message": "Contrôle qualité",
-    "description": "The label of footer link with label=Testing Strategy linking to https://github.com/input-output-hk/hydra-poc/wiki/Testing-Strategy"
+    "description": "The label of footer link with label=Testing Strategy linking to https://github.com/input-output-hk/hydra/wiki/Testing-Strategy"
   },
   "link.item.label.Discord (#ask-hydra)": {
     "message": "Discord (#ask-hydra)",
@@ -29,7 +29,7 @@
   },
   "link.item.label.Github Discussions": {
     "message": "Github Discussions",
-    "description": "The label of footer link with label=Github Discussions linking to https://github.com/input-output-hk/hydra-poc/discussions"
+    "description": "The label of footer link with label=Github Discussions linking to https://github.com/input-output-hk/hydra/discussions"
   },
   "link.item.label.Stack Exchange": {
     "message": "Stack Exchange",
@@ -41,7 +41,7 @@
   },
   "link.item.label.Logbook": {
     "message": "Journal de bord",
-    "description": "The label of footer link with label=Logbook linking to https://github.com/input-output-hk/hydra-poc/wiki/Logbook"
+    "description": "The label of footer link with label=Logbook linking to https://github.com/input-output-hk/hydra/wiki/Logbook"
   },
   "link.item.label.Input Output (Blog)": {
     "message": "Input Output (Blog)",

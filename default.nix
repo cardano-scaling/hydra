@@ -30,7 +30,7 @@ let
 
   hsPkgs = pkgs.haskell-nix.project {
     src = pkgs.haskell-nix.haskellLib.cleanGit {
-      name = "hydra-poc";
+      name = "hydra";
       src = ./.;
     };
     projectFileName = "cabal.project";

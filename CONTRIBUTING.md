@@ -16,7 +16,7 @@ these communication channels to reach the Hydra team and get answers in a way
 where others can benefit from it as well:
 
 - #ask-hydra on the IOG [Discord server](https://discord.gg/Qq5vNTg9PT)
-- Github [Discussions](https://github.com/input-output-hk/hydra-poc/discussions)
+- Github [Discussions](https://github.com/input-output-hk/hydra/discussions)
 - Cardano [StackExchange](https://cardano.stackexchange.com/) using the `hydra` tag
 
 ## Your first contribution 
@@ -25,7 +25,7 @@ Contributing to the documentation, its translation, reporting bugs or proposing 
 
 ### Documentation + translations
 
-We host our documentation / user manual as a website [here](https://input-output-hk.github.io/hydra-poc).
+We host our documentation / user manual as a website [here](https://input-output-hk.github.io/hydra).
 
 Each page has an "Edit this page" button which should take you to the source
 file containing the markup. Should you would want to extend the documentation or
@@ -36,7 +36,7 @@ The documentation is also available in multiple languages and we can easily add 
 
 ### Bug reports
 
-[Submit an issue](https://github.com/input-output-hk/hydra-poc/issues/new/choose) using the "Bug report :bug:" template.
+[Submit an issue](https://github.com/input-output-hk/hydra/issues/new/choose) using the "Bug report :bug:" template.
 
 For bug reports, it's very important to explain
 * what version you used,
@@ -50,9 +50,9 @@ Feature ideas are precursors to high-level features items, which will be
 discussed and fleshed out to ideally become items on our feature roadmap.
 
 We use the [Ideas discussions
-category](https://github.com/input-output-hk/hydra-poc/discussions/categories/ideas)
+category](https://github.com/input-output-hk/hydra/discussions/categories/ideas)
 to discuss and vote on feature ideas, but you can also [submit an
-issue](https://github.com/input-output-hk/hydra-poc/issues/new/choose) using the
+issue](https://github.com/input-output-hk/hydra/issues/new/choose) using the
 "Feature idea :thought_balloon:" template and we convert that to a discussion.
 
 We expect a description of
@@ -106,7 +106,7 @@ additional steps and useful tools in their `README.md` files, e.g. the
 ### Coding standards
 
 Make sure to follow our [Coding
-Standards](https://github.com/input-output-hk/hydra-poc/wiki/Coding-Standards).
+Standards](https://github.com/input-output-hk/hydra/wiki/Coding-Standards).
 It includes guidelines on Haskell code style, but also on Git commit messages
 and some processes (TODO: clarify separation or unify with these guidelines). To
 propose new standards or changes to the existing standards, file an issue.
@@ -175,4 +175,4 @@ To perform a release of next `<version>`
 + Create a github release page containing
   - The released changes (formatted) and giving credit where credit is due
   - Attach static binaries to the release (or link the CI artifact)
-  - Publish hydra scripts onto `preview` and `pre-prod` and include transaction ids (e.g. using the [smoke test](https://github.com/input-output-hk/hydra-poc/actions/workflows/smoke-test.yaml))
+  - Publish hydra scripts onto `preview` and `pre-prod` and include transaction ids (e.g. using the [smoke test](https://github.com/input-output-hk/hydra/actions/workflows/smoke-test.yaml))

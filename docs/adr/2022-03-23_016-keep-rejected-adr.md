@@ -14,7 +14,7 @@ Accepted
 
 We have started using _Architecture Decision Records_ as our primary way to document the most important design decisions we take while developing Hydra Node, and this has proved effective in fostering fruitful discussions about major architecture changes.
 
-During the course of this project, we have sometimes had debates on various topics leading to rejection of [some ADRs](https://github.com/input-output-hk/hydra-poc/pull/230). It could be the case that  a previously rejected proposal turns out to be interesting, either because the context and situation have changed enough to reevaluate a proposal, or as background for some new proposal.
+During the course of this project, we have sometimes had debates on various topics leading to rejection of [some ADRs](https://github.com/input-output-hk/hydra/pull/230). It could be the case that  a previously rejected proposal turns out to be interesting, either because the context and situation have changed enough to reevaluate a proposal, or as background for some new proposal.
 
 ## Decision
 

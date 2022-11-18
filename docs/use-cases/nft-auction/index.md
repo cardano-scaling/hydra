@@ -24,5 +24,5 @@ The bidders run the same risk of bidding in a rigged auction but in the worst ca
 
 1. In this scenario, the Head is initialised by the auctioneer. It could be a "Managed Head" or "Head-as-a-Service", e.g. The auctioneer does not run a Hydra node but uses some third-party provider to run the node. A single-party head might not seem to make much sense but in this case it's just a way to do Cardano transactions with smart-contracts faster than on the mainchain.
 
-2. This use case is _extracted_ from a [conversation that happened on Github](https://github.com/input-output-hk/hydra-poc/discussions/116). Have a look at the conversation for details and/or to comment.
+2. This use case is _extracted_ from a [conversation that happened on Github](https://github.com/input-output-hk/hydra/discussions/116). Have a look at the conversation for details and/or to comment.
 :::

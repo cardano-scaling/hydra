@@ -31,4 +31,4 @@ We tactically drop to _Unit tests_ level when dealing with the protocol's "fine 
 ## Consequences
 
 * Development of each "feature", whether new or change to existing one, should start with a test defined at the highest level possible, but no higher
-* A detailed presentation of the various testing layers is available in the [wiki](https://github.com/input-output-hk/hydra-poc/wiki/Testing-Strategy)
+* A detailed presentation of the various testing layers is available in the [wiki](https://github.com/input-output-hk/hydra/wiki/Testing-Strategy)
