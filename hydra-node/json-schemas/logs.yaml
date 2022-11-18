@@ -398,6 +398,12 @@ definitions:
           newUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
 
+  # NOTE: We cannot simply describe 'ServerOutput' and re-use it in api.yaml, so
+  # we opted to not detail this section here. The outputs documented in api.yaml
+  # are based on internal type 'TimeServerOutput', so basically just contain an
+  # adtitional 'timestamp' and 'seq'.
+  ServerOutput: {}
+
   # TODO: Fill the gap!
   Network: {}
 
@@ -1042,28 +1048,7 @@ definitions:
             type: string
             enum: ["ClientEffect"]
           serverOutput:
-            oneOf:
-              - $ref: "api.yaml#/components/messages/Greetings/payload"
-              - $ref: "api.yaml#/components/messages/PeerConnected/payload"
-              - $ref: "api.yaml#/components/messages/PeerDisconnected/payload"
-              - $ref: "api.yaml#/components/messages/ReadyToCommit/payload"
-              - $ref: "api.yaml#/components/messages/Committed/payload"
-              - $ref: "api.yaml#/components/messages/HeadIsOpen/payload"
-              - $ref: "api.yaml#/components/messages/HeadIsClosed/payload"
-              - $ref: "api.yaml#/components/messages/HeadIsContested/payload"
-              - $ref: "api.yaml#/components/messages/ReadyToFanout/payload"
-              - $ref: "api.yaml#/components/messages/HeadIsAborted/payload"
-              - $ref: "api.yaml#/components/messages/HeadIsFinalized/payload"
-              - $ref: "api.yaml#/components/messages/TxSeen/payload"
-              - $ref: "api.yaml#/components/messages/TxValid/payload"
-              - $ref: "api.yaml#/components/messages/TxInvalid/payload"
-              - $ref: "api.yaml#/components/messages/TxExpired/payload"
-              - $ref: "api.yaml#/components/messages/SnapshotConfirmed/payload"
-              - $ref: "api.yaml#/components/messages/GetUTxOResponse/payload"
-              - $ref: "api.yaml#/components/messages/InvalidInput/payload"
-              - $ref: "api.yaml#/components/messages/PostTxOnChainFailed/payload"
-              - $ref: "api.yaml#/components/messages/CommandFailed/payload"
-              - $ref: "api.yaml#/components/messages/RolledBack/payload"
+            $ref: "#/definitions/ServerOutput"
 
       - title: NetworkEffect
         type: object

@@ -2,7 +2,7 @@
 
 module Hydra.API.ServerSpec where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (seq)
 import Test.Hydra.Prelude
 
 import Control.Exception (IOException)
@@ -17,15 +17,15 @@ import Control.Monad.Class.MonadSTM (
  )
 import qualified Data.Aeson as Aeson
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), input)
+import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), TimedServerOutput (..), input)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
-import Test.QuickCheck (cover)
-import Test.QuickCheck.Monadic (monadicIO, monitor, run)
+import Test.QuickCheck (checkCoverage, cover)
+import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
 spec :: Spec
 spec = parallel $ do
@@ -36,8 +36,8 @@ spec = parallel $ do
           withClient port $ \conn -> do
             received <- receiveData conn
             case Aeson.eitherDecode received of
-              Right msg -> msg `shouldBe` greeting
               Left{} -> failure $ "Failed to decode greeting " <> show received
+              Right TimedServerOutput{output = msg} -> msg `shouldBe` greeting
 
   it "sends sendOutput to all connected clients" $ do
     queue <- atomically newTQueue
@@ -89,23 +89,46 @@ spec = parallel $ do
                 failAfter 1 $ atomically (replicateM 1 (readTQueue queue2)) `shouldReturn` [arbitraryMsg]
                 failAfter 1 $ atomically (tryReadTQueue queue1) `shouldReturn` Nothing
 
-  prop "echoes history (past outputs) to client upon reconnection" $ \msgs -> monadicIO $ do
-    monitor $ cover 100 (null msgs) "no message when reconnecting"
-    monitor $ cover 100 (length msgs == 1) "only one message when reconnecting"
-    monitor $ cover 100 (length msgs > 1) "more than one message when reconnecting"
-    run . failAfter 5 $ do
-      withFreePort $ \port -> do
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
-          mapM_ sendOutput (msgs :: [ServerOutput SimpleTx])
-          withClient port $ \conn -> do
-            received <- replicateM (length msgs + 1) (receiveData conn)
-            case traverse Aeson.eitherDecode received of
-              Right msgs' -> msgs' `shouldBe` greeting : msgs
-              Left{} -> failure $ "Failed to decode messages " <> show msgs
+  it "echoes history (past outputs) to client upon reconnection" $
+    checkCoverage . monadicIO $ do
+      outputs <- pick arbitrary
+      monitor $ cover 0.1 (null outputs) "no message when reconnecting"
+      monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
+      monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
+      run . failAfter 5 $ do
+        withFreePort $ \port ->
+          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+            mapM_ sendOutput outputs
+            withClient port $ \conn -> do
+              received <- replicateM (length outputs + 1) (receiveData conn)
+              case traverse Aeson.eitherDecode received of
+                Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                Right timedOutputs ->
+                  (output <$> timedOutputs) `shouldBe` greeting : outputs
+
+  it "sequence numbers are continuous and strictly monotonically increasing" $
+    monadicIO $ do
+      outputs :: [ServerOutput SimpleTx] <- pick arbitrary
+      run . failAfter 5 $ do
+        withFreePort $ \port ->
+          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+            mapM_ sendOutput outputs
+            withClient port $ \conn -> do
+              received <- replicateM (length outputs + 1) (receiveData conn)
+              case traverse Aeson.eitherDecode received of
+                Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
+                  seq <$> timedOutputs `shouldSatisfy` strictlyMonotonic
 
   it "sends an error when input cannot be decoded" $
     failAfter 5 $
       withFreePort $ \port -> sendsAnErrorWhenInputCannotBeDecoded port
+
+strictlyMonotonic :: [Natural] -> Bool
+strictlyMonotonic = \case
+  [] -> True
+  [_] -> True
+  (a : b : as) -> a + 1 == b && strictlyMonotonic (b : as)
 
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
@@ -114,9 +137,9 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
       _greeting :: ByteString <- receiveData con
       sendBinaryData con invalidInput
       msg <- receiveData con
-      case Aeson.eitherDecode @(ServerOutput SimpleTx) msg of
-        Right resp -> resp `shouldSatisfy` isInvalidInput
+      case Aeson.eitherDecode @(TimedServerOutput SimpleTx) msg of
         Left{} -> failure $ "Failed to decode output " <> show msg
+        Right TimedServerOutput{output = resp} -> resp `shouldSatisfy` isInvalidInput
  where
   invalidInput = "not a valid message"
   isInvalidInput = \case
@@ -136,10 +159,10 @@ testClient queue semaphore cnx = do
   atomically $ modifyTVar' semaphore (+ 1)
   msg <- receiveData cnx
   case Aeson.eitherDecode msg of
-    Right resp -> do
+    Left{} -> failure $ "Failed to decode message " <> show msg
+    Right TimedServerOutput{output = resp} -> do
       atomically (writeTQueue queue resp)
       testClient queue semaphore cnx
-    Left{} -> failure $ "Failed to decode message " <> show msg
 
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()

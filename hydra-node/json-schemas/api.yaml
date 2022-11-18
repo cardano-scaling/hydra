@@ -1,12 +1,13 @@
 asyncapi: '2.3.0'
 info:
   title: Hydra Node API
-  version: '0.8.1'
+  version: '0.9.0'
   description: |
-    WebSocket API for administrating Hydra heads: multi-party isomorphic state-channels for Cardano.
+    WebSocket API for administrating & interacting with Hydra Heads: multi-party isomorphic state-channels for Cardano.
 
     Once started, a Hydra node provides an API in the forms of JSON messages over WebSocket. An Hydra node is an event-driven application where users (a.k.a you) are one possible source of inputs. Other sources can be mainly other Hydra nodes in the network, or transactions observed on the layer 1 (e.g. a closing transaction).
-    Therefore, once connected, clients receive events as a stream as they arrive. They can interact with their node by pushing events to it, some are local, and some will have consequences on the rest of the head.
+    Therefore, once connected, clients receive a stream of outputs as they arrive. They can interact with their node by pushing events to it, some are local, and some will have consequences on the rest of the head.
+    See [the documentation](https://hydra.family/head-protocol/core-concepts/behavior/) for more details on the overall API behavior.
 
     > By default, a Hydra node listens for TCP WebSocket connections on port `tcp/4001` . This can be changed using `--port`.
 
@@ -214,12 +215,18 @@ components:
         required:
           - tag
           - me
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["Greetings"]
           me:
             $ref: "#/components/schemas/Party"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     PeerConnected:
       title: PeerConnected
@@ -230,12 +237,18 @@ components:
         required:
           - tag
           - peer
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["PeerConnected"]
           peer:
             $ref: "#/components/schemas/NodeId"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     PeerDisconnected:
       title: PeerDisconnected
@@ -246,12 +259,18 @@ components:
         required:
           - tag
           - peer
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["PeerDisconnected"]
           peer:
             $ref: "#/components/schemas/NodeId"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     ReadyToCommit:
       title: ReadyToCommit
@@ -262,6 +281,8 @@ components:
         required:
           - tag
           - parties
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
@@ -270,6 +291,10 @@ components:
             type: array
             items:
               $ref: "#/components/schemas/Party"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     Committed:
       title: Committed
@@ -281,6 +306,8 @@ components:
           - tag
           - party
           - utxo
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
@@ -289,6 +316,10 @@ components:
             $ref: "#/components/schemas/Party"
           utxo:
             $ref: "#/components/schemas/UTxO"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     HeadIsOpen:
       title: HeadIsOpen
@@ -299,12 +330,18 @@ components:
         required:
           - tag
           - utxo
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["HeadIsOpen"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     HeadIsClosed:
       title: HeadIsClosed
@@ -316,6 +353,8 @@ components:
           - tag
           - snapshotNumber
           - contestationDeadline
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
@@ -323,6 +362,10 @@ components:
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
           contestationDeadline:
+            $ref: "#/components/schemas/UTCTime"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
             $ref: "#/components/schemas/UTCTime"
 
     HeadIsContested:
@@ -336,12 +379,18 @@ components:
         required:
           - tag
           - snapshotNumber
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["HeadIsContested"]
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     ReadyToFanout:
       title: ReadyToFanout
@@ -352,10 +401,16 @@ components:
         type: object
         required:
           - tag
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["ReadyToFanout"]
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     HeadIsAborted:
       title: HeadIsAborted
@@ -366,12 +421,18 @@ components:
         required:
           - tag
           - utxo
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["HeadIsAborted"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     HeadIsFinalized:
       title: HeadIsFinalized
@@ -382,12 +443,18 @@ components:
         required:
           - tag
           - utxo
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["HeadIsFinalized"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     TxSeen:
       title: TxSeen
@@ -398,12 +465,18 @@ components:
         required:
           - tag
           - transaction
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["TxSeen"]
           transaction:
             $ref: "#/components/schemas/Transaction"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     TxValid:
       title: TxValid
@@ -414,12 +487,18 @@ components:
         required:
           - tag
           - transaction
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["TxValid"]
           transaction:
             $ref: "#/components/schemas/Transaction"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
       
     TxInvalid:
       title: TxInvalid
@@ -433,6 +512,8 @@ components:
         - utxo
         - transaction
         - validationError
+        - seq
+        - timestamp
         properties:
           tag:
             type: string
@@ -446,6 +527,10 @@ components:
             properties:
               reason:
                 type: string
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     TxExpired:
       title: TxExpired
@@ -456,12 +541,18 @@ components:
         required:
         - tag
         - transaction
+        - seq
+        - timestamp
         properties:
           tag:
             type: string
             enum: ["TxExpired"]
           transaction:
             $ref: "#/components/schemas/Transaction"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+              $ref: "#/components/schemas/UTCTime"
 
     SnapshotConfirmed:
       title: SnapshotConfirmed
@@ -472,12 +563,18 @@ components:
         required:
           - tag
           - snapshot
+          - seq
+          - timestamp
         properties:
           tag:
             type: string
             enum: ["SnapshotConfirmed"]
           snapshot:
             $ref: "#/components/schemas/Snapshot"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     GetUTxOResponse:
       title: GetUTxOResponse
@@ -488,12 +585,18 @@ components:
         required:
         - tag
         - utxo
+        - seq
+        - timestamp
         properties:
           tag:
             type: string
             enum: ["GetUTxOResponse"]
           utxo:
             $ref: "#/components/schemas/UTxO"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     InvalidInput:
       title: InvalidInput
@@ -505,6 +608,8 @@ components:
         - tag
         - reason
         - input
+        - seq
+        - timestamp
         properties:
           tag:
             type: string
@@ -513,6 +618,10 @@ components:
             type: string
           input:
             type: string
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     PostTxOnChainFailed:
       title: PostTxOnChainFailed
@@ -525,6 +634,8 @@ components:
         - tag
         - postChainTx
         - postTxError
+        - seq
+        - timestamp
         properties:
           tag:
             type: string
@@ -533,6 +644,10 @@ components:
             $ref: "#/components/schemas/PostChainTx"
           postTxError:
             $ref: "#/components/schemas/PostTxError"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     RolledBack:
       title: RolledBack
@@ -543,10 +658,16 @@ components:
         additionalProperties: false
         required:
         - tag
+        - seq
+        - timestamp
         properties:
           tag:
             type: string
             enum: ["RolledBack"]
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
     CommandFailed:
       title: CommandFailed
@@ -557,6 +678,8 @@ components:
         required:
         - tag
         - clientInput
+        - seq
+        - timestamp
         properties:
           tag:
             type: string
@@ -571,7 +694,10 @@ components:
               - $ref: "#/components/messages/Close/payload"
               - $ref: "#/components/messages/Contest/payload"
               - $ref: "#/components/messages/Fanout/payload"
-
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
 
   ########
   #
@@ -1340,6 +1466,13 @@ components:
             - type: string
               contentEncoding: base16
             - type: "null"
+
+    SequenceNumber:
+      type: integer
+      minimum: 0
+      description: |
+        A strictly monotonically increasing counter.
+      example: 1
 
     UTCTime:
       type: string

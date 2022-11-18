@@ -9,7 +9,7 @@ module Hydra.API.Server (
   APIServerLog,
 ) where
 
-import Hydra.Prelude hiding (TVar, readTVar)
+import Hydra.Prelude hiding (TVar, readTVar, seq)
 
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
@@ -18,7 +18,7 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput))
+import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..))
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
@@ -66,38 +66,51 @@ type ServerCallback tx m = ClientInput tx -> m ()
 type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
 
 withAPIServer ::
+  forall tx.
   (IsChainState tx) =>
   IP ->
   PortNumber ->
   Party ->
-  PersistenceIncremental (ServerOutput tx) IO ->
+  PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
   responseChannel <- newBroadcastTChanIO
   h <- loadAll
-  -- NOTE: We will add a 'Greetings' message on each API server start. This is
-  -- important to make sure the latest configured 'party' is reaching the
-  -- client.
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
   history <- newTVarIO (reverse h)
 
-  appendToHistory history $ Greetings party
+  -- NOTE: We will add a 'Greetings' message on each API server start. This is
+  -- important to make sure the latest configured 'party' is reaching the
+  -- client.
+  void $ appendToHistory history (Greetings party)
   race_
     (runAPIServer host port tracer history callback responseChannel)
     . action
     $ Server
       { sendOutput = \output -> do
-          appendToHistory history output
+          timedOutput <- appendToHistory history output
           atomically $
-            writeTChan responseChannel output
+            writeTChan responseChannel timedOutput
       }
  where
-  appendToHistory history event = do
-    append event
-    atomically $
-      modifyTVar' history (event :)
+  appendToHistory :: TVar [TimedServerOutput tx] -> ServerOutput tx -> IO (TimedServerOutput tx)
+  appendToHistory history output = do
+    time <- getCurrentTime
+    timedOutput <- atomically $ do
+      seq <- nextSequenceNumber <$> readTVar history
+      let timedOutput = TimedServerOutput{output, time, seq}
+      modifyTVar' history (timedOutput :)
+      pure timedOutput
+    append timedOutput
+    pure timedOutput
+
+nextSequenceNumber :: [TimedServerOutput tx] -> Natural
+nextSequenceNumber historyList =
+  case historyList of
+    [] -> 0
+    (TimedServerOutput{seq} : _) -> seq + 1
 
 runAPIServer ::
   forall tx.
@@ -105,9 +118,9 @@ runAPIServer ::
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->
-  TVar [ServerOutput tx] ->
+  TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
-  TChan (ServerOutput tx) ->
+  TChan (TimedServerOutput tx) ->
   IO ()
 runAPIServer host port tracer history callback responseChannel = do
   traceWith tracer (APIServerStarted port)
@@ -144,7 +157,10 @@ runAPIServer host port tracer history callback responseChannel = do
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
         -- message to memory
         let clientInput = decodeUtf8With lenientDecode $ toStrict msg
-        sendTextData con $ Aeson.encode $ InvalidInput @tx e clientInput
+        time <- getCurrentTime
+        seq <- atomically $ nextSequenceNumber <$> readTVar history
+        let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time, seq}
+        sendTextData con $ Aeson.encode timedOutput
         traceWith tracer (APIInvalidInput e clientInput)
 
   forwardHistory con = do

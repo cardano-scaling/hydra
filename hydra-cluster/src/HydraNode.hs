@@ -29,8 +29,9 @@ import CardanoNode (NodeLog)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
-import Data.Aeson (Value (String), object, (.=))
+import Data.Aeson (Value (..), object, (.=))
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Aeson.Types (Pair)
 import qualified Data.List as List
 import Data.Text (pack)
@@ -76,6 +77,13 @@ send HydraClient{tracer, hydraNodeId, connection} v = do
   sendTextData connection (Aeson.encode v)
   traceWith tracer $ SentMessage hydraNodeId v
 
+waitNext :: HasCallStack => HydraClient -> IO Aeson.Value
+waitNext HydraClient{connection} = do
+  bytes <- receiveData connection
+  case Aeson.eitherDecode' bytes of
+    Left err -> failure $ "WaitNext failed to decode msg: " <> err
+    Right value -> pure value
+
 -- | Create an output as expected by 'waitFor' and 'waitForAll'.
 output :: Text -> [Pair] -> Aeson.Value
 output tag pairs = object $ ("tag" .= tag) : pairs
@@ -86,16 +94,8 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 waitFor :: HasCallStack => Tracer IO EndToEndLog -> Natural -> [HydraClient] -> Aeson.Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
--- TODO(AB): reuse waitNext in other waiters
-waitNext :: HasCallStack => HydraClient -> IO Aeson.Value
-waitNext HydraClient{connection} = do
-  bytes <- receiveData connection
-  case Aeson.eitherDecode' bytes of
-    Left err -> failure $ "WaitNext failed to decode msg: " <> err
-    Right value -> pure value
-
 waitMatch :: HasCallStack => Natural -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
-waitMatch delay HydraClient{tracer, hydraNodeId, connection} match = do
+waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
   seenMsgs <- newTVarIO []
   timeout (fromIntegral delay * 1_000_000) (go seenMsgs) >>= \case
     Just x -> pure x
@@ -111,13 +111,10 @@ waitMatch delay HydraClient{tracer, hydraNodeId, connection} match = do
             ]
  where
   go seenMsgs = do
-    bytes <- receiveData connection
-    case Aeson.decode' bytes of
-      Nothing -> go seenMsgs
-      Just msg -> do
-        traceWith tracer (ReceivedMessage hydraNodeId msg)
-        atomically (modifyTVar' seenMsgs (msg :))
-        maybe (go seenMsgs) pure (match msg)
+    msg <- waitNext client
+    traceWith tracer (ReceivedMessage hydraNodeId msg)
+    atomically (modifyTVar' seenMsgs (msg :))
+    maybe (go seenMsgs) pure (match msg)
 
   align _ [] = []
   align n (h : q) = h : fmap (T.replicate n " " <>) q
@@ -128,10 +125,10 @@ waitMatch delay HydraClient{tracer, hydraNodeId, connection} match = do
 waitForAll :: HasCallStack => Tracer IO EndToEndLog -> Natural -> [HydraClient] -> [Aeson.Value] -> IO ()
 waitForAll tracer delay nodes expected = do
   traceWith tracer (StartWaiting (map hydraNodeId nodes) expected)
-  forConcurrently_ nodes $ \HydraClient{hydraNodeId, connection} -> do
+  forConcurrently_ nodes $ \client@HydraClient{hydraNodeId} -> do
     msgs <- newIORef []
     -- The chain is slow...
-    result <- timeout (fromIntegral delay * 1_000_000) $ tryNext hydraNodeId msgs expected connection
+    result <- timeout (fromIntegral delay * 1_000_000) $ tryNext client msgs expected
     case result of
       Just x -> pure x
       Nothing -> do
@@ -151,15 +148,19 @@ waitForAll tracer delay nodes expected = do
   align _ [] = []
   align n (h : q) = h : fmap (T.replicate n " " <>) q
 
-  tryNext nodeId _ [] _ = traceWith tracer (EndWaiting nodeId)
-  tryNext nodeId msgs stillExpected c = do
-    bytes <- receiveData c
-    msg <- case Aeson.decode' bytes of
-      Nothing -> fail $ "received non-JSON message from the server: " <> show bytes
-      Just m -> pure m
-    traceWith tracer (ReceivedMessage nodeId msg)
-    modifyIORef' msgs (msg :)
-    tryNext nodeId msgs (List.delete msg stillExpected) c
+  tryNext :: HydraClient -> IORef [Aeson.Value] -> [Aeson.Value] -> IO ()
+  tryNext c@HydraClient{hydraNodeId} msgs = \case
+    [] -> traceWith tracer (EndWaiting hydraNodeId)
+    stillExpected -> do
+      msg <- waitNext c
+      traceWith tracer (ReceivedMessage hydraNodeId msg)
+      modifyIORef' msgs (msg :)
+      case msg of
+        Object km -> do
+          let cleaned = Object $ km & KeyMap.delete "seq" & KeyMap.delete "timestamp"
+          tryNext c msgs (List.delete cleaned stillExpected)
+        _ ->
+          tryNext c msgs stillExpected
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do

@@ -14,7 +14,7 @@ The formalism uses [UML statechart](https://en.wikipedia.org/wiki/UML_state_mach
 
 Not pictured is the `CommandFailed` output, which is implicit emitted whenever an input is used when no transition below applies. Also non-state-changing or life-cycle relevant inputs like `GetUTxO` are not mentioned, as well as outputs like `Greetings`, `InvalidInput`, `PeerConnected`, `PeerDisconnected` and `GetUTxOResponse`.
 
-A special case is the `RolledBack` output. This means that the chain rolled back, but it includes no particular information in which state the Hydra Head is now. Frankly, this is quite hard to use - we will improve on this!, but should not invalidate any of the behavioral rules.
+A special case is the `RolledBack` output. This means that the chain rolled back, and it includes timestamp and a counter (same as other API client messages) so it is easier to construct the timeline.
 
 ## Replay of past server outputs
 
