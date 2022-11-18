@@ -10,7 +10,7 @@ const customFields = {
   apiSpecUrl: 'api.yaml',
 };
 
-const editUrl = 'https://github.com/input-output-hk/hydra-poc/tree/master/docs';
+const editUrl = 'https://github.com/input-output-hk/hydra/tree/master/docs';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -163,7 +163,7 @@ const config = {
             position: 'left',
           },
           {
-            href: 'https://github.com/input-output-hk/hydra-poc',
+            href: 'https://github.com/input-output-hk/hydra',
             label: 'GitHub',
             position: 'right',
           },
@@ -181,7 +181,7 @@ const config = {
             items: [
               {
                 label: 'Coding Standards',
-                to: 'https://github.com/input-output-hk/hydra-poc/wiki/Coding-Standards',
+                to: 'https://github.com/input-output-hk/hydra/wiki/Coding-Standards',
               },
               {
                 label: 'Architectural Decision Records',
@@ -189,7 +189,7 @@ const config = {
               },
               {
                 label: 'Testing Strategy',
-                to: 'https://github.com/input-output-hk/hydra-poc/wiki/Testing-Strategy',
+                to: 'https://github.com/input-output-hk/hydra/wiki/Testing-Strategy',
               }
             ],
           },
@@ -202,7 +202,7 @@ const config = {
               },
               {
                 label: 'Github Discussions',
-                href: 'https://github.com/input-output-hk/hydra-poc/discussions',
+                href: 'https://github.com/input-output-hk/hydra/discussions',
               },
               {
                 label: 'Stack Exchange',
@@ -219,7 +219,7 @@ const config = {
               },
               {
                 label: 'Logbook',
-                to: 'https://github.com/input-output-hk/hydra-poc/wiki/Logbook'
+                to: 'https://github.com/input-output-hk/hydra/wiki/Logbook'
               },
               {
                 label: 'Input Output (Blog)',
@@ -240,7 +240,7 @@ const config = {
               },
               {
                 label: 'Contributors',
-                to: "https://github.com/input-output-hk/hydra-poc/graphs/contributors"
+                to: "https://github.com/input-output-hk/hydra/graphs/contributors"
               }
             ],
           },

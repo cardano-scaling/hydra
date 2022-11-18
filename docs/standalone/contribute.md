@@ -14,8 +14,8 @@ We are exploring use cases and how to empower them with Hydra ourselves and with
 
 ### *Comment* on the roadmap
 
-Our development roadmap is public [on Github](https://github.com/orgs/input-output-hk/projects/21/views/7). If you have questions or an item is of special interest to your team, leave a comment or start a new [discussion](https://github.com/input-output-hk/hydra-poc/discussions).
+Our development roadmap is public [on Github](https://github.com/orgs/input-output-hk/projects/21/views/7). If you have questions or an item is of special interest to your team, leave a comment or start a new [discussion](https://github.com/input-output-hk/hydra/discussions).
 
 :::info
-Our [Contribution Guidelines](https://github.com/input-output-hk/hydra-poc/blob/master/CONTRIBUTING.md) on the repository hold more details on how to contribute.
+Our [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md) on the repository hold more details on how to contribute.
 :::

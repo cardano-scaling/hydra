@@ -63,7 +63,7 @@ In principle, yes! The ledger used for L2 transactions is configurable and can u
 
 Let's look at two examples:
 
-  1. `minUTxOValue = 0`: Outputs with no "ADA" in their value in the L2 would be disallowed on L1 -> this makes fanout not possible. Using partial fanout as also considered within [this feature](https://github.com/input-output-hk/hydra-poc/issues/190) would only disallow fanout of affected UTxOs.
+  1. `minUTxOValue = 0`: Outputs with no "ADA" in their value in the L2 would be disallowed on L1 -> this makes fanout not possible. Using partial fanout as also considered within [this feature](https://github.com/input-output-hk/hydra/issues/190) would only disallow fanout of affected UTxOs.
   2. `maxTxExecutionUnits(L2) > maxTxExecutionUnits(L1)`: Outputs payed to scripts which are too expensive to validate on L1 -> will be fanned out, but become unspendable.
   
 With great power, comes great responsibility. 

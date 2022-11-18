@@ -4,11 +4,11 @@ This guide is meant to be a tutorial on how to develop an application on Hydra. 
 
 ## On-chain code
 
-On-chain code will be exactly the same between Cardano and a hydra head. This is one of the main selling points of the hydra design (heads are also called isomorphic state channels) the only caveat being that (at the time of writing 07/22) Hydra Heads do not support validity ranges for transactions, the reason for this is there is currently no notion of time inside of a Hydra Head. See also this [feature on the roadmap](https://github.com/input-output-hk/hydra-poc/issues/196)
+On-chain code will be exactly the same between Cardano and a hydra head. This is one of the main selling points of the hydra design (heads are also called isomorphic state channels) the only caveat being that (at the time of writing 07/22) Hydra Heads do not support validity ranges for transactions, the reason for this is there is currently no notion of time inside of a Hydra Head. See also this [feature on the roadmap](https://github.com/input-output-hk/hydra/issues/196)
 
 ## Off-chain code
 
-Here is where the differences will begin. Currently, there is no [support for the PAB](https://github.com/input-output-hk/hydra-poc/issues/214). When it comes to hydra, the luxaries of the `Contract` monad are not available, so the developer will not have access to similar tools.
+Here is where the differences will begin. Currently, there is no [support for the PAB](https://github.com/input-output-hk/hydra/issues/214). When it comes to hydra, the luxaries of the `Contract` monad are not available, so the developer will not have access to similar tools.
 
 Instead, transactions will need to be constructed and submitted to the Hydra Node in CBOR format. The interface to speak to a Hydra Node is a websocket, and developers must build applications that connect to these websockets in order to send and receive events through them.
 
@@ -19,7 +19,7 @@ The first one describes the commands that a hydra node will accept, while the se
 An important event developers will be interested in is `SnaphotConfirmed`. This event is emitted once all the participants of the head, have seen and signed a transaction submitted by one of them.
 
 Once a transaction lands inside a snapshot, it is confirmed and there are no chances for it to be rolled back. This is an important distinction from L1: in that case, when a node sees a transaction there is still a chance that it might be rolled back (where the probability of this goes to 0 as more blocks are added), in the hydra world, the only way to make a snapshot is to have every single node in the head approve of it.
-This is a synchronous process and requires all the head participants to be online all the time, the tradeoff is that there is no uncertainty or possibility of rollbacks. Once the Hydra Head has been open long enough that the opening transaction has become final, the moment the snapshot is confirmed there is no going back. See also this [feature on the roadmap](https://github.com/input-output-hk/hydra-poc/issues/185).
+This is a synchronous process and requires all the head participants to be online all the time, the tradeoff is that there is no uncertainty or possibility of rollbacks. Once the Hydra Head has been open long enough that the opening transaction has become final, the moment the snapshot is confirmed there is no going back. See also this [feature on the roadmap](https://github.com/input-output-hk/hydra/issues/185).
 
 For the Pub side of the API, an important endpoint will be `NewTx`. This is used to submit a transaction to the node. There are a couple of ways the transaction can be submitted, but a simple and familiar way should be to build the transaction built with `Cardano.Api`, sign & serialize it to CBOR and submit that through the websocket.
 

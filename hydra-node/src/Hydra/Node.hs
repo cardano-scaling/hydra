@@ -7,11 +7,11 @@
 -- == Node Architecture
 --
 -- The following [diagram (click for a full-width
--- version)](https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/images/hydra-architecture-direct.jpg)
+-- version)](https://raw.githubusercontent.com/input-output-hk/hydra/master/hydra-node/images/hydra-architecture-direct.jpg)
 -- represents the internal structure of the Hydra Node and the interactions
 -- between its components.
 --
--- ![Hydra Architecture](https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/images/hydra-architecture-direct_800x.jpg)
+-- ![Hydra Architecture](https://raw.githubusercontent.com/input-output-hk/hydra/master/hydra-node/images/hydra-architecture-direct_800x.jpg)
 --
 -- __Legend__:
 --

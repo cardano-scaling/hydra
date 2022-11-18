@@ -21,7 +21,7 @@ Assuming one has "admin" access to a GCP project, the following steps will creat
 Create the service account:
 
 ```
-$ gcloud iam service-accounts create hydra-poc-builder
+$ gcloud iam service-accounts create hydra-builder
 ```
 
 Add needed permissions:

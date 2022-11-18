@@ -54,7 +54,7 @@ data-files:
 
 source-repository head
   type:     git
-  location: https://github.com/input-output-hk/hydra-poc
+  location: https://github.com/input-output-hk/hydra
 
 flag hydra-development
   description: Disable -Werror for development
