@@ -483,10 +483,10 @@ seedWorld seedKeys = do
   nodes <- lift $ do
     let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
     nodes <- newTVarIO []
+    (connectToChain, tickThread) <-
+      mockChainAndNetwork (contramap DirectChain tr) seedKeys parties nodes
     forM seedKeys $ \(hsk, _csk) -> do
       outputs <- atomically newTQueue
-      connectToChain <-
-        mockChainAndNetwork (contramap DirectChain tr) vKeys parties nodes
       outputHistory <- newTVarIO []
       let party = deriveParty hsk
           otherParties = filter (/= party) parties
@@ -508,20 +508,22 @@ mockChainAndNetwork ::
   , MonadThrow (STM m)
   ) =>
   Tracer m DirectChainLog ->
-  [VerificationKey PaymentKey] ->
+  [(SigningKey HydraKey, CardanoSigningKey)] ->
   [Party] ->
   TVar m [MockHydraNode m] ->
-  m (ConnectToChain Tx m)
-mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
+  m (ConnectToChain Tx m, Async m ())
+mockChainAndNetwork tr seedKeys _parties nodes = do
   queue <- newTQueueIO
   tickThread <- async (simulateTicks queue)
   let chainComponent = \node -> do
+        let ownParty = party (env node)
+        let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
         let ctx =
               S.ChainContext
                 { networkId = testNetworkId
                 , peerVerificationKeys = vkeys
                 , ownVerificationKey = vkey
-                , ownParty = us
+                , ownParty
                 , scriptRegistry =
                     -- TODO: we probably want different _scripts_ as initial and commit one
                     let txIn = mkMockTxIn vkey 0
@@ -577,6 +579,14 @@ mockChainAndNetwork tr (vkey : vkeys) (us : _parties) nodes = do
       Nothing -> pure ()
 mockChainAndNetwork _ _ _ _ =
   error "Cannot connect chain and network without keys"
+
+-- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
+-- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
+-- direct knowlege of the cardano keys which are stored only at the `ChainComponent` level.
+findOwnCardanoKey :: Party -> [(SigningKey HydraKey, CardanoSigningKey)] -> (VerificationKey PaymentKey, [VerificationKey PaymentKey])
+findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for " <> show me <> " in " <> show seedKeys) $ do
+  csk <- getVerificationKey . signingKey . snd <$> find ((== me) . deriveParty . fst) seedKeys
+  pure (csk, filter (/= csk) $ map (getVerificationKey . signingKey . snd) seedKeys)
 
 mkBlock :: Ledger.ValidatedTx LedgerEra -> Util.Block
 mkBlock ledgerTx =
