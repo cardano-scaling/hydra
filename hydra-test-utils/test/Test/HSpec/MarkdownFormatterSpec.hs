@@ -4,7 +4,6 @@ import Hydra.Prelude
 import Test.Hspec.MarkdownFormatter
 import Test.Hydra.Prelude
 
-import Data.ByteString.Char8 (unpack)
 import Data.List (isInfixOf)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (splitFileName, (</>))
@@ -60,7 +59,7 @@ hspecWithMarkdown title tmpDir aSpec = do
         , configFormat = Just (markdownFormatter title markdownFile)
         }
       aSpec
-  unpack <$> readFileBS markdownFile
+  decodeUtf8 <$> readFileBS markdownFile
 
 listLabels :: TestTree -> [String]
 listLabels = go []
