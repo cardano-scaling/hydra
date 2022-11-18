@@ -29,8 +29,9 @@ import CardanoNode (NodeLog)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
-import Data.Aeson (Value (String), object, (.=))
+import Data.Aeson (Value (..), object, (.=))
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Aeson.Types (Pair)
 import qualified Data.List as List
 import Data.Text (pack)
@@ -151,6 +152,7 @@ waitForAll tracer delay nodes expected = do
   align _ [] = []
   align n (h : q) = h : fmap (T.replicate n " " <>) q
 
+  tryNext :: Int -> IORef [Aeson.Value] -> [Aeson.Value] -> Connection -> IO ()
   tryNext nodeId _ [] _ = traceWith tracer (EndWaiting nodeId)
   tryNext nodeId msgs stillExpected c = do
     bytes <- receiveData c
@@ -158,8 +160,14 @@ waitForAll tracer delay nodes expected = do
       Nothing -> fail $ "received non-JSON message from the server: " <> show bytes
       Just m -> pure m
     traceWith tracer (ReceivedMessage nodeId msg)
-    modifyIORef' msgs (msg :)
-    tryNext nodeId msgs (List.delete msg stillExpected) c
+    case msg of
+      Object km -> do
+        let cleaned = Object $ KeyMap.delete "seq" . KeyMap.delete "timestamp" $ km
+        modifyIORef' msgs (msg :)
+        tryNext nodeId msgs (List.delete cleaned stillExpected) c
+      _ -> do
+        modifyIORef' msgs (msg :)
+        tryNext nodeId msgs stillExpected c
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do
