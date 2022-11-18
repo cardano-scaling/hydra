@@ -59,7 +59,7 @@ hspecWithMarkdown title tmpDir aSpec = do
         , configFormat = Just (markdownFormatter title markdownFile)
         }
       aSpec
-  readFile markdownFile
+  decodeUtf8 <$> readFileBS markdownFile
 
 listLabels :: TestTree -> [String]
 listLabels = go []
