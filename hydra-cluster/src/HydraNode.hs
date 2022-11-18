@@ -160,13 +160,12 @@ waitForAll tracer delay nodes expected = do
       Nothing -> fail $ "received non-JSON message from the server: " <> show bytes
       Just m -> pure m
     traceWith tracer (ReceivedMessage nodeId msg)
+    modifyIORef' msgs (msg :)
     case msg of
       Object km -> do
-        let cleaned = Object $ KeyMap.delete "seq" . KeyMap.delete "timestamp" $ km
-        modifyIORef' msgs (msg :)
+        let cleaned = Object $ km & KeyMap.delete "seq" & KeyMap.delete "timestamp"
         tryNext nodeId msgs (List.delete cleaned stillExpected) c
-      _ -> do
-        modifyIORef' msgs (msg :)
+      _ ->
         tryNext nodeId msgs stillExpected c
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString

@@ -93,7 +93,7 @@ spec :: Spec
 spec = around showLogsOnFailure $ do
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
-      fit "full head life-cycle" $ \tracer -> do
+      it "full head life-cycle" $ \tracer -> do
         withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
