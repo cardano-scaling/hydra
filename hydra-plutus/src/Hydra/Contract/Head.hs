@@ -280,7 +280,7 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
     && checkSnapshot
     && mustBeSignedByParticipant ctx headContext
  where
-  hasBoundedValidity = traceError "hasBoundedValidity check failed" $ tMax - tMin <= cp
+  hasBoundedValidity = traceIfFalse "hasBoundedValidity check failed" $ tMax - tMin <= cp
 
   checkSnapshot
     | snapshotNumber == 0 =

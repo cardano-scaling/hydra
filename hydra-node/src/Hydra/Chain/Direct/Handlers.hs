@@ -64,13 +64,12 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
-import Hydra.Data.ContestationPeriod (ContestationPeriod (milliseconds), posixToUTCTime)
+import Hydra.ContestationPeriod (fromChain, toNominalDiffTime)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..), blockPoint)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Time (fromMilliSeconds)
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
@@ -248,7 +247,7 @@ fromPostChainTx ::
   PostChainTx Tx ->
   STM m Tx
 fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
-  pointInTime@(endSlotNo, _) <- throwLeft currentPointInTime
+  pointInTime <- throwLeft currentPointInTime
   case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
@@ -273,20 +272,15 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
     (CollectComTx{}, Initial st) ->
       pure $ collect ctx st
     (CloseTx{confirmedSnapshot}, Open st) -> do
-      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      contestationPeriodInSlots <-
-        throwLeft
-          . slotFromUTCTime
-          . posixToUTCTime
-          . fromMilliSeconds
-          . milliseconds
-          . openContestationPeriod
-          $ openThreadOutput st
-      let startSlotNo = endSlotNo - contestationPeriodInSlots
-      pure (close ctx st confirmedSnapshot startSlotNo shifted)
+      upperBound@(_, upperTime) <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+      let onchainCp = openContestationPeriod $ openThreadOutput st
+          offchainCp = fromChain onchainCp
+          startTime = addUTCTime (-toNominalDiffTime offchainCp) upperTime
+      startSlotNo <- throwLeft $ slotFromUTCTime startTime
+      pure (close ctx st confirmedSnapshot startSlotNo upperBound)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
-      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (contest ctx st confirmedSnapshot shifted)
+      upperBound <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+      pure (contest ctx st confirmedSnapshot upperBound)
     (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       pure (fanout st utxo deadlineSlot)
