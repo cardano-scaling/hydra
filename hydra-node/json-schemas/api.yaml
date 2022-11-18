@@ -1,12 +1,13 @@
 asyncapi: '2.3.0'
 info:
   title: Hydra Node API
-  version: '0.8.1'
+  version: '0.9.0'
   description: |
-    WebSocket API for administrating Hydra heads: multi-party isomorphic state-channels for Cardano.
+    WebSocket API for administrating & interacting with Hydra Heads: multi-party isomorphic state-channels for Cardano.
 
     Once started, a Hydra node provides an API in the forms of JSON messages over WebSocket. An Hydra node is an event-driven application where users (a.k.a you) are one possible source of inputs. Other sources can be mainly other Hydra nodes in the network, or transactions observed on the layer 1 (e.g. a closing transaction).
-    Therefore, once connected, clients receive events as a stream as they arrive. They can interact with their node by pushing events to it, some are local, and some will have consequences on the rest of the head.
+    Therefore, once connected, clients receive a stream of outputs as they arrive. They can interact with their node by pushing events to it, some are local, and some will have consequences on the rest of the head.
+    See [the documentation](https://hydra.family/head-protocol/core-concepts/behavior/) for more details on the overall API behavior.
 
     > By default, a Hydra node listens for TCP WebSocket connections on port `tcp/4001` . This can be changed using `--port`.
 

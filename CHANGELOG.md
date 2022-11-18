@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.9.0] - UNRELEASED
+
+- API server responses now contain a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/input-output-hk/hydra/pull/618)
+
 ## [0.8.1] - 2022-11-17
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
@@ -28,8 +32,6 @@ changes.
 - Fixed observing the chain for Hydra L1 transactions after restart. [599](https://github.com/input-output-hk/hydra/issues/599)
 
 - `hydra-cardano-api` now published on [Cardano Haskell Packages (CHaP)](https://input-output-hk.github.io/cardano-haskell-packages/package/hydra-cardano-api-0.8.0/). [#504](https://github.com/input-output-hk/hydra/issues/504)
-
-- API server responses now contain a timestamp and an increasing monotonic counter.
 
 ## [0.8.0] - 2022-10-27
 
