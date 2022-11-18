@@ -5,15 +5,12 @@ FIXME: Improve language uniformity and replace
 
 # 2 - Background
 
-Founded in 2015 by Charles Hoskinson and Jeremy Wood, IOG is a technology company that builds blockchains and blockchain-based products for academic institutions, government entities, and corporations. We are a decentralized company that loves small, innovative teams forming and executing ideas that cause cascading disruption. Cascading disruption is the idea that most of the structures that form the world's financial, governance, and social systems are inherently unstable, and thus minor perturbations can cause a ripple effect that fundamentally reconfigures the entire system. Our company is committed to identifying and developing technology to force these perturbations in order to push towards a more fair and transparent order.
-
-
-Hydra is the layer 2 scalability solution for Cardano, which aims to increase transaction speed through low latency and high throughput and minimize transaction cost.
-IOG's product Hydra Head is the first protocol of the Hydra family and embodies the foundation for more advanced deployment scenarios relying on isomorphic, multi-party state-channels. Detailed information can be found at https://hydra.family/head-protocol/.
+Hydra is the layer 2 (L2) scalability solution for Cardano, which aims to minimize transaction cost and increase transaction speed via low latency & high throughput.
+Hydra Head is the first of whole family of protocols and embodies the foundation for more advanced constructions relying on isomorphic, multi-party state-channels. Detailed information can be found at https://hydra.family/head-protocol/.
 
 # 4 - Project Scope
 
-IOG is issuing this solicitation to perform an assessment of the security of the Hydra Head protocol implementation. IOG is lloking for a comprehensive and best practice Secuirty Audit to include, but not limited to, the areas of concern below. Any additional materials and documentation can be referenced and attached to your submission.
+We are issuing this solicitation to perform an assessment of the security of the Hydra Head protocol implementation. The hydra team is looking for a comprehensive and best practice security audit to include, but not limited to, the areas of concern below. Any additional materials and documentation can be referenced and attached to your submission.
 
 Per [CIP-52](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0052),
 1. Any discrepancies, deviations or spotted vulnerabilities shall be described and classified with an appropriate severity level. Recommendations to rectify the identified deficiencies shall also be provided whenever appropriate.
@@ -22,25 +19,28 @@ Per [CIP-52](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0052),
 
 ## Context and artifacts
 
-The Hydra head protocol implementation is composed of several parts, Hydra plutus scripts (on-chain code), Hydra node chain layer (off-chain code), Head logic (layer 2 code) and this implementation is based on general and specific specification which contain proofs of several properties of the protocol. The main goal of this audit is to validate that these properties and their proofs apply to the code produced.
-
+The Hydra Head protocol is implemented in the `hydra-node`, which connects to the Cardano network as layer 1 (L1) through a `cardano-node`, to other Hydra Head compliant nodes over an off-chain network, and exposes an API to users of the layer 2. Most relevant for this audit are:
+ - Hydra Head plutus scripts (on-chain code, `hydra-plutus` package)
+ - Chain layer of the `hydra-node` (off-chain code)
+ - Head logic of the `hydra-node` (layer 2 code)
+ - A general and specific specification which contain proofs of several properties of the protocol.
+ 
 We will first describe the artifacts in the scope of this audit before explaining the specific statements we want the auditor to assess.
 
 ![artifacts.png](artifacts.png)
 
-TODO: describe hypothesis / security definition / environments (e.g. API is used locally)..
-
+TODO: update picture to include artifact references clearer
 
 ### Artifact 1: Original publication
 
-The Hydra head protocol has first been published in [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf). This paper describes several versions of the protocol (simple, with or without conflict resolution, incremental (de)commits, etc.). And provides the corresponding security proofs, especially that the following four properties hold:
+The Hydra Head protocol has first been published in [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf). This paper describes several versions of the protocol (simple, with or without conflict resolution, incremental (de)commits, etc.), experimental validation, a security definition with corresponding security proofs of the following four properties:
 
 * Consistency: No two uncorrupted parties see conflicting transactions confirmed.
 * Liveness: If all parties remain uncorrupted and the adversary delivers all messages, then every transaction becomes confirmed at some point.
 * Soundness: The final UTxO set accepted on the mainchain results from a set of seen transactions.
 * Completeness: All transactions observed as confirmed by an honest party at the end of the protocol are considered on the mainchain.
 
-A study of the whole paper and possible variations of the protocol is out of scope of this solicitation, but it serves as a good starting point and introduction to the overall protocol. Note that the implemented Hydra Head protocol - name **Coordinated Hydra Head** - can be considered a subset of the "Simple Protocol without Conflict Resolution". That is, we recommend reading Chapters 2-6, where the off-chain "Head protocol" is different in the actual specification.
+A study of the whole paper and possible variations of the protocol is out of scope of this solicitation, but it serves as a good starting point and introduction to the overall protocol. Note that the implemented version of the Hydra Head protocol - named **Coordinated Hydra Head** - can be considered a subset of the "Simple Protocol without Conflict Resolution". That is, we recommend reading Chapters 2-6, where most of the on-chain "Protocol machine" is mostly consistent, but the off-chain "Head protocol" is different in the actual specification.
 
 ### Artifact 2: Coordinated Hydra Head V1 Specification
 
@@ -50,19 +50,18 @@ The [Coordinated Hydra Head V1 specification](https://docs.google.com/document/d
 
 Note that it is lacking some structure and introductory sections and we recommend to see Artifact 1 for that.
 
-FIXME the following list is probably not usefull since it should be in the spec
+FIXME the following list is probably not useful since it should be in the spec
 In particular, the following simplifications are done in the actual implementation:
 * Kagg is a list of keys
-* snapshot is signed for every transaction and only snapshot can be used in close transaction
+* No hanging transactions, i.e. only snapshots are signed and can be used in close transaction
 * ...
 
 ### Artifact 3: Hydra Head Protocol Implementation
 
-With Hydra Head Protocol Implementation we refer to the software component that is used to operate a node in the Hydra Head protocol. The `hydra-node` allows its users to open a head, lock funds in it, connect to peers, process transactions as a layer 2, close a head and unlock the corresponding funds. It includes Hydra plutus scripts, Hydra head chain layer, layer 2 code, network communication between peers, and an API for clients to connect and use the node.
+With Hydra Head Protocol Implementation we refer to the software component that is used to operate a node in the Hydra Head protocol. The `hydra-node` allows its users to open a head, lock funds in it, connect to peers, process transactions as a layer 2, close a head and unlock the corresponding funds. It is comprised by the Hydra plutus scripts, Hydra head chain layer, layer 2 code, network communication between peers, and an API for clients to connect and use the node.
 
-The implementation can be found in this [Github repository](https://github.com/input-output-hk/hydra-poc)
-
-Version to be audited: [0.9.0](https://github.com/input-output-hk/hydra-poc/releases/tag/0.9.0)
+Source code repository: [input-output-hk/hydra](https://github.com/input-output-hk/hydra)
+Version to be audited: [0.9.0](https://github.com/input-output-hk/hydra/releases/tag/0.9.0)
 
 TODO describe the inputs and outputs of a hydra node
 
@@ -70,113 +69,106 @@ TODO: clarify which artifacts we need to introduce
 
 TODO:We should share our test architecture/topology and also the test results here: https://hydra.family/head-protocol/benchmarks/tests/hydra-cluster/hspec-results
 
-#### Artifact 3.3: Hydra plutus scripts
+#### Artifact 3.1: Hydra plutus scripts
 
 TODO
 
 Grab stuff from https://hydra.family/head-protocol/haddock/hydra-plutus/index.html
 
-#### Artifact 3.4: Hydra node chain layer code
+#### Artifact 3.2: Hydra node chain layer code
 
 TODO
 
 Grab stuff from https://hydra.family/head-protocol/haddock/hydra-node/index.html sub-sections of _Hydra.Chain.Direct_
 
-#### Artifact 3.5: layer 2 code
+#### Artifact 3.3: layer 2 code
 
 TODO
 
-## Hypotheses
+## Assumptions
 
-The Coordinated Hydra Head V1 Specification defines several hypotheses under which the security properties defined hold. Any assessment performed during this audit must be done under these hypotheses.
-
-FIXME: there are currently no hypotheses defined in the specification. See section 6.1.2 of the paper for instance
+FIXME: there are currently no assumptions defined in the specification. See section 6.1.2 of the paper for instance
 > Our protocol gives different security guarantees depending on the level of adversarial corruption. It provides correctness independently of both, the number of corrupted head parties and the network conditions. But the guarantee that the protocol makes progress (i.e., that new transactions get confirmed in the head) is only provided in the case that no head parties are corrupted and that the network conditions are good.
 
-In addition to these hypotheses, the following hypotheses are to be considered about the running environment while assessing the Hydra node implementation::
+Any assessment performed during this audit must be done under the following assumptions about the environment of the Hydra node implementation:
 * The cardano-node and the hydra-node software both run on the same machine;
 * The cardano-node and the hydra-node software communicate through local unix socket;
 * The cardano-node software is trusted;
 * The hydra-node software is trusted;
 * The hydra-node API is only accessible from the local machine;
-* For any client software connecting to the hydra-node through its API, the hydro-node and the client software both run on the same machine;
+* For any client software connecting to the hydra-node through its API, the hydra-node and the client software both run on the same machine;
 * The local machine running a hydra-node is trusted;
 * The hydra and cardano signing keys storage and operation are trusted.
 * For any legitimate hydra-node, the network is resilient enough that it can synchronize the cardano blockchain at regular interval smaller than any head contestation period they participate in.
 
-Any discovery not compliant with one of these hypotheses is out of scope.
+Any discovery not compliant with one of these assumptions is out of scope.
 
-Responder can formulate comments about the above hypothesis. Especially if they can suggest less restricting hypothesis under which the security properties of Hydra still hold. Or if they would suggest practical suggestion on how to implement this hypothesis. We would accept recommandations about how to ensure this hypotheses on a running environment.
+Responder can formulate comments about the above any of these assumptions. Especially if they can suggest less restricting assumptions under which the security properties of Hydra still hold. Or if they would suggest practical suggestion on how to implement these assumptions. We accept recommendations about how to ensure these assumptions hold in a real environment.
 
 ## Tasks
 
-On a broad level, our goal is to ensure that the security properties proven in the original publication hold for the implementation, taking also into consideration the main entry points of a hydra node which are the network, the API and the Cardano ledger.
+Broadly speaking, our goal is to ensure that the security properties proven in the original publication hold for the implementation, taking also into consideration the main entry points of a `hydra-node` which are the network, the API and the Cardano ledger. Furthermore, we want to focus efforts on ensuring correctness and robustness of the code running on-chain (L1) as it is harder (or impossible) to fix in the field and attackers could side-step all measures but the on-chain code (i.e. use their own off-chain code).
 
 TODO: say something about increasing confidence to our users in using the hydra-node and the protocol implemented by it;
 
+We are requesting proposals to assess the following statements, which will be detailed in the next sections. We will also accept proposals covering subsets of this list, but would like to get at least the highest priority tasks covered. The responder should briefly explain how they intend to address each task. If not all tasks are covered, individual estimation of efforts is required.
 
-Given the artifacts described above, 
-We expect the auditor to assess several statements which will be detailed in the following sections.
+-- Specification
 
-By order of priority:
--- pen and paper stuff
 1. Coordinated Hydra Head V1 specification is consistent with the original publication
 
-TODO: ask Yun what she thinks about that
+-- Plutus scripts
 
---plutus stuff
-
-2. Hydra plutus scripts are consistent with Hydra Head v1 specification
+2. Hydra plutus scripts are consistent with Hydra Head V1 specification
 3. Hydra plutus scripts are immune to common Cardano smart-contract weaknesses
 
--- hydra node implementation is behaving as an honest actor (out of memory denial of service...)
+-- Implementation correctness
 
-4. Hydra node chain layer code generates transactions which are consistent with Hydra Head v1 specification
-5. Hydra node logic layer code is consistent with Hydra Head v1 specification
+4. Hydra node chain layer code generates transactions which are consistent with Hydra Head V1 specification
+5. Hydra node logic layer code is consistent with Hydra Head V1 specification
 
--- robust against the environment whatever
+-- Implementation robustness
 
-6. Hydra head protocol implementation is immune to attacks via chain transactions
-7. Hydra head protocol implementation is immune to attacks via network
-8. Hydra head protocol implementation faithfully reflects the head state through the API
+6. Hydra Head protocol implementation is immune to attacks via chain transactions
+7. Hydra Head protocol implementation is immune to attacks via network
+8. Hydra Head protocol implementation faithfully reflects the head state through the API
 
-Out os scope:
-1. Hydra head protocol implementation is immune to API attacks -- out of scope because trusted
+Out of scope:
+0. Hydra Head protocol implementation is immune to API attacks -- out of scope because trusted
 
-FIXME: split the RFP or give the option to respond partially. Ask for a detailed estimation of each of the tasks so that we may choose to not ask for everything.
-FIXME: we want the respondant to explain what kind of analysis they will use for each of the assessments.
+TODO: split the RFP?
 
 ### Coordinated Hydra Head V1 specification is consistent with the original publication
 
-The Hydra Head v1 specification describes Coordinated Hydra Head V1 Protocol.
+The Hydra Head V1 specification describes Coordinated Hydra Head V1 Protocol.
 
-This specification provides several important security proofs, especially that the following four properties hold:
+This specification provides several important security properties (see Artifact 1 above).
 
-* Consistency: No two uncorrupted parties see conflicting transactions confirmed.
-* Liveness: If all parties remain uncorrupted and the adversary delivers all messages, then every transaction becomes confirmed at some point.
-* Soundness: The final UTxO set accepted on the mainchain results from a set of seen transactions.
-* Completeness: All transactions observed as confirmed by an honest party at the end of the protocol are considered on the mainchain.
-FIXME: in the above properties, which one ensures that we don't lock funds in the head?
-
-You will review this specification to give us comments and assess that the above properties hold. The outcome of the review should include, but not being limited to:
+Review this specification to give us comments and assess that the above properties hold.
+The outcome of the review should include, but not being limited to:
 * Identification of any inconsistencies or lack of generality within the specification;
 * Identification of any inconsistencies in the proofs exposed in the specification;
 * Identification of any behavior that could lead, with an adverserial mindset, to one of the above properties to be falsified.
 
-TODO: should we ask, and how, the auditor to provide feedback about the Hydra Head v1 specification on clarity, ambiguity, readability and comprehensibility; it is fit to serve as a foundation for the implementation of the protocol?
+TODO: should we ask, and how, the auditor to provide feedback about the Hydra Head V1 specification on clarity, ambiguity, readability and comprehensibility; it is fit to serve as a foundation for the implementation of the protocol?
+
+FIXME: which property ensures that we don't lock funds in the head?
 
 FIXME: v1 version of the specification with proof needed.
 
-### Hydra plutus scripts are consistent with Hydra Head v1 specification
+### Hydra plutus scripts are consistent with Hydra Head V1 specification
 
-The Coordinated Hydra Head V1 specification defines the controls the on-chain validators must implement for a functionning hydra head.
+The Coordinated Hydra Head V1 specification defines the checks the on-chain scripts must perform for a functioning Hydra Head.
 
-You will review the corresponding artifacts described above to assess that the Hydra plutus scripts are consistent with the Coordinated Hydra Head V1 specification. The outcome of the review should include, bo not being limited to:
-* a review and comment of the mutation based tests applied to the Hydra plutus scripts and, in particular, any adversarial situation that would not be covered by them but should be in the context of this audit;
+Assess that the Hydra plutus scripts are consistent with the Coordinated Hydra Head V1 specification.
+The outcome of the review should include, bo not being limited to:
 * a validation that the Hydra plutus scripts validators do check the transaction constraints defined in the Coordinated Hydra Head V1 specification;
+* a review and comment on the mutation-based tests applied to the Hydra plutus scripts and, in particular, any adversarial situation that would not be covered by them but should be in the context of this audit;
 * any comment about practical Cardano smart contract issue, absent form the specification, which would not be handled by the Hydra plutus scripts;
 
 TODO: should we ask, and how, the auditor for feedbacks about potential scripts optimizations?
+
+See the documentation of our [Mutation-Based tests](https://hydra.family/head-protocol/haddock/hydra-node/tests/Hydra-Chain-Direct-Contract-Mutation.html)
 
 ### Hydra plutus scripts are immune to common Cardano smart-contract weaknesses
 
@@ -186,69 +178,64 @@ Evaluate the Hydra plutus scripts susceptibility to common possible vulnerabilit
 * Replay;
 * Denial of service.
 
-See, for example, https://github.com/Plutonomicon/plutonomicon/blob/main/vulnerabilities.md.
+See [Common Weaknesses](https://plutus.readthedocs.io/en/latest/reference/writing-scripts/common-weaknesses/index.html) and [Vulnerabilities](https://github.com/Plutonomicon/plutonomicon/blob/main/vulnerabilities.md).
 
-See the draft https://plutus--4604.org.readthedocs.build/en/4604/reference/common-weaknesses/index.html.
-
-### Hydra node chain layer code generates transactions which are consistent with Hydra Head v1 specification
+### Hydra node chain layer code generates transactions which are consistent with Hydra Head V1 specification
 
 The Coordinated Hydra Head V1 specification defines the transactions the off-chain code should build and post to evolve the head status on-chain.
 
-You will review the corresponding artifacts described above to assess that the Hydra node chain layer code can only build transactions which are consistent with the Coordinated Hydra Head V1 specification.
+Assess that the Hydra node chain layer code can only build transactions which are consistent with the Coordinated Hydra Head V1 specification.
 
-### Hydra node logic layer code is consistent with Hydra Head v1 specification
+### Hydra node logic layer code is consistent with Hydra Head V1 specification
 
-The Coordinated Hydra Head V1 specification defines the off-chain logic of a hydra head to create, maintain and close a head. The Hydra node logic layer code implements this off-chain logic.
+The Coordinated Hydra Head V1 specification defines not only the overall life-cycle of the Hydra Head, but also the layer 2 (L2) protocol logic. In the `hydra-node`, the `HeadLogic` layer implements this protocol logic.
 
-You will review the corresponding artifacts described above to assess that the Hydra node logic layer code faithfully implements the off-chain logic described in the Coordinated Hydra Head V1 specification. The outcome of the review should include, bo not being limited to:
+Assess that the Hydra node logic layer code faithfully implements the off-chain logic described in the Coordinated Hydra Head V1 specification.
+The outcome of the review should include, bo not being limited to:
 * identify any discrepancy with the off-chain logic from the specification;
 * for any such discrepancy, what security property could be impacted;
 * a review of the tests applied to the Hydra node logic layer and, in particular, any situation that would not be covered by the tests.
 
 This review should consider fair management of the input and output to and from the Hydra node logic layer.
 
-### Hydra head protocol implementation is immune to attacks via chain transactions
+See [Hydra.HeadLogic](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-HeadLogic.html)
 
-The Hydra node chain layer is in charge of observing transactions posted on the Cardano blockchain
-and filtering _interesting_ transaction to submit them to the logic layer. The hydra node logic layer
-then analyse those transactions and react to them to make a head status evolve.
+### Hydra Head protocol implementation is immune to attacks via chain transactions
 
-You will review the Hydra node chain and logic layers and the corresponding artifacts in presence of
-invalid, unexpected or maliciously forged transactions. The outcome of the review should include, but not being limited to:
-* identification of transactions or a suite of transactions that would mislead a hydra node to an incorrect head state
-* identification of transactions or a suite of transactions that would lead to a denial of service for the hydra node
+The `hydra-node` chain layer is in charge of observing transactions posted on the Cardano blockchain. _Relevant_ observations are then processed in the logic layer, to evolve the internal head status.
+
+Review the Hydra node chain and logic layers in presence of invalid, unexpected or maliciously forged transactions.
+The outcome of the review should include, but not being limited to:
+* identification of transactions or a suite of transactions that would mislead a `hydra-node` into an incorrect head state
+* identification of transactions or a suite of transactions that would lead to a denial of service for the `hydra-node`
 * identification of transactions or a suite of transactions that would invalidate one of the security properties of the Coordinated Hydra Head V1 specification.
 
-### Hydra head protocol implementation is immune to attacks via network
+### Hydra Head protocol implementation is immune to attacks via network
 
-The Hydra node network layer is in charge of receiving peers messages and connections and sending network
-messages to peers. It decodes received messages andsubmit them to the logic layer. The hydra node logic layer
-then analyse those messages and react to them to make a head status evolve.
+The `hydra-node` network layer is in charge of sending/receiving messages to/from other Hydra nodes. _Relevant_ messages are then processed in the logic layer, to evolve the internal head status.
 
-You will review the Hydra node network and logic layers and the corresponding artifacts in presence of
-invalid, unexpected or maliciously forged network messages. The outcome of the review should include, but not being
-limited to:
+Review the Hydra node network and logic layers in presence of invalid, unexpected or maliciously forged network messages.
+The outcome of the review should include, but not being limited to:
 * identification of network attack that would mislead a hydra node to an incorrect head state
 * identification of network attack that would lead to a denial of service for the hydra node
 * identification of network attack that would invalidate one of the security properties of the Coordinated Hydra Head V1 specification.
 
-TODO: should we explicitly state that we are not interested in network denial of service attack? In the hypotheses, should we consider only that locally submited transaction will end up reaching the cardano network or should we enforce stronger network propoerties? For instance, if a node totally loose its network connection, is it OK? For how long is it OK?
+TODO: should we explicitly state that we are not interested in network denial of service attack? In the assumptions, should we consider only that locally submitted transaction will end up reaching the cardano network or should we enforce stronger network propoerties? For instance, if a node totally loose its network connection, is it OK? For how long is it OK?
 
-### Hydra head protocol implementation faithfully reflects the head state through the API
+### Hydra Head protocol implementation faithfully reflects the head state through the API
 
-Under the previously defined hypotheses, the API is only accessible locally from the trusted machine running the Hydra node. Moreover, we don't consider the client API as an adversarial party so any attack through the API is considered out of scope. However, it is important that a running node would faithfully reflects to its API client the current state of a head.
+Given the assumptions above, the API is only accessible locally from the trusted machine running the `hydra-node`. Moreover, we don't consider the client API as an adversarial party so any attack through the API is considered out of scope. However, it is important that a running node does reflect the current stat of a head faithfully to its API client(s).
 
-You will review the Hydra node API layer and the corresponding artifacts. The outcome of the review should include, but not being limited to:
-* identification of network attack that would lead to an unfaithful reprensentation of a hydra head through the API
-* identification of transactions or a suite of transactions that would lead to an unfaithful reprensentation of a hydra head through the API
-* identification of a chain of events that would lead to an unfaithful reprensentation of a hydra head through the API
-
+Review the Hydra node API layer and the corresponding artifacts.
+The outcome of the review should include, but not being limited to:
+* identification of network attack that would lead to an unfaithful representation of a hydra head through the API
+* identification of transactions or a suite of transactions that would lead to an unfaithful representation of a hydra head through the API
+* identification of a chain of events that would lead to an unfaithful representation of a hydra head through the API
 
 ## Out of Scope
 
-The scope of this audit has been described in the above sections. What is not in scope is out of scope. In particular, the following items are out of scope of this audit.
+The scope of this audit has been described in the above sections. What is not in scope is out of scope. In particular, the following items are out of scope of this audit:
 
-Verify the whole original paper and its proofs.
-
-1. Hydra head protocol implementation is immune to API attacks -- out of scope because trusted
-2. Any attack which would be invalid under the above stated hypotheses.
+- Verify the whole original paper and its proofs.
+- Hydra Head protocol implementation is immune to API attacks -- out of scope because trusted
+- Any attack which would be invalid under the above stated assumptions.
