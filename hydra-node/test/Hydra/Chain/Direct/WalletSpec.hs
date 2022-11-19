@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -24,27 +25,11 @@ import Control.Tracer (nullTracer)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Cardano.Api (
-  ChainPoint (ChainPoint),
-  Era,
-  Hash (HeaderHash),
-  LedgerEra,
-  PaymentCredential (PaymentCredentialByKey),
-  PaymentKey,
-  ShelleyLedgerEra,
-  StandardCrypto,
-  VerificationKey,
-  fromLedgerTx,
-  shelleyBasedEra,
-  toLedgerPParams,
-  toLedgerTxIn,
-  toLedgerUTxO,
-  verificationKeyHash,
- )
+import Hydra.Cardano.Api (ChainPoint (ChainPoint), Era, Hash (HeaderHash), LedgerEra, PaymentCredential (PaymentCredentialByKey), PaymentKey, ShelleyLedgerEra, SlotNo, StandardCrypto, VerificationKey, fromLedgerTx, shelleyBasedEra, toLedgerPParams, toLedgerTxIn, toLedgerUTxO, verificationKeyHash)
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
-import Hydra.Chain.Direct.Fixture (epochInfo, pparams, systemStart, testNetworkId)
+import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Util (markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
@@ -52,6 +37,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TxIn,
   TxOut,
+  WalletInfoOnChain (..),
   applyBlock,
   coverFee_,
   newTinyWallet,
@@ -95,11 +81,12 @@ spec = parallel $ do
     prop "initialises wallet by querying UTxO" $
       forAll genKeyPair $ \(vk, sk) ->
         forAll genChainPoint $ \cp -> do
-          wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) cp (mockQueryOneUtxo vk)
+          wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) cp (mockChainQuery vk)
           utxo <- atomically (getUTxO wallet)
           utxo `shouldSatisfy` \m -> Map.size m > 0
 
-    prop "re-queries UTxO from the reset point" $
+    -- TODO: This test has become a bit pointless
+    prop "re-queries UTxO from the tip after reset" $
       forAll genKeyPair $ \(vk, sk) ->
         let twoDistinctChainPoints = do
               cp1 <- genChainPoint
@@ -107,32 +94,48 @@ spec = parallel $ do
               pure (cp1, cp2)
          in forAll twoDistinctChainPoints $ \(cp1, cp2) -> do
               (queryFn, assertQueryPoint) <- setupQuery vk
-              wallet <- newTinyWallet nullTracer testNetworkId (vk, sk) cp1 queryFn
-              assertQueryPoint (QueryAt cp1)
+              wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) cp1 queryFn
+              assertQueryPoint QueryTip
               reset wallet cp2
-              assertQueryPoint $ QueryAt cp2
+              assertQueryPoint QueryTip
 
 setupQuery ::
   VerificationKey PaymentKey ->
   IO (ChainQuery IO, QueryPoint -> Expectation)
 setupQuery vk = do
-  mv <- newEmptyMVar
-  pure (queryFn mv, assertQueryPoint mv)
+  queryPointMVar <- newEmptyMVar
+  pure (queryFn queryPointMVar, assertQueryPoint queryPointMVar)
  where
-  queryFn mv point _addr = do
-    putMVar mv point
-    utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
-    pure (utxo, ledgerPParams, systemStart, epochInfo)
+  queryFn queryPointMVar point _addr = do
+    putMVar queryPointMVar point
+    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
+    tip <- generate arbitrary
+    pure $
+      WalletInfoOnChain
+        { walletUTxO
+        , pparams = ledgerPParams
+        , systemStart = Fixture.systemStart
+        , epochInfo = Fixture.epochInfo
+        , tip
+        }
 
-  assertQueryPoint mv point =
-    takeMVar mv `shouldReturn` point
+  assertQueryPoint queryPointMVar point =
+    takeMVar queryPointMVar `shouldReturn` point
 
-mockQueryOneUtxo :: VerificationKey PaymentKey -> ChainQuery IO
-mockQueryOneUtxo vk _point addr = do
+mockChainQuery :: VerificationKey PaymentKey -> ChainQuery IO
+mockChainQuery vk _point addr = do
   let Api.ShelleyAddress _ cred _ = addr
   fromShelleyPaymentCredential cred `shouldBe` PaymentCredentialByKey (verificationKeyHash vk)
-  utxo <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
-  pure (utxo, ledgerPParams, systemStart, epochInfo)
+  walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
+  tip <- generate arbitrary
+  pure $
+    WalletInfoOnChain
+      { walletUTxO
+      , pparams = ledgerPParams
+      , systemStart = Fixture.systemStart
+      , epochInfo = Fixture.epochInfo
+      , tip
+      }
 
 --
 -- Generators
@@ -197,7 +200,7 @@ prop_balanceTransaction =
   forAllBlind (reasonablySized genValidatedTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
       forAllBlind genMarkedUTxO $ \walletUTxO ->
-        case coverFee_ ledgerPParams systemStart epochInfo lookupUTxO walletUTxO tx of
+        case coverFee_ ledgerPParams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
           Left err ->
             property False
               & counterexample ("Error: " <> show err)
@@ -221,7 +224,7 @@ isBalanced utxo originalTx balancedTx =
         & counterexample ("Outputs before:  " <> show (coin out))
 
 ledgerPParams :: PParams (ShelleyLedgerEra Era)
-ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
+ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) Fixture.pparams
 
 --
 -- Generators
@@ -230,7 +233,12 @@ ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
 -- | Generate a chain point with a likely invalid block header hash.
 genChainPoint :: Gen ChainPoint
 genChainPoint =
-  ChainPoint <$> arbitrary <*> (HeaderHash <$> arbitrary)
+  arbitrary >>= genChainPointAt
+
+-- | Generate a chain point at given slot with a likely invalid block header hash.
+genChainPointAt :: SlotNo -> Gen ChainPoint
+genChainPointAt s =
+  ChainPoint s <$> (HeaderHash <$> arbitrary)
 
 -- | Generate an arbitrary block, from a UTXO set such that, transactions may
 -- *sometimes* consume given UTXO and produce new ones. The generator is geared

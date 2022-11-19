@@ -25,7 +25,6 @@ import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
-import CardanoClient (QueryPoint (..))
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (
   newEmptyTMVar,
@@ -59,6 +58,7 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.CardanoClient (
+  QueryPoint (..),
   queryEraHistory,
   queryProtocolParameters,
   querySystemStart,
