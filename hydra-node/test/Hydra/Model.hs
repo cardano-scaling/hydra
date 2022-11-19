@@ -31,6 +31,7 @@ import Cardano.Binary (serialize', unsafeDeserialize')
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (TxSeq))
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
+import Control.Monad.Class.MonadAsync (Async, async, cancel)
 import Control.Monad.Class.MonadSTM (modifyTVar, newTQueue, newTQueueIO, newTVarIO, readTVarIO, tryReadTQueue, writeTQueue)
 import Data.List (nub)
 import qualified Data.List as List
@@ -41,20 +42,18 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
-import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
+import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, SnapshotConfirmed))
 import qualified Hydra.API.ServerOutput as Output
 import Hydra.BehaviorSpec (
   ConnectToChain (..),
   TestHydraNode (..),
   createHydraNode,
   createTestHydraNode,
-  handleChainEvent,
   waitMatch,
-  waitUntil,
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
-import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..))
+import Hydra.Chain (Chain (..), HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.Chain.Direct.Handlers (ChainSyncHandler, DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollForward)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
@@ -74,7 +73,7 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genTxIn, genValue, mkSimpleTx)
+import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genTxIn, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Network (Network (..))
@@ -95,7 +94,7 @@ import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Consensus.Cardano.Generators ()
-import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
+import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), LookUp, RunModel (..), StateModel (..), Var)
 import qualified Prelude
@@ -273,7 +272,7 @@ instance StateModel WorldState where
       Open{} -> genNewTx
       _ -> genSeed
    where
-    genSeed = Some . Seed <$> resize 7 partyKeys
+    genSeed = Some . Seed <$> resize 3 partyKeys
 
     genInit = do
       contestationPeriod <- arbitrary
@@ -452,29 +451,31 @@ runModel = RunModel{perform}
         lift $ threadDelay timeout
       ObserveConfirmedTx tx -> do
         nodes <- Map.toList <$> gets nodes
-        forM_ nodes $ \(party, node) -> do
-          party `sendsInput` Input.GetUTxO
-          waitForUTxOToSpend mempty (to tx) (value tx) party node 1000 >>= \case
-            Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
-            Right _ -> pure ()
+        trace ("observing UTxo " <> show (to tx)) $
+          forM_ nodes $ \(party, node) -> do
+            party `sendsInput` Input.GetUTxO
+            waitForUTxOToSpend mempty (to tx) (value tx) party node 1000 >>= \case
+              Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
+              Right _ -> trace ("observed UTxO " <> show (to tx)) $ pure ()
       StopTheWorld ->
         stopTheWorld
 
 performAbort :: MonadDelay m => Party -> StateT (Nodes m) m ()
 performAbort party = do
   Nodes{nodes} <- get
-  lift $ waitForReadyToCommit party nodes
+  lift $ waitForReadyToCommit party nodes 100
   party `sendsInput` Input.Abort
 
-waitForReadyToCommit :: MonadDelay m => Party -> Map Party (TestHydraNode tx m) -> m ()
-waitForReadyToCommit party nodes = do
+waitForReadyToCommit :: MonadDelay m => Party -> Map Party (TestHydraNode tx m) -> Int -> m ()
+waitForReadyToCommit _party _nodes 0 = pure ()
+waitForReadyToCommit party nodes n = do
   outs <- serverOutputs (nodes ! party)
   let matchReadyToCommit = \case
         Output.ReadyToCommit{} -> True
         _ -> False
   case find matchReadyToCommit outs of
     Nothing ->
-      threadDelay 10 >> waitForReadyToCommit party nodes
+      threadDelay 10 >> waitForReadyToCommit party nodes (n -1)
     Just{} ->
       pure ()
 
@@ -602,9 +603,9 @@ mockChainAndNetwork tr seedKeys _parties nodes = do
   blockTime = 20 -- seconds
   simulateTicks queue = forever $ do
     threadDelay blockTime
-    now <- getCurrentTime
+    -- now <- getCurrentTime
     hasTx <- atomically $ tryReadTQueue queue
-    fmap node <$> readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
+    --fmap node <$> readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
     case hasTx of
       Just tx -> do
         let block = mkBlock tx
@@ -679,7 +680,7 @@ performCommit parties party paymentUTxO = do
   case Map.lookup party nodes of
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
     Just actorNode -> do
-      lift $ waitUntil [actorNode] $ ReadyToCommit (Set.fromList $ Map.keys nodes)
+      lift $ waitForReadyToCommit party nodes 100
       let realUTxO =
             UTxO.fromPairs $
               [ (mkMockTxIn vk ix, txOut)
@@ -716,7 +717,7 @@ performNewTx ::
   Party ->
   Payment ->
   StateT (Nodes m) m ()
-performNewTx party tx = do
+performNewTx party tx = trace ("performing new tx " <> show party) $ do
   let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
   nodes <- gets nodes
 
@@ -733,7 +734,7 @@ performNewTx party tx = do
   party `sendsInput` Input.GetUTxO
 
   (i, o) <-
-    waitForUTxOToSpend mempty (from tx) (value tx) party (nodes ! party) (5000 :: Int) >>= \case
+    waitForUTxOToSpend mempty (from tx) (value tx) party (nodes ! party) (500 :: Int) >>= \case
       Left u -> error $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
       Right ok -> pure ok
 
@@ -747,7 +748,8 @@ performNewTx party tx = do
   lift $
     waitUntilMatch [nodes ! party] $ \case
       SnapshotConfirmed{Output.snapshot = snapshot} ->
-        realTx `elem` Snapshot.confirmed snapshot
+        trace ("performed new tx " <> show party) $
+          realTx `elem` Snapshot.confirmed snapshot
       err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
 
@@ -798,11 +800,7 @@ genPayment WorldState{hydraParties, hydraState} =
     _ -> error $ "genPayment impossible in state: " <> show hydraState
 
 genAdaValue :: Gen Value
-genAdaValue = genNonNullAdaValue
- where
-  genNonNullAdaValue = genAdaAsset `suchThat` (/= lovelaceToValue 0)
-  genAdaAsset = onlyAdaAssets <$> genValue
-  onlyAdaAssets = lovelaceToValue . selectLovelace
+genAdaValue = lovelaceToValue . fromInteger <$> choose (1, 10000000000)
 
 unsafeConstructorName :: (Show a) => a -> String
 unsafeConstructorName = Prelude.head . Prelude.words . show
