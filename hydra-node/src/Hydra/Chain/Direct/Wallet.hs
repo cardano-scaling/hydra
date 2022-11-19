@@ -95,16 +95,16 @@ data TinyWallet m = TinyWallet
     update :: Block -> m ()
   }
 
-type ChainQuery m =
-  ( QueryPoint ->
-    Api.Address ShelleyAddr ->
-    m
-      ( Map TxIn TxOut
-      , PParams LedgerEra
-      , SystemStart
-      , EpochInfo (Either Text)
-      )
-  )
+data WalletInfoOnChain = WalletInfoOnChain
+  { walletUTxO :: Map TxIn TxOut
+  , pparams :: PParams LedgerEra
+  , systemStart :: SystemStart
+  , epochInfo :: EpochInfo (Either Text)
+  , -- | Latest point on chain the wallet knows of.
+    tip :: ChainPoint
+  }
+
+type ChainQuery m = QueryPoint -> Api.Address ShelleyAddr -> m WalletInfoOnChain
 
 -- | Get a single, marked as "fuel" UTxO.
 getFuelUTxO :: MonadSTM m => TinyWallet m -> STM m (Maybe (TxIn, TxOut))
@@ -130,28 +130,27 @@ newTinyWallet ::
   -- node. Initially and on demand later.
   ChainQuery IO ->
   IO (TinyWallet IO)
-newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
-  utxoVar <- newTVarIO =<< queryUTxOEtc (QueryAt chainPoint) address
+newTinyWallet tracer networkId (vk, sk) chainPoint queryWalletInfo = do
+  walletInfoVar <- newTVarIO =<< queryWalletInfo (QueryAt chainPoint) address
   pure
     TinyWallet
-      { getUTxO =
-          (\(u, _, _, _) -> u) <$> readTVar utxoVar
+      { getUTxO = readTVar walletInfoVar <&> walletUTxO
       , sign = Util.signWith sk
       , coverFee = \lookupUTxO partialTx -> do
-          (walletUTxO, pparams, systemStart, epochInfo) <- readTVar utxoVar
+          WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo} <- readTVar walletInfoVar
           pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
       , reset = \point -> do
           traceWith tracer $ BeginInitialize{point}
-          res@(initialUTxO, _, _, _) <- queryUTxOEtc (QueryAt point) address
-          atomically $ writeTVar utxoVar res
-          traceWith tracer $ EndInitialize{initialUTxO}
+          walletInfo <- queryWalletInfo (QueryAt point) address
+          atomically $ writeTVar walletInfoVar walletInfo
+          traceWith tracer $ EndInitialize{initialUTxO = walletUTxO walletInfo}
       , update = \block -> do
           let point = fromConsensusPointInMode CardanoMode $ blockPoint block
           traceWith tracer $ BeginUpdate{point}
           utxo' <- atomically $ do
-            (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar
-            let utxo' = applyBlock block (== ledgerAddress) utxo
-            writeTVar utxoVar (utxo', pparams, systemStart, epochInfo)
+            walletInfo@WalletInfoOnChain{walletUTxO} <- readTVar walletInfoVar
+            let utxo' = applyBlock block (== ledgerAddress) walletUTxO
+            writeTVar walletInfoVar walletInfo
             pure utxo'
           traceWith tracer $ EndUpdate utxo'
       }
