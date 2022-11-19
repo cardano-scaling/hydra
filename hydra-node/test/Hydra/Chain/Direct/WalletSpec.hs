@@ -79,25 +79,19 @@ spec = parallel $ do
 
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
-      forAll genKeyPair $ \(vk, sk) ->
-        forAll genChainPoint $ \cp -> do
-          wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) cp (mockChainQuery vk)
-          utxo <- atomically (getUTxO wallet)
-          utxo `shouldSatisfy` \m -> Map.size m > 0
+      forAll genKeyPair $ \(vk, sk) -> do
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) (mockChainQuery vk)
+        utxo <- atomically (getUTxO wallet)
+        utxo `shouldSatisfy` \m -> Map.size m > 0
 
     -- TODO: This test has become a bit pointless
     prop "re-queries UTxO from the tip after reset" $
-      forAll genKeyPair $ \(vk, sk) ->
-        let twoDistinctChainPoints = do
-              cp1 <- genChainPoint
-              cp2 <- genChainPoint `suchThat` (cp1 /=)
-              pure (cp1, cp2)
-         in forAll twoDistinctChainPoints $ \(cp1, cp2) -> do
-              (queryFn, assertQueryPoint) <- setupQuery vk
-              wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) cp1 queryFn
-              assertQueryPoint QueryTip
-              reset wallet cp2
-              assertQueryPoint QueryTip
+      forAll genKeyPair $ \(vk, sk) -> do
+        (queryFn, assertQueryPoint) <- setupQuery vk
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) queryFn
+        assertQueryPoint QueryTip
+        reset wallet
+        assertQueryPoint QueryTip
 
 setupQuery ::
   VerificationKey PaymentKey ->

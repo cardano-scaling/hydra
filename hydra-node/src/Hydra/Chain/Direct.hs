@@ -45,7 +45,6 @@ import Hydra.Cardano.Api (
   NetworkId,
   Tx,
   TxId,
-  fromConsensusPointInMode,
   shelleyBasedEra,
   toConsensusPointInMode,
   toLedgerPParams,
@@ -190,7 +189,7 @@ withDirectChain tracer config ctx persistedPoint callback action = do
     (min <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
-  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair chainPoint queryWalletInfo
+  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo
   let chainHandle =
         mkChain
           tracer
@@ -354,7 +353,7 @@ chainSyncClient handler wallet startingPoint =
           pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
-          reset wallet $ fromConsensusPointInMode CardanoMode point
+          reset wallet
           -- Rollback main chain sync handler
           onRollBackward handler point
           pure clientStIdle

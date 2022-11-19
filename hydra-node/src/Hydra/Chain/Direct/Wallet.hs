@@ -88,10 +88,9 @@ data TinyWallet m = TinyWallet
     getUTxO :: STM m (Map TxIn TxOut)
   , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
   , coverFee :: Map TxIn TxOut -> ValidatedTx LedgerEra -> STM m (Either ErrCoverFee (ValidatedTx LedgerEra))
-  , -- | Reset the wallet state to some point. This will start re-initializing
-    -- against the latest tip of the node and start to ignore 'update' calls
-    -- until reaching that tip.
-    reset :: ChainPoint -> m ()
+  , -- | Re-initializ wallet against the latest tip of the node and start to
+    -- ignore 'update' calls until reaching that tip.
+    reset :: m ()
   , -- | Update the wallet state given some 'Block'. May be ignored if wallet is
     -- still initializing.
     update :: Block -> m ()
@@ -126,13 +125,11 @@ newTinyWallet ::
   NetworkId ->
   -- | Credentials of the wallet.
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
-  -- Starting point on the chain. From this onward we will receive blocks on 'update'.
-  ChainPoint ->
   -- | A function to query UTxO, pparams, system start and epoch info from the
   -- node. Initially and on demand later.
   ChainQuery IO ->
   IO (TinyWallet IO)
-newTinyWallet tracer networkId (vk, sk) startPoint queryWalletInfo = do
+newTinyWallet tracer networkId (vk, sk) queryWalletInfo = do
   walletInfoVar <- newTVarIO =<< initialize
   pure
     TinyWallet
@@ -142,8 +139,7 @@ newTinyWallet tracer networkId (vk, sk) startPoint queryWalletInfo = do
           -- TODO: We should query pparams and epochInfo here
           WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo} <- readTVar walletInfoVar
           pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
-      , reset = \point -> do
-          initialize >>= atomically . writeTVar walletInfoVar
+      , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \block -> do
           let point = fromConsensusPointInMode CardanoMode $ blockPoint block
           walletTip <- atomically $ readTVar walletInfoVar <&> tip
