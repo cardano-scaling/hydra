@@ -36,7 +36,7 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError (..),
  )
-import Hydra.Chain.Direct (initialChainState, loadChainContext, withDirectChain)
+import Hydra.Chain.Direct (IntersectionNotFoundException (..), initialChainState, loadChainContext, withDirectChain)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (ChainContext)
@@ -310,7 +310,7 @@ spec = around showLogsOnFailure $ do
               threadDelay 5 >> fail "should not execute main action but did?"
 
         action `shouldThrow` \case
-          QueryAcquireException AFPointNotOnChain -> True
+          IntersectionNotFoundException{} -> True
           _ -> False
 
   it "can publish and query reference scripts in a timely manner" $ \tracer -> do
