@@ -5,9 +5,10 @@
 {
   # Used in CI to have a smaller closure
   withoutDevTools ? false
+, system ? builtins.currentSystem
 }:
 let
-  project = import ./default.nix { };
+  project = import ./default.nix { inherit system; };
   inherit (project) compiler pkgs hsPkgs cardano-node;
 
   libs = [

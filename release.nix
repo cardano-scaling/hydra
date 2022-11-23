@@ -3,10 +3,11 @@
 {
   # this is passed in by hydra to provide us with the revision
   hydra ? { outPath = ./.; rev = "abcdef"; }
+, system ? builtins.currentSystem
 , ...
 }:
 let
-  project = import ./default.nix { };
+  project = import ./default.nix { inherit system; };
   nativePkgs = project.hsPkgs;
   # Allow reinstallation of terminfo as it's not installed with cross compilers.
   patchedForCrossProject = project.hsPkgs.appendModule
@@ -15,7 +16,7 @@ let
 in
 rec {
   # Build shell derivation to cache it
-  shell = import ./shell.nix { };
+  shell = import ./shell.nix { inherit system; };
 
   # Build some executables
   hydra-node = nativePkgs.hydra-node.components.exes.hydra-node;
