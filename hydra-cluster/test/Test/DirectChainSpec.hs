@@ -8,7 +8,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoClient (
-  QueryException (QueryAcquireException),
   QueryPoint (QueryTip),
   buildAddress,
   queryTip,
@@ -310,7 +309,7 @@ spec = around showLogsOnFailure $ do
               threadDelay 5 >> fail "should not execute main action but did?"
 
         action `shouldThrow` \case
-          IntersectionNotFoundException{} -> True
+          IntersectionNotFound{} -> True
           _ -> False
 
   it "can publish and query reference scripts in a timely manner" $ \tracer -> do

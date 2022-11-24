@@ -35,6 +35,7 @@ import Control.Arrow (left)
 import Control.Monad.Class.MonadSTM (
   check,
   newTVarIO,
+  readTVarIO,
   writeTVar,
  )
 import Data.Array (array)
@@ -87,7 +88,10 @@ data TinyWallet m = TinyWallet
   { -- | Return all known UTxO addressed to this wallet.
     getUTxO :: STM m (Map TxIn TxOut)
   , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
-  , coverFee :: Map TxIn TxOut -> ValidatedTx LedgerEra -> STM m (Either ErrCoverFee (ValidatedTx LedgerEra))
+  , coverFee ::
+      Map TxIn TxOut ->
+      ValidatedTx LedgerEra ->
+      m (Either ErrCoverFee (ValidatedTx LedgerEra))
   , -- | Re-initializ wallet against the latest tip of the node and start to
     -- ignore 'update' calls until reaching that tip.
     reset :: m ()
@@ -128,16 +132,19 @@ newTinyWallet ::
   -- | A function to query UTxO, pparams, system start and epoch info from the
   -- node. Initially and on demand later.
   ChainQuery IO ->
+  IO (EpochInfo (Either Text)) ->
   IO (TinyWallet IO)
-newTinyWallet tracer networkId (vk, sk) queryWalletInfo = do
+newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
   walletInfoVar <- newTVarIO =<< initialize
   pure
     TinyWallet
       { getUTxO = readTVar walletInfoVar <&> walletUTxO
       , sign = Util.signWith sk
       , coverFee = \lookupUTxO partialTx -> do
-          -- TODO: We should query pparams and epochInfo here
-          WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo} <- readTVar walletInfoVar
+          -- XXX: We should query pparams here. If not, we likely will have
+          -- wrong fee estimation should they change in between.
+          epochInfo <- queryEpochInfo
+          WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
           pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \block -> do

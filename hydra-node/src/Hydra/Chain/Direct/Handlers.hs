@@ -116,19 +116,19 @@ mkChain tracer queryTimeHandle wallet ctx submitTx =
               -- to bootstrap the init transaction. For now, we bear with it and
               -- keep the static keys in context.
               fromPostChainTx timeHandle wallet ctx chainState tx
-                >>= finalizeTx wallet ctx chainState . toLedgerTx
             )
+            >>= finalizeTx wallet ctx chainState . toLedgerTx
         submitTx vtx
     }
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::
-  (MonadSTM m, MonadThrow (STM m)) =>
+  (MonadThrow m) =>
   TinyWallet m ->
   ChainContext ->
   ChainStateType Tx ->
   ValidatedTx LedgerEra ->
-  STM m (ValidatedTx LedgerEra)
+  m (ValidatedTx LedgerEra)
 finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = do
   let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case

@@ -80,7 +80,7 @@ spec = parallel $ do
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
       forAll genKeyPair $ \(vk, sk) -> do
-        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) (mockChainQuery vk)
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) (mockChainQuery vk) (pure Fixture.epochInfo)
         utxo <- atomically (getUTxO wallet)
         utxo `shouldSatisfy` \m -> Map.size m > 0
 
@@ -88,7 +88,7 @@ spec = parallel $ do
     prop "re-queries UTxO from the tip after reset" $
       forAll genKeyPair $ \(vk, sk) -> do
         (queryFn, assertQueryPoint) <- setupQuery vk
-        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) queryFn
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) queryFn (pure Fixture.epochInfo)
         assertQueryPoint QueryTip
         reset wallet
         assertQueryPoint QueryTip
