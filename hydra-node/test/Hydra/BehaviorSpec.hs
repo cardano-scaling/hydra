@@ -8,6 +8,8 @@ import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSat
 
 import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forConcurrently_)
 import Control.Monad.Class.MonadSTM (
+  MonadLabelledSTM,
+  labelTVarIO,
   modifyTVar,
   modifyTVar',
   newTQueue,
@@ -19,6 +21,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
+import qualified Data.List as List
 import GHC.Records (getField)
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
@@ -701,7 +704,7 @@ createTestHydraNode outputs outputHistory HydraNode{eq} =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m) =>
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
   Ledger tx ->
   NodeState tx m ->
   SigningKey HydraKey ->
@@ -713,6 +716,7 @@ createHydraNode ::
 createHydraNode ledger nodeState signingKey otherParties outputs outputHistory connectToChain = do
   eq <- createEventQueue
   persistenceVar <- newTVarIO Nothing
+  labelTVarIO persistenceVar ("persistence-" <> shortLabel signingKey)
   chainComponent connectToChain $
     HydraNode
       { eq
@@ -767,3 +771,8 @@ assertHeadIsClosedWith expectedSnapshotNumber = \case
   HeadIsClosed{snapshotNumber} -> do
     snapshotNumber `shouldBe` expectedSnapshotNumber
   _ -> failure "expected HeadIsClosed"
+
+-- | Provide a quick and dirty to way to label stuff from a signing key
+shortLabel :: SigningKey HydraKey -> String
+shortLabel s =
+  take 8 $ drop 1 $ List.head $ drop 2 $ List.words $ show s

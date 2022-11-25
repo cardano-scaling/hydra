@@ -2,7 +2,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Provide infrastructure-independent "handlers" for posting transactions and following the chain.
 --
@@ -246,7 +245,7 @@ fromPostChainTx ::
   STM m Tx
 fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
   pointInTime <- throwLeft currentPointInTime
-  trace ("posting " <> show tx) $ case (tx, chainState) of
+  case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
         Just seedInput ->

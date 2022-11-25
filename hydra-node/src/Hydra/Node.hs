@@ -25,7 +25,10 @@ import Hydra.Prelude
 
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (
+  MonadLabelledSTM,
   isEmptyTQueue,
+  labelTQueueIO,
+  labelTVarIO,
   modifyTVar',
   newTQueue,
   newTVarIO,
@@ -203,10 +206,18 @@ data EventQueue m e = EventQueue
   , isEmpty :: m Bool
   }
 
-createEventQueue :: (MonadSTM m, MonadDelay m, MonadAsync m) => m (EventQueue m e)
+createEventQueue ::
+  ( MonadSTM m
+  , MonadDelay m
+  , MonadAsync m
+  , MonadLabelledSTM m
+  ) =>
+  m (EventQueue m e)
 createEventQueue = do
   numThreads <- newTVarIO (0 :: Integer)
+  labelTVarIO numThreads "num-threads"
   q <- atomically newTQueue
+  labelTQueueIO q "event-queue"
   pure
     EventQueue
       { putEvent =
@@ -236,9 +247,10 @@ data NodeState tx m = NodeState
   }
 
 -- | Initialize a new 'NodeState'.
-createNodeState :: MonadSTM m => HeadState tx -> m (NodeState tx m)
+createNodeState :: (MonadSTM m, MonadLabelledSTM m) => HeadState tx -> m (NodeState tx m)
 createNodeState initialState = do
   tv <- newTVarIO initialState
+  labelTVarIO tv "node-state"
   pure
     NodeState
       { modifyHeadState = stateTVar tv

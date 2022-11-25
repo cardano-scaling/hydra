@@ -1,6 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -64,7 +66,8 @@ import Test.Hydra.Prelude hiding (after)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Control.Monad.Class.MonadTimer ()
-import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
+import Control.Monad.IOSim (Failure (FailureException), IOSim, ppEvents, runSimTrace, traceEvents, traceResult)
+import Data.Aeson (encode, object, (.=))
 import Data.Map ((!))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -83,7 +86,7 @@ import Hydra.Model (
  )
 import qualified Hydra.Model as Model
 import Hydra.Party (Party (..), deriveParty)
-import Test.QuickCheck (Property, Testable, counterexample, forAll, property, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, forAll, noShrinking, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   action,
@@ -96,7 +99,7 @@ import Test.QuickCheck.DynamicLogic (
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, RunModel, Step ((:=)), runActions, stateAfter, pattern Actions)
-import Test.Util (printTrace, traceDebug, traceInIOSim)
+import Test.Util (printTrace, traceInIOSim)
 
 spec :: Spec
 spec = do
@@ -109,15 +112,20 @@ spec = do
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
-  withMaxSuccess 50 $
-   within 50000000 $
-    forAllDL_ conflictFreeLiveness prop_HydraModel
+  noShrinking $
+    withMaxSuccess 100 $
+      within 50000000 $
+        forAllDL_ conflictFreeLiveness prop_HydraModel
 
 prop_HydraModel :: Actions WorldState -> Property
 prop_HydraModel actions = property $
-  runIOSimProp $ do
-    _ <- runActions runIt actions
-    assert True
+  trace
+    ( let Actions acts = actions
+       in decodeUtf8 $ encode $ object ["actions" .= fmap (show @String) acts]
+    )
+    $ runIOSimProp $ do
+      _ <- runActions runIt actions
+      assert True
 
 runIt :: forall s. RunModel WorldState (StateT (Nodes (IOSim s)) (IOSim s))
 runIt = runModel
@@ -237,10 +245,10 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
 runIOSimProp :: Testable a => (forall s. PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) a) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty (traceInIOSim <> traceDebug) mempty)
+  let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty traceInIOSim mempty)
       traceDump = printTrace (Proxy :: Proxy Tx) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
-  case traceResult False tr of
+  case (trace . ppEvents . traceEvents) tr $ traceResult False tr of
     Right x ->
       pure $ logsOnError x
     Left (FailureException (SomeException ex)) -> do
