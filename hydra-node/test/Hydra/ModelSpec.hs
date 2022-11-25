@@ -236,7 +236,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
 runIOSimProp :: Testable a => (forall s. PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) a) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty (traceInIOSim <> traceDebug))
+  let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty (traceInIOSim <> traceDebug) mempty)
       traceDump = printTrace (Proxy :: Proxy Tx) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
   case traceResult False tr of

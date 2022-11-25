@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Provide infrastructure-independent "handlers" for posting transactions and following the chain.
 --
@@ -215,7 +216,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
           Right utcTime ->
             callback (const . Just $ Tick utcTime)
 
-    forM_ receivedTxs $ \tx ->
+    forM_ receivedTxs $ \tx -> do
       callback $ \ChainStateAt{chainState = cs} ->
         case observeSomeTx ctx cs tx of
           Nothing -> Nothing
@@ -245,7 +246,7 @@ fromPostChainTx ::
   STM m Tx
 fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
   pointInTime <- throwLeft currentPointInTime
-  case (tx, chainState) of
+  trace ("posting " <> show tx) $ case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
         Just seedInput ->

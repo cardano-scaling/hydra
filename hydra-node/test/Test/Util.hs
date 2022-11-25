@@ -16,6 +16,7 @@ import Control.Monad.IOSim (
   traceResult,
  )
 import Control.Tracer (Tracer (Tracer))
+import Data.Aeson (encode)
 import qualified Data.Aeson as Aeson
 import Data.List (isInfixOf)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -93,5 +94,5 @@ traceInIOSim = Tracer traceM
 --   withTracer (tr <> traceDebug) SomeTraceFoo
 -- ...
 -- @@
-traceDebug :: (Applicative m, Show a) => Tracer m a
-traceDebug = Tracer (\a -> trace (show a) $ pure ())
+traceDebug :: (Applicative m, ToJSON a) => Tracer m a
+traceDebug = Tracer (\a -> trace (decodeUtf8 $ encode a) $ pure ())

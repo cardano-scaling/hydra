@@ -2,7 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wwarn #-}
 
 -- | A /Model/ of the Hydra head Protocol.
 --
@@ -33,6 +33,7 @@ import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad.Class.MonadAsync (Async, async, cancel)
 import Control.Monad.Class.MonadSTM (modifyTVar, newTQueue, newTQueueIO, newTVarIO, readTVarIO, tryReadTQueue, writeTQueue)
+import Control.Monad.Class.MonadTimer (timeout)
 import Data.List (nub)
 import qualified Data.List as List
 import Data.Map ((!))
@@ -451,12 +452,11 @@ runModel = RunModel{perform}
         lift $ threadDelay timeout
       ObserveConfirmedTx tx -> do
         nodes <- Map.toList <$> gets nodes
-        trace ("observing UTxo " <> show (to tx)) $
-          forM_ nodes $ \(party, node) -> do
-            party `sendsInput` Input.GetUTxO
-            waitForUTxOToSpend mempty (to tx) (value tx) party node 1000 >>= \case
+        trace ("waiting for UTxo paying " <> show (value tx) <> " to " <> show (to tx) <> " on " <> show (length nodes) <> " nodes") $
+          forM_ nodes $ \(_, node) -> do
+            lift (waitForUTxOToSpend mempty (to tx) (value tx) node 1000000) >>= \case
               Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
-              Right _ -> trace ("observed UTxO " <> show (to tx)) $ pure ()
+              Right _ -> trace ("observed UTxO paying " <> show (value tx) <> " to " <> show (to tx)) $ pure ()
       StopTheWorld ->
         stopTheWorld
 
@@ -731,10 +731,8 @@ performNewTx party tx = trace ("performing new tx " <> show party) $ do
           Just{} -> pure ()
   waitForOpen
 
-  party `sendsInput` Input.GetUTxO
-
   (i, o) <-
-    waitForUTxOToSpend mempty (from tx) (value tx) party (nodes ! party) (500 :: Int) >>= \case
+    lift (waitForUTxOToSpend mempty (from tx) (value tx) (nodes ! party) (100000 :: Int)) >>= \case
       Left u -> error $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
       Right ok -> pure ok
 
@@ -754,31 +752,30 @@ performNewTx party tx = trace ("performing new tx " <> show party) $ do
       _ -> False
 
 waitForUTxOToSpend ::
-  (MonadDelay m, MonadThrow m) =>
+  (MonadDelay m, MonadThrow m, MonadTimer m) =>
   UTxO ->
   CardanoSigningKey ->
   Value ->
-  Party ->
   TestHydraNode Tx m ->
   Int ->
-  StateT (Nodes m) m (Either UTxO (TxIn, TxOut CtxUTxO))
-waitForUTxOToSpend utxo key value party node = \case
-  0 ->
-    pure $ Left utxo
-  n ->
-    lift (threadDelay 1 >> waitForNext node) >>= \case
-      GetUTxOResponse u
-        | u == mempty -> do
-          party `sendsInput` Input.GetUTxO
-          waitForUTxOToSpend u key value party node (n - 1)
-        | otherwise -> case find matchPayment (UTxO.pairs u) of
-          Nothing -> do
-            party `sendsInput` Input.GetUTxO
-            waitForUTxOToSpend u key value party node (n - 1)
-          Just p -> pure $ Right p
-      _ ->
-        waitForUTxOToSpend utxo key value party node (n - 1)
+  m (Either UTxO (TxIn, TxOut CtxUTxO))
+waitForUTxOToSpend utxo key value node = go
  where
+  go = \case
+    0 ->
+      pure $ Left utxo
+    n -> do
+      node `send` Input.GetUTxO
+      threadDelay 5
+      timeout 1000 (waitForNext node) >>= \case
+        Just (GetUTxOResponse u)
+          | u /= mempty ->
+            maybe
+              (trace ("cannot find UTxO paying " <> show value <> " to " <> show key <> " in " <> show u) $ go (n - 1))
+              (trace "found it!" . pure . Right)
+              (find matchPayment (UTxO.pairs u))
+        r -> trace ("retrying, got response :" <> show r) $ go (n - 1)
+
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut
 
