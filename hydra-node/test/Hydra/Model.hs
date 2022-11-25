@@ -2,7 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wwarn #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | A /Model/ of the Hydra head Protocol.
 --
@@ -31,7 +31,7 @@ import Cardano.Binary (serialize', unsafeDeserialize')
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (TxSeq))
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import Control.Monad.Class.MonadAsync (Async, async, cancel)
+import Control.Monad.Class.MonadAsync (Async, async)
 import Control.Monad.Class.MonadSTM (modifyTVar, newTQueue, newTQueueIO, newTVarIO, readTVarIO, tryReadTQueue, writeTQueue)
 import Control.Monad.Class.MonadTimer (timeout)
 import Data.List (nub)
@@ -420,7 +420,7 @@ deriving instance Eq (Action WorldState a)
 -- * Running the model
 
 runModel ::
-  (MonadAsync m, MonadCatch m, MonadTimer m, MonadTime m, MonadThrow (STM m)) =>
+  (MonadAsync m, MonadCatch m, MonadTimer m, MonadThrow (STM m)) =>
   RunModel WorldState (StateT (Nodes m) m)
 runModel = RunModel{perform}
  where
@@ -429,7 +429,6 @@ runModel = RunModel{perform}
     , MonadAsync m
     , MonadCatch m
     , MonadTimer m
-    , MonadTime m
     , MonadThrow (STM m)
     ) =>
     WorldState ->
@@ -448,15 +447,14 @@ runModel = RunModel{perform}
         party `sendsInput` Input.Init{contestationPeriod}
       Abort party -> do
         performAbort party
-      Wait timeout ->
-        lift $ threadDelay timeout
+      Wait delay ->
+        lift $ threadDelay delay
       ObserveConfirmedTx tx -> do
         nodes <- Map.toList <$> gets nodes
-        trace ("waiting for UTxo paying " <> show (value tx) <> " to " <> show (to tx) <> " on " <> show (length nodes) <> " nodes") $
-          forM_ nodes $ \(_, node) -> do
-            lift (waitForUTxOToSpend mempty (to tx) (value tx) node 1000000) >>= \case
-              Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
-              Right _ -> trace ("observed UTxO paying " <> show (value tx) <> " to " <> show (to tx)) $ pure ()
+        forM_ nodes $ \(_, node) -> do
+          lift (waitForUTxOToSpend mempty (to tx) (value tx) node 1000000) >>= \case
+            Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
+            Right _ -> pure ()
       StopTheWorld ->
         stopTheWorld
 
@@ -480,9 +478,7 @@ waitForReadyToCommit party nodes n = do
       pure ()
 
 stopTheWorld :: MonadAsync m => StateT (Nodes m) m ()
-stopTheWorld = trace "StoppingTheWorld" $ do
-  Nodes{threads} <- get
-  forM_ threads (lift . cancel)
+stopTheWorld = pure ()
 
 sendsInput :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 sendsInput party command = do
@@ -496,15 +492,12 @@ seedWorld ::
   , MonadAsync m
   , MonadCatch m
   , MonadTimer m
-  , MonadTime m
   , MonadThrow (STM m)
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   StateT (Nodes m) m ()
 seedWorld seedKeys = do
   let parties = map (deriveParty . fst) seedKeys
-      -- NB: we pick the first key to be our own
-      vKeys = getVerificationKey . signingKey . snd <$> seedKeys
       dummyNodeState =
         NodeState
           { modifyHeadState = error "undefined"
@@ -538,7 +531,6 @@ mockChainAndNetwork ::
   ( MonadSTM m
   , MonadTimer m
   , MonadThrow m
-  , MonadTime m
   , MonadAsync m
   , MonadThrow (STM m)
   ) =>
@@ -612,8 +604,6 @@ mockChainAndNetwork tr seedKeys _parties nodes = do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         forM_ allHandlers (`onRollForward` block)
       Nothing -> pure ()
-mockChainAndNetwork _ _ _ _ =
-  error "Cannot connect chain and network without keys"
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
@@ -670,7 +660,7 @@ createMockChain tracer ctx submitTx timeHandle seedInput =
    in mkChain tracer timeHandle wallet ctx submitTx
 
 performCommit ::
-  (MonadThrow m, MonadAsync m, MonadTimer m) =>
+  (MonadThrow m, MonadTimer m) =>
   [CardanoSigningKey] ->
   Party ->
   [(CardanoSigningKey, Value)] ->
@@ -717,7 +707,7 @@ performNewTx ::
   Party ->
   Payment ->
   StateT (Nodes m) m ()
-performNewTx party tx = trace ("performing new tx " <> show party) $ do
+performNewTx party tx = do
   let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
   nodes <- gets nodes
 
@@ -746,13 +736,12 @@ performNewTx party tx = trace ("performing new tx " <> show party) $ do
   lift $
     waitUntilMatch [nodes ! party] $ \case
       SnapshotConfirmed{Output.snapshot = snapshot} ->
-        trace ("performed new tx " <> show party) $
-          realTx `elem` Snapshot.confirmed snapshot
+        realTx `elem` Snapshot.confirmed snapshot
       err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
 
 waitForUTxOToSpend ::
-  (MonadDelay m, MonadThrow m, MonadTimer m) =>
+  (MonadDelay m, MonadTimer m) =>
   UTxO ->
   CardanoSigningKey ->
   Value ->
@@ -771,10 +760,10 @@ waitForUTxOToSpend utxo key value node = go
         Just (GetUTxOResponse u)
           | u /= mempty ->
             maybe
-              (trace ("cannot find UTxO paying " <> show value <> " to " <> show key <> " in " <> show u) $ go (n - 1))
-              (trace "found it!" . pure . Right)
+              (go (n - 1))
+              (pure . Right)
               (find matchPayment (UTxO.pairs u))
-        r -> trace ("retrying, got response :" <> show r) $ go (n - 1)
+        _ -> go (n - 1)
 
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut

@@ -109,7 +109,8 @@ spec = do
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
-  within 20000000 $
+  withMaxSuccess 50 $
+   within 50000000 $
     forAllDL_ conflictFreeLiveness prop_HydraModel
 
 prop_HydraModel :: Actions WorldState -> Property
