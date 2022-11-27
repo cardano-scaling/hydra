@@ -66,8 +66,7 @@ import Test.Hydra.Prelude hiding (after)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Control.Monad.Class.MonadTimer ()
-import Control.Monad.IOSim (Failure (FailureException), IOSim, ppEvents, runSimTrace, traceEvents, traceResult)
-import Data.Aeson (encode, object, (.=))
+import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
 import Data.Map ((!))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -119,13 +118,9 @@ prop_checkConflictFreeLiveness =
 
 prop_HydraModel :: Actions WorldState -> Property
 prop_HydraModel actions = property $
-  trace
-    ( let Actions acts = actions
-       in decodeUtf8 $ encode $ object ["actions" .= fmap (show @String) acts]
-    )
-    $ runIOSimProp $ do
-      _ <- runActions runIt actions
-      assert True
+  runIOSimProp $ do
+    _ <- runActions runIt actions
+    assert True
 
 runIt :: forall s. RunModel WorldState (StateT (Nodes (IOSim s)) (IOSim s))
 runIt = runModel
@@ -248,7 +243,7 @@ runIOSimProp p = do
   let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty traceInIOSim mempty)
       traceDump = printTrace (Proxy :: Proxy Tx) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
-  case (trace . ppEvents . traceEvents) tr $ traceResult False tr of
+  case traceResult False tr of
     Right x ->
       pure $ logsOnError x
     Left (FailureException (SomeException ex)) -> do

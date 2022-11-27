@@ -109,7 +109,7 @@ import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Consensus.Cardano.Generators ()
-import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
+import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), LookUp, RunModel (..), StateModel (..), Var)
 import qualified Prelude
@@ -802,9 +802,11 @@ genPayment WorldState{hydraParties, hydraState} =
   case hydraState of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
       (from, value) <-
-        elements confirmedUTxO `suchThat` (not . null . valueToList . snd)
+        elements (filter (not . null . valueToList . snd) confirmedUTxO)
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
-      (_, to) <- elements hydraParties `suchThat` ((/= from) . snd)
+      -- NOTE: It's perfectly possible this yields a payment to self and it
+      -- assumes hydraParties is not empty else `elements` will crash
+      (_, to) <- elements hydraParties
       pure (party, Payment{from, to, value})
     _ -> error $ "genPayment impossible in state: " <> show hydraState
 
