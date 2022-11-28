@@ -18,7 +18,6 @@
     
     + Workaround: Restarting your node should be enough to come back to live. Beware, if you wait to long to restart it then you may fall under `QueryAcquireException AcquireFailurePointTooOld` and will require you to restart without state.
 
-
 - Head can collect at most 3 commits and each party can commit either 1 or 0 UTXO to a Head. Only no or one utxo can be committed to a Head.
 
 - Recipient addresses to send money to in the TUI are inferred from the current UTXO set. If a party does not commit a UTXO or consumes all its UTXO in a Head, it won't be able to send or receive anything anymore.
