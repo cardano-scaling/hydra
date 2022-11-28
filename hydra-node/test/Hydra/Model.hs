@@ -91,6 +91,7 @@ import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genTxIn, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
+import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node (
@@ -186,68 +187,6 @@ data Nodes m = Nodes
   , threads :: [Async m ()]
   }
 
-newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
-
-instance Show CardanoSigningKey where
-  show CardanoSigningKey{signingKey} =
-    show . mkVkAddress @Era testNetworkId . getVerificationKey $ signingKey
-
--- NOTE: We need this orphan instance in order to lookup keys in lists.
-instance Eq CardanoSigningKey where
-  CardanoSigningKey (PaymentSigningKey skd) == CardanoSigningKey (PaymentSigningKey skd') = skd == skd'
-
-instance ToJSON CardanoSigningKey where
-  toJSON = error "don't use"
-
-instance FromJSON CardanoSigningKey where
-  parseJSON = error "don't use"
-
-instance Arbitrary Value where
-  arbitrary = genAdaValue
-
-instance Arbitrary CardanoSigningKey where
-  arbitrary = CardanoSigningKey . snd <$> genKeyPair
-
--- | A single Ada-payment only transaction in our model.
-data Payment = Payment
-  { from :: CardanoSigningKey
-  , to :: CardanoSigningKey
-  , value :: Value
-  }
-  deriving (Eq, Generic, ToJSON, FromJSON)
-
-instance Show Payment where
-  -- NOTE: We display derived addresses instead of raw signing keys in order to help troubleshooting
-  -- tests failures or errors.
-  show Payment{from, to, value} =
-    "Payment { from = " <> show from
-      <> ", to = "
-      <> show to
-      <> ", value = "
-      <> show value
-      <> " }"
-
-instance Arbitrary Payment where
-  arbitrary = error "don't use"
-
-instance ToCBOR Payment where
-  toCBOR = error "don't use"
-
-instance FromCBOR Payment where
-  fromCBOR = error "don't use"
-
--- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
-instance IsTx Payment where
-  type TxIdType Payment = Int
-  type UTxOType Payment = [(CardanoSigningKey, Value)]
-  type ValueType Payment = Value
-  txId = error "undefined"
-  balance = foldMap snd
-  hashUTxO = encodeUtf8 . show @Text
-
-applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
-applyTx utxo Payment{from, to, value} =
-  (to, value) : List.delete (from, value) utxo
 
 instance DynLogicModel WorldState
 
@@ -546,142 +485,6 @@ seedWorld seedKeys = do
       , threads = snd nodes : ((\(_, _, t) -> t) <$> fst nodes)
       }
 
--- | Provide the logic to connect a list of `MockHydraNode` through a dummy chain.
-mockChainAndNetwork ::
-  forall m.
-  ( MonadSTM m
-  , MonadTimer m
-  , MonadThrow m
-  , MonadAsync m
-  , MonadThrow (STM m)
-  , MonadLabelledSTM m
-  ) =>
-  Tracer m DirectChainLog ->
-  [(SigningKey HydraKey, CardanoSigningKey)] ->
-  [Party] ->
-  TVar m [MockHydraNode m] ->
-  m (ConnectToChain Tx m, Async m ())
-mockChainAndNetwork tr seedKeys _parties nodes = do
-  queue <- newTQueueIO
-  labelTQueueIO queue "chain-queue"
-  tickThread <- async (labelThisThread "chain" >> simulateTicks queue)
-  let chainComponent = \node -> do
-        let ownParty = party (env node)
-        let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
-        let ctx =
-              S.ChainContext
-                { networkId = testNetworkId
-                , peerVerificationKeys = vkeys
-                , ownVerificationKey = vkey
-                , ownParty
-                , scriptRegistry =
-                    -- TODO: we probably want different _scripts_ as initial and commit one
-                    let txIn = mkMockTxIn vkey 0
-                        txOut =
-                          TxOut
-                            (mkVkAddress testNetworkId vkey)
-                            (lovelaceToValue 10_000_000)
-                            TxOutDatumNone
-                            ReferenceScriptNone
-                     in ScriptRegistry
-                          { initialReference = (txIn, txOut)
-                          , commitReference = (txIn, txOut)
-                          }
-                }
-            chainState =
-              S.ChainStateAt
-                { chainState = S.Idle
-                , recordedAt = Nothing
-                }
-        let getTimeHandle = pure $ arbitrary `generateWith` 42
-        let seedInput = genTxIn `generateWith` 42
-        nodeState <- createNodeState $ IdleState{chainState}
-        let HydraNode{eq} = node
-        let callback = chainCallback nodeState eq
-        let chainHandler = chainSyncHandler tr callback getTimeHandle ctx
-        let node' =
-              node
-                { hn =
-                    createMockNetwork node nodes
-                , oc =
-                    createMockChain tr ctx (atomically . writeTQueue queue) getTimeHandle seedInput
-                , nodeState
-                }
-        let mockNode = MockHydraNode{node = node', chainHandler}
-        atomically $ modifyTVar nodes (mockNode :)
-        pure node'
-      -- NOTE: this is not used (yet) but could be used to trigger arbitrary rollbacks
-      -- in the run model
-      rollbackAndForward = error "Not implemented, should never be called"
-  return (ConnectToChain{..}, tickThread)
- where
-  blockTime = 20 -- seconds
-  simulateTicks queue = forever $ do
-    threadDelay blockTime
-    -- now <- getCurrentTime
-    hasTx <- atomically $ tryReadTQueue queue
-    --fmap node <$> readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
-    case hasTx of
-      Just tx -> do
-        let block = mkBlock tx
-        allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        forM_ allHandlers (`onRollForward` block)
-      Nothing -> pure ()
-
--- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
--- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
--- direct knowlege of the cardano keys which are stored only at the `ChainComponent` level.
-findOwnCardanoKey :: Party -> [(SigningKey HydraKey, CardanoSigningKey)] -> (VerificationKey PaymentKey, [VerificationKey PaymentKey])
-findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for " <> show me <> " in " <> show seedKeys) $ do
-  csk <- getVerificationKey . signingKey . snd <$> find ((== me) . deriveParty . fst) seedKeys
-  pure (csk, filter (/= csk) $ map (getVerificationKey . signingKey . snd) seedKeys)
-
-mkBlock :: Ledger.ValidatedTx LedgerEra -> Util.Block
-mkBlock ledgerTx =
-  let header = (arbitrary :: Gen (Praos.Header StandardCrypto)) `generateWith` 42
-      body = TxSeq . StrictSeq.fromList $ [ledgerTx]
-   in BlockBabbage $ mkShelleyBlock $ Ledger.Block header body
-
--- TODO: unify with BehaviorSpec's ?
-createMockNetwork :: MonadSTM m => HydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
-createMockNetwork myNode nodes =
-  Network{broadcast}
- where
-  broadcast msg = do
-    allNodes <- fmap node <$> readTVarIO nodes
-    let otherNodes = filter (\n -> getNodeId n /= getNodeId myNode) allNodes
-    mapM_ (`handleMessage` msg) otherNodes
-
-  handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL
-
-  getNodeId = party . env
-
-data MockHydraNode m = MockHydraNode
-  { node :: HydraNode Tx m
-  , chainHandler :: ChainSyncHandler m
-  }
-
-createMockChain ::
-  (MonadTimer m, MonadThrow (STM m)) =>
-  Tracer m DirectChainLog ->
-  ChainContext ->
-  SubmitTx m ->
-  m TimeHandle ->
-  TxIn ->
-  Chain Tx m
-createMockChain tracer ctx submitTx timeHandle seedInput =
-  -- NOTE: The wallet basically does nothing
-  let wallet =
-        TinyWallet
-          { getUTxO = pure mempty
-          , getSeedInput = pure (Just seedInput)
-          , sign = id
-          , coverFee = \_ tx -> pure (Right tx)
-          , reset = const $ pure ()
-          , update = const $ pure ()
-          }
-   in mkChain tracer timeHandle wallet ctx submitTx
-
 performCommit ::
   (MonadThrow m, MonadTimer m) =>
   [CardanoSigningKey] ->
@@ -810,8 +613,6 @@ genPayment WorldState{hydraParties, hydraState} =
       pure (party, Payment{from, to, value})
     _ -> error $ "genPayment impossible in state: " <> show hydraState
 
-genAdaValue :: Gen Value
-genAdaValue = lovelaceToValue . fromInteger <$> choose (1, 10000000000)
 
 unsafeConstructorName :: (Show a) => a -> String
 unsafeConstructorName = Prelude.head . Prelude.words . show

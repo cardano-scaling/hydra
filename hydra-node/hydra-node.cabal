@@ -283,6 +283,8 @@ test-suite tests
     Hydra.Logging.MonitoringSpec
     Hydra.LoggingSpec
     Hydra.Model
+    Hydra.Model.MockChain
+    Hydra.Model.Payment
     Hydra.ModelSpec
     Hydra.Network.HeartbeatSpec
     Hydra.NetworkSpec
