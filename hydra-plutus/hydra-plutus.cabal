@@ -147,7 +147,7 @@ executable inspect-script
     , aeson
     , base
     , bytestring
-    , cardano-api
+    , cardano-api           >=1.35.4
     , containers
     , data-default
     , directory

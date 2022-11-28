@@ -124,7 +124,7 @@ library
     , bech32
     , bech32-th
     , bytestring
-    , cardano-api
+    , cardano-api                     >=1.35.4
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
