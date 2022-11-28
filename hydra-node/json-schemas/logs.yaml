@@ -516,6 +516,25 @@ definitions:
               The Party emitting the log entry.
           effect:
             $ref: "#/definitions/Effect"
+      - title: LogicOutcome
+        description: >-
+          Outcome produced, to transition the Head protocol, after processing an input event.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - by
+          - outcome
+        properties:
+          tag:
+            type: string
+            enum: ["LogicOutcome"]
+          by:
+            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            description: >-
+              The Party emitting the log entry.
+          outcome:
+            $ref: "#/definitions/Outcome"
 
   LogicError:
     oneOf:
@@ -1111,6 +1130,85 @@ definitions:
             $ref: "#/definitions/WaitReason"
           event:
             $ref: "#/definitions/Event"
+
+  Outcome:
+    description: >-
+      The result of Head protocol processing Events. Each Outcome
+      represents an action to be taken by the node to transition
+      the protocol.
+    oneOf:
+      - title: OnlyEffects
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - effects
+        description: >-
+          An outcome representing the list of actions to be taken by the node 
+          to transition the protocol.
+        properties:
+          tag:
+            type: string
+            enum: ["OnlyEffects"]
+          effects:
+            type: array
+            items:
+              type: object
+              $ref: "#/definitions/Effect"
+      - title: NewState
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - headState
+          - effects
+        description: >-
+          An outcome representing the list of actions to be taken by the node 
+          to transition the protocol, and the new resulting state.
+        properties:
+          tag:
+            type: string
+            enum: ["NewState"]
+          headState:
+            type: object
+            $ref: "#/definitions/HeadState"
+          effects:
+            type: array
+            items:
+              type: object
+              $ref: "#/definitions/Effect"
+      - title: Wait
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - reason
+        description: >-
+          An outcome representing the time to wait by the node before re-enqueuing
+          the input event to be processed again.
+        properties:
+          tag:
+            type: string
+            enum: ["Wait"]
+          reason:
+            type: object
+            $ref: "#/definitions/WaitReason"
+      - title: Error
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - error
+        description: >-
+          An outcome representing an error to be logged by the node after processing
+          an input event.
+        properties:
+          tag:
+            type: string
+            enum: ["Error"]
+          error:
+            type: object
+            $ref: "#/definitions/LogicError"
 
   WaitReason:
     oneOf:

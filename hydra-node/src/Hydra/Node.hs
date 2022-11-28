@@ -92,7 +92,7 @@ data HydraNodeLog tx
   | EndEvent {by :: Party, event :: Event tx}
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
-  | LogicOutcome {outcome :: Outcome tx}
+  | LogicOutcome {by :: Party, outcome :: Outcome tx}
   deriving stock (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (HydraNodeLog tx)
