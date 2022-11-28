@@ -23,7 +23,7 @@ library
     , base16-bytestring
     , cardano-binary
     , generic-random
-    , io-classes
+    , io-classes         >=0.3.0.0
     , QuickCheck
     , relude
     , transformers
