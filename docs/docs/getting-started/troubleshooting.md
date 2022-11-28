@@ -25,9 +25,7 @@
 - The current standard tx size has a limit of ~16KB. This causes the following inconveniences:
     + The protocol can only handle a maximum number of participants by Head. See [cost of collectcom transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-collectcom-transaction). Only one or empty utxo can be committed by a party to a Head. For this reason, the Head can collect at most 4 commits and each party can commit either 1 or 0 UTXO to a Head.
 
-    + The head cannot be finalized if holding more than ~100 assets (or ~50 ada-only UTxO entries). See [cost of fanout transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-fanout-transaction). This means `fanoutTx` cannot handle more than 100 UTxO (200 with the temporary increase for test purpose). 
-
-- Aborting a head with more than 2 participants (i.e. > 2) requires increase in tx size limit over current mainchain parameters to ~20KB. `collectComTx` requires increase in tx size limit over current mainchain parameters to 32KB, which should be alleviated with Plutus optimisations and merging all contracts in one in future releases.
+    + The head cannot be finalized if holding more than ~100 assets (or ~50 ada-only UTxO entries). See [cost of fanout transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-fanout-transaction). This means `fanoutTx` cannot handle more than 100 UTxO (200 with the temporary increase for test purpose).
 
 ### hydra-tui
 
