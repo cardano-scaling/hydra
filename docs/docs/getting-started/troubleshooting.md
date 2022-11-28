@@ -22,7 +22,7 @@
 
 - Recipient addresses to send money to in the TUI are inferred from the current UTXO set. If a party does not commit a UTXO or consumes all its UTXO in a Head, it won't be able to send or receive anything anymore.
 
-- TUI crashes when user tries to post a new transaction wihout any UTXO remaining.
+- TUI crashes when user tries to create new transaction without any UTXO to select.
 
 - Not an issue, but a workaround: The internal wallet of `hydra-node` requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](https://hydra.family/head-protocol/docs/getting-started/demo/with-docker/#seeding-the-network).
 
