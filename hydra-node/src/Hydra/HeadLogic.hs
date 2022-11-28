@@ -240,9 +240,15 @@ data Outcome tx
   | NewState (HeadState tx) [Effect tx]
   | Wait WaitReason
   | Error (LogicError tx)
+  deriving stock (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (Outcome tx)
 deriving instance (IsTx tx, IsChainState tx) => Show (Outcome tx)
+deriving instance (IsTx tx, IsChainState tx) => ToJSON (Outcome tx)
+deriving instance (IsTx tx, IsChainState tx) => FromJSON (Outcome tx)
+
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
+  arbitrary = genericArbitrary
 
 data WaitReason
   = WaitOnNotApplicableTx {validationError :: ValidationError}
