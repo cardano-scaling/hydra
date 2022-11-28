@@ -6,12 +6,11 @@ import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
-import Hydra.Chain (ChainCallback, ChainEvent (..))
 import Hydra.Chain.Direct (initialChainState, loadChainContext, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.Util (readKeyPair)
-import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), defaultTTL)
+import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), defaultTTL, getChainState)
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
   newGlobals,
@@ -29,8 +28,6 @@ import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
   HydraNode (..),
-  NodeState (..),
-  Persistence (load),
   chainCallback,
   createEventQueue,
   createNodeState,

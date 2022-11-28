@@ -84,6 +84,7 @@ import Hydra.Model (
   runModel,
  )
 import qualified Hydra.Model as Model
+import qualified Hydra.Model.Payment as Payment
 import Hydra.Party (Party (..), deriveParty)
 import Test.QuickCheck (Property, Testable, counterexample, forAll, noShrinking, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
@@ -161,7 +162,7 @@ prop_doesNotGenerate0AdaUTxO (Actions actions) =
   contains0AdaUTxO :: Step WorldState -> Bool
   contains0AdaUTxO = \case
     _anyVar := Model.Commit _anyParty utxos -> any contains0Ada utxos
-    _anyVar := Model.NewTx _anyParty Model.Payment{value} -> value == lovelaceToValue 0
+    _anyVar := Model.NewTx _anyParty Payment.Payment{value} -> value == lovelaceToValue 0
     _anyOtherStep -> False
   contains0Ada = (== lovelaceToValue 0) . snd
 
@@ -200,7 +201,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
             Map.fromListWith
               (<>)
               [ (unwrapAddress addr, value)
-              | (Model.CardanoSigningKey sk, value) <- confirmedUTxO
+              | (Payment.CardanoSigningKey sk, value) <- confirmedUTxO
               , let addr = mkVkAddress testNetworkId (getVerificationKey sk)
               , valueToLovelace value /= Just 0
               ]

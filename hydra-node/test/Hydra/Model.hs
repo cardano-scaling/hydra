@@ -28,23 +28,13 @@ import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Binary (serialize', unsafeDeserialize')
-import Cardano.Ledger.Alonzo.TxSeq (TxSeq (TxSeq))
-import qualified Cardano.Ledger.Babbage.Tx as Ledger
-import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad.Class.MonadAsync (Async, async, cancel)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Control.Monad.Class.MonadSTM (
   MonadLabelledSTM,
-  labelTQueueIO,
   labelTVarIO,
-  modifyTVar,
   newTQueue,
-  newTQueueIO,
   newTVarIO,
-  readTVarIO,
-  tryReadTQueue,
-  writeTQueue,
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Data.List (nub)
@@ -52,14 +42,12 @@ import qualified Data.List as List
 import Data.Map ((!))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
 import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, SnapshotConfirmed))
 import qualified Hydra.API.ServerOutput as Output
 import Hydra.BehaviorSpec (
-  ConnectToChain (..),
   TestHydraNode (..),
   createHydraNode,
   createTestHydraNode,
@@ -68,49 +56,30 @@ import Hydra.BehaviorSpec (
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
-import Hydra.Chain (Chain (..), HeadParameters (..))
+import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.Chain.Direct.Handlers (ChainSyncHandler, DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollForward)
-import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
-import Hydra.Chain.Direct.State (ChainContext, ChainStateAt (..))
-import qualified Hydra.Chain.Direct.State as S
-import Hydra.Chain.Direct.TimeHandle (TimeHandle)
-import qualified Hydra.Chain.Direct.Util as Util
-import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Committed (),
-  Environment (party),
-  Event (NetworkEvent),
-  HeadState (..),
   PendingCommits,
-  defaultTTL,
  )
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genTxIn, mkSimpleTx)
+import Hydra.Ledger.Cardano (cardanoLedger, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
-import Hydra.Model.MockChain (mockChainAndNetwork)
-import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message)
+import Hydra.Model.MockChain (mkMockTxIn, mockChainAndNetwork)
+import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (
-  HydraNode (..),
   NodeState (NodeState),
-  chainCallback,
-  createNodeState,
   modifyHeadState,
-  putEvent,
   queryHeadState,
   runHydraNode,
  )
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
-import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
-import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
-import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Consensus.Cardano.Generators ()
-import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
+import Test.QuickCheck (counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), LookUp, RunModel (..), StateModel (..), Var)
 import qualified Prelude
@@ -186,7 +155,6 @@ data Nodes m = Nodes
     logger :: Tracer m (HydraLog Tx ())
   , threads :: [Async m ()]
   }
-
 
 instance DynLogicModel WorldState
 
@@ -613,7 +581,6 @@ genPayment WorldState{hydraParties, hydraState} =
       pure (party, Payment{from, to, value})
     _ -> error $ "genPayment impossible in state: " <> show hydraState
 
-
 unsafeConstructorName :: (Show a) => a -> String
 unsafeConstructorName = Prelude.head . Prelude.words . show
 
@@ -632,12 +599,6 @@ isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (She
     (PaymentCredentialByKey ha) -> verificationKeyHash (getVerificationKey sk) == ha
     _ -> False
 isOwned _ _ = False
-
-mkMockTxIn :: VerificationKey PaymentKey -> Word -> TxIn
-mkMockTxIn vk ix = TxIn (TxId tid) (TxIx ix)
- where
-  -- NOTE: Ugly, works because both binary representations are 32-byte long.
-  tid = unsafeDeserialize' (serialize' vk)
 
 -- Failing Scenario
 
