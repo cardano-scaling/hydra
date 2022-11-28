@@ -117,6 +117,15 @@ constraints:
   , vector-map == 0.1.0.0
   , cardano-data == 0.1.0.0
 
+-- TODO: Fixed import of cardano-prelude (not import cborError)
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/ouroboros-network.git
+  tag: 31fe34df94d94efc9a6614e0fe780ec6b5082a61
+  --sha256: 0000000000000000000000000000000000000000000000000000
+  subdir:
+    ouroboros-consensus-byron
+
 allow-newer:
   *:aeson,
   monoidal-containers:aeson,

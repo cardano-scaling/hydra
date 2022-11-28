@@ -19,7 +19,6 @@ import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInl
 import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupportedInEra)
 import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
-import Ouroboros.Consensus.Util (eitherToMaybe)
 import Plutus.V2.Ledger.Api (OutputDatum (..), fromBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
 
@@ -143,3 +142,7 @@ toPlutusTxOut =
   -- constructing the Plutus.TxOut and hence we error out should it be used via
   -- a 'Left', which we expect to throw away anyway on 'eitherToMaybe'.
   eitherToMaybe . Ledger.txInfoOutV2 (error "TxOutSource used unexpectedly") . toLedgerTxOut
+ where
+  eitherToMaybe = \case
+    Left _ -> Nothing
+    Right x -> Just x

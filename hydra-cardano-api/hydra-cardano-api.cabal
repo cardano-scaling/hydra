@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-cardano-api
-version:       0.8.1
+version:       0.9.0
 synopsis:      A Haskell API for Cardano, tailored to the Hydra project.
 author:        IOG
 copyright:     2022 IOG
@@ -89,7 +89,6 @@ library
     Hydra.Cardano.Api.NetworkId
     Hydra.Cardano.Api.PlutusScript
     Hydra.Cardano.Api.PlutusScriptVersion
-    Hydra.Cardano.Api.Point
     Hydra.Cardano.Api.PolicyId
     Hydra.Cardano.Api.Prelude
     Hydra.Cardano.Api.ReferenceScript
@@ -100,7 +99,6 @@ library
     Hydra.Cardano.Api.ScriptHash
     Hydra.Cardano.Api.ScriptLanguageInEra
     Hydra.Cardano.Api.ScriptWitnessInCtx
-    Hydra.Cardano.Api.SlotNo
     Hydra.Cardano.Api.Tx
     Hydra.Cardano.Api.TxBody
     Hydra.Cardano.Api.TxId
@@ -143,10 +141,6 @@ library
     , containers
     , data-default
     , hydra-prelude
-    , ouroboros-consensus
-    , ouroboros-consensus-byron
-    , ouroboros-consensus-cardano
-    , ouroboros-consensus-shelley
     , ouroboros-network
     , plutus-ledger-api
     , QuickCheck

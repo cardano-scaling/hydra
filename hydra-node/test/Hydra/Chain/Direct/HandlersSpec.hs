@@ -15,7 +15,6 @@ import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
-  blockSlotNo,
   toLedgerTx,
  )
 import Hydra.Chain (
@@ -270,6 +269,11 @@ genSequenceOfObservableBlocks = do
     get <&> \case
       [] -> 1
       x : _ -> SlotNo . succ . unSlotNo . blockSlotNo $ x
+
+  blockSlotNo pt =
+    case pointSlot (blockPoint pt) of
+      Origin -> 0
+      At sl -> sl
 
   putNextBlock :: Tx -> StateT [Block] Gen ()
   putNextBlock tx = do

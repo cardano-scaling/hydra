@@ -14,6 +14,9 @@ changes.
 
 - HeadLogic Outcome is now being trace on every protocol step transition.
 
+- **BREAKING** `hydra-cardano-api` changes:
+  + Remove `Hydra.Cardano.Api.SlotNo` module.
+
 ## [0.8.1] - 2022-11-17
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
