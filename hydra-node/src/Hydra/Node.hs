@@ -129,7 +129,9 @@ stepHydraNode ::
 stepHydraNode tracer node = do
   e <- nextEvent eq
   traceWith tracer $ BeginEvent party e
-  atomically (processNextEvent node e) >>= \case
+  outcome <- atomically (processNextEvent node e)
+  traceWith tracer (LogicOutcome party outcome)
+  case outcome of
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
     Error err -> traceWith tracer (ErrorHandlingEvent party e err)
