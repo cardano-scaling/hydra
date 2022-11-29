@@ -87,7 +87,7 @@ costOfMerkleTree = markdownMerkleTreeCost <$> computeMerkleTreeCost
 
 computeMerkleTreeCost :: IO [(Int, MemUnit, CpuUnit, MemUnit, CpuUnit)]
 computeMerkleTreeCost =
-  mapM compute [1, 2, 5, 10, 20, 50, 100, 500]
+  mapM compute [1, 2, 5, 10, 20, 50, 100, 500, 1000, 10000]
  where
   compute numElems = do
     utxo <- fmap Plutus.toBuiltin <$> genFakeUTxOs numElems
