@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          plutus-merkle-tree
-version:       1.0.0
+version:       1.1.0
 synopsis:      On-Chain Merkle Trees
 author:        IOHK
 copyright:     2022 IOHK
