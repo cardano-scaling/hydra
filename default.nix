@@ -63,12 +63,12 @@ let
   # fetched binaries are the "standard" builds that people test. This should be
   # fast as it mostly fetches Hydra (CI) caches without building much.
   cardano-node = import
-    (builtins.fetchGit {
+    (pkgs.fetchgit {
       url = "https://github.com/input-output-hk/cardano-node";
-      ref = "purity";
-      rev = "56a7c0ba48e363a65bed4b876c7e14005eab878d";
+      rev = "1.35.4";
+      sha256 = "1j01m2cp2vdcl26zx9xmipr551v3b2rz9kfn9ik8byfwj1z7652r";
     })
-    { inherit system; };
+    { };
 in
 {
   inherit compiler pkgs hsPkgs cardano-node;
