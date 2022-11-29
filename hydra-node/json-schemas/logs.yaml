@@ -397,6 +397,20 @@ definitions:
             enum: ["EndUpdate"]
           newUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
+      - title: SkipUpdate
+        description: >-
+          The wallet has been given a block behind it's last known tip and skips
+          the internal update of UTxOs.
+        additionalProperties: false
+        required:
+          - tag
+          - point
+        properties:
+          tag:
+            type: string
+            enum: ["SkipUpdate"]
+          point:
+            $ref: "api.yaml#/components/schemas/ChainPoint"
 
   # NOTE: We cannot simply describe 'ServerOutput' and re-use it in api.yaml, so
   # we opted to not detail this section here. The outputs documented in api.yaml
