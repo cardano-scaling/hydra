@@ -1133,9 +1133,7 @@ definitions:
 
   Outcome:
     description: >-
-      The result of Head protocol processing Events. Each Outcome
-      represents an action to be taken by the node to transition
-      the protocol.
+      The decision taken by the node logic after processing an Event.
     oneOf:
       - title: OnlyEffects
         type: object
