@@ -20,6 +20,12 @@ changes.
     `toConsensusPointHF` with `toConsensusPointInMode`.
   + Re-export new `AcquiringFailure` type from `cardano-api`.
 
+- **BREAKING** Change the way the internal wallet initializes its state [#621](https://github.com/input-output-hk/hydra/pull/621)
+  + The internal wallet does now always query ledger state and parameters at the tip.
+  + This should fix the `AcquireFailure` issues.
+  + Changed logs of `BeginInitialize` and `EndInitialize`.
+  + Added `SkipUpdate` constructor to the wallet logs.
+
 ## [0.8.1] - 2022-11-17
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
