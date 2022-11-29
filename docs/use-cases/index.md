@@ -13,3 +13,13 @@ import {useDocsSidebar} from '@docusaurus/theme-common';
 
 <DocCardList items={useDocsSidebar().filter(({ docId }) => docId != "index")}/>
 ```
+
+
+## Do you have a use case?
+We would love to hear more about your project, and how the Hydra Head protocol fits your needs.
+
+We invite you to choose a survey to get in touch
+
+- [auctions](https://input-output.typeform.com/to/aS8GlwNY)
+- [payments](https://input-output.typeform.com/to/FhhHUSQb)
+
