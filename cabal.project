@@ -87,6 +87,8 @@ constraints:
   , prettyprinter-configurable == 0.1.0.0
   , plutus-ghc-stub == 8.6.5
   , word-array == 0.1.0.0
+  , ouroboros-consensus == 0.1.0.1
+  , ouroboros-consensus-test == 0.1.0.0
 
 allow-newer:
   *:aeson,

@@ -143,7 +143,7 @@ library
     , containers
     , data-default
     , hydra-prelude
-    , ouroboros-network
+    , ouroboros-network               ==0.1.0.1
     , plutus-ledger-api               ==1.0.0.0
     , QuickCheck
     , serialise
