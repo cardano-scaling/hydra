@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Companion tiny-wallet for the direct chain component. This module provide
@@ -149,7 +150,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \block -> do
           let point = fromConsensusPointInMode CardanoMode $ blockPoint block
-          walletTip <- atomically $ readTVar walletInfoVar <&> tip
+          walletTip <- atomically $ readTVar walletInfoVar <&> \WalletInfoOnChain{tip} -> tip
           if point < walletTip
             then traceWith tracer $ SkipUpdate{point}
             else do
@@ -164,8 +165,8 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
  where
   initialize = do
     traceWith tracer BeginInitialize
-    walletInfo@WalletInfoOnChain{walletUTxO} <- queryWalletInfo QueryTip address
-    traceWith tracer $ EndInitialize{initialUTxO = walletUTxO}
+    walletInfo@WalletInfoOnChain{walletUTxO, tip} <- queryWalletInfo QueryTip address
+    traceWith tracer $ EndInitialize{initialUTxO = walletUTxO, tip}
     pure walletInfo
 
   address =
@@ -401,7 +402,7 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
 
 data TinyWalletLog
   = BeginInitialize
-  | EndInitialize {initialUTxO :: Map TxIn TxOut}
+  | EndInitialize {initialUTxO :: Map TxIn TxOut, tip :: ChainPoint}
   | BeginUpdate {point :: ChainPoint}
   | EndUpdate {newUTxO :: Map TxIn TxOut}
   | SkipUpdate {point :: ChainPoint}
