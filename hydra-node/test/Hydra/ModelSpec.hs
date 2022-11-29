@@ -2,7 +2,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -86,7 +85,7 @@ import Hydra.Model (
 import qualified Hydra.Model as Model
 import qualified Hydra.Model.Payment as Payment
 import Hydra.Party (Party (..), deriveParty)
-import Test.QuickCheck (Property, Testable, counterexample, forAll, noShrinking, property, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, forAll, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   action,
@@ -112,10 +111,9 @@ spec = do
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
-  noShrinking $
-    withMaxSuccess 100 $
-      within 50000000 $
-        forAllDL_ conflictFreeLiveness prop_HydraModel
+  withMaxSuccess 100 $
+    within 50000000 $
+      forAllDL_ conflictFreeLiveness prop_HydraModel
 
 prop_HydraModel :: Actions WorldState -> Property
 prop_HydraModel actions = property $

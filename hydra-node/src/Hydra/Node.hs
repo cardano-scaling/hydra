@@ -259,9 +259,7 @@ createNodeState initialState = do
 
 chainCallback ::
   MonadSTM m =>
-  -- |
   NodeState tx m ->
-  -- |
   EventQueue m (Event tx) ->
   ChainCallback tx m
 chainCallback NodeState{modifyHeadState} eq cont = do

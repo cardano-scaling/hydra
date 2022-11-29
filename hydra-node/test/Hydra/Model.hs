@@ -1,7 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -76,6 +73,7 @@ import Hydra.Node (
   queryHeadState,
   runHydraNode,
  )
+import Hydra.Options (maximumNumberOfParties)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Test.Consensus.Cardano.Generators ()
@@ -194,7 +192,7 @@ instance StateModel WorldState where
       Open{} -> genNewTx
       _ -> genSeed
    where
-    genSeed = Some . Seed <$> resize 3 partyKeys
+    genSeed = Some . Seed <$> resize maximumNumberOfParties partyKeys
 
     genInit = do
       contestationPeriod <- arbitrary
@@ -374,7 +372,7 @@ runModel = RunModel{perform}
       ObserveConfirmedTx tx -> do
         nodes <- Map.toList <$> gets nodes
         forM_ nodes $ \(_, node) -> do
-          lift (waitForUTxOToSpend mempty (to tx) (value tx) node 1000000) >>= \case
+          lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
             Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
             Right _ -> pure ()
       StopTheWorld ->
@@ -383,21 +381,30 @@ runModel = RunModel{perform}
 performAbort :: MonadDelay m => Party -> StateT (Nodes m) m ()
 performAbort party = do
   Nodes{nodes} <- get
-  lift $ waitForReadyToCommit party nodes 100
+  lift $ waitForReadyToCommit party nodes
   party `sendsInput` Input.Abort
 
-waitForReadyToCommit :: MonadDelay m => Party -> Map Party (TestHydraNode tx m) -> Int -> m ()
-waitForReadyToCommit _party _nodes 0 = pure ()
-waitForReadyToCommit party nodes n = do
-  outs <- serverOutputs (nodes ! party)
-  let matchReadyToCommit = \case
-        Output.ReadyToCommit{} -> True
-        _ -> False
-  case find matchReadyToCommit outs of
-    Nothing ->
-      threadDelay 10 >> waitForReadyToCommit party nodes (n -1)
-    Just{} ->
-      pure ()
+waitForReadyToCommit ::
+  forall m tx.
+  MonadDelay m =>
+  Party ->
+  Map Party (TestHydraNode tx m) ->
+  m ()
+waitForReadyToCommit party nodes = go 10
+ where
+  go :: Int -> m ()
+  go = \case
+    0 -> pure ()
+    n -> do
+      outs <- serverOutputs (nodes ! party)
+      let matchReadyToCommit = \case
+            Output.ReadyToCommit{} -> True
+            _ -> False
+      case find matchReadyToCommit outs of
+        Nothing ->
+          threadDelay 10 >> go (n -1)
+        Just{} ->
+          pure ()
 
 stopTheWorld :: MonadAsync m => StateT (Nodes m) m ()
 stopTheWorld =
@@ -464,7 +471,7 @@ performCommit parties party paymentUTxO = do
   case Map.lookup party nodes of
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
     Just actorNode -> do
-      lift $ waitForReadyToCommit party nodes 100
+      lift $ waitForReadyToCommit party nodes
       let realUTxO =
             UTxO.fromPairs $
               [ (mkMockTxIn vk ix, txOut)
@@ -516,7 +523,7 @@ performNewTx party tx = do
   waitForOpen
 
   (i, o) <-
-    lift (waitForUTxOToSpend mempty (from tx) (value tx) (nodes ! party) (100000 :: Int)) >>= \case
+    lift (waitForUTxOToSpend mempty (from tx) (value tx) (nodes ! party)) >>= \case
       Left u -> error $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
       Right ok -> pure ok
 
@@ -535,22 +542,23 @@ performNewTx party tx = do
       _ -> False
 
 waitForUTxOToSpend ::
+  forall m.
   (MonadDelay m, MonadTimer m) =>
   UTxO ->
   CardanoSigningKey ->
   Value ->
   TestHydraNode Tx m ->
-  Int ->
   m (Either UTxO (TxIn, TxOut CtxUTxO))
-waitForUTxOToSpend utxo key value node = go
+waitForUTxOToSpend utxo key value node = go 10
  where
+  go :: Int -> m (Either UTxO (TxIn, TxOut CtxUTxO))
   go = \case
     0 ->
       pure $ Left utxo
     n -> do
       node `send` Input.GetUTxO
       threadDelay 5
-      timeout 1000 (waitForNext node) >>= \case
+      timeout 10 (waitForNext node) >>= \case
         Just (GetUTxOResponse u)
           | u /= mempty ->
             maybe
@@ -599,36 +607,3 @@ isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (She
     (PaymentCredentialByKey ha) -> verificationKeyHash (getVerificationKey sk) == ha
     _ -> False
 isOwned _ _ = False
-
--- Failing Scenario
-
--- hangingScenario =
---   [ Var 0
---       := Seed
---         { seedKeys =
---             [ (HydraSigningKey (SignKeyEd25519DSIGN "17f477f5ad3c80d5537b35e457aa663fd78b612d320a6abf48c245353d3db24fd02b9edae8187011813f51221b73103396a47669179c9cabeadb93daf6f5a86a"), AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "b537eef88b33967c50a827b165fb2a0c70f3d29a98dc03d16ccaa3dc")) StakeRefNull))
---             , (HydraSigningKey (SignKeyEd25519DSIGN "ae3f4619b0413d70d3004b9131c3752153074e45725be13b9a148978895e359e94e5e8cf96492ade5550fce11efc43c9c61d2bdd020b4b6e3a3846c6bfc27e29"), AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "71a10f7d46a51c2bd19ee120d5a962d3f60ee0a7ce32441986da7ea9")) StakeRefNull))
---             , (HydraSigningKey (SignKeyEd25519DSIGN "94455e3ed9f716bea425ef99b51fae47128769a1a0cd04244221e4e14631ab83c4eb69646ce90750f542d05f1583ce67ef8a11bee9bc4c77fab228b3889012d5"), AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "8808184787c937950e26b338150ad54ac3feb91b89ca608d0164671d")) StakeRefNull))
---             ]
---         }
---   , Var 1 := Init (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "d02b9edae8187011813f51221b73103396a47669179c9cabeadb93daf6f5a86a")}) 19626 s
---   , Var 2
---       := Commit
---         ( Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "c4eb69646ce90750f542d05f1583ce67ef8a11bee9bc4c77fab228b3889012d5")}
---         )
---         [(AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "8808184787c937950e26b338150ad54ac3feb91b89ca608d0164671d")) StakeRefNull), valueFromList [(AdaAssetId, 9532276957)])]
---   , Var 3 := Commit (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "d02b9edae8187011813f51221b73103396a47669179c9cabeadb93daf6f5a86a")}) [(AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "b537eef88b33967c50a827b165fb2a0c70f3d29a98dc03d16ccaa3dc")) StakeRefNull), valueFromList [(AdaAssetId, 2598099504)])]
---   , Var 4 := Commit (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "94e5e8cf96492ade5550fce11efc43c9c61d2bdd020b4b6e3a3846c6bfc27e29")}) [(AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "71a10f7d46a51c2bd19ee120d5a962d3f60ee0a7ce32441986da7ea9")) StakeRefNull), valueFromList [(AdaAssetId, 5253942555)])]
---   , Var 5 := NewTx (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "94e5e8cf96492ade5550fce11efc43c9c61d2bdd020b4b6e3a3846c6bfc27e29")}) Payment{from = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "71a10f7d46a51c2bd19ee120d5a962d3f60ee0a7ce32441986da7ea9")) StakeRefNull), to = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "b537eef88b33967c50a827b165fb2a0c70f3d29a98dc03d16ccaa3dc")) StakeRefNull), value = valueFromList [(AdaAssetId, 5253942555)]}
---   , Var 6 := NewTx (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "d02b9edae8187011813f51221b73103396a47669179c9cabeadb93daf6f5a86a")}) Payment{from = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "b537eef88b33967c50a827b165fb2a0c70f3d29a98dc03d16ccaa3dc")) StakeRefNull), to = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "8808184787c937950e26b338150ad54ac3feb91b89ca608d0164671d")) StakeRefNull), value = valueFromList [(AdaAssetId, 2598099504)]}
---   , Var 7 := NewTx (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "d02b9edae8187011813f51221b73103396a47669179c9cabeadb93daf6f5a86a")}) Payment{from = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "b537eef88b33967c50a827b165fb2a0c70f3d29a98dc03d16ccaa3dc")) StakeRefNull), to = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "8808184787c937950e26b338150ad54ac3feb91b89ca608d0164671d")) StakeRefNull), value = valueFromList [(AdaAssetId, 5253942555)]}
---   , Var 8 := NewTx (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "c4eb69646ce90750f542d05f1583ce67ef8a11bee9bc4c77fab228b3889012d5")}) Payment{from = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "8808184787c937950e26b338150ad54ac3feb91b89ca608d0164671d")) StakeRefNull), to = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "71a10f7d46a51c2bd19ee120d5a962d3f60ee0a7ce32441986da7ea9")) StakeRefNull), value = valueFromList [(AdaAssetId, 9532276957)]}
---   , Var 9 := NewTx (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "c4eb69646ce90750f542d05f1583ce67ef8a11bee9bc4c77fab228b3889012d5")}) Payment{from = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "8808184787c937950e26b338150ad54ac3feb91b89ca608d0164671d")) StakeRefNull), to = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "71a10f7d46a51c2bd19ee120d5a962d3f60ee0a7ce32441986da7ea9")) StakeRefNull), value = valueFromList [(AdaAssetId, 5253942555)]}
---   , Var 10 := NewTx (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "94e5e8cf96492ade5550fce11efc43c9c61d2bdd020b4b6e3a3846c6bfc27e29")}) Payment{from = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "71a10f7d46a51c2bd19ee120d5a962d3f60ee0a7ce32441986da7ea9")) StakeRefNull), to = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "b537eef88b33967c50a827b165fb2a0c70f3d29a98dc03d16ccaa3dc")) StakeRefNull), value = valueFromList [(AdaAssetId, 5253942555)]}
---   , Var 11 := NewTx (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "94e5e8cf96492ade5550fce11efc43c9c61d2bdd020b4b6e3a3846c6bfc27e29")}) Payment{from = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "71a10f7d46a51c2bd19ee120d5a962d3f60ee0a7ce32441986da7ea9")) StakeRefNull), to = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "b537eef88b33967c50a827b165fb2a0c70f3d29a98dc03d16ccaa3dc")) StakeRefNull), value = valueFromList [(AdaAssetId, 9532276957)]}
---   , Var 12 := NewTx (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "c4eb69646ce90750f542d05f1583ce67ef8a11bee9bc4c77fab228b3889012d5")}) Payment{from = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "8808184787c937950e26b338150ad54ac3feb91b89ca608d0164671d")) StakeRefNull), to = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "b537eef88b33967c50a827b165fb2a0c70f3d29a98dc03d16ccaa3dc")) StakeRefNull), value = valueFromList [(AdaAssetId, 2598099504)]}
---   , Var 13 := NewTx (Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "d02b9edae8187011813f51221b73103396a47669179c9cabeadb93daf6f5a86a")}) Payment{from = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "b537eef88b33967c50a827b165fb2a0c70f3d29a98dc03d16ccaa3dc")) StakeRefNull), to = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "8808184787c937950e26b338150ad54ac3feb91b89ca608d0164671d")) StakeRefNull), value = valueFromList [(AdaAssetId, 5253942555)]}
---   , Var 14 := Wait 10 s
---   , Var 15 := ObserveConfirmedTx Payment{from = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "b537eef88b33967c50a827b165fb2a0c70f3d29a98dc03d16ccaa3dc")) StakeRefNull), to = AddressInEra (ShelleyAddressInEra ShelleyBasedEraBabbage) (ShelleyAddress Testnet (KeyHashObj (KeyHash "8808184787c937950e26b338150ad54ac3feb91b89ca608d0164671d")) StakeRefNull), value = valueFromList [(AdaAssetId, 5253942555)]}
---   , Var 16 := StopTheWorld
---   ]
