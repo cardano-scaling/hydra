@@ -20,10 +20,13 @@
     
     + Workaround: Restarting your node should be enough to come back to live. Beware, if you wait to long to restart it then you may fall under `QueryAcquireException AcquireFailurePointTooOld` and will require you to restart without state.
 
-- The current standard tx size has a limit of ~16KB. This causes the following inconveniences:
-    + The protocol can only handle a maximum number of participants by Head. See [cost of collectcom transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-collectcom-transaction). Only one or empty utxo can be committed by a party to a Head. For this reason, the Head can collect at most N commits and each party can commit either 1 or 0 UTXO to a Head.
+- The current transaction size has a limit of ~16KB. This causes the following inconveniences:
 
-    + The head cannot be finalized if holding more than ~100 assets (or ~50 ada-only UTxO entries). See [cost of fanout transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-fanout-transaction). This means `fanoutTx` cannot handle more than 100 UTxO (200 with the temporary increase for test purpose).
+    + The protocol can only handle a maximum number of participants by Head. See [cost of collectcom transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-collectcom-transaction) or the `hydra-node` will inform you of the current configured maximum when trying to configure too many peers.
+
+    + Only one or no utxo can be committed by each party to a Head.
+
+    + The head cannot be finalized if holding more than ~100 assets. See [cost of fanout transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-fanout-transaction) for latest numbers.
 
 - Not an issue, but a workaround: The internal wallet of `hydra-node` requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](https://hydra.family/head-protocol/docs/getting-started/demo/with-docker/#seeding-the-network).
 
