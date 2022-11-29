@@ -409,34 +409,6 @@ definitions:
 
   Node:
     oneOf:
-      - title: ErrorHandlingEvent
-        # This should be removed from the Log's description as soon as we have some proper
-        # error handling strategy in place, be it simply "Close the head" and bail out.
-        description: >-
-          Some error happened while processing an event, provides enough context
-          information to troubleshoot the origin of the error.
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - by
-          - event
-        properties:
-          tag:
-            type: string
-            enum: ["ErrorHandlingEvent"]
-          by:
-            <<: { "$ref": "api.yaml#/components/schemas/Party" }
-            description: >-
-              The Party emitting the log entry.
-          event:
-            <<: { "$ref": "#/definitions/Event" }
-            description: >-
-              The event causing the error.
-          reason:
-            <<: { "$ref": "#/definitions/LogicError" }
-            description: >-
-              Structured description of the cause of the error.
       - title: BeginEvent
         description: >-
           Head has started processing an event drawn from some pool or queue of
@@ -516,6 +488,25 @@ definitions:
               The Party emitting the log entry.
           effect:
             $ref: "#/definitions/Effect"
+      - title: LogicOutcome
+        description: >-
+          An outcome produced is a decision the node took after processing an input event.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - by
+          - outcome
+        properties:
+          tag:
+            type: string
+            enum: ["LogicOutcome"]
+          by:
+            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            description: >-
+              The Party emitting the log entry.
+          outcome:
+            $ref: "#/definitions/Outcome"
 
   LogicError:
     oneOf:
@@ -1111,6 +1102,83 @@ definitions:
             $ref: "#/definitions/WaitReason"
           event:
             $ref: "#/definitions/Event"
+
+  Outcome:
+    description: >-
+      The decision taken by the node logic after processing an Event.
+    oneOf:
+      - title: OnlyEffects
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - effects
+        description: >-
+          An outcome representing the list of actions to be taken by the node 
+          to transition the protocol.
+        properties:
+          tag:
+            type: string
+            enum: ["OnlyEffects"]
+          effects:
+            type: array
+            items:
+              type: object
+              $ref: "#/definitions/Effect"
+      - title: NewState
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - headState
+          - effects
+        description: >-
+          An outcome representing the list of actions to be taken by the node 
+          to transition the protocol, and the new resulting state.
+        properties:
+          tag:
+            type: string
+            enum: ["NewState"]
+          headState:
+            type: object
+            $ref: "#/definitions/HeadState"
+          effects:
+            type: array
+            items:
+              type: object
+              $ref: "#/definitions/Effect"
+      - title: Wait
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - reason
+        description: >-
+          An outcome representing the time that needs to pass before re-enqueuing
+          the input event to be processed again.
+        properties:
+          tag:
+            type: string
+            enum: ["Wait"]
+          reason:
+            type: object
+            $ref: "#/definitions/WaitReason"
+      - title: Error
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - error
+        description: >-
+          An outcome representing an error to be logged by the node after processing
+          an input event.
+        properties:
+          tag:
+            type: string
+            enum: ["Error"]
+          error:
+            type: object
+            $ref: "#/definitions/LogicError"
 
   WaitReason:
     oneOf:

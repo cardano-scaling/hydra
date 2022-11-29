@@ -236,13 +236,19 @@ deriving instance (ToJSON (Event tx), ToJSON (HeadState tx)) => ToJSON (LogicErr
 deriving instance (FromJSON (Event tx), FromJSON (HeadState tx)) => FromJSON (LogicError tx)
 
 data Outcome tx
-  = OnlyEffects [Effect tx]
-  | NewState (HeadState tx) [Effect tx]
-  | Wait WaitReason
-  | Error (LogicError tx)
+  = OnlyEffects {effects :: [Effect tx]}
+  | NewState {headState :: HeadState tx, effects :: [Effect tx]}
+  | Wait {reason :: WaitReason}
+  | Error {error :: LogicError tx}
+  deriving stock (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (Outcome tx)
 deriving instance (IsTx tx, IsChainState tx) => Show (Outcome tx)
+deriving instance (IsTx tx, IsChainState tx) => ToJSON (Outcome tx)
+deriving instance (IsTx tx, IsChainState tx) => FromJSON (Outcome tx)
+
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
+  arbitrary = genericArbitrary
 
 data WaitReason
   = WaitOnNotApplicableTx {validationError :: ValidationError}

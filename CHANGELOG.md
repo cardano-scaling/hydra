@@ -12,6 +12,8 @@ changes.
 
 - API server responses now contain a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/input-output-hk/hydra/pull/618)
 
+- HeadLogic Outcome is now being trace on every protocol step transition.
+
 ## [0.8.1] - 2022-11-17
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
