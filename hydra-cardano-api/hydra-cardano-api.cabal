@@ -114,6 +114,8 @@ library
     Hydra.Cardano.Api.VerificationKey
     Hydra.Cardano.Api.Witness
 
+  -- NOTE: Constraints to make cardano-api 1.35.4 compile, most of these should
+  -- be further upstream
   build-depends:
     , aeson
     , array
@@ -123,8 +125,8 @@ library
     , bech32-th
     , bytestring
     , cardano-api                     >=1.35.4
-    , cardano-binary
-    , cardano-crypto-class
+    , cardano-binary                  ==1.5.0
+    , cardano-crypto-class            ==2.0.0
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
     , cardano-ledger-babbage
@@ -136,16 +138,16 @@ library
     , cardano-ledger-shelley-ma-test
     , cardano-ledger-shelley-test
     , cardano-prelude
-    , cardano-slotting
+    , cardano-slotting                ==0.1.0.0
     , cborg
     , containers
     , data-default
     , hydra-prelude
     , ouroboros-network
-    , plutus-ledger-api
+    , plutus-ledger-api               ==1.0.0.0
     , QuickCheck
     , serialise
     , stm
-    , strict-containers
+    , strict-containers               ==0.1.0.0
     , text
     , time

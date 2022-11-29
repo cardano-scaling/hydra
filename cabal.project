@@ -18,7 +18,7 @@ index-state: 2022-10-21T00:00:00Z
 index-state:
   -- while haskell.nix, ignores this one
   , hackage.haskell.org 2022-10-21T00:00:00Z
-  , cardano-haskell-packages 2022-11-17T00:00:00Z
+  , cardano-haskell-packages 2022-11-11T00:00:00Z
 
 packages:
   hydra-cluster
@@ -72,36 +72,23 @@ constraints:
   , systemd >= 2.3.0
   , network >= 3.1.1.0
   , HSOpenSSL >= 0.11.7.2
-  -- NOTE: ouroboros-consensus-byron-0.1.0.1 needs this and has no lower bound
-  , cardano-binary >= 1.5.0.1
-  -- NOTE: cardano-ledger-alonzo-0.1.1.2 needs this and has no lower bound
-  , plutus-ledger-api >= 1.1.1.0
-  -- NOTE: from plutus
-  , dependent-sum >= 0.7.1.0
-
--- NOTE: Using master as it received some fixes to work with CHaP released packages upstream
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ouroboros-network.git
-  tag: 31fe34df94d94efc9a6614e0fe780ec6b5082a61
-  --sha256: 1bggqbg96zliqc5309dxynvia4ixwv39v9ksyls5z5n5rjdc3kfb
-  subdir:
-    -- NOTE: Fixed import of cardano-prelude (not import cborError)
-    ouroboros-consensus-byron
-    -- NOTE: Updated imports to work with latest ledger
-    ouroboros-consensus-shelley
-    ouroboros-consensus-protocol
-    ouroboros-consensus-cardano
-    ouroboros-consensus-test
-    ouroboros-consensus
-    -- NOTE: Fixed super class StandardHash
-    ouroboros-network
+  , algebraic-graphs < 0.7
+  , protolude < 0.3.1
+  , cardano-prelude == 0.1.0.0
+  , base-deriving-via == 0.1.0.0
+  , cardano-binary-test == 1.3.0
+  , cardano-crypto-praos == 2.0.0
+  , cardano-crypto-tests == 2.0.0
+  , measures == 0.1.0.0
+  , orphans-deriving-via == 0.1.0.0
+  , plutus-core == 1.0.0.0
+  , plutus-tx == 1.0.0.0
+  , plutus-tx-plugin == 1.0.0.0
+  , prettyprinter-configurable == 0.1.0.0
+  , plutus-ghc-stub == 8.6.5
+  , word-array == 0.1.0.0
 
 allow-newer:
   *:aeson,
   monoidal-containers:aeson,
-  size-based:template-haskell,
-  -- NOTE: plutus-core's hashable >= 1.4 and ouroboros-network' < 1.4 conflict
-  ouroboros-network:hashable,
-  -- REVIEW: this also has an upper bound, is this ok?
-  Unique:hashable
+  size-based:template-haskell
