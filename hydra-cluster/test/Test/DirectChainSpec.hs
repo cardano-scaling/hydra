@@ -310,7 +310,6 @@ spec = around showLogsOnFailure $ do
 
         action `shouldThrow` \case
           IntersectionNotFound{} -> True
-          _ -> False
 
   it "can publish and query reference scripts in a timely manner" $ \tracer -> do
     withTempDir "direct-chain" $ \tmp -> do
