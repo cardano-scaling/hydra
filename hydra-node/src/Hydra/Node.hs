@@ -43,7 +43,6 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
-  LogicError (..),
   Outcome (..),
   defaultTTL,
   emitSnapshot,
@@ -87,8 +86,7 @@ data HydraNode tx m = HydraNode
   }
 
 data HydraNodeLog tx
-  = ErrorHandlingEvent {by :: Party, event :: Event tx, reason :: LogicError tx}
-  | BeginEvent {by :: Party, event :: Event tx}
+  = BeginEvent {by :: Party, event :: Event tx}
   | EndEvent {by :: Party, event :: Event tx}
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
@@ -134,14 +132,14 @@ stepHydraNode tracer node = do
   case outcome of
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
-    Error err -> traceWith tracer (ErrorHandlingEvent party e err)
-    Wait _reason -> putEventAfter eq 0.1 (decreaseTTL e) >> traceWith tracer (EndEvent party e)
+    Error _ -> return ()
+    Wait _reason -> putEventAfter eq 0.1 (decreaseTTL e)
     NewState s effs -> do
       save s
       forM_ effs (processEffect node tracer)
-      traceWith tracer (EndEvent party e)
     OnlyEffects effs ->
-      forM_ effs (processEffect node tracer) >> traceWith tracer (EndEvent party e)
+      forM_ effs (processEffect node tracer)
+  traceWith tracer (EndEvent party e)
  where
   decreaseTTL =
     \case

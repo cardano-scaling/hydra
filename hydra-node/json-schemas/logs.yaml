@@ -409,34 +409,6 @@ definitions:
 
   Node:
     oneOf:
-      - title: ErrorHandlingEvent
-        # This should be removed from the Log's description as soon as we have some proper
-        # error handling strategy in place, be it simply "Close the head" and bail out.
-        description: >-
-          Some error happened while processing an event, provides enough context
-          information to troubleshoot the origin of the error.
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - by
-          - event
-        properties:
-          tag:
-            type: string
-            enum: ["ErrorHandlingEvent"]
-          by:
-            <<: { "$ref": "api.yaml#/components/schemas/Party" }
-            description: >-
-              The Party emitting the log entry.
-          event:
-            <<: { "$ref": "#/definitions/Event" }
-            description: >-
-              The event causing the error.
-          reason:
-            <<: { "$ref": "#/definitions/LogicError" }
-            description: >-
-              Structured description of the cause of the error.
       - title: BeginEvent
         description: >-
           Head has started processing an event drawn from some pool or queue of
@@ -518,7 +490,7 @@ definitions:
             $ref: "#/definitions/Effect"
       - title: LogicOutcome
         description: >-
-          Outcome produced, to transition the Head protocol, after processing an input event.
+          An outcome produced is a decision the node took after processing an input event.
         type: object
         additionalProperties: false
         required:
@@ -1182,7 +1154,7 @@ definitions:
           - tag
           - reason
         description: >-
-          An outcome representing the time to wait by the node before re-enqueuing
+          An outcome representing the time that needs to pass before re-enqueuing
           the input event to be processed again.
         properties:
           tag:
