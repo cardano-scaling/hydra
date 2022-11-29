@@ -84,8 +84,7 @@ spec = parallel $ do
         utxo <- atomically (getUTxO wallet)
         utxo `shouldSatisfy` \m -> Map.size m > 0
 
-    -- TODO: This test has become a bit pointless
-    prop "re-queries UTxO from the tip after reset" $
+    prop "re-queries UTxO from the tip, even on reset" $
       forAll genKeyPair $ \(vk, sk) -> do
         (queryFn, assertQueryPoint) <- setupQuery vk
         wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) queryFn (pure Fixture.epochInfo)
