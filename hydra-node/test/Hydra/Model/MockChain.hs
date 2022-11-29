@@ -129,9 +129,7 @@ mockChainAndNetwork tr seedKeys _parties nodes = do
   blockTime = 20 -- seconds
   simulateTicks queue = forever $ do
     threadDelay blockTime
-    -- now <- getCurrentTime
     hasTx <- atomically $ tryReadTQueue queue
-    --fmap node <$> readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
     case hasTx of
       Just tx -> do
         let block = mkBlock tx

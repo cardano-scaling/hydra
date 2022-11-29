@@ -215,7 +215,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
           Right utcTime ->
             callback (const . Just $ Tick utcTime)
 
-    forM_ receivedTxs $ \tx -> do
+    forM_ receivedTxs $ \tx ->
       callback $ \ChainStateAt{chainState = cs} ->
         case observeSomeTx ctx cs tx of
           Nothing -> Nothing
