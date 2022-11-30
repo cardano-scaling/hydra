@@ -177,8 +177,6 @@ library
     , time
     , transformers
     , typed-protocols                 ==0.1.0.0
-    , typed-protocols-cborg
-    , typed-protocols-examples
     , unliftio
     , websockets
 
