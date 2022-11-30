@@ -19,6 +19,13 @@ where others can benefit from it as well:
 - Github [Discussions](https://github.com/input-output-hk/hydra/discussions)
 - Cardano [StackExchange](https://cardano.stackexchange.com/) using the `hydra` tag
 
+## Tell us about your use cases
+Are you already building on Cardano? Could Hydra help you scale? We’d love to get your thoughts on payments and auctions use cases.
+
+- [payments](https://input-output.typeform.com/to/FhhHUSQb)
+- [auctions](https://input-output.typeform.com/to/aS8GlwNY)
+
+
 ## Your first contribution 
 
 Contributing to the documentation, its translation, reporting bugs or proposing features are awesome ways to get started.
