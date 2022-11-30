@@ -72,6 +72,7 @@ import Cardano.Api.Byron as X (
   Address (..),
  )
 import Cardano.Api.Shelley as X (
+  AcquiringFailure (..),
   Address (..),
   Hash (HeaderHash),
   Key (..),
@@ -82,7 +83,9 @@ import Cardano.Api.Shelley as X (
   ShelleyLedgerEra,
   SigningKey (..),
   VerificationKey (..),
+  fromConsensusPointInMode,
   fromPlutusData,
+  toConsensusPointInMode,
   toPlutusData,
  )
 import Cardano.Api.UTxO (
@@ -108,7 +111,6 @@ import Hydra.Cardano.Api.MultiAssetSupportedInEra as Extras
 import Hydra.Cardano.Api.NetworkId ()
 import Hydra.Cardano.Api.PlutusScript as Extras
 import Hydra.Cardano.Api.PlutusScriptVersion as Extras
-import Hydra.Cardano.Api.Point as Extras
 import Hydra.Cardano.Api.PolicyId as Extras
 import Hydra.Cardano.Api.ReferenceScript as Extras
 import Hydra.Cardano.Api.ScriptData as Extras
@@ -117,7 +119,6 @@ import Hydra.Cardano.Api.ScriptDatum as Extras
 import Hydra.Cardano.Api.ScriptHash as Extras
 import Hydra.Cardano.Api.ScriptLanguageInEra as Extras
 import Hydra.Cardano.Api.ScriptWitnessInCtx as Extras
-import Hydra.Cardano.Api.SlotNo as Extras
 import Hydra.Cardano.Api.Tx as Extras
 import Hydra.Cardano.Api.TxBody as Extras
 import Hydra.Cardano.Api.TxId as Extras

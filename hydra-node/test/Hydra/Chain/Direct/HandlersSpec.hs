@@ -8,6 +8,7 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Ledger.Block as Ledger
 import Cardano.Ledger.Era (toTxSeq)
+import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Monad.Class.MonadSTM (MonadSTM (..), newTVarIO)
 import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
@@ -15,7 +16,6 @@ import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
-  blockSlotNo,
   toLedgerTx,
  )
 import Hydra.Chain (
@@ -49,7 +49,7 @@ import Hydra.Chain.Direct.State (
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
-import Ouroboros.Consensus.Block (Point (BlockPoint, GenesisPoint), blockPoint)
+import Ouroboros.Consensus.Block (Point (BlockPoint, GenesisPoint), blockPoint, pointSlot)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
@@ -270,6 +270,11 @@ genSequenceOfObservableBlocks = do
     get <&> \case
       [] -> 1
       x : _ -> SlotNo . succ . unSlotNo . blockSlotNo $ x
+
+  blockSlotNo pt =
+    case pointSlot (blockPoint pt) of
+      Origin -> 0
+      At sl -> sl
 
   putNextBlock :: Tx -> StateT [Block] Gen ()
   putNextBlock tx = do

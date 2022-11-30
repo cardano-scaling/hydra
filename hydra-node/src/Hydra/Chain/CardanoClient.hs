@@ -9,19 +9,26 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block)
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Slotting.Time (SystemStart)
 import qualified Data.Set as Set
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
-import Ouroboros.Network.Protocol.LocalStateQuery.Type (AcquireFailure)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 import Test.QuickCheck (oneof)
 
 type NodeSocket = FilePath
 
 data QueryException
-  = QueryAcquireException AcquireFailure
+  = QueryAcquireException AcquiringFailure
   | QueryEraMismatchException EraMismatch
-  deriving (Eq, Show)
+  deriving (Show)
+
+instance Eq QueryException where
+  a == b = case (a, b) of
+    (QueryAcquireException af1, QueryAcquireException af2) -> case (af1, af2) of
+      (AFPointTooOld, AFPointTooOld) -> True
+      (AFPointNotOnChain, AFPointNotOnChain) -> True
+      _ -> False
+    (QueryEraMismatchException em1, QueryEraMismatchException em2) -> em1 == em2
+    _ -> False
 
 instance Exception QueryException
 

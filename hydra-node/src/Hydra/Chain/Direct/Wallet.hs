@@ -47,6 +47,7 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   ChainPoint,
+  ConsensusMode (CardanoMode),
   LedgerEra,
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
@@ -55,7 +56,7 @@ import Hydra.Cardano.Api (
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
-  fromConsensusPointHF,
+  fromConsensusPointInMode,
   makeShelleyAddress,
   shelleyAddressInEra,
   toLedgerAddr,
@@ -145,7 +146,7 @@ newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
           atomically $ writeTVar utxoVar res
           traceWith tracer $ EndInitialize{initialUTxO}
       , update = \block -> do
-          let point = fromConsensusPointHF $ blockPoint block
+          let point = fromConsensusPointInMode CardanoMode $ blockPoint block
           traceWith tracer $ BeginUpdate{point}
           utxo' <- atomically $ do
             (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar

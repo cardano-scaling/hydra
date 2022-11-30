@@ -22,6 +22,7 @@ import Control.Concurrent.STM.TVar (writeTVar)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
+  AcquiringFailure (AFPointNotOnChain),
   ChainPoint (..),
   lovelaceToValue,
   txOutValue,
@@ -64,9 +65,6 @@ import Hydra.Options (
   toArgNetworkId,
  )
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
-import Ouroboros.Network.Protocol.LocalStateQuery.Type (
-  AcquireFailure (AcquireFailurePointNotOnChain),
- )
 import System.Process (proc, readCreateProcess)
 import Test.QuickCheck (generate)
 
@@ -312,7 +310,7 @@ spec = around showLogsOnFailure $ do
               threadDelay 5 >> fail "should not execute main action but did?"
 
         action `shouldThrow` \case
-          QueryAcquireException err -> err == AcquireFailurePointNotOnChain
+          QueryAcquireException AFPointNotOnChain -> True
           _ -> False
 
   it "can publish and query reference scripts in a timely manner" $ \tracer -> do

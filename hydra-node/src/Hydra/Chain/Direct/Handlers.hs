@@ -20,11 +20,12 @@ import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   ChainPoint (..),
+  ConsensusMode (CardanoMode),
   LedgerEra,
   Tx,
   TxId,
   chainPointToSlotNo,
-  fromConsensusPointHF,
+  fromConsensusPointInMode,
   fromLedgerTx,
   fromLedgerTxIn,
   getTxBody,
@@ -194,13 +195,13 @@ chainSyncHandler tracer callback getTimeHandle ctx =
  where
   onRollBackward :: Point Block -> m ()
   onRollBackward rollbackPoint = do
-    let point = fromConsensusPointHF rollbackPoint
+    let point = fromConsensusPointInMode CardanoMode rollbackPoint
     traceWith tracer $ RolledBackward{point}
     callback (const . Just $ Rollback $ chainSlotFromPoint point)
 
   onRollForward :: Block -> m ()
   onRollForward blk = do
-    let point = fromConsensusPointHF $ blockPoint blk
+    let point = fromConsensusPointInMode CardanoMode $ blockPoint blk
     let receivedTxs = map fromLedgerTx . toList $ getBabbageTxs blk
     traceWith tracer $
       RolledForward
