@@ -16,6 +16,7 @@ changes.
 
 - **BREAKING** `hydra-cardano-api` changes:
   + Remove `Hydra.Cardano.Api.SlotNo` module.
+  + Re-export new `AcquiringFailure` type from `cardano-api`.
 
 ## [0.8.1] - 2022-11-17
 
