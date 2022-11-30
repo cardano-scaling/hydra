@@ -21,7 +21,6 @@ import Control.Concurrent.STM.TVar (writeTVar)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
-  AcquiringFailure (AFPointNotOnChain),
   ChainPoint (..),
   lovelaceToValue,
   txOutValue,
