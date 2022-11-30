@@ -26,7 +26,7 @@ instance ToJSON ChainPoint where
         ]
 
 instance FromJSON ChainPoint where
-  parseJSON = withObject "NetworkId" $ \o -> do
+  parseJSON = withObject "ChainPoint" $ \o -> do
     tag <- o .: "tag"
     case tag :: Text of
       "ChainPointAtGenesis" -> pure ChainPointAtGenesis
