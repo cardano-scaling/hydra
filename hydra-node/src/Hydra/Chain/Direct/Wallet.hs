@@ -65,8 +65,8 @@ import Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
-import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
+import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Util (Block, markerDatum)
 import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Logging (Tracer, traceWith)
@@ -137,11 +137,11 @@ newTinyWallet ::
   IO (TinyWallet IO)
 newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
   walletInfoVar <- newTVarIO =<< initialize
+  let getUTxO = readTVar walletInfoVar <&> walletUTxO
   pure
     TinyWallet
-      { getUTxO = readTVar walletInfoVar <&> walletUTxO
-      , getSeedInput =
-          (\(u, _, _, _) -> (fromLedgerTxIn . fst) <$> findFuelUTxO u) <$> readTVar utxoVar
+      { getUTxO
+      , getSeedInput = (fmap (fromLedgerTxIn . fst) . findFuelUTxO) <$> getUTxO
       , sign = Util.signWith sk
       , coverFee = \lookupUTxO partialTx -> do
           -- XXX: We should query pparams here. If not, we likely will have
