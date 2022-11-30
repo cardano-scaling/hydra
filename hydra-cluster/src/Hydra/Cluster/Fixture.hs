@@ -61,7 +61,6 @@ actorName = \case
 -- files to connect to at least these networks.
 data KnownNetwork
   = Testnet
-  | VasilDevnet
   | Preview
   | Preproduction
   deriving (Show)
