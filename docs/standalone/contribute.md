@@ -5,8 +5,10 @@
 See Hydra in action by following [these instructions](https://hydra.family/head-protocol/docs/getting-started/demo/).
 
 ### *Tell* us about your use cases
+Are you already building on Cardano? Could Hydra help you scale? We’d love to get your thoughts on payments and auctions use cases.
 
-Are you building on Cardano already? Could hydra help you scale? We have set up a survey to learn more and [gather feedback](https://input-output.typeform.com/to/QGzB0Q03).
+- [payments](https://input-output.typeform.com/to/FhhHUSQb)
+- [auctions](https://input-output.typeform.com/to/aS8GlwNY)
 
 ### *Review* the lightpapers
 
