@@ -5,10 +5,9 @@ on:
       network:
         description: "Cardano network to run against"
         required: true
-        default: "vasil-dev"
+        default: "preview"
         type: choice
         options:
-        - vasil-dev
         - testnet
         - preview
         - preprod
