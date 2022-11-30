@@ -549,7 +549,7 @@ waitForUTxOToSpend ::
   Value ->
   TestHydraNode Tx m ->
   m (Either UTxO (TxIn, TxOut CtxUTxO))
-waitForUTxOToSpend utxo key value node = go 10
+waitForUTxOToSpend utxo key value node = go 100
  where
   go :: Int -> m (Either UTxO (TxIn, TxOut CtxUTxO))
   go = \case
