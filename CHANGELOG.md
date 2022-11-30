@@ -16,6 +16,8 @@ changes.
 
 - **BREAKING** `hydra-cardano-api` changes:
   + Remove `Hydra.Cardano.Api.SlotNo` module.
+  + Replace `fromConsensusPointHF` with `fromConsensusPointInMode` and
+    `toConsensusPointHF` with `toConsensusPointInMode`.
   + Re-export new `AcquiringFailure` type from `cardano-api`.
 
 ## [0.8.1] - 2022-11-17

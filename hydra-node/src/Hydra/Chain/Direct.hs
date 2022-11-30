@@ -39,14 +39,15 @@ import Control.Tracer (nullTracer)
 import Hydra.Cardano.Api (
   CardanoMode,
   ChainPoint,
+  ConsensusMode (CardanoMode),
   EraHistory (EraHistory),
   LedgerEra,
   NetworkId,
   Tx,
   TxId,
-  fromConsensusPointHF,
+  fromConsensusPointInMode,
   shelleyBasedEra,
-  toConsensusPointHF,
+  toConsensusPointInMode,
   toLedgerPParams,
   toLedgerUTxO,
  )
@@ -199,7 +200,7 @@ withDirectChain tracer config ctx persistedPoint callback action = do
     race
       ( handle onIOException $ do
           let handler = chainSyncHandler tracer callback getTimeHandle ctx
-          let intersection = toConsensusPointHF chainPoint
+          let intersection = toConsensusPointInMode CardanoMode chainPoint
           let client = ouroborosApplication tracer intersection queue handler wallet
           withIOManager $ \iocp ->
             connectTo
@@ -347,7 +348,7 @@ chainSyncClient handler wallet startingPoint =
           pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
-          reset wallet $ fromConsensusPointHF point
+          reset wallet $ fromConsensusPointInMode CardanoMode point
           -- Rollback main chain sync handler
           onRollBackward handler point
           pure clientStIdle
