@@ -8,6 +8,13 @@ import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 
 -- * Orphans
 
+-- NOTE: convenient orphan to compare points
+instance Ord ChainPoint where
+  compare ChainPointAtGenesis ChainPointAtGenesis = EQ
+  compare ChainPointAtGenesis _ = LT
+  compare _ ChainPointAtGenesis = GT
+  compare (ChainPoint sn _) (ChainPoint sn' _) = compare sn sn'
+
 instance ToJSON ChainPoint where
   toJSON = \case
     ChainPointAtGenesis -> object ["tag" .= String "ChainPointAtGenesis"]
