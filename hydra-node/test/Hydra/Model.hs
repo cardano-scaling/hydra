@@ -2,7 +2,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | A /Model/ of the Hydra head Protocol.
 --
@@ -81,7 +80,7 @@ import qualified Hydra.Snapshot as Snapshot
 import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
-import Test.QuickCheck.StateModel (Any (..), Realized, RunModel (..), StateModel (..), Var)
+import Test.QuickCheck.StateModel (Any (..), Realized, RunModel (..), StateModel (..))
 import qualified Prelude
 
 -- | Global state of the Head protocol.
@@ -235,7 +234,6 @@ instance StateModel WorldState where
   precondition _ _ =
     False
 
-  nextState :: WorldState -> Action WorldState a -> Var a -> WorldState
   nextState s@WorldState{hydraParties, hydraState} a _ =
     case a of
       Seed{seedKeys} -> WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys}}
@@ -352,6 +350,7 @@ instance
         counterexample "postcondition failed"
           . counterexample ("Action: " <> show action)
           . counterexample ("State: " <> show s)
+          . counterexample ("Result: " <> showFromAction (show result) action)
 
     decorateTransitions =
       case (hydraState s, hydraState s') of
@@ -379,6 +378,22 @@ instance
             Right _ -> pure ()
       StopTheWorld ->
         stopTheWorld
+
+-- | Bring `Show` instance in scope drawing it from the `Action` type.
+-- This is a neat trick to provide `show`able results from action in a context where
+-- there's no explicit `Show a` instance, eg. in the `monitoring` and `postcondition`
+-- functions. We don't have access to an `a` directly because its value depends on
+-- type family `Realized`.
+showFromAction :: (Show a => b) -> Action WorldState a -> b
+showFromAction k = \case
+  Seed{} -> k
+  Init{} -> k
+  Commit{} -> k
+  Abort{} -> k
+  NewTx{} -> k
+  Wait{} -> k
+  ObserveConfirmedTx{} -> k
+  StopTheWorld -> k
 
 performAbort :: MonadDelay m => Party -> RunMonad m ()
 performAbort party = do
