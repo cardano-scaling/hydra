@@ -45,7 +45,6 @@ import Hydra.Cardano.Api (
   NetworkId,
   Tx,
   TxId,
-  fromConsensusPointInMode,
   shelleyBasedEra,
   toConsensusPointInMode,
   toLedgerPParams,
@@ -58,6 +57,7 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.CardanoClient (
+  QueryPoint (..),
   queryEraHistory,
   queryProtocolParameters,
   querySystemStart,
@@ -89,6 +89,7 @@ import Hydra.Chain.Direct.Util (
  )
 import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
+  WalletInfoOnChain (..),
   getTxId,
   newTinyWallet,
  )
@@ -177,6 +178,7 @@ withDirectChain ::
   Tracer IO DirectChainLog ->
   ChainConfig ->
   ChainContext ->
+  -- | Last known point on chain as loaded from persistence.
   Maybe ChainPoint ->
   ChainComponent Tx IO a
 withDirectChain tracer config ctx persistedPoint callback action = do
@@ -187,7 +189,7 @@ withDirectChain tracer config ctx persistedPoint callback action = do
     (min <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
-  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair chainPoint queryUTxOEtc
+  wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo
   let chainHandle =
         mkChain
           tracer
@@ -216,12 +218,17 @@ withDirectChain tracer config ctx persistedPoint callback action = do
  where
   DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, startChainFrom} = config
 
-  queryUTxOEtc queryPoint address = do
-    utxo <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket queryPoint [address]
-    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId nodeSocket queryPoint
-    systemStart <- querySystemStart networkId nodeSocket queryPoint
-    epochInfo <- toEpochInfo <$> queryEraHistory networkId nodeSocket queryPoint
-    pure (utxo, pparams, systemStart, epochInfo)
+  queryEpochInfo = toEpochInfo <$> queryEraHistory networkId nodeSocket QueryTip
+
+  queryWalletInfo queryPoint address = do
+    point <- case queryPoint of
+      QueryAt point -> pure point
+      QueryTip -> queryTip networkId nodeSocket
+    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket (QueryAt point) [address]
+    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId nodeSocket (QueryAt point)
+    systemStart <- querySystemStart networkId nodeSocket (QueryAt point)
+    epochInfo <- queryEpochInfo
+    pure $ WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo, tip = point}
 
   toEpochInfo :: EraHistory CardanoMode -> EpochInfo (Either Text)
   toEpochInfo (EraHistory _ interpreter) =
@@ -348,7 +355,7 @@ chainSyncClient handler wallet startingPoint =
           pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
-          reset wallet $ fromConsensusPointInMode CardanoMode point
+          reset wallet
           -- Rollback main chain sync handler
           onRollBackward handler point
           pure clientStIdle

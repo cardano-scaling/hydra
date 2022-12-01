@@ -8,7 +8,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoClient (
-  QueryException (QueryAcquireException),
   QueryPoint (QueryTip),
   buildAddress,
   queryTip,
@@ -22,7 +21,6 @@ import Control.Concurrent.STM.TVar (writeTVar)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
-  AcquiringFailure (AFPointNotOnChain),
   ChainPoint (..),
   lovelaceToValue,
   txOutValue,
@@ -36,7 +34,7 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError (..),
  )
-import Hydra.Chain.Direct (initialChainState, loadChainContext, withDirectChain)
+import Hydra.Chain.Direct (IntersectionNotFoundException (..), initialChainState, loadChainContext, withDirectChain)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (ChainContext)
@@ -310,8 +308,7 @@ spec = around showLogsOnFailure $ do
               threadDelay 5 >> fail "should not execute main action but did?"
 
         action `shouldThrow` \case
-          QueryAcquireException AFPointNotOnChain -> True
-          _ -> False
+          IntersectionNotFound{} -> True
 
   it "can publish and query reference scripts in a timely manner" $ \tracer -> do
     withTempDir "direct-chain" $ \tmp -> do

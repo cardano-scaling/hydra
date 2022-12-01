@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Companion tiny-wallet for the direct chain component. This module provide
@@ -35,6 +36,7 @@ import Control.Arrow (left)
 import Control.Monad.Class.MonadSTM (
   check,
   newTVarIO,
+  readTVarIO,
   writeTVar,
  )
 import Data.Array (array)
@@ -63,7 +65,7 @@ import Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
-import Hydra.Chain.CardanoClient (QueryPoint (QueryAt))
+import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Util (Block, markerDatum)
 import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Logging (Tracer, traceWith)
@@ -81,30 +83,34 @@ type TxOut = Ledger.TxOut LedgerEra
 -- at that address. It can sign transactions and keeps track of its UTXO behind
 -- the scene.
 --
--- This wallet is not connecting to the node initially and when asked to
--- 'reset'. Otherwise it can be fed blocks via 'update' as the chain rolls
--- forward.
+-- The wallet is connecting to the node initially and when asked to 'reset'.
+-- Otherwise it can be fed blocks via 'update' as the chain rolls forward.
 data TinyWallet m = TinyWallet
   { -- | Return all known UTxO addressed to this wallet.
     getUTxO :: STM m (Map TxIn TxOut)
   , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
-  , coverFee :: Map TxIn TxOut -> ValidatedTx LedgerEra -> STM m (Either ErrCoverFee (ValidatedTx LedgerEra))
-  , -- | Reset the wallet state to some point.
-    reset :: ChainPoint -> m ()
-  , -- | Update the wallet state given some 'Block'.
+  , coverFee ::
+      Map TxIn TxOut ->
+      ValidatedTx LedgerEra ->
+      m (Either ErrCoverFee (ValidatedTx LedgerEra))
+  , -- | Re-initializ wallet against the latest tip of the node and start to
+    -- ignore 'update' calls until reaching that tip.
+    reset :: m ()
+  , -- | Update the wallet state given some 'Block'. May be ignored if wallet is
+    -- still initializing.
     update :: Block -> m ()
   }
 
-type ChainQuery m =
-  ( QueryPoint ->
-    Api.Address ShelleyAddr ->
-    m
-      ( Map TxIn TxOut
-      , PParams LedgerEra
-      , SystemStart
-      , EpochInfo (Either Text)
-      )
-  )
+data WalletInfoOnChain = WalletInfoOnChain
+  { walletUTxO :: Map TxIn TxOut
+  , pparams :: PParams LedgerEra
+  , systemStart :: SystemStart
+  , epochInfo :: EpochInfo (Either Text)
+  , -- | Latest point on chain the wallet knows of.
+    tip :: ChainPoint
+  }
+
+type ChainQuery m = QueryPoint -> Api.Address ShelleyAddr -> m WalletInfoOnChain
 
 -- | Get a single, marked as "fuel" UTxO.
 getFuelUTxO :: MonadSTM m => TinyWallet m -> STM m (Maybe (TxIn, TxOut))
@@ -124,38 +130,45 @@ newTinyWallet ::
   NetworkId ->
   -- | Credentials of the wallet.
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
-  -- Starting point on the chain. From this onward we will receive blocks on 'update'.
-  ChainPoint ->
   -- | A function to query UTxO, pparams, system start and epoch info from the
   -- node. Initially and on demand later.
   ChainQuery IO ->
+  IO (EpochInfo (Either Text)) ->
   IO (TinyWallet IO)
-newTinyWallet tracer networkId (vk, sk) chainPoint queryUTxOEtc = do
-  utxoVar <- newTVarIO =<< queryUTxOEtc (QueryAt chainPoint) address
+newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
+  walletInfoVar <- newTVarIO =<< initialize
   pure
     TinyWallet
-      { getUTxO =
-          (\(u, _, _, _) -> u) <$> readTVar utxoVar
+      { getUTxO = readTVar walletInfoVar <&> walletUTxO
       , sign = Util.signWith sk
       , coverFee = \lookupUTxO partialTx -> do
-          (walletUTxO, pparams, systemStart, epochInfo) <- readTVar utxoVar
+          -- XXX: We should query pparams here. If not, we likely will have
+          -- wrong fee estimation should they change in between.
+          epochInfo <- queryEpochInfo
+          WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
           pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
-      , reset = \point -> do
-          traceWith tracer $ BeginInitialize{point}
-          res@(initialUTxO, _, _, _) <- queryUTxOEtc (QueryAt point) address
-          atomically $ writeTVar utxoVar res
-          traceWith tracer $ EndInitialize{initialUTxO}
+      , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \block -> do
           let point = fromConsensusPointInMode CardanoMode $ blockPoint block
-          traceWith tracer $ BeginUpdate{point}
-          utxo' <- atomically $ do
-            (utxo, pparams, systemStart, epochInfo) <- readTVar utxoVar
-            let utxo' = applyBlock block (== ledgerAddress) utxo
-            writeTVar utxoVar (utxo', pparams, systemStart, epochInfo)
-            pure utxo'
-          traceWith tracer $ EndUpdate utxo'
+          walletTip <- atomically $ readTVar walletInfoVar <&> \WalletInfoOnChain{tip} -> tip
+          if point < walletTip
+            then traceWith tracer $ SkipUpdate{point}
+            else do
+              traceWith tracer $ BeginUpdate{point}
+              utxo' <- atomically $ do
+                walletInfo@WalletInfoOnChain{walletUTxO} <- readTVar walletInfoVar
+                let utxo' = applyBlock block (== ledgerAddress) walletUTxO
+                writeTVar walletInfoVar $ walletInfo{walletUTxO = utxo', tip = point}
+                pure utxo'
+              traceWith tracer $ EndUpdate utxo'
       }
  where
+  initialize = do
+    traceWith tracer BeginInitialize
+    walletInfo@WalletInfoOnChain{walletUTxO, tip} <- queryWalletInfo QueryTip address
+    traceWith tracer $ EndInitialize{initialUTxO = walletUTxO, tip}
+    pure walletInfo
+
   address =
     makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
 
@@ -388,10 +401,11 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
 --
 
 data TinyWalletLog
-  = BeginInitialize {point :: ChainPoint}
-  | EndInitialize {initialUTxO :: Map TxIn TxOut}
+  = BeginInitialize
+  | EndInitialize {initialUTxO :: Map TxIn TxOut, tip :: ChainPoint}
   | BeginUpdate {point :: ChainPoint}
   | EndUpdate {newUTxO :: Map TxIn TxOut}
+  | SkipUpdate {point :: ChainPoint}
   deriving (Eq, Generic, Show)
 
 deriving instance ToJSON TinyWalletLog

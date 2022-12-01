@@ -345,32 +345,34 @@ definitions:
     oneOf:
       - title: BeginInitialize
         description: >-
-          The wallet (re-)initializes to given point on the chain.
+          The wallet is asked to (re-)initialize and fetch latest information
+          from the cardano-node.
         type: object
         additionalProperties: false
         required:
           - tag
-          - point
         properties:
           tag:
             type: string
             enum: ["BeginInitialize"]
-          point:
-            $ref: "api.yaml#/components/schemas/ChainPoint"
       - title: EndInitialize
         description: >-
-          The wallet has initialized with these UTxOs.
+          The wallet has been initialized with these UTxOs and will skip blocks
+          until reaching the tip.
         type: object
         additionalProperties: false
         required:
           - tag
           - initialUTxO
+          - tip
         properties:
           tag:
             type: string
             enum: ["EndInitialize"]
           initialUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
+          tip:
+            $ref: "api.yaml#/components/schemas/ChainPoint"
       - title: BeginUpdate
         description: >-
           The wallet has been given a new block to update it's state.
@@ -386,7 +388,8 @@ definitions:
             $ref: "api.yaml#/components/schemas/ChainPoint"
       - title: EndUpdate
         description: >-
-          The wallet updated it's state by applying a block resulting in given UTxOs.
+          The wallet updated it's state by applying a block resulting in given
+          UTxOs.
         additionalProperties: false
         required:
           - tag
@@ -397,6 +400,20 @@ definitions:
             enum: ["EndUpdate"]
           newUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
+      - title: SkipUpdate
+        description: >-
+          The wallet has been given a block behind it's last known tip and skips
+          the internal update of UTxOs.
+        additionalProperties: false
+        required:
+          - tag
+          - point
+        properties:
+          tag:
+            type: string
+            enum: ["SkipUpdate"]
+          point:
+            $ref: "api.yaml#/components/schemas/ChainPoint"
 
   # NOTE: We cannot simply describe 'ServerOutput' and re-use it in api.yaml, so
   # we opted to not detail this section here. The outputs documented in api.yaml
