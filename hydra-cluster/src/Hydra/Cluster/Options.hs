@@ -26,8 +26,7 @@ parseOptions =
     <*> parsePublishHydraScripts
  where
   parseKnownNetwork =
-    flag' Testnet (long "testnet" <> help "The public testnet (soon EOL)")
-      <|> flag' Preview (long "preview" <> help "The preview testnet")
+    flag' Preview (long "preview" <> help "The preview testnet")
       <|> flag' Preproduction (long "preprod" <> help "The pre-production testnet")
 
   parseStateDirectory =
