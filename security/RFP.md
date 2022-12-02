@@ -1,8 +1,3 @@
-FIXME: Improve language uniformity and replace
-* on-chain code -> Hydra plutus scripts
-* off-chain code -> Hydra node chain layer
-* HeadLogic code -> Hydra node logic layer
-
 # 2 - Background
 
 Hydra is the layer 2 (L2) scalability solution for Cardano, which aims to minimize transaction cost and increase transaction speed via low latency & high throughput.
