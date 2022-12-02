@@ -13,9 +13,7 @@ import qualified PlutusTx.Builtins as Plutus
 import Test.QuickCheck (
   Property,
   Testable,
-  checkCoverage,
   counterexample,
-  cover,
   elements,
   forAll,
   forAllShrink,
@@ -47,12 +45,10 @@ prop_treeIsBalanced =
   forAllNonEmptyMerkleTree $ \(tree, _, proof) ->
     let treeSize = MT.size tree
         treeDepthUpperBound = floor (logBase @Double 2 (fromIntegral treeSize)) + 1
-     in length proof <= fromIntegral treeSize
-          & cover 100 (length proof <= treeDepthUpperBound) "proofs are in log(n) size of tree"
+     in length proof <= fromIntegral treeSize && length proof <= treeDepthUpperBound
           & counterexample ("proof: " <> show proof)
           & counterexample ("tree size: " <> show treeSize)
           & counterexample ("max tree depth: " <> show treeDepthUpperBound)
-          & checkCoverage
 
 forAllMerkleTree :: Testable prop => (MerkleTree -> prop) -> Property
 forAllMerkleTree =
