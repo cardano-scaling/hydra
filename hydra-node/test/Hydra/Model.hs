@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -14,8 +13,8 @@
 -- to another party in full, without any change.
 --
 -- More intricate and specialised models shall be developed once we get a firmer grasp of
--- the whole framework, injecting faults, taking into account more parts of the stack (eg.
--- `Direct` chain component), modelling more complex transactions schemes...
+-- the whole framework, injecting faults, taking into account more parts of the stack,
+-- modelling more complex transactions schemes...
 --
 -- **NOTE**: This is still pretty much a work-in-progress esp. regarding the execution
 -- model as we explore different ways of putting this at work.
@@ -26,9 +25,15 @@ import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Binary (serialize', unsafeDeserialize')
-import Control.Monad.Class.MonadAsync (async)
-import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO)
+import Control.Monad.Class.MonadAsync (Async, async, cancel)
+import Control.Monad.Class.MonadFork (labelThisThread)
+import Control.Monad.Class.MonadSTM (
+  MonadLabelledSTM,
+  labelTVarIO,
+  newTQueue,
+  newTVarIO,
+ )
+import Control.Monad.Class.MonadTimer (timeout)
 import Data.List (nub)
 import qualified Data.List as List
 import Data.Map ((!))
@@ -37,31 +42,42 @@ import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
-import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, ReadyToCommit, SnapshotConfirmed))
+import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, SnapshotConfirmed))
 import qualified Hydra.API.ServerOutput as Output
 import Hydra.BehaviorSpec (
   TestHydraNode (..),
   createHydraNode,
   createTestHydraNode,
-  simulatedChainAndNetwork,
+  shortLabel,
   waitMatch,
-  waitUntil,
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (Committed (), PendingCommits)
+import Hydra.HeadLogic (
+  Committed (),
+  PendingCommits,
+ )
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genSigningKey, genValue, mkSimpleTx)
+import Hydra.Ledger.Cardano (cardanoLedger, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer)
-import Hydra.Node (HydraNodeLog, runHydraNode)
-import Hydra.Party (Party, deriveParty)
+import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
+import Hydra.Model.MockChain (mkMockTxIn, mockChainAndNetwork)
+import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
+import Hydra.Node (
+  NodeState (NodeState),
+  modifyHeadState,
+  queryHeadState,
+  runHydraNode,
+ )
+import Hydra.Options (maximumNumberOfParties)
+import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
-import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
+import Test.Consensus.Cardano.Generators ()
+import Test.QuickCheck (counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), LookUp, RunModel (..), StateModel (..), Var)
 import qualified Prelude
@@ -134,71 +150,9 @@ data Nodes m = Nodes
   , -- | Logger used by each node.
     -- The reason we put this here is because the concrete value needs to be
     -- instantiated upon the test run initialisation, outiside of the model.
-    logger :: Tracer m (HydraNodeLog Tx)
+    logger :: Tracer m (HydraLog Tx ())
+  , threads :: [Async m ()]
   }
-
-newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
-
-instance Show CardanoSigningKey where
-  show CardanoSigningKey{signingKey} =
-    show . mkVkAddress @Era testNetworkId . getVerificationKey $ signingKey
-
--- NOTE: We need this orphan instance in order to lookup keys in lists.
-instance Eq CardanoSigningKey where
-  CardanoSigningKey (PaymentSigningKey skd) == CardanoSigningKey (PaymentSigningKey skd') = skd == skd'
-
-instance ToJSON CardanoSigningKey where
-  toJSON = error "don't use"
-
-instance FromJSON CardanoSigningKey where
-  parseJSON = error "don't use"
-
-instance Arbitrary Value where
-  arbitrary = genAdaValue
-
-instance Arbitrary CardanoSigningKey where
-  arbitrary = CardanoSigningKey . snd <$> genKeyPair
-
--- | A single Ada-payment only transaction in our model.
-data Payment = Payment
-  { from :: CardanoSigningKey
-  , to :: CardanoSigningKey
-  , value :: Value
-  }
-  deriving (Eq, Generic, ToJSON, FromJSON)
-
-instance Show Payment where
-  -- NOTE: We display derived addresses instead of raw signing keys in order to help troubleshooting
-  -- tests failures or errors.
-  show Payment{from, to, value} =
-    "Payment { from = " <> show from
-      <> ", to = "
-      <> show to
-      <> ", value = "
-      <> show value
-      <> " }"
-
-instance Arbitrary Payment where
-  arbitrary = error "don't use"
-
-instance ToCBOR Payment where
-  toCBOR = error "don't use"
-
-instance FromCBOR Payment where
-  fromCBOR = error "don't use"
-
--- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
-instance IsTx Payment where
-  type TxIdType Payment = Int
-  type UTxOType Payment = [(CardanoSigningKey, Value)]
-  type ValueType Payment = Value
-  txId = error "undefined"
-  balance = foldMap snd
-  hashUTxO = encodeUtf8 . show @Text
-
-applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
-applyTx utxo Payment{from, to, value} =
-  (to, value) : List.delete (from, value) utxo
 
 instance DynLogicModel WorldState
 
@@ -216,6 +170,8 @@ instance StateModel WorldState where
     NewTx :: Party -> Payment -> Action WorldState ()
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Payment -> Action WorldState ()
+    -- | Symmetric to `Seed`
+    StopTheWorld :: Action WorldState ()
 
   initialState =
     WorldState
@@ -236,7 +192,7 @@ instance StateModel WorldState where
       Open{} -> genNewTx
       _ -> genSeed
    where
-    genSeed = Some . Seed <$> resize 7 partyKeys
+    genSeed = Some . Seed <$> resize maximumNumberOfParties partyKeys
 
     genInit = do
       contestationPeriod <- arbitrary
@@ -271,6 +227,8 @@ instance StateModel WorldState where
   precondition _ Wait{} =
     True
   precondition WorldState{hydraState = Open{}} ObserveConfirmedTx{} =
+    True
+  precondition _ StopTheWorld =
     True
   precondition _ _ =
     False
@@ -351,6 +309,7 @@ instance StateModel WorldState where
           _ -> error "unexpected state"
       Wait _ -> s
       ObserveConfirmedTx _ -> s
+      StopTheWorld -> s
 
   postcondition :: WorldState -> Action WorldState a -> LookUp -> a -> Bool
   postcondition _st (Commit _party expectedCommitted) _ actualCommitted =
@@ -380,7 +339,7 @@ deriving instance Eq (Action WorldState a)
 -- * Running the model
 
 runModel ::
-  (MonadAsync m, MonadCatch m, MonadTimer m, MonadTime m) =>
+  (MonadAsync m, MonadCatch m, MonadTimer m, MonadThrow (STM m), MonadLabelledSTM m) =>
   RunModel WorldState (StateT (Nodes m) m)
 runModel = RunModel{perform}
  where
@@ -389,7 +348,8 @@ runModel = RunModel{perform}
     , MonadAsync m
     , MonadCatch m
     , MonadTimer m
-    , MonadTime m
+    , MonadThrow (STM m)
+    , MonadLabelledSTM m
     ) =>
     WorldState ->
     Action WorldState a ->
@@ -406,16 +366,49 @@ runModel = RunModel{perform}
       Init party contestationPeriod ->
         party `sendsInput` Input.Init{contestationPeriod}
       Abort party -> do
-        party `sendsInput` Input.Abort
-      Wait timeout ->
-        lift $ threadDelay timeout
+        performAbort party
+      Wait delay ->
+        lift $ threadDelay delay
       ObserveConfirmedTx tx -> do
         nodes <- Map.toList <$> gets nodes
-        forM_ nodes $ \(party, node) -> do
-          party `sendsInput` Input.GetUTxO
-          waitForUTxOToSpend mempty (to tx) (value tx) party node 1000 >>= \case
+        forM_ nodes $ \(_, node) -> do
+          lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
             Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
             Right _ -> pure ()
+      StopTheWorld ->
+        stopTheWorld
+
+performAbort :: MonadDelay m => Party -> StateT (Nodes m) m ()
+performAbort party = do
+  Nodes{nodes} <- get
+  lift $ waitForReadyToCommit party nodes
+  party `sendsInput` Input.Abort
+
+waitForReadyToCommit ::
+  forall m tx.
+  MonadDelay m =>
+  Party ->
+  Map Party (TestHydraNode tx m) ->
+  m ()
+waitForReadyToCommit party nodes = go 10
+ where
+  go :: Int -> m ()
+  go = \case
+    0 -> pure ()
+    n -> do
+      outs <- serverOutputs (nodes ! party)
+      let matchReadyToCommit = \case
+            Output.ReadyToCommit{} -> True
+            _ -> False
+      case find matchReadyToCommit outs of
+        Nothing ->
+          threadDelay 10 >> go (n -1)
+        Just{} ->
+          pure ()
+
+stopTheWorld :: MonadAsync m => StateT (Nodes m) m ()
+stopTheWorld =
+  gets threads >>= mapM_ (void . lift . cancel)
 
 sendsInput :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
 sendsInput party command = do
@@ -428,38 +421,47 @@ seedWorld ::
   ( MonadDelay m
   , MonadAsync m
   , MonadCatch m
-  , MonadTime m
+  , MonadTimer m
+  , MonadThrow (STM m)
+  , MonadLabelledSTM m
   ) =>
-  [(SigningKey HydraKey, b)] ->
+  [(SigningKey HydraKey, CardanoSigningKey)] ->
   StateT (Nodes m) m ()
 seedWorld seedKeys = do
   let parties = map (deriveParty . fst) seedKeys
+      dummyNodeState =
+        NodeState
+          { modifyHeadState = error "undefined"
+          , queryHeadState = error "undefined"
+          }
   tr <- gets logger
   nodes <- lift $ do
     let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
-    -- XXX: Defining the concrete 'ChainState' here is weird. The simulated
-    -- chain shares the provided chainState between all nodes. However, the
-    -- normal (non SimpleTx) chain state is node specific (it's context).
-    let chainState =
-          ChainStateAt
-            { chainState = error "should not access chainState"
-            , recordedAt = Nothing
-            }
-    connectToChain <- simulatedChainAndNetwork chainState
-    forM seedKeys $ \(sk, _csk) -> do
+    nodes <- newTVarIO []
+    labelTVarIO nodes "nodes"
+    (connectToChain, tickThread) <-
+      mockChainAndNetwork (contramap DirectChain tr) seedKeys parties nodes
+    res <- forM seedKeys $ \(hsk, _csk) -> do
       outputs <- atomically newTQueue
       outputHistory <- newTVarIO []
-      let party = deriveParty sk
+      labelTVarIO nodes ("outputs-" <> shortLabel hsk)
+      labelTVarIO nodes ("history-" <> shortLabel hsk)
+      let party = deriveParty hsk
           otherParties = filter (/= party) parties
-      node <- createHydraNode ledger chainState sk otherParties outputs outputHistory connectToChain
+      node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain
       let testNode = createTestHydraNode outputs outputHistory node
-      void $ async $ runHydraNode tr node
-      pure (party, testNode)
+      nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
+      pure (party, testNode, nodeThread)
+    pure (res, tickThread)
 
-  modify $ \n -> n{nodes = Map.fromList nodes}
+  modify $ \n ->
+    n
+      { nodes = Map.fromList $ (\(p, t, _) -> (p, t)) <$> fst nodes
+      , threads = snd nodes : ((\(_, _, t) -> t) <$> fst nodes)
+      }
 
 performCommit ::
-  (MonadThrow m, MonadAsync m, MonadTimer m) =>
+  (MonadThrow m, MonadTimer m) =>
   [CardanoSigningKey] ->
   Party ->
   [(CardanoSigningKey, Value)] ->
@@ -469,7 +471,7 @@ performCommit parties party paymentUTxO = do
   case Map.lookup party nodes of
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
     Just actorNode -> do
-      lift $ waitUntil [actorNode] $ ReadyToCommit (Set.fromList $ Map.keys nodes)
+      lift $ waitForReadyToCommit party nodes
       let realUTxO =
             UTxO.fromPairs $
               [ (mkMockTxIn vk ix, txOut)
@@ -482,8 +484,7 @@ performCommit parties party paymentUTxO = do
         lift $
           waitMatch actorNode $ \case
             Committed{party = cp, utxo = committedUTxO}
-              | cp == party ->
-                Just committedUTxO
+              | cp == party -> Just committedUTxO
             _ -> Nothing
       pure $ fromUtxo observedUTxO
  where
@@ -521,10 +522,8 @@ performNewTx party tx = do
           Just{} -> pure ()
   waitForOpen
 
-  party `sendsInput` Input.GetUTxO
-
   (i, o) <-
-    waitForUTxOToSpend mempty (from tx) (value tx) party (nodes ! party) (5000 :: Int) >>= \case
+    lift (waitForUTxOToSpend mempty (from tx) (value tx) (nodes ! party)) >>= \case
       Left u -> error $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
       Right ok -> pure ok
 
@@ -543,31 +542,31 @@ performNewTx party tx = do
       _ -> False
 
 waitForUTxOToSpend ::
-  (MonadDelay m, MonadThrow m) =>
+  forall m.
+  (MonadDelay m, MonadTimer m) =>
   UTxO ->
   CardanoSigningKey ->
   Value ->
-  Party ->
   TestHydraNode Tx m ->
-  Int ->
-  StateT (Nodes m) m (Either UTxO (TxIn, TxOut CtxUTxO))
-waitForUTxOToSpend utxo key value party node = \case
-  0 ->
-    pure $ Left utxo
-  n ->
-    lift (threadDelay 1 >> waitForNext node) >>= \case
-      GetUTxOResponse u
-        | u == mempty -> do
-          party `sendsInput` Input.GetUTxO
-          waitForUTxOToSpend u key value party node (n - 1)
-        | otherwise -> case find matchPayment (UTxO.pairs u) of
-          Nothing -> do
-            party `sendsInput` Input.GetUTxO
-            waitForUTxOToSpend u key value party node (n - 1)
-          Just p -> pure $ Right p
-      _ ->
-        waitForUTxOToSpend utxo key value party node (n - 1)
+  m (Either UTxO (TxIn, TxOut CtxUTxO))
+waitForUTxOToSpend utxo key value node = go 100
  where
+  go :: Int -> m (Either UTxO (TxIn, TxOut CtxUTxO))
+  go = \case
+    0 ->
+      pure $ Left utxo
+    n -> do
+      node `send` Input.GetUTxO
+      threadDelay 5
+      timeout 10 (waitForNext node) >>= \case
+        Just (GetUTxOResponse u)
+          | u /= mempty ->
+            maybe
+              (go (n - 1))
+              (pure . Right)
+              (find matchPayment (UTxO.pairs u))
+        _ -> go (n - 1)
+
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut
 
@@ -582,18 +581,13 @@ genPayment WorldState{hydraParties, hydraState} =
   case hydraState of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
       (from, value) <-
-        elements confirmedUTxO `suchThat` (not . null . valueToList . snd)
+        elements (filter (not . null . valueToList . snd) confirmedUTxO)
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
-      (_, to) <- elements hydraParties `suchThat` ((/= from) . snd)
+      -- NOTE: It's perfectly possible this yields a payment to self and it
+      -- assumes hydraParties is not empty else `elements` will crash
+      (_, to) <- elements hydraParties
       pure (party, Payment{from, to, value})
     _ -> error $ "genPayment impossible in state: " <> show hydraState
-
-genAdaValue :: Gen Value
-genAdaValue = genNonNullAdaValue
- where
-  genNonNullAdaValue = genAdaAsset `suchThat` (/= lovelaceToValue 0)
-  genAdaAsset = onlyAdaAssets <$> genValue
-  onlyAdaAssets = lovelaceToValue . selectLovelace
 
 unsafeConstructorName :: (Show a) => a -> String
 unsafeConstructorName = Prelude.head . Prelude.words . show
@@ -613,9 +607,3 @@ isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (She
     (PaymentCredentialByKey ha) -> verificationKeyHash (getVerificationKey sk) == ha
     _ -> False
 isOwned _ _ = False
-
-mkMockTxIn :: VerificationKey PaymentKey -> Word -> TxIn
-mkMockTxIn vk ix = TxIn (TxId tid) (TxIx ix)
- where
-  -- NOTE: Ugly, works because both binary representations are 32-byte long.
-  tid = unsafeDeserialize' (serialize' vk)

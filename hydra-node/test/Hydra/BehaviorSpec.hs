@@ -8,6 +8,8 @@ import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSat
 
 import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forConcurrently_)
 import Control.Monad.Class.MonadSTM (
+  MonadLabelledSTM,
+  labelTVarIO,
   modifyTVar,
   modifyTVar',
   newTQueue,
@@ -19,6 +21,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
+import qualified Data.List as List
 import GHC.Records (getField)
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
@@ -49,10 +52,12 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (Ledger, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
+import Hydra.Network.Message (Message)
 import Hydra.Node (
   EventQueue (putEvent),
   HydraNode (..),
   HydraNodeLog (..),
+  NodeState,
   createEventQueue,
   createNodeState,
   runHydraNode,
@@ -566,7 +571,7 @@ simulatedChainAndNetwork initialChainState = do
           pure $
             node
               { oc = Chain{postTx = \_cs -> postTx nodes history chainStateVar}
-              , hn = Network{broadcast = broadcast node nodes}
+              , hn = createMockNetwork node nodes
               }
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes history chainStateVar
@@ -616,12 +621,17 @@ simulatedChainAndNetwork initialChainState = do
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev
 
-  broadcast node nodes msg = do
+handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
+handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
+
+createMockNetwork :: MonadSTM m => HydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
+createMockNetwork node nodes =
+  Network{broadcast}
+ where
+  broadcast msg = do
     allNodes <- readTVarIO nodes
     let otherNodes = filter (\n -> getNodeId n /= getNodeId node) allNodes
     mapM_ (`handleMessage` msg) otherNodes
-
-  handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
 
   handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL
 
@@ -674,8 +684,8 @@ withHydraNode ::
 withHydraNode signingKey otherParties connectToChain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  let chainState = SimpleChainState{slot = ChainSlot 0}
-  node <- createHydraNode simpleLedger chainState signingKey otherParties outputs outputHistory connectToChain
+  nodeState <- createNodeState $ IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory connectToChain
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraNode outputs outputHistory node)
 
@@ -694,19 +704,19 @@ createTestHydraNode outputs outputHistory HydraNode{eq} =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m) =>
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
   Ledger tx ->
-  ChainStateType tx ->
+  NodeState tx m ->
   SigningKey HydraKey ->
   [Party] ->
   TQueue m (ServerOutput tx) ->
   TVar m [ServerOutput tx] ->
   ConnectToChain tx m ->
   m (HydraNode tx m)
-createHydraNode ledger chainState signingKey otherParties outputs outputHistory connectToChain = do
+createHydraNode ledger nodeState signingKey otherParties outputs outputHistory connectToChain = do
   eq <- createEventQueue
-  nodeState <- createNodeState $ IdleState{chainState}
   persistenceVar <- newTVarIO Nothing
+  labelTVarIO persistenceVar ("persistence-" <> shortLabel signingKey)
   chainComponent connectToChain $
     HydraNode
       { eq
@@ -761,3 +771,8 @@ assertHeadIsClosedWith expectedSnapshotNumber = \case
   HeadIsClosed{snapshotNumber} -> do
     snapshotNumber `shouldBe` expectedSnapshotNumber
   _ -> failure "expected HeadIsClosed"
+
+-- | Provide a quick and dirty to way to label stuff from a signing key
+shortLabel :: SigningKey HydraKey -> String
+shortLabel s =
+  take 8 $ drop 1 $ List.head $ drop 2 $ List.words $ show s

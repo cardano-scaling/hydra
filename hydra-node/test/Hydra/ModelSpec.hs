@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -82,6 +83,7 @@ import Hydra.Model (
   runModel,
  )
 import qualified Hydra.Model as Model
+import qualified Hydra.Model.Payment as Payment
 import Hydra.Party (Party (..), deriveParty)
 import Test.QuickCheck (Property, Testable, counterexample, forAll, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
@@ -109,7 +111,9 @@ spec = do
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
-  forAllDL_ conflictFreeLiveness prop_HydraModel
+  withMaxSuccess 100 $
+    within 50000000 $
+      forAllDL_ conflictFreeLiveness prop_HydraModel
 
 prop_HydraModel :: Actions WorldState -> Property
 prop_HydraModel actions = property $
@@ -135,6 +139,7 @@ conflictFreeLiveness = do
       action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx payment)
     _ -> pass
+  action Model.StopTheWorld
  where
   nonConflictingTx st = withGenQ (genPayment st) (const [])
   eventually a = action (Wait 10) >> action a
@@ -155,7 +160,7 @@ prop_doesNotGenerate0AdaUTxO (Actions actions) =
   contains0AdaUTxO :: Step WorldState -> Bool
   contains0AdaUTxO = \case
     _anyVar := Model.Commit _anyParty utxos -> any contains0Ada utxos
-    _anyVar := Model.NewTx _anyParty Model.Payment{value} -> value == lovelaceToValue 0
+    _anyVar := Model.NewTx _anyParty Payment.Payment{value} -> value == lovelaceToValue 0
     _anyOtherStep -> False
   contains0Ada = (== lovelaceToValue 0) . snd
 
@@ -194,7 +199,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
             Map.fromListWith
               (<>)
               [ (unwrapAddress addr, value)
-              | (Model.CardanoSigningKey sk, value) <- confirmedUTxO
+              | (Payment.CardanoSigningKey sk, value) <- confirmedUTxO
               , let addr = mkVkAddress testNetworkId (getVerificationKey sk)
               , valueToLovelace value /= Just 0
               ]
@@ -234,7 +239,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
 runIOSimProp :: Testable a => (forall s. PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) a) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty traceInIOSim)
+  let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty traceInIOSim mempty)
       traceDump = printTrace (Proxy :: Proxy Tx) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
   case traceResult False tr of

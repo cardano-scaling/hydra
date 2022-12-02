@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Test.Util where
 
@@ -15,6 +16,7 @@ import Control.Monad.IOSim (
   traceResult,
  )
 import Control.Tracer (Tracer (Tracer))
+import Data.Aeson (encode)
 import qualified Data.Aeson as Aeson
 import Data.List (isInfixOf)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -80,4 +82,17 @@ shouldContain actual expected
 -- which requires 'Typeable' constraint. To retrieve the trace use 'selectTraceEventsDynamic'
 -- applied to the correct type.
 traceInIOSim :: Typeable a => Tracer (IOSim s) a
-traceInIOSim = Tracer $ \a -> traceM a
+traceInIOSim = Tracer traceM
+
+-- | Useful when one needs to /also/ trace logs to `stderr`.
+-- Thanks to the monoidal nature of `Tracer` it's straightforward to add this to
+-- any existing tracer:
+--
+-- @@
+-- someCode tracer = do
+--   foo <- makeFoo
+--   withTracer (tr <> traceDebug) SomeTraceFoo
+-- ...
+-- @@
+traceDebug :: (Applicative m, ToJSON a) => Tracer m a
+traceDebug = Tracer (\a -> trace (decodeUtf8 $ encode a) $ pure ())

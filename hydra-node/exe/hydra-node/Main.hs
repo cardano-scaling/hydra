@@ -6,13 +6,11 @@ import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
-import Hydra.Chain (ChainCallback, ChainEvent (..))
 import Hydra.Chain.Direct (initialChainState, loadChainContext, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), defaultTTL, getChainState)
-import Hydra.Ledger.Cardano (Tx)
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
   newGlobals,
@@ -30,7 +28,7 @@ import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
   HydraNode (..),
-  NodeState (..),
+  chainCallback,
   createEventQueue,
   createNodeState,
   initEnvironment,
@@ -89,24 +87,6 @@ main = do
               withCardanoLedger ledgerConfig $ \ledger ->
                 runHydraNode (contramap Node tracer) $
                   HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence}
-
-  chainCallback :: NodeState Tx IO -> EventQueue IO (Event Tx) -> ChainCallback Tx IO
-  chainCallback NodeState{modifyHeadState} eq cont = do
-    -- Provide chain state to continuation and update it when we get a newState
-    -- NOTE: Although we do handle the chain state explictly in the 'HeadLogic',
-    -- this is required as multiple transactions may be observed and the chain
-    -- state shall accumulate the state changes coming with those observations.
-    mEvent <- atomically . modifyHeadState $ \hs ->
-      case cont $ getChainState hs of
-        Nothing ->
-          (Nothing, hs)
-        Just ev@Observation{newChainState} ->
-          (Just ev, hs{chainState = newChainState})
-        Just ev ->
-          (Just ev, hs)
-    case mEvent of
-      Nothing -> pure ()
-      Just chainEvent -> putEvent eq $ OnChainEvent{chainEvent}
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
