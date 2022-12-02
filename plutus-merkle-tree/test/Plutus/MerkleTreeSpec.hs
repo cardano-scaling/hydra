@@ -13,12 +13,14 @@ import qualified PlutusTx.Builtins as Plutus
 import Test.QuickCheck (
   Property,
   Testable,
+  checkCoverage,
   counterexample,
+  cover,
   elements,
   forAll,
   forAllShrink,
+  listOf1,
   (===),
-  (==>),
  )
 
 spec :: Spec
@@ -45,10 +47,12 @@ prop_treeIsBalanced =
   forAllNonEmptyMerkleTree $ \(tree, _, proof) ->
     let treeSize = MT.size tree
         treeDepthUpperBound = floor (logBase @Double 2 (fromIntegral treeSize)) + 1
-     in length proof <= fromIntegral treeSize && length proof <= treeDepthUpperBound
+     in length proof <= fromIntegral treeSize
+          & cover 100 (length proof <= treeDepthUpperBound) "proofs are in log(n) size of tree"
           & counterexample ("proof: " <> show proof)
           & counterexample ("tree size: " <> show treeSize)
           & counterexample ("max tree depth: " <> show treeDepthUpperBound)
+          & checkCoverage
 
 forAllMerkleTree :: Testable prop => (MerkleTree -> prop) -> Property
 forAllMerkleTree =
@@ -59,13 +63,18 @@ forAllNonEmptyMerkleTree ::
   ((MerkleTree, Plutus.BuiltinByteString, MT.Proof) -> prop) ->
   Property
 forAllNonEmptyMerkleTree action =
-  forAllMerkleTree $ \tree ->
-    not (MT.null tree) ==> forAll (elements $ MT.toList tree) $ \e ->
+  forAll genNonEmptyMerkleTree $ \tree ->
+    forAll (elements $ MT.toList tree) $ \e ->
       action (tree, e, fromJust $ MT.mkProof e tree)
 
 genMerkleTree :: Gen MerkleTree
 genMerkleTree =
   MT.fromList . fmap (Plutus.toBuiltin . BS.pack) <$> arbitrary
+
+genNonEmptyMerkleTree :: Gen MerkleTree
+genNonEmptyMerkleTree = do
+  nonEmptyBSList <- listOf1 $ fmap (Plutus.toBuiltin . BS.pack) arbitrary
+  pure $ MT.fromList nonEmptyBSList
 
 shrinkMerkleTree :: MerkleTree -> [MerkleTree]
 shrinkMerkleTree _ = []
