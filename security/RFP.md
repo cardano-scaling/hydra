@@ -17,75 +17,22 @@ Per [CIP-52](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0052),
 2. When automated tools are used as a replacement for manual review/code inspection, they shall be documented or referenced. Note that it’s the responsibility of the auditor to ensure that such tooling may not exhibit potential failures that can adversely affect the review outcome.
 3. Any strategies/methodologies used to assess the consistency, correctness and completeness of the requirements shall also be documented or referenced.
 
-## Context and artifacts
+## Context and assumptions
 
-The Hydra Head protocol is implemented in the `hydra-node`, which connects to the Cardano network as layer 1 (L1) through a `cardano-node`, to other Hydra Head compliant nodes over an off-chain network, and exposes an API to users of the layer 2. Most relevant for this audit are:
- - Hydra Head plutus scripts (on-chain code, `hydra-plutus` package)
- - Chain layer of the `hydra-node` (off-chain code)
- - Head logic of the `hydra-node` (layer 2 code)
- - A general and specific specification which contain proofs of several properties of the protocol.
+The Hydra Head protocol is implemented in the `hydra-node`, which connects to the Cardano network as layer 1 (L1) through a `cardano-node`, to other Hydra Head compliant nodes over an off-chain network, and exposes an API to users of the layer 2. Most relevant artifacts for this audit are:
+ - Coordinated Hydra Head V1 Specification
+ - Hydra plutus scripts (on-chain code)
+ - Hydra node chain layer code (off-chain code)
+ - Hydra node layer 2 code (L2 code)
+
+As described in the following figure, the main entry points of a Hydra node are:
+* The API through wich a client can connect to the node;
+* The network communication with other Hydra node peers;
+* The transactions posted on the Cardano ledger (accessed through a network connection).
  
-We will first describe the artifacts in the scope of this audit before explaining the specific statements we want the auditor to assess.
-
 ![artifacts.png](artifacts.png)
 
-TODO: update picture to include artifact references clearer
-
-### Artifact 1: Original publication
-
-The Hydra Head protocol has first been published in [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf). This paper describes several versions of the protocol (simple, with or without conflict resolution, incremental (de)commits, etc.), experimental validation, a security definition with corresponding security proofs of the following four properties:
-
-* Consistency: No two uncorrupted parties see conflicting transactions confirmed.
-* Liveness: If all parties remain uncorrupted and the adversary delivers all messages, then every transaction becomes confirmed at some point.
-* Soundness: The final UTxO set accepted on the mainchain results from a set of seen transactions.
-* Completeness: All transactions observed as confirmed by an honest party at the end of the protocol are considered on the mainchain.
-
-A study of the whole paper and possible variations of the protocol is out of scope of this solicitation, but it serves as a good starting point and introduction to the overall protocol. Note that the implemented version of the Hydra Head protocol - named **Coordinated Hydra Head** - can be considered a subset of the "Simple Protocol without Conflict Resolution". That is, we recommend reading Chapters 2-6, where most of the on-chain "Protocol machine" is mostly consistent, but the off-chain "Head protocol" is different in the actual specification.
-
-### Artifact 2: Coordinated Hydra Head V1 Specification
-
-The Hydra Head protocol implementation derives from the original publication in several ways. Especially some simplification have been introduced and generalizations removed.
-
-The [Coordinated Hydra Head V1 specification](https://docs.google.com/document/d/1XQ0C7Ko3Ifo5a4TOcW1fDT8gMYryB54PCEgOiFaAwGE/) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
-
-Note that it is lacking some structure and introductory sections and we recommend to see Artifact 1 for that.
-
-FIXME the following list is probably not useful since it should be in the spec
-In particular, the following simplifications are done in the actual implementation:
-* Kagg is a list of keys
-* No hanging transactions, i.e. only snapshots are signed and can be used in close transaction
-* ...
-
-### Artifact 3: Hydra Head Protocol Implementation
-
-With Hydra Head Protocol Implementation we refer to the software component that is used to operate a node in the Hydra Head protocol. The `hydra-node` allows its users to open a head, lock funds in it, connect to peers, process transactions as a layer 2, close a head and unlock the corresponding funds. It is comprised by the Hydra plutus scripts, Hydra head chain layer, layer 2 code, network communication between peers, and an API for clients to connect and use the node.
-
-Source code repository: [input-output-hk/hydra](https://github.com/input-output-hk/hydra)
-Version to be audited: [0.9.0](https://github.com/input-output-hk/hydra/releases/tag/0.9.0)
-
-TODO describe the inputs and outputs of a hydra node
-
-TODO: clarify which artifacts we need to introduce
-
-TODO:We should share our test architecture/topology and also the test results here: https://hydra.family/head-protocol/benchmarks/tests/hydra-cluster/hspec-results
-
-#### Artifact 3.1: Hydra plutus scripts
-
-TODO
-
-Grab stuff from https://hydra.family/head-protocol/haddock/hydra-plutus/index.html
-
-#### Artifact 3.2: Hydra node chain layer code
-
-TODO
-
-Grab stuff from https://hydra.family/head-protocol/haddock/hydra-node/index.html sub-sections of _Hydra.Chain.Direct_
-
-#### Artifact 3.3: layer 2 code
-
-TODO
-
-## Assumptions
+A detailed description of each of these artifacts can be found in the above section _Artifacts_.
 
 For its operations, the hydra-node process relies on a cardano-node process and client processes can connect to the hydra-node process through API. Any assessment performed during this audit must be done under the following assumptions about the environment of the Hydra node implementation:
 * The hydra and cardano signing keys storage and management are trusted;
@@ -236,3 +183,67 @@ The scope of this audit has been described in the above sections. What is not in
 - Verify the whole original paper and its proofs.
 - Hydra Head protocol implementation is immune to API attacks -- out of scope because trusted
 - Any attack which would be invalid under the above stated assumptions.
+
+## Artifacts
+
+This sections gives a detailed description of the aritfacts mentioned in this RFP:
+ - Coordinated Hydra Head V1 Specification
+ - Hydra plutus scripts (on-chain code)
+ - Hydra node chain layer code (off-chain code)
+ - Hydra node layer 2 code (L2 code)
+
+### Artifact 1: Original publication
+
+The Hydra Head protocol has first been published in [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf). This paper describes several versions of the protocol (simple, with or without conflict resolution, incremental (de)commits, etc.), experimental validation, a security definition with corresponding security proofs of the following four properties:
+
+* Consistency: No two uncorrupted parties see conflicting transactions confirmed.
+* Liveness: If all parties remain uncorrupted and the adversary delivers all messages, then every transaction becomes confirmed at some point.
+* Soundness: The final UTxO set accepted on the mainchain results from a set of seen transactions.
+* Completeness: All transactions observed as confirmed by an honest party at the end of the protocol are considered on the mainchain.
+
+A study of the whole paper and possible variations of the protocol is out of scope of this solicitation, but it serves as a good starting point and introduction to the overall protocol. Note that the implemented version of the Hydra Head protocol - named **Coordinated Hydra Head** - can be considered a subset of the "Simple Protocol without Conflict Resolution". That is, we recommend reading Chapters 2-6, where most of the on-chain "Protocol machine" is mostly consistent, but the off-chain "Head protocol" is different in the actual specification.
+
+### Artifact 2: Coordinated Hydra Head V1 Specification
+
+The Hydra Head protocol implementation derives from the original publication in several ways. Especially some simplification have been introduced and generalizations removed.
+
+The [Coordinated Hydra Head V1 specification](https://docs.google.com/document/d/1XQ0C7Ko3Ifo5a4TOcW1fDT8gMYryB54PCEgOiFaAwGE/) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
+
+Note that it is lacking some structure and introductory sections and we recommend to see Artifact 1 for that.
+
+FIXME the following list is probably not useful since it should be in the spec
+In particular, the following simplifications are done in the actual implementation:
+* Kagg is a list of keys
+* No hanging transactions, i.e. only snapshots are signed and can be used in close transaction
+* ...
+
+### Artifact 3: Hydra Head Protocol Implementation
+
+With Hydra Head Protocol Implementation we refer to the software component that is used to operate a node in the Hydra Head protocol. The `hydra-node` allows its users to open a head, lock funds in it, connect to peers, process transactions as a layer 2, close a head and unlock the corresponding funds. It is comprised by the Hydra plutus scripts, Hydra head chain layer, layer 2 code, network communication between peers, and an API for clients to connect and use the node.
+
+Source code repository: [input-output-hk/hydra](https://github.com/input-output-hk/hydra)
+Version to be audited: [0.9.0](https://github.com/input-output-hk/hydra/releases/tag/0.9.0)
+
+TODO describe the inputs and outputs of a hydra node
+
+TODO: clarify which artifacts we need to introduce
+
+TODO:We should share our test architecture/topology and also the test results here: https://hydra.family/head-protocol/benchmarks/tests/hydra-cluster/hspec-results
+
+#### Artifact 3.1: Hydra plutus scripts
+
+TODO
+
+Grab stuff from https://hydra.family/head-protocol/haddock/hydra-plutus/index.html
+
+#### Artifact 3.2: Hydra node chain layer code
+
+TODO
+
+Grab stuff from https://hydra.family/head-protocol/haddock/hydra-node/index.html sub-sections of _Hydra.Chain.Direct_
+
+#### Artifact 3.3: Hydra node layer 2 code
+
+TODO
+
+
