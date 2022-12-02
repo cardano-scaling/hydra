@@ -94,7 +94,7 @@ For its operations, the hydra-node process relies on a cardano-node process and 
 * Any client software connecting through the API is trusted as are the systems running them;
 * The communications between the cardano-node and the hydra-node are trusted;
 * The communications between the hydra-node and any client software connecting through the API are trusted;
-* For any legitimate hydra-node, the network is resilient enough that it can synchronize the cardano blockchain at regular interval smaller than any head contestation period they participate in.
+* The cardano-node is assumed to have a responsive communication line with the Cardano network such that the hydra-node can react to on-chain transactions in a timely manner. In particular, hydra-node is able to observe head closure and contest in a delay shorter than the contestation period fixed by the protocol.
 
 What is not explicitly trusted in the above list is deemed untrusted. In particular, the other hydra nodes participating in a head are not trusted.
 
