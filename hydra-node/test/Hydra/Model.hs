@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | A /Model/ of the Hydra head Protocol.
@@ -79,7 +80,7 @@ import qualified Hydra.Snapshot as Snapshot
 import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
-import Test.QuickCheck.StateModel (Any (..), LookUp, RunModel (..), StateModel (..), Var)
+import Test.QuickCheck.StateModel (Any (..), Realized, RunModel (..), StateModel (..))
 import qualified Prelude
 
 -- | Global state of the Head protocol.
@@ -233,7 +234,6 @@ instance StateModel WorldState where
   precondition _ _ =
     False
 
-  nextState :: WorldState -> Action WorldState a -> Var a -> WorldState
   nextState s@WorldState{hydraParties, hydraState} a _ =
     case a of
       Seed{seedKeys} -> WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys}}
@@ -311,50 +311,51 @@ instance StateModel WorldState where
       ObserveConfirmedTx _ -> s
       StopTheWorld -> s
 
-  postcondition :: WorldState -> Action WorldState a -> LookUp -> a -> Bool
-  postcondition _st (Commit _party expectedCommitted) _ actualCommitted =
-    expectedCommitted == actualCommitted
-  postcondition _ _ _ _ = True
-
-  monitoring (s, s') action l result =
-    decoratePostconditionFailure
-      . decorateTransitions
-   where
-    -- REVIEW: This should be part of the quickcheck-dynamic runActions
-    decoratePostconditionFailure
-      | postcondition s action l result = id
-      | otherwise =
-        counterexample "postcondition failed"
-          . counterexample ("Action: " <> show action)
-          . counterexample ("State: " <> show s)
-          . counterexample ("Result: " <> show result)
-
-    decorateTransitions =
-      case (hydraState s, hydraState s') of
-        (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
-
 deriving instance Show (Action WorldState a)
 deriving instance Eq (Action WorldState a)
 
 -- * Running the model
 
-runModel ::
-  (MonadAsync m, MonadCatch m, MonadTimer m, MonadThrow (STM m), MonadLabelledSTM m) =>
-  RunModel WorldState (StateT (Nodes m) m)
-runModel = RunModel{perform}
- where
-  perform ::
-    ( MonadDelay m
-    , MonadAsync m
-    , MonadCatch m
-    , MonadTimer m
-    , MonadThrow (STM m)
-    , MonadLabelledSTM m
-    ) =>
-    WorldState ->
-    Action WorldState a ->
-    LookUp ->
-    StateT (Nodes m) m a
+newtype RunMonad m a = RunMonad {runMonad :: StateT (Nodes m) m a}
+  deriving newtype (Functor, Applicative, Monad, MonadState (Nodes m))
+
+instance MonadTrans RunMonad where
+  lift r = RunMonad $
+    StateT $ \s -> do
+      a <- r
+      pure (a, s)
+
+type instance Realized (RunMonad m) a = a
+
+instance
+  ( MonadDelay m
+  , MonadAsync m
+  , MonadCatch m
+  , MonadTimer m
+  , MonadThrow (STM m)
+  , MonadLabelledSTM m
+  ) =>
+  RunModel WorldState (RunMonad m)
+  where
+  postcondition (_, st) action _l result = pure $ checkOutcome st action result
+
+  monitoring (s, s') action _l result =
+    decoratePostconditionFailure
+      . decorateTransitions
+   where
+    -- REVIEW: This should be part of the quickcheck-dynamic runActions
+    decoratePostconditionFailure
+      | checkOutcome s action result = id
+      | otherwise =
+        counterexample "postcondition failed"
+          . counterexample ("Action: " <> show action)
+          . counterexample ("State: " <> show s)
+          . counterexample ("Result: " <> showFromAction (show result) action)
+
+    decorateTransitions =
+      case (hydraState s, hydraState s') of
+        (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
+
   perform st command _ = do
     case command of
       Seed{seedKeys} ->
@@ -378,11 +379,32 @@ runModel = RunModel{perform}
       StopTheWorld ->
         stopTheWorld
 
-performAbort :: MonadDelay m => Party -> StateT (Nodes m) m ()
+-- | Bring `Show` instance in scope drawing it from the `Action` type.
+-- This is a neat trick to provide `show`able results from action in a context where
+-- there's no explicit `Show a` instance, eg. in the `monitoring` and `postcondition`
+-- functions. We don't have access to an `a` directly because its value depends on
+-- type family `Realized`.
+showFromAction :: (Show a => b) -> Action WorldState a -> b
+showFromAction k = \case
+  Seed{} -> k
+  Init{} -> k
+  Commit{} -> k
+  Abort{} -> k
+  NewTx{} -> k
+  Wait{} -> k
+  ObserveConfirmedTx{} -> k
+  StopTheWorld -> k
+
+performAbort :: MonadDelay m => Party -> RunMonad m ()
 performAbort party = do
   Nodes{nodes} <- get
   lift $ waitForReadyToCommit party nodes
   party `sendsInput` Input.Abort
+
+checkOutcome :: WorldState -> Action WorldState a -> a -> Bool
+checkOutcome _st (Commit _party expectedCommitted) actualCommitted =
+  expectedCommitted == actualCommitted
+checkOutcome _ _ _ = True
 
 waitForReadyToCommit ::
   forall m tx.
@@ -390,7 +412,7 @@ waitForReadyToCommit ::
   Party ->
   Map Party (TestHydraNode tx m) ->
   m ()
-waitForReadyToCommit party nodes = go 10
+waitForReadyToCommit party nodes = go 100
  where
   go :: Int -> m ()
   go = \case
@@ -406,11 +428,11 @@ waitForReadyToCommit party nodes = go 10
         Just{} ->
           pure ()
 
-stopTheWorld :: MonadAsync m => StateT (Nodes m) m ()
+stopTheWorld :: MonadAsync m => RunMonad m ()
 stopTheWorld =
   gets threads >>= mapM_ (void . lift . cancel)
 
-sendsInput :: Monad m => Party -> ClientInput Tx -> StateT (Nodes m) m ()
+sendsInput :: Monad m => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
   nodes <- gets nodes
   case Map.lookup party nodes of
@@ -426,7 +448,7 @@ seedWorld ::
   , MonadLabelledSTM m
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
-  StateT (Nodes m) m ()
+  RunMonad m ()
 seedWorld seedKeys = do
   let parties = map (deriveParty . fst) seedKeys
       dummyNodeState =
@@ -465,7 +487,7 @@ performCommit ::
   [CardanoSigningKey] ->
   Party ->
   [(CardanoSigningKey, Value)] ->
-  StateT (Nodes m) m ActualCommitted
+  RunMonad m ActualCommitted
 performCommit parties party paymentUTxO = do
   nodes <- gets nodes
   case Map.lookup party nodes of
@@ -507,7 +529,7 @@ performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m) =>
   Party ->
   Payment ->
-  StateT (Nodes m) m ()
+  RunMonad m ()
 performNewTx party tx = do
   let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
   nodes <- gets nodes

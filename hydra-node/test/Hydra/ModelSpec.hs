@@ -78,9 +78,10 @@ import Hydra.Model (
   GlobalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
+  RunMonad,
   WorldState (..),
   genPayment,
-  runModel,
+  runMonad,
  )
 import qualified Hydra.Model as Model
 import qualified Hydra.Model.Payment as Payment
@@ -97,7 +98,7 @@ import Test.QuickCheck.DynamicLogic (
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
-import Test.QuickCheck.StateModel (Actions, RunModel, Step ((:=)), runActions, stateAfter, pattern Actions)
+import Test.QuickCheck.StateModel (Actions, Step ((:=)), runActions, stateAfter, pattern Actions)
 import Test.Util (printTrace, traceInIOSim)
 
 spec :: Spec
@@ -118,11 +119,8 @@ prop_checkConflictFreeLiveness =
 prop_HydraModel :: Actions WorldState -> Property
 prop_HydraModel actions = property $
   runIOSimProp $ do
-    _ <- runActions runIt actions
+    _ <- runActions actions
     assert True
-
-runIt :: forall s. RunModel WorldState (StateT (Nodes (IOSim s)) (IOSim s))
-runIt = runModel
 
 -- • Conflict-Free Liveness (Head):
 --
@@ -169,7 +167,7 @@ prop_checkModel actions =
   within 20000000 $
     property $
       runIOSimProp $ do
-        (WorldState{hydraParties, hydraState}, _symEnv) <- runActions runIt actions
+        (WorldState{hydraParties, hydraState}, _symEnv) <- runActions actions
         -- XXX: In the past we waited until the end of time here, which would
         -- robustly catch all the remaining asynchronous actions, but we have
         -- now a "more active" simulated chain which ticks away and not simply
@@ -189,7 +187,7 @@ assertBalancesInOpenHeadAreConsistent ::
   GlobalState ->
   Map Party (TestHydraNode Tx (IOSim s)) ->
   Party ->
-  PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) ()
+  PropertyM (RunMonad (IOSim s)) ()
 assertBalancesInOpenHeadAreConsistent world nodes p = do
   let node = nodes ! p
   case world of
@@ -236,10 +234,10 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
 --
 
 -- | Specialised runner similar to <runSTGen https://hackage.haskell.org/package/QuickCheck-2.14.2/docs/src/Test.QuickCheck.Monadic.html#runSTGen>.
-runIOSimProp :: Testable a => (forall s. PropertyM (StateT (Nodes (IOSim s)) (IOSim s)) a) -> Gen Property
+runIOSimProp :: Testable a => (forall s. PropertyM (RunMonad (IOSim s)) a) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  let tr = runSimTrace $ evalStateT (eval $ monadic' p) (Nodes mempty traceInIOSim mempty)
+  let tr = runSimTrace $ evalStateT (runMonad $ eval $ monadic' p) (Nodes mempty traceInIOSim mempty)
       traceDump = printTrace (Proxy :: Proxy Tx) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
   case traceResult False tr of
