@@ -47,7 +47,7 @@ What is not explicitly trusted in the above list is deemed untrusted. In particu
 
 Any discovery not compliant with one of these assumptions is out of scope.
 
-Responder can formulate comments about the above any of these assumptions. Especially if they can suggest less restricting assumptions under which the security properties of Hydra still hold. Or if they would suggest practical suggestions on how to implement these assumptions. We accept recommendations about how to ensure these assumptions hold in a real environment.
+Responder can formulate comments about any of the above. Especially if they can suggest less restricting assumptions under which the security properties of Hydra still hold. Or if they would suggest practical suggestions on how to implement these assumptions. We accept recommendations about how to ensure these assumptions hold in a real environment.
 
 ## Tasks
 
