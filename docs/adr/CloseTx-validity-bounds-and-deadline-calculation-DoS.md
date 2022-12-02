@@ -1,7 +1,7 @@
 ---
 slug: 21
 title: |
-  21. Revisit handling time
+  21. CloseTx validity bounds and deadline calculation DoS
 authors: [Sasha Bogicevic]
 tags: [Proposed]
 ---
