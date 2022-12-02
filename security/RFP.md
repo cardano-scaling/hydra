@@ -87,31 +87,28 @@ TODO
 
 ## Assumptions
 
-FIXME: there are currently no assumptions defined in the specification. See section 6.1.2 of the paper for instance
-> Our protocol gives different security guarantees depending on the level of adversarial corruption. It provides correctness independently of both, the number of corrupted head parties and the network conditions. But the guarantee that the protocol makes progress (i.e., that new transactions get confirmed in the head) is only provided in the case that no head parties are corrupted and that the network conditions are good.
-
-Any assessment performed during this audit must be done under the following assumptions about the environment of the Hydra node implementation:
-* The cardano-node and the hydra-node software both run on the same machine;
-* The cardano-node and the hydra-node software communicate through local unix socket;
-* The cardano-node software is trusted;
-* The hydra-node software is trusted;
-* The hydra-node API is only accessible from the local machine;
-* For any client software connecting to the hydra-node through its API, the hydra-node and the client software both run on the same machine;
-* The local machine running a hydra-node is trusted;
-* The hydra and cardano signing keys storage and operation are trusted.
+For its operations, the hydra-node process relies on a cardano-node process and client processes can connect to the hydra-node process through API. Any assessment performed during this audit must be done under the following assumptions about the environment of the Hydra node implementation:
+* The hydra and cardano signing keys storage and management are trusted;
+* The hydra-node software is trusted as is the system running it;
+* The cardano-node software is trusted as is the system running it;
+* Any client software connecting through the API is trusted as are the systems running them;
+* The communications between the cardano-node and the hydra-node are trusted;
+* The communications between the hydra-node and any client software connecting through the API are trusted;
 * For any legitimate hydra-node, the network is resilient enough that it can synchronize the cardano blockchain at regular interval smaller than any head contestation period they participate in.
+
+What is not explicitly trusted in the above list is deemed untrusted. In particular, the other hydra nodes participating in a head are not trusted.
 
 Any discovery not compliant with one of these assumptions is out of scope.
 
-Responder can formulate comments about the above any of these assumptions. Especially if they can suggest less restricting assumptions under which the security properties of Hydra still hold. Or if they would suggest practical suggestion on how to implement these assumptions. We accept recommendations about how to ensure these assumptions hold in a real environment.
+Responder can formulate comments about the above any of these assumptions. Especially if they can suggest less restricting assumptions under which the security properties of Hydra still hold. Or if they would suggest practical suggestions on how to implement these assumptions. We accept recommendations about how to ensure these assumptions hold in a real environment.
 
 ## Tasks
 
-Broadly speaking, our goal is to ensure that the security properties proven in the original publication hold for the implementation, taking also into consideration the main entry points of a `hydra-node` which are the network, the API and the Cardano ledger. Furthermore, we want to focus efforts on ensuring correctness and robustness of the code running on-chain (L1) as it is harder (or impossible) to fix in the field and attackers could side-step all measures but the on-chain code (i.e. use their own off-chain code).
+Broadly speaking, our goal is to ensure that the security properties proven in the original publication hold for the implementation, taking also into consideration the main entry points of a `hydra-node` which are the node to node network communications, the API and the Cardano ledger. Furthermore, we want to focus efforts on ensuring correctness and robustness of the code running on-chain (L1) as it is harder (or impossible) to fix in the field and attackers could side-step all measures but the on-chain code (i.e. use their own off-chain code).
 
 TODO: say something about increasing confidence to our users in using the hydra-node and the protocol implemented by it;
 
-We are requesting proposals to assess the following statements, which will be detailed in the next sections. We will also accept proposals covering subsets of this list, but would like to get at least the highest priority tasks covered. The responder should briefly explain how they intend to address each task. If not all tasks are covered, individual estimation of efforts is required.
+We are requesting proposals to assess the following statements, which will be detailed in the next sections:
 
 -- Specification
 
@@ -136,7 +133,7 @@ We are requesting proposals to assess the following statements, which will be de
 Out of scope:
 0. Hydra Head protocol implementation is immune to API attacks -- out of scope because trusted
 
-TODO: split the RFP?
+We will also accept proposals covering subsets of this list, but would like to get at least the highest priority tasks covered. The responder should briefly explain how they intend to address each task. If not all tasks are covered, individual estimation of efforts is required.
 
 ### Coordinated Hydra Head V1 specification is consistent with the original publication
 
@@ -220,7 +217,7 @@ The outcome of the review should include, but not being limited to:
 * identification of network attack that would lead to a denial of service for the hydra node
 * identification of network attack that would invalidate one of the security properties of the Coordinated Hydra Head V1 specification.
 
-TODO: should we explicitly state that we are not interested in network denial of service attack? In the assumptions, should we consider only that locally submitted transaction will end up reaching the cardano network or should we enforce stronger network propoerties? For instance, if a node totally loose its network connection, is it OK? For how long is it OK?
+Generic denial of service attack against the node itself is out of scope of this audit. One should only focus on specific hydra network layer attacks that could generate a Denial of Service because of an issue in the hydra-node itself.
 
 ### Hydra Head protocol implementation faithfully reflects the head state through the API
 
