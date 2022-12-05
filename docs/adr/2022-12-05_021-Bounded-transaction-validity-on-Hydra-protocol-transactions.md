@@ -1,7 +1,7 @@
 ---
 slug: 21
 title: |
-  21. CloseTx validity bounds and deadline calculation DoS
+  21. Bounded transaction validity on Hydra protocol transactions
 authors: [Sasha Bogicevic]
 tags: [Proposed]
 ---
