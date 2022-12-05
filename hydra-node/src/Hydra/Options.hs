@@ -554,13 +554,16 @@ hydraNodeCommand =
       (decodeUtf8 $ encodePretty Contract.scriptInfo)
       (long "script-info" <> help "Dump script info as JSON")
 
+defaultContestationPeriod :: Int
+defaultContestationPeriod = 100
+
 contestationPeriodParser :: Parser Int
 contestationPeriodParser =
   option
     auto
     ( long "contestation-period"
         <> metavar "INTEGER"
-        <> value 100
+        <> value defaultContestationPeriod
         <> showDefault
         <> completer (listCompleter ["1", "2", "42"])
         <> help

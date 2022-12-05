@@ -19,6 +19,7 @@ import Hydra.Options (
   RunOptions (..),
   defaultChainConfig,
   defaultLedgerConfig,
+  defaultContestationPeriod,
   maximumNumberOfParties,
   parseHydraCommandFromArgs,
   toArgs,
@@ -302,4 +303,5 @@ defaultRunOptions =
     , persistenceDir = "./"
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
+    , contestationPeriod = defaultContestationPeriod
     }
