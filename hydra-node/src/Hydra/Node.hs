@@ -63,7 +63,7 @@ import Hydra.Persistence (Persistence (..))
 -- * Environment Handling
 
 initEnvironment :: RunOptions -> IO Environment
-initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys} = do
+initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys, contestationPeriod} = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
   otherParties <- mapM loadParty hydraVerificationKeys
   pure $
@@ -71,6 +71,7 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys} = do
       { party = deriveParty sk
       , signingKey = sk
       , otherParties
+      , contestationPeriod = contestationPeriod
       }
  where
   loadParty p =

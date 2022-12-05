@@ -28,6 +28,7 @@ import Hydra.Cardano.Api (
   proxyToAsType,
   serialiseToRawBytesHexText,
  )
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import qualified Hydra.Contract as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
@@ -142,7 +143,7 @@ data RunOptions = RunOptions
   , persistenceDir :: FilePath
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
-  , contestationPeriod :: Int
+  , contestationPeriod :: ContestationPeriod
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -554,10 +555,10 @@ hydraNodeCommand =
       (decodeUtf8 $ encodePretty Contract.scriptInfo)
       (long "script-info" <> help "Dump script info as JSON")
 
-defaultContestationPeriod :: Int
-defaultContestationPeriod = 100
+defaultContestationPeriod :: ContestationPeriod
+defaultContestationPeriod = UnsafeContestationPeriod 100
 
-contestationPeriodParser :: Parser Int
+contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
   option
     auto

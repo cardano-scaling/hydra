@@ -62,6 +62,7 @@ import Hydra.Node (
   createNodeState,
   runHydraNode,
  )
+import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
@@ -735,6 +736,7 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
             { party = deriveParty signingKey
             , signingKey
             , otherParties
+            , contestationPeriod = defaultContestationPeriod
             }
       , persistence =
           Persistence

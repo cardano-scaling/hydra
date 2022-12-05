@@ -38,6 +38,7 @@ import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (NodeId (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
+import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -60,6 +61,7 @@ spec = do
               { party = bob
               , signingKey = bobSk
               , otherParties = [alice, carol]
+              , contestationPeriod = defaultContestationPeriod
               }
 
       it "rejects if a requested tx is expired" $ do

@@ -40,6 +40,7 @@ import Hydra.Node (
   isEmpty,
   stepHydraNode,
  )
+import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..))
@@ -175,6 +176,7 @@ createHydraNode signingKey otherParties events = do
             { party
             , signingKey
             , otherParties
+            , contestationPeriod = defaultContestationPeriod
             }
       , persistence =
           Persistence

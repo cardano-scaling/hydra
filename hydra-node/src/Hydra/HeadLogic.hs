@@ -45,7 +45,7 @@ import Hydra.Ledger (
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (UnsafeSnapshotNumber), getSnapshot)
 
 -- * Types
 
@@ -869,7 +869,7 @@ update ::
 update Environment{party, signingKey, otherParties, contestationPeriod} ledger st ev = case (st, ev) of
   (IdleState{chainState}, ClientEvent (Init _)) ->
     onIdleClientInit chainState party otherParties contestationPeriod
-  (IdleState{}, OnChainEvent (Observation{observedTx = OnInitTx{contestationPeriod = observed, parties}, newChainState})) ->
+  (IdleState{}, OnChainEvent Observation{observedTx = OnInitTx{contestationPeriod = observed, parties}, newChainState}) ->
     onIdleChainInitTx st newChainState parties observed
   (InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit chainState party pendingCommits clientInput
@@ -971,7 +971,7 @@ data NoSnapshotReason
   deriving (Eq, Show, Generic)
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
-isLeader HeadParameters{parties} p sn =
+isLeader HeadParameters{parties} p (UnsafeSnapshotNumber sn) =
   case p `elemIndex` parties of
     Just i -> ((fromIntegral @Natural @Int sn - 1) `mod` length parties) == i
     _ -> False

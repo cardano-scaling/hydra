@@ -46,7 +46,7 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber (UnsafeSnapshotNumber))
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
@@ -778,7 +778,7 @@ observeCloseTx utxo tx = do
       closeContestationDeadline <- case fromData (toPlutusData newHeadDatum) of
         Just Head.Closed{contestationDeadline} -> pure contestationDeadline
         _ -> Nothing
-      snapshotNumber <- integerToNatural onChainSnapshotNumber
+      sn <- integerToNatural onChainSnapshotNumber
       pure
         CloseObservation
           { threadOutput =
@@ -792,7 +792,7 @@ observeCloseTx utxo tx = do
                 , closedContestationDeadline = closeContestationDeadline
                 }
           , headId
-          , snapshotNumber
+          , snapshotNumber = UnsafeSnapshotNumber sn
           }
     _ -> Nothing
  where
@@ -822,7 +822,7 @@ observeContestTx utxo tx = do
     (Head.Closed{}, Head.Contest{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
-      snapshotNumber <- integerToNatural onChainSnapshotNumber
+      sn <- integerToNatural onChainSnapshotNumber
       pure
         ContestObservation
           { contestedThreadOutput =
@@ -831,7 +831,7 @@ observeContestTx utxo tx = do
               , newHeadDatum
               )
           , headId
-          , snapshotNumber
+          , snapshotNumber = UnsafeSnapshotNumber sn
           }
     _ -> Nothing
  where

@@ -15,7 +15,10 @@ import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
 import Test.QuickCheck.Instances.Natural ()
 
-type SnapshotNumber = Natural
+newtype SnapshotNumber
+  = UnsafeSnapshotNumber Natural
+  deriving (Eq, Show, Ord, Generic)
+  deriving newtype (ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
 
 data Snapshot tx = Snapshot
   { number :: SnapshotNumber
@@ -27,6 +30,9 @@ data Snapshot tx = Snapshot
 
 deriving instance IsTx tx => Eq (Snapshot tx)
 deriving instance IsTx tx => Show (Snapshot tx)
+
+instance Arbitrary SnapshotNumber where
+  arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
