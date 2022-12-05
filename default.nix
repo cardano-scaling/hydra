@@ -18,8 +18,8 @@
 
   # NOTE: use the 'repo' branch of CHaP which contains the index
 , CHaP ? (builtins.fetchTarball {
-    url = "https://github.com/input-output-hk/cardano-haskell-packages/archive/ceaae5355c81453d7cb092acadec3441bf57ed11.tar.gz";
-    sha256 = "0pwlfv2gx7h2z492bfhbr6pakidi5i8dzpc4094sb05i9rrgyq32";
+    url = "https://github.com/input-output-hk/cardano-haskell-packages/archive/695c91a740abfeef0860056227c605abf6375edd.tar.gz";
+    sha256 = "05dffxjxap6ncfs7x4lpp85cm7pvls0b10idpyshm4lqlrz5v92p";
   })
 
 , nixpkgsSrc ? iohkNix.nixpkgs
