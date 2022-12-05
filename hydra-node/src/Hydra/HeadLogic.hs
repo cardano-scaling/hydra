@@ -268,6 +268,7 @@ data Environment = Environment
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey HydraKey
   , otherParties :: [Party]
+  , contestationPeriod :: ContestationPeriod
   }
 
 -- * The Coordinated Head protocol
@@ -865,11 +866,11 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
-  (IdleState{chainState}, ClientEvent (Init contestationPeriod)) ->
+update Environment{party, signingKey, otherParties, contestationPeriod} ledger st ev = case (st, ev) of
+  (IdleState{chainState}, ClientEvent (Init _)) ->
     onIdleClientInit chainState party otherParties contestationPeriod
-  (IdleState{}, OnChainEvent (Observation{observedTx = OnInitTx{contestationPeriod, parties}, newChainState})) ->
-    onIdleChainInitTx st newChainState parties contestationPeriod
+  (IdleState{}, OnChainEvent (Observation{observedTx = OnInitTx{contestationPeriod = observed, parties}, newChainState})) ->
+    onIdleChainInitTx st newChainState parties observed
   (InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit chainState party pendingCommits clientInput
   ( InitialState{parameters, pendingCommits, committed}
