@@ -142,6 +142,7 @@ data RunOptions = RunOptions
   , persistenceDir :: FilePath
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
+  , contestationPeriod :: Int
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -161,6 +162,7 @@ instance Arbitrary RunOptions where
     persistenceDir <- genDirPath
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
+    contestationPeriod <- arbitrary
     pure $
       RunOptions
         { verbosity
@@ -177,6 +179,7 @@ instance Arbitrary RunOptions where
         , persistenceDir
         , chainConfig
         , ledgerConfig
+        , contestationPeriod
         }
 
 runOptionsParser :: Parser RunOptions
@@ -196,6 +199,7 @@ runOptionsParser =
     <*> persistenceDirParser
     <*> chainConfigParser
     <*> ledgerConfigParser
+    <*> contestationPeriodParser
 
 data LedgerConfig = CardanoLedgerConfig
   { cardanoLedgerGenesisFile :: FilePath
@@ -549,6 +553,19 @@ hydraNodeCommand =
     infoOption
       (decodeUtf8 $ encodePretty Contract.scriptInfo)
       (long "script-info" <> help "Dump script info as JSON")
+
+contestationPeriodParser :: Parser Int
+contestationPeriodParser =
+  option
+    auto
+    ( long "contestation-period"
+        <> metavar "INTEGER"
+        <> value 100
+        <> showDefault
+        <> completer (listCompleter ["1", "2", "42"])
+        <> help
+          "Contestation period for close transaction. If this value is not in sync with other participants we will ignore the head."
+    )
 
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded
