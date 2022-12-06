@@ -18,6 +18,7 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Slotting.Slot (SlotNo)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Sequence.Strict (StrictSeq)
+import Debug.Trace (traceM)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   ConsensusMode (CardanoMode),
@@ -277,6 +278,12 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
           offchainCp = fromChain onchainCp
           startTime = addUTCTime (-toNominalDiffTime offchainCp) upperTime
       startSlotNo <- throwLeft $ slotFromUTCTime startTime
+      traceM "Time info: "
+      now <- throwLeft currentPointInTime
+      traceM $ show now
+      traceM $ show upperBound
+      traceM $ show startSlotNo
+      traceM $ show offchainCp
       pure (close ctx st confirmedSnapshot startSlotNo upperBound)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       upperBound <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
