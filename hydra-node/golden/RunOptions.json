@@ -23,6 +23,7 @@
                     "tag": "ChainPoint"
                 }
             },
+            "contestationPeriod": 35775,
             "host": {
                 "ipv4": "0.0.39.197",
                 "tag": "IPv4"
@@ -74,6 +75,7 @@
                     "tag": "ChainPoint"
                 }
             },
+            "contestationPeriod": 16400,
             "host": {
                 "ipv4": "0.0.2.184",
                 "tag": "IPv4"
@@ -125,6 +127,7 @@
                 "nodeSocket": "c/c/c/b/a.socket",
                 "startChainFrom": null
             },
+            "contestationPeriod": 31536000,
             "host": {
                 "ipv4": "0.0.25.46",
                 "tag": "IPv4"
@@ -201,6 +204,7 @@
                     "tag": "ChainPoint"
                 }
             },
+            "contestationPeriod": 85614,
             "host": {
                 "ipv4": "0.0.25.243",
                 "tag": "IPv4"
@@ -244,6 +248,7 @@
                 "nodeSocket": "c/b/a/c.socket",
                 "startChainFrom": null
             },
+            "contestationPeriod": 61734,
             "host": {
                 "ipv4": "0.0.18.97",
                 "tag": "IPv4"
