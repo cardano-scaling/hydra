@@ -556,7 +556,10 @@ hydraNodeCommand =
       (long "script-info" <> help "Dump script info as JSON")
 
 defaultContestationPeriod :: ContestationPeriod
-defaultContestationPeriod = UnsafeContestationPeriod 10
+defaultContestationPeriod = UnsafeContestationPeriod defaultContestationPeriod'
+
+defaultContestationPeriod' :: Natural
+defaultContestationPeriod' = 10
 
 contestationPeriodParser :: Parser Natural
 contestationPeriodParser =
@@ -564,6 +567,7 @@ contestationPeriodParser =
     auto
     ( long "contestation-period"
         <> metavar "CONTESTATION-PERIOD"
+        <> value defaultContestationPeriod'
         <> showDefault
         <> completer (listCompleter ["1", "2", "42"])
         <> help

@@ -279,8 +279,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
           startTime = addUTCTime (-toNominalDiffTime offchainCp) upperTime
       startSlotNo <- throwLeft $ slotFromUTCTime startTime
       traceM "Time info: ======================================="
-      now <- throwLeft currentPointInTime
-      traceM $ show now
+      traceM $ show currentPointInTime
       traceM $ show upperBound
       traceM $ show startSlotNo
       traceM $ show offchainCp
