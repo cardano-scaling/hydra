@@ -116,7 +116,7 @@ mkChain tracer queryTimeHandle wallet ctx submitTx =
           -- details needed to establish connection to the other peers and
           -- to bootstrap the init transaction. For now, we bear with it and
           -- keep the static keys in context.
-          atomically (fromPostChainTx timeHandle wallet ctx chainState tx)
+          atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
             >>= finalizeTx wallet ctx chainState . toLedgerTx
         submitTx vtx
     }
@@ -239,7 +239,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
 closeGraceTime :: SlotNo
 closeGraceTime = 100
 
-fromPostChainTx ::
+prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
   TinyWallet m ->
@@ -247,7 +247,7 @@ fromPostChainTx ::
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
+prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
   pointInTime <- throwLeft currentPointInTime
   case (tx, chainState) of
     (InitTx params, Idle) ->
@@ -278,7 +278,7 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
           offchainCp = fromChain onchainCp
           startTime = addUTCTime (-toNominalDiffTime offchainCp) upperTime
       startSlotNo <- throwLeft $ slotFromUTCTime startTime
-      traceM "Time info: "
+      traceM "Time info: ======================================="
       now <- throwLeft currentPointInTime
       traceM $ show now
       traceM $ show upperBound
