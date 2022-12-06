@@ -60,8 +60,6 @@ actorName = \case
 -- | A network known to the hydra-cluster. That means we have configuration
 -- files to connect to at least these networks.
 data KnownNetwork
-  = Testnet
-  | VasilDevnet
-  | Preview
+  = Preview
   | Preproduction
   deriving (Show)

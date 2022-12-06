@@ -33,7 +33,3 @@ hspec-results.md
 /demo/devnet/
 demo/chainstate
 demo/headstate
-
-# Testnet setups
-testnet/logs/
-vasil-testnet/logs/

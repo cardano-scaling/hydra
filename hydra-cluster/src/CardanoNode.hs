@@ -21,7 +21,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), NetworkId, PaymentKey, SigningKey, VerificationKey, generateSigningKey, getProgress, getVerificationKey)
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cluster.Fixture (
-  KnownNetwork (Preproduction, Preview, Testnet, VasilDevnet),
+  KnownNetwork (Preproduction, Preview),
   defaultNetworkId,
  )
 import Hydra.Cluster.Util (readConfigFile)
@@ -225,8 +225,6 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
 
   -- Folder name in config/cardano-configurations/network
   knownNetworkName = case knownNetwork of
-    Testnet -> "testnet"
-    VasilDevnet -> "vasil-dev"
     Preview -> "preview"
     Preproduction -> "preprod"
 
