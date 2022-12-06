@@ -556,7 +556,7 @@ hydraNodeCommand =
       (long "script-info" <> help "Dump script info as JSON")
 
 defaultContestationPeriod :: ContestationPeriod
-defaultContestationPeriod = UnsafeContestationPeriod 100
+defaultContestationPeriod = UnsafeContestationPeriod 10
 
 contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
@@ -568,7 +568,8 @@ contestationPeriodParser =
         <> showDefault
         <> completer (listCompleter ["1", "2", "42"])
         <> help
-          "Contestation period for close transaction. If this value is not in sync with other participants we will ignore the head."
+          "Contestation period for close transaction. \
+          \ If this value is not in sync with other participants hydra-node will ignore the initial tx."
     )
 
 data InvalidOptions
@@ -633,6 +634,8 @@ toArgs
     , persistenceDir
     , chainConfig
     , ledgerConfig
+    -- TODO: plug in contestation period here
+    -- , contestationPeriod
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
@@ -649,6 +652,8 @@ toArgs
       <> argsChainConfig
       <> argsLedgerConfig
    where
+    -- <> ["--contestation-period", show contestationPeriod]
+
     (NodeId nId) = nodeId
 
     isVerbose = \case

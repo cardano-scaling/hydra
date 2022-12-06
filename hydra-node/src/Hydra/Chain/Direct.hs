@@ -190,14 +190,14 @@ withDirectChain tracer config ctx persistedPoint callback action = do
       <|> persistedPoint
       <|> startChainFrom
   wallet <- newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo
+  let getTimeHandle = queryTimeHandle networkId nodeSocket
   let chainHandle =
         mkChain
           tracer
-          (queryTimeHandle networkId nodeSocket)
+          getTimeHandle
           wallet
           ctx
           (submitTx queue)
-  let getTimeHandle = queryTimeHandle networkId nodeSocket
   res <-
     race
       ( handle onIOException $ do
