@@ -200,7 +200,7 @@ runOptionsParser =
     <*> persistenceDirParser
     <*> chainConfigParser
     <*> ledgerConfigParser
-    <*> contestationPeriodParser
+    <*> (UnsafeContestationPeriod <$> contestationPeriodParser)
 
 data LedgerConfig = CardanoLedgerConfig
   { cardanoLedgerGenesisFile :: FilePath
@@ -558,18 +558,18 @@ hydraNodeCommand =
 defaultContestationPeriod :: ContestationPeriod
 defaultContestationPeriod = UnsafeContestationPeriod 10
 
-contestationPeriodParser :: Parser ContestationPeriod
+contestationPeriodParser :: Parser Natural
 contestationPeriodParser =
   option
     auto
     ( long "contestation-period"
-        <> metavar "INTEGER"
-        <> value defaultContestationPeriod
+        <> metavar "CONTESTATION-PERIOD"
         <> showDefault
         <> completer (listCompleter ["1", "2", "42"])
         <> help
           "Contestation period for close transaction. \
-          \ If this value is not in sync with other participants hydra-node will ignore the initial tx."
+          \ If this value is not in sync with other participants hydra-node will ignore the initial tx.\
+          \ Additionally, this value needs to make sense compared to the current network we are running."
     )
 
 data InvalidOptions
@@ -634,8 +634,7 @@ toArgs
     , persistenceDir
     , chainConfig
     , ledgerConfig
-    -- TODO: plug in contestation period here
-    -- , contestationPeriod
+    , contestationPeriod
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
@@ -651,11 +650,10 @@ toArgs
       <> ["--persistence-dir", persistenceDir]
       <> argsChainConfig
       <> argsLedgerConfig
+      <> ["--contestation-period", show cp]
    where
-    -- <> ["--contestation-period", show contestationPeriod]
-
     (NodeId nId) = nodeId
-
+    (UnsafeContestationPeriod cp) = contestationPeriod
     isVerbose = \case
       Quiet -> ["--quiet"]
       _ -> []
