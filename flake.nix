@@ -36,7 +36,7 @@
           tasks = std.harvest self [ "automation" "pipelines" ];
         }
       )
-      (flake-utils.lib.eachSystem [ "x86_64-linux" ]
+      (flake-utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ]
         (system:
         let
           hydraProject = import ./nix/hydra/project.nix {
