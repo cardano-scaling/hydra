@@ -36,20 +36,20 @@
           tasks = std.harvest self [ "automation" "pipelines" ];
         }
       )
-      (flake-utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ]
+      (flake-utils.lib.eachSystem [ "x86_64-linux" ]
         (system:
         let
-          hydraProject = import ./default.nix {
+          hydraProject = import ./nix/hydra/project.nix {
             inherit (inputs) nixpkgs haskellNix iohk-nix CHaP;
             inherit system;
           };
         in
         {
-          packages = import ./release.nix {
+          packages = import ./nix/hydra/packages.nix {
             inherit hydraProject system;
           };
 
-          devShells = import ./shell.nix {
+          devShells = import ./nix/hydra/shell.nix {
             inherit hydraProject system;
           };
         })

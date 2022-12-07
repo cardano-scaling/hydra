@@ -127,9 +127,31 @@ let
       hsPkgs.hydra-cluster.components.exes.hydra-cluster
     ];
   };
+
+  # A shell setup providing build tools and utilities for the demo
+  demoShell = pkgs.mkShell {
+    name = "hydra-demo-shell";
+    buildInputs = [
+      cardano-node.cardano-node
+      cardano-node.cardano-cli
+      hsPkgs.hydra-node.components.exes.hydra-node
+      hsPkgs.hydra-tui.components.exes.hydra-tui
+      run-tmux
+    ];
+  };
+
+  # If you want to modify `Python` code add `libtmux` and pyyaml to the
+  # `buildInputs` then enter it and then run `Python` module directly so you
+  # have fast devel cycle.
+  run-tmux = pkgs.writers.writePython3Bin
+    "run-tmux"
+    { libraries = with pkgs.python3Packages; [ libtmux pyyaml ]; }
+    # TODO: should use project relative path (via flake inputs.self?)
+    (builtins.readFile ./../../demo/run-tmux.py);
 in
 {
   default = haskellNixShell;
   cabalOnly = cabalShell;
   exes = exeShell;
+  demo = demoShell;
 }
