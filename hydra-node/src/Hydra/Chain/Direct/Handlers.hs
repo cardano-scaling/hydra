@@ -15,7 +15,7 @@ import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import Cardano.Slotting.Slot (SlotNo)
+import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
@@ -41,7 +41,7 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
-  ChainContext,
+  ChainContext (contestationPeriod),
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
@@ -62,6 +62,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
@@ -230,11 +231,6 @@ chainSyncHandler tracer callback getTimeHandle ctx =
                       }
                 }
 
--- | Hardcoded grace time for close transaction to be valid.
--- TODO: make it a node configuration parameter
-closeGraceTime :: SlotNo
-closeGraceTime = 100
-
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
@@ -245,6 +241,9 @@ prepareTxToPost ::
   STM m Tx
 prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
   pointInTime@(currentSlot, _) <- throwLeft currentPointInTime
+  let (UnsafeContestationPeriod cpNatural) = contestationPeriod ctx
+      -- we are using the contestationPeriod as tx close grace time. See ADR21 for context
+      closeGraceTime = SlotNo $ fromIntegral cpNatural
   case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
