@@ -49,8 +49,13 @@
             inherit hydraProject system;
           };
 
-          devShells = import ./nix/hydra/shell.nix {
+          devShells = (import ./nix/hydra/shell.nix {
             inherit hydraProject system;
+          }) // {
+            ci = (import ./nix/hydra/shell.nix {
+              inherit hydraProject system;
+              withoutDevTools = true;
+            }).default;
           };
         })
       );
