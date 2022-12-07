@@ -173,13 +173,14 @@ instance HasKnownUTxO ChainState where
     Closed st -> getKnownUTxO st
 
 -- | Read-only chain-specific data. This is different to 'HydraContext' as it
--- only provide contains data known to single peer.
+-- only contains data known to single peer.
 data ChainContext = ChainContext
   { networkId :: NetworkId
   , peerVerificationKeys :: [VerificationKey PaymentKey]
   , ownVerificationKey :: VerificationKey PaymentKey
   , ownParty :: Party
   , scriptRegistry :: ScriptRegistry
+  , contestationPeriod :: ContestationPeriod
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -193,6 +194,7 @@ instance Arbitrary ChainContext where
     ownVerificationKey <- genVerificationKey
     ownParty <- arbitrary
     scriptRegistry <- genScriptRegistry
+    contestationPeriod <- arbitrary
     pure
       ChainContext
         { networkId
@@ -200,6 +202,7 @@ instance Arbitrary ChainContext where
         , ownVerificationKey
         , ownParty
         , scriptRegistry
+        , contestationPeriod
         }
 
 -- | Get all cardano verification keys available in the chain context.

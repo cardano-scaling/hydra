@@ -143,7 +143,6 @@ data RunOptions = RunOptions
   , persistenceDir :: FilePath
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
-  , contestationPeriod :: ContestationPeriod
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -163,7 +162,6 @@ instance Arbitrary RunOptions where
     persistenceDir <- genDirPath
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
-    contestationPeriod <- arbitrary
     pure $
       RunOptions
         { verbosity
@@ -180,7 +178,6 @@ instance Arbitrary RunOptions where
         , persistenceDir
         , chainConfig
         , ledgerConfig
-        , contestationPeriod
         }
 
 runOptionsParser :: Parser RunOptions
@@ -200,7 +197,6 @@ runOptionsParser =
     <*> persistenceDirParser
     <*> chainConfigParser
     <*> ledgerConfigParser
-    <*> (UnsafeContestationPeriod <$> contestationPeriodParser)
 
 data LedgerConfig = CardanoLedgerConfig
   { cardanoLedgerGenesisFile :: FilePath
@@ -263,6 +259,7 @@ data ChainConfig = DirectChainConfig
     cardanoVerificationKeys :: [FilePath]
   , -- | Point at which to start following the chain.
     startChainFrom :: Maybe ChainPoint
+  , contestationPeriod :: ContestationPeriod
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -274,6 +271,7 @@ defaultChainConfig =
     , cardanoSigningKey = "cardano.sk"
     , cardanoVerificationKeys = []
     , startChainFrom = Nothing
+    , contestationPeriod = defaultContestationPeriod
     }
 
 instance Arbitrary ChainConfig where
@@ -283,6 +281,7 @@ instance Arbitrary ChainConfig where
     cardanoSigningKey <- genFilePath ".sk"
     cardanoVerificationKeys <- reasonablySized (listOf (genFilePath ".vk"))
     startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
+    contestationPeriod <- arbitrary
     pure $
       DirectChainConfig
         { networkId
@@ -290,6 +289,7 @@ instance Arbitrary ChainConfig where
         , cardanoSigningKey
         , cardanoVerificationKeys
         , startChainFrom
+        , contestationPeriod
         }
 
 chainConfigParser :: Parser ChainConfig
@@ -300,6 +300,7 @@ chainConfigParser =
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
+    <*> (UnsafeContestationPeriod <$> contestationPeriodParser)
 
 networkIdParser :: Parser NetworkId
 networkIdParser =
@@ -638,7 +639,6 @@ toArgs
     , persistenceDir
     , chainConfig
     , ledgerConfig
-    , contestationPeriod
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
@@ -654,7 +654,6 @@ toArgs
       <> ["--persistence-dir", persistenceDir]
       <> argsChainConfig
       <> argsLedgerConfig
-      <> ["--contestation-period", show cp]
    where
     (NodeId nId) = nodeId
     (UnsafeContestationPeriod cp) = contestationPeriod
@@ -678,6 +677,7 @@ toArgs
       ["--network-id", toArgNetworkId networkId]
         <> ["--node-socket", nodeSocket]
         <> ["--cardano-signing-key", cardanoSigningKey]
+        <> ["--contestation-period", show cp]
         <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
         <> toArgStartChainFrom startChainFrom
 
@@ -696,6 +696,7 @@ toArgs
       , cardanoSigningKey
       , cardanoVerificationKeys
       , startChainFrom
+      , contestationPeriod
       } = chainConfig
 
 toArgNetworkId :: NetworkId -> String

@@ -56,14 +56,14 @@ import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Options (RunOptions (..))
+import Hydra.Options (ChainConfig (..), RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Persistence (Persistence (..))
 
 -- * Environment Handling
 
 initEnvironment :: RunOptions -> IO Environment
-initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys, contestationPeriod} = do
+initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys, chainConfig = DirectChainConfig{contestationPeriod}} = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
   otherParties <- mapM loadParty hydraVerificationKeys
   pure $

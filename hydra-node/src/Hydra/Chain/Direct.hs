@@ -165,6 +165,7 @@ loadChainContext config party hydraScriptsTxId = do
       , ownVerificationKey = vk
       , ownParty = party
       , scriptRegistry
+      , contestationPeriod
       }
  where
   DirectChainConfig
@@ -172,6 +173,7 @@ loadChainContext config party hydraScriptsTxId = do
     , nodeSocket
     , cardanoSigningKey
     , cardanoVerificationKeys
+    , contestationPeriod
     } = config
 
 withDirectChain ::
