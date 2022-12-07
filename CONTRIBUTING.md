@@ -86,12 +86,12 @@ experimental-features = nix-command flakes
 From there you can:
 
 - Build & run the `hydra-node`: `cabal build hydra-node && cabal exec hydra-node -- --version`
-- Build & run all tests: `cabal test all` 
+- Build & run all tests: `cabal test all`
 - Build & run all benchmarks: `cabal bench all`
 - Run `haskell-language-server` for an IDE experience
 - Run `hoogle` for symbol & documentation lookup
-- Build the `hydra-node` using nix: `nix-build release.nix -A hydra-node`
-- Build a statically linked `hydra-node` using nix: `nix-build release.nix -A hydra-node-static`
+- Build the `hydra-node` using nix: `nix build .#hydra-node`
+- Build a statically linked `hydra-node` using nix: `nix build .#hydra-node-static`
 - Build the `hydra-node` docker image: `docker build . --target hydra-node`
 
 Also, some of us use [direnv](https://direnv.net/) and

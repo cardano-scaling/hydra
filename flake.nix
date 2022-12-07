@@ -35,10 +35,18 @@
           tasks = std.harvest self [ "automation" "pipelines" ];
         }
       )
-      {
+      rec {
         hydraProject = import ./default.nix {
           inherit (inputs) nixpkgs haskellNix iohk-nix CHaP;
+          system = "x86_64-linux";
         };
+
+        packages.x86_64-linux = import ./release.nix {
+          inherit hydraProject;
+          system = "x86_64-linux";
+        };
+
+        defaultPackage.x86_64-linux = packages.x86_64-linux.hydra-node;
       };
 
   nixConfig = {
