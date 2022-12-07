@@ -18,7 +18,6 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Slotting.Slot (SlotNo)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Sequence.Strict (StrictSeq)
-import Debug.Trace (traceM)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   ConsensusMode (CardanoMode),
@@ -55,17 +54,14 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialize,
   observeSomeTx,
-  openThreadOutput,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Tx (openContestationPeriod)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
  )
-import Hydra.ContestationPeriod (fromChain, toNominalDiffTime)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
