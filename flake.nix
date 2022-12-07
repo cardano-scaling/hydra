@@ -39,7 +39,6 @@
         hydraProject = import ./default.nix {
           inherit (inputs) nixpkgs haskellNix iohk-nix CHaP;
         };
-        hydraJobs = std.harvest self [ "automation" "hydraJobs" ];
       };
 
   nixConfig = {
