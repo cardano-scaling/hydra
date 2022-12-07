@@ -59,16 +59,14 @@ let
   };
 
   # Add cardano-node & cardano-cli for our shell environments.
-  # This is stable as it doesn't mix dependencies with this code-base; the
-  # fetched binaries are the "standard" builds that people test. This should be
-  # fast as it mostly fetches Hydra (CI) caches without building much.
+  # XXX: We are using a branch as 1.35.4 was using builtins.currentSystem
   cardano-node = import
-    (pkgs.fetchgit {
+    (builtins.fetchGit {
       url = "https://github.com/input-output-hk/cardano-node";
-      rev = "1.35.4";
-      sha256 = "1j01m2cp2vdcl26zx9xmipr551v3b2rz9kfn9ik8byfwj1z7652r";
+      ref = "purity-backport-1.35.4";
+      rev = "a42ca8801ea31cb0b23a3f53dcc063ce4a5a0be5";
     })
-    { };
+    { inherit system; };
 in
 {
   inherit compiler pkgs hsPkgs cardano-node;

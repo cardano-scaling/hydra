@@ -5,11 +5,11 @@
 {
   # Used in CI to have a smaller closure
   withoutDevTools ? false
+, hydraProject # as defined in default.nix
 , system ? builtins.currentSystem
 }:
 let
-  project = import ./default.nix { inherit system; };
-  inherit (project) compiler pkgs hsPkgs cardano-node;
+  inherit (hydraProject) compiler pkgs hsPkgs cardano-node;
 
   libs = [
     pkgs.glibcLocales
@@ -62,7 +62,7 @@ let
     haskell-language-server = "latest";
   };
 
-  haskellNixShell = project.hsPkgs.shellFor {
+  haskellNixShell = hsPkgs.shellFor {
     # NOTE: Explicit list of local packages as hoogle would not work otherwise.
     # Make sure these are consistent with the packages in cabal.project.
     packages = ps: with ps; [
@@ -128,7 +128,8 @@ let
     ];
   };
 in
-haskellNixShell // {
+{
+  default = haskellNixShell;
   cabalOnly = cabalShell;
   exes = exeShell;
 }

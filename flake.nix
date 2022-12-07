@@ -46,8 +46,11 @@
         in
         {
           packages = import ./release.nix {
-            inherit hydraProject;
-            inherit system;
+            inherit hydraProject system;
+          };
+
+          devShells = import ./shell.nix {
+            inherit hydraProject system;
           };
         })
       );
