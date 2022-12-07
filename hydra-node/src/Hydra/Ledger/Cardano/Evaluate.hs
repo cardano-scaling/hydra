@@ -70,7 +70,7 @@ import Ouroboros.Consensus.HardFork.History (
  )
 import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
-import Test.QuickCheck (choose)
+import Test.QuickCheck (choose, suchThat)
 import Test.QuickCheck.Gen (chooseWord64)
 
 -- | Thin wrapper around 'evaluateTransactionExecutionUnits', which uses
@@ -269,7 +269,7 @@ genPointInTime = do
 -- is not higher than the cp
 genSlotWithPointInTimeFromCP :: Word64 -> Gen (SlotNo, (SlotNo, UTCTime))
 genSlotWithPointInTimeFromCP contestationPeriod = do
-  startSlot@(SlotNo start) <- SlotNo <$> arbitrary
+  startSlot@(SlotNo start) <- SlotNo <$> (arbitrary `suchThat` (> 0))
   let end = start + abs contestationPeriod
   endSlot <- SlotNo <$> chooseWord64 (start, end)
   let time = slotNoToUTCTime endSlot
