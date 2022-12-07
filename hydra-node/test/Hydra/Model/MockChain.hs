@@ -51,6 +51,7 @@ import Hydra.Node (
   createNodeState,
   putEvent,
  )
+import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..), deriveParty)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -98,6 +99,7 @@ mockChainAndNetwork tr seedKeys _parties nodes = do
                           { initialReference = (txIn, txOut)
                           , commitReference = (txIn, txOut)
                           }
+                , contestationPeriod = defaultContestationPeriod
                 }
             chainState =
               S.ChainStateAt
