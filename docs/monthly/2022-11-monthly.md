@@ -9,28 +9,9 @@ tags: [monthly]
 
 This report summarizes the activities of the Hydra team since October 2022 and also serves as a preparation & write-up of the monthly review meeting, in which we update major stakeholders of the project on recent developments and gather their feedback on our proposed plan forward each month.
 
-## Starmap update
-
-This month we had a look again on the high-level plan which includes not only development, but also research and product efforts. We started structuring the project like this in the original project plan a year ago and had a first review on this 6 months ago.
-
-![](./img/2022-11-starmap.png)
-<small><center>Latest version of the starmap with some annotations</center></small>
-
-<br/>
-
-Reflecting on the last half year, we can say that our release cadence was not as regular as we anticipated. While we continued cutting releases, the rate and size of the releases decreased. Also, we missed schedule for the milestone of a feature-complete, but not-yet-audited version of the hydra-node by October 2022. Both issues can be explained by team fluctuation: MB moving to the CF and AB becoming Head of Architecture resulted in both picking up new responsibilities and obviously spending less time on the project (although they are still very much part of it). Although we could welcome three more full-time engineers on the project, onboarding them has now been mostly done by SN, resulting in not much productivity left. We still hope to deliver this first **Alpha scope milestone** soon and aim for a mainnet release in the next 3-6 months.
-
-The Audit work stream is also delayed. We started preparation for this in June, but could not line-up an internal audit until September - and this picks up only slowly now. Initially the internal audit was a pre-requisite for progressing on a proper, external audit. This has been lifted and we are now pursuing both simultaneously.
-
-Over the last couple of months, we became less involved in the research track. We have been mostly specifying & reviewing the actually implemented “flavor” of the protocol (Coordinated Hydra Head). There will be more need for R&D though with incremental de/-commits further down the road.
-
-The **scaling smart contracts** product track saw not as much progress as we would have hoped, but at least SundaeSwap (SS) has been continuing their exploration & early adoption, even showcasing their DEX running in a Head lately. They want to continue this track by also looking at creating an add-on protocol. The Catalyst challenge for Hydra projects was not accepted for Fund10. However, Catalyst itself might become a use case though - we are currently drafting a joint project with the IOG Catalyst team, the CF and maybe SS to explore Catalyst voting on Hydra. Besides this, we have started a lighthouse project with MLabs on NFT auctions and also the CF itself is starting a project about an NFT marketplace using Hydra.
-
-In the **scaling payments track**, the first lighthouse project is coming to an end now. We have been creating **Hydra for Payments** ([HydraPay](https://github.com/obsidiansystems/hydra-pay)) open-source tooling for Managed Hydra Heads and easy access to payment channels with Obsidian Systems. This has been stirring up some dust and we see Obsidian Systems is keen on continuing this track. We are currently considering to also help integrating HydraPay with a concrete B2B payments use case: pay-per-use APIs.
-
 ## Roadmap update
 
-On the more short-term focused Roadmap we can report the following releases and updates:
+Looking at our [roadmap](https://github.com/orgs/input-output-hk/projects/21) we can report the following releases and updates:
 
 #### Release `0.8.0`
 
@@ -106,9 +87,7 @@ audit preparation:
     specification and the on-chain code to identify vulnerabilities
     in the protocol itself.
 
-- Discussions with researchers have lead to the development of a joint
-  [Coordinated Hydra Head
-  V1](https://docs.google.com/document/d/1XQ0C7Ko3Ifo5a4TOcW1fDT8gMYryB54PCEgOiFaAwGE/edit#heading=h.8t0g5xu875ms) specification defining formally the protocol as it is actually implemented.
+- Discussions with researchers have led to the development of a joint Coordinated Hydra Head V1 specification defining formally the protocol as it is actually implemented.
 
   - Work on this document has already allowed us to identify gaps
   - It is the basis on which BCryptic's analyst is working to audit Hydra protocol
@@ -158,7 +137,7 @@ starmap update above.
 
 ## Team & open source
 
-Some notable developments this month has been:
+Some notable developments this month have been:
 
 - **Renamed the repository:** from **hydra-poc** to
   [**hydra**](https://github.com/input-output-hk/hydra)! This was revealed in the summit presentation (see below) and should indicate that the project is not only a Proof of Concept (POC) anymore, but has become more - as also demonstrated by the various early adopters and demos lately. :dragon_face:
@@ -204,7 +183,7 @@ happy to have produced these results:
 
 - **Impact map:** Conscious about the fact that the project got defined about one year ago in a first project plan, and inspired by timeline and (short-term) ideas, we also set off to reflect on the **Why**, **How** and **What** of this project.
 
-  After reviewing the project vision (TODO: link) , we reached for the tool of our choice to come up with tangible objective / deliverables - impact maps! Also, we felt the need to use a different goal this time. One that is reflecting more closely (or, in fact, broadly) what our current mission is. So instead of the **99% of Cardano transactions are done through Hydra**, we set a new goal: being the **number one DApp on Cardano** (by all known metrics: TVL, traffic, volume etc..) Fundamentally, both goals illustrate the same idea, but the latter better supports the narrative that Hydra is also just a DApp (not a network upgrade) and needs usage & adoption to reach our vision.
+  After reviewing the project vision, we reached for the tool of our choice to ideate on tangible objectives / deliverables - impact maps! Also, we felt the need to use a different goal this time. One that is reflecting more closely (or, in fact, broadly) what our current mission is. So instead of the **99% of Cardano transactions are done through Hydra**, we set a new goal: being the **number one DApp on Cardano** (by all known metrics: TVL, traffic, volume etc..) Fundamentally, both goals illustrate the same idea, but the latter better supports the narrative that Hydra is also just a DApp (not a network upgrade) and needs usage & adoption to reach our vision.
 
   Below you see the result of our session. We checked back to the old impact map after creating this one, and many things are still relevant / similar on the new sample (it's never complete!) - some of the deliverables we even achieved.
 
@@ -215,6 +194,4 @@ happy to have produced these results:
 
 # Conclusion
 
-Reflecting on the starmap has been a bit depressing as we are definitely behind our anticipated schedule. However, recent developments on the lighthouse projects and random people contributing & using Hydra are convincing us that we are on the right track. The summit paints a similar picture and we feel reinvigorated by the great people we met, discussions we had and relationships we created & solidified on the Summit and during our Hydra workshop.
-
-We see & want to stress the importance of this project for the scalability story of Cardano, but will also make sure to work on clarifying the project vision for Hydra. This will include challenges & risks, outline opportunities for products and explain benefits for Cardano-the-network-itself when we continue our journey with Hydra.
+Reflecting on our original plans (about a year ago) and our current roadmap we can say we are behind our anticipated schedule. However, recent developments on the lighthouse projects and various people contributing & using Hydra are convincing us that we are on the right track. The summit paints a similar picture and we feel reinvigorated by the great people we met, discussions we had and relationships we created & solidified on the Summit and during our Hydra workshop.
