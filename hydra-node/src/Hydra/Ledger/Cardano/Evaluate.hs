@@ -268,9 +268,9 @@ genPointInTime = do
 -- start (tMin) and end (tMax) tx validity bound such that their difference
 -- is not higher than the cp
 genSlotWithPointInTimeFromCP :: Word64 -> Gen (SlotNo, (SlotNo, UTCTime))
-genSlotWithPointInTimeFromCP i = do
+genSlotWithPointInTimeFromCP contestationPeriod = do
   startSlot@(SlotNo start) <- SlotNo <$> arbitrary
-  let end = start + (abs $ i - 1)
+  let end = start + abs contestationPeriod
   endSlot <- SlotNo <$> chooseWord64 (start, end)
   let time = slotNoToUTCTime endSlot
   pure (startSlot, (endSlot, time))
