@@ -7,9 +7,9 @@
       url = "https://github.com/input-output-hk/haskell.nix/archive/0.0.64.tar.gz";
       sha256 = "0mply6n3gym8r7z4l7512phw667qzwfqkfl1zmiyrdjpdg7xqn1d";
     })
-    { pkgs = import nixpkgsSrc { inherit system; }; }
+    { pkgs = import nixpkgs { inherit system; }; }
 
-, iohkNix ? import
+, iohk-nix ? import
     (builtins.fetchTarball {
       url = "https://github.com/input-output-hk/iohk-nix/archive/d31417fe8c8fbfb697b3ad4c498e17eb046874b9.tar.gz";
       sha256 = "0w562wdmdhp83dw9rabiijj5hk1f4l8p8f3bwlr7virakgbg8lf8";
@@ -22,17 +22,17 @@
     sha256 = "05dffxjxap6ncfs7x4lpp85cm7pvls0b10idpyshm4lqlrz5v92p";
   })
 
-, nixpkgsSrc ? iohkNix.nixpkgs
+, nixpkgs ? iohk-nix.nixpkgs
 }:
 let
-  pkgs = import nixpkgsSrc (haskellNix.nixpkgsArgs // {
+  # nixpkgs enhanced with haskell.nix and crypto libs as used by iohk
+  pkgs = import nixpkgs {
     inherit system;
-    overlays =
-      # Haskell.nix (https://github.com/input-output-hk/haskell.nix)
-      haskellNix.overlays
-        # needed for cardano-crypto-class which uses a patched libsodium
-        ++ iohkNix.overlays.crypto;
-  });
+    overlays = [
+      haskellNix.overlay
+      iohk-nix.overlays.crypto
+    ];
+  };
 
   hsPkgs = pkgs.haskell-nix.project {
     src = pkgs.haskell-nix.haskellLib.cleanGit {
