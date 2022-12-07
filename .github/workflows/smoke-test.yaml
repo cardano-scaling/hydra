@@ -45,16 +45,12 @@ jobs:
         path: state-${{inputs.network}}
         key: state-${{inputs.network}}
 
-    - name: ❄ Prepare nix-shell
-      run: |
-        nix-build -A exes shell.nix
-
     - name: 🚬 Run hydra-cluster smoke test
       run: |
         if [ -n "${{inputs.hydra-scripts-tx-id}}" ]; then
-          nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}} --state-directory state-${{inputs.network}}"
+          nix develop .#exes --run "hydra-cluster --${{inputs.network}} --hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}} --state-directory state-${{inputs.network}}"
         else
-          nix-shell -A exes --run "hydra-cluster --${{inputs.network}} --publish-hydra-scripts --state-directory state-${{inputs.network}}"
+          nix develop .#exes --run "hydra-cluster --${{inputs.network}} --publish-hydra-scripts --state-directory state-${{inputs.network}}"
         fi
 
     - name: 💾 Upload logs

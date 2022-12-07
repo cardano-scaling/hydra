@@ -11,7 +11,7 @@ COPY . .
 # hydra-node
 
 FROM build as build-hydra-node
-RUN nix-build -A hydra-node-static -o hydra-node-result release.nix
+RUN nix build .#hydra-node-static -o hydra-node-result release.nix
 
 FROM alpine as hydra-node
 COPY --from=build-hydra-node /build/hydra-node-result/bin/hydra-node /bin/
@@ -21,7 +21,7 @@ ENTRYPOINT ["hydra-node"]
 # hydra-tools
 
 FROM build as build-hydra-tools
-RUN nix-build -A hydra-tools-static -o hydra-tools-result release.nix
+RUN nix build .#hydra-tools-static -o hydra-tools-result release.nix
 
 FROM alpine as hydra-tools
 COPY --from=build-hydra-tools /build/hydra-tools-result/bin/hydra-tools /bin/
@@ -31,7 +31,7 @@ ENTRYPOINT ["hydra-tools"]
 # hydra-tui
 
 FROM build as build-hydra-tui
-RUN nix-build -A hydra-tui-static -o hydra-tui-result release.nix
+RUN nix build .#hydra-tui-static -o hydra-tui-result release.nix
 
 FROM alpine as hydra-tui
 RUN apk update && apk add ncurses-terminfo
@@ -42,7 +42,7 @@ ENTRYPOINT ["sh", "-c", "TERMINFO=/usr/share/terminfo hydra-tui $@", "--"]
 # hydraw
 
 FROM build as build-hydraw
-RUN nix-build -A hydraw-static -o hydraw-result release.nix
+RUN nix build .#hydraw-static -o hydraw-result release.nix
 
 FROM alpine as hydraw
 COPY --from=build-hydraw /build/hydraw-result/bin/hydraw /bin/
