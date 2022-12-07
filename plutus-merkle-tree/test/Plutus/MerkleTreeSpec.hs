@@ -19,8 +19,8 @@ import Test.QuickCheck (
   elements,
   forAll,
   forAllShrink,
+  listOf1,
   (===),
-  (==>),
  )
 
 spec :: Spec
@@ -63,13 +63,18 @@ forAllNonEmptyMerkleTree ::
   ((MerkleTree, Plutus.BuiltinByteString, MT.Proof) -> prop) ->
   Property
 forAllNonEmptyMerkleTree action =
-  forAllMerkleTree $ \tree ->
-    not (MT.null tree) ==> forAll (elements $ MT.toList tree) $ \e ->
+  forAll genNonEmptyMerkleTree $ \tree ->
+    forAll (elements $ MT.toList tree) $ \e ->
       action (tree, e, fromJust $ MT.mkProof e tree)
 
 genMerkleTree :: Gen MerkleTree
 genMerkleTree =
   MT.fromList . fmap (Plutus.toBuiltin . BS.pack) <$> arbitrary
+
+genNonEmptyMerkleTree :: Gen MerkleTree
+genNonEmptyMerkleTree = do
+  nonEmptyBSList <- listOf1 $ fmap (Plutus.toBuiltin . BS.pack) arbitrary
+  pure $ MT.fromList nonEmptyBSList
 
 shrinkMerkleTree :: MerkleTree -> [MerkleTree]
 shrinkMerkleTree _ = []
