@@ -57,7 +57,6 @@ import Hydra.Chain.CardanoClient (CardanoClient (..), mkCardanoClient)
 import Hydra.Chain.Direct.State ()
 import Hydra.Chain.Direct.Util (isMarkedOutput)
 import Hydra.Client (Client (..), HydraEvent (..), withClient)
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Network (Host (..), NodeId)
@@ -68,10 +67,6 @@ import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?), _head)
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 import qualified Prelude
-
--- TODO(SN): hardcoded contestation period used by the tui
-tuiContestationPeriod :: ContestationPeriod
-tuiContestationPeriod = UnsafeContestationPeriod 10
 
 --
 -- Model

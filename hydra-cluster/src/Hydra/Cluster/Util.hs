@@ -15,6 +15,7 @@ import Hydra.Cardano.Api (
   deserialiseFromTextEnvelope,
  )
 import Hydra.Cluster.Fixture (Actor, actorName)
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Options (ChainConfig (..), defaultChainConfig)
 import qualified Paths_hydra_cluster as Pkg
 import System.FilePath ((<.>), (</>))
@@ -41,8 +42,8 @@ keysFor actor = do
   asSigningKey :: AsType (SigningKey PaymentKey)
   asSigningKey = AsSigningKey AsPaymentKey
 
-chainConfigFor :: HasCallStack => Actor -> FilePath -> FilePath -> [Actor] -> IO ChainConfig
-chainConfigFor me targetDir nodeSocket them = do
+chainConfigFor :: HasCallStack => Actor -> FilePath -> FilePath -> [Actor] -> ContestationPeriod -> IO ChainConfig
+chainConfigFor me targetDir nodeSocket them cp = do
   when (me `elem` them) $
     failure $ show me <> " must not be in " <> show them
   readConfigFile ("credentials" </> skName me) >>= writeFileBS (skTarget me)
@@ -54,6 +55,7 @@ chainConfigFor me targetDir nodeSocket them = do
       { nodeSocket
       , cardanoSigningKey = skTarget me
       , cardanoVerificationKeys = [vkTarget himOrHer | himOrHer <- them]
+      , contestationPeriod = cp
       }
  where
   skTarget x = targetDir </> skName x
