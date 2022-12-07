@@ -1,9 +1,9 @@
 # Build stages
 
-FROM nixos/nix:2.3.11 as build
+FROM nixos/nix:2.12.0 as build
 
-RUN echo "substituters = https://cache.nixos.org https://cache.iog.io" >> /etc/nix/nix.conf &&\
-  echo "trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=" >> /etc/nix/nix.conf
+RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf && \
+    echo "accept-flake-config = true" >> /etc/nix/nix.conf
 
 WORKDIR /build
 COPY . .
@@ -11,7 +11,7 @@ COPY . .
 # hydra-node
 
 FROM build as build-hydra-node
-RUN nix build .#hydra-node-static -o hydra-node-result release.nix
+RUN nix build .#hydra-node-static -o hydra-node-result
 
 FROM alpine as hydra-node
 COPY --from=build-hydra-node /build/hydra-node-result/bin/hydra-node /bin/
@@ -21,7 +21,7 @@ ENTRYPOINT ["hydra-node"]
 # hydra-tools
 
 FROM build as build-hydra-tools
-RUN nix build .#hydra-tools-static -o hydra-tools-result release.nix
+RUN nix build .#hydra-tools-static -o hydra-tools-result
 
 FROM alpine as hydra-tools
 COPY --from=build-hydra-tools /build/hydra-tools-result/bin/hydra-tools /bin/
@@ -31,7 +31,7 @@ ENTRYPOINT ["hydra-tools"]
 # hydra-tui
 
 FROM build as build-hydra-tui
-RUN nix build .#hydra-tui-static -o hydra-tui-result release.nix
+RUN nix build .#hydra-tui-static -o hydra-tui-result
 
 FROM alpine as hydra-tui
 RUN apk update && apk add ncurses-terminfo
@@ -42,7 +42,7 @@ ENTRYPOINT ["sh", "-c", "TERMINFO=/usr/share/terminfo hydra-tui $@", "--"]
 # hydraw
 
 FROM build as build-hydraw
-RUN nix build .#hydraw-static -o hydraw-result release.nix
+RUN nix build .#hydraw-static -o hydraw-result
 
 FROM alpine as hydraw
 COPY --from=build-hydraw /build/hydraw-result/bin/hydraw /bin/
