@@ -38,12 +38,13 @@
       )
       (flake-utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ]
         (system:
-        rec {
+        let
           hydraProject = import ./default.nix {
             inherit (inputs) nixpkgs haskellNix iohk-nix CHaP;
             inherit system;
           };
-
+        in
+        {
           packages = import ./release.nix {
             inherit hydraProject;
             inherit system;
