@@ -18,7 +18,6 @@ import Hydra.Options (
   PublishOptions (..),
   RunOptions (..),
   defaultChainConfig,
-  defaultContestationPeriod,
   defaultLedgerConfig,
   maximumNumberOfParties,
   parseHydraCommandFromArgs,
