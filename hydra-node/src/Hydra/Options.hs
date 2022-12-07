@@ -559,7 +559,7 @@ defaultContestationPeriod :: ContestationPeriod
 defaultContestationPeriod = UnsafeContestationPeriod defaultContestationPeriod'
 
 defaultContestationPeriod' :: Natural
-defaultContestationPeriod' = 10
+defaultContestationPeriod' = 100
 
 contestationPeriodParser :: Parser Natural
 contestationPeriodParser =

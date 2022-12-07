@@ -248,7 +248,7 @@ prepareTxToPost ::
   PostChainTx Tx ->
   STM m Tx
 prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
-  pointInTime <- throwLeft currentPointInTime
+  pointInTime@(currentSlot, _) <- throwLeft currentPointInTime
   case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
@@ -273,17 +273,8 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
     (CollectComTx{}, Initial st) ->
       pure $ collect ctx st
     (CloseTx{confirmedSnapshot}, Open st) -> do
-      upperBound@(_, upperTime) <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      let onchainCp = openContestationPeriod $ openThreadOutput st
-          offchainCp = fromChain onchainCp
-          startTime = addUTCTime (-toNominalDiffTime offchainCp) upperTime
-      startSlotNo <- throwLeft $ slotFromUTCTime startTime
-      traceM "Time info: ======================================="
-      traceM $ show currentPointInTime
-      traceM $ show upperBound
-      traceM $ show startSlotNo
-      traceM $ show offchainCp
-      pure (close ctx st confirmedSnapshot startSlotNo upperBound)
+      upperBound <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+      pure (close ctx st confirmedSnapshot currentSlot upperBound)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       upperBound <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
       pure (contest ctx st confirmedSnapshot upperBound)
