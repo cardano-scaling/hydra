@@ -228,7 +228,7 @@ handleEvent client cardanoClient s = \case
             | c `elem` ['q', 'Q'] ->
               halt s
             | c `elem` ['i', 'I'] ->
-              sendInputAndTransition client s (Init tuiContestationPeriod)
+              sendInputAndTransition client s Init
             | c `elem` ['a', 'A'] ->
               sendInputAndTransition client s Abort
             | c `elem` ['f', 'F'] ->

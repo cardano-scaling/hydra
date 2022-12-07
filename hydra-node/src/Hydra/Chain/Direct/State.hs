@@ -780,6 +780,7 @@ deriveChainContexts ctx = do
         , ownVerificationKey = vk
         , ownParty = p
         , scriptRegistry
+        , contestationPeriod = ctxContestationPeriod ctx
         }
  where
   allParties = ctxParties ctx

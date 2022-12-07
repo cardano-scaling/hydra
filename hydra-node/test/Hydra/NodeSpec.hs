@@ -107,7 +107,7 @@ spec = parallel $ do
       let events =
             [ NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = NodeId "NodeId1"}}
             , NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = NodeId "NodeId2"}}
-            , ClientEvent $ Init cperiod
+            , ClientEvent Init
             ]
       (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] cperiod events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
 

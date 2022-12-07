@@ -867,7 +867,7 @@ update ::
   Event tx ->
   Outcome tx
 update Environment{party, signingKey, otherParties, contestationPeriod} ledger st ev = case (st, ev) of
-  (IdleState{chainState}, ClientEvent (Init _TODO)) ->
+  (IdleState{chainState}, ClientEvent Init) ->
     onIdleClientInit chainState party otherParties contestationPeriod
   (IdleState{}, OnChainEvent Observation{observedTx = OnInitTx{contestationPeriod = observed, parties}, newChainState}) ->
     onIdleChainInitTx st newChainState parties observed

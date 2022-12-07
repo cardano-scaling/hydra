@@ -71,7 +71,7 @@ import Hydra.Node (
   queryHeadState,
   runHydraNode,
  )
-import Hydra.Options (maximumNumberOfParties)
+import Hydra.Options (defaultContestationPeriod, maximumNumberOfParties)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Test.Consensus.Cardano.Generators ()
@@ -164,7 +164,6 @@ instance StateModel WorldState where
     NewTx :: Party -> Payment -> Action WorldState ()
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Payment -> Action WorldState ()
-    -- | Symmetric to `Seed`
     StopTheWorld :: Action WorldState ()
 
   initialState =
@@ -414,8 +413,9 @@ instance
         performCommit (snd <$> hydraParties st) party utxo
       NewTx party transaction ->
         performNewTx party transaction
-      Init party contestationPeriod ->
-        party `sendsInput` Input.Init{contestationPeriod}
+      -- TODO: seems that contestationPeriod is redundant here?
+      Init party _contestationPeriod ->
+        party `sendsInput` Input.Init
       Abort party -> do
         performAbort party
       Wait delay ->
@@ -462,7 +462,7 @@ seedWorld seedKeys = do
       labelTVarIO nodes ("history-" <> shortLabel hsk)
       let party = deriveParty hsk
           otherParties = filter (/= party) parties
-      node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain
+      node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain defaultContestationPeriod
       let testNode = createTestHydraNode outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
       pure (party, testNode, nodeThread)
@@ -617,7 +617,7 @@ waitForReadyToCommit party nodes = go 100
             _ -> False
       case find matchReadyToCommit outs of
         Nothing ->
-          threadDelay 10 >> go (n -1)
+          threadDelay 10 >> go (n - 1)
         Just{} ->
           pure ()
 
