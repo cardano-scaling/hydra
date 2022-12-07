@@ -92,13 +92,10 @@ components:
         type: object
         required:
           - tag
-          - contestationPeriod
         properties:
           tag:
             type: string
             enum: ["Init"]
-          contestationPeriod:
-            $ref: "#/components/schemas/ContestationPeriod"
 
     Abort:
       title: Abort
