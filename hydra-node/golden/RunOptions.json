@@ -12,6 +12,7 @@
                     "a/a/a..vk",
                     "b..vk"
                 ],
+                "contestationPeriod": 81103,
                 "networkId": {
                     "magic": 30959,
                     "tag": "Testnet"
@@ -23,7 +24,6 @@
                     "tag": "ChainPoint"
                 }
             },
-            "contestationPeriod": 35775,
             "host": {
                 "ipv4": "0.0.39.197",
                 "tag": "IPv4"
@@ -64,6 +64,7 @@
                 "cardanoVerificationKeys": [
                     "a/c..vk"
                 ],
+                "contestationPeriod": 51460,
                 "networkId": {
                     "magic": 2270,
                     "tag": "Testnet"
@@ -75,7 +76,6 @@
                     "tag": "ChainPoint"
                 }
             },
-            "contestationPeriod": 16400,
             "host": {
                 "ipv4": "0.0.2.184",
                 "tag": "IPv4"
@@ -120,6 +120,7 @@
                     "c..vk",
                     "a/b..vk"
                 ],
+                "contestationPeriod": 43200,
                 "networkId": {
                     "magic": 9314,
                     "tag": "Testnet"
@@ -127,7 +128,6 @@
                 "nodeSocket": "c/c/c/b/a.socket",
                 "startChainFrom": null
             },
-            "contestationPeriod": 31536000,
             "host": {
                 "ipv4": "0.0.25.46",
                 "tag": "IPv4"
@@ -193,6 +193,7 @@
                     "a..vk",
                     "a/b..vk"
                 ],
+                "contestationPeriod": 16039,
                 "networkId": {
                     "magic": 27619,
                     "tag": "Testnet"
@@ -204,7 +205,6 @@
                     "tag": "ChainPoint"
                 }
             },
-            "contestationPeriod": 85614,
             "host": {
                 "ipv4": "0.0.25.243",
                 "tag": "IPv4"
@@ -241,6 +241,7 @@
                     "b/b/b..vk",
                     "c/c..vk"
                 ],
+                "contestationPeriod": 86400,
                 "networkId": {
                     "magic": 21928,
                     "tag": "Testnet"
@@ -248,7 +249,6 @@
                 "nodeSocket": "c/b/a/c.socket",
                 "startChainFrom": null
             },
-            "contestationPeriod": 61734,
             "host": {
                 "ipv4": "0.0.18.97",
                 "tag": "IPv4"
