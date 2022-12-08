@@ -2,7 +2,7 @@
 slug: 21
 title: |
   21. Bounded transaction validity on Hydra protocol transactions
-authors: [Sasha Bogicevic]
+authors: [Sebastian Nagel, Pascal Grange, Franco Testagrossa, Arnaud Bailly, Sasha Bogicevic]
 tags: [Accepted]
 ---
 
