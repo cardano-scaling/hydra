@@ -333,6 +333,11 @@ partyKeys =
     cks <- nub . fmap CardanoSigningKey <$> vectorOf len genSigningKey
     pure $ zip hks cks
 
+genContestationPeriod :: Gen ContestationPeriod
+genContestationPeriod = do
+  i :: Word <- arbitrary `suchThat` (> 0)
+  pure $ UnsafeContestationPeriod (fromIntegral i)
+
 -- * Running the model
 
 -- | Concrete state needed to run actions against the implementation.
@@ -650,45 +655,6 @@ waitForUTxOToSpend utxo key value node = go 100
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut
 
-<<<<<<< HEAD
-=======
---
-
--- * Generator Helpers
-
---
-
-genPayment :: WorldState -> Gen (Party, Payment)
-genPayment WorldState{hydraParties, hydraState} =
-  case hydraState of
-    Open{offChainState = OffChainState{confirmedUTxO}} -> do
-      (from, value) <-
-        elements (filter (not . null . valueToList . snd) confirmedUTxO)
-      let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
-      -- NOTE: It's perfectly possible this yields a payment to self and it
-      -- assumes hydraParties is not empty else `elements` will crash
-      (_, to) <- elements hydraParties
-      pure (party, Payment{from, to, value})
-    _ -> error $ "genPayment impossible in state: " <> show hydraState
-
-unsafeConstructorName :: (Show a) => a -> String
-unsafeConstructorName = Prelude.head . Prelude.words . show
-
--- |Generate a list of pairs of Hydra/Cardano signing keys.
--- All the keys in this list are guaranteed to be unique.
-partyKeys :: Gen [(SigningKey HydraKey, CardanoSigningKey)]
-partyKeys =
-  sized $ \len -> do
-    hks <- nub <$> vectorOf len arbitrary
-    cks <- nub . fmap CardanoSigningKey <$> vectorOf len genSigningKey
-    pure $ zip hks cks
-
-genContestationPeriod :: Gen ContestationPeriod
-genContestationPeriod = do
-  i :: Word <- arbitrary `suchThat` (> 0)
-  pure $ UnsafeContestationPeriod (fromIntegral i)
-
->>>>>>> 82d0833b (Seed the contestation period in MBT)
 isOwned :: CardanoSigningKey -> (TxIn, TxOut ctx) -> Bool
 isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (ShelleyAddress _ cre _)}) =
   case fromShelleyPaymentCredential cre of

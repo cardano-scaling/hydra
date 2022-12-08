@@ -26,6 +26,7 @@ changes.
   + Changed logs of `BeginInitialize` and `EndInitialize`.
   + Added `SkipUpdate` constructor to the wallet logs.
 
+
 - Reduce cost of `commitTx` by using the initial script as input reference.
 
 - Switched to using [nix flakes](https://nixos.wiki/wiki/Flakes):
@@ -33,6 +34,13 @@ changes.
   + Makes configuration of binary-caches easier to discover (you get asked about adding them).
   + Will make bumping dependencies (e.g. cardano-node) easier.
   + Build commands change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
+
+- **BREAKING** Implemented [ADR21](https://hydra.family/head-protocol/adr/21) to introduce bounded close transactions:
+  + There is a new hydra-node flag `--contestation-period` to control the close tx validity bounds as well as
+    determine the contestation deadline.
+  + If hydra-node receives a `Init` tx with the _wrong_ contestation period then this tx is ignored which implies
+    that all parties need to agree on the same value for contestation period.
+  + API request payload to create the Init transaction does not contain the field `contestationPeriod` any more.
 
 ## [0.8.1] - 2022-11-17
 
@@ -54,8 +62,6 @@ changes.
 - Fixed observing the chain for Hydra L1 transactions after restart. [599](https://github.com/input-output-hk/hydra/issues/599)
 
 - `hydra-cardano-api` now published on [Cardano Haskell Packages (CHaP)](https://input-output-hk.github.io/cardano-haskell-packages/package/hydra-cardano-api-0.8.0/). [#504](https://github.com/input-output-hk/hydra/issues/504)
-
-- **BREAKING** Hydra contract now checks that tx validity bounds are reasonable with respect to contestation period on close tx
 
 ## [0.8.0] - 2022-10-27
 
