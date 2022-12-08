@@ -32,7 +32,7 @@ import Hydra.Chain.Direct.State (
   genStClosed,
   genStInitial,
   genStOpen,
-  getCloseContestationDeadline,
+  getContestationDeadline,
   getKnownUTxO,
   getOpenContestationDeadlineInSlots,
   initialize,
@@ -162,7 +162,7 @@ computeContestCost = do
     (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
     cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
-    pointInTime <- genPointInTimeBefore (getCloseContestationDeadline stClosed)
+    pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     pure (stClosed, contest cctx stClosed snapshot pointInTime)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
@@ -212,7 +212,7 @@ computeFanOutCost = do
     (startSlot, closePoint) <- genSlotWithPointInTimeFromCP closeDeadlineSlot
     let closeTx = close cctx stOpen snapshot startSlot closePoint
     let stClosed = snd . fromJust $ observeClose stOpen closeTx
-    let deadlineSlotNo = slotNoFromUTCTime (getCloseContestationDeadline stClosed)
+    let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
     pure (getKnownUTxO stClosed, fanout stClosed utxo deadlineSlotNo)
 
 newtype NumParties = NumParties Int

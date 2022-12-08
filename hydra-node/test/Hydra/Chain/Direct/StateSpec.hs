@@ -49,7 +49,7 @@ import Hydra.Chain.Direct.State (
   genHydraContext,
   genInitTx,
   genStInitial,
-  getCloseContestationDeadline,
+  getContestationDeadline,
   getKnownUTxO,
   initialize,
   observeAbort,
@@ -350,7 +350,7 @@ forAllContest action =
     forAllBlind (pickChainContext hctx) $ \ctx ->
       let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
        in action utxo tx
-            & counterexample ("Contestation deadline: " <> show (getCloseContestationDeadline stClosed))
+            & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
             & counterexample ("Contestation period: " <> show ctxContestationPeriod)
             & counterexample ("Close point: " <> show closePointInTime)
             & tabulate "Contestation period" (tabulateContestationPeriod ctxContestationPeriod)

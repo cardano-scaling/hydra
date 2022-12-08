@@ -868,7 +868,7 @@ genContestTx = do
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
-  contestPointInTime <- genPointInTimeBefore (getCloseContestationDeadline stClosed)
+  contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
   pure (ctx, closePointInTime, stClosed, contest cctx stClosed contestSnapshot contestPointInTime)
 
 genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
@@ -876,11 +876,11 @@ genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
   utxo <- genUTxOAdaOnlyOfSize numOutputs
   (_, toFanout, stClosed) <- genStClosed ctx utxo
-  let deadlineSlotNo = slotNoFromUTCTime (getCloseContestationDeadline stClosed)
+  let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
   pure (ctx, stClosed, fanout stClosed toFanout deadlineSlotNo)
 
-getCloseContestationDeadline :: ClosedState -> UTCTime
-getCloseContestationDeadline
+getContestationDeadline :: ClosedState -> UTCTime
+getContestationDeadline
   ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
     posixToUTCTime closedContestationDeadline
 
