@@ -86,7 +86,7 @@ import Hydra.Chain.Direct.Tx (
   observeFanoutTx,
   observeInitTx,
  )
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromChain)
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
@@ -884,12 +884,6 @@ getContestationDeadline :: ClosedState -> UTCTime
 getContestationDeadline
   ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
     posixToUTCTime closedContestationDeadline
-
-getOpenContestationDeadlineInSlots :: OpenState -> Word64
-getOpenContestationDeadlineInSlots
-  OpenState{openThreadOutput = OpenThreadOutput{openContestationPeriod}} =
-    let UnsafeContestationPeriod slots = fromChain openContestationPeriod
-     in fromIntegral slots
 
 genStOpen ::
   HydraContext ->
