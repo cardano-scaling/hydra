@@ -16,9 +16,6 @@
 -- More intricate and specialised models shall be developed once we get a firmer grasp of
 -- the whole framework, injecting faults, taking into account more parts of the stack,
 -- modelling more complex transactions schemes...
---
--- **NOTE**: This is still pretty much a work-in-progress esp. regarding the execution
--- model as we explore different ways of putting this at work.
 module Hydra.Model where
 
 import Hydra.Cardano.Api
@@ -83,6 +80,19 @@ import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), Realized, RunModel (..), StateModel (..))
 import qualified Prelude
 
+-- * The Model
+
+-- | State maintained by the model.
+data WorldState = WorldState
+  { -- | List of parties identified by both signing keys required to run protocol.
+    -- This list must not contain any duplicated key.
+    hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
+  , -- | Expected consensus state
+    -- All nodes should be in the same state.
+    hydraState :: GlobalState
+  }
+  deriving (Eq, Show)
+
 -- | Global state of the Head protocol.
 -- While each participant in the Hydra Head protocol has its own private
 -- view of the state, we model the expected global state whose properties
@@ -133,34 +143,17 @@ data OffChainState = OffChainState
   }
   deriving stock (Eq, Show)
 
--- | State maintained by the model.
-data WorldState = WorldState
-  { -- | List of parties identified by both signing keys required to run protocol.
-    -- This list must not contain any duplicated key.
-    hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
-  , -- | Expected consensus state
-    -- All nodes should be in the same state.
-    hydraState :: GlobalState
-  }
-  deriving (Eq, Show)
-
--- | Concrete state needed to run actions against the implementation.
-data Nodes m = Nodes
-  { -- | Map from party identifiers to a /handle/ for interacting with a node.
-    nodes :: Map.Map Party (TestHydraNode Tx m)
-  , -- | Logger used by each node.
-    -- The reason we put this here is because the concrete value needs to be
-    -- instantiated upon the test run initialisation, outiside of the model.
-    logger :: Tracer m (HydraLog Tx ())
-  , threads :: [Async m ()]
-  }
-
+-- This is needed to be able to use `WorldState` inside DL formulae
 instance DynLogicModel WorldState
 
 type ActualCommitted = UTxOType Payment
 
 -- | Basic instantiation of `StateModel` for our `WorldState` state.
 instance StateModel WorldState where
+  -- The list of possible "Actions" within our `Model`
+  -- Not all of them need to actually represent an actual user `Action`, but they
+  -- can represent _observations_ which are useful when defining properties in
+  -- DL. Those observations would usually not be generated.
   data Action WorldState a where
     Seed :: {seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]} -> Action WorldState ()
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
@@ -314,8 +307,64 @@ instance StateModel WorldState where
 deriving instance Show (Action WorldState a)
 deriving instance Eq (Action WorldState a)
 
+--
+
+-- ** Generator Helper
+
+--
+
+genPayment :: WorldState -> Gen (Party, Payment)
+genPayment WorldState{hydraParties, hydraState} =
+  case hydraState of
+    Open{offChainState = OffChainState{confirmedUTxO}} -> do
+      (from, value) <-
+        elements (filter (not . null . valueToList . snd) confirmedUTxO)
+      let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
+      -- NOTE: It's perfectly possible this yields a payment to self and it
+      -- assumes hydraParties is not empty else `elements` will crash
+      (_, to) <- elements hydraParties
+      pure (party, Payment{from, to, value})
+    _ -> error $ "genPayment impossible in state: " <> show hydraState
+
+unsafeConstructorName :: (Show a) => a -> String
+unsafeConstructorName = Prelude.head . Prelude.words . show
+
+-- |Generate a list of pairs of Hydra/Cardano signing keys.
+-- All the keys in this list are guaranteed to be unique.
+partyKeys :: Gen [(SigningKey HydraKey, CardanoSigningKey)]
+partyKeys =
+  sized $ \len -> do
+    hks <- nub <$> vectorOf len arbitrary
+    cks <- nub . fmap CardanoSigningKey <$> vectorOf len genSigningKey
+    pure $ zip hks cks
+
 -- * Running the model
 
+-- | Concrete state needed to run actions against the implementation.
+-- This state is used and might be updated when actually `perform`ing actions generated from the `StateModel`.
+data Nodes m = Nodes
+  { -- | Map from party identifiers to a /handle/ for interacting with a node.
+    nodes :: Map.Map Party (TestHydraNode Tx m)
+  , -- | Logger used by each node.
+    -- The reason we put this here is because the concrete value needs to be
+    -- instantiated upon the test run initialisation, outiside of the model.
+    logger :: Tracer m (HydraLog Tx ())
+  , -- | List of threads spawned when executing `RunMonad`
+    -- FIXME: Remove it? It's not actually useful when running inside io-sim as
+    -- there's no risk of leaking threads anyway, but perhaps it's good hygiene
+    -- to keep it?
+    threads :: [Async m ()]
+  }
+
+-- | Our execution `MonadTrans`former.
+--
+-- This type is needed in order to keep the execution monad `m` abstract  and thus
+-- simplify the definition of the `RunModel` instance which requires a proper definition
+-- of `Realized`  type family. See [this issue](https://github.com/input-output-hk/quickcheck-dynamic/issues/29)
+-- for a discussion on why this monad is needed.
+--
+-- We could perhaps getaway with it and just have a type based on `IOSim` monad
+-- but this is cumbersome to write.
 newtype RunMonad m a = RunMonad {runMonad :: StateT (Nodes m) m a}
   deriving newtype (Functor, Applicative, Monad, MonadState (Nodes m))
 
@@ -325,6 +374,11 @@ instance MonadTrans RunMonad where
       a <- r
       pure (a, s)
 
+-- | This type family is needed to link the _actual_ output from runnign actions
+-- with the ones that are modelled.
+--
+-- In our case we can keep things simple and use the same types on both side of
+-- the fence.
 type instance Realized (RunMonad m) a = a
 
 instance
@@ -379,65 +433,7 @@ instance
       StopTheWorld ->
         stopTheWorld
 
--- | Bring `Show` instance in scope drawing it from the `Action` type.
--- This is a neat trick to provide `show`able results from action in a context where
--- there's no explicit `Show a` instance, eg. in the `monitoring` and `postcondition`
--- functions. We don't have access to an `a` directly because its value depends on
--- type family `Realized`.
-showFromAction :: (Show a => b) -> Action WorldState a -> b
-showFromAction k = \case
-  Seed{} -> k
-  Init{} -> k
-  Commit{} -> k
-  Abort{} -> k
-  NewTx{} -> k
-  Wait{} -> k
-  ObserveConfirmedTx{} -> k
-  StopTheWorld -> k
-
-performAbort :: MonadDelay m => Party -> RunMonad m ()
-performAbort party = do
-  Nodes{nodes} <- get
-  lift $ waitForReadyToCommit party nodes
-  party `sendsInput` Input.Abort
-
-checkOutcome :: WorldState -> Action WorldState a -> a -> Bool
-checkOutcome _st (Commit _party expectedCommitted) actualCommitted =
-  expectedCommitted == actualCommitted
-checkOutcome _ _ _ = True
-
-waitForReadyToCommit ::
-  forall m tx.
-  MonadDelay m =>
-  Party ->
-  Map Party (TestHydraNode tx m) ->
-  m ()
-waitForReadyToCommit party nodes = go 100
- where
-  go :: Int -> m ()
-  go = \case
-    0 -> pure ()
-    n -> do
-      outs <- serverOutputs (nodes ! party)
-      let matchReadyToCommit = \case
-            Output.ReadyToCommit{} -> True
-            _ -> False
-      case find matchReadyToCommit outs of
-        Nothing ->
-          threadDelay 10 >> go (n -1)
-        Just{} ->
-          pure ()
-
-stopTheWorld :: MonadAsync m => RunMonad m ()
-stopTheWorld =
-  gets threads >>= mapM_ (void . lift . cancel)
-
-sendsInput :: Monad m => Party -> ClientInput Tx -> RunMonad m ()
-sendsInput party command = do
-  nodes <- gets nodes
-  case Map.lookup party nodes of
-    Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
-    Just actorNode -> lift $ actorNode `send` command
+-- ** Performing actions
 
 seedWorld ::
   ( MonadDelay m
@@ -563,6 +559,72 @@ performNewTx party tx = do
       err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
 
+sendsInput :: Monad m => Party -> ClientInput Tx -> RunMonad m ()
+sendsInput party command = do
+  nodes <- gets nodes
+  case Map.lookup party nodes of
+    Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
+    Just actorNode -> lift $ actorNode `send` command
+
+performAbort :: MonadDelay m => Party -> RunMonad m ()
+performAbort party = do
+  Nodes{nodes} <- get
+  lift $ waitForReadyToCommit party nodes
+  party `sendsInput` Input.Abort
+
+stopTheWorld :: MonadAsync m => RunMonad m ()
+stopTheWorld =
+  gets threads >>= mapM_ (void . lift . cancel)
+
+-- ** Utility functions
+
+-- | Bring `Show` instance in scope drawing it from the `Action` type.
+--
+-- This is a neat trick to provide `show`able results from action in a context where
+-- there's no explicit `Show a` instance, eg. in the `monitoring` and `postcondition`
+-- functions. We don't have access to an `a` directly because its value depends on
+-- type family `Realized`.
+showFromAction :: (Show a => b) -> Action WorldState a -> b
+showFromAction k = \case
+  Seed{} -> k
+  Init{} -> k
+  Commit{} -> k
+  Abort{} -> k
+  NewTx{} -> k
+  Wait{} -> k
+  ObserveConfirmedTx{} -> k
+  StopTheWorld -> k
+
+checkOutcome :: WorldState -> Action WorldState a -> a -> Bool
+checkOutcome _st (Commit _party expectedCommitted) actualCommitted =
+  expectedCommitted == actualCommitted
+checkOutcome _ _ _ = True
+
+waitForReadyToCommit ::
+  forall m tx.
+  MonadDelay m =>
+  Party ->
+  Map Party (TestHydraNode tx m) ->
+  m ()
+waitForReadyToCommit party nodes = go 100
+ where
+  -- The reason why we repeatedly query the server is because we could
+  -- miss some outputs _before_ we even call that function which will
+  -- lead to random failures.
+  go :: Int -> m ()
+  go = \case
+    0 -> pure ()
+    n -> do
+      outs <- serverOutputs (nodes ! party)
+      let matchReadyToCommit = \case
+            Output.ReadyToCommit{} -> True
+            _ -> False
+      case find matchReadyToCommit outs of
+        Nothing ->
+          threadDelay 10 >> go (n -1)
+        Just{} ->
+          pure ()
+
 waitForUTxOToSpend ::
   forall m.
   (MonadDelay m, MonadTimer m) =>
@@ -591,37 +653,6 @@ waitForUTxOToSpend utxo key value node = go 100
 
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut
-
---
-
--- * Generator Helpers
-
---
-
-genPayment :: WorldState -> Gen (Party, Payment)
-genPayment WorldState{hydraParties, hydraState} =
-  case hydraState of
-    Open{offChainState = OffChainState{confirmedUTxO}} -> do
-      (from, value) <-
-        elements (filter (not . null . valueToList . snd) confirmedUTxO)
-      let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
-      -- NOTE: It's perfectly possible this yields a payment to self and it
-      -- assumes hydraParties is not empty else `elements` will crash
-      (_, to) <- elements hydraParties
-      pure (party, Payment{from, to, value})
-    _ -> error $ "genPayment impossible in state: " <> show hydraState
-
-unsafeConstructorName :: (Show a) => a -> String
-unsafeConstructorName = Prelude.head . Prelude.words . show
-
--- |Generate a list of pairs of Hydra/Cardano signing keys.
--- All the keys in this list are guaranteed to be unique.
-partyKeys :: Gen [(SigningKey HydraKey, CardanoSigningKey)]
-partyKeys =
-  sized $ \len -> do
-    hks <- nub <$> vectorOf len arbitrary
-    cks <- nub . fmap CardanoSigningKey <$> vectorOf len genSigningKey
-    pure $ zip hks cks
 
 isOwned :: CardanoSigningKey -> (TxIn, TxOut ctx) -> Bool
 isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (ShelleyAddress _ cre _)}) =
