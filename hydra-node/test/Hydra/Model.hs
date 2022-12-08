@@ -307,11 +307,7 @@ instance StateModel WorldState where
 deriving instance Show (Action WorldState a)
 deriving instance Eq (Action WorldState a)
 
---
-
 -- ** Generator Helper
-
---
 
 genPayment :: WorldState -> Gen (Party, Payment)
 genPayment WorldState{hydraParties, hydraState} =
