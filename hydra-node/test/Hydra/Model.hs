@@ -53,7 +53,7 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Committed (),
@@ -75,7 +75,7 @@ import Hydra.Options (defaultContestationPeriod, maximumNumberOfParties)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Test.Consensus.Cardano.Generators ()
-import Test.QuickCheck (counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
+import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), Realized, RunModel (..), StateModel (..))
 import qualified Prelude
@@ -107,6 +107,7 @@ data GlobalState
   | Idle
       { idleParties :: [Party]
       , cardanoKeys :: [VerificationKey PaymentKey]
+      , idleContestationPeriod :: ContestationPeriod
       }
   | Initial
       { headParameters :: HeadParameters
@@ -155,10 +156,10 @@ instance StateModel WorldState where
   -- can represent _observations_ which are useful when defining properties in
   -- DL. Those observations would usually not be generated.
   data Action WorldState a where
-    Seed :: {seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]} -> Action WorldState ()
+    Seed :: {seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)], seedContestationPeriod :: ContestationPeriod} -> Action WorldState ()
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
     -- different return values.
-    Init :: Party -> ContestationPeriod -> Action WorldState ()
+    Init :: Party -> Action WorldState ()
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
     Abort :: Party -> Action WorldState ()
     NewTx :: Party -> Payment -> Action WorldState ()
@@ -185,13 +186,11 @@ instance StateModel WorldState where
       Open{} -> genNewTx
       _ -> genSeed
    where
-    genSeed = Some . Seed <$> resize maximumNumberOfParties partyKeys
-
+    genSeed = fmap Some $ Seed <$> resize maximumNumberOfParties partyKeys <*> genContestationPeriod
     genInit = do
-      contestationPeriod <- arbitrary
       key <- fst <$> elements hydraParties
       let party = deriveParty key
-      pure . Some $ Init party contestationPeriod
+      pure . Some $ Init party
 
     genCommit pending = do
       party <- elements $ toList pending
@@ -228,21 +227,22 @@ instance StateModel WorldState where
 
   nextState s@WorldState{hydraParties, hydraState} a _ =
     case a of
-      Seed{seedKeys} -> WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys}}
+      Seed{seedKeys, seedContestationPeriod} -> WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys, idleContestationPeriod}}
        where
         idleParties = map (deriveParty . fst) seedKeys
         cardanoKeys = map (getVerificationKey . signingKey . snd) seedKeys
+        idleContestationPeriod = seedContestationPeriod
       --
-      Init _ contestationPeriod ->
+      Init _ ->
         WorldState{hydraParties, hydraState = mkInitialState hydraState}
        where
         mkInitialState = \case
-          Idle{idleParties} ->
+          Idle{idleParties, idleContestationPeriod} ->
             Initial
               { headParameters =
                   HeadParameters
                     { parties = idleParties
-                    , contestationPeriod
+                    , contestationPeriod = idleContestationPeriod
                     }
               , commits = mempty
               , pendingCommits = Set.fromList idleParties
@@ -414,7 +414,7 @@ instance
       NewTx party transaction ->
         performNewTx party transaction
       -- TODO: seems that contestationPeriod is redundant here?
-      Init party _contestationPeriod ->
+      Init party ->
         party `sendsInput` Input.Init
       Abort party -> do
         performAbort party
@@ -650,6 +650,45 @@ waitForUTxOToSpend utxo key value node = go 100
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut
 
+<<<<<<< HEAD
+=======
+--
+
+-- * Generator Helpers
+
+--
+
+genPayment :: WorldState -> Gen (Party, Payment)
+genPayment WorldState{hydraParties, hydraState} =
+  case hydraState of
+    Open{offChainState = OffChainState{confirmedUTxO}} -> do
+      (from, value) <-
+        elements (filter (not . null . valueToList . snd) confirmedUTxO)
+      let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
+      -- NOTE: It's perfectly possible this yields a payment to self and it
+      -- assumes hydraParties is not empty else `elements` will crash
+      (_, to) <- elements hydraParties
+      pure (party, Payment{from, to, value})
+    _ -> error $ "genPayment impossible in state: " <> show hydraState
+
+unsafeConstructorName :: (Show a) => a -> String
+unsafeConstructorName = Prelude.head . Prelude.words . show
+
+-- |Generate a list of pairs of Hydra/Cardano signing keys.
+-- All the keys in this list are guaranteed to be unique.
+partyKeys :: Gen [(SigningKey HydraKey, CardanoSigningKey)]
+partyKeys =
+  sized $ \len -> do
+    hks <- nub <$> vectorOf len arbitrary
+    cks <- nub . fmap CardanoSigningKey <$> vectorOf len genSigningKey
+    pure $ zip hks cks
+
+genContestationPeriod :: Gen ContestationPeriod
+genContestationPeriod = do
+  i :: Word <- arbitrary `suchThat` (> 0)
+  pure $ UnsafeContestationPeriod (fromIntegral i)
+
+>>>>>>> 82d0833b (Seed the contestation period in MBT)
 isOwned :: CardanoSigningKey -> (TxIn, TxOut ctx) -> Bool
 isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (ShelleyAddress _ cre _)}) =
   case fromShelleyPaymentCredential cre of
