@@ -11,7 +11,7 @@ import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 import Test.QuickCheck (counterexample, forAllBlind, property, (===))
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   prop "can roundtrip currentPointInTime" $
     forAllBlind arbitrary $ \TimeHandle{currentPointInTime, slotToUTCTime, slotFromUTCTime} ->
       let onLeft err = property False & counterexample ("Conversion failed: " <> toString err)

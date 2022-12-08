@@ -11,12 +11,12 @@ import Hydra.Data.ContestationPeriod (
   posixToUTCTime,
  )
 import Plutus.Orphans ()
-import Test.Hspec (Spec, describe)
+import Test.Hspec (Spec, describe, parallel)
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Positive (Positive), collect, (===))
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   describe "to/from NominalDiffTime" $
     prop "is isomorphic to NominalDiffTime" $ \t ->
       let diff = contestationPeriodToDiffTime t

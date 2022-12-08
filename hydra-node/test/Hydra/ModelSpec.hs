@@ -102,7 +102,7 @@ import Test.QuickCheck.StateModel (Actions, Step ((:=)), runActions, stateAfter,
 import Test.Util (printTrace, traceInIOSim)
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   -- There cannot be a UTxO with no ADAs
   -- See https://github.com/input-output-hk/cardano-ledger/blob/master/doc/explanations/min-utxo-mary.rst
   prop "model should not generate 0 Ada UTxO" $ withMaxSuccess 10000 prop_doesNotGenerate0AdaUTxO

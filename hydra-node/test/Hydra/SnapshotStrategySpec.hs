@@ -30,87 +30,86 @@ import Test.QuickCheck (Property, counterexample, forAll, label, (==>))
 import qualified Prelude
 
 spec :: Spec
-spec = do
-  parallel $ do
-    let threeParties = [alice, bob, carol]
-        Ledger{initUTxO} = simpleLedger
-        envFor signingKey =
-          let party = deriveParty signingKey
-           in Environment
-                { party
-                , signingKey
-                , otherParties = List.delete party threeParties
-                }
+spec = parallel $ do
+  let threeParties = [alice, bob, carol]
+      Ledger{initUTxO} = simpleLedger
+      envFor signingKey =
+        let party = deriveParty signingKey
+         in Environment
+              { party
+              , signingKey
+              , otherParties = List.delete party threeParties
+              }
 
-    let params = HeadParameters cperiod threeParties
+  let params = HeadParameters cperiod threeParties
 
-    describe "New Snapshot Decision" $ do
-      it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
+  describe "New Snapshot Decision" $ do
+    it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
+      let tx = aValidTx 1
+          st =
+            CoordinatedHeadState
+              { seenUTxO = initUTxO
+              , seenTxs = [tx]
+              , confirmedSnapshot = InitialSnapshot initUTxO
+              , seenSnapshot = NoSeenSnapshot
+              }
+      newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
+
+    prop "always ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshot
+
+    prop "there's always a leader for every snapsnot number" prop_thereIsAlwaysALeader
+
+    it "do not send ReqSn when we aren't leader" $ do
+      let tx = aValidTx 1
+          st =
+            CoordinatedHeadState
+              { seenUTxO = initUTxO
+              , seenTxs = [tx]
+              , confirmedSnapshot = InitialSnapshot initUTxO
+              , seenSnapshot = NoSeenSnapshot
+              }
+      newSn (envFor bobSk) params st `shouldBe` ShouldNotSnapshot (NotLeader 1)
+
+    it "do not send ReqSn when there is a snapshot in flight" $ do
+      let sn1 = Snapshot 1 initUTxO mempty :: Snapshot SimpleTx
+          st =
+            CoordinatedHeadState
+              { seenUTxO = initUTxO
+              , seenTxs = mempty
+              , confirmedSnapshot = InitialSnapshot initUTxO
+              , seenSnapshot = SeenSnapshot sn1 mempty
+              }
+      newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
+
+    it "do not send ReqSn when there's no seen transactions" $ do
+      let st =
+            CoordinatedHeadState
+              { seenUTxO = initUTxO
+              , seenTxs = mempty
+              , confirmedSnapshot = InitialSnapshot initUTxO
+              , seenSnapshot = NoSeenSnapshot
+              } ::
+              CoordinatedHeadState SimpleTx
+      newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
+
+    describe "Snapshot Emission" $ do
+      it "update seenSnapshot state when sending ReqSn" $ do
         let tx = aValidTx 1
-            st =
+            coordinatedState =
               CoordinatedHeadState
                 { seenUTxO = initUTxO
                 , seenTxs = [tx]
                 , confirmedSnapshot = InitialSnapshot initUTxO
                 , seenSnapshot = NoSeenSnapshot
                 }
-        newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
-
-      prop "always ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshot
-
-      prop "there's always a leader for every snapsnot number" prop_thereIsAlwaysALeader
-
-      it "do not send ReqSn when we aren't leader" $ do
-        let tx = aValidTx 1
             st =
-              CoordinatedHeadState
-                { seenUTxO = initUTxO
-                , seenTxs = [tx]
-                , confirmedSnapshot = InitialSnapshot initUTxO
-                , seenSnapshot = NoSeenSnapshot
-                }
-        newSn (envFor bobSk) params st `shouldBe` ShouldNotSnapshot (NotLeader 1)
+              inOpenState' threeParties coordinatedState
+            st' =
+              inOpenState' threeParties $
+                coordinatedState{seenSnapshot = RequestedSnapshot}
 
-      it "do not send ReqSn when there is a snapshot in flight" $ do
-        let sn1 = Snapshot 1 initUTxO mempty :: Snapshot SimpleTx
-            st =
-              CoordinatedHeadState
-                { seenUTxO = initUTxO
-                , seenTxs = mempty
-                , confirmedSnapshot = InitialSnapshot initUTxO
-                , seenSnapshot = SeenSnapshot sn1 mempty
-                }
-        newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
-
-      it "do not send ReqSn when there's no seen transactions" $ do
-        let st =
-              CoordinatedHeadState
-                { seenUTxO = initUTxO
-                , seenTxs = mempty
-                , confirmedSnapshot = InitialSnapshot initUTxO
-                , seenSnapshot = NoSeenSnapshot
-                } ::
-                CoordinatedHeadState SimpleTx
-        newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
-
-      describe "Snapshot Emission" $ do
-        it "update seenSnapshot state when sending ReqSn" $ do
-          let tx = aValidTx 1
-              coordinatedState =
-                CoordinatedHeadState
-                  { seenUTxO = initUTxO
-                  , seenTxs = [tx]
-                  , confirmedSnapshot = InitialSnapshot initUTxO
-                  , seenSnapshot = NoSeenSnapshot
-                  }
-              st =
-                inOpenState' threeParties coordinatedState
-              st' =
-                inOpenState' threeParties $
-                  coordinatedState{seenSnapshot = RequestedSnapshot}
-
-          emitSnapshot (envFor aliceSk) [] st
-            `shouldBe` (st', [NetworkEffect $ ReqSn alice 1 [tx]])
+        emitSnapshot (envFor aliceSk) [] st
+          `shouldBe` (st', [NetworkEffect $ ReqSn alice 1 [tx]])
 
 prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshot sn =

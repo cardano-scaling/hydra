@@ -12,7 +12,7 @@ import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   describe "Persistence" $ do
     it "can handle empty files" $ do
       withTempDir "hydra-persistence" $ \tmpDir -> do

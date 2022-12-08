@@ -16,7 +16,7 @@ import System.IO.Silently (capture_)
 import Test.QuickCheck.Property (conjoin, property, withMaxSuccess)
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   it "dumps logs to stdout in JSON with timestamp" $ do
     captured <- capture_ $ do
       withTracer (Verbose "test") $ \tracer -> do

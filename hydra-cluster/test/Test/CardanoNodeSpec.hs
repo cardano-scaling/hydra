@@ -15,7 +15,7 @@ import Hydra.Logging (showLogsOnFailure)
 import System.Directory (doesFileExist)
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   -- NOTE: We also hard-code the cardano-node version here to allow prevent
   -- false positives test errors in case someone uses an "untested" /
   -- different than in shell.nix version of cardano-node and cardano-cli.

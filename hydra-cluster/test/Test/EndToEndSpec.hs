@@ -90,274 +90,275 @@ allNodeIds :: [Int]
 allNodeIds = [1 .. 3]
 
 spec :: Spec
-spec = around showLogsOnFailure $ do
-  describe "End-to-end on Cardano devnet" $ do
-    describe "single party hydra head" $ do
-      it "full head life-cycle" $ \tracer -> do
-        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= singlePartyHeadFullLifeCycle tracer tmpDir node
+spec = parallel $
+  around showLogsOnFailure $ do
+    describe "End-to-end on Cardano devnet" $ do
+      describe "single party hydra head" $ do
+        it "full head life-cycle" $ \tracer -> do
+          withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+              publishHydraScriptsAs node Faucet
+                >>= singlePartyHeadFullLifeCycle tracer tmpDir node
 
-    describe "three hydra nodes scenario" $ do
-      it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
-        failAfter 60 $
-          withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
-              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              initAndClose tracer 1 hydraScriptsTxId node
+      describe "three hydra nodes scenario" $ do
+        it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
+          failAfter 60 $
+            withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
+              withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+                hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+                initAndClose tracer 1 hydraScriptsTxId node
 
-      it "inits a Head and closes it immediately " $ \tracer ->
-        failAfter 60 $
-          withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
-            let clusterIx = 0
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
-              aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
-              bobKeys@(bobCardanoVk, _) <- generate genKeyPair
-              carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+        it "inits a Head and closes it immediately " $ \tracer ->
+          failAfter 60 $
+            withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
+              let clusterIx = 0
+              withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
+                aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
+                bobKeys@(bobCardanoVk, _) <- generate genKeyPair
+                carolKeys@(carolCardanoVk, _) <- generate genKeyPair
 
-              let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
-                  hydraKeys = [aliceSk, bobSk, carolSk]
+                let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+                    hydraKeys = [aliceSk, bobSk, carolSk]
 
-              let firstNodeId = clusterIx * 3
+                let firstNodeId = clusterIx * 3
 
-              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              withHydraCluster tracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
-                let [n1, n2, n3] = toList nodes
-                waitForNodesConnected tracer [n1, n2, n3]
+                hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+                withHydraCluster tracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
+                  let [n1, n2, n3] = toList nodes
+                  waitForNodesConnected tracer [n1, n2, n3]
 
-                -- Funds to be used as fuel by Hydra protocol transactions
-                seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-                seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-                seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-
-                let contestationPeriod = 2 :: Natural
-
-                send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
-                waitFor tracer 10 [n1, n2, n3] $
-                  output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
-
-                -- Get some UTXOs to commit to a head
-                committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
-                committedUTxOByBob <- seedFromFaucet node bobCardanoVk bobCommittedToHead Normal (contramap FromFaucet tracer)
-                send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
-                send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
-                send n3 $ input "Commit" ["utxo" .= Object mempty]
-
-                let u0 = committedUTxOByAlice <> committedUTxOByBob
-
-                waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0]
-
-                send n1 $ input "Close" []
-                deadline <- waitMatch 3 n1 $ \v -> do
-                  guard $ v ^? key "tag" == Just "HeadIsClosed"
-                  snapshotNumber <- v ^? key "snapshotNumber"
-                  guard $ snapshotNumber == Aeson.Number 0
-                  v ^? key "contestationDeadline" . _JSON
-
-                -- Expect to see ReadyToFanout within 3 seconds after deadline
-                remainingTime <- diffUTCTime deadline <$> getCurrentTime
-                waitFor tracer (truncate $ remainingTime + 3) [n1] $
-                  output "ReadyToFanout" []
-
-                send n1 $ input "Fanout" []
-                waitFor tracer 3 [n1] $
-                  output "HeadIsFinalized" ["utxo" .= u0]
-
-    describe "restarting nodes" $ do
-      it "can abort head after restart" $ \tracer -> do
-        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= restartedNodeCanAbort tracer tmpDir node
-
-      it "can observe a commit tx after a restart, even when a tx happened while down" $ \tracer -> do
-        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= restartedNodeCanObserveCommitTx tracer tmpDir node
-
-      it "can start chain from the past and replay on-chain events" $ \tracer ->
-        withTempDir "end-to-end-chain-observer" $ \tmp ->
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
-            (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
-            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
-            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            let nodeId = 1
-            tip <- withHydraNode tracer aliceChainConfig tmp nodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-              seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-              tip <- queryTip networkId nodeSocket
-              let contestationPeriod = 10 :: Natural
-              send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
-              waitFor tracer 10 [n1] $
-                output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
-              return tip
-
-            -- REVIEW: Do we want to keep this --start-chain-from feature or
-            -- replace it with an event source load from persistence?
-
-            -- NOTE: Need to clear persistence as we would load the state and
-            -- not resynchronize from chain
-            removeDirectoryRecursive $ tmp </> "state-" <> show nodeId
-
-            let aliceChainConfig' =
-                  aliceChainConfig
-                    { startChainFrom = Just tip
-                    }
-            withHydraNode tracer aliceChainConfig' tmp 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-              waitFor tracer 10 [n1] $
-                output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
-
-      it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
-        withTempDir "end-to-end-chain-observer" $ \tmp ->
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
-            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-
-            (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-            (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
-
-            seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-            seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-
-            tip <- queryTip networkId nodeSocket
-            let startFromTip x = x{startChainFrom = Just tip}
-
-            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Bob] <&> startFromTip
-            bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice] <&> startFromTip
-
-            let aliceNodeId = 1
-                bobNodeId = 2
-                allNodesIds = [aliceNodeId, bobNodeId]
-                withAliceNode = withHydraNode tracer aliceChainConfig tmp aliceNodeId aliceSk [bobVk] allNodesIds hydraScriptsTxId
-                withBobNode = withHydraNode tracer bobChainConfig tmp bobNodeId bobSk [aliceVk] allNodesIds hydraScriptsTxId
-
-            withAliceNode $ \n1 -> do
-              withBobNode $ \n2 -> do
-                waitForNodesConnected tracer [n1, n2]
-
-                let contestationPeriod = 10 :: Natural
-                send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
-                waitFor tracer 10 [n1, n2] $
-                  output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
-
-                committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
-                send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
-                send n2 $ input "Commit" ["utxo" .= Object mempty]
-                waitFor tracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice]
-
-                -- Create an arbitrary transaction using some input.
-                let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
-                let Right tx =
-                      mkSimpleTx
-                        firstCommittedUTxO
-                        (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
-                        aliceCardanoSk
-                send n1 $ input "NewTx" ["transaction" .= tx]
-
-                waitMatch 10 n1 $ \v -> do
-                  guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-
-              -- NOTE: Need to clear state on disk to have bob close with
-              -- initial snapshot
-              removeDirectoryRecursive $ tmp </> "state-" <> show bobNodeId
-
-              withBobNode $ \n2 -> do
-                waitMatch 10 n2 $ \v -> do
-                  guard $ v ^? key "tag" == Just "HeadIsOpen"
-
-                send n2 $ input "Close" []
-
-                let isHeadClosedWith0 v = do
-                      guard $ v ^? key "tag" == Just "HeadIsClosed"
-                      snapshotNumber <- v ^? key "snapshotNumber"
-                      guard $ snapshotNumber == toJSON (0 :: Word)
-                waitMatch 10 n1 isHeadClosedWith0
-                waitMatch 10 n2 isHeadClosedWith0
-
-                waitFor tracer 10 [n1, n2] $ output "HeadIsContested" ["snapshotNumber" .= (1 :: Word)]
-
-    describe "two hydra heads scenario" $ do
-      it "two heads on the same network do not conflict" $ \tracer ->
-        failAfter 60 $
-          withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
-              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              concurrently_
-                (initAndClose tracer 0 hydraScriptsTxId node)
-                (initAndClose tracer 1 hydraScriptsTxId node)
-
-      it "bob cannot abort alice's head" $ \tracer -> do
-        failAfter 60 $
-          withTempDir "end-to-end-two-heads" $ \tmpDir -> do
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
-              (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
-              (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
-              aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket []
-              bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice]
-              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] allNodeIds hydraScriptsTxId $ \n1 ->
-                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds hydraScriptsTxId $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
                   seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
                   seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+                  seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+
+                  let contestationPeriod = 2 :: Natural
+
+                  send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                  waitFor tracer 10 [n1, n2, n3] $
+                    output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
+
+                  -- Get some UTXOs to commit to a head
+                  committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
+                  committedUTxOByBob <- seedFromFaucet node bobCardanoVk bobCommittedToHead Normal (contramap FromFaucet tracer)
+                  send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
+                  send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
+                  send n3 $ input "Commit" ["utxo" .= Object mempty]
+
+                  let u0 = committedUTxOByAlice <> committedUTxOByBob
+
+                  waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0]
+
+                  send n1 $ input "Close" []
+                  deadline <- waitMatch 3 n1 $ \v -> do
+                    guard $ v ^? key "tag" == Just "HeadIsClosed"
+                    snapshotNumber <- v ^? key "snapshotNumber"
+                    guard $ snapshotNumber == Aeson.Number 0
+                    v ^? key "contestationDeadline" . _JSON
+
+                  -- Expect to see ReadyToFanout within 3 seconds after deadline
+                  remainingTime <- diffUTCTime deadline <$> getCurrentTime
+                  waitFor tracer (truncate $ remainingTime + 3) [n1] $
+                    output "ReadyToFanout" []
+
+                  send n1 $ input "Fanout" []
+                  waitFor tracer 3 [n1] $
+                    output "HeadIsFinalized" ["utxo" .= u0]
+
+      describe "restarting nodes" $ do
+        it "can abort head after restart" $ \tracer -> do
+          withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+              publishHydraScriptsAs node Faucet
+                >>= restartedNodeCanAbort tracer tmpDir node
+
+        it "can observe a commit tx after a restart, even when a tx happened while down" $ \tracer -> do
+          withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+              publishHydraScriptsAs node Faucet
+                >>= restartedNodeCanObserveCommitTx tracer tmpDir node
+
+        it "can start chain from the past and replay on-chain events" $ \tracer ->
+          withTempDir "end-to-end-chain-observer" $ \tmp ->
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
+              (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+              aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              let nodeId = 1
+              tip <- withHydraNode tracer aliceChainConfig tmp nodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+                seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+                tip <- queryTip networkId nodeSocket
+                let contestationPeriod = 10 :: Natural
+                send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                waitFor tracer 10 [n1] $
+                  output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+                return tip
+
+              -- REVIEW: Do we want to keep this --start-chain-from feature or
+              -- replace it with an event source load from persistence?
+
+              -- NOTE: Need to clear persistence as we would load the state and
+              -- not resynchronize from chain
+              removeDirectoryRecursive $ tmp </> "state-" <> show nodeId
+
+              let aliceChainConfig' =
+                    aliceChainConfig
+                      { startChainFrom = Just tip
+                      }
+              withHydraNode tracer aliceChainConfig' tmp 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+                waitFor tracer 10 [n1] $
+                  output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+
+        it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
+          withTempDir "end-to-end-chain-observer" $ \tmp ->
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+
+              (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+              (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
+
+              seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+              seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+
+              tip <- queryTip networkId nodeSocket
+              let startFromTip x = x{startChainFrom = Just tip}
+
+              aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Bob] <&> startFromTip
+              bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice] <&> startFromTip
+
+              let aliceNodeId = 1
+                  bobNodeId = 2
+                  allNodesIds = [aliceNodeId, bobNodeId]
+                  withAliceNode = withHydraNode tracer aliceChainConfig tmp aliceNodeId aliceSk [bobVk] allNodesIds hydraScriptsTxId
+                  withBobNode = withHydraNode tracer bobChainConfig tmp bobNodeId bobSk [aliceVk] allNodesIds hydraScriptsTxId
+
+              withAliceNode $ \n1 -> do
+                withBobNode $ \n2 -> do
+                  waitForNodesConnected tracer [n1, n2]
 
                   let contestationPeriod = 10 :: Natural
                   send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
-                  waitFor tracer 10 [n1] $
-                    output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
-
-                  -- Bob opens and immediately aborts a Head with Alice, iow pulls Alice in
-                  -- "his" Head
-                  send n2 $ input "Init" ["contestationPeriod" .= contestationPeriod]
-                  waitFor tracer 10 [n2] $
+                  waitFor tracer 10 [n1, n2] $
                     output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
 
-                  send n2 $ input "Abort" []
-                  waitFor tracer 10 [n2] $
-                    output "HeadIsAborted" ["utxo" .= Object mempty]
+                  committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
+                  send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
+                  send n2 $ input "Commit" ["utxo" .= Object mempty]
+                  waitFor tracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice]
 
-                  -- Alice should be able to continue working with her Head
-                  send n1 $ input "Commit" ["utxo" .= Object mempty]
-                  waitFor tracer 10 [n1] $
-                    output "HeadIsOpen" ["utxo" .= Object mempty]
+                  -- Create an arbitrary transaction using some input.
+                  let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
+                  let Right tx =
+                        mkSimpleTx
+                          firstCommittedUTxO
+                          (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
+                          aliceCardanoSk
+                  send n1 $ input "NewTx" ["transaction" .= tx]
 
-    describe "Monitoring" $ do
-      it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
-        withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
-          (aliceCardanoVk, _) <- keysFor Alice
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
-            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [Bob, Carol]
-            bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice, Carol]
-            carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket [Alice, Bob]
-            failAfter 20 $
-              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds hydraScriptsTxId $ \n1 ->
-                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds hydraScriptsTxId $ \n2 ->
-                  withHydraNode tracer carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds hydraScriptsTxId $ \n3 -> do
+                  waitMatch 10 n1 $ \v -> do
+                    guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+
+                -- NOTE: Need to clear state on disk to have bob close with
+                -- initial snapshot
+                removeDirectoryRecursive $ tmp </> "state-" <> show bobNodeId
+
+                withBobNode $ \n2 -> do
+                  waitMatch 10 n2 $ \v -> do
+                    guard $ v ^? key "tag" == Just "HeadIsOpen"
+
+                  send n2 $ input "Close" []
+
+                  let isHeadClosedWith0 v = do
+                        guard $ v ^? key "tag" == Just "HeadIsClosed"
+                        snapshotNumber <- v ^? key "snapshotNumber"
+                        guard $ snapshotNumber == toJSON (0 :: Word)
+                  waitMatch 10 n1 isHeadClosedWith0
+                  waitMatch 10 n2 isHeadClosedWith0
+
+                  waitFor tracer 10 [n1, n2] $ output "HeadIsContested" ["snapshotNumber" .= (1 :: Word)]
+
+      describe "two hydra heads scenario" $ do
+        it "two heads on the same network do not conflict" $ \tracer ->
+          failAfter 60 $
+            withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
+              withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+                hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+                concurrently_
+                  (initAndClose tracer 0 hydraScriptsTxId node)
+                  (initAndClose tracer 1 hydraScriptsTxId node)
+
+        it "bob cannot abort alice's head" $ \tracer -> do
+          failAfter 60 $
+            withTempDir "end-to-end-two-heads" $ \tmpDir -> do
+              withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
+                (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+                (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
+                aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket []
+                bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice]
+                hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+                withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] allNodeIds hydraScriptsTxId $ \n1 ->
+                  withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds hydraScriptsTxId $ \n2 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
                     seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-                    waitForNodesConnected tracer [n1, n2, n3]
-                    send n1 $ input "Init" ["contestationPeriod" .= int 10]
-                    waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
-                    metrics <- getMetrics n1
-                    metrics `shouldSatisfy` ("hydra_head_events" `BS.isInfixOf`)
+                    seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
-    describe "hydra-node executable" $ do
-      it "display proper semantic version given it is passed --version argument" $ \_ ->
-        failAfter 5 $ do
-          version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
-          version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
+                    let contestationPeriod = 10 :: Natural
+                    send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                    waitFor tracer 10 [n1] $
+                      output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
 
-      it "logs its command line arguments" $ \_ -> do
-        failAfter 60 $
-          withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
-            let hydraSK = dir </> "hydra.sk"
-            hydraSKey :: SigningKey HydraKey <- generate arbitrary
-            void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
-            withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
-              \_ (Just nodeOutput) _ _ -> do
-                out <- hGetLine nodeOutput
-                out ^? key "message" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
+                    -- Bob opens and immediately aborts a Head with Alice, iow pulls Alice in
+                    -- "his" Head
+                    send n2 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                    waitFor tracer 10 [n2] $
+                      output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
+
+                    send n2 $ input "Abort" []
+                    waitFor tracer 10 [n2] $
+                      output "HeadIsAborted" ["utxo" .= Object mempty]
+
+                    -- Alice should be able to continue working with her Head
+                    send n1 $ input "Commit" ["utxo" .= Object mempty]
+                    waitFor tracer 10 [n1] $
+                      output "HeadIsOpen" ["utxo" .= Object mempty]
+
+      describe "Monitoring" $ do
+        it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
+          withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
+            (aliceCardanoVk, _) <- keysFor Alice
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [Bob, Carol]
+              bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice, Carol]
+              carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket [Alice, Bob]
+              failAfter 20 $
+                withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds hydraScriptsTxId $ \n1 ->
+                  withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds hydraScriptsTxId $ \n2 ->
+                    withHydraNode tracer carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds hydraScriptsTxId $ \n3 -> do
+                      -- Funds to be used as fuel by Hydra protocol transactions
+                      seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+                      waitForNodesConnected tracer [n1, n2, n3]
+                      send n1 $ input "Init" ["contestationPeriod" .= int 10]
+                      waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
+                      metrics <- getMetrics n1
+                      metrics `shouldSatisfy` ("hydra_head_events" `BS.isInfixOf`)
+
+      describe "hydra-node executable" $ do
+        it "display proper semantic version given it is passed --version argument" $ \_ ->
+          failAfter 5 $ do
+            version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
+            version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
+
+        it "logs its command line arguments" $ \_ -> do
+          failAfter 60 $
+            withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
+              let hydraSK = dir </> "hydra.sk"
+              hydraSKey :: SigningKey HydraKey <- generate arbitrary
+              void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
+              withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
+                \_ (Just nodeOutput) _ _ -> do
+                  out <- hGetLine nodeOutput
+                  out ^? key "message" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do

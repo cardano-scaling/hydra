@@ -24,7 +24,7 @@ import Test.QuickCheck (
  )
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   prop "fromList . toList roundtrips MT" prop_roundtripFromToList
   prop "can check membership of an element" prop_member
   prop "tree is balanced" prop_treeIsBalanced

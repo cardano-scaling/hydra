@@ -10,7 +10,7 @@ import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck ((==>))
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   describe "Ord" $ do
     prop "is transitive" $ \(x :: Party, y, z) ->
       x <= y && y <= z ==> x <= z

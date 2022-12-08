@@ -48,7 +48,7 @@ import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydra
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   context "end-to-end smoke tests" $ do
     around setupNodeAndTUI $ do
       it "starts & renders" $

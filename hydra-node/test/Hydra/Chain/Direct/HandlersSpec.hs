@@ -84,7 +84,7 @@ genTimeHandleWithSlotPastHorizon = do
   pure (timeHandle, horizonSlot + 1)
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   prop "roll forward results in Tick events" $
     monadicIO $ do
       (timeHandle, slot) <- pickBlind genTimeHandleWithSlotInsideHorizon
@@ -291,7 +291,6 @@ genSequenceOfObservableBlocks = do
     initTx <$ putNextBlock initTx
 
   stepCommits ::
-    -- | The init transaction
     Tx ->
     [ChainContext] ->
     StateT [Block] Gen [InitialState]

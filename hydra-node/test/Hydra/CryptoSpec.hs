@@ -15,7 +15,7 @@ import Test.QuickCheck (counterexample, forAll, shuffle, (=/=), (==>))
 import Test.QuickCheck.Instances.UnorderedContainers ()
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   specSigningKey
   specVerificationKey
   specSignature
