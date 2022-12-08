@@ -17,6 +17,7 @@ import Cardano.Ledger.Babbage.PParams (PParams)
 import Data.List (intersectBy)
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import GHC.Natural (wordToNatural)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (
   epochInfo,
@@ -29,6 +30,7 @@ import Hydra.Chain.Direct.Fixture (
  )
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -154,7 +156,7 @@ spec =
             forAll genScriptRegistry $ \scriptRegistry ->
               let params = HeadParameters cperiod (party : parties)
                   tx = initTx testNetworkId cardanoKeys params txIn
-               in case observeInitTx testNetworkId cardanoKeys party tx of
+               in case observeInitTx testNetworkId cardanoKeys cperiod party tx of
                     Just InitObservation{initials, threadOutput} -> do
                       let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
                           initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
@@ -193,6 +195,21 @@ spec =
                       property False
                         & counterexample "Failed to construct and observe init tx."
                         & counterexample (renderTx tx)
+
+      prop "Ignore InitTx with wrong contestation period" $
+        withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys -> do
+          i <- arbitrary `suchThat` (> 0)
+          let params = HeadParameters cperiod (party : parties)
+              (UnsafeContestationPeriod cp) = cperiod
+              -- construct different/wrong CP
+              wrongCPeriod = UnsafeContestationPeriod $ cp + wordToNatural i
+              tx = initTx testNetworkId cardanoKeys params txIn
+          pure $ case observeInitTx testNetworkId cardanoKeys wrongCPeriod party tx of
+            Just InitObservation{} -> do
+              property False
+                & counterexample "Failed to ignore init tx with the wrong contestation period."
+                & counterexample (renderTx tx)
+            Nothing -> property True
 
 ledgerPParams :: PParams LedgerEra
 ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams

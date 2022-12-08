@@ -569,15 +569,18 @@ data InitObservation = InitObservation
 observeInitTx ::
   NetworkId ->
   [VerificationKey PaymentKey] ->
+  -- | Our node's contestation period
+  ContestationPeriod ->
   Party ->
   Tx ->
   Maybe InitObservation
-observeInitTx networkId cardanoKeys party tx = do
+observeInitTx networkId cardanoKeys ourNode'sCP party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   parties <- mapM partyFromChain ps
   let contestationPeriod = fromChain cp
+  guard $ ourNode'sCP == contestationPeriod
   guard $ party `elem` parties
   (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
