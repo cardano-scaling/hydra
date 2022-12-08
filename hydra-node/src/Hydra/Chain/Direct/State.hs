@@ -863,7 +863,8 @@ genContestTx = do
   (u0, stOpen) <- genStOpen ctx
   confirmed <- genConfirmedSnapshot 0 u0 []
   cctx <- pickChainContext ctx
-  (startSlot, closePointInTime) <- genSlotWithPointInTimeFromCP 20
+  let (UnsafeContestationPeriod cp) = Hydra.Chain.Direct.State.contestationPeriod cctx
+  (startSlot, closePointInTime) <- genSlotWithPointInTimeFromCP $ fromIntegral cp
   let txClose = close cctx stOpen confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
@@ -923,7 +924,8 @@ genStClosed ctx utxo = do
           , utxo
           )
   cctx <- pickChainContext ctx
-  (startSlot, pointInTime) <- genSlotWithPointInTimeFromCP 20
+  let (UnsafeContestationPeriod cp) = Hydra.Chain.Direct.State.contestationPeriod cctx
+  (startSlot, pointInTime) <- genSlotWithPointInTimeFromCP (fromIntegral cp)
   let txClose = close cctx stOpen snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 -- ** Danger zone
