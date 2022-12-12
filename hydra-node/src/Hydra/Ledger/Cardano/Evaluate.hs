@@ -269,7 +269,7 @@ genPointInTime = do
 -- is not higher than the cp
 genSlotWithPointInTimeFromCP :: Word64 -> Gen (SlotNo, (SlotNo, UTCTime))
 genSlotWithPointInTimeFromCP contestationPeriod = do
-  startSlot@(SlotNo start) <- SlotNo <$> (arbitrary `suchThat` (> 0))
+  startSlot@(SlotNo start) <- SlotNo <$> (arbitrary `suchThat` (> 0) `suchThat` (< 100))
   let end = start + abs contestationPeriod
   endSlot <- SlotNo <$> chooseWord64 (start, end)
   let time = slotNoToUTCTime endSlot

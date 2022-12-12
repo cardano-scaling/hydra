@@ -335,7 +335,7 @@ partyKeys =
 
 genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod = do
-  i :: Word <- arbitrary `suchThat` (> 0)
+  i :: Word <- arbitrary `suchThat` (> 0) `suchThat` (< 100)
   pure $ UnsafeContestationPeriod (fromIntegral i)
 
 -- * Running the model

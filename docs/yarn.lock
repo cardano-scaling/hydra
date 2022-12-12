@@ -2764,17 +2764,10 @@
     "lodash.memoize" "^4.1.2"
     "lodash.uniq" "^4.5.0"
 
-<<<<<<< HEAD
 caniuse-lite@^1.0.0, caniuse-lite@^1.0.30001297, caniuse-lite@^1.0.30001313:
   version "1.0.30001439"
   resolved "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001439.tgz"
   integrity sha512-1MgUzEkoMO6gKfXflStpYgZDlFM7M/ck/bgfVCACO5vnAf0fXoNVHdWtqGU+MYca+4bL9Z5bpOVmR33cWW9G2A==
-=======
-"caniuse-lite@^1.0.0", "caniuse-lite@^1.0.30001297", "caniuse-lite@^1.0.30001313":
-  "integrity" "sha512-0zaSO+TnCHtHJIbpLroX7nsD+vYuOVjl3uzFbJO1wMVbuveJA0RK2WcQA9ZUIOiO0/ArMiMgHJLxfEZhQiC0kw=="
-  "resolved" "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001314.tgz"
-  "version" "1.0.30001314"
->>>>>>> d91550ee (Add authors to docusaurus)
 
 "ccount@^1.0.0", "ccount@^1.0.3":
   "integrity" "sha512-vlNK021QdI7PNeiUh/lKkC/mNHHfV0m/Ad5JoI0TYtlBnJAslM/JIkm/tGC88bkLIwO6OQ5uV6ztS6kVAtCDlg=="

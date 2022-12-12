@@ -96,7 +96,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
   refuelIfNeeded tracer node Alice 100_000_000
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
-  let contestationPeriod = UnsafeContestationPeriod 2
+  let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket [] contestationPeriod
       <&> \config -> config{networkId, startChainFrom = Just tip}
