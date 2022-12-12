@@ -143,6 +143,20 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       _ -> error "getAdrrInfo failed.. do proper error handling"
 
   connect iomgr newBroadcastChannel app = do
+    -- NOTE: We start two concurrent threads, this one connecting to other peers
+    --       and the listen one, listening for other peers to connect.
+    --       When all nodes start at the same time, to be a good citizen, it
+    --       would be fair to first listen for the other peers to connect
+    --       before trying to connect to the other peers.
+    --       To give the listen thread a chance to listen before we try to
+    --       connect to peers, we introcude the following thread delay.
+    --       This delay is particularly usefull when testing and does not
+    --       hurt in the general case. Removing this thread delay would
+    --       make NetworkSpec tests take 10 seconds instead of 0.4s.
+    --       This is related to ipRetryDelay in Ouroboros.
+    --       See https://github.com/input-output-hk/ouroboros-network/blob/679c7da2079a5e9972a1c502b6a4d6af3eb76945/ouroboros-network-framework/src/Ouroboros/Network/Subscription/Worker.hs#L260
+    threadDelay 0.1
+
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     -- Using port number 0 to let the operating system pick a random port
