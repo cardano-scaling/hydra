@@ -76,8 +76,8 @@ been working on:
 An important part of the project right now is the formalization and
 audit preparation:
 
-- **Internal audit** has started with involvement of two persons from
-  Charles Morgan's team, each one addressing different part of Hydra:
+- **Internal audit** has started with involvement of two persons from IOG IT
+  team, each one addressing different part of Hydra:
 
   - One auditor is working on the project as a whole, targeting
     potential vulnerabilities with the off-chain code, the
@@ -106,7 +106,7 @@ audit preparation:
     - [https://github.com/rberenguel/tla_lightning](https://github.com/rberenguel/tla_lightning)
     - [https://www.amazon.com/Practical-TLA-Planning-Driven-Development/dp/1484238281](https://www.amazon.com/Practical-TLA-Planning-Driven-Development/dp/1484238281)
 
-  - This effort should be coordinated with Simon Thompson and the smart contracts team as part of the DApps certification process
+  - This effort should be done in accordance to the DApps certification process
 
 ## Product
 
@@ -144,9 +144,9 @@ Some notable developments this month have been:
 
 - **Inner source (IOG) contribution:** The education team has been working on a Hydra Tutorial and we have been involved in reviewing and trying it out. This is a great effort and will help people get started with Hydra. Thanks folks :green_heart:
 
-## Summit & workshop
+## Cardano Summit & workshop
 
-This month there was also the Cardano summit, this time organized by the
+This month there was also the Cardano Summit, this time organized by the
 Cardano Foundation and the content was even voted on by the community!
 We have been both, invited and nominated as panelist and speakers and
 this makes us extremely proud! In general, the reception of Hydra seems
@@ -183,7 +183,7 @@ happy to have produced these results:
 
 - **Impact map:** Conscious about the fact that the project got defined about one year ago in a first project plan, and inspired by timeline and (short-term) ideas, we also set off to reflect on the **Why**, **How** and **What** of this project.
 
-  After reviewing the project vision, we reached for the tool of our choice to ideate on tangible objectives / deliverables - impact maps! Also, we felt the need to use a different goal this time. One that is reflecting more closely (or, in fact, broadly) what our current mission is. So instead of the **99% of Cardano transactions are done through Hydra**, we set a new goal: being the **number one DApp on Cardano** (by all known metrics: TVL, traffic, volume etc..) Fundamentally, both goals illustrate the same idea, but the latter better supports the narrative that Hydra is also just a DApp (not a network upgrade) and needs usage & adoption to reach our vision.
+  After reviewing the project vision, we reached for the tool of our choice to ideate on tangible objectives / deliverables - impact maps! Also, we felt the need to use a different goal this time. One that is reflecting more closely (or, in fact, broadly) what our current mission is. So instead of the **% of Cardano transactions are done on L2**, we set a new goal: being the **number one DApp on Cardano** (by all known metrics: TVL, traffic, volume etc..) Fundamentally, both goals illustrate the same idea, but the latter better supports the narrative that Hydra is also just a DApp (not a network upgrade) and needs usage & adoption to reach our vision.
 
   Below you see the result of our session. We checked back to the old impact map after creating this one, and many things are still relevant / similar on the new sample (it's never complete!) - some of the deliverables we even achieved.
 
@@ -194,4 +194,4 @@ happy to have produced these results:
 
 # Conclusion
 
-Reflecting on our original plans (about a year ago) and our current roadmap we can say we are behind our anticipated schedule. However, recent developments on the lighthouse projects and various people contributing & using Hydra are convincing us that we are on the right track. The summit paints a similar picture and we feel reinvigorated by the great people we met, discussions we had and relationships we created & solidified on the Summit and during our Hydra workshop.
+Reflecting on our original plans (about a year ago) and our current roadmap we can say we are behind our anticipated schedule. However, recent developments on the lighthouse projects and community members contributing & using Hydra are convincing us that we are on the right track. The summit paints a similar picture and we feel reinvigorated by the great people we met, discussions we had and relationships we created & solidified on the summit and during our Hydra workshop.
