@@ -75,7 +75,7 @@ import Hydra.Options (defaultContestationPeriod, maximumNumberOfParties)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Test.Consensus.Cardano.Generators ()
-import Test.QuickCheck (counterexample, elements, frequency, resize, sized, suchThat, tabulate, vectorOf)
+import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), Realized, RunModel (..), StateModel (..))
 import qualified Prelude
@@ -335,7 +335,7 @@ partyKeys =
 
 genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod = do
-  i :: Word <- arbitrary `suchThat` (> 0) `suchThat` (< 100)
+  i :: Word <- choose (0, 100)
   pure $ UnsafeContestationPeriod (fromIntegral i)
 
 -- * Running the model
