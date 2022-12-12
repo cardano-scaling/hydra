@@ -182,11 +182,11 @@ genCloseMutation (tx, _utxo) =
         lb <- arbitrary
         ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
         pure (lb, ub)
-    -- -- try to change a tx so that lower bound is higher than the upper bound
-    -- , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
-    --     lb@(TxValidityLowerBound sb) <- arbitrary
-    --     ub <- arbitrary `suchThat` (< TxValidityUpperBound sb)
-    --     pure (lb, ub)
+    -- try to change a tx so that lower bound is higher than the upper bound
+    , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
+        lb <- arbitrary
+        ub <- arbitrary `suchThat` (< lb)
+        pure (TxValidityLowerBound lb, TxValidityUpperBound ub)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
