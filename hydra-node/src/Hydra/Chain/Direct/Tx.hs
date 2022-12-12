@@ -318,8 +318,8 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput =
       & addInputs [(headInput, headWitness)]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValidityUpperBound endSlotNo
       & setValidityLowerBound startSlotNo
+      & setValidityUpperBound endSlotNo
  where
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore)

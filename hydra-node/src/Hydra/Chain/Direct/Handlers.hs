@@ -243,7 +243,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
   pointInTime@(currentSlot, _) <- throwLeft currentPointInTime
   let (UnsafeContestationPeriod cpNatural) = contestationPeriod ctx
       -- we are using the contestationPeriod as tx close grace time. See ADR21 for context
-      closeGraceTime = SlotNo $ fromIntegral cpNatural
+      closeGraceTime = SlotNo $ fromIntegral $ cpNatural * 2
   case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
