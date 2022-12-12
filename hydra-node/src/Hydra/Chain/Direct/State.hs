@@ -25,6 +25,7 @@ import Hydra.Cardano.Api (
   NetworkMagic (NetworkMagic),
   PaymentKey,
   PlutusScript,
+  ScriptData,
   SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
   Tx,
@@ -292,28 +293,28 @@ commit ctx st utxo = do
       case UTxO.pairs utxo of
         [aUTxO] -> do
           rejectByronAddress aUTxO
-          Right $ commitTx networkId ownParty (Just aUTxO) initial
+          Right $ commitTx scriptRegistry networkId ownParty (Just aUTxO) initial
         [] -> do
-          Right $ commitTx networkId ownParty Nothing initial
+          Right $ commitTx scriptRegistry networkId ownParty Nothing initial
         _ ->
           Left (MoreThanOneUTxOCommitted @Tx)
  where
-  ChainContext{networkId, ownParty, ownVerificationKey} = ctx
+  ChainContext{networkId, ownParty, ownVerificationKey, scriptRegistry} = ctx
 
   InitialState
     { initialInitials
     , initialHeadTokenScript
     } = st
 
-  ownInitial :: Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
+  ownInitial :: Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey, ScriptData)
   ownInitial =
     foldl' go Nothing initialInitials
    where
     go (Just x) _ = Just x
-    go Nothing (i, out, _) = do
+    go Nothing (i, out, sd) = do
       let vkh = verificationKeyHash ownVerificationKey
       guard $ hasMatchingPT vkh (txOutValue out)
-      pure (i, out, vkh)
+      pure (i, out, vkh, sd)
 
   hasMatchingPT :: Hash PaymentKey -> Value -> Bool
   hasMatchingPT vkh val =

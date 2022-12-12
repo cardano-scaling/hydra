@@ -15,6 +15,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   SomeMutation (..),
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (commitTx, headPolicyId, mkInitialOutput)
 import Hydra.Ledger.Cardano (
   genAddressInEra,
@@ -36,12 +37,18 @@ healthyCommitTx =
   lookupUTxO =
     UTxO.singleton (initialInput, toUTxOContext initialOutput)
       <> UTxO.singleton healthyCommittedUTxO
+      <> registryUTxO scriptRegistry
   tx =
     commitTx
+      scriptRegistry
       Fixture.testNetworkId
       commitParty
       (Just healthyCommittedUTxO)
-      (initialInput, toUTxOContext initialOutput, initialPubKeyHash)
+      (initialInput, toUTxOContext initialOutput, initialPubKeyHash, scriptData)
+
+  scriptData = fromJust . getScriptData $ initialOutput
+
+  scriptRegistry = genScriptRegistry `generateWith` 42
 
   initialInput = generateWith arbitrary 42
 
