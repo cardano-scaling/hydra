@@ -177,13 +177,14 @@ genCloseMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
-    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0 <$> mutateClosedContestationDeadline
+    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0 <$> mutateClosedContestationDeadline Nothing
+    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0 <$> mutateClosedContestationDeadline (Just 0)
     , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
         ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
         pure (lb, ub)
-    -- try to change a tx so that lower bound is higher than the upper bound
-    , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
+    , -- try to change a tx so that lower bound is higher than the upper bound
+      SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
         ub <- arbitrary `suchThat` (< lb)
         pure (TxValidityLowerBound lb, TxValidityUpperBound ub)
@@ -212,12 +213,12 @@ genCloseMutation (tx, _utxo) =
         , contestationDeadline
         }
     st -> error $ "unexpected state " <> show st
-
-  mutateClosedContestationDeadline :: Gen (TxOut CtxTx)
-  mutateClosedContestationDeadline = do
+  -- In case contestation period param is 'Nothing' we will generate arbitrary value
+  mutateClosedContestationDeadline :: Maybe Integer -> Gen (TxOut CtxTx)
+  mutateClosedContestationDeadline mCP = do
     -- NOTE: we need to be sure the generated contestation period is large enough to have an impact on the on-chain
     -- deadline computation, which means having a resolution of seconds instead of the default picoseconds
-    contestationPeriodSeconds <- arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds)
+    contestationPeriodSeconds <- maybe (arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds)) pure mCP
     pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
 
   mutateContestationDeadline contestationPeriod = \case
