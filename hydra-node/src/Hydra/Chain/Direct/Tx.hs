@@ -174,9 +174,9 @@ commitTx ::
   Maybe (TxIn, TxOut CtxUTxO) ->
   -- | The initial output (sent to each party) which should contain the PT and is
   -- locked by initial script
-  (TxIn, TxOut CtxUTxO, Hash PaymentKey, ScriptData) ->
+  (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
   Tx
-commitTx scriptRegistry networkId party utxo (initialInput, out, vkh, sd) =
+commitTx scriptRegistry networkId party utxo (initialInput, out, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(initialInput, initialWitness)]
@@ -194,7 +194,7 @@ commitTx scriptRegistry networkId party utxo (initialInput, out, vkh, sd) =
   initialScriptRef =
     fst (initialReference scriptRegistry)
   initialDatum =
-    ScriptDatumForTxIn sd
+    mkScriptDatum $ Initial.datum ()
   initialRedeemer =
     toScriptData . Initial.redeemer $
       Initial.ViaCommit (toPlutusTxOutRef <$> mCommittedInput)

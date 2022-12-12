@@ -25,7 +25,6 @@ import Hydra.Cardano.Api (
   NetworkMagic (NetworkMagic),
   PaymentKey,
   PlutusScript,
-  ScriptData,
   SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
   Tx,
@@ -306,15 +305,15 @@ commit ctx st utxo = do
     , initialHeadTokenScript
     } = st
 
-  ownInitial :: Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey, ScriptData)
+  ownInitial :: Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
   ownInitial =
     foldl' go Nothing initialInitials
    where
     go (Just x) _ = Just x
-    go Nothing (i, out, sd) = do
+    go Nothing (i, out, _) = do
       let vkh = verificationKeyHash ownVerificationKey
       guard $ hasMatchingPT vkh (txOutValue out)
-      pure (i, out, vkh, sd)
+      pure (i, out, vkh)
 
   hasMatchingPT :: Hash PaymentKey -> Value -> Bool
   hasMatchingPT vkh val =

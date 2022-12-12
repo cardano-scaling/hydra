@@ -44,9 +44,7 @@ healthyCommitTx =
       Fixture.testNetworkId
       commitParty
       (Just healthyCommittedUTxO)
-      (initialInput, toUTxOContext initialOutput, initialPubKeyHash, scriptData)
-
-  scriptData = fromJust . getScriptData $ initialOutput
+      (initialInput, toUTxOContext initialOutput, initialPubKeyHash)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
