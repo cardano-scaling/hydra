@@ -71,7 +71,7 @@ import Hydra.Node (
   queryHeadState,
   runHydraNode,
  )
-import Hydra.Options (defaultContestationPeriod, maximumNumberOfParties)
+import Hydra.Options (maximumNumberOfParties)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Test.Consensus.Cardano.Generators ()
@@ -186,7 +186,9 @@ instance StateModel WorldState where
       Open{} -> genNewTx
       _ -> genSeed
    where
-    genSeed = fmap Some $ Seed <$> resize maximumNumberOfParties partyKeys <*> genContestationPeriod
+    genSeed =
+      fmap Some $ Seed <$> resize maximumNumberOfParties partyKeys <*> genContestationPeriod
+
     genInit = do
       key <- fst <$> elements hydraParties
       let party = deriveParty key
@@ -412,13 +414,12 @@ instance
 
   perform st command _ = do
     case command of
-      Seed{seedKeys} ->
-        seedWorld seedKeys
+      Seed{seedKeys, seedContestationPeriod} ->
+        seedWorld seedKeys seedContestationPeriod
       Commit party utxo ->
         performCommit (snd <$> hydraParties st) party utxo
       NewTx party transaction ->
         performNewTx party transaction
-      -- TODO: seems that contestationPeriod is redundant here?
       Init party ->
         party `sendsInput` Input.Init
       Abort party -> do
@@ -445,8 +446,9 @@ seedWorld ::
   , MonadLabelledSTM m
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
+  ContestationPeriod ->
   RunMonad m ()
-seedWorld seedKeys = do
+seedWorld seedKeys seedCP = do
   let parties = map (deriveParty . fst) seedKeys
       dummyNodeState =
         NodeState
@@ -467,7 +469,7 @@ seedWorld seedKeys = do
       labelTVarIO nodes ("history-" <> shortLabel hsk)
       let party = deriveParty hsk
           otherParties = filter (/= party) parties
-      node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain defaultContestationPeriod
+      node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain seedCP
       let testNode = createTestHydraNode outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
       pure (party, testNode, nodeThread)
@@ -661,3 +663,8 @@ isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (She
     (PaymentCredentialByKey ha) -> verificationKeyHash (getVerificationKey sk) == ha
     _ -> False
 isOwned _ _ = False
+
+genContestationPeriod :: Gen ContestationPeriod
+genContestationPeriod = do
+  i :: Word <- choose (0, 100)
+  pure (UnsafeContestationPeriod $ fromIntegral i)
