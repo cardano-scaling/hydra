@@ -70,7 +70,7 @@ import Options.Applicative (
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
-import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
+import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
 
 data Command
   = Run RunOptions
@@ -282,7 +282,7 @@ instance Arbitrary ChainConfig where
     cardanoSigningKey <- genFilePath ".sk"
     cardanoVerificationKeys <- reasonablySized (listOf (genFilePath ".vk"))
     startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
-    contestationPeriod <- arbitrary
+    contestationPeriod <- arbitrary `suchThat` (> UnsafeContestationPeriod 0)
     pure $
       DirectChainConfig
         { networkId
