@@ -73,14 +73,14 @@ import Test.QuickCheck.Monadic (
 
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotInsideHorizon = do
-  (systemStart, eraHistory, horizonSlot, currentTime) <- genTimeParams
-  let timeHandle = mkTimeHandle currentTime systemStart eraHistory
+  (systemStart, eraHistory, horizonSlot, currentSlot) <- genTimeParams
+  let timeHandle = mkTimeHandle currentSlot systemStart eraHistory
   pure (timeHandle, horizonSlot - 1)
 
 genTimeHandleWithSlotPastHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotPastHorizon = do
-  (systemStart, eraHistory, horizonSlot, currentTime) <- genTimeParams
-  let timeHandle = mkTimeHandle currentTime systemStart eraHistory
+  (systemStart, eraHistory, horizonSlot, currentSlot) <- genTimeParams
+  let timeHandle = mkTimeHandle currentSlot systemStart eraHistory
   pure (timeHandle, horizonSlot + 1)
 
 spec :: Spec
@@ -291,7 +291,6 @@ genSequenceOfObservableBlocks = do
     initTx <$ putNextBlock initTx
 
   stepCommits ::
-    -- | The init transaction
     Tx ->
     [ChainContext] ->
     StateT [Block] Gen [InitialState]

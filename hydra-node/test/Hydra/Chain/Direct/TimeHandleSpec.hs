@@ -21,10 +21,10 @@ spec = do
             pure $ res === slot
 
   it "should convert slot within latest/current era" $ do
-    let now = posixSecondsToUTCTime 13.4
+    let currentSlotNo = SlotNo 10
         systemStart = SystemStart $ posixSecondsToUTCTime 0
         eraHistory = eraHistoryWithHorizonAt 15
-        timeHandle = mkTimeHandle now systemStart eraHistory
+        timeHandle = mkTimeHandle currentSlotNo systemStart eraHistory
         slotInside = SlotNo 14
         converted = slotToUTCTime timeHandle slotInside
         expected = Right $ posixSecondsToUTCTime 14

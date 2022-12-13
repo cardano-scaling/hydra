@@ -235,7 +235,7 @@ instance StateModel WorldState where
         cardanoKeys = map (getVerificationKey . signingKey . snd) seedKeys
         idleContestationPeriod = seedContestationPeriod
       --
-      Init _ ->
+      Init{} ->
         WorldState{hydraParties, hydraState = mkInitialState hydraState}
        where
         mkInitialState = \case
