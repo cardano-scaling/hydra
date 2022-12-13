@@ -61,13 +61,13 @@ jobs:
 
     - name: 🔨 Build
       run: |
-        nix develop .#ci --command 'cabal update'
-        nix develop .#ci --command 'cabal build ${{ matrix.package }}'
+        nix develop .#ci --command bash -c "cabal update"
+        nix develop .#ci --command bash -c "cabal build ${{ matrix.package }}"
 
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
-        nix develop .#ci --command 'cabal test ${{ matrix.package }}'
+        nix develop .#ci --command bash -c "cabal test ${{ matrix.package }}"
 
     - name: ❓ Test (TUI)
       id: test_tui
@@ -81,7 +81,7 @@ jobs:
       # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
       continue-on-error: true
       run: |
-        nix develop .#ci --command 'cabal test ${{ matrix.package }}'
+        nix develop .#ci --command bash -c "cabal test ${{ matrix.package }}"
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
@@ -200,12 +200,12 @@ jobs:
 
     - name: 📈 Benchmark
       run: |
-        nix develop .#ci --command 'cabal bench ${{ matrix.bench }} --benchmark-options "${{ matrix.options }}"'
+        nix develop .#ci --command bash -c "cabal bench ${{ matrix.bench }} --benchmark-options ${{ matrix.options }}"
 
     - name: 📚 Documentation (Haddock)
       run: |
-        nix develop .#ci --command 'cabal update'
-        nix develop .#ci --command '.github/workflows/ci-haddock.sh'
+        nix develop .#ci --command bash -c "cabal update"
+        nix develop .#ci --command bash -c ".github/workflows/ci-haddock.sh"
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
