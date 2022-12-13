@@ -1,14 +1,14 @@
 ---
-slug: 21
+slug: 22
 title: |
-  21. Test High-level Properties using Model-Based Testing
+  22. Test High-level Properties using Model-Based Testing
 authors: []
-tags: [Proposed]
+tags: [Accepted]
 ---
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
