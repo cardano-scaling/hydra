@@ -570,16 +570,26 @@ contestationPeriodParser =
         <> showDefault
         <> completer (listCompleter ["60", "180", "300"])
         <> help
-          "Contestation period in seconds. \
+          "Contestation period expressed as positive number seconds. \
           \ If this value is not in sync with other participants hydra-node will ignore the initial tx.\
           \ Additionally, this value needs to make sense compared to the current network we are running."
     )
  where
+  -- Parses formats like "60" and "60s" interchangeably.
+  -- Provided argument needs to be higher than zero.
   contestationParser :: ReadM ContestationPeriod
-  contestationParser = eitherReader $ \s ->
-    case readMaybe s :: Maybe Natural of
-      Nothing -> Left $ "Malformed argument provided for contestation-period: " <> show s
-      Just a -> pure $ UnsafeContestationPeriod a
+  contestationParser = eitherReader $ \s -> do
+    let errorMsg = "Malformed argument provided for contestation-period: " <> s
+    eparsed <- maybe (Left errorMsg) (pure . Right) $ do
+      cpArgStr <-
+        case viaNonEmpty last s of
+          Just 's' -> viaNonEmpty init s
+          _ -> Just s
+      readMaybe cpArgStr
+    case eparsed of
+      Right 0 -> Left "contestation-period argument needs to be higher than zero"
+      Right a -> Right $ UnsafeContestationPeriod a
+      Left _ -> Left errorMsg
 
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded

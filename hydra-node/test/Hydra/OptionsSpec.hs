@@ -142,12 +142,24 @@ spec = parallel $
 
     it "parses --contestation-period option as a number of seconds" $ do
       shouldNotParse ["--contestation-period", "abc"]
-      setFlags ["--contestation-period", "60"]
+      shouldNotParse ["--contestation-period", "s"]
+      shouldNotParse ["--contestation-period", "0"]
+      shouldNotParse ["--contestation-period", "0s"]
+      shouldNotParse ["--contestation-period", "00s"]
+      setFlags ["--contestation-period", "60s"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
                   { contestationPeriod = UnsafeContestationPeriod 60
+                  }
+            }
+      setFlags ["--contestation-period", "300s"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                defaultChainConfig
+                  { contestationPeriod = UnsafeContestationPeriod 300
                   }
             }
 
