@@ -53,7 +53,7 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Committed (),
@@ -187,7 +187,7 @@ instance StateModel WorldState where
       _ -> genSeed
    where
     genSeed =
-      fmap Some $ Seed <$> resize maximumNumberOfParties partyKeys <*> genContestationPeriod
+      fmap Some $ Seed <$> resize maximumNumberOfParties partyKeys <*> arbitrary
 
     genInit = do
       key <- fst <$> elements hydraParties
@@ -663,8 +663,3 @@ isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (She
     (PaymentCredentialByKey ha) -> verificationKeyHash (getVerificationKey sk) == ha
     _ -> False
 isOwned _ _ = False
-
-genContestationPeriod :: Gen ContestationPeriod
-genContestationPeriod = do
-  i :: Word <- choose (0, 100)
-  pure (UnsafeContestationPeriod $ fromIntegral i)
