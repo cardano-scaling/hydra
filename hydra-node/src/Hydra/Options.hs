@@ -38,6 +38,7 @@ import Options.Applicative (
   Parser,
   ParserInfo,
   ParserResult (..),
+  ReadM,
   auto,
   command,
   completer,
@@ -300,7 +301,7 @@ chainConfigParser =
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
-    <*> (UnsafeContestationPeriod <$> contestationPeriodParser)
+    <*> contestationPeriodParser
 
 networkIdParser :: Parser NetworkId
 networkIdParser =
@@ -557,25 +558,28 @@ hydraNodeCommand =
       (long "script-info" <> help "Dump script info as JSON")
 
 defaultContestationPeriod :: ContestationPeriod
-defaultContestationPeriod = UnsafeContestationPeriod defaultContestationPeriod'
+defaultContestationPeriod = UnsafeContestationPeriod 3
 
-defaultContestationPeriod' :: Natural
-defaultContestationPeriod' = 3
-
-contestationPeriodParser :: Parser Natural
+contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
   option
-    auto
+    contestationParser
     ( long "contestation-period"
         <> metavar "CONTESTATION-PERIOD"
-        <> value defaultContestationPeriod'
+        <> value defaultContestationPeriod
         <> showDefault
-        <> completer (listCompleter ["1", "2", "42"])
+        <> completer (listCompleter ["60", "180", "300"])
         <> help
-          "Contestation period for close transaction. \
+          "Contestation period in seconds. \
           \ If this value is not in sync with other participants hydra-node will ignore the initial tx.\
           \ Additionally, this value needs to make sense compared to the current network we are running."
     )
+ where
+  contestationParser :: ReadM ContestationPeriod
+  contestationParser = eitherReader $ \s ->
+    case readMaybe s :: Maybe Natural of
+      Nothing -> Left $ "Malformed argument provided for contestation-period: " <> show s
+      Just a -> pure $ UnsafeContestationPeriod a
 
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded
