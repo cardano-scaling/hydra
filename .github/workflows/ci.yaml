@@ -200,7 +200,7 @@ jobs:
 
     - name: 📈 Benchmark
       run: |
-        nix develop .#ci --command bash -c "cabal bench ${{ matrix.bench }} --benchmark-options ${{ matrix.options }}"
+        nix develop .#ci --command bash -c "cabal bench ${{ matrix.bench }} '--benchmark-options ${{ matrix.options }}'"
 
     - name: 📚 Documentation (Haddock)
       run: |
