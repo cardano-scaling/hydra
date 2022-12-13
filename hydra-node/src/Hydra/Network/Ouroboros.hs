@@ -10,6 +10,7 @@ module Hydra.Network.Ouroboros (
   module Hydra.Network,
 ) where
 
+import Control.Monad.Class.MonadAsync (wait)
 import Hydra.Prelude
 
 import Codec.CBOR.Term (Term)
@@ -128,7 +129,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
   let newBroadcastChannel = atomically $ dupTChan bchan
   -- TODO: Factor this out, there should be only one IOManager per process.
   withIOManager $ \iomgr -> do
-    listen iomgr hydraServer $
+    withServerListening iomgr hydraServer $
       race_ (connect iomgr newBroadcastChannel hydraClient) $ do
         between $
           Network
@@ -182,7 +183,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
         , nctHandshakeTracer = nullTracer
         }
 
-  listen iomgr app continuation = do
+  withServerListening iomgr app continuation = do
     networkState <- newNetworkMutableState
     localAddr <- resolveSockAddr localHost
     -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
@@ -199,8 +200,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
         acceptableVersion
         (unversionedProtocol (SomeResponderApplication app))
         nullErrorPolicies
-        $ \_addr _serverAsync -> do
-          continuation
+        $ \_addr serverAsync -> do
+          race_ (wait serverAsync) continuation
    where
     networkServerTracers =
       NetworkServerTracers
