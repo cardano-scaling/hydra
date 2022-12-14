@@ -29,7 +29,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
   seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
   seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
-  let contestationPeriod = UnsafeContestationPeriod 1
+  let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket [Bob] contestationPeriod
       <&> \config -> (config :: ChainConfig){networkId}
@@ -60,7 +60,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
 restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
   refuelIfNeeded tracer cardanoNode Alice 100_000_000
-  let contestationPeriod = UnsafeContestationPeriod 1
+  let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket [] contestationPeriod
       -- we delibelately do not start from a chain point here to highlight the
@@ -96,7 +96,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
   refuelIfNeeded tracer node Alice 100_000_000
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
-  let contestationPeriod = UnsafeContestationPeriod 1
+  let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket [] contestationPeriod
       <&> \config -> config{networkId, startChainFrom = Just tip}

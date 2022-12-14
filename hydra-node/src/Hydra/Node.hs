@@ -71,7 +71,7 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys, chainConfig =
       { party = deriveParty sk
       , signingKey = sk
       , otherParties
-      , contestationPeriod = contestationPeriod
+      , contestationPeriod
       }
  where
   loadParty p =
