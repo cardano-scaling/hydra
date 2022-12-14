@@ -46,7 +46,7 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber (UnsafeSnapshotNumber))
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
@@ -574,13 +574,13 @@ observeInitTx ::
   Party ->
   Tx ->
   Maybe InitObservation
-observeInitTx networkId cardanoKeys ourNode'sCP party tx = do
+observeInitTx networkId cardanoKeys expectedCP party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   parties <- mapM partyFromChain ps
   let contestationPeriod = fromChain cp
-  guard $ ourNode'sCP == contestationPeriod
+  guard $ expectedCP == contestationPeriod
   guard $ party `elem` parties
   (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
@@ -781,7 +781,6 @@ observeCloseTx utxo tx = do
       closeContestationDeadline <- case fromData (toPlutusData newHeadDatum) of
         Just Head.Closed{contestationDeadline} -> pure contestationDeadline
         _ -> Nothing
-      sn <- integerToNatural onChainSnapshotNumber
       pure
         CloseObservation
           { threadOutput =
@@ -795,7 +794,7 @@ observeCloseTx utxo tx = do
                 , closedContestationDeadline = closeContestationDeadline
                 }
           , headId
-          , snapshotNumber = UnsafeSnapshotNumber sn
+          , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
           }
     _ -> Nothing
  where
@@ -825,7 +824,6 @@ observeContestTx utxo tx = do
     (Head.Closed{}, Head.Contest{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
-      sn <- integerToNatural onChainSnapshotNumber
       pure
         ContestObservation
           { contestedThreadOutput =
@@ -834,7 +832,7 @@ observeContestTx utxo tx = do
               , newHeadDatum
               )
           , headId
-          , snapshotNumber = UnsafeSnapshotNumber sn
+          , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
           }
     _ -> Nothing
  where
