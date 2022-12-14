@@ -56,7 +56,7 @@ const config = {
           blogSidebarTitle: "Architectural Decision Records",
           blogSidebarCount: "ALL",
           sortPosts: "ascending",
-          authorsMapPath: "authors.yml",
+          authorsMapPath: "../authors.yaml",
         },
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
