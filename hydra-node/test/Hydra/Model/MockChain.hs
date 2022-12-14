@@ -33,6 +33,7 @@ import qualified Hydra.Chain.Direct.State as S
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Environment (party),
@@ -51,7 +52,6 @@ import Hydra.Node (
   createNodeState,
   putEvent,
  )
-import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..), deriveParty)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -72,8 +72,9 @@ mockChainAndNetwork ::
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   [Party] ->
   TVar m [MockHydraNode m] ->
+  ContestationPeriod ->
   m (ConnectToChain Tx m, Async m ())
-mockChainAndNetwork tr seedKeys _parties nodes = do
+mockChainAndNetwork tr seedKeys _parties nodes cp = do
   queue <- newTQueueIO
   labelTQueueIO queue "chain-queue"
   tickThread <- async (labelThisThread "chain" >> simulateTicks queue)
@@ -99,7 +100,7 @@ mockChainAndNetwork tr seedKeys _parties nodes = do
                           { initialReference = (txIn, txOut)
                           , commitReference = (txIn, txOut)
                           }
-                , contestationPeriod = defaultContestationPeriod
+                , contestationPeriod = cp
                 }
             chainState =
               S.ChainStateAt
