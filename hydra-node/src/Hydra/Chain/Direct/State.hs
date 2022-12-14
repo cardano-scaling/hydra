@@ -86,7 +86,7 @@ import Hydra.Chain.Direct.Tx (
   observeFanoutTx,
   observeInitTx,
  )
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
@@ -850,10 +850,9 @@ genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen) <- genStOpen ctx
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
-  let (UnsafeContestationPeriod cp) = ctxContestationPeriod ctx
-      contestationPeriodSlotNo = fromIntegral cp
+  let cp = ctxContestationPeriod ctx
   cctx <- pickChainContext ctx
-  (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod contestationPeriodSlotNo
+  (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   -- XXX: The difference between startSlot and pointInTime needs to be <= contestationPeriod
   pure (cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
 
@@ -863,8 +862,8 @@ genContestTx = do
   (u0, stOpen) <- genStOpen ctx
   confirmed <- genConfirmedSnapshot 0 u0 []
   cctx <- pickChainContext ctx
-  let (UnsafeContestationPeriod cp) = Hydra.Chain.Direct.State.contestationPeriod cctx
-  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod $ fromIntegral cp
+  let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
   let txClose = close cctx stOpen confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
@@ -918,8 +917,8 @@ genStClosed ctx utxo = do
           , utxo
           )
   cctx <- pickChainContext ctx
-  let (UnsafeContestationPeriod cp) = Hydra.Chain.Direct.State.contestationPeriod cctx
-  (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod (fromIntegral cp)
+  let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
+  (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let txClose = close cctx stOpen snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 -- ** Danger zone

@@ -13,6 +13,7 @@ import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadOutput)
+import Hydra.ContestationPeriod (fromChain)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
@@ -51,7 +52,7 @@ healthyCloseTx =
   -- since if tx validity bound difference is bigger than contestation period our close validator
   -- will fail
   (startSlot, pointInTime) =
-    genValidityBoundsFromContestationPeriod (fromInteger healthyContestationPeriodSeconds) `generateWith` 42
+    genValidityBoundsFromContestationPeriod (fromChain healthyContestationPeriod) `generateWith` 42
 
   headResolvedInput =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum

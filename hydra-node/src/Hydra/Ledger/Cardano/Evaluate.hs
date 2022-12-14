@@ -56,6 +56,7 @@ import Hydra.Cardano.Api (
   toLedgerExUnits,
   toLedgerPParams,
  )
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
@@ -266,11 +267,12 @@ genPointInTime = do
 
 -- | Parameter here is the contestation period (cp) so we need to generate
 -- start (tMin) and end (tMax) tx validity bound such that their difference
--- is not higher than the cp
-genValidityBoundsFromContestationPeriod :: Word64 -> Gen (SlotNo, (SlotNo, UTCTime))
-genValidityBoundsFromContestationPeriod contestationPeriod = do
+-- is not higher than the cp.
+-- Returned slots are tx validity bounds
+genValidityBoundsFromContestationPeriod :: ContestationPeriod -> Gen (SlotNo, (SlotNo, UTCTime))
+genValidityBoundsFromContestationPeriod (UnsafeContestationPeriod contestationPeriod) = do
   startSlot@(SlotNo start) <- SlotNo <$> choose (0, 100)
-  let end = start + abs contestationPeriod
+  let end = start + fromIntegral contestationPeriod
   endSlot <- SlotNo <$> chooseWord64 (start, end)
   let time = slotNoToUTCTime endSlot
   pure (startSlot, (endSlot, time))
