@@ -267,8 +267,8 @@ genPointInTime = do
 -- | Parameter here is the contestation period (cp) so we need to generate
 -- start (tMin) and end (tMax) tx validity bound such that their difference
 -- is not higher than the cp
-genSlotWithPointInTimeFromCP :: Word64 -> Gen (SlotNo, (SlotNo, UTCTime))
-genSlotWithPointInTimeFromCP contestationPeriod = do
+genValidityBoundsFromContestationPeriod :: Word64 -> Gen (SlotNo, (SlotNo, UTCTime))
+genValidityBoundsFromContestationPeriod contestationPeriod = do
   startSlot@(SlotNo start) <- SlotNo <$> choose (0, 100)
   let end = start + abs contestationPeriod
   endSlot <- SlotNo <$> chooseWord64 (start, end)

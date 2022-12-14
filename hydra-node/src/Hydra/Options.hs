@@ -570,7 +570,7 @@ contestationPeriodParser =
         <> showDefault
         <> completer (listCompleter ["60", "180", "300"])
         <> help
-          "Contestation period expressed as positive number seconds. \
+          "Contestation period for close transaction in seconds. \
           \ If this value is not in sync with other participants hydra-node will ignore the initial tx.\
           \ Additionally, this value needs to make sense compared to the current network we are running."
     )
@@ -670,7 +670,6 @@ toArgs
       <> argsLedgerConfig
    where
     (NodeId nId) = nodeId
-    (UnsafeContestationPeriod cp) = contestationPeriod
     isVerbose = \case
       Quiet -> ["--quiet"]
       _ -> []
@@ -691,7 +690,7 @@ toArgs
       ["--network-id", toArgNetworkId networkId]
         <> ["--node-socket", nodeSocket]
         <> ["--cardano-signing-key", cardanoSigningKey]
-        <> ["--contestation-period", show cp]
+        <> ["--contestation-period", show contestationPeriod]
         <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
         <> toArgStartChainFrom startChainFrom
 

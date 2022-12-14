@@ -20,7 +20,7 @@ import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genSlotWithPointInTimeFromCP, slotNoToUTCTime)
+import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod, slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
@@ -51,7 +51,7 @@ healthyCloseTx =
   -- since if tx validity bound difference is bigger than contestation period our close validator
   -- will fail
   (startSlot, pointInTime) =
-    genSlotWithPointInTimeFromCP (fromInteger healthyContestationPeriodSeconds) `generateWith` 42
+    genValidityBoundsFromContestationPeriod (fromInteger healthyContestationPeriodSeconds) `generateWith` 42
 
   headResolvedInput =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum

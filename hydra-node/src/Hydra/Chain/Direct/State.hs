@@ -91,7 +91,7 @@ import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genSlotWithPointInTimeFromCP, slotNoFromUTCTime)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (
@@ -853,7 +853,7 @@ genCloseTx numParties = do
   let (UnsafeContestationPeriod cp) = ctxContestationPeriod ctx
       contestationPeriodSlotNo = fromIntegral cp
   cctx <- pickChainContext ctx
-  (startSlot, pointInTime) <- genSlotWithPointInTimeFromCP contestationPeriodSlotNo
+  (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod contestationPeriodSlotNo
   -- XXX: The difference between startSlot and pointInTime needs to be <= contestationPeriod
   pure (cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
 
@@ -864,7 +864,7 @@ genContestTx = do
   confirmed <- genConfirmedSnapshot 0 u0 []
   cctx <- pickChainContext ctx
   let (UnsafeContestationPeriod cp) = Hydra.Chain.Direct.State.contestationPeriod cctx
-  (startSlot, closePointInTime) <- genSlotWithPointInTimeFromCP $ fromIntegral cp
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod $ fromIntegral cp
   let txClose = close cctx stOpen confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
@@ -919,7 +919,7 @@ genStClosed ctx utxo = do
           )
   cctx <- pickChainContext ctx
   let (UnsafeContestationPeriod cp) = Hydra.Chain.Direct.State.contestationPeriod cctx
-  (startSlot, pointInTime) <- genSlotWithPointInTimeFromCP (fromIntegral cp)
+  (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod (fromIntegral cp)
   let txClose = close cctx stOpen snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 -- ** Danger zone
