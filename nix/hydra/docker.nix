@@ -18,7 +18,6 @@ in
     name = "hydra-node";
     tag = "latest";
     created = "now";
-    fromImage = alpineFromDockerHub;
     copyToRoot = pkgs.buildEnv {
       name = "hydra-node-bin";
       paths = [ hydraPackages.hydra-node-static ];
