@@ -270,9 +270,9 @@ genPointInTime = do
 -- is not higher than the cp.
 -- Returned slots are tx validity bounds
 genValidityBoundsFromContestationPeriod :: ContestationPeriod -> Gen (SlotNo, (SlotNo, UTCTime))
-genValidityBoundsFromContestationPeriod (UnsafeContestationPeriod contestationPeriod) = do
-  startSlot@(SlotNo start) <- SlotNo <$> choose (0, 100)
-  let end = start + fromIntegral contestationPeriod
+genValidityBoundsFromContestationPeriod (UnsafeContestationPeriod cpSeconds) = do
+  startSlot@(SlotNo start) <- SlotNo <$> arbitrary
+  let end = start + fromIntegral cpSeconds
   endSlot <- SlotNo <$> chooseWord64 (start, end)
   let time = slotNoToUTCTime endSlot
   pure (startSlot, (endSlot, time))
