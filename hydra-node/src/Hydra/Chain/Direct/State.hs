@@ -850,10 +850,10 @@ genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen) <- genStOpen ctx
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
-  let cp = ctxContestationPeriod ctx
   cctx <- pickChainContext ctx
+  let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  -- XXX: The difference between startSlot and pointInTime needs to be <= contestationPeriod
+  -- The difference between startSlot and pointInTime needs to be <= contestationPeriod
   pure (cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)

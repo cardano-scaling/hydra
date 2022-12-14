@@ -40,7 +40,6 @@ import Hydra.Chain.Direct.State (
   pickChainContext,
   unsafeObserveInitAndCommits,
  )
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
@@ -209,8 +208,8 @@ computeFanOutCost = do
     (_committed, stOpen) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
-    let (UnsafeContestationPeriod cp) = contestationPeriod cctx
-    (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod (fromIntegral cp)
+    let cp = contestationPeriod cctx
+    (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
     let closeTx = close cctx stOpen snapshot startSlot closePoint
     let stClosed = snd . fromJust $ observeClose stOpen closeTx
     let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
