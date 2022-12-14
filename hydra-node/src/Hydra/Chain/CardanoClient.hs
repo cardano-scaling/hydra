@@ -19,6 +19,7 @@ type NodeSocket = FilePath
 data QueryException
   = QueryAcquireException AcquiringFailure
   | QueryEraMismatchException EraMismatch
+  | QueryNodeException Text
   deriving (Show)
 
 instance Eq QueryException where

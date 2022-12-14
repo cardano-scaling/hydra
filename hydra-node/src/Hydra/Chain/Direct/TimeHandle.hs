@@ -16,6 +16,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
 import Hydra.Chain.CardanoClient (
+  QueryException (QueryNodeException),
   QueryPoint (QueryAt),
   queryEraHistory,
   querySystemStart,
@@ -103,8 +104,7 @@ queryTimeHandle networkId socketPath = do
   eraHistory <- queryEraHistory networkId socketPath (QueryAt tip)
   currentTipSlot <-
     case tip of
-      -- TODO: use throwIO here
-      ChainPointAtGenesis -> error "Network is not synced!"
+      ChainPointAtGenesis -> throwIO $ QueryNodeException "Network is not synced yet!"
       ChainPoint slotNo _ -> pure slotNo
 
   pure $ mkTimeHandle currentTipSlot systemStart eraHistory
