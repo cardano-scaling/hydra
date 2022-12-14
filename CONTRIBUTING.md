@@ -91,7 +91,7 @@ From there you can:
 - Run `hoogle` for symbol & documentation lookup
 - Build the `hydra-node` using nix: `nix build .#hydra-node`
 - Build a statically linked `hydra-node` using nix: `nix build .#hydra-node-static`
-- Build the `hydra-node` docker image: `docker build . --target hydra-node`
+- Build the `hydra-node` docker image: `nix build .#docker.hydra-node`
 
 Also, some of us use [direnv](https://direnv.net/) and
 [nix-direnv](https://github.com/nix-community/nix-direnv) to automatically
