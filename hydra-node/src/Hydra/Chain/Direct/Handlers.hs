@@ -240,10 +240,15 @@ prepareTxToPost ::
   PostChainTx Tx ->
   STM m Tx
 prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
-  pointInTime@(currentSlot, _) <- throwLeft currentPointInTime
+  pointInTime@(currentSlot, currentTime) <- throwLeft currentPointInTime
   let (UnsafeContestationPeriod cpNatural) = contestationPeriod ctx
-      -- we are using the contestationPeriod as tx close grace time. See ADR21 for context
-      closeGraceTime = SlotNo $ fromIntegral cpNatural
+  -- calculate tx upper bound by using contestation period and current time. See ADR21 for context
+  txEndSlot <- throwLeft $ slotFromUTCTime $ addUTCTime (fromIntegral cpNatural) currentTime
+  -- closeGraceTime determins the tx validity.
+  -- Get the difference between tx upper bound and current slot to determine
+  -- for how many slots this tx is valid.
+  -- NB: Used in 'adjustPointInTime' to calculate tx upper bound.
+  let closeGraceTime = txEndSlot - currentSlot
   case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
