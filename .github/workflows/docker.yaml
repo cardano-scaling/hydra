@@ -36,6 +36,9 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v18
+
     - name: 📝 Prepare docker image metadata
       id: meta
       uses: docker/metadata-action@v4
@@ -46,15 +49,21 @@ jobs:
           unstable
           type=semver,pattern={{version}}
 
-    - name: 🔨 Build and maybe push
+    - name: 🔨 Build images using nix
+      run: |
+        nix build .#docker.${{ matrix.target }} && docker load < ./result
+        # Create a dummy Dockerfile to not build, but tag & label in next step
+        echo "FROM ${{matrix.target}}" > Dockerfile.dummy
+
+    - name: 📤 Maybe push
       uses: docker/build-push-action@v3
       with:
+        # Make sure to use the dummy docker file so we don't actually build
         context: .
+        file: Dockerfile.dummy
         # Only push images from master or release tags, unless it's about
         # 'hydraw' (which is not yet versioned)
         push: ${{ github.ref == 'refs/heads/master' || (github.ref_type == 'tag' && matrix.target != 'hydraw') }}
         target: ${{ matrix.target }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max

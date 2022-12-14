@@ -1,4 +1,5 @@
-# Docker images built from our packages
+# Docker images built from our packages. NOTE: These images don't include any
+# metadata, as this is only added by the Github workflow.
 
 { hydraPackages # as defined in packages.nix
 , system ? builtins.currentSystem
