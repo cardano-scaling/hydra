@@ -10,6 +10,7 @@ import Hydra.Prelude
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.Data (Data (Data))
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV2))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
@@ -258,12 +259,8 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
         needlesslyHighFee
 
   let newOutputs = outputs body <> StrictSeq.singleton (mkSized change)
-      langs =
-        [ getLanguageView pparams l
-        | (_hash, script) <- Map.toList (txscripts wits)
-        , (not . isNativeScript @LedgerEra) script
-        , Just l <- [language script]
-        ]
+      -- FIXME: NONONO.. use cardano-api instead of doing hard-coding this here
+      langs = [getLanguageView pparams (PlutusV2)]
       finalBody =
         body
           { inputs = inputs'
