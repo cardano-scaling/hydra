@@ -292,13 +292,13 @@ commit ctx st utxo = do
       case UTxO.pairs utxo of
         [aUTxO] -> do
           rejectByronAddress aUTxO
-          Right $ commitTx networkId ownParty (Just aUTxO) initial
+          Right $ commitTx scriptRegistry networkId ownParty (Just aUTxO) initial
         [] -> do
-          Right $ commitTx networkId ownParty Nothing initial
+          Right $ commitTx scriptRegistry networkId ownParty Nothing initial
         _ ->
           Left (MoreThanOneUTxOCommitted @Tx)
  where
-  ChainContext{networkId, ownParty, ownVerificationKey} = ctx
+  ChainContext{networkId, ownParty, ownVerificationKey, scriptRegistry} = ctx
 
   InitialState
     { initialInitials

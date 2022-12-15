@@ -26,6 +26,8 @@ changes.
   + Changed logs of `BeginInitialize` and `EndInitialize`.
   + Added `SkipUpdate` constructor to the wallet logs.
 
+- Reduce cost of `commitTx` by using the initial script as input reference.
+
 ## [0.8.1] - 2022-11-17
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:

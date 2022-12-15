@@ -165,6 +165,8 @@ mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 commitTx ::
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
   NetworkId ->
   Party ->
   -- | A single UTxO to commit to the Head
@@ -174,18 +176,23 @@ commitTx ::
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
   Tx
-commitTx networkId party utxo (initialInput, out, vkh) =
+commitTx scriptRegistry networkId party utxo (initialInput, out, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
-      & addInputs [(initialInput, initialWitness_)]
+      & addInputs [(initialInput, initialWitness)]
+      & addReferenceInputs [initialScriptRef]
       & addVkInputs (maybeToList mCommittedInput)
       & addExtraRequiredSigners [vkh]
       & addOutputs [commitOutput]
  where
-  initialWitness_ =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness initialScript initialDatum initialRedeemer
+  initialWitness =
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference initialScriptRef initialScript initialDatum initialRedeemer
   initialScript =
     fromPlutusScript @PlutusScriptV2 Initial.validatorScript
+  initialScriptRef =
+    fst (initialReference scriptRegistry)
   initialDatum =
     mkScriptDatum $ Initial.datum ()
   initialRedeemer =

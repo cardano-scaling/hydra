@@ -16,7 +16,8 @@ import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactio
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
 import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
-import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), getLanguageView, hashData, hashScriptIntegrity)
+import Cardano.Ledger.Babbage.Scripts (refScripts)
+import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), getLanguageView, hashData, hashScriptIntegrity, referenceInputs)
 import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, outputs', scriptIntegrityHash, txfee)
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger.Babbage
 import qualified Cardano.Ledger.BaseTypes as Ledger
@@ -141,7 +142,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
   pure
     TinyWallet
       { getUTxO
-      , getSeedInput = (fmap (fromLedgerTxIn . fst) . findFuelUTxO) <$> getUTxO
+      , getSeedInput = fmap (fromLedgerTxIn . fst) . findFuelUTxO <$> getUTxO
       , sign = Util.signWith sk
       , coverFee = \lookupUTxO partialTx -> do
           -- XXX: We should query pparams here. If not, we likely will have
@@ -239,8 +240,9 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
   let inputs' = inputs body <> Set.singleton input
   resolvedInputs <- traverse resolveInput (toList inputs')
 
+  let utxo = lookupUTxO <> walletUTxO
   estimatedScriptCosts <-
-    estimateScriptsCost pparams systemStart epochInfo (lookupUTxO <> walletUTxO) partialTx
+    estimateScriptsCost pparams systemStart epochInfo utxo partialTx
   let adjustedRedeemers =
         adjustRedeemers
           (inputs body)
@@ -258,11 +260,12 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
         needlesslyHighFee
 
   let newOutputs = outputs body <> StrictSeq.singleton (mkSized change)
+      referenceScripts = refScripts @LedgerEra (referenceInputs body) (Ledger.UTxO utxo)
       langs =
         [ getLanguageView pparams l
-        | (_hash, script) <- Map.toList (txscripts wits)
+        | (_hash, script) <- Map.toList $ Map.union (txscripts wits) referenceScripts
         , (not . isNativeScript @LedgerEra) script
-        , Just l <- [language script]
+        , l <- maybeToList (language script)
         ]
       finalBody =
         body
