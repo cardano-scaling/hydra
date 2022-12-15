@@ -29,7 +29,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
   seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
   seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
-  let contestationPeriod = UnsafeContestationPeriod 2
+  let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket [Bob] contestationPeriod
       <&> \config -> (config :: ChainConfig){networkId}
@@ -96,22 +96,22 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
   refuelIfNeeded tracer node Alice 100_000_000
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
-  let contestationPeriod = UnsafeContestationPeriod 2
+  let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket [] contestationPeriod
       <&> \config -> config{networkId, startChainFrom = Just tip}
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
-    waitFor tracer 10 [n1] $
+    waitFor tracer 600 [n1] $
       output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
     -- Commit nothing for now
     send n1 $ input "Commit" ["utxo" .= object mempty]
-    waitFor tracer 10 [n1] $
+    waitFor tracer 600 [n1] $
       output "HeadIsOpen" ["utxo" .= object mempty]
     -- Close head
     send n1 $ input "Close" []
-    deadline <- waitMatch 10 n1 $ \v -> do
+    deadline <- waitMatch 600 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       v ^? key "contestationDeadline" . _JSON
     -- Expect to see ReadyToFanout within 60 seconds after deadline.
