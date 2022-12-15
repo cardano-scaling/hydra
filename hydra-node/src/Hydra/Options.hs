@@ -12,7 +12,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.IP (IP (IPv4), toIPv4w)
 import Data.Text (unpack)
-import Data.Fixed (resolution)
 import qualified Data.Text as T
 import Data.Version (showVersion)
 import Data.Time.Clock (nominalDiffTimeToSeconds)
@@ -582,7 +581,7 @@ contestationPeriodParser =
     let s = nominalDiffTimeToSeconds dt
     if s <= 0
       then fail "negative contestation period"
-      else pure $ UnsafeContestationPeriod $ fromIntegral $ resolution s
+      else pure $ UnsafeContestationPeriod $ truncate s
 
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded

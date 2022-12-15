@@ -47,7 +47,6 @@ import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
--- TODO(SN): hardcoded contestation period used by the tui
 tuiContestationPeriod :: ContestationPeriod
 tuiContestationPeriod = UnsafeContestationPeriod 10
 
