@@ -265,11 +265,11 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
       pure $ collect ctx st
     (CloseTx{confirmedSnapshot}, Open st) -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
-      upperBound <- calculateTxEndSlot timeHandle currentTime
+      upperBound <- calculateTxEndSlot currentTime
       pure (close ctx st confirmedSnapshot currentSlot upperBound)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
       (_, currentTime) <- throwLeft currentPointInTime
-      upperBound <- calculateTxEndSlot timeHandle currentTime
+      upperBound <- calculateTxEndSlot currentTime
       pure (contest ctx st confirmedSnapshot upperBound)
     (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
@@ -282,9 +282,9 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
   TimeHandle{currentPointInTime, slotFromUTCTime} = timeHandle
 
   -- calculate tx upper bound by using contestation period and current time. See ADR21 for context
-  calculateTxEndSlot th currentTime = throwLeft $ do
-    endSlot <- slotFromUTCTime $ addUTCTime (toNominalDiffTime $ contestationPeriod ctx) currentTime
-    time <- slotToUTCTime th endSlot
+  calculateTxEndSlot currentTime = throwLeft $ do
+    let time = addUTCTime (toNominalDiffTime $ contestationPeriod ctx) currentTime
+    endSlot <- slotFromUTCTime time
     pure (endSlot, time)
 
 --
