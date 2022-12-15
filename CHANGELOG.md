@@ -28,6 +28,12 @@ changes.
 
 - Reduce cost of `commitTx` by using the initial script as input reference.
 
+- Switched to using [nix flakes](https://nixos.wiki/wiki/Flakes):
+  + Allows us to use some CI services (cicero).
+  + Makes configuration of binary-caches easier to discover (you get asked about adding them).
+  + Will make bumping dependencies (e.g. cardano-node) easier.
+  + Build commands change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
+
 ## [0.8.1] - 2022-11-17
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
