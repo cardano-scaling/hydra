@@ -60,6 +60,7 @@ instance Arbitrary TimeHandle where
 -- | Construct a time handle using current time and given chain parameters. See
 -- 'queryTimeHandle' to create one by querying a cardano-node.
 mkTimeHandle ::
+  HasCallStack =>
   SlotNo ->
   SystemStart ->
   EraHistory CardanoMode ->

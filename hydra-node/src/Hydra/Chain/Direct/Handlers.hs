@@ -282,9 +282,9 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
   TimeHandle{currentPointInTime, slotFromUTCTime} = timeHandle
 
   -- calculate tx upper bound by using contestation period and current time. See ADR21 for context
-  calculateTxEndSlot currentTime = throwLeft $ do
+  calculateTxEndSlot currentTime = do
     let time = addUTCTime (toNominalDiffTime $ contestationPeriod ctx) currentTime
-    endSlot <- slotFromUTCTime time
+    endSlot <- throwLeft $ slotFromUTCTime time
     pure (endSlot, time)
 
 --
