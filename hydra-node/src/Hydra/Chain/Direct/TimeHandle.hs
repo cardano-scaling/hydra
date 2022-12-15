@@ -36,9 +36,6 @@ data TimeHandle = TimeHandle
   , -- | Convert a slot number to a 'UTCTime' using the stored epoch info. This
     -- will fail if the slot is outside the "safe zone".
     slotToUTCTime :: SlotNo -> Either Text UTCTime
-  , -- | Adjust a 'PointInTime' by some number of slots, positively or
-    -- negatively.
-    adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
   }
 
 -- | Generate consistent values for 'SystemStart' and 'EraHistory' which has
@@ -74,10 +71,6 @@ mkTimeHandle currentSlotNo systemStart eraHistory = do
         pure (currentSlotNo, pt)
     , slotFromUTCTime
     , slotToUTCTime
-    , adjustPointInTime = \n (slot, _) -> do
-        let adjusted = slot + n
-        time <- slotToUTCTime adjusted
-        pure (adjusted, time)
     }
  where
   slotToUTCTime :: HasCallStack => SlotNo -> Either Text UTCTime
