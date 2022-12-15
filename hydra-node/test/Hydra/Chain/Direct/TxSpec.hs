@@ -60,7 +60,7 @@ import Test.QuickCheck (
   property,
   suchThat,
   vectorOf,
-  withMaxSuccess,
+  withMaxSuccess, getPositive
  )
 import Test.QuickCheck.Instances.Semigroup ()
 
@@ -198,7 +198,7 @@ spec =
 
       prop "Ignore InitTx with wrong contestation period" $
         withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys -> do
-          i <- arbitrary `suchThat` (> 0)
+          i <- getPositive <$> arbitrary
           let params = HeadParameters cperiod (party : parties)
               (UnsafeContestationPeriod cp) = cperiod
               -- construct different/wrong CP
