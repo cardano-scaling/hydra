@@ -558,7 +558,7 @@ hydraNodeCommand =
       (long "script-info" <> help "Dump script info as JSON")
 
 defaultContestationPeriod :: ContestationPeriod
-defaultContestationPeriod = UnsafeContestationPeriod 3
+defaultContestationPeriod = UnsafeContestationPeriod 60
 
 contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
