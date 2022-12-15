@@ -12,8 +12,10 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.IP (IP (IPv4), toIPv4w)
 import Data.Text (unpack)
+import Data.Fixed (resolution)
 import qualified Data.Text as T
 import Data.Version (showVersion)
+import Data.Time.Clock (nominalDiffTimeToSeconds)
 import Hydra.Cardano.Api (
   AsType (AsTxId),
   ChainPoint (..),
@@ -38,7 +40,6 @@ import Options.Applicative (
   Parser,
   ParserInfo,
   ParserResult (..),
-  ReadM,
   auto,
   command,
   completer,
@@ -563,7 +564,7 @@ defaultContestationPeriod = UnsafeContestationPeriod 60
 contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
   option
-    contestationParser
+    (parseNatural <|> parseNominalDiffTime)
     ( long "contestation-period"
         <> metavar "CONTESTATION-PERIOD"
         <> value defaultContestationPeriod
@@ -575,21 +576,13 @@ contestationPeriodParser =
           \ Additionally, this value needs to make sense compared to the current network we are running."
     )
  where
-  -- Parses formats like "60" and "60s" interchangeably.
-  -- Provided argument needs to be higher than zero.
-  contestationParser :: ReadM ContestationPeriod
-  contestationParser = eitherReader $ \s -> do
-    let errorMsg = "Malformed argument provided for contestation-period: " <> s
-    eparsed <- maybe (Left errorMsg) (pure . Right) $ do
-      cpArgStr <-
-        case viaNonEmpty last s of
-          Just 's' -> viaNonEmpty init s
-          _ -> Just s
-      readMaybe cpArgStr
-    case eparsed of
-      Right 0 -> Left "contestation-period argument needs to be higher than zero"
-      Right a -> Right $ UnsafeContestationPeriod a
-      Left _ -> Left errorMsg
+  parseNatural = UnsafeContestationPeriod <$> auto
+
+  parseNominalDiffTime = auto >>= \dt -> do
+    let s = nominalDiffTimeToSeconds dt
+    if s <= 0
+      then fail "negative contestation period"
+      else pure $ UnsafeContestationPeriod $ fromIntegral $ resolution s
 
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded
