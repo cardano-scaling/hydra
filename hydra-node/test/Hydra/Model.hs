@@ -38,6 +38,7 @@ import Data.Map ((!))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
+import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
 import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, SnapshotConfirmed))
@@ -53,7 +54,7 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Committed (),
@@ -186,8 +187,7 @@ instance StateModel WorldState where
       Open{} -> genNewTx
       _ -> genSeed
    where
-    genSeed =
-      fmap Some $ Seed <$> resize maximumNumberOfParties partyKeys <*> arbitrary
+    genSeed = fmap Some $ Seed <$> resize maximumNumberOfParties partyKeys <*> genContestationPeriod
 
     genInit = do
       key <- fst <$> elements hydraParties
@@ -207,6 +207,10 @@ instance StateModel WorldState where
       pure . Some $ Abort party
 
     genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
+
+    genContestationPeriod = do
+      n <- choose (1, 100)
+      pure $ UnsafeContestationPeriod $ wordToNatural n
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
