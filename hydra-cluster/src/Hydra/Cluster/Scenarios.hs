@@ -131,6 +131,45 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
+-- | Initialize open and close a head on a real network and ensure contestation
+-- period longer than the time horizon is possible. For this it is enough that
+-- we can close a head and not wait for the deadline.
+canCloseWithLongContestationPeriod ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hydraScriptsTxId = do
+  refuelIfNeeded tracer node Alice 100_000_000
+  -- Start hydra-node on chain tip
+  tip <- queryTip networkId nodeSocket
+  let oneWeek = UnsafeContestationPeriod (60 * 60 * 24 * 7)
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket [] oneWeek
+      <&> \config -> config{networkId, startChainFrom = Just tip}
+  withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+    -- Initialize & open head
+    send n1 $ input "Init" []
+    waitFor tracer 600 [n1] $
+      output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+    -- Commit nothing for now
+    send n1 $ input "Commit" ["utxo" .= object mempty]
+    waitFor tracer 600 [n1] $
+      output "HeadIsOpen" ["utxo" .= object mempty]
+    -- Close head
+    send n1 $ input "Close" []
+    void $ waitMatch 600 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "HeadIsClosed"
+  traceRemainingFunds Alice
+ where
+  RunningNode{nodeSocket} = node
+
+  traceRemainingFunds actor = do
+    (actorVk, _) <- keysFor actor
+    (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
+    traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::
   Tracer IO EndToEndLog ->

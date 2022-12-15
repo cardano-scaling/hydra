@@ -52,7 +52,7 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Scenarios (
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
-  singlePartyHeadFullLifeCycle,
+  singlePartyHeadFullLifeCycle, canCloseWithLongContestationPeriod
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -99,6 +99,11 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyHeadFullLifeCycle tracer tmpDir node
+      it "can close with long deadline" $ \tracer -> do
+        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= canCloseWithLongContestationPeriod tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
