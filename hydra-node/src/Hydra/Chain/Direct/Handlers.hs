@@ -62,7 +62,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
@@ -239,16 +239,7 @@ prepareTxToPost ::
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
-  pointInTime@(currentSlot, currentTime) <- throwLeft currentPointInTime
-  let (UnsafeContestationPeriod cpNatural) = contestationPeriod ctx
-  -- calculate tx upper bound by using contestation period and current time. See ADR21 for context
-  txEndSlot <- throwLeft $ slotFromUTCTime $ addUTCTime (fromIntegral cpNatural) currentTime
-  -- closeGraceTime determins the tx validity.
-  -- Get the difference between tx upper bound and current slot to determine
-  -- for how many slots this tx is valid.
-  -- NB: Used in 'adjustPointInTime' to calculate tx upper bound.
-  let closeGraceTime = txEndSlot - currentSlot
+prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
   case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
@@ -273,10 +264,12 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
     (CollectComTx{}, Initial st) ->
       pure $ collect ctx st
     (CloseTx{confirmedSnapshot}, Open st) -> do
-      upperBound <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+      (currentSlot, currentTime) <- throwLeft currentPointInTime
+      upperBound <- calculateTxEndSlot timeHandle currentTime
       pure (close ctx st confirmedSnapshot currentSlot upperBound)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
-      upperBound <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
+      (_, currentTime) <- throwLeft currentPointInTime
+      upperBound <- calculateTxEndSlot timeHandle currentTime
       pure (contest ctx st confirmedSnapshot upperBound)
     (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
@@ -286,7 +279,13 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure
 
-  TimeHandle{currentPointInTime, adjustPointInTime, slotFromUTCTime} = timeHandle
+  TimeHandle{currentPointInTime, slotFromUTCTime} = timeHandle
+
+  -- calculate tx upper bound by using contestation period and current time. See ADR21 for context
+  calculateTxEndSlot th currentTime = throwLeft $ do
+    endSlot <- slotFromUTCTime $ addUTCTime (toNominalDiffTime $ contestationPeriod ctx) currentTime
+    time <- slotToUTCTime th endSlot
+    pure (endSlot, time)
 
 --
 -- Helpers
