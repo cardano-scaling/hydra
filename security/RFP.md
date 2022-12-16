@@ -18,7 +18,6 @@ The Hydra Head protocol is implemented in the `hydra-node`, which connects to th
  - Coordinated Hydra Head V1 Specification
  - Hydra plutus scripts (on-chain code)
  - Hydra node chain layer code (off-chain code)
- - Hydra node layer 2 code (L2 code)
 
 As described in the following figure, the main entry points of a Hydra node are:
 * The API through wich a client can connect to the node;
@@ -27,7 +26,7 @@ As described in the following figure, the main entry points of a Hydra node are:
  
 ![artifacts.png](artifacts.png)
 
-A detailed description of each of these artifacts can be found in the above section _Artifacts_.
+A detailed description of each of the artifacts relevant for this audit can be found in the above section _Artifacts_.
 
 For its operations, the hydra-node process relies on a cardano-node process and client processes can connect to the hydra-node process through API. Any assessment performed during this audit must be done under the following assumptions about the environment of the Hydra node implementation:
 * Organizational procedures for managing the hydra and cardano signing keys are trusted;
@@ -50,9 +49,9 @@ Broadly speaking, our goal is to ensure that the security properties proven in _
 Furthermore, we want to focus efforts on ensuring correctness and robustness of the _Hydra plutus scripts_ (on-chain code) as it is harder (or impossible) to fix in the field and attackers could side-step all measures but the on-chain code (i.e. use their own off-chain code).
 
 We are requesting proposals to assess the following statements, which will be detailed in the next sections:
-1. Coordinated Hydra Head V1 specification proofs are sound
-2. Hydra plutus scripts (on-chain code) are consistent with Hydra Head V1 specification and immune to common Cardano smart-contract weaknesses
-3. Hydra node chain layer code generates transactions which are consistent with Hydra Head V1 specification
+1. Coordinated Hydra Head V1 specification proofs are sound.
+2. Hydra plutus scripts (on-chain code) are consistent with Hydra Head V1 specification and immune to common Cardano smart-contract weaknesses.
+3. Hydra node chain layer code generates transactions which are consistent with Hydra Head V1 specification.
 
 ### Coordinated Hydra Head V1 specification proofs are sound
 
@@ -98,12 +97,10 @@ Assess that the Hydra node chain layer code can only build transactions which ar
 
 The scope of this audit has been described in the above sections. What is not in scope is out of scope. In particular, the following items are out of scope of this audit:
 
-* Verify the whole original paper and its proofs.
-* Hydra node logic layer code is consistent with Hydra Head V1 specification
-* Hydra Head protocol implementation is immune to attacks via chain transactions
-* Hydra Head protocol implementation is immune to attacks via network
-* Hydra Head protocol implementation faithfully reflects the head state through the API
-* Hydra Head protocol implementation is immune to API attacks
+* Hydra Head protocol implementation is immune to attacks via chain transactions.
+* Hydra Head protocol implementation is immune to attacks via network.
+* Hydra Head protocol implementation faithfully reflects the head state through the API.
+* Hydra Head protocol implementation is immune to API attacks.
 * Any attack which would be invalid under the assumptions stated above in the document.
 
 ## Artifacts
@@ -115,7 +112,7 @@ This sections gives a detailed description of the aritfacts mentioned in this RF
 
 ### Artifact 1: Coordinated Hydra Head V1 Specification
 
-The Hydra Head protocol implementation derives from [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf) in several ways. Especially some simplification have been introduced and generalizations removed.
+The Hydra Head protocol implementation derives from [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf) in several ways. Especially some simplifications have been introduced and generalizations removed.
 
 The [Coordinated Hydra Head V1 specification](https://docs.google.com/document/d/1XQ0C7Ko3Ifo5a4TOcW1fDT8gMYryB54PCEgOiFaAwGE/) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
 
@@ -123,8 +120,8 @@ The [Coordinated Hydra Head V1 specification](https://docs.google.com/document/d
 
 With Hydra Head Protocol Implementation we refer to the software component that is used to operate a node in the Hydra Head protocol. The `hydra-node` allows its users to open a head, lock funds in it, connect to peers, process transactions as a layer 2, close a head and unlock the corresponding funds. It is comprised by the Hydra plutus scripts, Hydra head chain layer, layer 2 code, network communication between peers, and an API for clients to connect and use the node.
 
-Source code repository: [input-output-hk/hydra](https://github.com/input-output-hk/hydra)
-Version to be audited: [0.9.0](https://github.com/input-output-hk/hydra/releases/tag/0.9.0)
+* Source code repository: [input-output-hk/hydra](https://github.com/input-output-hk/hydra)
+* Version to be audited: [0.9.0](https://github.com/input-output-hk/hydra/releases/tag/0.9.0)
 
 The scope of this audit is limited to the following parts (described below):
  - Hydra plutus scripts (on-chain code)
