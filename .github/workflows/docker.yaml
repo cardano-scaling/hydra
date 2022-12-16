@@ -64,6 +64,5 @@ jobs:
         # Only push images from master or release tags, unless it's about
         # 'hydraw' (which is not yet versioned)
         push: ${{ github.ref == 'refs/heads/master' || (github.ref_type == 'tag' && matrix.target != 'hydraw') }}
-        target: ${{ matrix.target }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
