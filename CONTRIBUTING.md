@@ -71,8 +71,7 @@ how something is implemented in a feature idea or bug ticket beforehand.
 ### Building & Testing
 
 We use and require [nix](https://nixos.org/download.html) to provide a
-consistent development environment via a `shell.nix`. So a simple call to
-`nix-shell` should put everything in place for building, testing and general
+consistent development environment via our `flake.nix`. So a simple call to `nix develop` should put everything in place for building, testing and general
 development.
 
 Before that, make sure the following caches are listed in your `nix.conf` for a speedy setup and that you have activated flakes:
@@ -86,18 +85,18 @@ experimental-features = nix-command flakes
 From there you can:
 
 - Build & run the `hydra-node`: `cabal build hydra-node && cabal exec hydra-node -- --version`
-- Build & run all tests: `cabal test all` 
+- Build & run all tests: `cabal test all`
 - Build & run all benchmarks: `cabal bench all`
 - Run `haskell-language-server` for an IDE experience
 - Run `hoogle` for symbol & documentation lookup
-- Build the `hydra-node` using nix: `nix-build release.nix -A hydra-node`
-- Build a statically linked `hydra-node` using nix: `nix-build release.nix -A hydra-node-static`
+- Build the `hydra-node` using nix: `nix build .#hydra-node`
+- Build a statically linked `hydra-node` using nix: `nix build .#hydra-node-static`
 - Build the `hydra-node` docker image: `docker build . --target hydra-node`
 
 Also, some of us use [direnv](https://direnv.net/) and
 [nix-direnv](https://github.com/nix-community/nix-direnv) to automatically
-import the nix-shell environment into our favorite shell or editor and not need
-explicit call to `nix-shell`.
+import the nix environment into our favorite shell or editor and not need
+explicit call to enter the nix shell.
 
 Besides these general build instructions, some components might document
 additional steps and useful tools in their `README.md` files, e.g. the

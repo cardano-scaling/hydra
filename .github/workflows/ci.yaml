@@ -59,19 +59,15 @@ jobs:
         restore-keys: |
           cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
-    - name: ❄ Prepare nix-shell
-      run: |
-        nix-build --arg withoutDevTools true shell.nix
-
     - name: 🔨 Build
       run: |
-        nix-shell --arg withoutDevTools true --run 'cabal update'
-        nix-shell --arg withoutDevTools true --run 'cabal build ${{ matrix.package }}'
+        nix develop .#ci --command bash -c 'cabal update'
+        nix develop .#ci --command bash -c 'cabal build ${{ matrix.package }}'
 
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
-        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+        nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
 
     - name: ❓ Test (TUI)
       id: test_tui
@@ -83,10 +79,9 @@ jobs:
         TERM: "xterm"
       # TUI specs are flaky. They are failing because of SIGSEGV. 
       # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
-      
       continue-on-error: true
       run: |
-        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+        nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
@@ -129,9 +124,9 @@ jobs:
     - name: ❄ Build static executables
       run: |
         mkdir -p bin/
-        nix-build release.nix -A hydra-node-static && cp result/bin/* bin/
-        nix-build release.nix -A hydra-tools-static && cp result/bin/* bin/
-        nix-build release.nix -A hydra-tui-static && cp result/bin/* bin/
+        nix build .#hydra-node-static && cp result/bin/* bin/
+        nix build .#hydra-tools-static && cp result/bin/* bin/
+        nix build .#hydra-tui-static && cp result/bin/* bin/
 
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v3
@@ -203,18 +198,14 @@ jobs:
         key: |
           cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
-    - name: ❄ Prepare nix-shell
-      run: |
-        nix-build --pure --arg withoutDevTools true shell.nix
-        nix-shell --arg withoutDevTools true --run 'cabal update'
-
     - name: 📈 Benchmark
       run: |
-        nix-shell --arg withoutDevTools true --run 'cabal bench ${{ matrix.bench }} --benchmark-options "${{ matrix.options }}"'
+        nix develop .#ci --command bash -c 'cabal bench ${{ matrix.bench }} --benchmark-options "${{ matrix.options }}"'
 
     - name: 📚 Documentation (Haddock)
       run: |
-        nix-shell --arg withoutDevTools true --run '.github/workflows/ci-haddock.sh'
+        nix develop .#ci --command bash -c 'cabal update'
+        nix develop .#ci --command bash -c '.github/workflows/ci-haddock.sh'
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3

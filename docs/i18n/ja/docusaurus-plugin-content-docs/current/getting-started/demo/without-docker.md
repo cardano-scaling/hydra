@@ -16,11 +16,11 @@ import TabItem from '@theme/TabItem';
 
 スコープに「cardano-node」、「hydra-node」、および「hydra-tui」実行可能ファイルがあることを確認してください。 次のいずれかを実行できます
 
- - `nix-shell demo` を使用するか、
+ - `nix develop .#demo` を使用するか、
  - `cabal build` と `cabal exec` を実行します (さらに引数を渡す前に `--` を忘れないでください)。
 
 :::info tmux ユーザー向けのヒント
-`demo` nix-shell には、以下のすべてのコマンドを実行する複数のウィンドウとペインで新しい `tmux` セッションを開始する `run-hydra-demo` スクリプトがあります!
+`demo` nix shell には、以下のすべてのコマンドを実行する複数のウィンドウとペインで新しい `tmux` セッションを開始する `run-hydra-demo` スクリプトがあります!
 :::
 
 以降のすべてのコマンドは、プロジェクト リポジトリの `demo` フォルダから実行されるかのように記述されるため、続行する前に必ず `cd demo` を実行してください。

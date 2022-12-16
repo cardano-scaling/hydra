@@ -10,14 +10,14 @@ funds available to the `config/credentials/faucet.sk` on that network.
 
 The `hydra-cluster` requires `hydra-node` to be in scope. You could use a
 special nix shell containing `hydra-node` and `hydra-cluster` executables:
- 
- ``` sh
-nix-shell -A exes
+
+```sh
+nix develop .#exes
 ```
 
 Or use an alias:
 
-``` sh
+```sh
 cabal build hydra-node
 alias hydra-node=$(cabal exec which -- hydra-node)
 ```
@@ -25,7 +25,7 @@ alias hydra-node=$(cabal exec which -- hydra-node)
 Then, to run the smoke test against the official cardano testnet using a local
 `state-testnet` directory (to re-use the synchronized chain db):
 
-``` sh
+```sh
 hydra-cluster --preview --state-directory state-testnet
 ```
 
@@ -46,7 +46,8 @@ Run the integration test suite with `cabal test`
 The benchmark can be run using `cabal bench` and produces a `results.csv` file. To plot the transaction confirmation times you can use the `bench/plot.sh` script, passing it the directory containing the benchmark's results.
 
 To run and plot results of the benchmark:
-``` sh
+
+```sh
 $ cabal bench
 Running 1 benchmarks...
 Benchmark bench-e2e: RUNNING...
