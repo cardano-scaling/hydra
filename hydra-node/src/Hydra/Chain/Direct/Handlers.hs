@@ -292,7 +292,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
 -- NOTE: This is highly depending on the network. If the security parameter and
 -- epoch length result in a short horizon, this is problematic.
 maxGraceTime :: NominalDiffTime
-maxGraceTime = 60
+maxGraceTime = 200
 
 --
 -- Helpers
