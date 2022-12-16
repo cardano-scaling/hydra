@@ -5,7 +5,7 @@ Hydra Head is the first of whole family of protocols and embodies the foundation
 
 # 4 - Project Scope
 
-We are issuing this solicitation to perform an assessment of the security of the Hydra Head protocol implementation. The hydra team is looking for a comprehensive and best practice security audit to include, but not limited to, the areas of concern below. Any additional materials and documentation can be referenced and attached to your submission.
+We are issuing this solicitation to perform an assessment of the security of the Hydra Head protocol implementation. The hydra team is looking for a comprehensive and best practice security audit, including static and dynamic analysis, focused, but not limited to, the areas of concern below. Any additional materials and documentation can be referenced and attached to your submission.
 
 Per [CIP-52](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0052),
 1. Any discrepancies, deviations or spotted vulnerabilities shall be described and classified with an appropriate severity level. Recommendations to rectify the identified deficiencies shall also be provided whenever appropriate.
@@ -30,8 +30,8 @@ As described in the following figure, the main entry points of a Hydra node are:
 A detailed description of each of these artifacts can be found in the above section _Artifacts_.
 
 For its operations, the hydra-node process relies on a cardano-node process and client processes can connect to the hydra-node process through API. Any assessment performed during this audit must be done under the following assumptions about the environment of the Hydra node implementation:
-* The hydra and cardano signing keys storage and management are trusted;
-* The hydra-node software is trusted as is the system running it;
+* Organizational procedures for managing the hydra and cardano signing keys are trusted;
+* The system running the hydra-node is trusted;
 * The cardano-node software is trusted as is the system running it;
 * Any client software connecting through the API is trusted as are the systems running them;
 * The communications between the cardano-node and the hydra-node are trusted;
