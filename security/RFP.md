@@ -112,42 +112,32 @@ This sections gives a detailed description of the aritfacts mentioned in this RF
  - Coordinated Hydra Head V1 Specification
  - Hydra plutus scripts (on-chain code)
  - Hydra node chain layer code (off-chain code)
- - Hydra node layer 2 code (L2 code)
 
-### Artifact 1: Original publication
+### Artifact 1: Coordinated Hydra Head V1 Specification
 
-The Hydra Head protocol has first been published in [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf). This paper describes several versions of the protocol (simple, with or without conflict resolution, incremental (de)commits, etc.), experimental validation, a security definition with corresponding security proofs of the following four properties:
-
-* Consistency: No two uncorrupted parties see conflicting transactions confirmed.
-* Liveness: If all parties remain uncorrupted and the adversary delivers all messages, then every transaction becomes confirmed at some point.
-* Soundness: The final UTxO set accepted on the mainchain results from a set of seen transactions.
-* Completeness: All transactions observed as confirmed by an honest party at the end of the protocol are considered on the mainchain.
-
-A study of the whole paper and possible variations of the protocol is out of scope of this solicitation, but it serves as a good starting point and introduction to the overall protocol. Note that the implemented version of the Hydra Head protocol - named **Coordinated Hydra Head** - can be considered a subset of the "Simple Protocol without Conflict Resolution". That is, we recommend reading Chapters 2-6, where most of the on-chain "Protocol machine" is mostly consistent, but the off-chain "Head protocol" is different in the actual specification.
-
-### Artifact 2: Coordinated Hydra Head V1 Specification
-
-The Hydra Head protocol implementation derives from the original publication in several ways. Especially some simplification have been introduced and generalizations removed.
+The Hydra Head protocol implementation derives from [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf) in several ways. Especially some simplification have been introduced and generalizations removed.
 
 The [Coordinated Hydra Head V1 specification](https://docs.google.com/document/d/1XQ0C7Ko3Ifo5a4TOcW1fDT8gMYryB54PCEgOiFaAwGE/) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
 
-Note that it is lacking some structure and introductory sections and we recommend to see Artifact 1 for that.
-
-### Artifact 3: Hydra Head Protocol Implementation
+### Artifact 2: Hydra Head Protocol Implementation
 
 With Hydra Head Protocol Implementation we refer to the software component that is used to operate a node in the Hydra Head protocol. The `hydra-node` allows its users to open a head, lock funds in it, connect to peers, process transactions as a layer 2, close a head and unlock the corresponding funds. It is comprised by the Hydra plutus scripts, Hydra head chain layer, layer 2 code, network communication between peers, and an API for clients to connect and use the node.
 
 Source code repository: [input-output-hk/hydra](https://github.com/input-output-hk/hydra)
 Version to be audited: [0.9.0](https://github.com/input-output-hk/hydra/releases/tag/0.9.0)
 
-#### Artifact 3.1: Hydra plutus scripts
+The scope of this audit is limited to the following parts (described below):
+ - Hydra plutus scripts (on-chain code)
+ - Hydra node chain layer code (off-chain code)
 
-TODO
+#### Artifact 2.1: Hydra plutus scripts (on-chain code)
 
-Grab stuff from https://hydra.family/head-protocol/haddock/hydra-plutus/index.html
+Hydra plutus scripts source code can be found in the [hydra-plutus module](https://github.com/input-output-hk/hydra/tree/master/hydra-plutus).
 
-#### Artifact 3.2: Hydra node chain layer code
+Hydra plutus mutation based testing can be found in the [hydra-node module](https://github.com/input-output-hk/hydra/tree/master/hydra-node) in test/Hydra/Chain/Direct/Contract/.
 
-TODO
+#### Artifact 2.2: Hydra node chain layer code (off-chain code)
 
-Grab stuff from https://hydra.family/head-protocol/haddock/hydra-node/index.html sub-sections of _Hydra.Chain.Direct_
+Hydra node chain layer code can be found in the [hydra-node module](https://github.com/input-output-hk/hydra/tree/master/hydra-node) in src/Hydra/Chain/Direct/
+
+Hydra node chain layer tests can be found in the [hydra-node module](https://github.com/input-output-hk/hydra/tree/master/hydra-node) in test/Hydra/Chain/Direct/
