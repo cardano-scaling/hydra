@@ -51,9 +51,8 @@ Furthermore, we want to focus efforts on ensuring correctness and robustness of 
 
 We are requesting proposals to assess the following statements, which will be detailed in the next sections:
 1. Coordinated Hydra Head V1 specification proofs are sound
-2. Hydra plutus scripts (on-chain code) are consistent with Hydra Head V1 specification
-3. Hydra plutus scripts are immune to common Cardano smart-contract weaknesses
-4. Hydra node chain layer code generates transactions which are consistent with Hydra Head V1 specification
+2. Hydra plutus scripts (on-chain code) are consistent with Hydra Head V1 specification and immune to common Cardano smart-contract weaknesses
+3. Hydra node chain layer code generates transactions which are consistent with Hydra Head V1 specification
 
 ### Coordinated Hydra Head V1 specification proofs are sound
 
@@ -71,28 +70,23 @@ The outcome of the review should include, but not being limited to:
 * Identification of any inconsistencies in the proofs exposed in the specification;
 * Identification of any behavior that could lead, with an adverserial mindset, to one of the above properties to be falsified.
 
-### Hydra plutus scripts are consistent with Hydra Head V1 specification
+### Hydra plutus scripts are consistent with Hydra Head V1 specification and immune to common Cardano smart-contract weaknesses
 
 The Coordinated Hydra Head V1 specification defines the checks the on-chain scripts must perform for a functioning Hydra Head.
 
-Assess that the Hydra plutus scripts are consistent with the Coordinated Hydra Head V1 specification.
-The outcome of the review should include, bo not being limited to:
-* a validation that the Hydra plutus scripts validators do check the transaction constraints defined in the Coordinated Hydra Head V1 specification;
-* a review and comment on the mutation-based tests applied to the Hydra plutus scripts and, in particular, any adversarial situation that would not be covered by them but should be in the context of this audit;
-
-See the documentation of our [Mutation-Based tests](https://hydra.family/head-protocol/haddock/hydra-node/tests/Hydra-Chain-Direct-Contract-Mutation.html)
-
-### Hydra plutus scripts are immune to common Cardano smart-contract weaknesses
-
-Evaluate the Hydra plutus scripts susceptibility to common possible vulnerabilities for Cardano smart contracts, such as but not limited to the following attacks:
+Assess that the Hydra plutus scripts are consistent with the Coordinated Hydra Head V1 specification and immune to common possible vulnerabilities for Cardano smart contracts, such as but not limited to the following attacks:
 * Execution cost limits;
 * Double satisfaction;
 * Replay;
 * Denial of service.
 
-See [Common Weaknesses](https://plutus.readthedocs.io/en/latest/reference/writing-scripts/common-weaknesses/index.html) and [Vulnerabilities](https://github.com/Plutonomicon/plutonomicon/blob/main/vulnerabilities.md).
+The outcome of the review should also include, but not being limited to:
+* a validation that the Hydra plutus scripts validators do check the transaction constraints defined in the Coordinated Hydra Head V1 specification;
+* a review and comment on the mutation-based tests applied to the Hydra plutus scripts and, in particular, any adversarial situation that would not be covered by them but should be in the context of this audit;
 
-Responder can formulate comments about potential scripts optimizations.
+See the documentation of our [Mutation-Based tests](https://hydra.family/head-protocol/haddock/hydra-node/tests/Hydra-Chain-Direct-Contract-Mutation.html)
+
+See [Common Weaknesses](https://plutus.readthedocs.io/en/latest/reference/writing-scripts/common-weaknesses/index.html) and [Vulnerabilities](https://github.com/Plutonomicon/plutonomicon/blob/main/vulnerabilities.md).
 
 ### Hydra node chain layer code generates transactions which are consistent with Hydra Head V1 specification
 
