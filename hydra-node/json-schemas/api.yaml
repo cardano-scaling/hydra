@@ -1001,7 +1001,7 @@ components:
             tag:
               type: string
               enum: ["NotEnoughFuel"]
-        - title: NoFuelFound
+        - title: NoFuelUTXOFound
           description: |
             Raised if the internal wallet could not find a fuel output. See user
             manual how to fuel up the internal wallet.
@@ -1012,7 +1012,7 @@ components:
           properties:
             tag:
               type: string
-              enum: ["NoFuelFound"]
+              enum: ["NoFuelUTXOFound"]
         - title: CannotFindOwnInitial
           type: object
           additionalProperties: false

@@ -35,12 +35,17 @@ changes.
   + Build commands change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
 
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
-  + There is a new hydra-node flag `--contestation-period` to control the close tx validity bounds as well as
-    determine the contestation deadline.
+  + There is a new hydra-node flag `--contestation-period` expressed in seconds
+    to control the close tx validity bounds as well as determine the
+    contestation deadline.
   + The deadline is always `2 * --contestation-period` after the Close tx.
   + If hydra-node receives a `Init` tx with _not matching_ `--contestation period` then this tx is ignored which implies
     that all parties need to agree on the same value for contestation period.
   + API request payload to create the Init transaction does not contain the field `contestationPeriod` any more.
+
+- Introducing `NoFuelUTXOFound` error. Previously the node would fail with
+  `NotEnoughFuel` when utxo was not found. Now `NotEnoughFuel` is used when
+  there is not enough fuel and `NoFuelUTXOFound` when utxo was not to be found.
 
 ## [0.8.1] - 2022-11-17
 
