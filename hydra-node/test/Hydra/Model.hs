@@ -209,7 +209,7 @@ instance StateModel WorldState where
     genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
     genContestationPeriod = do
-      n <- choose (1, 100)
+      n <- choose (1, 200)
       pure $ UnsafeContestationPeriod $ wordToNatural n
 
   precondition WorldState{hydraState = Start} Seed{} =
@@ -338,11 +338,6 @@ partyKeys =
     hks <- nub <$> vectorOf len arbitrary
     cks <- nub . fmap CardanoSigningKey <$> vectorOf len genSigningKey
     pure $ zip hks cks
-
-genContestationPeriod :: Gen ContestationPeriod
-genContestationPeriod = do
-  i :: Word <- choose (0, 100)
-  pure $ UnsafeContestationPeriod (fromIntegral i)
 
 -- * Running the model
 
