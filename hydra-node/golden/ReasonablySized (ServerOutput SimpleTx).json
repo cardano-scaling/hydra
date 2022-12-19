@@ -1770,7 +1770,6 @@
         },
         {
             "clientInput": {
-                "contestationPeriod": 2592000,
                 "tag": "Init"
             },
             "tag": "CommandFailed"
@@ -1934,7 +1933,6 @@
         },
         {
             "clientInput": {
-                "contestationPeriod": 18441,
                 "tag": "Init"
             },
             "tag": "CommandFailed"
