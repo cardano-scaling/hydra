@@ -55,20 +55,22 @@ Proposed
 
 - We want to enforce topmost formula in this file in our code on-chain.
 
-- Introduce `maxGraceTime` in place of `closeGraceTime` and adjust to
+- Introduce `maxGraceTime` expressed in seconds in place of `closeGraceTime` and adjust to
   appropriate value.
 
 - The upper tx validity of close transaction should be minimum between
   `maxGraceTime` and `contestationPeriod`. Users need to know this.
 
-- The contestation period is to be used to create bounded close transaction.
-  Before it was only used for computing the contestation deadline.
+- The contestation period is to be used to create bounded close transaction
+  (together with `maxGraceTime`). Before it was only used for computing the
+  contestation deadline.
 
-- If contestation period is higher than `maxGraceTime` we will pick the latter. We
-  still need `maxGraceTime` since if `contestationPeriod` is low our txs reach
-  the upper bound fast and become invalid. That is why we set the upper tx bound
-  to be minimum between `contestationPeriod` and `maxGraceTime` so that txs have
-  high enough upper bound.
+- [x] If contestation period is higher than `maxGraceTime` we will pick the
+      latter. We still need `maxGraceTime` since if `contestationPeriod` is low for
+      the current network our txs reach the upper bound fast and become invalid.
+      That is why we set the upper tx bound to be minimum between
+      `contestationPeriod` and `maxGraceTime` so that txs have high enough upper
+      bound.
 
 - Make sure all head participants use the same value for `contestationPeriod`.
 
@@ -81,9 +83,10 @@ Proposed
   e.g. via a `--contestation-period` command line option.
 - Lower tx bound should be the last known slot as reported by the
   `cardano-node`.
-- Upper tx bound is the current slot + minimum between `contestationPeriod` and
+- Upper tx bound is the current time + minimum between `contestationPeriod` and
   `maxGraceTime`.
-- When submitting the `InitTx` make sure to use `--contestation-period` value.
+- When submitting the `InitTx` make sure to use `--contestation-period` value
+  from our node's flag.
 - If other nodes observe `OnInitTx` and the `contestationPeriod` value does not
   match with their `--contestation-period` setting - ignore `InitTx`.
 - Rename `closeGraceTime` to `maxGraceTime` since we are using it also for upper
