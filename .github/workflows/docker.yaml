@@ -26,9 +26,6 @@ jobs:
       with:
         submodules: true
 
-    - name: 🧰 Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
     - name: 🐳 Login to GitHub Container Registry
       uses: docker/login-action@v2
       with:
@@ -42,30 +39,26 @@ jobs:
         extra_nix_config: |
           accept-flake-config = true
 
-    - name: 📝 Prepare docker image metadata
-      id: meta
-      uses: docker/metadata-action@v4
-      with:
-        images: |
-          ghcr.io/${{ github.repository_owner }}/${{ matrix.target }}
-        tags: |
-          unstable
-          type=semver,pattern={{version}}
-
     - name: 🔨 Build images using nix
       run: |
         nix build .#docker.${{ matrix.target }} && docker load < ./result
-        # Create a dummy Dockerfile to not build, but tag & label in next step
-        echo "FROM ${{matrix.target}}" > Dockerfile.dummy
+        echo "FROM ${{matrix.target}}" | docker build \
+          --label org.opencontainers.image.source=https://github.com/input-output-hk/hydra \
+          --label org.opencontainers.image.licenses=Apache-2.0 \
+          --label org.opencontainers.image.created=$(date -Is) \
+          --label org.opencontainers.image.revision=${{github.sha}} \
+          --label org.opencontainers.image.version=unstable \
+          --tag ghcr.io/input-output-hk/${{matrix.target}}:unstable -
+        # Also tag with semver if we are building a tag
+        building_tag=${{github.ref_type == 'tag'}}
+        [[ ${building_tag} = true ]] && \
+          docker tag ghcr.io/input-output-hk/${{matrix.target}}:unstable ghcr.io/input-output-hk/${{matrix.target}}:${{github.ref_name}}
+        docker images
+        docker inspect ghcr.io/input-output-hk/${{matrix.target}}:unstable
 
     - name: 📤 Maybe push
-      uses: docker/build-push-action@v3
-      with:
-        # Make sure to use the dummy docker file so we don't actually build
-        context: .
-        file: Dockerfile.dummy
+      if: ${{ github.ref == 'refs/heads/master' || (github.ref_type == 'tag' && matrix.target != 'hydraw') }}
+      run: |
         # Only push images from master or release tags, unless it's about
         # 'hydraw' (which is not yet versioned)
-        push: ${{ github.ref == 'refs/heads/master' || (github.ref_type == 'tag' && matrix.target != 'hydraw') }}
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        docker push ghcr.io/input-output-hk/${{matrix.target}}
