@@ -32,6 +32,7 @@ import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
 import Hydra.Chain.CardanoClient (awaitTransaction, submitTransaction)
 import Hydra.Cluster.Faucet (FaucetLog, Marked (Fuel), publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger (txId)
@@ -84,13 +85,13 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
               putTextLn "Seeding network"
               hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
-              withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId $ \(leader :| followers) -> do
+              let contestationPeriod = UnsafeContestationPeriod 10
+              withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
                 let clients = leader : followers
                 waitForNodesConnected tracer clients
 
                 putTextLn "Initializing Head"
-                let contestationPeriod = 10 :: Natural
-                send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                send leader $ input "Init" []
                 waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
                   output "ReadyToCommit" ["parties" .= parties]
 

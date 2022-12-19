@@ -38,6 +38,7 @@ import Data.Map ((!))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
+import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
 import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, SnapshotConfirmed))
@@ -53,7 +54,7 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Committed (),
@@ -75,7 +76,7 @@ import Hydra.Options (maximumNumberOfParties)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
 import Test.Consensus.Cardano.Generators ()
-import Test.QuickCheck (counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
+import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), Realized, RunModel (..), StateModel (..))
 import qualified Prelude
@@ -107,6 +108,7 @@ data GlobalState
   | Idle
       { idleParties :: [Party]
       , cardanoKeys :: [VerificationKey PaymentKey]
+      , idleContestationPeriod :: ContestationPeriod
       }
   | Initial
       { headParameters :: HeadParameters
@@ -155,16 +157,15 @@ instance StateModel WorldState where
   -- can represent _observations_ which are useful when defining properties in
   -- DL. Those observations would usually not be generated.
   data Action WorldState a where
-    Seed :: {seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]} -> Action WorldState ()
+    Seed :: {seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)], seedContestationPeriod :: ContestationPeriod} -> Action WorldState ()
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
     -- different return values.
-    Init :: Party -> ContestationPeriod -> Action WorldState ()
+    Init :: Party -> Action WorldState ()
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
     Abort :: Party -> Action WorldState ()
     NewTx :: Party -> Payment -> Action WorldState ()
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Payment -> Action WorldState ()
-    -- | Symmetric to `Seed`
     StopTheWorld :: Action WorldState ()
 
   initialState =
@@ -186,13 +187,12 @@ instance StateModel WorldState where
       Open{} -> genNewTx
       _ -> genSeed
    where
-    genSeed = Some . Seed <$> resize maximumNumberOfParties partyKeys
+    genSeed = fmap Some $ Seed <$> resize maximumNumberOfParties partyKeys <*> genContestationPeriod
 
     genInit = do
-      contestationPeriod <- arbitrary
       key <- fst <$> elements hydraParties
       let party = deriveParty key
-      pure . Some $ Init party contestationPeriod
+      pure . Some $ Init party
 
     genCommit pending = do
       party <- elements $ toList pending
@@ -207,6 +207,10 @@ instance StateModel WorldState where
       pure . Some $ Abort party
 
     genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
+
+    genContestationPeriod = do
+      n <- choose (1, 200)
+      pure $ UnsafeContestationPeriod $ wordToNatural n
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
@@ -229,21 +233,22 @@ instance StateModel WorldState where
 
   nextState s@WorldState{hydraParties, hydraState} a _ =
     case a of
-      Seed{seedKeys} -> WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys}}
+      Seed{seedKeys, seedContestationPeriod} -> WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys, idleContestationPeriod}}
        where
         idleParties = map (deriveParty . fst) seedKeys
         cardanoKeys = map (getVerificationKey . signingKey . snd) seedKeys
+        idleContestationPeriod = seedContestationPeriod
       --
-      Init _ contestationPeriod ->
+      Init{} ->
         WorldState{hydraParties, hydraState = mkInitialState hydraState}
        where
         mkInitialState = \case
-          Idle{idleParties} ->
+          Idle{idleParties, idleContestationPeriod} ->
             Initial
               { headParameters =
                   HeadParameters
                     { parties = idleParties
-                    , contestationPeriod
+                    , contestationPeriod = idleContestationPeriod
                     }
               , commits = mempty
               , pendingCommits = Set.fromList idleParties
@@ -408,14 +413,14 @@ instance
 
   perform st command _ = do
     case command of
-      Seed{seedKeys} ->
-        seedWorld seedKeys
+      Seed{seedKeys, seedContestationPeriod} ->
+        seedWorld seedKeys seedContestationPeriod
       Commit party utxo ->
         performCommit (snd <$> hydraParties st) party utxo
       NewTx party transaction ->
         performNewTx party transaction
-      Init party contestationPeriod ->
-        party `sendsInput` Input.Init{contestationPeriod}
+      Init party ->
+        party `sendsInput` Input.Init
       Abort party -> do
         performAbort party
       Wait delay ->
@@ -440,8 +445,9 @@ seedWorld ::
   , MonadLabelledSTM m
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
+  ContestationPeriod ->
   RunMonad m ()
-seedWorld seedKeys = do
+seedWorld seedKeys seedCP = do
   let parties = map (deriveParty . fst) seedKeys
       dummyNodeState =
         NodeState
@@ -454,7 +460,7 @@ seedWorld seedKeys = do
     nodes <- newTVarIO []
     labelTVarIO nodes "nodes"
     (connectToChain, tickThread) <-
-      mockChainAndNetwork (contramap DirectChain tr) seedKeys parties nodes
+      mockChainAndNetwork (contramap DirectChain tr) seedKeys parties nodes seedCP
     res <- forM seedKeys $ \(hsk, _csk) -> do
       outputs <- atomically newTQueue
       outputHistory <- newTVarIO []
@@ -462,7 +468,7 @@ seedWorld seedKeys = do
       labelTVarIO nodes ("history-" <> shortLabel hsk)
       let party = deriveParty hsk
           otherParties = filter (/= party) parties
-      node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain
+      node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain seedCP
       let testNode = createTestHydraNode outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
       pure (party, testNode, nodeThread)
@@ -617,7 +623,7 @@ waitForReadyToCommit party nodes = go 100
             _ -> False
       case find matchReadyToCommit outs of
         Nothing ->
-          threadDelay 10 >> go (n -1)
+          threadDelay 10 >> go (n - 1)
         Just{} ->
           pure ()
 

@@ -9,13 +9,17 @@ import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Cardano.Api (SigningKey)
+import qualified Hydra.Contract.HeadState as Onchain
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, generateSigningKey, sign)
 import Hydra.Ledger (IsTx (..))
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
 import Test.QuickCheck.Instances.Natural ()
 
-type SnapshotNumber = Natural
+newtype SnapshotNumber
+  = UnsafeSnapshotNumber Natural
+  deriving (Eq, Show, Ord, Generic)
+  deriving newtype (ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
 
 data Snapshot tx = Snapshot
   { number :: SnapshotNumber
@@ -27,6 +31,9 @@ data Snapshot tx = Snapshot
 
 deriving instance IsTx tx => Eq (Snapshot tx)
 deriving instance IsTx tx => Show (Snapshot tx)
+
+instance Arbitrary SnapshotNumber where
+  arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
@@ -70,7 +77,7 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Snapshot tx) where
 
 -- | A snapshot that can be used to close a head with. Either the initial one, or when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
-  = InitialSnapshot { initialUTxO :: UTxOType tx }
+  = InitialSnapshot {initialUTxO :: UTxOType tx}
   | ConfirmedSnapshot
       { snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
@@ -88,10 +95,10 @@ getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{initialUTxO} ->
     Snapshot
-    { number = 0
-    , utxo = initialUTxO
-    , confirmed = []
-    }
+      { number = 0
+      , utxo = initialUTxO
+      , confirmed = []
+      }
   ConfirmedSnapshot{snapshot} -> snapshot
 
 -- | Tell whether a snapshot is the initial snapshot coming from the collect-com
@@ -135,3 +142,10 @@ genConfirmedSnapshot minSn utxo sks
     let snapshot = Snapshot{number, utxo, confirmed = []}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
+
+fromChainSnapshot :: Onchain.SnapshotNumber -> SnapshotNumber
+fromChainSnapshot onChainSnapshotNumber =
+  maybe
+    (error "Failed to convert on-chain SnapShotNumber to off-chain one.")
+    UnsafeSnapshotNumber
+    (integerToNatural onChainSnapshotNumber)

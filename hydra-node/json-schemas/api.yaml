@@ -92,13 +92,10 @@ components:
         type: object
         required:
           - tag
-          - contestationPeriod
         properties:
           tag:
             type: string
             enum: ["Init"]
-          contestationPeriod:
-            $ref: "#/components/schemas/ContestationPeriod"
 
     Abort:
       title: Abort
@@ -992,6 +989,10 @@ components:
                 The Head protocol-relevant UTxO. Depending on the Head's current state, it includes the Head state thread output,
                 plus the ν_initial or ν_commit outputs.
         - title: NotEnoughFuel
+          description: |
+            Raised if the internal wallet could not find a fuel output with
+            enough lovelace to balance a transaction. See user manual how to
+            fuel up the internal wallet.
           type: object
           additionalProperties: false
           required:
@@ -1000,6 +1001,18 @@ components:
             tag:
               type: string
               enum: ["NotEnoughFuel"]
+        - title: NoFuelUTXOFound
+          description: |
+            Raised if the internal wallet could not find a fuel output. See user
+            manual how to fuel up the internal wallet.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["NoFuelUTXOFound"]
         - title: CannotFindOwnInitial
           type: object
           additionalProperties: false

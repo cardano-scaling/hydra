@@ -14,6 +14,7 @@ import Data.IP (IP (IPv4), toIPv4w)
 import Data.Text (unpack)
 import qualified Data.Text as T
 import Data.Version (showVersion)
+import Data.Time.Clock (nominalDiffTimeToSeconds)
 import Hydra.Cardano.Api (
   AsType (AsTxId),
   ChainPoint (..),
@@ -28,6 +29,7 @@ import Hydra.Cardano.Api (
   proxyToAsType,
   serialiseToRawBytesHexText,
  )
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import qualified Hydra.Contract as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
@@ -68,7 +70,7 @@ import Options.Applicative (
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
-import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
+import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
 
 data Command
   = Run RunOptions
@@ -258,6 +260,7 @@ data ChainConfig = DirectChainConfig
     cardanoVerificationKeys :: [FilePath]
   , -- | Point at which to start following the chain.
     startChainFrom :: Maybe ChainPoint
+  , contestationPeriod :: ContestationPeriod
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -269,6 +272,7 @@ defaultChainConfig =
     , cardanoSigningKey = "cardano.sk"
     , cardanoVerificationKeys = []
     , startChainFrom = Nothing
+    , contestationPeriod = defaultContestationPeriod
     }
 
 instance Arbitrary ChainConfig where
@@ -278,6 +282,7 @@ instance Arbitrary ChainConfig where
     cardanoSigningKey <- genFilePath ".sk"
     cardanoVerificationKeys <- reasonablySized (listOf (genFilePath ".vk"))
     startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
+    contestationPeriod <- arbitrary `suchThat` (> UnsafeContestationPeriod 0)
     pure $
       DirectChainConfig
         { networkId
@@ -285,6 +290,7 @@ instance Arbitrary ChainConfig where
         , cardanoSigningKey
         , cardanoVerificationKeys
         , startChainFrom
+        , contestationPeriod
         }
 
 chainConfigParser :: Parser ChainConfig
@@ -295,6 +301,7 @@ chainConfigParser =
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
+    <*> contestationPeriodParser
 
 networkIdParser :: Parser NetworkId
 networkIdParser =
@@ -550,6 +557,32 @@ hydraNodeCommand =
       (decodeUtf8 $ encodePretty Contract.scriptInfo)
       (long "script-info" <> help "Dump script info as JSON")
 
+defaultContestationPeriod :: ContestationPeriod
+defaultContestationPeriod = UnsafeContestationPeriod 60
+
+contestationPeriodParser :: Parser ContestationPeriod
+contestationPeriodParser =
+  option
+    (parseNatural <|> parseNominalDiffTime)
+    ( long "contestation-period"
+        <> metavar "CONTESTATION-PERIOD"
+        <> value defaultContestationPeriod
+        <> showDefault
+        <> completer (listCompleter ["60", "180", "300"])
+        <> help
+          "Contestation period for close transaction in seconds. \
+          \ If this value is not in sync with other participants hydra-node will ignore the initial tx.\
+          \ Additionally, this value needs to make sense compared to the current network we are running."
+    )
+ where
+  parseNatural = UnsafeContestationPeriod <$> auto
+
+  parseNominalDiffTime = auto >>= \dt -> do
+    let s = nominalDiffTimeToSeconds dt
+    if s <= 0
+      then fail "negative contestation period"
+      else pure $ UnsafeContestationPeriod $ truncate s
+
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded
   | CardanoAndHydraKeysMissmatch
@@ -629,7 +662,6 @@ toArgs
       <> argsLedgerConfig
    where
     (NodeId nId) = nodeId
-
     isVerbose = \case
       Quiet -> ["--quiet"]
       _ -> []
@@ -650,6 +682,7 @@ toArgs
       ["--network-id", toArgNetworkId networkId]
         <> ["--node-socket", nodeSocket]
         <> ["--cardano-signing-key", cardanoSigningKey]
+        <> ["--contestation-period", show contestationPeriod]
         <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
         <> toArgStartChainFrom startChainFrom
 
@@ -668,6 +701,7 @@ toArgs
       , cardanoSigningKey
       , cardanoVerificationKeys
       , startChainFrom
+      , contestationPeriod
       } = chainConfig
 
 toArgNetworkId :: NetworkId -> String

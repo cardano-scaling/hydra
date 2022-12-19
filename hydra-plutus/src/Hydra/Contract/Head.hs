@@ -10,7 +10,7 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
-import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod)
+import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
@@ -47,6 +47,7 @@ import qualified PlutusTx.AssocMap as Map
 import qualified PlutusTx.Builtins as Builtins
 
 -- REVIEW: Functions not re-exported "as V2", but using the same data types.
+import Plutus.V1.Ledger.Time (fromMilliSeconds)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 
 type DatumType = State
@@ -253,6 +254,8 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
 {-# INLINEABLE checkCollectCom #-}
 
 -- | The close validator must verify that:
+--   * Check that the closing tx validity is bounded by contestation period
+--     Expressed in our spec as: `T_max <= T_min + CP`
 --
 --   * The closing snapshot number and signature is correctly signed
 --
@@ -271,8 +274,12 @@ checkClose ::
   ContestationPeriod ->
   Bool
 checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod =
-  checkSnapshot && mustBeSignedByParticipant ctx headContext
+  hasBoundedValidity
+    && checkSnapshot
+    && mustBeSignedByParticipant ctx headContext
  where
+  hasBoundedValidity = traceIfFalse "hasBoundedValidity check failed" $ tMax - tMin <= cp
+
   checkSnapshot
     | snapshotNumber == 0 =
       let expectedOutputDatum =
@@ -294,9 +301,20 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
        in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
             && checkHeadOutputDatum ctx expectedOutputDatum
     | otherwise = traceError "negative snapshot number"
+
+  cp = fromMilliSeconds (milliseconds cperiod)
+
+  tMax = case ivTo $ txInfoValidRange txInfo of
+    UpperBound (Finite t) _ -> t
+    _InfiniteBound -> traceError "infinite upper bound"
+
+  tMin = case ivFrom $ txInfoValidRange txInfo of
+    LowerBound (Finite t) _ -> t
+    _InfiniteBound -> traceError "infinite lower bound"
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
 
--- | Checks that the datum
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
   case ivTo (txInfoValidRange scriptContextTxInfo) of
@@ -346,6 +364,8 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} headContext contestationDead
       _ -> traceError "no upper bound validity interval defined for contest"
 {-# INLINEABLE checkContest #-}
 
+-- | Check that the output datum of this script corresponds to an expected
+-- value. Takes care of resolving datum hashes and inline datums.
 checkHeadOutputDatum :: ToData a => ScriptContext -> a -> Bool
 checkHeadOutputDatum ctx d =
   case ownDatum of

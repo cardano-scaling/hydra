@@ -4,11 +4,10 @@ module Hydra.API.ClientInput where
 
 import Hydra.Prelude
 
-import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (IsTx, UTxOType)
 
 data ClientInput tx
-  = Init {contestationPeriod :: ContestationPeriod}
+  = Init
   | Abort
   | Commit {utxo :: UTxOType tx}
   | NewTx {transaction :: tx}
@@ -30,7 +29,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ClientInput tx) w
   -- Overlapping instances with 'UTxOType tx' even though for a fixed `tx`, there
   -- should be only one 'UTxOType tx'
   shrink = \case
-    Init{} -> []
+    Init -> []
     Abort -> []
     Commit xs -> Commit <$> shrink xs
     NewTx tx -> NewTx <$> shrink tx

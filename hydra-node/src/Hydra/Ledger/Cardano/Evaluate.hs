@@ -56,6 +56,7 @@ import Hydra.Cardano.Api (
   toLedgerExUnits,
   toLedgerPParams,
  )
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
@@ -71,6 +72,7 @@ import Ouroboros.Consensus.HardFork.History (
 import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import Test.QuickCheck (choose)
+import Test.QuickCheck.Gen (chooseWord64)
 
 -- | Thin wrapper around 'evaluateTransactionExecutionUnits', which uses
 -- fixtures for system start, era history and protocol parameters. See
@@ -262,6 +264,18 @@ genPointInTime = do
   slot <- SlotNo <$> arbitrary
   let time = slotNoToUTCTime slot
   pure (slot, time)
+
+-- | Parameter here is the contestation period (cp) so we need to generate
+-- start (tMin) and end (tMax) tx validity bound such that their difference
+-- is not higher than the cp.
+-- Returned slots are tx validity bounds
+genValidityBoundsFromContestationPeriod :: ContestationPeriod -> Gen (SlotNo, (SlotNo, UTCTime))
+genValidityBoundsFromContestationPeriod (UnsafeContestationPeriod cpSeconds) = do
+  startSlot@(SlotNo start) <- SlotNo <$> arbitrary
+  let end = start + fromIntegral cpSeconds
+  endSlot <- SlotNo <$> chooseWord64 (start, end)
+  let time = slotNoToUTCTime endSlot
+  pure (startSlot, (endSlot, time))
 
 genPointInTimeBefore :: UTCTime -> Gen (SlotNo, UTCTime)
 genPointInTimeBefore deadline = do

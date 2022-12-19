@@ -137,7 +137,7 @@ test-suite tests
     , QuickCheck
     , time
 
-  build-tool-depends: hspec-discover:hspec-discover -any
+  build-tool-depends: hspec-discover:hspec-discover
 
 executable inspect-script
   import:         project-config

@@ -162,6 +162,21 @@ hydra-tools gen-hydra-key --output-file my-key
 
 This will create two files, `my-key.sk` and `my-key.vk` containing Hydra keys suitable for use inside a head.
 
+### Contestation Period
+
+Contestation period is the argument to the hydra node expressed as the number of seconds. This value needs to be in sync with the network we are running on since
+slot lengths are different on different networks.
+
+Contestation period is used in:
+
+- Constructing the upper transaction bound for close transaction
+- Contestation deadline.
+
+:::info Note on contestation period
+All parties in the hydra head protocol need to configure the same value for `--contestation-period` otherwise the `Init` transaction will be ignored.
+This prevents certain party from stalling/DoS-ing the head by setting unreasonable big number for contestation period.
+:::
+
 ### Reference Scripts
 
 Hydra makes use of reference scripts to reduce the size of transactions driving the Head's lifecycle. In principle, reference scripts will be published with each release and the corresponding transaction id will be advertised in the release notes. However, if you do want to play around with this and provide alternative versions, you can do so by first publishing the scripts yourself via the `publish-scripts` command:

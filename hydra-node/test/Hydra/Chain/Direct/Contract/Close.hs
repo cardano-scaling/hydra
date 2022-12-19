@@ -13,6 +13,7 @@ import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadOutput)
+import Hydra.ContestationPeriod (fromChain)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
@@ -20,13 +21,13 @@ import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
+import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod, slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
+import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 --
@@ -41,10 +42,17 @@ healthyCloseTx =
     closeTx
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
-      (healthySlotNo, slotNoToUTCTime healthySlotNo)
+      startSlot
+      pointInTime
       openThreadOutput
 
   headInput = generateWith arbitrary 42
+
+  -- here we need to pass in contestation period when generating start/end tx validity slots/time
+  -- since if tx validity bound difference is bigger than contestation period our close validator
+  -- will fail
+  (startSlot, pointInTime) =
+    genValidityBoundsFromContestationPeriod (fromChain healthyContestationPeriod) `generateWith` 42
 
   headResolvedInput =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum
@@ -134,6 +142,7 @@ data CloseMutation
   | MutateCloseUTxOHash
   | MutateValidityInterval
   | MutateCloseContestationDeadline
+  | MutateCloseContestationDeadlineWithZero
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -170,11 +179,18 @@ genCloseMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
-    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0 <$> mutateClosedContestationDeadline
+    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0
+        <$> (mutateClosedContestationDeadline =<< arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds))
+    , SomeMutation MutateCloseContestationDeadlineWithZero . ChangeOutput 0 <$> mutateClosedContestationDeadline 0
     , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
         ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
         pure (lb, ub)
+    , -- try to change a tx so that lower bound is higher than the upper bound
+      SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
+        lb <- arbitrary
+        ub <- (lb -) <$> choose (0, lb)
+        pure (TxValidityLowerBound (SlotNo lb), TxValidityUpperBound (SlotNo ub))
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
@@ -200,12 +216,11 @@ genCloseMutation (tx, _utxo) =
         , contestationDeadline
         }
     st -> error $ "unexpected state " <> show st
-
-  mutateClosedContestationDeadline :: Gen (TxOut CtxTx)
-  mutateClosedContestationDeadline = do
+  -- In case contestation period param is 'Nothing' we will generate arbitrary value
+  mutateClosedContestationDeadline :: Integer -> Gen (TxOut CtxTx)
+  mutateClosedContestationDeadline contestationPeriodSeconds = do
     -- NOTE: we need to be sure the generated contestation period is large enough to have an impact on the on-chain
     -- deadline computation, which means having a resolution of seconds instead of the default picoseconds
-    contestationPeriodSeconds <- arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds)
     pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
 
   mutateContestationDeadline contestationPeriod = \case

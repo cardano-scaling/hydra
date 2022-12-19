@@ -15,6 +15,7 @@ import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
@@ -28,18 +29,18 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
   seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
   seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
+  let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket [Bob]
+    chainConfigFor Alice workDir nodeSocket [Bob] contestationPeriod
       <&> \config -> (config :: ChainConfig){networkId}
 
   bobChainConfig <-
-    chainConfigFor Bob workDir nodeSocket [Alice]
+    chainConfigFor Bob workDir nodeSocket [Alice] contestationPeriod
       <&> \config -> (config :: ChainConfig){networkId}
 
   withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n1 -> do
-    let contestationPeriod = 1 :: Natural
     withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
-      send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+      send n1 $ input "Init" []
       -- XXX: might need to tweak the wait time
       waitFor tracer 10 [n1, n2] $
         output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
@@ -59,15 +60,15 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
 restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
   refuelIfNeeded tracer cardanoNode Alice 100_000_000
+  let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket []
+    chainConfigFor Alice workDir nodeSocket [] contestationPeriod
       -- we delibelately do not start from a chain point here to highlight the
       -- need for persistence
       <&> \config -> config{networkId, startChainFrom = Nothing}
 
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-    let contestationPeriod = 1 :: Natural
-    send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+    send n1 $ input "Init" []
     -- XXX: might need to tweak the wait time
     waitFor tracer 10 [n1] $
       output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
@@ -95,13 +96,13 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
   refuelIfNeeded tracer node Alice 100_000_000
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
+  let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket []
+    chainConfigFor Alice workDir nodeSocket [] contestationPeriod
       <&> \config -> config{networkId, startChainFrom = Just tip}
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
-    let contestationPeriod = 1 :: Natural
-    send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+    send n1 $ input "Init" []
     waitFor tracer 600 [n1] $
       output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
     -- Commit nothing for now
@@ -119,8 +120,47 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     waitFor tracer (truncate $ remainingTime + 60) [n1] $
       output "ReadyToFanout" []
     send n1 $ input "Fanout" []
-    waitFor tracer 600 [n1] $
+    waitFor tracer 10 [n1] $
       output "HeadIsFinalized" ["utxo" .= object mempty]
+  traceRemainingFunds Alice
+ where
+  RunningNode{nodeSocket} = node
+
+  traceRemainingFunds actor = do
+    (actorVk, _) <- keysFor actor
+    (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
+    traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+
+-- | Initialize open and close a head on a real network and ensure contestation
+-- period longer than the time horizon is possible. For this it is enough that
+-- we can close a head and not wait for the deadline.
+canCloseWithLongContestationPeriod ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hydraScriptsTxId = do
+  refuelIfNeeded tracer node Alice 100_000_000
+  -- Start hydra-node on chain tip
+  tip <- queryTip networkId nodeSocket
+  let oneWeek = UnsafeContestationPeriod (60 * 60 * 24 * 7)
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket [] oneWeek
+      <&> \config -> config{networkId, startChainFrom = Just tip}
+  withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+    -- Initialize & open head
+    send n1 $ input "Init" []
+    waitFor tracer 600 [n1] $
+      output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+    -- Commit nothing for now
+    send n1 $ input "Commit" ["utxo" .= object mempty]
+    waitFor tracer 600 [n1] $
+      output "HeadIsOpen" ["utxo" .= object mempty]
+    -- Close head
+    send n1 $ input "Close" []
+    void $ waitMatch 600 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "HeadIsClosed"
   traceRemainingFunds Alice
  where
   RunningNode{nodeSocket} = node

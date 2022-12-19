@@ -14,6 +14,7 @@ import Hydra.Cardano.Api (
   EraHistory (EraHistory),
   NetworkId,
  )
+import Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
 import Hydra.Chain.CardanoClient (
   QueryPoint (QueryAt),
   queryEraHistory,
@@ -35,48 +36,55 @@ data TimeHandle = TimeHandle
   , -- | Convert a slot number to a 'UTCTime' using the stored epoch info. This
     -- will fail if the slot is outside the "safe zone".
     slotToUTCTime :: SlotNo -> Either Text UTCTime
-  , -- | Adjust a 'PointInTime' by some number of slots, positively or
-    -- negatively.
-    adjustPointInTime :: SlotNo -> PointInTime -> Either Text PointInTime
+  }
+
+data TimeHandleParams = TimeHandleParams
+  { systemStart :: SystemStart
+  , eraHistory :: EraHistory CardanoMode
+  , horizonSlot :: SlotNo
+  , currentSlot :: SlotNo
   }
 
 -- | Generate consistent values for 'SystemStart' and 'EraHistory' which has
 -- a horizon at the returned SlotNo as well as some UTCTime before that
-genTimeParams :: Gen (SystemStart, EraHistory CardanoMode, SlotNo, UTCTime)
+genTimeParams :: Gen TimeHandleParams
 genTimeParams = do
-  startTime <- posixSecondsToUTCTime . secondsToNominalDiffTime . getPositive <$> arbitrary
+  startSeconds <- getPositive <$> arbitrary
+  let startTime = posixSecondsToUTCTime $ secondsToNominalDiffTime startSeconds
   uptimeSeconds <- getPositive <$> arbitrary
-  let uptime = secondsToNominalDiffTime uptimeSeconds
-      currentTime = addUTCTime uptime startTime
+  -- it is ok to construct a slot from seconds here since on the devnet slot = 1s
+  let currentSlotNo = SlotNo $ truncate $ uptimeSeconds + startSeconds
       -- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config
       safeZone = 3 * 2160 / 0.05
       horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
-  pure (SystemStart startTime, eraHistoryWithHorizonAt horizonSlot, horizonSlot, currentTime)
+  pure $
+    TimeHandleParams
+      { systemStart = SystemStart startTime
+      , eraHistory = eraHistoryWithHorizonAt horizonSlot
+      , horizonSlot = horizonSlot
+      , currentSlot = currentSlotNo
+      }
 
 instance Arbitrary TimeHandle where
   arbitrary = do
-    (systemStart, eraHistory, _, currentTime) <- genTimeParams
-    pure $ mkTimeHandle currentTime systemStart eraHistory
+    TimeHandleParams{systemStart, eraHistory, currentSlot} <- genTimeParams
+    pure $ mkTimeHandle currentSlot systemStart eraHistory
 
--- | Construct a time handle using current time and given chain parameters. See
+-- | Construct a time handle using current slot and given chain parameters. See
 -- 'queryTimeHandle' to create one by querying a cardano-node.
 mkTimeHandle ::
-  UTCTime ->
+  HasCallStack =>
+  SlotNo ->
   SystemStart ->
   EraHistory CardanoMode ->
   TimeHandle
-mkTimeHandle now systemStart eraHistory = do
+mkTimeHandle currentSlotNo systemStart eraHistory = do
   TimeHandle
     { currentPointInTime = do
-        currentSlotNo <- slotFromUTCTime now
         pt <- slotToUTCTime currentSlotNo
         pure (currentSlotNo, pt)
     , slotFromUTCTime
     , slotToUTCTime
-    , adjustPointInTime = \n (slot, _) -> do
-        let adjusted = slot + n
-        time <- slotToUTCTime adjusted
-        pure (adjusted, time)
     }
  where
   slotToUTCTime :: HasCallStack => SlotNo -> Either Text UTCTime
@@ -95,11 +103,15 @@ mkTimeHandle now systemStart eraHistory = do
   (EraHistory _ interpreter) = eraHistory
 
 -- | Query node for system start and era history before constructing a
--- 'TimeHandle' using 'getCurrentTime'.
+-- 'TimeHandle' using the slot at the tip of the network.
 queryTimeHandle :: NetworkId -> FilePath -> IO TimeHandle
 queryTimeHandle networkId socketPath = do
   tip <- queryTip networkId socketPath
   systemStart <- querySystemStart networkId socketPath (QueryAt tip)
   eraHistory <- queryEraHistory networkId socketPath (QueryAt tip)
-  now <- getCurrentTime
-  pure $ mkTimeHandle now systemStart eraHistory
+  currentTipSlot <-
+    case tip of
+      ChainPointAtGenesis -> pure $ SlotNo 0
+      ChainPoint slotNo _ -> pure slotNo
+
+  pure $ mkTimeHandle currentTipSlot systemStart eraHistory

@@ -45,7 +45,7 @@ import Hydra.Ledger (
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (UnsafeSnapshotNumber), getSnapshot)
 
 -- * Types
 
@@ -268,6 +268,7 @@ data Environment = Environment
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey HydraKey
   , otherParties :: [Party]
+  , contestationPeriod :: ContestationPeriod
   }
 
 -- * The Coordinated Head protocol
@@ -865,11 +866,11 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
-  (IdleState{chainState}, ClientEvent (Init contestationPeriod)) ->
+update Environment{party, signingKey, otherParties, contestationPeriod} ledger st ev = case (st, ev) of
+  (IdleState{chainState}, ClientEvent Init) ->
     onIdleClientInit chainState party otherParties contestationPeriod
-  (IdleState{}, OnChainEvent (Observation{observedTx = OnInitTx{contestationPeriod, parties}, newChainState})) ->
-    onIdleChainInitTx st newChainState parties contestationPeriod
+  (IdleState{}, OnChainEvent Observation{observedTx = OnInitTx{contestationPeriod = observed, parties}, newChainState}) ->
+    onIdleChainInitTx st newChainState parties observed
   (InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit chainState party pendingCommits clientInput
   ( InitialState{parameters, pendingCommits, committed}
@@ -970,7 +971,7 @@ data NoSnapshotReason
   deriving (Eq, Show, Generic)
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
-isLeader HeadParameters{parties} p sn =
+isLeader HeadParameters{parties} p (UnsafeSnapshotNumber sn) =
   case p `elemIndex` parties of
     Just i -> ((fromIntegral @Natural @Int sn - 1) `mod` length parties) == i
     _ -> False

@@ -91,7 +91,7 @@ import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genPointInTimeBefore, slotNoFromUTCTime)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (
@@ -173,13 +173,14 @@ instance HasKnownUTxO ChainState where
     Closed st -> getKnownUTxO st
 
 -- | Read-only chain-specific data. This is different to 'HydraContext' as it
--- only provide contains data known to single peer.
+-- only contains data known to single peer.
 data ChainContext = ChainContext
   { networkId :: NetworkId
   , peerVerificationKeys :: [VerificationKey PaymentKey]
   , ownVerificationKey :: VerificationKey PaymentKey
   , ownParty :: Party
   , scriptRegistry :: ScriptRegistry
+  , contestationPeriod :: ContestationPeriod
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -193,6 +194,7 @@ instance Arbitrary ChainContext where
     ownVerificationKey <- genVerificationKey
     ownParty <- arbitrary
     scriptRegistry <- genScriptRegistry
+    contestationPeriod <- arbitrary
     pure
       ChainContext
         { networkId
@@ -200,6 +202,7 @@ instance Arbitrary ChainContext where
         , ownVerificationKey
         , ownParty
         , scriptRegistry
+        , contestationPeriod
         }
 
 -- | Get all cardano verification keys available in the chain context.
@@ -379,16 +382,22 @@ collect ctx st = do
   tripleToPair (a, b, c) = (a, (b, c))
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
--- snapshot. The given 'PointInTime' will be used as an upper validity bound and
--- will define the start of the contestation period.
+-- snapshot.
+--  - 'SlotNo' parameter will be used as the 'Tx' lower bound.
+--  - 'PointInTime' parameter will be used as an upper validity bound and
+--       will define the start of the contestation period.
+-- NB: lower and upper bound slot difference should not exceed contestation period
 close ::
   ChainContext ->
   OpenState ->
   ConfirmedSnapshot Tx ->
+  -- | 'Tx' validity lower bound
+  SlotNo ->
+  -- | 'Tx' validity upper bound
   PointInTime ->
   Tx
-close ctx st confirmedSnapshot pointInTime =
-  closeTx ownVerificationKey closingSnapshot pointInTime openThreadOutput
+close ctx st confirmedSnapshot startSlotNo pointInTime =
+  closeTx ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput
  where
   closingSnapshot = case confirmedSnapshot of
     -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
@@ -472,7 +481,13 @@ observeInit ::
   Tx ->
   Maybe (OnChainTx Tx, InitialState)
 observeInit ctx tx = do
-  observation <- observeInitTx networkId (allVerificationKeys ctx) ownParty tx
+  observation <-
+    observeInitTx
+      networkId
+      (allVerificationKeys ctx)
+      (Hydra.Chain.Direct.State.contestationPeriod ctx)
+      ownParty
+      tx
   pure (toEvent observation, toState observation)
  where
   toEvent InitObservation{contestationPeriod, parties} =
@@ -771,6 +786,7 @@ deriveChainContexts ctx = do
         , ownVerificationKey = vk
         , ownParty = p
         , scriptRegistry
+        , contestationPeriod = ctxContestationPeriod ctx
         }
  where
   allParties = ctxParties ctx
@@ -834,18 +850,20 @@ genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen) <- genStOpen ctx
   snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
-  pointInTime <- genPointInTime
   cctx <- pickChainContext ctx
-  pure (cctx, stOpen, close cctx stOpen snapshot pointInTime, snapshot)
+  let cp = ctxContestationPeriod ctx
+  (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
+  pure (cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
   ctx <- genHydraContextFor 3
   (u0, stOpen) <- genStOpen ctx
   confirmed <- genConfirmedSnapshot 0 u0 []
-  closePointInTime <- genPointInTime
   cctx <- pickChainContext ctx
-  let txClose = close cctx stOpen confirmed closePointInTime
+  let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
+  let txClose = close cctx stOpen confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
@@ -897,9 +915,10 @@ genStClosed ctx utxo = do
               }
           , utxo
           )
-  pointInTime <- genPointInTime
   cctx <- pickChainContext ctx
-  let txClose = close cctx stOpen snapshot pointInTime
+  let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
+  (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
+  let txClose = close cctx stOpen snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 -- ** Danger zone
 

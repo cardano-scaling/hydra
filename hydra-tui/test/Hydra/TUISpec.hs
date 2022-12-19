@@ -38,14 +38,17 @@ import Hydra.Cluster.Fixture (
   aliceSk,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
-import Hydra.ContestationPeriod (toNominalDiffTime)
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Options (ChainConfig (..))
-import Hydra.TUI (renderTime, runWithVty, tuiContestationPeriod)
+import Hydra.TUI (renderTime, runWithVty)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
+
+tuiContestationPeriod :: ContestationPeriod
+tuiContestationPeriod = UnsafeContestationPeriod 10
 
 spec :: Spec
 spec = do
@@ -172,7 +175,7 @@ setupNodeAndTUI' lovelace action =
       (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-        chainConfig <- chainConfigFor Alice tmpDir nodeSocket []
+        chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] tuiContestationPeriod
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do

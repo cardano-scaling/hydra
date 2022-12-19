@@ -15,7 +15,7 @@ import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import Cardano.Slotting.Slot (SlotNo)
+import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
@@ -41,7 +41,7 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
-  ChainContext,
+  ChainContext (contestationPeriod),
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
@@ -62,6 +62,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
+import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
@@ -112,7 +113,7 @@ mkChain tracer queryTimeHandle wallet ctx submitTx =
           -- details needed to establish connection to the other peers and
           -- to bootstrap the init transaction. For now, we bear with it and
           -- keep the static keys in context.
-          atomically (fromPostChainTx timeHandle wallet ctx chainState tx)
+          atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
             >>= finalizeTx wallet ctx chainState . toLedgerTx
         submitTx vtx
     }
@@ -129,7 +130,7 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = d
   let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
-      throwIO (NotEnoughFuel :: PostTxError Tx)
+      throwIO (NoFuelUTXOFound :: PostTxError Tx)
     Left ErrNotEnoughFunds{} ->
       throwIO (NotEnoughFuel :: PostTxError Tx)
     Left e ->
@@ -230,12 +231,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
                       }
                 }
 
--- | Hardcoded grace time for close transaction to be valid.
--- TODO: make it a node configuration parameter
-closeGraceTime :: SlotNo
-closeGraceTime = 100
-
-fromPostChainTx ::
+prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
   TinyWallet m ->
@@ -243,8 +239,7 @@ fromPostChainTx ::
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
-  pointInTime <- throwLeft currentPointInTime
+prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
   case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
@@ -269,11 +264,13 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
     (CollectComTx{}, Initial st) ->
       pure $ collect ctx st
     (CloseTx{confirmedSnapshot}, Open st) -> do
-      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (close ctx st confirmedSnapshot shifted)
+      (currentSlot, currentTime) <- throwLeft currentPointInTime
+      upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
+      pure (close ctx st confirmedSnapshot currentSlot upperBound)
     (ContestTx{confirmedSnapshot}, Closed st) -> do
-      shifted <- throwLeft $ adjustPointInTime closeGraceTime pointInTime
-      pure (contest ctx st confirmedSnapshot shifted)
+      (_, currentTime) <- throwLeft currentPointInTime
+      upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
+      pure (contest ctx st confirmedSnapshot upperBound)
     (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       pure (fanout st utxo deadlineSlot)
@@ -282,7 +279,20 @@ fromPostChainTx timeHandle wallet ctx cst@ChainStateAt{chainState} tx = do
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure
 
-  TimeHandle{currentPointInTime, adjustPointInTime, slotFromUTCTime} = timeHandle
+  TimeHandle{currentPointInTime, slotFromUTCTime} = timeHandle
+
+  -- See ADR21 for context
+  calculateTxUpperBoundFromContestationPeriod currentTime = do
+    let effectiveDelay = min (toNominalDiffTime $ contestationPeriod ctx) maxGraceTime
+    let upperBoundTime = addUTCTime effectiveDelay currentTime
+    upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime
+    pure (upperBoundSlot, upperBoundTime)
+
+-- | Maximum delay we put on the upper bound of transactions to fit into a block.
+-- NOTE: This is highly depending on the network. If the security parameter and
+-- epoch length result in a short horizon, this is problematic.
+maxGraceTime :: NominalDiffTime
+maxGraceTime = 200
 
 --
 -- Helpers

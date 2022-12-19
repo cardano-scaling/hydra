@@ -23,6 +23,7 @@ import Hydra.HeadLogicSpec (inOpenState')
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
+import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, cperiod)
@@ -40,6 +41,7 @@ spec = do
                 { party
                 , signingKey
                 , otherParties = List.delete party threeParties
+                , contestationPeriod = defaultContestationPeriod
                 }
 
     let params = HeadParameters cperiod threeParties
@@ -121,6 +123,7 @@ prop_singleMemberHeadAlwaysSnapshot sn =
               { party
               , signingKey = aliceSk
               , otherParties = []
+              , contestationPeriod = defaultContestationPeriod
               }
       st =
         CoordinatedHeadState

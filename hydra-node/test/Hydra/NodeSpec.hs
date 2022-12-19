@@ -20,6 +20,7 @@ import Hydra.Chain (
   PostChainTx (InitTx),
   PostTxError (NoSeedInput),
  )
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, sign)
 import Hydra.HeadLogic (
   Environment (..),
@@ -40,6 +41,7 @@ import Hydra.Node (
   isEmpty,
   stepHydraNode,
  )
+import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..))
@@ -61,7 +63,7 @@ spec = parallel $ do
                  , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx3}}
                  ]
           signedSnapshot = sign aliceSk $ Snapshot 1 (utxoRefs [1, 3, 4]) [tx1]
-      node <- createHydraNode aliceSk [bob, carol] events
+      node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
       getNetworkMessages `shouldReturn` [ReqSn alice 1 [tx1], AckSn alice signedSnapshot 1]
@@ -79,7 +81,7 @@ spec = parallel $ do
                  , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx1}}
                  ]
 
-      node <- createHydraNode bobSk [alice, carol] events
+      node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
 
@@ -95,7 +97,7 @@ spec = parallel $ do
               <> [ NetworkEvent{ttl = defaultTTL, message = AckSn{party = bob, signed = sigBob, snapshotNumber = 1}}
                  , NetworkEvent{ttl = defaultTTL, message = ReqSn{party = alice, snapshotNumber = 1, transactions = []}}
                  ]
-      node <- createHydraNode aliceSk [bob, carol] events
+      node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
       getNetworkMessages `shouldReturn` [AckSn{party = alice, signed = sigAlice, snapshotNumber = 1}]
@@ -105,9 +107,9 @@ spec = parallel $ do
       let events =
             [ NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = NodeId "NodeId1"}}
             , NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = NodeId "NodeId2"}}
-            , ClientEvent $ Init cperiod
+            , ClientEvent Init
             ]
-      (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
+      (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] cperiod events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
 
       runToCompletion tracer node
 
@@ -156,9 +158,10 @@ createHydraNode ::
   (MonadSTM m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
   SigningKey HydraKey ->
   [Party] ->
+  ContestationPeriod ->
   [Event SimpleTx] ->
   m (HydraNode SimpleTx m)
-createHydraNode signingKey otherParties events = do
+createHydraNode signingKey otherParties contestationPeriod events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
   nodeState <- createNodeState $ IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
@@ -175,6 +178,7 @@ createHydraNode signingKey otherParties events = do
             { party
             , signingKey
             , otherParties
+            , contestationPeriod
             }
       , persistence =
           Persistence

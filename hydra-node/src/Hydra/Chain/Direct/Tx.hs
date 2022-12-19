@@ -46,7 +46,7 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
@@ -305,18 +305,21 @@ closeTx ::
   VerificationKey PaymentKey ->
   -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
+  -- | 'Tx' validity lower bound
+  SlotNo ->
   -- | Current slot and UTC time to compute the contestation deadline time.
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
   Tx
-closeTx vk closing (slotNo, utcTime) openThreadOutput =
+closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValidityUpperBound slotNo
+      & setValidityLowerBound startSlotNo
+      & setValidityUpperBound endSlotNo
  where
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore)
@@ -566,15 +569,18 @@ data InitObservation = InitObservation
 observeInitTx ::
   NetworkId ->
   [VerificationKey PaymentKey] ->
+  -- | Our node's contestation period
+  ContestationPeriod ->
   Party ->
   Tx ->
   Maybe InitObservation
-observeInitTx networkId cardanoKeys party tx = do
+observeInitTx networkId cardanoKeys expectedCP party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   parties <- mapM partyFromChain ps
   let contestationPeriod = fromChain cp
+  guard $ expectedCP == contestationPeriod
   guard $ party `elem` parties
   (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
@@ -775,7 +781,6 @@ observeCloseTx utxo tx = do
       closeContestationDeadline <- case fromData (toPlutusData newHeadDatum) of
         Just Head.Closed{contestationDeadline} -> pure contestationDeadline
         _ -> Nothing
-      snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
         CloseObservation
           { threadOutput =
@@ -789,7 +794,7 @@ observeCloseTx utxo tx = do
                 , closedContestationDeadline = closeContestationDeadline
                 }
           , headId
-          , snapshotNumber
+          , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
           }
     _ -> Nothing
  where
@@ -819,7 +824,6 @@ observeContestTx utxo tx = do
     (Head.Closed{}, Head.Contest{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
-      snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
         ContestObservation
           { contestedThreadOutput =
@@ -828,7 +832,7 @@ observeContestTx utxo tx = do
               , newHeadDatum
               )
           , headId
-          , snapshotNumber
+          , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
           }
     _ -> Nothing
  where

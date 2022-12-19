@@ -3,3 +3,27 @@ ch1bo:
   title: Software Engineering Lead - Hydra @ IOG
   url: https://github.com/ch1bo
   image_url: https://github.com/ch1bo.png
+
+Arnaud:
+  name: Arnaud Bailly
+  title: Lead Architect - Hydra @ IOG
+  url: https://github.com/abailly-iohk
+  image_url: https://github.com/abailly-iohk.png
+
+Franco:
+  name: Franco Testagrossa
+  title: Senior software engineer - Hydra @ IOG
+  url: https://github.com/ffakenz
+  image_url: https://github.com/ffakenz.png
+
+Pascal:
+  name: Pascal Grange
+  title: Senior software engineer - Hydra @ IOG
+  url: https://github.com/pgrange
+  image_url: https://github.com/pgrange.png
+
+v0d1ch:
+  name: Sasha Bogicevic
+  title: Senior software engineer - Hydra @ IOG
+  url: https://github.com/v0d1ch
+  image_url: https://github.com/v0d1ch.png

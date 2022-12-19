@@ -109,6 +109,7 @@ data PostTxError tx
   = MoreThanOneUTxOCommitted
   | InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
   | NotEnoughFuel
+  | NoFuelUTXOFound
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
   | FailedToPostTx {failureReason :: Text}
   | -- NOTE: PlutusDebugInfo does not have much available instances so we put it in Text

@@ -7,6 +7,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), serialiseToRawBytesHexText, unsafeDeserialiseFromRawBytesBase16)
 import Hydra.Chain.Direct (NetworkMagic (..))
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Options (
@@ -136,6 +137,29 @@ spec = parallel $
             { chainConfig =
                 defaultChainConfig
                   { networkId = Testnet (NetworkMagic 123)
+                  }
+            }
+
+    it "parses --contestation-period option as a number of seconds" $ do
+      shouldNotParse ["--contestation-period", "abc"]
+      shouldNotParse ["--contestation-period", "s"]
+      shouldNotParse ["--contestation-period", "0"]
+      shouldNotParse ["--contestation-period", "0s"]
+      shouldNotParse ["--contestation-period", "00s"]
+      setFlags ["--contestation-period", "60s"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                defaultChainConfig
+                  { contestationPeriod = UnsafeContestationPeriod 60
+                  }
+            }
+      setFlags ["--contestation-period", "300s"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                defaultChainConfig
+                  { contestationPeriod = UnsafeContestationPeriod 300
                   }
             }
 

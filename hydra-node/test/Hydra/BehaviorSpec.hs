@@ -81,13 +81,13 @@ spec = parallel $ do
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n ->
-            send n (Init testContestationPeriod)
+            send n Init
 
     it "accepts Commit after successful Init" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
-            send n1 (Init testContestationPeriod)
+            send n1 Init
             waitUntil [n1] $ ReadyToCommit (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
@@ -96,7 +96,7 @@ spec = parallel $ do
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
-            send n1 (Init testContestationPeriod)
+            send n1 Init
             waitUntil [n1] $ ReadyToCommit (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
@@ -108,7 +108,7 @@ spec = parallel $ do
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
-            send n1 (Init testContestationPeriod)
+            send n1 Init
             waitUntil [n1] $ ReadyToCommit (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
@@ -120,7 +120,7 @@ spec = parallel $ do
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
-            send n1 (Init testContestationPeriod)
+            send n1 Init
             waitUntil [n1] $ ReadyToCommit (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
@@ -134,7 +134,7 @@ spec = parallel $ do
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
-            send n1 (Init testContestationPeriod)
+            send n1 Init
             waitUntil [n1] $ ReadyToCommit (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
@@ -151,7 +151,7 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
-              send n1 (Init testContestationPeriod)
+              send n1 Init
               waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
 
               send n1 (Commit (utxoRef 1))
@@ -168,13 +168,13 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
-              send n1 (Init testContestationPeriod)
+              send n1 Init
               waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
               send n1 (Commit (utxoRefs [1, 2]))
               waitUntil [n1, n2] $ Committed alice (utxoRefs [1, 2])
               send n2 Abort
               waitUntil [n1, n2] $ HeadIsAborted (utxoRefs [1, 2])
-              send n1 (Init testContestationPeriod)
+              send n1 Init
               waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
 
     it "cannot abort head when commits have been collected" $
@@ -182,7 +182,7 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
-              send n1 (Init testContestationPeriod)
+              send n1 Init
               waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
               send n1 (Commit (utxoRef 1))
               send n2 (Commit (utxoRef 2))
@@ -197,7 +197,7 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
-              send n1 (Init testContestationPeriod)
+              send n1 Init
               waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
 
               send n1 (Commit (utxoRef 1))
@@ -218,7 +218,7 @@ spec = parallel $ do
           withSimulatedChainAndNetwork $ \chain ->
             withHydraNode aliceSk [bob] chain $ \n1 ->
               withHydraNode bobSk [alice] chain $ \n2 -> do
-                send n1 (Init testContestationPeriod)
+                send n1 Init
                 waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
                 send n1 (Commit (utxoRef 1))
 
@@ -407,22 +407,22 @@ spec = parallel $ do
       let result = runSimTrace $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
-                send n1 (Init testContestationPeriod)
+                send n1 Init
                 waitUntil [n1] $ ReadyToCommit (fromList [alice])
                 send n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
       logs
-        `shouldContain` [BeginEvent alice $ ClientEvent $ Init testContestationPeriod]
+        `shouldContain` [BeginEvent alice $ ClientEvent Init]
       logs
-        `shouldContain` [EndEvent alice $ ClientEvent $ Init testContestationPeriod]
+        `shouldContain` [EndEvent alice $ ClientEvent Init]
 
     it "traces handling of effects" $ do
       let result = runSimTrace $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
-                send n1 (Init testContestationPeriod)
+                send n1 Init
                 waitUntil [n1] $ ReadyToCommit (fromList [alice])
                 send n1 (Commit (utxoRef 1))
 
@@ -438,7 +438,7 @@ spec = parallel $ do
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
-            send n1 (Init testContestationPeriod)
+            send n1 Init
             waitUntil [n1] $ ReadyToCommit (fromList [alice])
             -- We expect the Init to be rolled back and forward again
             rollbackAndForward chain 1
@@ -449,7 +449,7 @@ spec = parallel $ do
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
-            send n1 (Init testContestationPeriod)
+            send n1 Init
             waitUntil [n1] $ ReadyToCommit (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
@@ -685,7 +685,7 @@ withHydraNode signingKey otherParties connectToChain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
   nodeState <- createNodeState $ IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
-  node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory connectToChain
+  node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory connectToChain testContestationPeriod
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraNode outputs outputHistory node)
 
@@ -712,8 +712,9 @@ createHydraNode ::
   TQueue m (ServerOutput tx) ->
   TVar m [ServerOutput tx] ->
   ConnectToChain tx m ->
+  ContestationPeriod ->
   m (HydraNode tx m)
-createHydraNode ledger nodeState signingKey otherParties outputs outputHistory connectToChain = do
+createHydraNode ledger nodeState signingKey otherParties outputs outputHistory connectToChain cp = do
   eq <- createEventQueue
   persistenceVar <- newTVarIO Nothing
   labelTVarIO persistenceVar ("persistence-" <> shortLabel signingKey)
@@ -735,6 +736,7 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
             { party = deriveParty signingKey
             , signingKey
             , otherParties
+            , contestationPeriod = cp
             }
       , persistence =
           Persistence
@@ -748,7 +750,7 @@ openHead ::
   TestHydraNode SimpleTx (IOSim s) ->
   IOSim s ()
 openHead n1 n2 = do
-  send n1 (Init testContestationPeriod)
+  send n1 Init
   waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
   send n1 (Commit (utxoRef 1))
   waitUntil [n1, n2] $ Committed alice (utxoRef 1)

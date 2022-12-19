@@ -38,6 +38,7 @@ import Data.Text (pack)
 import qualified Data.Text as T
 import Hydra.Cluster.Faucet (FaucetLog)
 import Hydra.Cluster.Util (readConfigFile)
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
@@ -209,9 +210,10 @@ withHydraCluster ::
   [SigningKey HydraKey] ->
   -- | Transaction id at which Hydra scripts should have been published.
   TxId ->
+  ContestationPeriod ->
   (NonEmpty HydraClient -> IO ()) ->
   IO ()
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId action = do
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -239,6 +241,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
               { nodeSocket
               , cardanoSigningKey
               , cardanoVerificationKeys
+              , contestationPeriod
               }
       withHydraNode
         tracer
