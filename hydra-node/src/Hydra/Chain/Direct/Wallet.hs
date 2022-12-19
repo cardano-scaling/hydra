@@ -27,6 +27,7 @@ import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Era (ValidateScript (..), fromTxSeq)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
+import Cardano.Ledger.Mary.Value (gettriples')
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Serialization (mkSized)
 import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
@@ -355,7 +356,12 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
 
 findFuelUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
 findFuelUTxO utxo =
-  Map.lookupMax (Map.filter hasMarkerDatum utxo)
+  let utxosWithDatum = Map.toList $ Map.filter hasMarkerDatum utxo
+      sortingCriteria (_, Ledger.Babbage.TxOut _ v _ _) = fst' (gettriples' v)
+      sortedByValue = sortOn sortingCriteria utxosWithDatum
+   in case sortedByValue of
+        [] -> Nothing
+        as -> Just (List.last as)
  where
   hasMarkerDatum :: TxOut -> Bool
   hasMarkerDatum (Ledger.Babbage.TxOut _ _ datum _) = case datum of
@@ -363,6 +369,7 @@ findFuelUTxO utxo =
     DatumHash dh ->
       dh == hashData (Data @LedgerEra markerDatum)
     Datum{} -> False -- Marker is not stored inline
+  fst' (a, _, _) = a
 
 -- | Estimate cost of script executions on the transaction. This is only an
 -- estimates because the transaction isn't sealed at this point and adding new
