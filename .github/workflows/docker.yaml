@@ -48,7 +48,7 @@ jobs:
           --label org.opencontainers.image.created=$(date -Is) \
           --label org.opencontainers.image.revision=${{github.sha}} \
           --label org.opencontainers.image.version=unstable \
-          --tag ghcr.io/input-output-hk/${{matrix.target}}:unstable -
+          --tag ghcr.io/${{ github.repository_owner }}/${{matrix.target}}:unstable -
         # Also tag with semver if we are building a tag
         building_tag=${{github.ref_type == 'tag'}}
         [[ ${building_tag} = true ]] && \
