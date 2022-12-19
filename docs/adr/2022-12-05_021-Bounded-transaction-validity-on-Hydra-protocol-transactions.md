@@ -58,9 +58,6 @@ Proposed
 - Introduce `maxGraceTime` expressed in seconds in place of `closeGraceTime` and adjust to
   appropriate value.
 
-- The upper tx validity of close transaction should be minimum between
-  `maxGraceTime` and `contestationPeriod`. Users need to know this.
-
 - The contestation period is to be used to create bounded close transaction
   (together with `maxGraceTime`). Before it was only used for computing the
   contestation deadline.
@@ -79,24 +76,34 @@ Proposed
 ## Decision
 
 - Use the specification formula on-chain.
+
 - Configure the contestation period (number of seconds) on the `hydra-node`,
   e.g. via a `--contestation-period` command line option.
+
 - Lower tx bound should be the last known slot as reported by the
   `cardano-node`.
+
 - Upper tx bound is the current time + minimum between `contestationPeriod` and
   `maxGraceTime`.
+
 - When submitting the `InitTx` make sure to use `--contestation-period` value
   from our node's flag.
+
 - If other nodes observe `OnInitTx` and the `contestationPeriod` value does not
   match with their `--contestation-period` setting - ignore `InitTx`.
+
 - Rename `closeGraceTime` to `maxGraceTime` since we are using it also for upper
   bound of a contest tx.
 
 ## Consequences
 
 - Not any positive number of seconds is a valid contestation period any more!
+
+- Upper tx validity of close transaction is the minimum between `maxGraceTime`
+  and `contestationPeriod` and this needs to be _good enough_ value with respect
+  to running network. This is a consequence required by the ledger when
+  constructing transactions since we cannot convert arbitrary point in times to
+  slots.
+
 - All parties need to aggree on contestation period before trying to run a Head
   protocol otherwise InitTx will be ignored.
-- Upper tx bound is `min (contestationPeriod, maxGraceTime)` which should be
-  good enough value considering `contestationPeriod` needs to be _in sync_ with
-  the current network.

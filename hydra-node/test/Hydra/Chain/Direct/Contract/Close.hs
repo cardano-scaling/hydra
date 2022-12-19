@@ -27,7 +27,7 @@ import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
+import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 --
@@ -142,6 +142,7 @@ data CloseMutation
   | MutateCloseUTxOHash
   | MutateValidityInterval
   | MutateCloseContestationDeadline
+  | MutateCloseContestationDeadlineWithZero
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -178,8 +179,9 @@ genCloseMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
-    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0 <$> mutateClosedContestationDeadline Nothing
-    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0 <$> mutateClosedContestationDeadline (Just 0)
+    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0
+        <$> (mutateClosedContestationDeadline =<< arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds))
+    , SomeMutation MutateCloseContestationDeadlineWithZero . ChangeOutput 0 <$> mutateClosedContestationDeadline 0
     , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
         ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
@@ -187,8 +189,8 @@ genCloseMutation (tx, _utxo) =
     , -- try to change a tx so that lower bound is higher than the upper bound
       SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
-        ub <- arbitrary `suchThat` (< lb)
-        pure (TxValidityLowerBound lb, TxValidityUpperBound ub)
+        ub <- (lb -) <$> choose (0, lb)
+        pure (TxValidityLowerBound (SlotNo lb), TxValidityUpperBound (SlotNo ub))
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
@@ -215,11 +217,10 @@ genCloseMutation (tx, _utxo) =
         }
     st -> error $ "unexpected state " <> show st
   -- In case contestation period param is 'Nothing' we will generate arbitrary value
-  mutateClosedContestationDeadline :: Maybe Integer -> Gen (TxOut CtxTx)
-  mutateClosedContestationDeadline mCP = do
+  mutateClosedContestationDeadline :: Integer -> Gen (TxOut CtxTx)
+  mutateClosedContestationDeadline contestationPeriodSeconds = do
     -- NOTE: we need to be sure the generated contestation period is large enough to have an impact on the on-chain
     -- deadline computation, which means having a resolution of seconds instead of the default picoseconds
-    contestationPeriodSeconds <- maybe (arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds)) pure mCP
     pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
 
   mutateContestationDeadline contestationPeriod = \case

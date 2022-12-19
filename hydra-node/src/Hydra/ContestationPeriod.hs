@@ -5,7 +5,7 @@ import Hydra.Prelude hiding (Show, show)
 import Data.Ratio ((%))
 import Data.Time (secondsToNominalDiffTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
-import Test.QuickCheck (choose, elements, oneof)
+import Test.QuickCheck (choose, oneof)
 import Text.Show (Show (..))
 
 -- | A positive, non-zero number of seconds.
@@ -20,11 +20,13 @@ instance Arbitrary ContestationPeriod where
   arbitrary = do
     UnsafeContestationPeriod . fromInteger
       <$> oneof
-        [ elements [0, 1]
-        , choose (1, confirmedHorizon)
+        [ choose (1, confirmedHorizon)
         , pure confirmedHorizon
         , choose (confirmedHorizon, oneDay)
-        , elements [oneDay, oneWeek, oneMonth, oneYear]
+        , pure oneDay
+        , pure oneWeek
+        , pure oneMonth
+        , pure oneYear
         ]
    where
     confirmedHorizon = 2160 * 20 -- k blocks on mainnet

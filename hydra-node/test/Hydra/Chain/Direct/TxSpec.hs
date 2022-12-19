@@ -55,12 +55,13 @@ import Test.QuickCheck (
   cover,
   elements,
   forAll,
+  getPositive,
   label,
   oneof,
   property,
   suchThat,
   vectorOf,
-  withMaxSuccess, getPositive
+  withMaxSuccess,
  )
 import Test.QuickCheck.Instances.Semigroup ()
 

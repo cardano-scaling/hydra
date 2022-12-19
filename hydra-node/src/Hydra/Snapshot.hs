@@ -9,7 +9,7 @@ import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Cardano.Api (SigningKey)
-import qualified Hydra.Contract.HeadState as HS
+import qualified Hydra.Contract.HeadState as Onchain
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, generateSigningKey, sign)
 import Hydra.Ledger (IsTx (..))
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
@@ -143,7 +143,7 @@ genConfirmedSnapshot minSn utxo sks
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 
-fromChainSnapshot :: HS.SnapshotNumber -> SnapshotNumber
+fromChainSnapshot :: Onchain.SnapshotNumber -> SnapshotNumber
 fromChainSnapshot onChainSnapshotNumber =
   maybe
     (error "Failed to convert on-chain SnapShotNumber to off-chain one.")

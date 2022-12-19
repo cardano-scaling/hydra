@@ -46,7 +46,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
   unsafeCommit,
  )
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), genTimeParams, mkTimeHandle)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
 import Ouroboros.Consensus.Block (Point (BlockPoint, GenesisPoint), blockPoint, pointSlot)
@@ -73,13 +73,13 @@ import Test.QuickCheck.Monadic (
 
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotInsideHorizon = do
-  (systemStart, eraHistory, horizonSlot, currentSlot) <- genTimeParams
+  TimeHandleParams{systemStart, eraHistory, horizonSlot, currentSlot} <- genTimeParams
   let timeHandle = mkTimeHandle currentSlot systemStart eraHistory
   pure (timeHandle, horizonSlot - 1)
 
 genTimeHandleWithSlotPastHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotPastHorizon = do
-  (systemStart, eraHistory, horizonSlot, currentSlot) <- genTimeParams
+  TimeHandleParams{systemStart, eraHistory, horizonSlot, currentSlot} <- genTimeParams
   let timeHandle = mkTimeHandle currentSlot systemStart eraHistory
   pure (timeHandle, horizonSlot + 1)
 

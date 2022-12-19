@@ -37,8 +37,10 @@ changes.
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds
     to control the close tx validity bounds as well as determine the
-    contestation deadline.
-  + The deadline is always `2 * --contestation-period` after the Close tx.
+    contestation deadline. (e.g. with `--contestation-period` 30s, the node will
+    close the head 30s after submitting the close transaction and other parties
+    will have another 30s to contest.)
+  + The deadline is up to `2 * --contestation-period` for Close tx.
   + If hydra-node receives a `Init` tx with _not matching_ `--contestation period` then this tx is ignored which implies
     that all parties need to agree on the same value for contestation period.
   + API request payload to create the Init transaction does not contain the field `contestationPeriod` any more.

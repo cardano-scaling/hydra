@@ -38,9 +38,16 @@ data TimeHandle = TimeHandle
     slotToUTCTime :: SlotNo -> Either Text UTCTime
   }
 
+data TimeHandleParams = TimeHandleParams
+  { systemStart :: SystemStart
+  , eraHistory :: EraHistory CardanoMode
+  , horizonSlot :: SlotNo
+  , currentSlot :: SlotNo
+  }
+
 -- | Generate consistent values for 'SystemStart' and 'EraHistory' which has
 -- a horizon at the returned SlotNo as well as some UTCTime before that
-genTimeParams :: Gen (SystemStart, EraHistory CardanoMode, SlotNo, SlotNo)
+genTimeParams :: Gen TimeHandleParams
 genTimeParams = do
   startSeconds <- getPositive <$> arbitrary
   let startTime = posixSecondsToUTCTime $ secondsToNominalDiffTime startSeconds
@@ -50,14 +57,20 @@ genTimeParams = do
       -- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config
       safeZone = 3 * 2160 / 0.05
       horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
-  pure (SystemStart startTime, eraHistoryWithHorizonAt horizonSlot, horizonSlot, currentSlotNo)
+  pure $
+    TimeHandleParams
+      { systemStart = SystemStart startTime
+      , eraHistory = eraHistoryWithHorizonAt horizonSlot
+      , horizonSlot = horizonSlot
+      , currentSlot = currentSlotNo
+      }
 
 instance Arbitrary TimeHandle where
   arbitrary = do
-    (systemStart, eraHistory, _, currentSlotNo) <- genTimeParams
-    pure $ mkTimeHandle currentSlotNo systemStart eraHistory
+    TimeHandleParams{systemStart, eraHistory, currentSlot} <- genTimeParams
+    pure $ mkTimeHandle currentSlot systemStart eraHistory
 
--- | Construct a time handle using current time and given chain parameters. See
+-- | Construct a time handle using current slot and given chain parameters. See
 -- 'queryTimeHandle' to create one by querying a cardano-node.
 mkTimeHandle ::
   HasCallStack =>

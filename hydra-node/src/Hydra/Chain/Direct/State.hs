@@ -853,7 +853,6 @@ genCloseTx numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  -- The difference between startSlot and pointInTime needs to be <= contestationPeriod
   pure (cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
