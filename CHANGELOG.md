@@ -32,7 +32,7 @@ changes.
   + Allows us to use some CI services (cicero).
   + Makes configuration of binary-caches easier to discover (you get asked about adding them).
   + Will make bumping dependencies (e.g. cardano-node) easier.
-  + Build commands change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
+  + Build commands for binaries and docker images change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
 
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds

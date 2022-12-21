@@ -46,6 +46,12 @@ let
     inputMap = { "https://input-output-hk.github.io/cardano-haskell-packages" = CHaP; };
 
     modules = [
+      # Strip debugging symbols from exes (smaller closures)
+      {
+        packages.hydra-node.dontStrip = false;
+        packages.hydra-tui.dontStrip = false;
+        packages.hydraw.dontStrip = false;
+      }
       # Set libsodium-vrf on cardano-crypto-{praos,class}. Otherwise they depend
       # on libsodium, which lacks the vrf functionality.
       ({ pkgs, lib, ... }:

@@ -17,6 +17,7 @@
     , std
     , tullia
     , flake-utils
+    , nixpkgs
     , ...
     } @ inputs:
     std.growOn
@@ -39,14 +40,21 @@
       (flake-utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ]
         (system:
         let
+          pkgs = import inputs.nixpkgs { inherit system; };
           hydraProject = import ./nix/hydra/project.nix {
-            inherit (inputs) nixpkgs haskellNix iohk-nix CHaP;
-            inherit system;
+            inherit (inputs) haskellNix iohk-nix CHaP;
+            inherit system nixpkgs;
+          };
+          hydraPackages = import ./nix/hydra/packages.nix {
+            inherit hydraProject system;
+          };
+          hydraImages = import ./nix/hydra/docker.nix {
+            inherit hydraPackages system nixpkgs;
           };
         in
-        {
-          packages = import ./nix/hydra/packages.nix {
-            inherit hydraProject system;
+        rec {
+          packages = hydraPackages // {
+            docker = hydraImages;
           };
 
           devShells = (import ./nix/hydra/shell.nix {
@@ -57,6 +65,7 @@
               withoutDevTools = true;
             }).default;
           };
+
         })
       );
 
