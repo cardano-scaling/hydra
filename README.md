@@ -2,8 +2,8 @@
 
 <div align="center">
   <p>Reference implementation of the Hydra scalability protocols.</p>
-  <a href='https://github.com/input-output-hk/hydra/actions'><img src="https://img.shields.io/github/workflow/status/input-output-hk/hydra/CI?label=Tests&style=for-the-badge" /></a>
-  <a href='https://github.com/input-output-hk/hydra/pkgs/container/hydra-node'><img src="https://img.shields.io/github/workflow/status/input-output-hk/hydra/Docker?label=Docker&style=for-the-badge" /></a>
+  <a href='https://github.com/input-output-hk/hydra/actions'><img src="https://img.shields.io/github/actions/workflow/status/input-output-hk/hydra/ci.yaml?branch=master&label=Tests&style=for-the-badge" /></a>
+  <a href='https://github.com/input-output-hk/hydra/pkgs/container/hydra-node'><img src="https://img.shields.io/github/actions/workflow/status/input-output-hk/hydra/docker.yaml?branch=master&label=Docker&style=for-the-badge" /></a>
 </div>
 
 ## :sunrise_over_mountains: Introduction
