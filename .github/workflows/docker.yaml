@@ -63,4 +63,4 @@ jobs:
       run: |
         # Only push images from master or release tags, unless it's about
         # 'hydraw' (which is not yet versioned)
-        docker push ${IMAGE_NAME}
+        docker push -a ${IMAGE_NAME}
