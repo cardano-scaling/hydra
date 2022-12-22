@@ -13,8 +13,10 @@ import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
+  replacePolicyIdWith
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
+import qualified Hydra.Contract.Initial  as Initial
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (commitTx, headPolicyId, mkInitialOutput)
 import Hydra.Ledger.Cardano (
@@ -48,19 +50,22 @@ healthyCommitTx =
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
-  initialInput = generateWith arbitrary 42
-
-  initialOutput = mkInitialOutput Fixture.testNetworkId policyId commitVerificationKey
-
-  policyId = headPolicyId initialInput
-
   initialPubKeyHash = verificationKeyHash commitVerificationKey
-
-  commitVerificationKey :: VerificationKey PaymentKey
-  commitVerificationKey = generateWith arbitrary 42
 
   commitParty :: Party
   commitParty = generateWith arbitrary 42
+
+commitVerificationKey :: VerificationKey PaymentKey
+commitVerificationKey = generateWith arbitrary 42
+
+initialInput :: TxIn
+initialInput = generateWith arbitrary 42
+
+initialOutput :: TxOut CtxTx
+initialOutput = mkInitialOutput Fixture.testNetworkId policyId commitVerificationKey
+
+policyId :: PolicyId
+policyId = headPolicyId initialInput
 
 -- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
 healthyCommittedUTxO :: (TxIn, TxOut CtxUTxO)
@@ -74,6 +79,9 @@ data CommitMutation
   | MutateCommittedValue
   | MutateCommittedAddress
   | MutateRequiredSigner
+  | -- | Change the policy Id of the PT both in input and output
+    MutatePolicyId
+
   deriving (Generic, Show, Enum, Bounded)
 
 genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -94,6 +102,12 @@ genCommitMutation (tx, _utxo) =
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation MutatePolicyId <$> do
+        otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= Fixture.testSeedInput))
+        pure $ Changes [ ChangeOutput 0 (replacePolicyIdWith otherHeadId commitTxOut)
+                       , ChangeInput initialInput (toUTxOContext $ replacePolicyIdWith otherHeadId initialOutput) (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef (fst healthyCommittedUTxO))
+                       ]
+
     ]
  where
   TxOut{txOutValue = commitOutputValue} = commitTxOut

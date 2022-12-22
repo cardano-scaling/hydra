@@ -19,6 +19,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   anyPayToPubKeyTxOut,
   changeMintedValueQuantityFrom,
   headTxIn,
+  replacePolicyIdWith,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
@@ -26,7 +27,6 @@ import Hydra.Chain.Direct.Tx (
   UTxOWithScript,
   abortTx,
   headPolicyId,
-  headValue,
   mkHeadOutputInitial,
   mkHeadTokenScript,
  )
@@ -193,17 +193,3 @@ removePTFromMintedValue output tx =
    in case txMintValue $ txBodyContent $ txBody tx of
         TxMintValueNone -> error "expected minted value"
         TxMintValue v _ -> valueFromList $ filter (not . ptForAssetName) $ valueToList v
-
-replacePolicyIdWith :: PolicyId -> TxOut CtxUTxO -> TxOut CtxUTxO
-replacePolicyIdWith otherHeadId output =
-  let value = txOutValue output
-      assetNames =
-        [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList value, policyId == testPolicyId
-        ]
-      (_originalPolicyId, assetName) =
-        case assetNames of
-          [assetId] -> assetId
-          _ -> error "expected one assetId"
-
-      newValue = headValue <> valueFromList [(AssetId otherHeadId assetName, 1)]
-   in output{txOutValue = newValue}

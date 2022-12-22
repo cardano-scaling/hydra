@@ -572,3 +572,14 @@ addPTWithQuantity tx quantity =
         pure mempty
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
+
+replacePolicyIdWith :: PolicyId -> TxOut a -> TxOut a
+replacePolicyIdWith otherHeadId output =
+  let value = txOutValue output
+      newValue =
+        valueFromList $ map (swapPolicyId) $ valueToList value
+      swapPolicyId = \case
+        (AssetId policyId pkh, q)
+          | policyId == testPolicyId ->  (AssetId otherHeadId pkh, q)
+        v -> v
+   in output{txOutValue = newValue}
