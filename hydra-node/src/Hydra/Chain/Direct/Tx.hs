@@ -163,7 +163,7 @@ mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
-    mkTxOutDatum $ Initial.InitialDatum (List.head $ symbols $ toPlutusValue $ valueFromList [(AssetId tokenPolicyId (AssetName "foo"), 1)])
+    mkTxOutDatum $ Initial.InitialDatum $ toPlutusPolicyId tokenPolicyId
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 commitTx ::
