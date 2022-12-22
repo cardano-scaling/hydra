@@ -10,7 +10,7 @@ import Hydra.Prelude hiding (label)
 import Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize')
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, headTxIn)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadOutput)
 import Hydra.ContestationPeriod (fromChain)
@@ -143,11 +143,10 @@ data CloseMutation
   | MutateValidityInterval
   | MutateCloseContestationDeadline
   | MutateCloseContestationDeadlineWithZero
-  | MutateInputs
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
-genCloseMutation (tx, utxo) =
+genCloseMutation (tx, _utxo) =
   -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
   -- the power of the mutators, we should test at the level of the validator.
   -- That is, using the on-chain types. 'closeRedeemer' is also not used
@@ -192,18 +191,6 @@ genCloseMutation (tx, utxo) =
         lb <- arbitrary
         ub <- (lb -) <$> choose (0, lb)
         pure (TxValidityLowerBound (SlotNo lb), TxValidityUpperBound (SlotNo ub))
-    , SomeMutation MutateInputs <$> do
-        let out = case txOuts $ txBodyContent $ txBody tx of
-              [] -> error "empty txOut"
-              (o : _) -> o
-        let (Tx body _) = tx
-        let ShelleyTxBody _ scripts _ _ _ = body
-        let _script =
-              case scripts of
-                [] -> Nothing
-                (s : _) -> Just s
-
-        pure $ Changes [ChangeInput (headTxIn utxo) (toUTxOContext out) Nothing]
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

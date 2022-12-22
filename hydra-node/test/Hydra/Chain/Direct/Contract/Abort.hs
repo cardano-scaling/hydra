@@ -168,32 +168,42 @@ genAbortMutation (tx, utxo) =
     , SomeMutation UseInputFromOtherHead <$> do
         (input, output, _) <- elements healthyInitials
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
-
-        let value = txOutValue output
-            assetNames =
-              [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList value, policyId == testPolicyId
-              ]
-            (originalPolicyId, assetName) =
-              case assetNames of
-                [assetId] -> assetId
-                _ -> error "expected one assetId"
-
-            newValue = headValue <> valueFromList [(AssetId otherHeadId assetName, 1)]
-
-            ptForAssetName = \case
-              (AssetId pid asset, _) ->
-                pid == originalPolicyId && asset == assetName
-              _ -> False
-
-            mintedValue' = case txMintValue $ txBodyContent $ txBody tx of
-              TxMintValueNone -> error "expected minted value"
-              TxMintValue v _ -> valueFromList $ filter (not . ptForAssetName) $ valueToList v
-
-            output' = output{txOutValue = newValue}
-
         pure $
           Changes
-            [ ChangeInput input output' (Just $ toScriptData Initial.ViaAbort)
-            , ChangeMintedValue mintedValue'
+            [ ChangeInput input (replacePolicyIdWith otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
+            , ChangeMintedValue (removePTFromMintedValue output tx)
             ]
     ]
+
+removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
+removePTFromMintedValue output tx =
+  let value = txOutValue output
+      assetNames =
+        [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList value, policyId == testPolicyId
+        ]
+      (originalPolicyId, assetName) =
+        case assetNames of
+          [assetId] -> assetId
+          _ -> error "expected one assetId"
+
+      ptForAssetName = \case
+        (AssetId pid asset, _) ->
+          pid == originalPolicyId && asset == assetName
+        _ -> False
+   in case txMintValue $ txBodyContent $ txBody tx of
+        TxMintValueNone -> error "expected minted value"
+        TxMintValue v _ -> valueFromList $ filter (not . ptForAssetName) $ valueToList v
+
+replacePolicyIdWith :: PolicyId -> TxOut CtxUTxO -> TxOut CtxUTxO
+replacePolicyIdWith otherHeadId output =
+  let value = txOutValue output
+      assetNames =
+        [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList value, policyId == testPolicyId
+        ]
+      (_originalPolicyId, assetName) =
+        case assetNames of
+          [assetId] -> assetId
+          _ -> error "expected one assetId"
+
+      newValue = headValue <> valueFromList [(AssetId otherHeadId assetName, 1)]
+   in output{txOutValue = newValue}
