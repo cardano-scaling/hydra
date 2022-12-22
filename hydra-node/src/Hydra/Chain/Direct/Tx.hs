@@ -16,7 +16,6 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
-import qualified Data.List as List
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
@@ -49,7 +48,6 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Value (symbols)
 import Plutus.V2.Ledger.Api (CurrencySymbol (CurrencySymbol), fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
 
