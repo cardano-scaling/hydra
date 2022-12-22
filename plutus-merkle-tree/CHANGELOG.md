@@ -12,6 +12,10 @@ changes.
 >
 > This package is released independently of other `hydra-` packages using `plutus-merkle-tree-x.y.z` tags.
 
+## [1.1.0] - UNRELEASED
+
+- Added `on-chain-cost` benchmark executable.
+
 ## [1.0.0] - 2022-02-11
 
 ### Added
