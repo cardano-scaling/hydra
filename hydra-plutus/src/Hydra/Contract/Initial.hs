@@ -93,9 +93,6 @@ checkAuthorAndHeadPolicy context@ScriptContext{scriptContextTxInfo = txInfo} hea
     (unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo))
     && traceIfFalse "Invalid policy id" (policyId == headPolicyId)
  where
-  -- NOTE: We don't check the currency symbol, only the well-formedness of the value that
-  -- allows us to extract a token name, because this would be validated in other parts of the
-  -- protocol.
   (policyId, ourParticipationTokenName) =
     case AssocMap.toList (getValue initialValue) of
       [_someAdas, (headCurrencyHopefully, tokenMap)] ->
