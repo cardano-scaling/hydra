@@ -80,14 +80,14 @@ validator commitValidator InitialDatum{headPolicyId} red context =
     ViaAbort -> True
     ViaCommit{committedRef} ->
       checkCommit commitValidator committedRef context
-        && checkAuthor context headPolicyId
+        && checkAuthorAndHeadPolicy context headPolicyId
 
 -- | Verifies that the commit is only done by the author
-checkAuthor ::
+checkAuthorAndHeadPolicy ::
   ScriptContext ->
   CurrencySymbol ->
   Bool
-checkAuthor context@ScriptContext{scriptContextTxInfo = txInfo} headPolicyId =
+checkAuthorAndHeadPolicy context@ScriptContext{scriptContextTxInfo = txInfo} headPolicyId =
   traceIfFalse
     "Missing or invalid commit author"
     (unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo))
