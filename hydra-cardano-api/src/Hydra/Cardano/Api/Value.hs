@@ -9,7 +9,7 @@ import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
 import Hydra.Cardano.Api.Hash (unsafeScriptHashFromBytes)
 import Hydra.Cardano.Api.MultiAssetSupportedInEra (multiAssetSupportedInEra)
 import Plutus.V1.Ledger.Value (flattenValue)
-import Plutus.V2.Ledger.Api (adaSymbol, adaToken, fromBuiltin, unCurrencySymbol, unTokenName)
+import Plutus.V2.Ledger.Api (CurrencySymbol, adaSymbol, adaToken, fromBuiltin, unCurrencySymbol, unTokenName)
 import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- * Extras
@@ -96,3 +96,9 @@ fromPlutusValue plutusValue =
 toPlutusValue :: Value -> Plutus.Value
 toPlutusValue =
   Ledger.transValue . toLedgerValue
+
+toPlutusPolicyId :: PolicyId -> CurrencySymbol
+toPlutusPolicyId = Ledger.transPolicyID . toLedgerPolicyID
+
+toLedgerPolicyID :: PolicyId -> Ledger.PolicyID StandardCrypto
+toLedgerPolicyID (PolicyId sh) = Ledger.PolicyID (toShelleyScriptHash sh)

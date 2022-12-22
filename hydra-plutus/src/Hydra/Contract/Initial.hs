@@ -12,6 +12,7 @@ import qualified Hydra.Contract.Commit as Commit
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
 import Plutus.V2.Ledger.Api (
+  CurrencySymbol,
   Datum (..),
   FromData (fromBuiltinData),
   OutputDatum (..),
@@ -38,6 +39,12 @@ import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
 import qualified PlutusTx.Builtins as Builtins
 
+newtype InitialDatum = InitialDatum
+  { headPolicyId :: CurrencySymbol
+  }
+
+PlutusTx.unstableMakeIsData ''InitialDatum
+
 data InitialRedeemer
   = ViaAbort
   | ViaCommit
@@ -47,7 +54,7 @@ data InitialRedeemer
 
 PlutusTx.unstableMakeIsData ''InitialRedeemer
 
-type DatumType = ()
+type DatumType = InitialDatum
 type RedeemerType = InitialRedeemer
 
 -- | The v_initial validator verifies that:
@@ -64,33 +71,36 @@ type RedeemerType = InitialRedeemer
 validator ::
   -- | Commit validator
   ValidatorHash ->
-  () ->
+  InitialDatum ->
   InitialRedeemer ->
   ScriptContext ->
   Bool
-validator commitValidator () red context =
+validator commitValidator InitialDatum{headPolicyId} red context =
   case red of
     ViaAbort -> True
     ViaCommit{committedRef} ->
       checkCommit commitValidator committedRef context
-        && checkAuthor context
+        && checkAuthor context headPolicyId
 
 -- | Verifies that the commit is only done by the author
 checkAuthor ::
   ScriptContext ->
+  CurrencySymbol ->
   Bool
-checkAuthor context@ScriptContext{scriptContextTxInfo = txInfo} =
-  traceIfFalse "Missing or invalid commit author" $
-    elem (unTokenName ourParticipationTokenName) (getPubKeyHash <$> txInfoSignatories txInfo)
+checkAuthor context@ScriptContext{scriptContextTxInfo = txInfo} headPolicyId =
+  traceIfFalse
+    "Missing or invalid commit author"
+    (unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo))
+    && traceIfFalse "Invalid policy id" (policyId == headPolicyId)
  where
   -- NOTE: We don't check the currency symbol, only the well-formedness of the value that
   -- allows us to extract a token name, because this would be validated in other parts of the
   -- protocol.
-  ourParticipationTokenName =
+  (policyId, ourParticipationTokenName) =
     case AssocMap.toList (getValue initialValue) of
-      [_someAdas, (_headCurrencyHopefully, tokenMap)] ->
+      [_someAdas, (headCurrencyHopefully, tokenMap)] ->
         case AssocMap.toList tokenMap of
-          [(tk, q)] | q == 1 -> tk
+          [(tk, q)] | q == 1 -> (headCurrencyHopefully, tk)
           _ -> traceError "multiple head tokens or more than 1 PTs found"
       _ -> traceError "missing head tokens"
 

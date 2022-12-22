@@ -13,6 +13,7 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Ledger.Alonzo.TxInfo (transPolicyID)
 import Cardano.Ledger.Babbage.PParams (PParams)
 import Data.List (intersectBy)
 import qualified Data.Map as Map
@@ -331,7 +332,7 @@ genAbortableOutputs parties =
 
   initialScript = fromPlutusScript Initial.validatorScript
 
-  initialDatum = Initial.datum ()
+  initialDatum = Initial.InitialDatum $ toPlutusPolicyId testPolicyId
 
 fst3 :: (a, b, c) -> a
 fst3 (a, _, _) = a

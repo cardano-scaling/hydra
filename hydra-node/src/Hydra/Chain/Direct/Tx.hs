@@ -16,6 +16,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
+import qualified Data.List as List
 import qualified Data.Map as Map
 import Hydra.Chain (HeadId (..), HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
@@ -48,7 +49,8 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (fromBuiltin, fromData, toBuiltin)
+import Plutus.V1.Ledger.Value (symbols)
+import Plutus.V2.Ledger.Api (CurrencySymbol (CurrencySymbol), fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- | Needed on-chain data to create Head transactions.
@@ -161,13 +163,14 @@ mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
-    mkTxOutDatum $ Initial.datum ()
+    mkTxOutDatum $ Initial.InitialDatum (List.head $ symbols $ toPlutusValue $ valueFromList [(AssetId tokenPolicyId (AssetName "foo"), 1)])
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 commitTx ::
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
   NetworkId ->
+  HeadId ->
   Party ->
   -- | A single UTxO to commit to the Head
   -- We currently limit committing one UTxO to the head because of size limitations.
@@ -176,7 +179,7 @@ commitTx ::
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
   Tx
-commitTx scriptRegistry networkId party utxo (initialInput, out, vkh) =
+commitTx scriptRegistry networkId (HeadId headId) party utxo (initialInput, out, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(initialInput, initialWitness)]
@@ -194,7 +197,7 @@ commitTx scriptRegistry networkId party utxo (initialInput, out, vkh) =
   initialScriptRef =
     fst (initialReference scriptRegistry)
   initialDatum =
-    mkScriptDatum $ Initial.datum ()
+    mkScriptDatum $ Initial.InitialDatum (CurrencySymbol $ toBuiltin headId)
   initialRedeemer =
     toScriptData . Initial.redeemer $
       Initial.ViaCommit (toPlutusTxOutRef <$> mCommittedInput)

@@ -10,15 +10,16 @@ import Hydra.Chain.Direct.TxSpec ()
 
 import qualified Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
+import Hydra.Chain (HeadId (HeadId))
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
-  replacePolicyIdWith
+  replacePolicyIdWith,
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import qualified Hydra.Contract.Initial  as Initial
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.Tx (commitTx, headPolicyId, mkInitialOutput)
+import Hydra.Chain.Direct.Tx (commitTx, headPolicyId, mkHeadId, mkInitialOutput)
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (
   genAddressInEra,
   genOutput,
@@ -26,6 +27,7 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
  )
 import Hydra.Party (Party)
+import Plutus.V1.Ledger.Api (toBuiltin)
 import Test.QuickCheck (oneof, suchThat)
 
 --
@@ -44,6 +46,7 @@ healthyCommitTx =
     commitTx
       scriptRegistry
       Fixture.testNetworkId
+      (mkHeadId policyId)
       commitParty
       (Just healthyCommittedUTxO)
       (initialInput, toUTxOContext initialOutput, initialPubKeyHash)
@@ -81,7 +84,6 @@ data CommitMutation
   | MutateRequiredSigner
   | -- | Change the policy Id of the PT both in input and output
     MutatePolicyId
-
   deriving (Generic, Show, Enum, Bounded)
 
 genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -104,10 +106,11 @@ genCommitMutation (tx, _utxo) =
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation MutatePolicyId <$> do
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= Fixture.testSeedInput))
-        pure $ Changes [ ChangeOutput 0 (replacePolicyIdWith otherHeadId commitTxOut)
-                       , ChangeInput initialInput (toUTxOContext $ replacePolicyIdWith otherHeadId initialOutput) (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef (fst healthyCommittedUTxO))
-                       ]
-
+        pure $
+          Changes
+            [ ChangeOutput 0 (replacePolicyIdWith otherHeadId commitTxOut)
+            , ChangeInput initialInput (toUTxOContext $ replacePolicyIdWith otherHeadId initialOutput) (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef (fst healthyCommittedUTxO))
+            ]
     ]
  where
   TxOut{txOutValue = commitOutputValue} = commitTxOut

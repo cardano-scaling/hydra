@@ -295,9 +295,9 @@ commit ctx st utxo = do
       case UTxO.pairs utxo of
         [aUTxO] -> do
           rejectByronAddress aUTxO
-          Right $ commitTx scriptRegistry networkId ownParty (Just aUTxO) initial
+          Right $ commitTx scriptRegistry networkId initialHeadId ownParty (Just aUTxO) initial
         [] -> do
-          Right $ commitTx scriptRegistry networkId ownParty Nothing initial
+          Right $ commitTx scriptRegistry networkId initialHeadId ownParty Nothing initial
         _ ->
           Left (MoreThanOneUTxOCommitted @Tx)
  where
@@ -306,6 +306,7 @@ commit ctx st utxo = do
   InitialState
     { initialInitials
     , initialHeadTokenScript
+    , initialHeadId
     } = st
 
   ownInitial :: Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
