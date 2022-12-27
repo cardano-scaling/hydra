@@ -60,7 +60,7 @@ headTxOutDatum = toUTxOContext (mkTxOutDatum healthyCloseDatum)
 
 headResolvedInput :: TxOut CtxUTxO
 headResolvedInput =
-  mkHeadOutput testNetworkId policyId headTxOutDatum
+  mkHeadOutput testNetworkId Fixture.testPolicyId headTxOutDatum
     & addParticipationTokens healthyParties
 
 headDatum :: ScriptData
@@ -110,7 +110,7 @@ healthyCloseDatum =
     { parties = healthyOnChainParties
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
     , contestationPeriod = healthyContestationPeriod
-    , openHeadPolicyId = toPlutusPolicyId policyId
+    , openHeadPolicyId = toPlutusPolicyId Fixture.testPolicyId
     }
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
@@ -139,9 +139,6 @@ healthySignature :: SnapshotNumber -> MultiSignature (Snapshot Tx)
 healthySignature number = aggregate [sign sk snapshot | sk <- healthySigningKeys]
  where
   snapshot = healthySnapshot{number}
-
-policyId :: PolicyId
-policyId = headPolicyId headInput
 
 data CloseMutation
   = MutateSignatureButNotSnapshotNumber
@@ -185,7 +182,7 @@ genCloseMutation (tx, _utxo) =
             { parties = mutatedParties
             , utxoHash = ""
             , contestationPeriod = healthyContestationPeriod
-            , openHeadPolicyId = toPlutusPolicyId $ headPolicyId Fixture.testSeedInput
+            , openHeadPolicyId = toPlutusPolicyId Fixture.testPolicyId
             }
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
