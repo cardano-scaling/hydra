@@ -64,20 +64,22 @@ headValidator ::
   Bool
 headValidator oldState input context =
   case (oldState, input) of
-    (Initial{contestationPeriod, parties}, CollectCom) ->
-      checkCollectCom context headContext (contestationPeriod, parties)
+    (initialState@Initial{}, CollectCom) ->
+      let headContext = mkHeadContext context
+       in checkCollectCom context headContext initialState
     (Initial{parties}, Abort) ->
-      checkAbort context headContext parties
-    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
-      checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod
+      let headContext = mkHeadContext context
+       in checkAbort context headContext parties
+    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, openHeadPolicyId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
+      let headContext = mkHeadContext context
+       in checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod openHeadPolicyId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      checkContest context headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
+      let headContext = mkHeadContext context
+       in checkContest context headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs context
     _ ->
       traceError "invalid head state transition"
- where
-  headContext = mkHeadContext context
 
 data CheckCollectComError
   = NoContinuingOutput
@@ -185,9 +187,9 @@ checkCollectCom ::
   -- | Static information about the head (i.e. address, value, currency...)
   HeadContext ->
   -- | Initial state
-  (ContestationPeriod, [Party]) ->
+  State ->
   Bool
-checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext (contestationPeriod, parties) =
+checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext Initial{contestationPeriod, parties, initialHeadPolicyId} =
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant context headContext
@@ -209,7 +211,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
     let utxoHash = hashPreSerializedCommits collectedCommits
-     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod}
+     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod, openHeadPolicyId = initialHeadPolicyId}
 
   -- Collect fuel and commits from resolved inputs. Any output containing a PT
   -- is treated as a commit, "our" output is the head output and all remaining
@@ -251,6 +253,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
         mCommit
       Nothing ->
         traceError "commitDatum failed fromBuiltinData"
+checkCollectCom _context _headContext _ = traceError "Expected Initial state in checkCollectCom"
 {-# INLINEABLE checkCollectCom #-}
 
 -- | The close validator must verify that:
@@ -272,14 +275,26 @@ checkClose ::
   BuiltinByteString ->
   [Signature] ->
   ContestationPeriod ->
+  CurrencySymbol ->
   Bool
-checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod =
+checkClose ctx _headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod headPolicyId =
   hasBoundedValidity
     && checkSnapshot
-    && mustBeSignedByParticipant ctx headContext
+    -- && mustBeSignedByParticipant ctx headContext
+    && traceIfFalse "Wrong head policy id" (policyId == headPolicyId)
  where
   hasBoundedValidity = traceIfFalse "hasBoundedValidity check failed" $ tMax - tMin <= cp
 
+  closeValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
+  (policyId, _ourParticipationTokenName) =
+    case Map.toList (getValue closeValue) of
+      [_someAdas, (headCurrencyHopefully, tokenMap)] ->
+        case Map.toList tokenMap of
+          [(tk, q)] | q == 1 -> (headCurrencyHopefully, tk)
+          _ -> traceError "multiple head tokens or more than 1 PTs found in checkClose"
+      _ -> traceError "missing head token"
   checkSnapshot
     | snapshotNumber == 0 =
       let expectedOutputDatum =

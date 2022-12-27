@@ -10,7 +10,6 @@ import Hydra.Chain.Direct.TxSpec ()
 
 import qualified Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain (HeadId (HeadId))
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -27,7 +26,6 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
  )
 import Hydra.Party (Party)
-import Plutus.V1.Ledger.Api (toBuiltin)
 import Test.QuickCheck (oneof, suchThat)
 
 --
@@ -109,7 +107,10 @@ genCommitMutation (tx, _utxo) =
         pure $
           Changes
             [ ChangeOutput 0 (replacePolicyIdWith otherHeadId commitTxOut)
-            , ChangeInput initialInput (toUTxOContext $ replacePolicyIdWith otherHeadId initialOutput) (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef (fst healthyCommittedUTxO))
+            , ChangeInput
+                initialInput
+                (toUTxOContext $ replacePolicyIdWith otherHeadId initialOutput)
+                (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef (fst healthyCommittedUTxO))
             ]
     ]
  where

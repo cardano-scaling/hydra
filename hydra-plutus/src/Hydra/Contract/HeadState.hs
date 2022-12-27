@@ -10,7 +10,7 @@ import PlutusTx.Prelude
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
-import Plutus.V1.Ledger.Api (POSIXTime)
+import Plutus.V1.Ledger.Api (CurrencySymbol, POSIXTime)
 import qualified PlutusTx
 import Text.Show (Show)
 
@@ -24,11 +24,13 @@ data State
   = Initial
       { contestationPeriod :: ContestationPeriod
       , parties :: [Party]
+      , initialHeadPolicyId :: CurrencySymbol
       }
   | Open
       { contestationPeriod :: ContestationPeriod
       , parties :: [Party]
       , utxoHash :: Hash
+      , openHeadPolicyId :: CurrencySymbol
       }
   | Closed
       { parties :: [Party]

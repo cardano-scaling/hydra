@@ -78,7 +78,7 @@ spec =
                     consumedOutputs = fmap drop3rd commitsUTxO
                     headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
                     onChainParties = partyToChain <$> parties
-                    headDatum = Head.Initial cperiod onChainParties
+                    headDatum = Head.Initial cperiod onChainParties (toPlutusPolicyId testPolicyId)
                     initialThreadOutput =
                       InitialThreadOutput
                         { initialThreadUTxO =
@@ -96,6 +96,7 @@ spec =
                         signer
                         initialThreadOutput
                         consumedOutputs
+                        (mkHeadId testPolicyId)
                  in case evaluateTx tx onChainUTxO of
                       Left basicFailure ->
                         property False & counterexample ("Basic failure: " <> show basicFailure)
@@ -119,6 +120,7 @@ spec =
                       Head.Initial
                         (contestationPeriodFromDiffTime contestationPeriod)
                         (map partyToChain parties)
+                        (toPlutusPolicyId testPolicyId)
                     initials = Map.fromList (drop2nd <$> resolvedInitials)
                     initialsUTxO = drop3rd <$> resolvedInitials
                     commits = Map.fromList (drop2nd <$> resolvedCommits)

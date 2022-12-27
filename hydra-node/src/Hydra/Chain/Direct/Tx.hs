@@ -149,6 +149,7 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
       Head.Initial
         (toChain contestationPeriod)
         (map partyToChain parties)
+        (toPlutusPolicyId tokenPolicyId)
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
 mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
@@ -233,8 +234,10 @@ collectComTx ::
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
+  -- | Head id
+  HeadId ->
   Tx
-collectComTx networkId vk initialThreadOutput commits =
+collectComTx networkId vk initialThreadOutput commits (HeadId headId) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
@@ -261,7 +264,13 @@ collectComTx networkId vk initialThreadOutput commits =
       headDatumAfter
       ReferenceScriptNone
   headDatumAfter =
-    mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash, contestationPeriod = initialContestationPeriod}
+    mkTxOutDatum
+      Head.Open
+        { Head.parties = initialParties
+        , utxoHash
+        , contestationPeriod = initialContestationPeriod
+        , openHeadPolicyId = CurrencySymbol $ toBuiltin headId
+        }
 
   extractCommit d =
     case fromData $ toPlutusData d of
@@ -578,7 +587,7 @@ observeInitTx ::
 observeInitTx networkId cardanoKeys expectedCP party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
-  (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
+  (ix, headOut, headData, Head.Initial cp ps _headPolicyId) <- findFirst headOutput indexedOutputs
   parties <- mapM partyFromChain ps
   let contestationPeriod = fromChain cp
   guard $ expectedCP == contestationPeriod
