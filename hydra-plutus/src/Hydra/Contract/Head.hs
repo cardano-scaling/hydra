@@ -71,8 +71,7 @@ headValidator oldState input context =
       let headContext = mkHeadContext context
        in checkAbort context headContext parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, openHeadPolicyId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
-      let headContext = mkHeadContext context
-       in checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod openHeadPolicyId
+      checkClose context parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod openHeadPolicyId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
       let headContext = mkHeadContext context
        in checkContest context headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
@@ -149,7 +148,7 @@ checkAbort ::
   Bool
 checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parties =
   mustBurnAllHeadTokens
-    && mustBeSignedByParticipant context headContext
+    && mustBeSignedByParticipant context headCurrencySymbol
  where
   HeadContext{headCurrencySymbol} = headContext
 
@@ -192,7 +191,7 @@ checkCollectCom ::
 checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext Initial{contestationPeriod, parties, initialHeadPolicyId} =
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
-    && mustBeSignedByParticipant context headContext
+    && mustBeSignedByParticipant context headCurrencySymbol
  where
   everyoneHasCommitted =
     traceIfFalse "not everyone committed" $
@@ -268,7 +267,6 @@ checkCollectCom _context _headContext _ = traceError "Expected Initial state in 
 --   * The transaction is performed (i.e. signed) by one of the head participants
 checkClose ::
   ScriptContext ->
-  HeadContext ->
   [Party] ->
   BuiltinByteString ->
   SnapshotNumber ->
@@ -277,24 +275,26 @@ checkClose ::
   ContestationPeriod ->
   CurrencySymbol ->
   Bool
-checkClose ctx _headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod headPolicyId =
+checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod headPolicyId =
   hasBoundedValidity
     && checkSnapshot
-    -- && mustBeSignedByParticipant ctx headContext
-    && traceIfFalse "Wrong head policy id" (policyId == headPolicyId)
+    && mustBeSignedByParticipant ctx headPolicyId
+    && traceIfFalse "Head policy id not present in checkClose" hasSTToken
  where
   hasBoundedValidity = traceIfFalse "hasBoundedValidity check failed" $ tMax - tMin <= cp
 
   closeValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
-  (policyId, _ourParticipationTokenName) =
-    case Map.toList (getValue closeValue) of
-      [_someAdas, (headCurrencyHopefully, tokenMap)] ->
-        case Map.toList tokenMap of
-          [(tk, q)] | q == 1 -> (headCurrencyHopefully, tk)
-          _ -> traceError "multiple head tokens or more than 1 PTs found in checkClose"
-      _ -> traceError "missing head token"
+  hasHydraToken tm =
+    isJust $ find (\(tn, q) -> q == 1 && TokenName hydraHeadV1 == tn) (Map.toList tm)
+
+  hasSTToken =
+    isJust $
+      find
+        (\(cs, tokenMap) -> cs == headPolicyId && hasHydraToken tokenMap)
+        (Map.toList $ getValue closeValue)
+
   checkSnapshot
     | snapshotNumber == 0 =
       let expectedOutputDatum =
@@ -359,11 +359,11 @@ checkContest ::
   BuiltinByteString ->
   [Signature] ->
   Bool
-checkContest ctx@ScriptContext{scriptContextTxInfo} headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
+checkContest ctx@ScriptContext{scriptContextTxInfo} HeadContext{headCurrencySymbol} contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
   mustBeNewer
     && mustBeMultiSigned
     && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline})
-    && mustBeSignedByParticipant ctx headContext
+    && mustBeSignedByParticipant ctx headCurrencySymbol
     && mustBeWithinContestationPeriod
  where
   mustBeNewer =
@@ -437,9 +437,9 @@ checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{sc
 
 mustBeSignedByParticipant ::
   ScriptContext ->
-  HeadContext ->
+  CurrencySymbol ->
   Bool
-mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} HeadContext{headCurrencySymbol} =
+mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol =
   case getPubKeyHash <$> txInfoSignatories txInfo of
     [signer] ->
       traceIfFalse "mustBeSignedByParticipant: did not find expected signer" $

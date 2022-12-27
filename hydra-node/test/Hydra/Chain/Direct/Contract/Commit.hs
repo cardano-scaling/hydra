@@ -110,7 +110,7 @@ genCommitMutation (tx, _utxo) =
             , ChangeInput
                 initialInput
                 (toUTxOContext $ replacePolicyIdWith otherHeadId initialOutput)
-                (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef (fst healthyCommittedUTxO))
+                (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef committedTxIn)
             ]
     ]
  where
