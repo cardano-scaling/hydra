@@ -13,7 +13,6 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Ledger.Alonzo.TxInfo (transPolicyID)
 import Cardano.Ledger.Babbage.PParams (PParams)
 import Data.List (intersectBy)
 import qualified Data.Map as Map
