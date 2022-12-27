@@ -65,20 +65,20 @@ headValidator ::
 headValidator oldState input context =
   case (oldState, input) of
     (initialState@Initial{}, CollectCom) ->
-      let headContext = mkHeadContext context
-       in checkCollectCom context headContext initialState
-    (Initial{parties}, Abort) ->
-      let headContext = mkHeadContext context
-       in checkAbort context headContext parties
+      let HeadContext{headAddress} = headContext
+       in checkCollectCom context headAddress initialState
+    (Initial{parties, initialHeadPolicyId}, Abort) ->
+      checkAbort context initialHeadPolicyId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, openHeadPolicyId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
       checkClose context parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod openHeadPolicyId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      let headContext = mkHeadContext context
-       in checkContest context headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
+      checkContest context headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs context
     _ ->
       traceError "invalid head state transition"
+ where
+  headContext = mkHeadContext context
 
 data CheckCollectComError
   = NoContinuingOutput
@@ -143,15 +143,13 @@ mkHeadContext context =
 --     which follows from burning all the PTs.
 checkAbort ::
   ScriptContext ->
-  HeadContext ->
+  CurrencySymbol ->
   [Party] ->
   Bool
-checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parties =
+checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol parties =
   mustBurnAllHeadTokens
     && mustBeSignedByParticipant context headCurrencySymbol
  where
-  HeadContext{headCurrencySymbol} = headContext
-
   mustBurnAllHeadTokens =
     traceIfFalse "number of inputs do not match number of parties" $
       burntTokens == length parties + 1
@@ -183,24 +181,19 @@ checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parti
 checkCollectCom ::
   -- | Script execution context
   ScriptContext ->
-  -- | Static information about the head (i.e. address, value, currency...)
-  HeadContext ->
+  -- | Head address
+  Address ->
   -- | Initial state
   State ->
   Bool
-checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext Initial{contestationPeriod, parties, initialHeadPolicyId} =
+checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headAddress Initial{contestationPeriod, parties, initialHeadPolicyId} =
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
-    && mustBeSignedByParticipant context headCurrencySymbol
+    && mustBeSignedByParticipant context initialHeadPolicyId
  where
   everyoneHasCommitted =
     traceIfFalse "not everyone committed" $
       nTotalCommits == length parties
-
-  HeadContext
-    { headAddress
-    , headCurrencySymbol
-    } = headContext
 
   (expectedChangeValue, collectedCommits, nTotalCommits) =
     traverseInputs
@@ -241,7 +234,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
   isHeadOutput txOut = txOutAddress txOut == headAddress
 
   hasPT txOut =
-    let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
+    let pts = findParticipationTokens initialHeadPolicyId (txOutValue txOut)
      in length pts == 1
 
   commitDatum :: TxOut -> Maybe Commit
