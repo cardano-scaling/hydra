@@ -65,20 +65,17 @@ headValidator ::
 headValidator oldState input context =
   case (oldState, input) of
     (initialState@Initial{}, CollectCom) ->
-      let HeadContext{headAddress} = headContext
-       in checkCollectCom context headAddress initialState
+      checkCollectCom context (mkHeadAddress context) initialState
     (Initial{parties, initialHeadPolicyId}, Abort) ->
       checkAbort context initialHeadPolicyId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, openHeadPolicyId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
       checkClose context parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod openHeadPolicyId
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      checkContest context headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, closedHeadPolicyId}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
+      checkContest context contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature closedHeadPolicyId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs context
     _ ->
       traceError "invalid head state transition"
- where
-  headContext = mkHeadContext context
 
 data CheckCollectComError
   = NoContinuingOutput
@@ -86,19 +83,9 @@ data CheckCollectComError
   | OutputValueNotPreserved
   | OutputHashNotMatching
 
-data HeadContext = HeadContext
-  { headAddress :: Address
-  , headInputValue :: Value
-  , headCurrencySymbol :: CurrencySymbol
-  }
-
-mkHeadContext :: ScriptContext -> HeadContext
-mkHeadContext context =
-  HeadContext
-    { headAddress
-    , headInputValue
-    , headCurrencySymbol
-    }
+mkHeadAddress :: ScriptContext -> Address
+mkHeadAddress context =
+  headAddress
  where
   headInput :: TxInInfo
   headInput =
@@ -106,32 +93,10 @@ mkHeadContext context =
       (traceError "script not spending a head input?")
       (findOwnInput context)
 
-  headInputValue :: Value
-  headInputValue =
-    txOutValue (txInInfoResolved headInput)
-
   headAddress :: Address
   headAddress =
     txOutAddress (txInInfoResolved headInput)
-
-  headCurrencySymbol :: CurrencySymbol
-  headCurrencySymbol =
-    headInputValue
-      & findCandidateSymbols
-      & \case
-        [s] -> s
-        _ -> traceError "malformed thread token, expected exactly one asset."
-
-  findCandidateSymbols :: Value -> [CurrencySymbol]
-  findCandidateSymbols (Value v) = loop (Map.toList v)
-   where
-    loop = \case
-      [] -> []
-      (symbol, assets) : rest ->
-        case filter ((TokenName hydraHeadV1, 1) ==) (Map.toList assets) of
-          [] -> loop rest
-          _ -> symbol : loop rest
-{-# INLINEABLE mkHeadContext #-}
+{-# INLINEABLE mkHeadAddress #-}
 
 -- | On-Chain verification for 'Abort' transition. It verifies that:
 --
@@ -296,6 +261,7 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
               , snapshotNumber = 0
               , utxoHash = initialUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
+              , closedHeadPolicyId = headPolicyId
               }
        in checkHeadOutputDatum ctx expectedOutputDatum
     | snapshotNumber > 0 =
@@ -305,6 +271,7 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
               , snapshotNumber
               , utxoHash = closedUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
+              , closedHeadPolicyId = headPolicyId
               }
        in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
             && checkHeadOutputDatum ctx expectedOutputDatum
@@ -341,7 +308,6 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
 --   * The transaction is performed (i.e. signed) by one of the head participants
 checkContest ::
   ScriptContext ->
-  HeadContext ->
   POSIXTime ->
   [Party] ->
   -- | Snapshot number of the closed state.
@@ -351,12 +317,16 @@ checkContest ::
   SnapshotNumber ->
   BuiltinByteString ->
   [Signature] ->
+  -- | Head id
+  CurrencySymbol ->
   Bool
-checkContest ctx@ScriptContext{scriptContextTxInfo} HeadContext{headCurrencySymbol} contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
+checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig headPolicyId =
   mustBeNewer
     && mustBeMultiSigned
-    && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline})
-    && mustBeSignedByParticipant ctx headCurrencySymbol
+    && checkHeadOutputDatum
+      ctx
+      (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline, closedHeadPolicyId = headPolicyId})
+    && mustBeSignedByParticipant ctx headPolicyId
     && mustBeWithinContestationPeriod
  where
   mustBeNewer =

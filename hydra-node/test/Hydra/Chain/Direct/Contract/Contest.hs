@@ -18,7 +18,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   genHash,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
@@ -50,6 +50,7 @@ healthyContestTx =
       (healthySignature healthyContestSnapshotNumber)
       (healthySlotNo, slotNoToUTCTime healthySlotNo)
       closedThreadOutput
+      (mkHeadId testPolicyId)
 
   headInput = generateWith arbitrary 42
 
@@ -98,6 +99,7 @@ healthyClosedState =
     , utxoHash = healthyClosedUTxOHash
     , parties = healthyOnChainParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+    , closedHeadPolicyId = toPlutusPolicyId testPolicyId
     }
 
 healthySlotNo :: SlotNo
@@ -196,6 +198,7 @@ genContestMutation
               , utxoHash = healthyClosedUTxOHash
               , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
               , contestationDeadline = arbitrary `generateWith` 42
+              , closedHeadPolicyId = toPlutusPolicyId testPolicyId
               }
       , SomeMutation MutateValidityPastDeadline . ChangeValidityInterval <$> do
           lb <- arbitrary
@@ -216,6 +219,7 @@ genContestMutation
                 , utxoHash = toBuiltin mutatedUTxOHash
                 , parties = healthyOnChainParties
                 , contestationDeadline = arbitrary `generateWith` 42
+                , closedHeadPolicyId = toPlutusPolicyId testPolicyId
                 }
           )
           headTxOut

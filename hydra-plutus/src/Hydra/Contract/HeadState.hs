@@ -37,6 +37,7 @@ data State
       , snapshotNumber :: SnapshotNumber
       , utxoHash :: Hash
       , contestationDeadline :: POSIXTime
+      , closedHeadPolicyId :: CurrencySymbol
       }
   | Final
   deriving stock (Generic, Show)

@@ -399,7 +399,7 @@ close ::
   PointInTime ->
   Tx
 close ctx st confirmedSnapshot startSlotNo pointInTime =
-  closeTx ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput
+  closeTx ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput openHeadId
  where
   closingSnapshot = case confirmedSnapshot of
     -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
@@ -417,6 +417,7 @@ close ctx st confirmedSnapshot startSlotNo pointInTime =
   OpenState
     { openThreadOutput
     , openUtxoHash
+    , openHeadId
     } = st
 
 -- | Construct a contest transaction based on the 'ClosedState' and a confirmed
@@ -429,7 +430,7 @@ contest ::
   PointInTime ->
   Tx
 contest ctx st confirmedSnapshot pointInTime = do
-  contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput
+  contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput closedHeadId
  where
   (sn, sigs) =
     case confirmedSnapshot of
@@ -440,6 +441,7 @@ contest ctx st confirmedSnapshot pointInTime = do
 
   ClosedState
     { closedThreadOutput
+    , closedHeadId
     } = st
 
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain

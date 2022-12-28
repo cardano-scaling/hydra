@@ -321,8 +321,9 @@ closeTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
+  HeadId ->
   Tx
-closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput =
+closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput (HeadId headId) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -361,6 +362,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput =
         , utxoHash = toBuiltin utxoHashBytes
         , parties = openParties
         , contestationDeadline
+        , closedHeadPolicyId = CurrencySymbol $ toBuiltin headId
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -394,8 +396,9 @@ contestTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
+  HeadId ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline} =
+contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline} (HeadId headId) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -423,6 +426,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         , utxoHash
         , parties = closedParties
         , contestationDeadline = closedContestationDeadline
+        , closedHeadPolicyId = CurrencySymbol $ toBuiltin headId
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 

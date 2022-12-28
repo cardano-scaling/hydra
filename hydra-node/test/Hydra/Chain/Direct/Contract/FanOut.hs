@@ -80,6 +80,7 @@ healthyFanoutDatum =
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyFanoutUTxO
     , parties = partyToChain <$> arbitrary `generateWith` 42
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+    , closedHeadPolicyId = toPlutusPolicyId testPolicyId
     }
 
 data FanoutMutation

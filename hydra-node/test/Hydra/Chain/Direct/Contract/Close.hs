@@ -13,7 +13,7 @@ import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, replacePolicyIdWith)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, headPolicyId, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, headPolicyId, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (fromChain)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
@@ -46,6 +46,7 @@ healthyCloseTx =
       startSlot
       pointInTime
       openThreadOutput
+      (mkHeadId Fixture.testPolicyId)
 
   -- here we need to pass in contestation period when generating start/end tx validity slots/time
   -- since if tx validity bound difference is bigger than contestation period our close validator
@@ -235,12 +236,13 @@ genCloseMutation (tx, _utxo) =
     pure $ changeHeadOutputDatum (mutateHash mutatedUTxOHash) headTxOut
 
   mutateHash mutatedUTxOHash = \case
-    Head.Closed{snapshotNumber, parties, contestationDeadline} ->
+    Head.Closed{snapshotNumber, parties, contestationDeadline, closedHeadPolicyId} ->
       Head.Closed
         { snapshotNumber
         , utxoHash = toBuiltin mutatedUTxOHash
         , parties
         , contestationDeadline
+        , closedHeadPolicyId
         }
     st -> error $ "unexpected state " <> show st
   -- In case contestation period param is 'Nothing' we will generate arbitrary value
@@ -259,5 +261,6 @@ genCloseMutation (tx, _utxo) =
         , contestationDeadline =
             let closingTime = slotNoToUTCTime healthySlotNo
              in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
+        , closedHeadPolicyId = toPlutusPolicyId Fixture.testPolicyId
         }
     st -> error $ "unexpected state " <> show st
