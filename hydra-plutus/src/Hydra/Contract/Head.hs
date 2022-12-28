@@ -116,8 +116,7 @@ checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbo
     && mustBeSignedByParticipant context headCurrencySymbol
  where
   mustBurnAllHeadTokens =
-    traceIfFalse "number of inputs do not match number of parties" $
-      burntTokens == length parties + 1
+    burntTokens == length parties + 1
 
   minted = getValue $ txInfoMint txInfo
 
@@ -155,13 +154,12 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headAddress 
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant context initialHeadPolicyId
-    && traceIfFalse "Head policy id not present in checkCollectCom" (hasSTToken initialHeadPolicyId collectValue)
+    && hasSTToken initialHeadPolicyId collectValue
  where
   collectValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
   everyoneHasCommitted =
-    traceIfFalse "not everyone committed" $
-      nTotalCommits == length parties
+    nTotalCommits == length parties
 
   (expectedChangeValue, collectedCommits, nTotalCommits) =
     traverseInputs
@@ -240,9 +238,9 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
   hasBoundedValidity
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
-    && traceIfFalse "Head policy id not present in checkClose" (hasSTToken headPolicyId closeValue)
+    && hasSTToken headPolicyId closeValue
  where
-  hasBoundedValidity = traceIfFalse "hasBoundedValidity check failed" $ tMax - tMin <= cp
+  hasBoundedValidity = tMax - tMin <= cp
 
   closeValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
@@ -333,20 +331,19 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
       (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline, closedHeadPolicyId = headPolicyId})
     && mustBeSignedByParticipant ctx headPolicyId
     && mustBeWithinContestationPeriod
-    && traceIfFalse "Head policy id not present in checkContest" (hasSTToken headPolicyId contestValue)
+    && hasSTToken headPolicyId contestValue
  where
   contestValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
   mustBeNewer =
-    traceIfFalse "too old snapshot" $
-      contestSnapshotNumber > closedSnapshotNumber
+    contestSnapshotNumber > closedSnapshotNumber
 
   mustBeMultiSigned =
     verifySnapshotSignature parties contestSnapshotNumber contestUtxoHash sig
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange scriptContextTxInfo) of
-      UpperBound (Finite time) _ -> traceIfFalse "upper bound validity beyond contestation deadline" $ time <= contestationDeadline
+      UpperBound (Finite time) _ -> time <= contestationDeadline
       _ -> traceError "no upper bound validity interval defined for contest"
 {-# INLINEABLE checkContest #-}
 
@@ -358,10 +355,9 @@ checkHeadOutputDatum ctx d =
     NoOutputDatum ->
       traceError "missing datum"
     OutputDatumHash actualHash ->
-      traceIfFalse "output datum hash mismatch" $
-        Just actualHash == expectedHash
+      Just actualHash == expectedHash
     OutputDatum actual ->
-      traceIfFalse "output datum mismatch" $ getDatum actual == expectedData
+      getDatum actual == expectedData
  where
   expectedData = toBuiltinData d
 
@@ -392,13 +388,13 @@ checkFanout ::
 checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
   hasSameUTxOHash && afterContestationDeadline
  where
-  hasSameUTxOHash = traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == utxoHash
+  hasSameUTxOHash = fannedOutUtxoHash == utxoHash
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
   TxInfo{txInfoOutputs} = txInfo
 
   afterContestationDeadline =
     case ivFrom (txInfoValidRange txInfo) of
-      LowerBound (Finite time) _ -> traceIfFalse "lower bound validity before contestation deadline" $ time > contestationDeadline
+      LowerBound (Finite time) _ -> time > contestationDeadline
       _ -> traceError "no lower bound validity interval defined for fanout"
 {-# INLINEABLE checkFanout #-}
 
@@ -413,8 +409,7 @@ mustBeSignedByParticipant ::
 mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol =
   case getPubKeyHash <$> txInfoSignatories txInfo of
     [signer] ->
-      traceIfFalse "mustBeSignedByParticipant: did not find expected signer" $
-        signer `elem` (unTokenName <$> participationTokens)
+      signer `elem` (unTokenName <$> participationTokens)
     [] ->
       traceError "mustBeSignedByParticipant: no signers"
     _ ->
@@ -445,8 +440,8 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
       traceError "no continuing head output"
     (o : rest)
       | txOutAddress o == headAddress ->
-        traceIfFalse "wrong output head datum" (findTxOutDatum txInfo o == datum)
-          && traceIfFalse "wrong output value" (checkOutputValue (xs <> rest))
+        findTxOutDatum txInfo o == datum
+          && checkOutputValue (xs <> rest)
     (o : rest) ->
       checkOutputDatum (o : xs) rest
 
@@ -488,15 +483,13 @@ hashTxOuts =
 
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber utxoHash sigs =
-  traceIfFalse "signature verification failed" $
-    length parties == length sigs
-      && all (uncurry $ verifyPartySignature snapshotNumber utxoHash) (zip parties sigs)
+  length parties == length sigs
+    && all (uncurry $ verifyPartySignature snapshotNumber utxoHash) (zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 
 verifyPartySignature :: SnapshotNumber -> BuiltinByteString -> Party -> Signature -> Bool
-verifyPartySignature snapshotNumber utxoHash party signed =
-  traceIfFalse "party signature verification failed" $
-    verifyEd25519Signature (vkey party) message signed
+verifyPartySignature snapshotNumber utxoHash party =
+  verifyEd25519Signature (vkey party) message
  where
   message =
     -- TODO: document CDDL format, either here or in 'Hydra.Snapshot.getSignableRepresentation'
