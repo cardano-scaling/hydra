@@ -572,12 +572,12 @@ addPTWithQuantity tx quantity =
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
 
--- | Replace policy id with the arbitrary one
-replacePolicyIdWith :: PolicyId -> TxOut a -> TxOut a
-replacePolicyIdWith otherHeadId output =
+-- | Replace original policy id with the arbitrary one
+replacePolicyIdWith :: PolicyId -> PolicyId -> TxOut a -> TxOut a
+replacePolicyIdWith originalHeadId otherHeadId output =
   let value = txOutValue output
       newValue = valueFromList $ swapPolicyId <$> valueToList value
       swapPolicyId = \case
-        (AssetId policyId pkh, q) | policyId == testPolicyId, q == 1 -> (AssetId otherHeadId pkh, q)
+        (AssetId policyId t, q) | policyId == originalHeadId, q == 1 -> (AssetId otherHeadId t, q)
         v -> v
    in output{txOutValue = newValue}

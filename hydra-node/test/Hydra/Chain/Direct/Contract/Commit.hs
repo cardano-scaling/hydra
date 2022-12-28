@@ -37,17 +37,17 @@ healthyCommitTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (initialInput, toUTxOContext initialOutput)
+    UTxO.singleton (Fixture.testSeedInput, toUTxOContext initialOutput)
       <> UTxO.singleton healthyCommittedUTxO
       <> registryUTxO scriptRegistry
   tx =
     commitTx
       scriptRegistry
       Fixture.testNetworkId
-      (mkHeadId policyId)
+      (mkHeadId Fixture.testPolicyId)
       commitParty
       (Just healthyCommittedUTxO)
-      (initialInput, toUTxOContext initialOutput, initialPubKeyHash)
+      (Fixture.testSeedInput, toUTxOContext initialOutput, initialPubKeyHash)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -59,14 +59,8 @@ healthyCommitTx =
 commitVerificationKey :: VerificationKey PaymentKey
 commitVerificationKey = generateWith arbitrary 42
 
-initialInput :: TxIn
-initialInput = generateWith arbitrary 42
-
 initialOutput :: TxOut CtxTx
-initialOutput = mkInitialOutput Fixture.testNetworkId policyId commitVerificationKey
-
-policyId :: PolicyId
-policyId = headPolicyId initialInput
+initialOutput = mkInitialOutput Fixture.testNetworkId Fixture.testPolicyId commitVerificationKey
 
 -- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
 healthyCommittedUTxO :: (TxIn, TxOut CtxUTxO)
@@ -106,10 +100,10 @@ genCommitMutation (tx, _utxo) =
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= Fixture.testSeedInput))
         pure $
           Changes
-            [ ChangeOutput 0 (replacePolicyIdWith otherHeadId commitTxOut)
+            [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId commitTxOut)
             , ChangeInput
-                initialInput
-                (toUTxOContext $ replacePolicyIdWith otherHeadId initialOutput)
+                Fixture.testSeedInput
+                (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId initialOutput)
                 (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef committedTxIn)
             ]
     ]

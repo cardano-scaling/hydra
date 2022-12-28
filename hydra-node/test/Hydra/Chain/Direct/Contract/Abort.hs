@@ -170,7 +170,7 @@ genAbortMutation (tx, utxo) =
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
         pure $
           Changes
-            [ ChangeInput input (replacePolicyIdWith otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
+            [ ChangeInput input (replacePolicyIdWith testPolicyId otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
             , ChangeMintedValue (removePTFromMintedValue output tx)
             ]
     ]

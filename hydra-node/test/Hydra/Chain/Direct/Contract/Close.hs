@@ -205,20 +205,20 @@ genCloseMutation (tx, _utxo) =
         let closeTxOuts = txOuts' tx
         pure $
           Changes $
-            changeAllOutputs 0 closeTxOuts otherHeadId
+            changeAllOutputs 0 closeTxOuts Fixture.testPolicyId otherHeadId
               <> [ ChangeInput
                     headInput
-                    (toUTxOContext $ replacePolicyIdWith otherHeadId (toTxContext headResolvedInput))
+                    (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId (toTxContext headResolvedInput))
                     (Just $ toScriptData healthyCloseDatum)
                  ]
     ]
  where
-  changeAllOutputs :: Word -> [TxOut CtxTx] -> PolicyId -> [Mutation]
-  changeAllOutputs i outputs otherHead = go i outputs []
+  changeAllOutputs :: Word -> [TxOut CtxTx] -> PolicyId -> PolicyId -> [Mutation]
+  changeAllOutputs i outputs originalHead otherHead = go i outputs []
    where
     go _ [] r = r
     go n (output : outputs') r =
-      let result = r <> [ChangeOutput i (replacePolicyIdWith otherHead output)]
+      let result = r <> [ChangeOutput i (replacePolicyIdWith originalHead otherHead output)]
        in go (n + 1) outputs' result
   headTxOut = fromJust $ txOuts' tx !!? 0
 
