@@ -155,7 +155,10 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headAddress 
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant context initialHeadPolicyId
+    && traceIfFalse "Head policy id not present in checkCollectCom" (hasSTToken initialHeadPolicyId collectValue)
  where
+  collectValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
   everyoneHasCommitted =
     traceIfFalse "not everyone committed" $
       nTotalCommits == length parties
@@ -237,21 +240,12 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
   hasBoundedValidity
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
-    && traceIfFalse "Head policy id not present in checkClose" hasSTToken
+    && traceIfFalse "Head policy id not present in checkClose" (hasSTToken headPolicyId closeValue)
  where
   hasBoundedValidity = traceIfFalse "hasBoundedValidity check failed" $ tMax - tMin <= cp
 
   closeValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
-
-  hasHydraToken tm =
-    isJust $ find (\(tn, q) -> q == 1 && TokenName hydraHeadV1 == tn) (Map.toList tm)
-
-  hasSTToken =
-    isJust $
-      find
-        (\(cs, tokenMap) -> cs == headPolicyId && hasHydraToken tokenMap)
-        (Map.toList $ getValue closeValue)
 
   checkSnapshot
     | snapshotNumber == 0 =
@@ -289,6 +283,17 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
+
+hasSTToken :: CurrencySymbol -> Value -> Bool
+hasSTToken headPolicyId v =
+  isJust $
+    find
+      (\(cs, tokenMap) -> cs == headPolicyId && hasHydraToken tokenMap)
+      (Map.toList $ getValue v)
+ where
+  hasHydraToken tm =
+    isJust $ find (\(tn, q) -> q == 1 && TokenName hydraHeadV1 == tn) (Map.toList tm)
+{-# INLINEABLE hasSTToken #-}
 
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
