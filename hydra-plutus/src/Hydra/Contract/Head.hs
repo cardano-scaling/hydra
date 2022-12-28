@@ -333,7 +333,10 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
       (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline, closedHeadPolicyId = headPolicyId})
     && mustBeSignedByParticipant ctx headPolicyId
     && mustBeWithinContestationPeriod
+    && traceIfFalse "Head policy id not present in checkContest" (hasSTToken headPolicyId contestValue)
  where
+  contestValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
   mustBeNewer =
     traceIfFalse "too old snapshot" $
       contestSnapshotNumber > closedSnapshotNumber
