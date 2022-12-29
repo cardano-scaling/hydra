@@ -215,7 +215,7 @@ genContestMutation
               , ChangeInput
                   testSeedInput
                   (replacePolicyIdWith testPolicyId otherHeadId headResolvedInput)
-                  Nothing
+                  (Just $ toScriptData healthyClosedState)
               ]
       ]
    where
