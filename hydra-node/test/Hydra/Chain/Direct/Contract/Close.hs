@@ -203,24 +203,16 @@ genCloseMutation (tx, _utxo) =
         pure (TxValidityLowerBound (SlotNo lb), TxValidityUpperBound (SlotNo ub))
     , SomeMutation MutateHeadId <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
-        let closeTxOuts = txOuts' tx
         pure $
-          Changes $
-            changeAllOutputs 0 closeTxOuts Fixture.testPolicyId otherHeadId
-              <> [ ChangeInput
-                    headInput
-                    (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId (toTxContext headResolvedInput))
-                    (Just $ toScriptData healthyCloseDatum)
-                 ]
+          Changes
+            [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId headTxOut)
+            , ChangeInput
+                headInput
+                (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId (toTxContext headResolvedInput))
+                (Just $ toScriptData healthyCloseDatum)
+            ]
     ]
  where
-  changeAllOutputs :: Word -> [TxOut CtxTx] -> PolicyId -> PolicyId -> [Mutation]
-  changeAllOutputs i outputs originalHead otherHead = go i outputs []
-   where
-    go _ [] r = r
-    go n (output : outputs') r =
-      let result = r <> [ChangeOutput i (replacePolicyIdWith originalHead otherHead output)]
-       in go (n + 1) outputs' result
   headTxOut = fromJust $ txOuts' tx !!? 0
 
   closeRedeemer snapshotNumber sig =
