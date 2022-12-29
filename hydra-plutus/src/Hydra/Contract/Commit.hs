@@ -121,8 +121,7 @@ validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextT
                         Nothing -> True
                         Just Commit{preSerializedOutput} ->
                           -- There should be an output in the transaction corresponding to this preSerializedOutput
-                          traceIfFalse "cannot find committed output" $
-                            preSerializedOutput `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo)
+                          preSerializedOutput `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo)
                     -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
                     -- delegated to the 'CollectCom' script who has more information to do it.
                     ViaCollectCom -> True

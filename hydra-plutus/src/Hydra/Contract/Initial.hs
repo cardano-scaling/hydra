@@ -10,7 +10,6 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   Datum (..),
@@ -29,8 +28,6 @@ import Plutus.V2.Ledger.Api (
   Validator (getValidator),
   ValidatorHash,
   Value (getValue),
-  adaSymbol,
-  adaToken,
   mkValidatorScript,
  )
 import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
@@ -88,10 +85,8 @@ checkAuthorAndHeadPolicy ::
   CurrencySymbol ->
   Bool
 checkAuthorAndHeadPolicy context@ScriptContext{scriptContextTxInfo = txInfo} headPolicyId =
-  traceIfFalse
-    "Missing or invalid commit author"
-    (unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo))
-    && traceIfFalse "Invalid policy id" (policyId == headPolicyId)
+  unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
+    && policyId == headPolicyId
  where
   (policyId, ourParticipationTokenName) =
     case AssocMap.toList (getValue initialValue) of
@@ -115,11 +110,7 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
   checkCommittedValue && checkLockedCommit
  where
   checkCommittedValue =
-    traceIfFalse "lockedValue does not match" $
-      traceIfFalse ("lockedValue: " `appendString` debugValue lockedValue) $
-        traceIfFalse ("initialValue: " `appendString` debugValue initialValue) $
-          traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
-            lockedValue == initialValue + committedValue
+    lockedValue == initialValue + committedValue
 
   checkLockedCommit =
     case (committedTxOut, lockedCommit) of
@@ -130,9 +121,8 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
       (Just{}, Nothing) ->
         traceError "committed TxOut, but nothing in output datum"
       (Just (ref, txOut), Just Commit{input, preSerializedOutput}) ->
-        traceIfFalse "mismatch committed TxOut in datum" $
-          Builtins.serialiseData (toBuiltinData txOut) == preSerializedOutput
-            && ref == input
+        Builtins.serialiseData (toBuiltinData txOut) == preSerializedOutput
+          && ref == input
 
   initialValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
@@ -161,27 +151,6 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
                   Just (_party, _headScriptHash, mCommit) ->
                     mCommit
       _ -> traceError "expected single commit output"
-
-  debugValue v =
-    debugInteger . assetClassValueOf v $ assetClass adaSymbol adaToken
-
--- | Show an 'Integer' as decimal number. This is very inefficient and only
--- should be used for debugging.
-debugInteger :: Integer -> BuiltinString
-debugInteger i
-  | i == 0 = "0"
-  | i == 1 = "1"
-  | i == 2 = "2"
-  | i == 3 = "3"
-  | i == 4 = "4"
-  | i == 5 = "5"
-  | i == 6 = "6"
-  | i == 7 = "7"
-  | i == 8 = "8"
-  | i == 9 = "9"
-  | i >= 10 = debugInteger (i `quotient` 10) `appendString` "0"
-  | otherwise = "-" `appendString` debugInteger (negate i)
-{-# INLINEABLE debugInteger #-}
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
