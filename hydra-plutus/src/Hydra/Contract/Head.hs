@@ -66,18 +66,18 @@ headValidator ::
   Input ->
   ScriptContext ->
   Bool
-headValidator oldState input context =
+headValidator oldState input ctx =
   case (oldState, input) of
     (initialState@Initial{}, CollectCom) ->
-      checkCollectCom context (mkHeadAddress context) initialState
+      checkCollectCom ctx (mkHeadAddress ctx) initialState
     (Initial{parties, initialHeadId}, Abort) ->
-      checkAbort context initialHeadId parties
+      checkAbort ctx initialHeadId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, openHeadId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
-      checkClose context parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod openHeadId
+      checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod openHeadId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, closedHeadId}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      checkContest context contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature closedHeadId
+      checkContest ctx contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature closedHeadId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
-      checkFanout utxoHash contestationDeadline numberOfFanoutOutputs context
+      checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
     _ ->
       traceError "invalid head state transition"
 
@@ -94,10 +94,14 @@ checkAbort ::
   CurrencySymbol ->
   [Party] ->
   Bool
-checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol parties =
+checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol parties =
   mustBurnAllHeadTokens
-    && mustBeSignedByParticipant context headCurrencySymbol
+    && mustBeSignedByParticipant ctx headCurrencySymbol
+    && hasSTToken headCurrencySymbol outValue
  where
+  outValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
   mustBurnAllHeadTokens =
     burntTokens == length parties + 1
 
@@ -133,14 +137,14 @@ checkCollectCom ::
   -- | Initial state
   State ->
   Bool
-checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headAddress Initial{contestationPeriod, parties, initialHeadId} =
-  mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
+checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} headAddress Initial{contestationPeriod, parties, initialHeadId} =
+  mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
-    && mustBeSignedByParticipant context initialHeadId
+    && mustBeSignedByParticipant ctx initialHeadId
     && hasSTToken initialHeadId outValue
  where
   outValue =
-    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
   everyoneHasCommitted =
     nTotalCommits == length parties
 
@@ -393,11 +397,11 @@ hasSTToken headPolicyId v =
 {-# INLINEABLE hasSTToken #-}
 
 mkHeadAddress :: ScriptContext -> Address
-mkHeadAddress context =
+mkHeadAddress ctx =
   let headInput =
         fromMaybe
           (traceError "script not spending a head input?")
-          (findOwnInput context)
+          (findOwnInput ctx)
    in txOutAddress (txInInfoResolved headInput)
 {-# INLINEABLE mkHeadAddress #-}
 
