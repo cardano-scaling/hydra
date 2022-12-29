@@ -269,7 +269,7 @@ collectComTx networkId vk initialThreadOutput commits (HeadId headId) =
         { Head.parties = initialParties
         , utxoHash
         , contestationPeriod = initialContestationPeriod
-        , openHeadPolicyId = CurrencySymbol $ toBuiltin headId
+        , openHeadId = CurrencySymbol $ toBuiltin headId
         }
 
   extractCommit d =
@@ -362,7 +362,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput (HeadId hea
         , utxoHash = toBuiltin utxoHashBytes
         , parties = openParties
         , contestationDeadline
-        , closedHeadPolicyId = CurrencySymbol $ toBuiltin headId
+        , closedHeadId = CurrencySymbol $ toBuiltin headId
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -426,7 +426,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         , utxoHash
         , parties = closedParties
         , contestationDeadline = closedContestationDeadline
-        , closedHeadPolicyId = CurrencySymbol $ toBuiltin headId
+        , closedHeadId = CurrencySymbol $ toBuiltin headId
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 

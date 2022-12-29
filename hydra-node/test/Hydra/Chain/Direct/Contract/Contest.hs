@@ -100,7 +100,7 @@ healthyClosedState =
     , utxoHash = healthyClosedUTxOHash
     , parties = healthyOnChainParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-    , closedHeadPolicyId = toPlutusPolicyId testPolicyId
+    , closedHeadId = toPlutusPolicyId testPolicyId
     }
 
 healthySlotNo :: SlotNo
@@ -201,7 +201,7 @@ genContestMutation
               , utxoHash = healthyClosedUTxOHash
               , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
               , contestationDeadline = arbitrary `generateWith` 42
-              , closedHeadPolicyId = toPlutusPolicyId testPolicyId
+              , closedHeadId = toPlutusPolicyId testPolicyId
               }
       , SomeMutation MutateValidityPastDeadline . ChangeValidityInterval <$> do
           lb <- arbitrary
@@ -232,7 +232,7 @@ genContestMutation
                 , utxoHash = toBuiltin mutatedUTxOHash
                 , parties = healthyOnChainParties
                 , contestationDeadline = arbitrary `generateWith` 42
-                , closedHeadPolicyId = toPlutusPolicyId testPolicyId
+                , closedHeadId = toPlutusPolicyId testPolicyId
                 }
           )
           headTxOut

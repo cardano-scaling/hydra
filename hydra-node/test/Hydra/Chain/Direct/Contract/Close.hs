@@ -111,7 +111,7 @@ healthyCloseDatum =
     { parties = healthyOnChainParties
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
     , contestationPeriod = healthyContestationPeriod
-    , openHeadPolicyId = toPlutusPolicyId Fixture.testPolicyId
+    , openHeadId = toPlutusPolicyId Fixture.testPolicyId
     }
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
@@ -183,7 +183,7 @@ genCloseMutation (tx, _utxo) =
             { parties = mutatedParties
             , utxoHash = ""
             , contestationPeriod = healthyContestationPeriod
-            , openHeadPolicyId = toPlutusPolicyId Fixture.testPolicyId
+            , openHeadId = toPlutusPolicyId Fixture.testPolicyId
             }
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
@@ -236,13 +236,13 @@ genCloseMutation (tx, _utxo) =
     pure $ changeHeadOutputDatum (mutateHash mutatedUTxOHash) headTxOut
 
   mutateHash mutatedUTxOHash = \case
-    Head.Closed{snapshotNumber, parties, contestationDeadline, closedHeadPolicyId} ->
+    Head.Closed{snapshotNumber, parties, contestationDeadline, closedHeadId} ->
       Head.Closed
         { snapshotNumber
         , utxoHash = toBuiltin mutatedUTxOHash
         , parties
         , contestationDeadline
-        , closedHeadPolicyId
+        , closedHeadId
         }
     st -> error $ "unexpected state " <> show st
   -- In case contestation period param is 'Nothing' we will generate arbitrary value
@@ -261,6 +261,6 @@ genCloseMutation (tx, _utxo) =
         , contestationDeadline =
             let closingTime = slotNoToUTCTime healthySlotNo
              in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
-        , closedHeadPolicyId = toPlutusPolicyId Fixture.testPolicyId
+        , closedHeadId = toPlutusPolicyId Fixture.testPolicyId
         }
     st -> error $ "unexpected state " <> show st

@@ -24,20 +24,20 @@ data State
   = Initial
       { contestationPeriod :: ContestationPeriod
       , parties :: [Party]
-      , initialHeadPolicyId :: CurrencySymbol
+      , initialHeadId :: CurrencySymbol
       }
   | Open
       { contestationPeriod :: ContestationPeriod
       , parties :: [Party]
       , utxoHash :: Hash
-      , openHeadPolicyId :: CurrencySymbol
+      , openHeadId :: CurrencySymbol
       }
   | Closed
       { parties :: [Party]
       , snapshotNumber :: SnapshotNumber
       , utxoHash :: Hash
       , contestationDeadline :: POSIXTime
-      , closedHeadPolicyId :: CurrencySymbol
+      , closedHeadId :: CurrencySymbol
       }
   | Final
   deriving stock (Generic, Show)

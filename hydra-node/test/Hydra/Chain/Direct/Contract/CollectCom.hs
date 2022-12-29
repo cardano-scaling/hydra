@@ -107,7 +107,7 @@ healthyCollectComInitialDatum =
   Head.Initial
     { contestationPeriod = healthyContestationPeriod
     , parties = healthyOnChainParties
-    , initialHeadPolicyId = toPlutusPolicyId testPolicyId
+    , initialHeadId = toPlutusPolicyId testPolicyId
     }
 
 healthyOnChainParties :: [OnChain.Party]
@@ -202,8 +202,8 @@ genCollectComMutation (tx, utxo) =
 
   mutatedPartiesHeadTxOut parties =
     changeHeadOutputDatum $ \case
-      Head.Open{utxoHash, contestationPeriod, openHeadPolicyId} ->
-        Head.Open{Head.parties = parties, contestationPeriod, utxoHash, openHeadPolicyId}
+      Head.Open{utxoHash, contestationPeriod, openHeadId} ->
+        Head.Open{Head.parties = parties, contestationPeriod, utxoHash, openHeadId}
       st -> error $ "Unexpected state " <> show st
 
   mutateUTxOHash = do
@@ -211,6 +211,6 @@ genCollectComMutation (tx, utxo) =
     pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
 
   mutateState mutatedUTxOHash = \case
-    Head.Open{parties, contestationPeriod, openHeadPolicyId} ->
-      Head.Open{parties, contestationPeriod, Head.utxoHash = toBuiltin mutatedUTxOHash, openHeadPolicyId}
+    Head.Open{parties, contestationPeriod, openHeadId} ->
+      Head.Open{parties, contestationPeriod, Head.utxoHash = toBuiltin mutatedUTxOHash, openHeadId}
     st -> st

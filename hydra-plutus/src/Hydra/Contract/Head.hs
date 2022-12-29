@@ -66,12 +66,12 @@ headValidator oldState input context =
   case (oldState, input) of
     (initialState@Initial{}, CollectCom) ->
       checkCollectCom context (mkHeadAddress context) initialState
-    (Initial{parties, initialHeadPolicyId}, Abort) ->
-      checkAbort context initialHeadPolicyId parties
-    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, openHeadPolicyId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
-      checkClose context parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod openHeadPolicyId
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, closedHeadPolicyId}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      checkContest context contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature closedHeadPolicyId
+    (Initial{parties, initialHeadId}, Abort) ->
+      checkAbort context initialHeadId parties
+    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, openHeadId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
+      checkClose context parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod openHeadId
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, closedHeadId}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
+      checkContest context contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature closedHeadId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs context
     _ ->
@@ -150,11 +150,11 @@ checkCollectCom ::
   -- | Initial state
   State ->
   Bool
-checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headAddress Initial{contestationPeriod, parties, initialHeadPolicyId} =
+checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headAddress Initial{contestationPeriod, parties, initialHeadId} =
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
-    && mustBeSignedByParticipant context initialHeadPolicyId
-    && hasSTToken initialHeadPolicyId collectValue
+    && mustBeSignedByParticipant context initialHeadId
+    && hasSTToken initialHeadId collectValue
  where
   collectValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
@@ -169,7 +169,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headAddress 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
     let utxoHash = hashPreSerializedCommits collectedCommits
-     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod, openHeadPolicyId = initialHeadPolicyId}
+     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod, openHeadId = initialHeadId}
 
   -- Collect fuel and commits from resolved inputs. Any output containing a PT
   -- is treated as a commit, "our" output is the head output and all remaining
@@ -200,7 +200,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headAddress 
   isHeadOutput txOut = txOutAddress txOut == headAddress
 
   hasPT txOut =
-    let pts = findParticipationTokens initialHeadPolicyId (txOutValue txOut)
+    let pts = findParticipationTokens initialHeadId (txOutValue txOut)
      in length pts == 1
 
   commitDatum :: TxOut -> Maybe Commit
@@ -253,7 +253,7 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
               , snapshotNumber = 0
               , utxoHash = initialUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
-              , closedHeadPolicyId = headPolicyId
+              , closedHeadId = headPolicyId
               }
        in checkHeadOutputDatum ctx expectedOutputDatum
     | snapshotNumber > 0 =
@@ -263,7 +263,7 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
               , snapshotNumber
               , utxoHash = closedUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
-              , closedHeadPolicyId = headPolicyId
+              , closedHeadId = headPolicyId
               }
        in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
             && checkHeadOutputDatum ctx expectedOutputDatum
@@ -328,7 +328,7 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
     && mustBeMultiSigned
     && checkHeadOutputDatum
       ctx
-      (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline, closedHeadPolicyId = headPolicyId})
+      (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline, closedHeadId = headPolicyId})
     && mustBeSignedByParticipant ctx headPolicyId
     && mustBeWithinContestationPeriod
     && hasSTToken headPolicyId contestValue
