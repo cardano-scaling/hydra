@@ -16,9 +16,10 @@ import Hydra.Chain.Direct.Contract.Mutation (
   addParticipationTokens,
   changeHeadOutputDatum,
   genHash,
+  replacePolicyIdWith,
  )
-import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
+import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId, testSeedInput)
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, headPolicyId, mkHeadId, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
@@ -52,25 +53,25 @@ healthyContestTx =
       closedThreadOutput
       (mkHeadId testPolicyId)
 
-  headInput = generateWith arbitrary 42
-
-  headResolvedInput =
-    mkHeadOutput testNetworkId testPolicyId headTxOutDatum
-      & addParticipationTokens healthyParties
-
-  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyClosedState)
-
   headDatum = fromPlutusData $ toData healthyClosedState
 
-  lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
+  lookupUTxO = UTxO.singleton (testSeedInput, headResolvedInput)
 
   closedThreadOutput =
     ClosedThreadOutput
-      { closedThreadUTxO = (headInput, headResolvedInput, headDatum)
+      { closedThreadUTxO = (testSeedInput, headResolvedInput, headDatum)
       , closedParties =
           healthyOnChainParties
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
       }
+
+headTxOutDatum :: TxOutDatum CtxUTxO
+headTxOutDatum = toUTxOContext (mkTxOutDatum healthyClosedState)
+
+headResolvedInput :: TxOut CtxUTxO
+headResolvedInput =
+  mkHeadOutput testNetworkId testPolicyId headTxOutDatum
+    & addParticipationTokens healthyParties
 
 healthyContestSnapshot :: Snapshot Tx
 healthyContestSnapshot =
@@ -159,6 +160,8 @@ data ContestMutation
   | -- | Change the validity interval of the transaction to a value greater
     -- than the contestation deadline
     MutateValidityPastDeadline
+  | -- | Change the head policy id to test the head validators
+    MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -204,6 +207,16 @@ genContestMutation
           lb <- arbitrary
           ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
           pure (lb, ub)
+      , SomeMutation MutateHeadId <$> do
+          otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
+          pure $
+            Changes
+              [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
+              , ChangeInput
+                  testSeedInput
+                  (replacePolicyIdWith testPolicyId otherHeadId headResolvedInput)
+                  Nothing
+              ]
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
