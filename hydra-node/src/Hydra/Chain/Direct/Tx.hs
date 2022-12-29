@@ -48,6 +48,7 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import Plutus.Orphans ()
+import Plutus.V1.Ledger.Api (CurrencySymbol)
 import Plutus.V2.Ledger.Api (CurrencySymbol (CurrencySymbol), fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
 
@@ -178,7 +179,7 @@ commitTx ::
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
   Tx
-commitTx scriptRegistry networkId (HeadId headId) party utxo (initialInput, out, vkh) =
+commitTx scriptRegistry networkId headId party utxo (initialInput, out, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(initialInput, initialWitness)]
@@ -196,7 +197,7 @@ commitTx scriptRegistry networkId (HeadId headId) party utxo (initialInput, out,
   initialScriptRef =
     fst (initialReference scriptRegistry)
   initialDatum =
-    mkScriptDatum $ Initial.InitialDatum (CurrencySymbol $ toBuiltin headId)
+    mkScriptDatum $ Initial.InitialDatum (headIdToCurrencySymbol headId)
   initialRedeemer =
     toScriptData . Initial.redeemer $
       Initial.ViaCommit (toPlutusTxOutRef <$> mCommittedInput)
@@ -237,7 +238,7 @@ collectComTx ::
   -- | Head id
   HeadId ->
   Tx
-collectComTx networkId vk initialThreadOutput commits (HeadId headId) =
+collectComTx networkId vk initialThreadOutput commits headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
@@ -269,7 +270,7 @@ collectComTx networkId vk initialThreadOutput commits (HeadId headId) =
         { Head.parties = initialParties
         , utxoHash
         , contestationPeriod = initialContestationPeriod
-        , openHeadId = CurrencySymbol $ toBuiltin headId
+        , openHeadId = headIdToCurrencySymbol headId
         }
 
   extractCommit d =
@@ -323,7 +324,7 @@ closeTx ::
   OpenThreadOutput ->
   HeadId ->
   Tx
-closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput (HeadId headId) =
+closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -362,7 +363,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput (HeadId hea
         , utxoHash = toBuiltin utxoHashBytes
         , parties = openParties
         , contestationDeadline
-        , closedHeadId = CurrencySymbol $ toBuiltin headId
+        , closedHeadId = headIdToCurrencySymbol headId
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -398,7 +399,7 @@ contestTx ::
   ClosedThreadOutput ->
   HeadId ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline} (HeadId headId) =
+contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline} headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -426,7 +427,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         , utxoHash
         , parties = closedParties
         , contestationDeadline = closedContestationDeadline
-        , closedHeadId = CurrencySymbol $ toBuiltin headId
+        , closedHeadId = headIdToCurrencySymbol headId
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
@@ -894,6 +895,9 @@ observeAbortTx utxo tx = do
 mkHeadId :: PolicyId -> HeadId
 mkHeadId =
   HeadId . serialiseToRawBytes
+
+headIdToCurrencySymbol :: HeadId -> CurrencySymbol
+headIdToCurrencySymbol (HeadId headId) = CurrencySymbol (toBuiltin headId)
 
 headTokensFromValue :: PlutusScript -> Value -> [(AssetName, Quantity)]
 headTokensFromValue headTokenScript v =
