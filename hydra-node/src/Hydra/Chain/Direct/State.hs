@@ -93,6 +93,7 @@ import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
+import Hydra.Options (maximumNumberOfParties)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (
   ConfirmedSnapshot (..),
@@ -842,7 +843,7 @@ genCommit =
 
 genCollectComTx :: Gen (ChainContext, [UTxO], InitialState, Tx)
 genCollectComTx = do
-  ctx <- genHydraContextFor 3
+  ctx <- genHydraContextFor maximumNumberOfParties
   txInit <- genInitTx ctx
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
@@ -861,7 +862,7 @@ genCloseTx numParties = do
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
-  ctx <- genHydraContextFor 3
+  ctx <- genHydraContextFor maximumNumberOfParties
   (u0, stOpen) <- genStOpen ctx
   confirmed <- genConfirmedSnapshot 0 u0 []
   cctx <- pickChainContext ctx

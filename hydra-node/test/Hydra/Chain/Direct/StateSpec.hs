@@ -74,6 +74,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   maxTxSize,
   renderEvaluationReportFailures,
  )
+import Hydra.Options (maximumNumberOfParties)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude (
@@ -334,7 +335,7 @@ forAllClose ::
   Property
 forAllClose action = do
   -- FIXME: we should not hardcode number of parties but generate it within bounds
-  forAll (genCloseTx 3) $ \(ctx, st, tx, sn) ->
+  forAll (genCloseTx maximumNumberOfParties) $ \(ctx, st, tx, sn) ->
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
      in action utxo tx
           & label (Prelude.head . Prelude.words . show $ sn)
@@ -382,7 +383,7 @@ forAllFanout ::
   Property
 forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
-  forAll (sized $ \n -> genFanoutTx 3 (n `min` maxSupported)) $ \(hctx, stClosed, tx) ->
+  forAll (sized $ \n -> genFanoutTx maximumNumberOfParties (n `min` maxSupported)) $ \(hctx, stClosed, tx) ->
     forAllBlind (pickChainContext hctx) $ \ctx ->
       let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
        in action utxo tx

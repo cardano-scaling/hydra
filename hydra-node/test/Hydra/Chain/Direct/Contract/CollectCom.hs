@@ -119,7 +119,10 @@ healthyParties = flip generateWith 42 $ do
   alice <- arbitrary
   bob <- arbitrary
   carol <- arbitrary
-  pure [alice, bob, carol]
+  peter <- arbitrary
+  judy <- arbitrary
+  john <- arbitrary
+  pure [alice, bob, carol, peter, judy, john]
 
 genCommittableTxOut :: Gen (TxIn, TxOut CtxUTxO)
 genCommittableTxOut =

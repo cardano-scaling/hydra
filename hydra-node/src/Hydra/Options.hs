@@ -592,10 +592,10 @@ data InvalidOptions
   deriving (Eq, Show)
 
 -- | Hardcoded limit for maximum number of parties in a head protocol
--- The value 5 is obtained from calculating the costs of running the scripts
+-- The value is obtained from calculating the costs of running the scripts
 -- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
 maximumNumberOfParties :: Int
-maximumNumberOfParties = 5
+maximumNumberOfParties = 8
 
 explain :: InvalidOptions -> String
 explain = \case
