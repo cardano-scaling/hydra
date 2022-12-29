@@ -75,7 +75,7 @@ data CommitMutation
   | MutateCommittedAddress
   | MutateRequiredSigner
   | -- | Change the policy Id of the PT both in input and output
-    MutatePolicyId
+    MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
 genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -96,7 +96,7 @@ genCommitMutation (tx, _utxo) =
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation MutatePolicyId <$> do
+    , SomeMutation MutateHeadId <$> do
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= Fixture.testSeedInput))
         pure $
           Changes

@@ -151,7 +151,7 @@ data CloseMutation
   | MutateValidityInterval
   | MutateCloseContestationDeadline
   | MutateCloseContestationDeadlineWithZero
-  | MutatePolicyId
+  | MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -201,7 +201,7 @@ genCloseMutation (tx, _utxo) =
         lb <- arbitrary
         ub <- (lb -) <$> choose (0, lb)
         pure (TxValidityLowerBound (SlotNo lb), TxValidityUpperBound (SlotNo ub))
-    , SomeMutation MutatePolicyId <$> do
+    , SomeMutation MutateHeadId <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
         let closeTxOuts = txOuts' tx
         pure $
