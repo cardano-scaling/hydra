@@ -56,6 +56,10 @@ type RedeemerType = Input
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
 
+--------------------------------------------------------------------------------
+-- Validators
+--------------------------------------------------------------------------------
+
 {-# INLINEABLE headValidator #-}
 headValidator ::
   State ->
@@ -76,27 +80,6 @@ headValidator oldState input context =
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs context
     _ ->
       traceError "invalid head state transition"
-
-data CheckCollectComError
-  = NoContinuingOutput
-  | MoreThanOneContinuingOutput
-  | OutputValueNotPreserved
-  | OutputHashNotMatching
-
-mkHeadAddress :: ScriptContext -> Address
-mkHeadAddress context =
-  headAddress
- where
-  headInput :: TxInInfo
-  headInput =
-    fromMaybe
-      (traceError "script not spending a head input?")
-      (findOwnInput context)
-
-  headAddress :: Address
-  headAddress =
-    txOutAddress (txInInfoResolved headInput)
-{-# INLINEABLE mkHeadAddress #-}
 
 -- | On-Chain verification for 'Abort' transition. It verifies that:
 --
@@ -154,9 +137,9 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headAddress 
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant context initialHeadId
-    && hasSTToken initialHeadId collectValue
+    && hasSTToken initialHeadId outValue
  where
-  collectValue =
+  outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
   everyoneHasCommitted =
     nTotalCommits == length parties
@@ -238,11 +221,11 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
   hasBoundedValidity
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
-    && hasSTToken headPolicyId closeValue
+    && hasSTToken headPolicyId outValue
  where
   hasBoundedValidity = tMax - tMin <= cp
 
-  closeValue =
+  outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   checkSnapshot
@@ -282,24 +265,6 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
 
-hasSTToken :: CurrencySymbol -> Value -> Bool
-hasSTToken headPolicyId v =
-  isJust $
-    find
-      (\(cs, tokenMap) -> cs == headPolicyId && hasHydraToken tokenMap)
-      (Map.toList $ getValue v)
- where
-  hasHydraToken tm =
-    isJust $ find (\(tn, q) -> q == 1 && TokenName hydraHeadV1 == tn) (Map.toList tm)
-{-# INLINEABLE hasSTToken #-}
-
-makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
-makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
-  case ivTo (txInfoValidRange scriptContextTxInfo) of
-    UpperBound (Finite time) _ -> addContestationPeriod time cperiod
-    _ -> traceError "no upper bound validaty interval defined for close"
-{-# INLINEABLE makeContestationDeadline #-}
-
 -- | The contest validator must verify that:
 --
 --   * The contest snapshot number is strictly greater than the closed snapshot number.
@@ -309,6 +274,7 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
 --   * The resulting closed state is consistent with the contested snapshot.
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
+--   * ST token is present in the output
 checkContest ::
   ScriptContext ->
   POSIXTime ->
@@ -331,9 +297,9 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
       (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline, closedHeadId = headPolicyId})
     && mustBeSignedByParticipant ctx headPolicyId
     && mustBeWithinContestationPeriod
-    && hasSTToken headPolicyId contestValue
+    && hasSTToken headPolicyId outValue
  where
-  contestValue =
+  outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
   mustBeNewer =
     contestSnapshotNumber > closedSnapshotNumber
@@ -346,6 +312,33 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
       UpperBound (Finite time) _ -> time <= contestationDeadline
       _ -> traceError "no upper bound validity interval defined for contest"
 {-# INLINEABLE checkContest #-}
+
+checkFanout ::
+  BuiltinByteString ->
+  POSIXTime ->
+  Integer ->
+  ScriptContext ->
+  Bool
+checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
+  hasSameUTxOHash && afterContestationDeadline
+ where
+  hasSameUTxOHash = fannedOutUtxoHash == utxoHash
+  fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
+  TxInfo{txInfoOutputs} = txInfo
+
+  afterContestationDeadline =
+    case ivFrom (txInfoValidRange txInfo) of
+      LowerBound (Finite time) _ -> time > contestationDeadline
+      _ -> traceError "no lower bound validity interval defined for fanout"
+{-# INLINEABLE checkFanout #-}
+
+--------------------------------------------------------------------------------
+-- Helpers
+--------------------------------------------------------------------------------
+
+(&) :: a -> (a -> b) -> b
+(&) = flip ($)
+{-# INLINEABLE (&) #-}
 
 -- | Check that the output datum of this script corresponds to an expected
 -- value. Takes care of resolving datum hashes and inline datums.
@@ -379,28 +372,34 @@ txInfoAdaFee :: TxInfo -> Integer
 txInfoAdaFee tx = valueOf (txInfoFee tx) adaSymbol adaToken
 {-# INLINEABLE txInfoAdaFee #-}
 
-checkFanout ::
-  BuiltinByteString ->
-  POSIXTime ->
-  Integer ->
-  ScriptContext ->
-  Bool
-checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
-  hasSameUTxOHash && afterContestationDeadline
+makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
+makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
+  case ivTo (txInfoValidRange scriptContextTxInfo) of
+    UpperBound (Finite time) _ -> addContestationPeriod time cperiod
+    _ -> traceError "no upper bound validaty interval defined for close"
+{-# INLINEABLE makeContestationDeadline #-}
+
+-- | Checks that the output contains the ST token with the head 'CurrencySymbol'
+-- and 'TokenName' of 'hydraHeadV1'
+hasSTToken :: CurrencySymbol -> Value -> Bool
+hasSTToken headPolicyId v =
+  isJust $
+    find
+      (\(cs, tokenMap) -> cs == headPolicyId && hasHydraToken tokenMap)
+      (Map.toList $ getValue v)
  where
-  hasSameUTxOHash = fannedOutUtxoHash == utxoHash
-  fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
-  TxInfo{txInfoOutputs} = txInfo
+  hasHydraToken tm =
+    isJust $ find (\(tn, q) -> q == 1 && TokenName hydraHeadV1 == tn) (Map.toList tm)
+{-# INLINEABLE hasSTToken #-}
 
-  afterContestationDeadline =
-    case ivFrom (txInfoValidRange txInfo) of
-      LowerBound (Finite time) _ -> time > contestationDeadline
-      _ -> traceError "no lower bound validity interval defined for fanout"
-{-# INLINEABLE checkFanout #-}
-
-(&) :: a -> (a -> b) -> b
-(&) = flip ($)
-{-# INLINEABLE (&) #-}
+mkHeadAddress :: ScriptContext -> Address
+mkHeadAddress context =
+  let headInput =
+        fromMaybe
+          (traceError "script not spending a head input?")
+          (findOwnInput context)
+   in txOutAddress (txInInfoResolved headInput)
+{-# INLINEABLE mkHeadAddress #-}
 
 mustBeSignedByParticipant ::
   ScriptContext ->
