@@ -97,11 +97,7 @@ checkAbort ::
 checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol parties =
   mustBurnAllHeadTokens
     && mustBeSignedByParticipant ctx headCurrencySymbol
-    && hasSTToken headCurrencySymbol outValue
  where
-  outValue =
-    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
-
   mustBurnAllHeadTokens =
     burntTokens == length parties + 1
 
