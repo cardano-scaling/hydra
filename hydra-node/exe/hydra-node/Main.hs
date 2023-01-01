@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
-import Hydra.Chain.Direct (initialChainState, loadChainContext, withDirectChain)
+import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.Util (readKeyPair)
@@ -75,8 +75,9 @@ main = do
               pure a
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party hydraScriptsTxId
+        wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
         let ChainStateAt{recordedAt} = getChainState hs
-        withDirectChain (contramap DirectChain tracer) chainConfig ctx recordedAt (chainCallback nodeState eq) $ \chain -> do
+        withDirectChain (contramap DirectChain tracer) chainConfig ctx recordedAt wallet (chainCallback nodeState eq) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
