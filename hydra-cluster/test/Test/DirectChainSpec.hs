@@ -34,7 +34,13 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError (..),
  )
-import Hydra.Chain.Direct (IntersectionNotFoundException (..), initialChainState, loadChainContext, withDirectChain)
+import Hydra.Chain.Direct (
+  IntersectionNotFoundException (..),
+  initialChainState,
+  loadChainContext,
+  mkTinyWallet,
+  withDirectChain,
+ )
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (ChainContext)
@@ -366,7 +372,9 @@ withDirectChainTest tracer config ctx action = do
               Observation{newChainState} -> writeTVar stateVar newChainState
               _OtherEvent -> pure ()
 
-  withDirectChain tracer config ctx Nothing callback $ \Chain{postTx} -> do
+  wallet <- mkTinyWallet tracer config
+
+  withDirectChain tracer config ctx Nothing wallet callback $ \Chain{postTx} -> do
     action
       DirectChainTest
         { postTx = \tx -> do
