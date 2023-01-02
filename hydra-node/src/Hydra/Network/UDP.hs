@@ -10,20 +10,26 @@ import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toStrictByteString)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Text (unpack)
+import Hydra.Logging (Tracer)
 import Hydra.Network (Host (..), Network (..), NetworkCallback, NetworkComponent)
 import Network.Socket (Socket, SocketType (Datagram), addrAddress, addrFamily, bind, close, connect, defaultProtocol, getAddrInfo, socket)
 import Network.Socket.ByteString (recv, sendAll)
 
 type PeersResolver m a = (a -> m [Host])
 
+data UDPLog = UDPLog
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
 withUDPNetwork ::
   (FromCBOR msg, ToCBOR msg) =>
+  Tracer m UDPLog ->
   -- | The address to bind the server on.
   Host ->
   -- | An `IO` action to "resolve" the peers to send a message to.
   PeersResolver IO msg ->
   NetworkComponent IO msg a
-withUDPNetwork localhost peersResolver callback action =
+withUDPNetwork tracer localhost peersResolver callback action =
   withAsync (udpServer localhost callback) $ \_ ->
     action (udpClient peersResolver)
 

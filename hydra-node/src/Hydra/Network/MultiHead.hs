@@ -18,7 +18,7 @@ data Enveloped msg = Enveloped {headId :: HeadId, message :: msg}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToCBOR, FromCBOR)
 
-withMultiNode ::
+withMultiHead ::
   (MonadAsync m) =>
   -- | The headId for this network instance.
   -- This variable will be set externally when the `Init` transaction is posted and
@@ -27,7 +27,7 @@ withMultiNode ::
   TVar m (Maybe HeadId) ->
   NetworkComponent m (Enveloped msg) a ->
   NetworkComponent m msg a
-withMultiNode headId withNetwork callback action = do
+withMultiHead headId withNetwork callback action = do
   withNetwork (messageDispatcher headId callback) $ \network ->
     action (decorateMessage headId network)
 
