@@ -1,15 +1,15 @@
-cabal-version:      3.0
-name:               hydra-node
-version:            0.9.0
-synopsis:           The Hydra node
-author:             IOG
-copyright:          2022 IOG
-license:            Apache-2.0
+cabal-version: 3.0
+name:          hydra-node
+version:       0.9.0
+synopsis:      The Hydra node
+author:        IOG
+copyright:     2022 IOG
+license:       Apache-2.0
 license-files:
   LICENSE
   NOTICE
 
-data-files:         json-schemas/logs.yaml
+data-files:    json-schemas/logs.yaml
 
 source-repository head
   type:     git
