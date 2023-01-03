@@ -759,6 +759,73 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
     , assetName /= hydraHeadV1AssetName
     ]
 
+data OwnInitObservation = OwnInitObservation
+  { headId :: HeadId
+  , parties :: [Party]
+  , contestationPeriod :: ContestationPeriod
+  , cardanoKeys :: [VerificationKey PaymentKey]
+  }
+
+-- | Tells whether or not some `Tx` is an `InitTx` that's of interest to us.
+-- Possibly returns an
+observeOwnInitTx ::
+  NetworkId ->
+  -- | Our party identifier
+  Party ->
+  Tx ->
+  Maybe OwnInitObservation
+observeOwnInitTx networkId party tx = do
+  -- FIXME: This is affected by "same structure datum attacks", we should be
+  -- using the Head script address instead.
+  (_, headOut, _, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
+  parties <- mapM partyFromChain ps
+  let contestationPeriod = fromChain cp
+  guard $ party `elem` parties
+  (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
+  cardanoKeys <- traverse fromAssetName $ assetNames headAssetName
+  guard (length initials == length cardanoKeys)
+  -- ensures this is a minting tx
+  _ <- findScriptMinting tx headTokenPolicyId
+  pure
+    OwnInitObservation
+      { contestationPeriod
+      , headId = mkHeadId headTokenPolicyId
+      , cardanoKeys
+      , parties
+      }
+ where
+  headOutput = \case
+    (ix, out@(TxOut _ _ (TxOutDatumInTx d) _)) ->
+      (ix,out,toLedgerData d,) <$> fromData (toPlutusData d)
+    _ -> Nothing
+
+  indexedOutputs = zip [0 ..] (txOuts' tx)
+
+  initialOutputs = filter (isInitial . snd) indexedOutputs
+
+  initials =
+    mapMaybe
+      ( \(i, o) -> do
+          dat <- getScriptData o
+          pure (mkTxIn tx i, toCtxUTxOTxOut o, dat)
+      )
+      initialOutputs
+
+  isInitial (TxOut addr _ _ _) = addr == initialAddress
+
+  initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
+
+  initialScript = fromPlutusScript Initial.validatorScript
+
+  assetNames headAssetName =
+    [ assetName
+    | (AssetId _ assetName, _) <- txMintAssets tx
+    , assetName /= headAssetName
+    ]
+
+  fromAssetName :: AssetName -> Maybe (VerificationKey PaymentKey)
+  fromAssetName (AssetName bs) = deserialiseFromRawBytes (AsVerificationKey AsPaymentKey) bs
+
 data CommitObservation = CommitObservation
   { commitOutput :: UTxOWithScript
   , party :: Party

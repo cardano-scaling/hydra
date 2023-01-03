@@ -13,6 +13,7 @@ import Control.Tracer (nullTracer)
 import Hydra.Cardano.Api (
   ChainPoint,
   ConsensusMode (CardanoMode),
+  NetworkId,
   Tx,
   TxId,
   fromConsensusPointInMode,
@@ -22,7 +23,7 @@ import Hydra.Cardano.Api (
  )
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain (
-  OnChainTx,
+  OnChainTx (..),
  )
 import Hydra.Chain.CardanoClient (
   queryTip,
@@ -42,6 +43,7 @@ import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
  )
+import Hydra.Chain.Direct.Tx (OwnInitObservation (..), observeOwnInitTx)
 import Hydra.Chain.Direct.Util (
   Block,
   defaultCodecs,
@@ -152,6 +154,8 @@ mkChainSyncHandler tracer callback ctx =
     , onRollForward
     }
  where
+  ChainContext{networkId, ownParty} = ctx
+
   onRollBackward :: Point Block -> IO ()
   onRollBackward rollbackPoint = do
     let point = fromConsensusPointInMode CardanoMode rollbackPoint
@@ -169,12 +173,16 @@ mkChainSyncHandler tracer callback ctx =
         }
 
     forM_ receivedTxs $ \tx ->
-      case observeInitTx ctx tx of
+      case observeInitTx networkId ownParty tx of
         Just t -> callback t
         Nothing -> pure ()
 
-observeInitTx :: ChainContext -> Tx -> Maybe (OnChainTx Tx)
-observeInitTx _ctx _tx = error "undefined"
+observeInitTx :: NetworkId -> Party -> Tx -> Maybe (OnChainTx Tx)
+observeInitTx networkId party tx =
+  fromObservation <$> observeOwnInitTx networkId party tx
+
+fromObservation :: OwnInitObservation -> OnChainTx Tx
+fromObservation (OwnInitObservation hi pas cp _) = OnInitTx hi cp pas
 
 ouroborosApplication ::
   (MonadST m, MonadTimer m, MonadThrow m) =>
