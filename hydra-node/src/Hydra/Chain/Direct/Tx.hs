@@ -763,7 +763,7 @@ data OwnInitObservation = OwnInitObservation
   { headId :: HeadId
   , parties :: [Party]
   , contestationPeriod :: ContestationPeriod
-  , cardanoKeys :: [VerificationKey PaymentKey]
+  , cardanoKeys :: [Hash PaymentKey]
   }
 
 -- | Tells whether or not some `Tx` is an `InitTx` that's of interest to us.
@@ -823,8 +823,8 @@ observeOwnInitTx networkId party tx = do
     , assetName /= headAssetName
     ]
 
-  fromAssetName :: AssetName -> Maybe (VerificationKey PaymentKey)
-  fromAssetName (AssetName bs) = deserialiseFromRawBytes (AsVerificationKey AsPaymentKey) bs
+  fromAssetName :: AssetName -> Maybe (Hash PaymentKey)
+  fromAssetName (AssetName bs) = deserialiseFromRawBytes (AsHash AsPaymentKey) bs
 
 data CommitObservation = CommitObservation
   { commitOutput :: UTxOWithScript

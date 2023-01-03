@@ -34,9 +34,11 @@ import Data.Text (unpack)
 import Hydra.API.ClientInput (ClientInput (Init))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (HeadInitialized))
-import Hydra.Cardano.Api (Tx)
+import Hydra.Cardano.Api (AsType (AsVerificationKey), Tx)
 import Hydra.Chain (HeadId (HeadId))
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
+import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
+import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (Environment (..), Event (ClientEvent, NetworkEvent), HeadState (..), defaultTTL)
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (newGlobals, newLedgerEnv, protocolParametersFromJson, readJsonFileThrow, shelleyGenesisFromJson)
@@ -49,6 +51,7 @@ import Hydra.Network.MultiHead (Enveloped (..), withMultiHead)
 import Hydra.Network.UDP (PeersResolver, udpClient, udpServer)
 import Hydra.Node (HydraNode (..), chainCallback, createEventQueue, createNodeState, initEnvironment, putEvent, runHydraNode)
 import Hydra.Options (RunOptions (..), cardanoLedgerGenesisFile, cardanoLedgerProtocolParametersFile, cardanoVerificationKeys)
+import Hydra.Party (Party (..))
 import Hydra.Persistence (Persistence (..))
 import Hydra.Prelude
 import Network.Socket (
@@ -125,15 +128,20 @@ runNode opts cmdQueue = do
               chainContext <- loadChainContext chainConfig' party hydraScriptsTxId
               eq <- createEventQueue
               chan <- atomically $ dupTChan bchan
+              otherParties <- mapM loadParty (fmap hydraVerificationKey . filter ((/= nodeId) . remoteId) $ remotes)
+              let env' = env{otherParties}
               withDirectChain (contramap DirectChain tracer) chainConfig' chainContext Nothing wallet (chainCallback nodeState eq) $ \chain -> do
                 withMultiHead hid (withOneNodeUDP chan remotes) (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
                   withLocalAPIServer inputQueue outputQueue (putEvent eq . ClientEvent) $ \server -> do
                     let RunOptions{ledgerConfig} = opts
                     withCardanoLedger ledgerConfig $ \ledger ->
                       runHydraNode (contramap Node tracer) $
-                        HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence = noPersistence}
+                        HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env = env', persistence = noPersistence}
         runMultiHeadedNode heads startNode cmdQueue
  where
+  loadParty p =
+    Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
+
   withCardanoLedger ledgerConfig action = do
     globals <-
       newGlobals
