@@ -32,6 +32,7 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainSlot (ChainSlot),
   ChainStateType,
+  HeadId (HeadId),
   HeadParameters (..),
   IsChainState,
   OnChainTx (..),
@@ -643,7 +644,7 @@ createMockNetwork node nodes =
 toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
   InitTx HeadParameters{contestationPeriod, parties} ->
-    OnInitTx{contestationPeriod, parties}
+    OnInitTx{contestationPeriod, parties, initHeadId = testHeadId}
   (CommitTx pa ut) ->
     OnCommitTx pa ut
   AbortTx{} ->
@@ -665,6 +666,9 @@ toOnChainTx now = \case
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: ContestationPeriod
 testContestationPeriod = UnsafeContestationPeriod 3600
+
+testHeadId :: HeadId
+testHeadId = HeadId "1234"
 
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsChainState tx) =>

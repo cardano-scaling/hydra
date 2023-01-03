@@ -43,6 +43,7 @@ channels:
           - $ref: "#/components/messages/Greetings"
           - $ref: "#/components/messages/PeerConnected"
           - $ref: "#/components/messages/PeerDisconnected"
+          - $ref: "#/components/messages/HeadInitialized"
           - $ref: "#/components/messages/ReadyToCommit"
           - $ref: "#/components/messages/Committed"
           - $ref: "#/components/messages/HeadIsOpen"
@@ -268,6 +269,22 @@ components:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
+
+    HeadInitialized:
+      title: HeadInitialized
+      description: |
+        A `Init` transaction has been observed on-chain, with the given HeadId
+      payload:
+        type: object
+        required:
+          - tag
+          - headId
+        properties:
+          tag:
+            type: string
+            enum: ["HeadInitialized"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
 
     ReadyToCommit:
       title: ReadyToCommit
@@ -496,7 +513,7 @@ components:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
-      
+
     TxInvalid:
       title: TxInvalid
       description: |
@@ -763,6 +780,14 @@ components:
       description: |
         A contestation duration in seconds.
       example: 60
+
+    HeadId:
+      type: string
+      description: |
+        A unique identifier for a Head, an hex-encoded 16 bytes string.
+      contentEncoding: base16
+      example:
+        "820082582089ff4f3ff4a6052ec9d073"
 
     HeadParameters:
       type: object

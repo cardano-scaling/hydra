@@ -60,6 +60,7 @@ import Hydra.Cluster.Fixture (
   cperiod,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (aggregate, sign)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)
@@ -68,6 +69,7 @@ import Hydra.Options (
   ChainConfig (..),
   toArgNetworkId,
  )
+import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import System.Process (proc, readCreateProcess)
 import Test.QuickCheck (generate)
@@ -92,8 +94,8 @@ spec = around showLogsOnFailure $ do
               \bobChain@DirectChainTest{} -> do
                 -- Scenario
                 postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
-                aliceChain `observesInTime` OnInitTx cperiod [alice, bob, carol]
-                bobChain `observesInTime` OnInitTx cperiod [alice, bob, carol]
+                aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
+                bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
 
                 postTx $ AbortTx mempty
 
@@ -121,8 +123,8 @@ spec = around showLogsOnFailure $ do
                 aliceUTxO <- seedFromFaucet node aliceCardanoVk aliceCommitment Normal (contramap FromFaucet tracer)
 
                 postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
-                aliceChain `observesInTime` OnInitTx cperiod [alice, bob, carol]
-                bobChain `observesInTime` OnInitTx cperiod [alice, bob, carol]
+                aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
+                bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
 
                 postTx $ CommitTx alice aliceUTxO
 
@@ -159,7 +161,7 @@ spec = around showLogsOnFailure $ do
               \DirectChainTest{postTx = bobPostTx} -> do
                 -- Scenario
                 alicePostTx $ InitTx $ HeadParameters cperiod [alice, carol]
-                aliceChain `observesInTime` OnInitTx cperiod [alice, carol]
+                aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, carol]
 
                 bobPostTx (AbortTx mempty)
                   `shouldThrow` \case
@@ -181,7 +183,7 @@ spec = around showLogsOnFailure $ do
             aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
-            aliceChain `observesInTime` OnInitTx cperiod [alice]
+            aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             someUTxOA <- generate $ genOneUTxOFor aliceCardanoVk
             someUTxOB <- generate $ genOneUTxOFor aliceCardanoVk
@@ -210,7 +212,7 @@ spec = around showLogsOnFailure $ do
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
             postTx $ InitTx $ HeadParameters cperiod [alice]
-            aliceChain `observesInTime` OnInitTx cperiod [alice]
+            aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             postTx $ CommitTx alice mempty
             aliceChain `observesInTime` OnCommitTx alice mempty
@@ -230,7 +232,7 @@ spec = around showLogsOnFailure $ do
             someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
-            aliceChain `observesInTime` OnInitTx cperiod [alice]
+            aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             postTx $ CommitTx alice someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
@@ -287,7 +289,7 @@ spec = around showLogsOnFailure $ do
           \aliceChain@DirectChainTest{postTx} -> do
             tip <- queryTip networkId nodeSocket
             postTx $ InitTx $ HeadParameters cperiod [alice]
-            aliceChain `observesInTime` OnInitTx cperiod [alice]
+            aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
             pure tip
 
         let aliceChainConfig' = aliceChainConfig{startChainFrom = Just tip}
@@ -295,7 +297,7 @@ spec = around showLogsOnFailure $ do
         -- state here. Does this test even make sense with persistence?
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig' aliceChainContext $
           \aliceChain@DirectChainTest{} ->
-            aliceChain `observesInTime` OnInitTx cperiod [alice]
+            aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
   it "cannot restart head to an unknown point" $ \tracer -> do
     withTempDir "direct-chain" $ \tmp -> do
@@ -383,15 +385,26 @@ withDirectChainTest tracer config ctx action = do
         , waitCallback = atomically $ takeTMVar eventMVar
         }
 
+hasInitTxWith :: (HasCallStack, IsTx tx) => ContestationPeriod -> [Party] -> OnChainTx tx -> Expectation
+hasInitTxWith expectedContestationPeriod expectedParties = \case
+  OnInitTx{contestationPeriod, parties} -> do
+    expectedContestationPeriod `shouldBe` contestationPeriod
+    expectedParties `shouldBe` parties
+  tx -> failure ("Unexpected observation: " <> show tx)
+
 observesInTime :: IsTx tx => DirectChainTest tx IO -> OnChainTx tx -> IO ()
-observesInTime DirectChainTest{waitCallback} expected =
+observesInTime chain expected =
+  observesInTimeSatisfying chain (`shouldBe` expected)
+
+observesInTimeSatisfying :: DirectChainTest tx IO -> (OnChainTx tx -> Expectation) -> IO ()
+observesInTimeSatisfying DirectChainTest{waitCallback} check =
   failAfter 10 go
  where
   go = do
     e <- waitCallback
     case e of
       Observation{observedTx} -> do
-        observedTx `shouldBe` expected
+        check observedTx
       _TickOrRollback -> go
 
 waitMatch :: DirectChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b

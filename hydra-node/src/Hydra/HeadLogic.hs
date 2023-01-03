@@ -26,6 +26,7 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainSlot,
   ChainStateType,
+  HeadId,
   HeadParameters (..),
   IsChainState (chainStateSlot),
   OnChainTx (..),
@@ -310,8 +311,9 @@ onIdleChainInitTx ::
   ChainStateType tx ->
   [Party] ->
   ContestationPeriod ->
+  HeadId ->
   Outcome tx
-onIdleChainInitTx headState newChainState parties contestationPeriod =
+onIdleChainInitTx headState newChainState parties contestationPeriod headId =
   NewState
     ( InitialState
         { parameters = HeadParameters{contestationPeriod, parties}
@@ -321,7 +323,7 @@ onIdleChainInitTx headState newChainState parties contestationPeriod =
         , chainState = newChainState
         }
     )
-    [ClientEffect $ ReadyToCommit $ fromList parties]
+    [ClientEffect $ HeadInitialized headId, ClientEffect $ ReadyToCommit $ fromList parties]
 
 -- | Client request to commit a UTxO entry to the head. Provided the client
 -- hasn't committed yet, this leads to a commit transaction on-chain containing
@@ -869,8 +871,8 @@ update ::
 update Environment{party, signingKey, otherParties, contestationPeriod} ledger st ev = case (st, ev) of
   (IdleState{chainState}, ClientEvent Init) ->
     onIdleClientInit chainState party otherParties contestationPeriod
-  (IdleState{}, OnChainEvent Observation{observedTx = OnInitTx{contestationPeriod = observed, parties}, newChainState}) ->
-    onIdleChainInitTx st newChainState parties observed
+  (IdleState{}, OnChainEvent Observation{observedTx = OnInitTx{initHeadId, contestationPeriod = observed, parties}, newChainState}) ->
+    onIdleChainInitTx st newChainState parties observed initHeadId
   (InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit chainState party pendingCommits clientInput
   ( InitialState{parameters, pendingCommits, committed}

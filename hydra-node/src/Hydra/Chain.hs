@@ -14,6 +14,7 @@ module Hydra.Chain where
 
 import Hydra.Prelude
 
+import qualified Data.ByteString as BS
 import Data.List (nub)
 import Hydra.Cardano.Api (
   Address,
@@ -26,6 +27,7 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
+import Test.QuickCheck (vectorOf)
 import Test.QuickCheck.Instances.Time ()
 
 -- | Contains the head's parameters as established in the initial transaction.
@@ -79,12 +81,12 @@ instance HasTypeProxy HeadId where
   proxyToAsType _ = AsHeadId
 
 instance Arbitrary HeadId where
-  arbitrary = genericArbitrary
+  arbitrary = HeadId . BS.pack <$> vectorOf 16 arbitrary
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
 data OnChainTx tx
-  = OnInitTx {contestationPeriod :: ContestationPeriod, parties :: [Party]}
+  = OnInitTx {initHeadId :: HeadId, contestationPeriod :: ContestationPeriod, parties :: [Party]}
   | OnCommitTx {party :: Party, committed :: UTxOType tx}
   | OnAbortTx
   | OnCollectComTx
