@@ -87,6 +87,7 @@ library
     Hydra.Chain.Direct
     Hydra.Chain.Direct.Fixture
     Hydra.Chain.Direct.Handlers
+    Hydra.Chain.Direct.MultiHead
     Hydra.Chain.Direct.ScriptRegistry
     Hydra.Chain.Direct.State
     Hydra.Chain.Direct.TimeHandle
