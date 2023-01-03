@@ -90,6 +90,12 @@ newtype HeadId = HeadId ByteString
   deriving (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadId)
 
+instance ToCBOR HeadId where
+  toCBOR (HeadId bs) = toCBOR bs
+
+instance FromCBOR HeadId where
+  fromCBOR = HeadId <$> fromCBOR
+
 instance SerialiseAsRawBytes HeadId where
   serialiseToRawBytes (HeadId bytes) = bytes
   deserialiseFromRawBytes _ = Right . HeadId

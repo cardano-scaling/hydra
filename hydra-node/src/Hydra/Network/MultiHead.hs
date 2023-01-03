@@ -9,14 +9,19 @@ module Hydra.Network.MultiHead where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadAsync (MonadAsync)
 import Control.Monad.Class.MonadSTM (MonadSTM (readTVarIO))
 import Hydra.Chain (HeadId)
 import Hydra.Network (Network (..), NetworkCallback, NetworkComponent)
 
 data Enveloped msg = Enveloped {headId :: HeadId, message :: msg}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToCBOR, FromCBOR)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR msg => ToCBOR (Enveloped msg) where
+  toCBOR Enveloped{headId, message} = toCBOR headId <> toCBOR message
+
+instance FromCBOR msg => FromCBOR (Enveloped msg) where
+  fromCBOR = Enveloped <$> fromCBOR <*> fromCBOR
 
 withMultiHead ::
   (MonadAsync m) =>

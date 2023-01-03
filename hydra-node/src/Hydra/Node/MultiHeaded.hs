@@ -13,6 +13,8 @@
 --   name resolution mechanism
 module Hydra.Node.MultiHeaded where
 
+import Control.Concurrent.STM (dupTChan)
+import Control.Concurrent.STM.TChan (TChan, newBroadcastTChanIO, readTChan, writeTChan)
 import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
 import Control.Monad.Class.MonadSTM (
   modifyTVar',
@@ -29,9 +31,9 @@ import Data.Aeson (decodeFileStrict)
 import Data.ByteString (hGetLine, hPutStr)
 import qualified Data.Map as Map
 import Data.Text (unpack)
-import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.ClientInput (ClientInput (Init))
 import Hydra.API.Server (Server (..))
-import Hydra.API.ServerOutput (ServerOutput)
+import Hydra.API.ServerOutput (ServerOutput (HeadInitialized))
 import Hydra.Cardano.Api (Tx)
 import Hydra.Chain (HeadId (HeadId))
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
@@ -41,20 +43,39 @@ import Hydra.Ledger.Cardano.Configuration (newGlobals, newLedgerEnv, protocolPar
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Network, Node, NodeOptions))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Network (Host (Host), NetworkCallback)
+import Hydra.Network (Host (Host), NetworkComponent, NodeId)
 import Hydra.Network.Message (Message)
 import Hydra.Network.MultiHead (Enveloped (..), withMultiHead)
-import Hydra.Network.UDP (PeersResolver, withUDPNetwork)
+import Hydra.Network.UDP (PeersResolver, udpClient, udpServer)
 import Hydra.Node (HydraNode (..), chainCallback, createEventQueue, createNodeState, initEnvironment, putEvent, runHydraNode)
 import Hydra.Options (RunOptions (..), cardanoLedgerGenesisFile, cardanoLedgerProtocolParametersFile, cardanoVerificationKeys)
 import Hydra.Persistence (Persistence (..))
 import Hydra.Prelude
-import Network.Socket (AddrInfo (addrSocketType), AddrInfoFlag (AI_PASSIVE), Family (AF_INET), PortNumber, SocketOption (ReuseAddr), SocketType (Stream), accept, addrAddress, addrFamily, addrFlags, bind, defaultHints, defaultProtocol, getAddrInfo, listen, setSocketOption, socket, socketToHandle)
+import Network.Socket (
+  AddrInfo (addrSocketType),
+  AddrInfoFlag (AI_PASSIVE),
+  Family (AF_INET),
+  PortNumber,
+  SocketOption (ReuseAddr),
+  SocketType (Stream),
+  accept,
+  addrAddress,
+  addrFamily,
+  addrFlags,
+  bind,
+  defaultHints,
+  defaultProtocol,
+  getAddrInfo,
+  listen,
+  setSocketOption,
+  socket,
+  socketToHandle,
+ )
 import System.FilePath ((<.>))
 import Prelude (read)
 
 data Remote = Remote
-  { remoteId :: Text
+  { remoteId :: NodeId
   , cardanoVerificationKey :: FilePath
   , hydraVerificationKey :: FilePath
   , address :: Host
@@ -82,7 +103,7 @@ withNode opts action = do
 
 runNode :: RunOptions -> TQueue IO (Command, TMVar IO Result) -> IO ()
 runNode opts cmdQueue = do
-  let RunOptions{verbosity, monitoringPort, host, port} = opts
+  let RunOptions{verbosity, monitoringPort, host, port, nodeId} = opts
   env@Environment{party} <- initEnvironment opts
   withTracer verbosity $ \tracer' -> do
     withMonitoring monitoringPort tracer' $ \tracer -> do
@@ -92,25 +113,26 @@ runNode opts cmdQueue = do
       wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
       -- create heads heads state
       heads <- newTVarIO mempty
-      -- create UDP network
-      -- FIXME: this probably does not work?
-      let resolver = resolvePeers heads
-      let udp = withUDPNetwork (contramap Network tracer) (Host (show host) port) resolver
-      let startNode net hid remotes inputQueue outputQueue = do
-            -- TODO: should be already initialised with head state
-            nodeState <- createNodeState IdleState{chainState = initialChainState}
-            let chainConfig' = chainConfig{cardanoVerificationKeys = cardanoVerificationKey <$> remotes}
-            chainContext <- loadChainContext chainConfig' party hydraScriptsTxId
-            eq <- createEventQueue
-            withDirectChain (contramap DirectChain tracer) chainConfig chainContext Nothing wallet (chainCallback nodeState eq) $ \chain -> do
-              withMultiHead hid net (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
-                withLocalAPIServer inputQueue outputQueue (putEvent eq . ClientEvent) $ \server -> do
-                  let RunOptions{ledgerConfig} = opts
-                  withCardanoLedger ledgerConfig $ \ledger ->
-                    runHydraNode (contramap Node tracer) $
-                      HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence = noPersistence}
-      udp callback $ \_net -> do
-        runMultiHeadedNode heads (startNode udp) cmdQueue
+      -- create UDP server
+      -- We only create the server here and not the full NetworkComponent because
+      -- the server is shared between all head instances we will create
+      bchan <- newBroadcastTChanIO
+      withAsync (udpServer (contramap Network tracer') (Host (show host) port) (udpCallback bchan)) $ \_ -> do
+        let startNode hid remotes inputQueue outputQueue = do
+              -- TODO: should be already initialised with head state
+              nodeState <- createNodeState IdleState{chainState = initialChainState}
+              let chainConfig' = chainConfig{cardanoVerificationKeys = cardanoVerificationKey <$> filter ((/= nodeId) . remoteId) remotes}
+              chainContext <- loadChainContext chainConfig' party hydraScriptsTxId
+              eq <- createEventQueue
+              chan <- atomically $ dupTChan bchan
+              withDirectChain (contramap DirectChain tracer) chainConfig' chainContext Nothing wallet (chainCallback nodeState eq) $ \chain -> do
+                withMultiHead hid (withOneNodeUDP chan remotes) (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
+                  withLocalAPIServer inputQueue outputQueue (putEvent eq . ClientEvent) $ \server -> do
+                    let RunOptions{ledgerConfig} = opts
+                    withCardanoLedger ledgerConfig $ \ledger ->
+                      runHydraNode (contramap Node tracer) $
+                        HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence = noPersistence}
+        runMultiHeadedNode heads startNode cmdQueue
  where
   withCardanoLedger ledgerConfig action = do
     globals <-
@@ -123,8 +145,15 @@ runNode opts cmdQueue = do
 
     action (Ledger.cardanoLedger globals ledgerEnv)
 
-  callback :: NetworkCallback (Enveloped (Message Tx)) IO
-  callback = error "should never be used" -- NOTE: shoudl never be used?
+  --  udpCallback :: NetworkCallback (Enveloped (Message Tx)) IO
+  udpCallback chan = atomically . writeTChan chan
+
+withOneNodeUDP :: TChan (Enveloped (Message Tx)) -> [Remote] -> NetworkComponent IO (Enveloped (Message Tx)) ()
+withOneNodeUDP chan remotes callback k =
+  withAsync dispatch $ \_ ->
+    k $ udpClient (const $ pure $ address <$> remotes)
+ where
+  dispatch = forever $ atomically (readTChan chan) >>= callback
 
 resolvePeers :: TVar IO (Map HeadId MultiHeadState) -> PeersResolver IO (Enveloped (Message Tx))
 resolvePeers heads Enveloped{headId} =
@@ -147,13 +176,14 @@ runMultiHeadedNode heads startNode cmdQueue = forever $ do
     case cmd of
       StartHead peers -> do
         headIdVar <- newTVarIO Nothing
-        remotes <- traverse readPeerFile peers
+        remotes <- mapM readPeerFile peers
+        putText $ "Starting head with remotes " <> show remotes
         inputQueue <- newTQueueIO
         outputQueue <- newTQueueIO
         node <- async $ startNode headIdVar remotes inputQueue outputQueue
         link node
-        -- TODO: actually initialise Head posting a tx
-        let headId = HeadId "1234"
+        atomically $ writeTQueue inputQueue Init
+        headId <- waitForInit outputQueue
         atomically $ do
           modifyTVar' heads $ \headsMap -> Map.insert headId MultiHeadState{remotes, node, inputQueue, outputQueue} headsMap
           putTMVar result (HeadStarted headId)
@@ -164,6 +194,15 @@ runMultiHeadedNode heads startNode cmdQueue = forever $ do
           Just MultiHeadState{node} -> do
             cancel node
             atomically $ putTMVar result (HeadStopped hid)
+
+waitForInit :: TQueue IO (ServerOutput Tx) -> IO HeadId
+waitForInit queue = do
+  out <- atomically $ do
+    res <- readTQueue queue
+    case res of
+      HeadInitialized headId -> pure $ Just headId
+      _ -> pure Nothing
+  maybe (waitForInit queue) pure out
 
 readPeerFile :: Text -> IO Remote
 readPeerFile p =
