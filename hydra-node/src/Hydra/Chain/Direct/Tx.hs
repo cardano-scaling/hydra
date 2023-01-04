@@ -759,38 +759,41 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
     , assetName /= hydraHeadV1AssetName
     ]
 
-data OwnInitObservation = OwnInitObservation
+data HeadInitObservation = HeadInitObservation
   { headId :: HeadId
   , parties :: [Party]
   , contestationPeriod :: ContestationPeriod
-  , cardanoKeys :: [Hash PaymentKey]
+  , cardanoKeyHashes :: [Hash PaymentKey]
   }
+  deriving stock (Show)
 
--- | Tells whether or not some `Tx` is an `InitTx` that's of interest to us.
--- Possibly returns an
-observeOwnInitTx ::
+-- | Observes a newly initialised Head.
+-- This observation is based on the structure of the transaction's outputs:
+--
+-- * It has an output paying to the `Head` script with a `Head.Initial` datum
+-- * It has $n$ outputs that pay to the `Initial` script containing participation tokens
+-- * Those PTs and the corresponding ST are minted by the transaction
+observeHeadInitTx ::
   NetworkId ->
-  -- | Our party identifier
-  Party ->
   Tx ->
-  Maybe OwnInitObservation
-observeOwnInitTx networkId party tx = do
+  Maybe HeadInitObservation
+observeHeadInitTx networkId tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
   (_, headOut, _, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   parties <- mapM partyFromChain ps
   let contestationPeriod = fromChain cp
-  guard $ party `elem` parties
   (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
-  cardanoKeys <- traverse fromAssetName $ assetNames headAssetName
-  guard (length initials == length cardanoKeys)
+  cardanoKeyHashes <- traverse fromAssetName $ assetNames headAssetName
+  -- additional sanity check to ensure transaction is consistent
+  guard (length initials == length cardanoKeyHashes)
   -- ensures this is a minting tx
   _ <- findScriptMinting tx headTokenPolicyId
   pure
-    OwnInitObservation
+    HeadInitObservation
       { contestationPeriod
       , headId = mkHeadId headTokenPolicyId
-      , cardanoKeys
+      , cardanoKeyHashes
       , parties
       }
  where

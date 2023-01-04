@@ -2,9 +2,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | Chain component implementation which uses directly the Node-to-Client
--- protocols to submit "hand-rolled" transactions.
-module Hydra.Chain.Direct.MultiHead where
+-- | A simplified chain follower that tracks Head initialisation transactions over a
+-- network.
+module Hydra.Chain.Direct.HeadObserver where
 
 import Hydra.Prelude
 
@@ -14,7 +14,6 @@ import Hydra.Cardano.Api (
   ChainPoint,
   ConsensusMode (CardanoMode),
   NetworkId,
-  Tx,
   TxId,
   fromConsensusPointInMode,
   fromLedgerTx,
@@ -22,9 +21,6 @@ import Hydra.Cardano.Api (
   toConsensusPointInMode,
  )
 import qualified Hydra.Cardano.Api as Api
-import Hydra.Chain (
-  OnChainTx (..),
- )
 import Hydra.Chain.CardanoClient (
   queryTip,
  )
@@ -43,7 +39,7 @@ import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
  )
-import Hydra.Chain.Direct.Tx (OwnInitObservation (..), observeOwnInitTx)
+import Hydra.Chain.Direct.Tx (HeadInitObservation (..), observeHeadInitTx)
 import Hydra.Chain.Direct.Util (
   Block,
   defaultCodecs,
@@ -115,18 +111,18 @@ loadChainContext config party hydraScriptsTxId = do
 runChainObserver ::
   Tracer IO DirectChainLog ->
   ChainConfig ->
-  ChainContext ->
   -- | Last known point on chain as loaded from persistence.
   Maybe ChainPoint ->
-  (OnChainTx Tx -> IO ()) ->
+  -- | A callback which is passed new heads
+  (HeadInitObservation -> IO ()) ->
   IO ()
-runChainObserver tracer config ctx persistedPoint callback = do
+runChainObserver tracer config persistedPoint callback = do
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
     (min <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
   handle onIOException $ do
-    let handler = mkChainSyncHandler tracer callback ctx
+    let handler = mkChainSyncHandler tracer callback networkId
     let intersection = toConsensusPointInMode CardanoMode chainPoint
     let client = ouroborosApplication intersection handler
     withIOManager $ \iocp ->
@@ -147,15 +143,13 @@ runChainObserver tracer config ctx persistedPoint callback = do
         , networkId
         }
 
-mkChainSyncHandler :: Tracer IO DirectChainLog -> (OnChainTx Tx -> IO ()) -> ChainContext -> ChainSyncHandler IO
-mkChainSyncHandler tracer callback ctx =
+mkChainSyncHandler :: Tracer IO DirectChainLog -> (HeadInitObservation -> IO ()) -> NetworkId -> ChainSyncHandler IO
+mkChainSyncHandler tracer callback networkId =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
     }
  where
-  ChainContext{networkId, ownParty} = ctx
-
   onRollBackward :: Point Block -> IO ()
   onRollBackward rollbackPoint = do
     let point = fromConsensusPointInMode CardanoMode rollbackPoint
@@ -173,16 +167,9 @@ mkChainSyncHandler tracer callback ctx =
         }
 
     forM_ receivedTxs $ \tx ->
-      case observeInitTx networkId ownParty tx of
+      case observeHeadInitTx networkId tx of
         Just t -> callback t
         Nothing -> pure ()
-
-observeInitTx :: NetworkId -> Party -> Tx -> Maybe (OnChainTx Tx)
-observeInitTx networkId party tx =
-  fromObservation <$> observeOwnInitTx networkId party tx
-
-fromObservation :: OwnInitObservation -> OnChainTx Tx
-fromObservation (OwnInitObservation hi pas cp _) = OnInitTx hi cp pas
 
 ouroborosApplication ::
   (MonadST m, MonadTimer m, MonadThrow m) =>
