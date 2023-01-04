@@ -3,15 +3,65 @@
 
 -- | A node which is able to handle multiple head instances.
 --
--- This "node" uses the existing `Hydra.Node` as a basic building block, providing
--- specific implementations of `Network` and `Chain` components to allow multiple
--- instances to coexist.
+-- The code is definitely not pretty and not worth of publication at the moment,
+-- and it's very imperative too with lot of plumbing and wiring to connect the
+-- various parts and fly messages around.
 --
--- * All nodes share a single `TinyWallet` instance which is initialised upon startup,
---   with credentials that will also be shared among all heads.
--- * There is a single UDP port on which the server listens. All messages are dispatched
---   to the corresponding nodes according to peers' coordinates as provided by some
---   name resolution mechanism
+-- Conceptually, it's rather simple: When the multi-head node is requested to
+-- start a new head, it spins up a singular `Hydra.Node` with the proper
+-- configuration (cardano keys, hydra keys, network connections...). Then client
+-- can interact with any of the open heads, including operating on the heads
+-- like committing/closing/fanning out, etc.
+--
+-- For this to work, the multi-head node needs to do some multiplexing of the underlying nodes:
+--
+-- * The `MultiHeaded` node is configured with secret keys for both Hdyra and
+--   Cardano, which will be used for all heads and all nodes. This works because
+--   there's only one shared wallet so as long as the wallet has enough fuel to
+--   pay for the transactions, it's ok
+--
+-- * It starts a `Network` server listening on a UDP port, which will multiplex
+--   incoming messages and wrap outgoing messages annotated with the
+--   `HeadId`. UDP seems like an interesting option there because it does not
+--   require maintaining connections to remote nodes
+-- * There's supposed to be some mechanism (_resolver_) to identify and locate
+--   `Remote` peers. Currently these are just JSON-formatted files in a well-known
+--   location but it's not far fetched to think of some other form of _directory_
+--   for nodes, like DNS TXT entries, or even a hosted service
+-- * It also starts a `ChainObserver` which is used to observe the chain for
+--   `InitTx` which are of interest to our node
+--
+--     * This is currently done in a very ad hoc way as we distinguish the case
+--       of the initiating node and the other cases
+--     * There is a client interface which is JSON based, exposed through the
+--       configured API port. It provides some commands on top of `ClientInput` and
+--       some additional outputs over `ServerOutput`, but the client is notified of all
+--       the events occuring in anyone of the started node, annotated with the `HeadId`
+--     * Starting a new head is triggered either by a client command or by
+--       observing an `InitTx` on-chain
+--     * This triggers starting a new `Hydra.Node` with a complete stack of
+--       services tailored for the particular situation
+--     * Each node has its own `Direct` chain connection which is started from
+--       the point _before_ the `InitTx` so that the tx can be observed and the state
+--       updated accordingly. This is annoying to do but is needed becuase while it's
+--       easy to know the `ChainPoint` for a tx, it's not possible to retrieve an
+--       arbitrary `Block` from the node given such a `ChainPoint`: One has to _follow_
+--       the chain and only gets the `next` blocks
+--     * The `API` part is rewired to connect to the enclosing multi-head node's
+--       client interface
+--     * The `Network` part encapsulates a UDP component and a
+--       `Hydra.Network.MultiHead` component that annotates each message with the
+--       `HeadId`
+--     * The new node is passed a list of `Remote` representing the other parties
+--       of hte head with all the required information (host:port, vkeys). This list is
+--       constructed by resolving "symbolic" name (eg. read some files)
+--     * Note that in the case of starting a node from observing a Head, the
+--       only identifier we have is the `Party`, which is a `VerificationKey
+--       HydraKey`. We need to lookup through all the known nodes to resolve that key
+--       to the `Remote` structure which is probably something that would be cumbersome
+--       IRL. It would probably make sense to add some symbolic name in the datum of
+--       the `Initial` UTxO created for the party, so that all parties can more easily
+--       infer other parties' information from the chain
 module Hydra.Node.MultiHeaded where
 
 import Control.Concurrent.STM (dupTChan)
