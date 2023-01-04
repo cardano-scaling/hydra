@@ -139,7 +139,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} headAddress Init
   mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx initialHeadId
-    && hasSTToken initialHeadId outValue
+    && hasST initialHeadId outValue
  where
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
@@ -225,7 +225,7 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
   hasBoundedValidity
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
-    && hasSTToken headPolicyId outValue
+    && hasST headPolicyId outValue
  where
   hasBoundedValidity = tMax - tMin <= cp
 
@@ -302,7 +302,7 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
       (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline, closedHeadId = headPolicyId})
     && mustBeSignedByParticipant ctx headPolicyId
     && mustBeWithinContestationPeriod
-    && hasSTToken headPolicyId outValue
+    && hasST headPolicyId outValue
  where
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
@@ -386,8 +386,8 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
 
 -- | Checks that the output contains the ST token with the head 'CurrencySymbol'
 -- and 'TokenName' of 'hydraHeadV1'
-hasSTToken :: CurrencySymbol -> Value -> Bool
-hasSTToken headPolicyId v =
+hasST :: CurrencySymbol -> Value -> Bool
+hasST headPolicyId v =
   isJust $
     find
       (\(cs, tokenMap) -> cs == headPolicyId && hasHydraToken tokenMap)
@@ -395,7 +395,7 @@ hasSTToken headPolicyId v =
  where
   hasHydraToken tm =
     isJust $ find (\(tn, q) -> q == 1 && TokenName hydraHeadV1 == tn) (Map.toList tm)
-{-# INLINEABLE hasSTToken #-}
+{-# INLINEABLE hasST #-}
 
 mkHeadAddress :: ScriptContext -> Address
 mkHeadAddress ctx =
