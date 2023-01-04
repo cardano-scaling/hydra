@@ -86,15 +86,14 @@ checkAuthorAndHeadPolicy ::
   Bool
 checkAuthorAndHeadPolicy context@ScriptContext{scriptContextTxInfo = txInfo} headId =
   unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
-    && policyId == headId
  where
-  (policyId, ourParticipationTokenName) =
-    case AssocMap.toList (getValue initialValue) of
-      [_someAdas, (headCurrencyHopefully, tokenMap)] ->
+  ourParticipationTokenName =
+    case AssocMap.lookup headId (getValue initialValue) of
+      Nothing -> traceError "Could not find the correct CurrencySymbol in tokens"
+      Just tokenMap ->
         case AssocMap.toList tokenMap of
-          [(tk, q)] | q == 1 -> (headCurrencyHopefully, tk)
-          _ -> traceError "multiple head tokens or more than 1 PTs found"
-      _ -> traceError "missing head tokens"
+          [(tk, q)] | q == 1 -> tk
+          _moreThanOneToken -> traceError "multiple head tokens or more than 1 PTs found"
 
   -- TODO: DRY
   initialValue =
