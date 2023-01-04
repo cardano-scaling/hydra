@@ -69,7 +69,7 @@ headValidator ::
 headValidator oldState input ctx =
   case (oldState, input) of
     (initialState@Initial{}, CollectCom) ->
-      checkCollectCom ctx (mkHeadAddress ctx) initialState
+      checkCollectCom ctx initialState
     (Initial{parties, initialHeadId}, Abort) ->
       checkAbort ctx initialHeadId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, openHeadId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
@@ -130,17 +130,16 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
 checkCollectCom ::
   -- | Script execution context
   ScriptContext ->
-  -- | Head address
-  Address ->
   -- | Initial state
   State ->
   Bool
-checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} headAddress Initial{contestationPeriod, parties, initialHeadId} =
+checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} Initial{contestationPeriod, parties, initialHeadId} =
   mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx initialHeadId
     && hasST initialHeadId outValue
  where
+  headAddress = mkHeadAddress ctx
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
   everyoneHasCommitted =
@@ -196,7 +195,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} headAddress Init
         mCommit
       Nothing ->
         traceError "commitDatum failed fromBuiltinData"
-checkCollectCom _context _headContext _ = traceError "Expected Initial state in checkCollectCom"
+checkCollectCom _context _ = traceError "Expected Initial state in checkCollectCom"
 {-# INLINEABLE checkCollectCom #-}
 
 -- | The close validator must verify that:
@@ -437,17 +436,17 @@ findParticipationTokens headCurrency (Value val) =
 
 mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
 mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =
-  checkOutputDatum [] (txInfoOutputs txInfo)
+  checkOutputDatumAndValue [] (txInfoOutputs txInfo)
  where
-  checkOutputDatum xs = \case
+  checkOutputDatumAndValue xs = \case
     [] ->
       traceError "no continuing head output"
     (o : rest)
       | txOutAddress o == headAddress ->
-        findTxOutDatum txInfo o == datum
+        traceIfFalse "wrong output head datum" (findTxOutDatum txInfo o == datum)
           && checkOutputValue (xs <> rest)
     (o : rest) ->
-      checkOutputDatum (o : xs) rest
+      checkOutputDatumAndValue (o : xs) rest
 
   checkOutputValue = \case
     [] ->
