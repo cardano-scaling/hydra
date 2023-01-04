@@ -28,7 +28,7 @@ import Hydra.API.ClientInput (ClientInput (Init))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (HeadInitialized))
 import Hydra.Cardano.Api (AsType (AsVerificationKey), ChainPoint, Tx)
-import Hydra.Chain (HeadId (HeadId))
+import Hydra.Chain (HeadId)
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.HeadObserver (runChainObserver)
 import Hydra.Chain.Direct.Tx (HeadInitObservation (..))
@@ -82,17 +82,20 @@ data Remote = Remote
   deriving anyclass (ToJSON, FromJSON)
 
 data Command
-  = StartHead [Text] -- list parties
-  | StopHead Text
+  = StartHead {peers :: [Text]} -- list parties
+  | HeadInput {headId :: HeadId, clientInput :: ClientInput Tx}
+  | StopHead {headId :: HeadId}
   | -- |FIXME: not a command, refactor this
     ObservingHeadInit HeadInitObservation
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 data Result
-  = HeadStarted HeadId
-  | HeadStopped Text
-  | NoSuchHead Text
+  = HeadStarted {headId :: HeadId}
+  | HeadOutput {headId :: HeadId, serverOutput :: ServerOutput Tx}
+  | InputSent {headId :: HeadId}
+  | HeadStopped {headId :: HeadId}
+  | NoSuchHead {headId :: HeadId}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -225,8 +228,15 @@ runMultiHeadedNode party heads startNode cmdQueue = forever $ do
             Just MultiHeadState{headIdVar} -> pure headIdVar
           atomically $ writeTVar headIdVar (Just headId)
         | otherwise -> pure ()
+      HeadInput{headId, clientInput} -> do
+        res <- atomically $ do
+          multiHeadState <- Map.lookup headId <$> readTVar heads
+          case multiHeadState of
+            Nothing -> pure $ NoSuchHead headId
+            Just MultiHeadState{inputQueue} -> writeTQueue inputQueue clientInput >> pure (InputSent headId)
+        atomically $ putTMVar result res
       StopHead hid -> do
-        multiHeadState <- Map.lookup (HeadId $ encodeUtf8 hid) <$> readTVarIO heads
+        multiHeadState <- Map.lookup hid <$> readTVarIO heads
         case multiHeadState of
           Nothing -> atomically $ putTMVar result (NoSuchHead hid)
           Just MultiHeadState{node} -> do
