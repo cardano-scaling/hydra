@@ -49,6 +49,7 @@ import Hydra.Chain.Direct.State (
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genTxIn)
+import Hydra.Options (maximumNumberOfParties)
 import Ouroboros.Consensus.Block (Point (BlockPoint, GenesisPoint), blockPoint, pointSlot)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
@@ -248,7 +249,7 @@ genRollbackPoint blocks = do
 -- to observe at least one state transition and different levels of rollback.
 genSequenceOfObservableBlocks :: Gen (ChainContext, ChainStateAt, [Block])
 genSequenceOfObservableBlocks = do
-  ctx <- genHydraContext 3
+  ctx <- genHydraContext maximumNumberOfParties
   -- NOTE: commits must be generated from each participant POV, and thus, we
   -- need all their respective ChainContext to move on.
   allContexts <- deriveChainContexts ctx

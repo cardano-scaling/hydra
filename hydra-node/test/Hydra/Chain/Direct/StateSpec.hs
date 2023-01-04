@@ -125,7 +125,7 @@ spec = parallel $ do
     propIsValid forAllInit
 
     prop "is not observed if not invited" $
-      forAll2 (genHydraContext 3) (genHydraContext 3) $ \(ctxA, ctxB) ->
+      forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
         null (ctxParties ctxA `intersect` ctxParties ctxB)
           ==> forAll2 (pickChainContext ctxA) (pickChainContext ctxB)
           $ \(cctxA, cctxB) ->
@@ -167,7 +167,7 @@ spec = parallel $ do
 
     prop "ignore aborts of other heads" $ do
       let twoDistinctHeads = do
-            ctx <- genHydraContext 3
+            ctx <- genHydraContext maximumNumberOfParties
             (ctx1, st1@InitialState{initialHeadId = h1}) <- genStInitial ctx
             (ctx2, st2@InitialState{initialHeadId = h2}) <- genStInitial ctx
             when (h1 == h2) discard
@@ -246,7 +246,7 @@ forAllInit ::
   (UTxO -> Tx -> property) ->
   Property
 forAllInit action =
-  forAllBlind (genHydraContext 3) $ \ctx ->
+  forAllBlind (genHydraContext maximumNumberOfParties) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll ((,) <$> genTxIn <*> genOutput (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
         let tx = initialize cctx (ctxHeadParameters ctx) seedIn
@@ -273,7 +273,7 @@ forAllCommit' ::
   (ChainContext -> InitialState -> UTxO -> Tx -> property) ->
   Property
 forAllCommit' action = do
-  forAll (genHydraContext 3) $ \hctx ->
+  forAll (genHydraContext maximumNumberOfParties) $ \hctx ->
     forAll (genStInitial hctx) $ \(ctx, stInitial) ->
       forAllShow genCommit renderUTxO $ \toCommit ->
         let tx = unsafeCommit ctx stInitial toCommit
@@ -290,7 +290,7 @@ forAllNonEmptyByronCommit ::
   (PostTxError Tx -> Property) ->
   Property
 forAllNonEmptyByronCommit action = do
-  forAll (genHydraContext 3) $ \hctx ->
+  forAll (genHydraContext maximumNumberOfParties) $ \hctx ->
     forAll (genStInitial hctx) $ \(ctx, stInitial) ->
       forAllShow genByronCommit renderUTxO $ \utxo ->
         case commit ctx stInitial utxo of
@@ -302,7 +302,7 @@ forAllAbort ::
   (UTxO -> Tx -> property) ->
   Property
 forAllAbort action = do
-  forAll (genHydraContext 3) $ \ctx ->
+  forAll (genHydraContext maximumNumberOfParties) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx ->
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
