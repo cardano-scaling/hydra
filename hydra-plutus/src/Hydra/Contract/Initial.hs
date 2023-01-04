@@ -37,7 +37,7 @@ import qualified PlutusTx.AssocMap as AssocMap
 import qualified PlutusTx.Builtins as Builtins
 
 newtype InitialDatum = InitialDatum
-  { headPolicyId :: CurrencySymbol
+  { headId :: CurrencySymbol
   }
 
 PlutusTx.unstableMakeIsData ''InitialDatum
@@ -72,21 +72,21 @@ validator ::
   InitialRedeemer ->
   ScriptContext ->
   Bool
-validator commitValidator InitialDatum{headPolicyId} red context =
+validator commitValidator InitialDatum{headId} red context =
   case red of
     ViaAbort -> True
     ViaCommit{committedRef} ->
       checkCommit commitValidator committedRef context
-        && checkAuthorAndHeadPolicy context headPolicyId
+        && checkAuthorAndHeadPolicy context headId
 
 -- | Verifies that the commit is only done by the author
 checkAuthorAndHeadPolicy ::
   ScriptContext ->
   CurrencySymbol ->
   Bool
-checkAuthorAndHeadPolicy context@ScriptContext{scriptContextTxInfo = txInfo} headPolicyId =
+checkAuthorAndHeadPolicy context@ScriptContext{scriptContextTxInfo = txInfo} headId =
   unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
-    && policyId == headPolicyId
+    && policyId == headId
  where
   (policyId, ourParticipationTokenName) =
     case AssocMap.toList (getValue initialValue) of

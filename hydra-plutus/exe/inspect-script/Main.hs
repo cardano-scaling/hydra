@@ -17,7 +17,7 @@ import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
 import Hydra.Contract.Initial as Initial
-import Plutus.V2.Ledger.Api (Data, Script, toData)
+import Plutus.V2.Ledger.Api (CurrencySymbol (CurrencySymbol), Data, Script, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)
 import Prettyprinter (defaultLayoutOptions, layoutPretty, pretty)
@@ -102,7 +102,7 @@ main = do
     , (abortDatum, "abortDatum")
     ]
 
-  headDatum = toData $ Head.Initial 1_000_000_000_000 []
+  headDatum = toData $ Head.Initial 1_000_000_000_000 [] (CurrencySymbol hydraHeadV1)
 
   abortDatum = toData Head.Final
 
