@@ -89,7 +89,6 @@ constraints:
   , word-array == 0.1.0.0
   , ouroboros-consensus == 0.1.0.1
   , ouroboros-consensus-test == 0.1.0.0
-  , typed-protocols-examples == 0.1.0.0
 
 allow-newer:
   *:aeson,
