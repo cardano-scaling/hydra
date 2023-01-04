@@ -74,7 +74,6 @@ library
   exposed-modules:
     Hydra.Contract
     Hydra.Contract.Commit
-    Hydra.Contract.Encoding
     Hydra.Contract.Hash
     Hydra.Contract.Head
     Hydra.Contract.HeadState
@@ -100,7 +99,6 @@ library
     , hydra-prelude
     , lens
     , openapi3
-    , plutus-cbor
     , plutus-core
     , plutus-ledger-api
     , plutus-tx
