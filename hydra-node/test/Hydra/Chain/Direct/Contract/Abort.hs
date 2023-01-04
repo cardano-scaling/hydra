@@ -148,7 +148,7 @@ genAbortMutation (tx, utxo) =
     [ SomeMutation MutateParties . ChangeHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
-        pure $ Head.Initial c (partyToChain <$> moreParties) (toPlutusPolicyId $ headPolicyId testSeedInput)
+        pure $ Head.Initial c (partyToChain <$> moreParties) (toPlutusCurrencySymbol $ headPolicyId testSeedInput)
     , SomeMutation DropOneCommitOutput
         . RemoveOutput
         <$> choose (0, fromIntegral (length (txOuts' tx) - 1))

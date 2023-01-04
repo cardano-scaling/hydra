@@ -107,7 +107,7 @@ healthyCollectComInitialDatum =
   Head.Initial
     { contestationPeriod = healthyContestationPeriod
     , parties = healthyOnChainParties
-    , initialHeadId = toPlutusPolicyId testPolicyId
+    , initialHeadId = toPlutusCurrencySymbol testPolicyId
     }
 
 healthyOnChainParties :: [OnChain.Party]
@@ -188,7 +188,7 @@ genCollectComMutation (tx, utxo) =
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
           Changes
-            [ ChangeHeadDatum $ Head.Initial c moreParties (toPlutusPolicyId testPolicyId)
+            [ ChangeHeadDatum $ Head.Initial c moreParties (toPlutusCurrencySymbol testPolicyId)
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties headTxOut
             ]
     , SomeMutation MutateHeadId <$> do

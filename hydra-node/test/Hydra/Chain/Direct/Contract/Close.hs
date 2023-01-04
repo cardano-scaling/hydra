@@ -111,7 +111,7 @@ healthyCloseDatum =
     { parties = healthyOnChainParties
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
     , contestationPeriod = healthyContestationPeriod
-    , openHeadId = toPlutusPolicyId Fixture.testPolicyId
+    , openHeadId = toPlutusCurrencySymbol Fixture.testPolicyId
     }
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
@@ -183,7 +183,7 @@ genCloseMutation (tx, _utxo) =
             { parties = mutatedParties
             , utxoHash = ""
             , contestationPeriod = healthyContestationPeriod
-            , openHeadId = toPlutusPolicyId Fixture.testPolicyId
+            , openHeadId = toPlutusCurrencySymbol Fixture.testPolicyId
             }
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
@@ -253,6 +253,6 @@ genCloseMutation (tx, _utxo) =
         , contestationDeadline =
             let closingTime = slotNoToUTCTime healthySlotNo
              in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
-        , closedHeadId = toPlutusPolicyId Fixture.testPolicyId
+        , closedHeadId = toPlutusCurrencySymbol Fixture.testPolicyId
         }
     st -> error $ "unexpected state " <> show st

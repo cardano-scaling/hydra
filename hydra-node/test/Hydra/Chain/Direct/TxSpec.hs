@@ -78,7 +78,7 @@ spec =
                     consumedOutputs = fmap drop3rd commitsUTxO
                     headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
                     onChainParties = partyToChain <$> parties
-                    headDatum = Head.Initial cperiod onChainParties (toPlutusPolicyId testPolicyId)
+                    headDatum = Head.Initial cperiod onChainParties (toPlutusCurrencySymbol testPolicyId)
                     initialThreadOutput =
                       InitialThreadOutput
                         { initialThreadUTxO =
@@ -120,7 +120,7 @@ spec =
                       Head.Initial
                         (contestationPeriodFromDiffTime contestationPeriod)
                         (map partyToChain parties)
-                        (toPlutusPolicyId testPolicyId)
+                        (toPlutusCurrencySymbol testPolicyId)
                     initials = Map.fromList (drop2nd <$> resolvedInitials)
                     initialsUTxO = drop3rd <$> resolvedInitials
                     commits = Map.fromList (drop2nd <$> resolvedCommits)
@@ -333,7 +333,7 @@ genAbortableOutputs parties =
 
   initialScript = fromPlutusScript Initial.validatorScript
 
-  initialDatum = Initial.InitialDatum $ toPlutusPolicyId testPolicyId
+  initialDatum = Initial.InitialDatum $ toPlutusCurrencySymbol testPolicyId
 
 fst3 :: (a, b, c) -> a
 fst3 (a, _, _) = a

@@ -150,7 +150,7 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
       Head.Initial
         (toChain contestationPeriod)
         (map partyToChain parties)
-        (toPlutusPolicyId tokenPolicyId)
+        (toPlutusCurrencySymbol tokenPolicyId)
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
 mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
@@ -163,7 +163,7 @@ mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
-    mkTxOutDatum $ Initial.InitialDatum $ toPlutusPolicyId tokenPolicyId
+    mkTxOutDatum $ Initial.InitialDatum $ toPlutusCurrencySymbol tokenPolicyId
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 commitTx ::

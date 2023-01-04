@@ -97,8 +97,10 @@ toPlutusValue :: Value -> Plutus.Value
 toPlutusValue =
   Ledger.transValue . toLedgerValue
 
-toPlutusPolicyId :: PolicyId -> CurrencySymbol
-toPlutusPolicyId = Ledger.transPolicyID . toLedgerPolicyID
+-- | Convert Cardano api 'PolicyId' to Plutus `CurrencySymbol`
+toPlutusCurrencySymbol :: PolicyId -> CurrencySymbol
+toPlutusCurrencySymbol = Ledger.transPolicyID . toLedgerPolicyID
 
+-- | Convert Cardano api 'PolicyId' to Cardano ledger `PolicyID`
 toLedgerPolicyID :: PolicyId -> Ledger.PolicyID StandardCrypto
 toLedgerPolicyID (PolicyId sh) = Ledger.PolicyID (toShelleyScriptHash sh)
