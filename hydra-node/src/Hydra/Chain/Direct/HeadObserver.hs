@@ -107,6 +107,11 @@ loadChainContext config party hydraScriptsTxId = do
     , contestationPeriod
     } = config
 
+data ChainEvent
+  = HeadInit {headInit :: HeadInitObservation}
+  | Forward {point :: ChainPoint, tx :: Api.Tx}
+  | Backward {point :: ChainPoint}
+
 -- | A generic chain observer used to detect new heads.
 runChainObserver ::
   Tracer IO DirectChainLog ->
@@ -114,7 +119,7 @@ runChainObserver ::
   -- | Last known point on chain as loaded from persistence.
   Maybe ChainPoint ->
   -- | A callback which is passed new heads
-  (HeadInitObservation -> IO ()) ->
+  (ChainEvent -> IO ()) ->
   IO ()
 runChainObserver tracer config persistedPoint callback = do
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
@@ -143,18 +148,19 @@ runChainObserver tracer config persistedPoint callback = do
         , networkId
         }
 
-mkChainSyncHandler :: Tracer IO DirectChainLog -> (HeadInitObservation -> IO ()) -> NetworkId -> ChainSyncHandler IO
+mkChainSyncHandler :: Tracer IO DirectChainLog -> (ChainEvent -> IO ()) -> NetworkId -> ChainSyncHandler IO
 mkChainSyncHandler tracer callback networkId =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
     }
  where
+  -- TODO: do something with rollbacks?
   onRollBackward :: Point Block -> IO ()
   onRollBackward rollbackPoint = do
     let point = fromConsensusPointInMode CardanoMode rollbackPoint
     traceWith tracer $ RolledBackward{point}
-  -- TODO: do something with rollbacks?
+    callback $ Backward{point}
 
   onRollForward :: Block -> IO ()
   onRollForward blk = do
@@ -168,8 +174,8 @@ mkChainSyncHandler tracer callback networkId =
 
     forM_ receivedTxs $ \tx ->
       case observeHeadInitTx networkId tx of
-        Just t -> callback t{headInitChainPoint = Just point}
-        Nothing -> pure ()
+        Just t -> callback $ HeadInit t{headInitChainPoint = Just point}
+        Nothing -> callback $ Forward{point, tx}
 
 ouroborosApplication ::
   (MonadST m, MonadTimer m, MonadThrow m) =>

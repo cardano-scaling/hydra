@@ -30,7 +30,7 @@ import Hydra.API.ServerOutput (ServerOutput (HeadInitialized))
 import Hydra.Cardano.Api (AsType (AsVerificationKey), ChainPoint, Tx)
 import Hydra.Chain (HeadId)
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
-import Hydra.Chain.Direct.HeadObserver (runChainObserver)
+import Hydra.Chain.Direct.HeadObserver (ChainEvent (..), runChainObserver)
 import Hydra.Chain.Direct.Tx (HeadInitObservation (..))
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
@@ -45,7 +45,7 @@ import Hydra.Network.Message (Message)
 import Hydra.Network.MultiHead (Enveloped (..), withMultiHead)
 import Hydra.Network.UDP (PeersResolver, udpClient, udpServer)
 import Hydra.Node (HydraNode (..), chainCallback, createEventQueue, createNodeState, initEnvironment, putEvent, runHydraNode)
-import Hydra.Options (RunOptions (..), cardanoLedgerGenesisFile, cardanoLedgerProtocolParametersFile, cardanoVerificationKeys)
+import Hydra.Options (ChainConfig (..), RunOptions (..), cardanoLedgerGenesisFile, cardanoLedgerProtocolParametersFile, cardanoVerificationKeys)
 import Hydra.Party (Party (..))
 import Hydra.Persistence (Persistence (..))
 import Hydra.Prelude
@@ -108,7 +108,7 @@ withNode opts action = do
 
 runNode :: RunOptions -> TQueue IO (Command, TMVar IO Result) -> IO ()
 runNode opts cmdQueue = do
-  let RunOptions{verbosity, monitoringPort, host, port} = opts
+  let RunOptions{verbosity, monitoringPort, nodeId, host, port} = opts
   env@Environment{party} <- initEnvironment opts
   withTracer verbosity $ \tracer' -> do
     withMonitoring monitoringPort tracer' $ \tracer -> do
@@ -118,8 +118,10 @@ runNode opts cmdQueue = do
       wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
       -- create heads heads state
       heads <- newTVarIO mempty
+      -- create chain state
+      chainPoints <- newTVarIO mempty
       -- start chain observer to be notified when a new head is initialised
-      withAsync (runChainObserver (contramap DirectChain tracer) chainConfig Nothing onHeadInit) $ \_ -> do
+      withAsync (runChainObserver (contramap DirectChain tracer) chainConfig Nothing (onChainEvent chainPoints)) $ \_ -> do
         -- create UDP server
         -- We only create the server here and not the full NetworkComponent because
         -- the server is shared between all head instances we will create
@@ -128,7 +130,11 @@ runNode opts cmdQueue = do
           let startNode hid chainPoint remotes inputQueue outputQueue = do
                 -- TODO: should be already initialised with head state?
                 nodeState <- createNodeState IdleState{chainState = initialChainState}
-                let chainConfig' = chainConfig{cardanoVerificationKeys = cardanoVerificationKey <$> remotes}
+                let chainConfig' =
+                      chainConfig
+                        { cardanoVerificationKeys = cardanoVerificationKey <$> remotes
+                        , startChainFrom = chainPoint
+                        }
                 chainContext <- loadChainContext chainConfig' party hydraScriptsTxId
                 eq <- createEventQueue
                 chan <- atomically $ dupTChan bchan
@@ -141,12 +147,8 @@ runNode opts cmdQueue = do
                       withCardanoLedger ledgerConfig $ \ledger ->
                         runHydraNode (contramap Node tracer) $
                           HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env = env', persistence = noPersistence}
-          runMultiHeadedNode party heads startNode cmdQueue
+          runMultiHeadedNode nodeId party chainPoints heads startNode cmdQueue
  where
-  onHeadInit i = atomically $ do
-    resp <- newEmptyTMVar
-    writeTQueue cmdQueue (ObservingHeadInit i, resp)
-
   withCardanoLedger ledgerConfig action = do
     globals <-
       newGlobals
@@ -161,11 +163,46 @@ runNode opts cmdQueue = do
   --  udpCallback :: NetworkCallback (Enveloped (Message Tx)) IO
   udpCallback chan = atomically . writeTChan chan
 
+  onChainEvent :: TVar IO [ChainPoint] -> ChainEvent -> IO ()
+  onChainEvent chain = \case
+    (HeadInit hio@HeadInitObservation{headInitChainPoint}) -> atomically $ do
+      modifyTVar' chain $ forwardPoint headInitChainPoint
+      resp <- newEmptyTMVar
+      writeTQueue cmdQueue (ObservingHeadInit hio, resp) -- FIXME: resp is never used
+    (Forward{point}) -> atomically $ modifyTVar' chain $ forwardPoint (Just point)
+    (Backward{point}) -> atomically $ modifyTVar' chain $ rollbackPoint point
+
+rollbackPoint :: ChainPoint -> [ChainPoint] -> [ChainPoint]
+rollbackPoint pt [] = [pt]
+rollbackPoint pt (p : ps)
+  | pt == p = p : ps
+  | otherwise = rollbackPoint pt ps
+
+forwardPoint :: Maybe ChainPoint -> [ChainPoint] -> [ChainPoint]
+forwardPoint Nothing points = points
+forwardPoint (Just pt) [] = [pt]
+forwardPoint (Just pt) (p : ps)
+  | p /= pt = pt : p : ps
+  | otherwise = p : ps
+
+previousPoint :: Maybe ChainPoint -> TVar IO [ChainPoint] -> STM IO (Maybe ChainPoint)
+previousPoint Nothing _ = pure Nothing
+previousPoint (Just pt) chain = do
+  readTVar chain >>= pure . findPrevious pt
+
+findPrevious :: ChainPoint -> [ChainPoint] -> Maybe ChainPoint
+findPrevious pt = \case
+  (p : p' : ps)
+    | p == pt -> Just p'
+    | otherwise -> findPrevious pt (p' : ps)
+  [_] -> Nothing
+  [] -> Nothing
+
 loadParty :: FilePath -> IO Party
 loadParty p =
   Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
 
-withOneNodeUDP :: TChan (Enveloped (Message Tx)) -> [Remote] -> NetworkComponent IO (Enveloped (Message Tx)) ()
+withOneNodeUDP :: ToCBOR msg => TChan (Enveloped msg) -> [Remote] -> NetworkComponent IO (Enveloped msg) ()
 withOneNodeUDP chan remotes callback k =
   withAsync dispatch $ \_ ->
     k $ udpClient (const $ pure $ address <$> remotes)
@@ -185,7 +222,10 @@ data MultiHeadState = MultiHeadState
   }
 
 runMultiHeadedNode ::
+  NodeId ->
   Party ->
+  -- | STate of chain
+  TVar IO [ChainPoint] ->
   -- | State of started nodes
   TVar IO (Map HeadId MultiHeadState) ->
   -- | How to start a new node
@@ -195,7 +235,7 @@ runMultiHeadedNode ::
   -- results.
   TQueue IO (Command, TMVar IO Result) ->
   IO ()
-runMultiHeadedNode party heads startNode cmdQueue = forever $ do
+runMultiHeadedNode nodeId party chain heads startNode cmdQueue = forever $ do
   atomically (readTQueue cmdQueue) >>= \(cmd, result) ->
     case cmd of
       StartHead peers -> do
@@ -220,8 +260,13 @@ runMultiHeadedNode party heads startNode cmdQueue = forever $ do
           multiHeadState <- Map.lookup headId <$> readTVarIO heads
           headIdVar <- case multiHeadState of
             Nothing -> do
-              remotes <- mapM lookupRemoteByParty parties
-              newNodeState@MultiHeadState{headIdVar} <- startNewNode remotes headInitChainPoint
+              remotes <- filter ((/= nodeId) . remoteId) <$> mapM lookupRemoteByParty parties
+              -- FIXME: this is a PITA, we need to keep track of the chain in order to retrieve
+              -- the block /before/ the head tx block so that the underlying node can sync up
+              -- properly. This is so becauase the chain sync protocol's intersect message starts
+              -- following the chain /after/ the given point and not /at/ the given point
+              startPoint <- atomically $ previousPoint headInitChainPoint chain
+              newNodeState@MultiHeadState{headIdVar} <- startNewNode remotes startPoint
               atomically $ do
                 modifyTVar' heads $ \headsMap -> Map.insert headId newNodeState headsMap
               pure headIdVar
