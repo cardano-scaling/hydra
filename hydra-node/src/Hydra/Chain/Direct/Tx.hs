@@ -763,9 +763,10 @@ data HeadInitObservation = HeadInitObservation
   { headId :: HeadId
   , parties :: [Party]
   , contestationPeriod :: ContestationPeriod
-  , cardanoKeyHashes :: [Hash PaymentKey]
+  , headInitChainPoint :: Maybe ChainPoint
   }
-  deriving stock (Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Observes a newly initialised Head.
 -- This observation is based on the structure of the transaction's outputs:
@@ -793,8 +794,8 @@ observeHeadInitTx networkId tx = do
     HeadInitObservation
       { contestationPeriod
       , headId = mkHeadId headTokenPolicyId
-      , cardanoKeyHashes
       , parties
+      , headInitChainPoint = Nothing
       }
  where
   headOutput = \case

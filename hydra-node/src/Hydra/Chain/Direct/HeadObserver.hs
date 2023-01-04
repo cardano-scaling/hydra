@@ -168,7 +168,7 @@ mkChainSyncHandler tracer callback networkId =
 
     forM_ receivedTxs $ \tx ->
       case observeHeadInitTx networkId tx of
-        Just t -> callback t
+        Just t -> callback t{headInitChainPoint = Just point}
         Nothing -> pure ()
 
 ouroborosApplication ::
