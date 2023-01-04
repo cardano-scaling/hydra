@@ -5,11 +5,15 @@ authors: ch1bo
 tags: [monthly]
 ---
 
-This report summarizes the activities of the Hydra team since November 2022 and also serves as a preparation & write-up of the monthly review meeting, in which we update major stakeholders of the project on recent developments and gather their feedback on our proposed plan forward each month.
+This report summarizes the work on Hydra since November 2022 and also serves as
+a preparation & write-up of the monthly review meeting, in which we update major
+stakeholders of the project on recent developments and gather their feedback on
+our proposed plan forward each month.
 
 ## Roadmap
 
-Looking at our [roadmap](https://github.com/orgs/input-output-hk/projects/21) we can report the following updates:
+Looking at our [roadmap](https://github.com/orgs/input-output-hk/projects/21) we
+can report the following updates:
 
 #### Notable changes
 
@@ -71,23 +75,25 @@ This month we have been working on:
   
   While docker CI builds on `master` went down to 1-10min (from 10-30m+)!
 
-- **Hydra V1 Specification**: Finally, we bit the bullet and started a write-up
-  of the specification. Over the last couple of months we had worked with marked
-  up versions (see below) of the original paper and a GDoc to discuss and review
-  the protocol as it was implemented.
+## Hydra V1 Specification
+
+Finally, we bit the bullet and started a write-up of the specification. Over the
+last couple of months we had worked with marked up versions (see below) of the
+original paper and a GDoc to discuss and review the protocol as it was
+implemented.
 
 
-  ![](./img/2022-12-marked-up-paper.png)
+![](./img/2022-12-marked-up-paper.png)
   
-  As we also updated the security properties and proofs, we started aggregating
-  a LaTeX document on overleaf. While it holds a similar background and
-  preliminaries as the original paper, it only specifies a single version of the
-  protocol with no variants, less modulariztion, as well as explicit assumptions
-  and important notes for implementors.
+As we also updated the security properties and proofs, we started aggregating a
+LaTeX document on overleaf. While it holds a similar background and
+preliminaries as the original paper, it only specifies a single version of the
+protocol with no variants, less modulariztion, as well as explicit assumptions
+and important notes for implementors.
   
-  ![](./img/2022-12-spec-overleaf.png)
+![](./img/2022-12-spec-overleaf.png)
 
-  We aim to be publishing the spec as part of the main [hydra repository](https://github.com/input-output-hk/hydra) soon.
+We aim to be publishing the spec as part of the main [hydra repository](https://github.com/input-output-hk/hydra) soon.
 
 ## Community
 
@@ -114,5 +120,13 @@ This month we have been working on:
 
 ## Conclusion
 
-- Product direction, open source and MBO
-- Next review meeting in the open
+Although Hydra is in essence an open source project right now, we would love to
+make it "even more open source" in the coming months. Our vision of Hydra
+requires to have the builders of the Cardano ecosystem to be part of this
+journey. For that matter, we want not only to open up these monthly reports, but
+the review meeting backing it as well!
+
+This, besides our engagements with the community above, will allow the project
+to grow beyond IOG & CF contributions. To become the true Cardano open source
+project we believe will be worthy to serve as the scalability component required
+by the Cardano network.
