@@ -106,7 +106,7 @@ withNode opts action = do
 
 runNode :: RunOptions -> TQueue IO (Command, TMVar IO Result) -> IO ()
 runNode opts cmdQueue = do
-  let RunOptions{verbosity, monitoringPort, host, port, nodeId} = opts
+  let RunOptions{verbosity, monitoringPort, host, port} = opts
   env@Environment{party} <- initEnvironment opts
   withTracer verbosity $ \tracer' -> do
     withMonitoring monitoringPort tracer' $ \tracer -> do
@@ -124,11 +124,11 @@ runNode opts cmdQueue = do
         let startNode hid remotes inputQueue outputQueue = do
               -- TODO: should be already initialised with head state
               nodeState <- createNodeState IdleState{chainState = initialChainState}
-              let chainConfig' = chainConfig{cardanoVerificationKeys = cardanoVerificationKey <$> filter ((/= nodeId) . remoteId) remotes}
+              let chainConfig' = chainConfig{cardanoVerificationKeys = cardanoVerificationKey <$> remotes}
               chainContext <- loadChainContext chainConfig' party hydraScriptsTxId
               eq <- createEventQueue
               chan <- atomically $ dupTChan bchan
-              otherParties <- mapM loadParty (fmap hydraVerificationKey . filter ((/= nodeId) . remoteId) $ remotes)
+              otherParties <- mapM (loadParty . hydraVerificationKey) remotes
               let env' = env{otherParties}
               withDirectChain (contramap DirectChain tracer) chainConfig' chainContext Nothing wallet (chainCallback nodeState eq) $ \chain -> do
                 withMultiHead hid (withOneNodeUDP chan remotes) (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
