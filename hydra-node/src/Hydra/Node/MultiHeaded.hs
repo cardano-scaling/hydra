@@ -17,7 +17,7 @@ module Hydra.Node.MultiHeaded where
 import Control.Concurrent.STM (dupTChan)
 import Control.Concurrent.STM.TChan (TChan, newBroadcastTChanIO, readTChan, writeTChan)
 import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
-import Control.Monad.Class.MonadSTM (modifyTVar', newEmptyTMVar, newTQueueIO, newTVarIO, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
+import Control.Monad.Class.MonadSTM (modifyTVar', newTQueueIO, newTVarIO, readTQueue, readTVarIO, writeTQueue, writeTVar)
 import Data.Aeson (decodeFileStrict, eitherDecodeStrict, encode)
 import Data.ByteString (hGetLine, hPutStr)
 import qualified Data.ByteString.Lazy as LBS
@@ -99,15 +99,16 @@ data Result
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-withNode :: RunOptions -> (TQueue IO (Command, TMVar IO Result) -> IO ()) -> IO ()
+withNode :: RunOptions -> (TQueue IO Command -> TQueue IO Result -> IO ()) -> IO ()
 withNode opts action = do
   commandQueue <- newTQueueIO
+  resultQueue <- newTQueueIO
   race_
-    (runNode opts commandQueue)
-    (action commandQueue)
+    (runNode opts commandQueue resultQueue)
+    (action commandQueue resultQueue)
 
-runNode :: RunOptions -> TQueue IO (Command, TMVar IO Result) -> IO ()
-runNode opts cmdQueue = do
+runNode :: RunOptions -> TQueue IO Command -> TQueue IO Result -> IO ()
+runNode opts cmdQueue resQueue = do
   let RunOptions{verbosity, monitoringPort, nodeId, host, port} = opts
   env@Environment{party} <- initEnvironment opts
   withTracer verbosity $ \tracer' -> do
@@ -142,12 +143,12 @@ runNode opts cmdQueue = do
                 let env' = env{otherParties}
                 withDirectChain (contramap DirectChain tracer) chainConfig' chainContext chainPoint wallet (chainCallback nodeState eq) $ \chain -> do
                   withMultiHead hid (withOneNodeUDP chan remotes) (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
-                    withLocalAPIServer inputQueue outputQueue (putEvent eq . ClientEvent) $ \server -> do
+                    withLocalAPIServer hid resQueue inputQueue outputQueue (putEvent eq . ClientEvent) $ \server -> do
                       let RunOptions{ledgerConfig} = opts
                       withCardanoLedger ledgerConfig $ \ledger ->
                         runHydraNode (contramap Node tracer) $
                           HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env = env', persistence = noPersistence}
-          runMultiHeadedNode nodeId party chainPoints heads startNode cmdQueue
+          runMultiHeadedNode nodeId party chainPoints heads startNode cmdQueue resQueue
  where
   withCardanoLedger ledgerConfig action = do
     globals <-
@@ -167,8 +168,7 @@ runNode opts cmdQueue = do
   onChainEvent chain = \case
     (HeadInit hio@HeadInitObservation{headInitChainPoint}) -> atomically $ do
       modifyTVar' chain $ forwardPoint headInitChainPoint
-      resp <- newEmptyTMVar
-      writeTQueue cmdQueue (ObservingHeadInit hio, resp) -- FIXME: resp is never used
+      writeTQueue cmdQueue (ObservingHeadInit hio)
     (Forward{point}) -> atomically $ modifyTVar' chain $ forwardPoint (Just point)
     (Backward{point}) -> atomically $ modifyTVar' chain $ rollbackPoint point
 
@@ -233,10 +233,11 @@ runMultiHeadedNode ::
   -- | Command interface
   -- This is used to communicate with the "client" , enacting commands and passing
   -- results.
-  TQueue IO (Command, TMVar IO Result) ->
+  TQueue IO Command ->
+  TQueue IO Result ->
   IO ()
-runMultiHeadedNode nodeId party chain heads startNode cmdQueue = forever $ do
-  atomically (readTQueue cmdQueue) >>= \(cmd, result) ->
+runMultiHeadedNode nodeId party chain heads startNode cmdQueue resQueue = forever $ do
+  atomically (readTQueue cmdQueue) >>= \cmd ->
     case cmd of
       StartHead peers -> do
         remotes <- mapM lookupRemoteByName peers
@@ -247,7 +248,7 @@ runMultiHeadedNode nodeId party chain heads startNode cmdQueue = forever $ do
         headId <- waitForInit outputQueue
         atomically $ do
           modifyTVar' heads $ \headsMap -> Map.insert headId newNodeState headsMap
-          putTMVar result (HeadStarted headId)
+          writeTQueue resQueue (HeadStarted headId)
       ObservingHeadInit HeadInitObservation{headId, headInitChainPoint, parties}
         | party `elem` parties -> do
           -- FIXME: This is lame, it's there because there's a race condition between the moment one
@@ -269,24 +270,25 @@ runMultiHeadedNode nodeId party chain heads startNode cmdQueue = forever $ do
               newNodeState@MultiHeadState{headIdVar} <- startNewNode remotes startPoint
               atomically $ do
                 modifyTVar' heads $ \headsMap -> Map.insert headId newNodeState headsMap
+                writeTQueue resQueue (HeadStarted headId)
               pure headIdVar
             Just MultiHeadState{headIdVar} -> pure headIdVar
           atomically $ writeTVar headIdVar (Just headId)
         | otherwise -> pure ()
-      HeadInput{headId, clientInput} -> do
-        res <- atomically $ do
+      HeadInput{headId, clientInput} ->
+        atomically $ do
           multiHeadState <- Map.lookup headId <$> readTVar heads
-          case multiHeadState of
+          res <- case multiHeadState of
             Nothing -> pure $ NoSuchHead headId
             Just MultiHeadState{inputQueue} -> writeTQueue inputQueue clientInput >> pure (InputSent headId)
-        atomically $ putTMVar result res
+          writeTQueue resQueue res
       StopHead hid -> do
         multiHeadState <- Map.lookup hid <$> readTVarIO heads
         case multiHeadState of
-          Nothing -> atomically $ putTMVar result (NoSuchHead hid)
+          Nothing -> atomically $ writeTQueue resQueue (NoSuchHead hid)
           Just MultiHeadState{node} -> do
             cancel node
-            atomically $ putTMVar result (HeadStopped hid)
+            atomically $ writeTQueue resQueue (HeadStopped hid)
  where
   startNewNode remotes chainPoint = do
     headIdVar <- newTVarIO Nothing
@@ -326,10 +328,24 @@ lookupRemoteByParty p = do
     parties <- mapM (\r -> loadParty (hydraVerificationKey r) >>= pure . (,r)) remotes
     pure $ List.lookup p parties
 
-withLocalAPIServer :: TQueue IO (ClientInput Tx) -> TQueue IO (ServerOutput Tx) -> (ClientInput Tx -> IO ()) -> (Server Tx IO -> IO ()) -> IO ()
-withLocalAPIServer inq outq commands k =
-  withAsync (forever $ atomically (readTQueue inq) >>= commands) $ \_ ->
-    k $ Server{sendOutput = atomically . writeTQueue outq}
+withLocalAPIServer ::
+  TVar IO (Maybe HeadId) ->
+  TQueue IO Result ->
+  TQueue IO (ClientInput Tx) ->
+  TQueue IO (ServerOutput Tx) ->
+  (ClientInput Tx -> IO ()) ->
+  (Server Tx IO -> IO ()) ->
+  IO ()
+withLocalAPIServer hid resq inq outq commands k =
+  withAsync dispatchResult $ \_ ->
+    withAsync (forever $ atomically (readTQueue inq) >>= commands) $ \_ ->
+      k $ Server{sendOutput = atomically . writeTQueue outq}
+ where
+  dispatchResult = forever $
+    atomically $ do
+      readTVar hid >>= \case
+        Nothing -> pure ()
+        Just headId -> readTQueue outq >>= writeTQueue resq . HeadOutput headId
 
 noPersistence :: Persistence (HeadState Tx) IO
 noPersistence =
@@ -339,8 +355,8 @@ noPersistence =
     }
 
 -- * Interactive Server
-runServer :: PortNumber -> TQueue IO (Command, TMVar IO Result) -> IO ()
-runServer port queue = do
+runServer :: PortNumber -> TQueue IO Command -> TQueue IO Result -> IO ()
+runServer port inq outq = do
   print @Text $ "Starting command server on " <> show port
   sock <- socket AF_INET Stream defaultProtocol
   setSocketOption sock ReuseAddr 1
@@ -358,15 +374,17 @@ runServer port queue = do
     (clientSock, _) <- accept sock
     h <- socketToHandle clientSock ReadWriteMode
     hSetBuffering h NoBuffering
-    client <- async $ interpretCommands h queue
+    client <- async $ interpretCommands h inq outq
     link client
 
-interpretCommands :: Handle -> TQueue IO (Command, TMVar IO Result) -> IO ()
-interpretCommands h queue = forever $ do
-  cmd <- either (\e -> error $ "fail to decode command " <> show e) id . eitherDecodeStrict <$> hGetLine h
-  res <- atomically $ do
-    res <- newEmptyTMVar
-    writeTQueue queue (cmd, res)
-    pure res
-  result <- atomically $ takeTMVar res
-  hPutStr h (LBS.toStrict (encode result <> "\n"))
+interpretCommands :: Handle -> TQueue IO Command -> TQueue IO Result -> IO ()
+interpretCommands h inq outq =
+  race_ takeCommands putResults
+ where
+  takeCommands = forever $ do
+    cmd <- either (\e -> error $ "fail to decode command " <> show e) id . eitherDecodeStrict <$> hGetLine h
+    atomically $ writeTQueue inq cmd
+
+  putResults = forever $ do
+    res <- atomically $ readTQueue outq
+    hPutStr h (LBS.toStrict (encode res <> "\n"))
