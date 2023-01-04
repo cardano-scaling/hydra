@@ -110,7 +110,8 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
   checkCommittedValue && checkLockedCommit
  where
   checkCommittedValue =
-    lockedValue == initialValue + committedValue
+    traceIfFalse "lockedValue does not match" $
+      lockedValue == initialValue + committedValue
 
   checkLockedCommit =
     case (committedTxOut, lockedCommit) of
