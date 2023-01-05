@@ -10,6 +10,8 @@ changes.
 
 ## [0.9.0] - UNRELEASED
 
+- Hydra node can start following the chain from _genesis_ by setting `--start-chain-from 0` at startup time
+
 - API server responses now contain a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/input-output-hk/hydra/pull/618)
 
 - HeadLogic Outcome is now being trace on every protocol step transition.
@@ -88,7 +90,7 @@ changes.
   + See [ADR20](./docs/adr/2022-08-02_020-handling-time.md) for details and the rationale.
 
 - **BREAKING** Several changes to the API:
-  + The `InitialSnapshot` only contains the `initialUTxO` as the rest of the information was useless. [#533](https://github.com/input-output-hk/hydra/pull/533) 
+  + The `InitialSnapshot` only contains the `initialUTxO` as the rest of the information was useless. [#533](https://github.com/input-output-hk/hydra/pull/533)
   + Renamed `CannotSpendInput -> InternalWalletError` and `CannotCoverFees -> NotEnoughFuel`. [#582](https://github.com/input-output-hk/hydra/pull/582)
 
 - **BREAKING** Changed logs to improve legibility and trace on-chain posting errors. [#472](https://github.com/input-output-hk/hydra/pull/472)
@@ -97,7 +99,7 @@ changes.
   + Added `PostingFailed` log entry.
 
 - **BREAKING** The `hydra-cluster` executable (our smoke test) does require `--publish-hydra-scripts` or `--hydra-scripts-tx-id` now as it may be provided with pre-published hydra scripts.
-  
+
 - The `hydra-node` does persist L1 and L2 states on disk now: [#187](https://github.com/input-output-hk/hydra/issues/187)
   + New `--persistence-dir` command line argument to configure location.
   + Writes two JSON files `headstate` and `chainstate` to the persistence directory.
@@ -125,7 +127,7 @@ changes.
   + Fixed too fast clearing of errors and other feedback [#506](https://github.com/input-output-hk/hydra/pull/506)
   + Introduced a pending state to avoid resubmission of transactions [#526](https://github.com/input-output-hk/hydra/pull/526)
   + Can show full history (scrollable) [#577](https://github.com/input-output-hk/hydra/pull/577)
-   
+
 - Build & publish static Linux x86_64 executables on each [release](https://github.com/input-output-hk/hydra/releases/tag/0.8.0) :point_down: [#546](https://github.com/input-output-hk/hydra/pull/546)
 
 ## [0.7.0] - 2022-08-23
