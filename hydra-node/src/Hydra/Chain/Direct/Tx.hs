@@ -27,6 +27,7 @@ import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
+import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (addContestationPeriod, posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
@@ -100,7 +101,7 @@ mkHeadTokenScript =
   fromPlutusScript @PlutusScriptV2 . HeadTokens.validatorScript . toPlutusTxOutRef
 
 hydraHeadV1AssetName :: AssetName
-hydraHeadV1AssetName = AssetName (fromBuiltin Head.hydraHeadV1)
+hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
 
 -- FIXME: sould not be hardcoded
 headValue :: Value
@@ -212,11 +213,12 @@ commitTx scriptRegistry networkId headId party utxo (initialInput, out, vkh) =
   commitValue =
     txOutValue out <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
-    mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo
+    -- TODO: pass in correct headId
+    mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo (CurrencySymbol "")
 
-mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> Plutus.Datum
-mkCommitDatum party headValidatorHash utxo =
-  Commit.datum (partyToChain party, headValidatorHash, serializedUTxO)
+mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> CurrencySymbol -> Plutus.Datum
+mkCommitDatum party headValidatorHash utxo headId =
+  Commit.datum (partyToChain party, headValidatorHash, serializedUTxO, headId)
  where
   serializedUTxO = case utxo of
     Nothing ->
@@ -276,7 +278,7 @@ collectComTx networkId vk initialThreadOutput commits headId =
   extractCommit d =
     case fromData $ toPlutusData d of
       Nothing -> error "SNAFU"
-      Just ((_, _, Just o) :: Commit.DatumType) -> Just o
+      Just ((_, _, Just o, _) :: Commit.DatumType) -> Just o
       _ -> Nothing
 
   utxoHash =
@@ -557,7 +559,7 @@ abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
   mkCommitOutput :: ScriptData -> Maybe (TxOut CtxTx)
   mkCommitOutput x =
     case fromData @Commit.DatumType $ toPlutusData x of
-      Just (_party, _validatorHash, serialisedTxOut) ->
+      Just (_party, _validatorHash, serialisedTxOut, _headId) ->
         toTxContext <$> convertTxOut serialisedTxOut
       Nothing -> error "Invalid Commit datum"
 
@@ -677,7 +679,7 @@ observeCommitTx networkId initials tx = do
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
-  (onChainParty, _, onChainCommit) <- fromData @Commit.DatumType $ toPlutusData dat
+  (onChainParty, _, onChainCommit, _headId) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
   let mCommittedTxOut = convertTxOut onChainCommit
 

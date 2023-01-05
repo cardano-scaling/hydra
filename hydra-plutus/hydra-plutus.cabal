@@ -80,6 +80,7 @@ library
     Hydra.Contract.HeadTokens
     Hydra.Contract.Initial
     Hydra.Contract.MintAction
+    Hydra.Contract.Util
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party
     Hydra.Data.Utxo

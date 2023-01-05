@@ -266,9 +266,9 @@ generateCommitUTxOs parties = do
         TxOut
           (mkScriptAddress @PlutusScriptV2 testNetworkId commitScript)
           commitValue
-          (mkTxOutDatum commitDatum)
+          (mkTxOutDatum $ commitDatum utxo)
           ReferenceScriptNone
-    , fromPlutusData (toData commitDatum)
+    , fromPlutusData (toData $ commitDatum utxo)
     , maybe mempty (UTxO.fromPairs . pure) utxo
     )
    where
@@ -281,7 +281,8 @@ generateCommitUTxOs parties = do
             ]
         ]
     commitScript = fromPlutusScript Commit.validatorScript
-    commitDatum = mkCommitDatum party Head.validatorHash utxo
+    commitDatum (Just (input, _)) = mkCommitDatum party Head.validatorHash utxo (toPlutusCurrencySymbol $ headPolicyId input)
+    commitDatum Nothing = error "Missing utxo"
 
 prettyEvaluationReport :: EvaluationReport -> String
 prettyEvaluationReport (Map.toList -> xs) =

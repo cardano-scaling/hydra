@@ -17,6 +17,7 @@ import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
 import Hydra.Contract.Initial as Initial
+import Hydra.Contract.Util (hydraHeadV1)
 import Plutus.V2.Ledger.Api (CurrencySymbol (CurrencySymbol), Data, Script, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)

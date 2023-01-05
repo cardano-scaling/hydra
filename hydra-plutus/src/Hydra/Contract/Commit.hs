@@ -13,11 +13,13 @@ import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutus
 import qualified Hydra.Cardano.Api as OffChain
 import Hydra.Cardano.Api.Network (Network (Testnet))
 import Hydra.Contract.HeadState (State (..))
+import Hydra.Contract.Util (hasST)
 import Hydra.Data.Party (Party)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
   Address (Address),
   Credential (ScriptCredential),
+  CurrencySymbol,
   Datum (..),
   FromData (fromBuiltinData),
   OutputDatum (..),
@@ -26,13 +28,13 @@ import Plutus.V2.Ledger.Api (
   ScriptContext (ScriptContext, scriptContextTxInfo),
   TxInInfo (txInInfoResolved),
   TxInfo (txInfoInputs, txInfoOutputs),
-  TxOut (TxOut, txOutAddress),
+  TxOut (TxOut, txOutAddress, txOutValue),
   TxOutRef,
   Validator (getValidator),
   ValidatorHash,
   mkValidatorScript,
  )
-import Plutus.V2.Ledger.Contexts (findDatum)
+import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput)
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx
 import qualified PlutusTx.Builtins as Builtins
@@ -86,7 +88,7 @@ deserializeCommit Commit{input, preSerializedOutput} =
 -- TODO: Party is not used on-chain but is needed off-chain while it's still
 -- based on mock crypto. When we move to real crypto we could simply use
 -- the PT's token name to identify the committing party
-type DatumType = (Party, ValidatorHash, Maybe Commit)
+type DatumType = (Party, ValidatorHash, Maybe Commit, CurrencySymbol)
 type RedeemerType = CommitRedeemer
 
 -- | The v_commit validator verifies that:
@@ -95,7 +97,7 @@ type RedeemerType = CommitRedeemer
 --
 --   * on abort, redistribute comitted utxo
 validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
-validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextTxInfo = txInfo} =
+validator (_party, headScriptHash, commit, headId) consumer ctx@ScriptContext{scriptContextTxInfo = txInfo} =
   case txInInfoResolved <$> findHeadScript of
     Nothing -> traceError "Cannot find Head script"
     Just (TxOut _ _ d _) ->
@@ -125,9 +127,11 @@ validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextT
                             preSerializedOutput `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo)
                     -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
                     -- delegated to the 'CollectCom' script who has more information to do it.
-                    ViaCollectCom -> True
-                _ -> traceError "Head script in wrong state"
+                    ViaCollectCom -> traceIfFalse "ST is missing in the output" $ hasST headId outValue
+                _ -> True
  where
+  outValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
   findHeadScript = find (paytoHeadScript . txInInfoResolved) $ txInfoInputs txInfo
 
   paytoHeadScript = \case

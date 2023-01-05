@@ -156,7 +156,7 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
               Just da ->
                 case fromBuiltinData @Commit.DatumType $ getDatum da of
                   Nothing -> traceError "expected commit datum type, got something else"
-                  Just (_party, _headScriptHash, mCommit) ->
+                  Just (_party, _headScriptHash, mCommit, _headId) ->
                     mCommit
       _ -> traceError "expected single commit output"
 
