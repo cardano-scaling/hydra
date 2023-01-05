@@ -16,6 +16,8 @@ changes.
 
 - HeadLogic Outcome is now being trace on every protocol step transition.
 
+- Check commits are reimbursed in nu head.
+
 - **BREAKING** `hydra-cardano-api` changes:
   + Remove `Hydra.Cardano.Api.SlotNo` module.
   + Replace `fromConsensusPointHF` with `fromConsensusPointInMode` and
@@ -35,6 +37,7 @@ changes.
   + Makes configuration of binary-caches easier to discover (you get asked about adding them).
   + Will make bumping dependencies (e.g. cardano-node) easier.
   + Build commands for binaries and docker images change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
+
 
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds
