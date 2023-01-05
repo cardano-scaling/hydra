@@ -94,7 +94,8 @@ checkAbort ::
   Bool
 checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol parties =
   mustBurnAllHeadTokens
-    && mustBeSignedByParticipant ctx headCurrencySymbol
+    && mustBeSignedByParticipant context headContext
+    && mustReimburseCommittedUTxO
  where
   mustBurnAllHeadTokens =
     traceIfFalse "burnt token number mismatch" $
@@ -106,6 +107,33 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
     case Map.lookup headCurrencySymbol minted of
       Nothing -> 0
       Just tokenMap -> negate $ sum tokenMap
+
+  mustReimburseCommittedUTxO =
+    traceIfFalse "committed UTxO not reimbursed" $
+      all (`elem` serialisedOutputs) committedUTxOs
+
+  serialisedOutputs = Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo
+
+  committedUTxOs = traverseInputs [] (txInfoOutputs txInfo)
+
+  traverseInputs commits = \case
+    [] ->
+      commits
+    TxOut{txInInfoResolved} : rest
+      | hasPT txInInfoResolved ->
+        case commitDatum txInInfoResolved of
+          Just commit@Commit{preSerializedOutput} ->
+            traverseInputs
+              (preSerializedOutput : commits)
+              rest
+          Nothing ->
+            traverseInputs
+              commits
+              rest
+      | otherwise ->
+        traverseInputs
+          commits
+          rest
 
 -- | On-Chain verification for 'CollectCom' transition. It verifies that:
 --
@@ -197,6 +225,21 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
       Nothing ->
         traceError "commitDatum failed fromBuiltinData"
 {-# INLINEABLE checkCollectCom #-}
+
+hasPT txOut =
+  let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
+   in length pts == 1
+{-# INLINEABLE hasPT #-}
+
+commitDatum :: TxOut -> Maybe Commit
+commitDatum o = do
+  let d = findTxOutDatum txInfo o
+  case fromBuiltinData @Commit.DatumType $ getDatum d of
+    Just (_p, _, mCommit) ->
+      mCommit
+    Nothing ->
+      traceError "commitDatum failed fromBuiltinData"
+{-# INLINEABLE commitDatum #-}
 
 -- | The close validator must verify that:
 --   * Check that the closing tx validity is bounded by contestation period
