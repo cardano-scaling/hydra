@@ -114,16 +114,15 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
 
   serialisedOutputs = Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo
 
-  committedUTxOs = traverseInputs [] (txInfoInputs txInfo)
+  committedUTxOs = traverseInputs [] (txInfoOutputs txInfo)
 
-  traverseInputs :: [BuiltinByteString] -> [TxInInfo] -> [BuiltinByteString]
   traverseInputs commits = \case
     [] ->
       commits
-    TxInInfo{txInInfoResolved = input} : rest
-      | hasPT headCurrencySymbol input ->
-        case commitDatum txInfo input of
-          Just Commit{preSerializedOutput} ->
+    TxOut{txInInfoResolved} : rest
+      | hasPT txInInfoResolved ->
+        case commitDatum txInInfoResolved of
+          Just commit@Commit{preSerializedOutput} ->
             traverseInputs
               (preSerializedOutput : commits)
               rest
@@ -227,14 +226,19 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
         traceError "commitDatum failed fromBuiltinData"
 {-# INLINEABLE checkCollectCom #-}
 
-commitDatum :: TxInfo -> TxOut -> Maybe Commit
-commitDatum txInfo input = do
-  let datum = findTxOutDatum txInfo input
-  case fromBuiltinData @Commit.DatumType $ getDatum datum of
-    Just (_party, _validatorHash, commit, _headId) ->
-      commit
+hasPT txOut =
+  let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
+   in length pts == 1
+{-# INLINEABLE hasPT #-}
+
+commitDatum :: TxOut -> Maybe Commit
+commitDatum o = do
+  let d = findTxOutDatum txInfo o
+  case fromBuiltinData @Commit.DatumType $ getDatum d of
+    Just (_p, _, mCommit) ->
+      mCommit
     Nothing ->
-      Nothing
+      traceError "commitDatum failed fromBuiltinData"
 {-# INLINEABLE commitDatum #-}
 
 -- | The close validator must verify that:
