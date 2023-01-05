@@ -87,8 +87,6 @@ type RedeemerType = CommitRedeemer
 -- | The v_commit validator verifies that:
 --
 --   * spent in a transaction also consuming a v_head output
---
---   * on abort, redistribute comitted utxo
 validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
 validator (_party, _headScriptHash, commit, headId) r ctx@ScriptContext{scriptContextTxInfo = txInfo} =
   case r of
