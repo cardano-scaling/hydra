@@ -55,18 +55,18 @@ healthyContestTx =
 
   headDatum = fromPlutusData $ toData healthyClosedState
 
-  lookupUTxO = UTxO.singleton (testSeedInput, headResolvedInput)
+  lookupUTxO = UTxO.singleton (testSeedInput, healthyHeadTxOut)
 
   closedThreadOutput =
     ClosedThreadOutput
-      { closedThreadUTxO = (testSeedInput, headResolvedInput, headDatum)
+      { closedThreadUTxO = (testSeedInput, healthyHeadTxOut, headDatum)
       , closedParties =
           healthyOnChainParties
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
       }
 
-headResolvedInput :: TxOut CtxUTxO
-headResolvedInput =
+healthyHeadTxOut :: TxOut CtxUTxO
+healthyHeadTxOut =
   mkHeadOutput testNetworkId testPolicyId headTxOutDatum
     & addParticipationTokens healthyParties
  where
@@ -213,7 +213,7 @@ genContestMutation
               [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
               , ChangeInput
                   testSeedInput
-                  (replacePolicyIdWith testPolicyId otherHeadId headResolvedInput)
+                  (replacePolicyIdWith testPolicyId otherHeadId healthyHeadTxOut)
                   (Just $ toScriptData healthyClosedState)
               ]
       ]
