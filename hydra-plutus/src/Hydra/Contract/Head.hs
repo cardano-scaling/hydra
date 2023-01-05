@@ -119,10 +119,10 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
   traverseInputs commits = \case
     [] ->
       commits
-    TxOut{txInInfoResolved} : rest
-      | hasPT txInInfoResolved ->
-        case commitDatum txInInfoResolved of
-          Just commit@Commit{preSerializedOutput} ->
+    txOut : rest
+      | hasPT headContext txOut ->
+        case commitDatum txInfo txOut of
+          Just Commit{preSerializedOutput} ->
             traverseInputs
               (preSerializedOutput : commits)
               rest
@@ -226,13 +226,14 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
         traceError "commitDatum failed fromBuiltinData"
 {-# INLINEABLE checkCollectCom #-}
 
-hasPT txOut =
-  let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
+hasPT :: HeadContext -> TxOut -> Bool
+hasPT ctx txOut =
+  let pts = findParticipationTokens (headCurrencySymbol ctx) (txOutValue txOut)
    in length pts == 1
 {-# INLINEABLE hasPT #-}
 
-commitDatum :: TxOut -> Maybe Commit
-commitDatum o = do
+commitDatum :: TxInfo -> TxOut -> Maybe Commit
+commitDatum txInfo o = do
   let d = findTxOutDatum txInfo o
   case fromBuiltinData @Commit.DatumType $ getDatum d of
     Just (_p, _, mCommit) ->
