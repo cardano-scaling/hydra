@@ -111,7 +111,7 @@ healthyCloseDatum =
     { parties = healthyOnChainParties
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
     , contestationPeriod = healthyContestationPeriod
-    , openHeadId = toPlutusCurrencySymbol Fixture.testPolicyId
+    , headId = toPlutusCurrencySymbol Fixture.testPolicyId
     }
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
@@ -183,7 +183,7 @@ genCloseMutation (tx, _utxo) =
             { parties = mutatedParties
             , utxoHash = ""
             , contestationPeriod = healthyContestationPeriod
-            , openHeadId = toPlutusCurrencySymbol Fixture.testPolicyId
+            , headId = toPlutusCurrencySymbol Fixture.testPolicyId
             }
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey

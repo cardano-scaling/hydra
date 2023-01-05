@@ -197,7 +197,7 @@ commitTx scriptRegistry networkId headId party utxo (initialInput, out, vkh) =
   initialScriptRef =
     fst (initialReference scriptRegistry)
   initialDatum =
-    mkScriptDatum $ Initial.InitialDatum (headIdToCurrencySymbol headId)
+    mkScriptDatum $ Initial.InitialDatum{headId = headIdToCurrencySymbol headId}
   initialRedeemer =
     toScriptData . Initial.redeemer $
       Initial.ViaCommit (toPlutusTxOutRef <$> mCommittedInput)
@@ -270,7 +270,7 @@ collectComTx networkId vk initialThreadOutput commits headId =
         { Head.parties = initialParties
         , utxoHash
         , contestationPeriod = initialContestationPeriod
-        , openHeadId = headIdToCurrencySymbol headId
+        , headId = headIdToCurrencySymbol headId
         }
 
   extractCommit d =

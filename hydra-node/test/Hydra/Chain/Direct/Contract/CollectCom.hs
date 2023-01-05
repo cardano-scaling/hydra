@@ -207,8 +207,8 @@ genCollectComMutation (tx, utxo) =
 
   mutatedPartiesHeadTxOut parties =
     changeHeadOutputDatum $ \case
-      Head.Open{utxoHash, contestationPeriod, openHeadId} ->
-        Head.Open{Head.parties = parties, contestationPeriod, utxoHash, openHeadId}
+      Head.Open{utxoHash, contestationPeriod, headId} ->
+        Head.Open{Head.parties = parties, contestationPeriod, utxoHash, headId}
       st -> error $ "Unexpected state " <> show st
 
   mutateUTxOHash = do
@@ -216,6 +216,6 @@ genCollectComMutation (tx, utxo) =
     pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
 
   mutateState mutatedUTxOHash = \case
-    Head.Open{parties, contestationPeriod, openHeadId} ->
-      Head.Open{parties, contestationPeriod, Head.utxoHash = toBuiltin mutatedUTxOHash, openHeadId}
+    Head.Open{parties, contestationPeriod, headId} ->
+      Head.Open{parties, contestationPeriod, Head.utxoHash = toBuiltin mutatedUTxOHash, headId}
     st -> st

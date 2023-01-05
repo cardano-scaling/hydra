@@ -215,7 +215,7 @@ data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput
   , initialInitials :: [UTxOWithScript]
   , initialCommits :: [UTxOWithScript]
-  , initialHeadId :: HeadId
+  , headId :: HeadId
   , initialHeadTokenScript :: PlutusScript
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
@@ -236,7 +236,7 @@ instance HasKnownUTxO InitialState where
 
 data OpenState = OpenState
   { openThreadOutput :: OpenThreadOutput
-  , openHeadId :: HeadId
+  , headId :: HeadId
   , openHeadTokenScript :: PlutusScript
   , openUtxoHash :: UTxOHash
   }
@@ -252,7 +252,7 @@ instance HasKnownUTxO OpenState where
 
 data ClosedState = ClosedState
   { closedThreadOutput :: ClosedThreadOutput
-  , closedHeadId :: HeadId
+  , headId :: HeadId
   , closedHeadTokenScript :: PlutusScript
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
@@ -296,9 +296,9 @@ commit ctx st utxo = do
       case UTxO.pairs utxo of
         [aUTxO] -> do
           rejectByronAddress aUTxO
-          Right $ commitTx scriptRegistry networkId initialHeadId ownParty (Just aUTxO) initial
+          Right $ commitTx scriptRegistry networkId headId ownParty (Just aUTxO) initial
         [] -> do
-          Right $ commitTx scriptRegistry networkId initialHeadId ownParty Nothing initial
+          Right $ commitTx scriptRegistry networkId headId ownParty Nothing initial
         _ ->
           Left (MoreThanOneUTxOCommitted @Tx)
  where
@@ -307,7 +307,7 @@ commit ctx st utxo = do
   InitialState
     { initialInitials
     , initialHeadTokenScript
-    , initialHeadId
+    , headId
     } = st
 
   ownInitial :: Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
@@ -372,14 +372,14 @@ collect ::
   Tx
 collect ctx st = do
   let commits = Map.fromList $ fmap tripleToPair initialCommits
-   in collectComTx networkId ownVerificationKey initialThreadOutput commits initialHeadId
+   in collectComTx networkId ownVerificationKey initialThreadOutput commits headId
  where
   ChainContext{networkId, ownVerificationKey} = ctx
 
   InitialState
     { initialThreadOutput
     , initialCommits
-    , initialHeadId
+    , headId
     } = st
 
   tripleToPair (a, b, c) = (a, (b, c))
@@ -400,7 +400,7 @@ close ::
   PointInTime ->
   Tx
 close ctx st confirmedSnapshot startSlotNo pointInTime =
-  closeTx ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput openHeadId
+  closeTx ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput headId
  where
   closingSnapshot = case confirmedSnapshot of
     -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
@@ -418,7 +418,7 @@ close ctx st confirmedSnapshot startSlotNo pointInTime =
   OpenState
     { openThreadOutput
     , openUtxoHash
-    , openHeadId
+    , headId
     } = st
 
 -- | Construct a contest transaction based on the 'ClosedState' and a confirmed
@@ -431,7 +431,7 @@ contest ::
   PointInTime ->
   Tx
 contest ctx st confirmedSnapshot pointInTime = do
-  contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput closedHeadId
+  contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput headId
  where
   (sn, sigs) =
     case confirmedSnapshot of
@@ -442,7 +442,7 @@ contest ctx st confirmedSnapshot pointInTime = do
 
   ClosedState
     { closedThreadOutput
-    , closedHeadId
+    , headId
     } = st
 
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
@@ -503,7 +503,7 @@ observeInit ctx tx = do
       { initialThreadOutput = threadOutput
       , initialInitials = initials
       , initialCommits = commits
-      , initialHeadId = headId
+      , headId = headId
       , initialHeadTokenScript = headTokenScript
       }
 
@@ -551,20 +551,20 @@ observeCollect ::
 observeCollect st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCollectComTx utxo tx
-  let CollectComObservation{threadOutput, headId, utxoHash} = observation
-  guard (headId == initialHeadId)
+  let CollectComObservation{threadOutput, headId = collectComHeadId, utxoHash} = observation
+  guard (initialHeadId == collectComHeadId)
   let event = OnCollectComTx
   let st' =
         OpenState
           { openThreadOutput = threadOutput
-          , openHeadId = initialHeadId
+          , headId = initialHeadId
           , openHeadTokenScript = initialHeadTokenScript
           , openUtxoHash = utxoHash
           }
   pure (event, st')
  where
   InitialState
-    { initialHeadId
+    { headId = initialHeadId
     , initialHeadTokenScript
     } = st
 
@@ -589,8 +589,8 @@ observeClose ::
 observeClose st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCloseTx utxo tx
-  let CloseObservation{threadOutput, headId, snapshotNumber} = observation
-  guard (headId == openHeadId)
+  let CloseObservation{threadOutput, headId = closeObservationHeadId, snapshotNumber} = observation
+  guard (openHeadId == closeObservationHeadId)
   let ClosedThreadOutput{closedContestationDeadline} = threadOutput
   let event =
         OnCloseTx
@@ -600,13 +600,13 @@ observeClose st tx = do
   let st' =
         ClosedState
           { closedThreadOutput = threadOutput
-          , closedHeadId = headId
+          , headId = openHeadId
           , closedHeadTokenScript = openHeadTokenScript
           }
   pure (event, st')
  where
   OpenState
-    { openHeadId
+    { headId = openHeadId
     , openHeadTokenScript
     } = st
 
@@ -621,14 +621,14 @@ observeContest ::
 observeContest st tx = do
   let utxo = getKnownUTxO st
   observation <- observeContestTx utxo tx
-  let ContestObservation{contestedThreadOutput, headId, snapshotNumber} = observation
-  guard (headId == closedHeadId)
+  let ContestObservation{contestedThreadOutput, headId = contestObservationHeadId, snapshotNumber} = observation
+  guard (closedStateHeadId == contestObservationHeadId)
   let event = OnContestTx{snapshotNumber}
   let st' = st{closedThreadOutput = closedThreadOutput{closedThreadUTxO = contestedThreadOutput}}
   pure (event, st')
  where
   ClosedState
-    { closedHeadId
+    { headId = closedStateHeadId
     , closedThreadOutput
     } = st
 

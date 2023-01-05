@@ -72,8 +72,8 @@ headValidator oldState input ctx =
       checkCollectCom ctx initialState
     (Initial{parties, initialHeadId}, Abort) ->
       checkAbort ctx initialHeadId parties
-    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, openHeadId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
-      checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod openHeadId
+    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
+      checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod headId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, closedHeadId}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
       checkContest ctx contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature closedHeadId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
@@ -153,7 +153,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} Initial{contesta
   expectedOutputDatum :: Datum
   expectedOutputDatum =
     let utxoHash = hashPreSerializedCommits collectedCommits
-     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod, openHeadId = initialHeadId}
+     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod, headId = initialHeadId}
 
   -- Collect fuel and commits from resolved inputs. Any output containing a PT
   -- is treated as a commit, "our" output is the head output and all remaining

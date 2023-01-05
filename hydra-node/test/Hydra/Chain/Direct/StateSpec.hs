@@ -168,8 +168,8 @@ spec = parallel $ do
     prop "ignore aborts of other heads" $ do
       let twoDistinctHeads = do
             ctx <- genHydraContext maximumNumberOfParties
-            (ctx1, st1@InitialState{initialHeadId = h1}) <- genStInitial ctx
-            (ctx2, st2@InitialState{initialHeadId = h2}) <- genStInitial ctx
+            (ctx1, st1@InitialState{headId = h1}) <- genStInitial ctx
+            (ctx2, st2@InitialState{headId = h2}) <- genStInitial ctx
             when (h1 == h2) discard
             pure ((ctx1, st1), (ctx2, st2))
       forAll twoDistinctHeads $ \((ctx1, stHead1), (ctx2, stHead2)) ->

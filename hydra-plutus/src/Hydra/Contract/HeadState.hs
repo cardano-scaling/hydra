@@ -30,7 +30,7 @@ data State
       { contestationPeriod :: ContestationPeriod
       , parties :: [Party]
       , utxoHash :: Hash
-      , openHeadId :: CurrencySymbol
+      , headId :: CurrencySymbol
       }
   | Closed
       { parties :: [Party]
