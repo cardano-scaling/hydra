@@ -578,6 +578,6 @@ replacePolicyIdWith originalHeadId otherHeadId output =
   let value = txOutValue output
       newValue = valueFromList $ swapPolicyId <$> valueToList value
       swapPolicyId = \case
-        (AssetId policyId t, q) | policyId == originalHeadId, q == 1 -> (AssetId otherHeadId t, q)
+        (AssetId policyId t, q) | policyId == originalHeadId -> (AssetId otherHeadId t, q)
         v -> v
    in output{txOutValue = newValue}
