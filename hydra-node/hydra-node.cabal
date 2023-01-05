@@ -9,7 +9,6 @@ license-files:
   LICENSE
   NOTICE
 
-extra-source-files: README.md
 data-files:         json-schemas/logs.yaml
 
 source-repository head
