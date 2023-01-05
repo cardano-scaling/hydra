@@ -42,7 +42,6 @@ changes.
   + Will make bumping dependencies (e.g. cardano-node) easier.
   + Build commands for binaries and docker images change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
 
-
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds
     to control the close tx validity bounds as well as determine the
