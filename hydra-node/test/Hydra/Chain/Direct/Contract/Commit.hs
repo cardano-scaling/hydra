@@ -77,7 +77,7 @@ data CommitMutation
   | MutateCommittedValue
   | MutateCommittedAddress
   | MutateRequiredSigner
-  | -- | Change the policy Id of the PT both in input and output
+  | -- | Change the policy Id of the PT and ST tokens both in input and output
     MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
@@ -90,7 +90,6 @@ genCommitMutation (tx, _utxo) =
     , SomeMutation MutateCommittedValue <$> do
         mutatedValue <- genValue `suchThat` (/= committedOutputValue)
         let mutatedOutput = modifyTxOutValue (const mutatedValue) committedTxOut
-
         pure $ ChangeInput committedTxIn mutatedOutput Nothing
     , SomeMutation MutateCommittedAddress <$> do
         mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= committedAddress)
