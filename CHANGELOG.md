@@ -12,6 +12,8 @@ changes.
 
 - Hydra node can start following the chain from _genesis_ by setting `--start-chain-from 0` at startup time
 
+- Introduce a new `HeadInitialized` event that's sent to clients via the API server, passing the `HeadId`
+
 - API server responses now contain a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/input-output-hk/hydra/pull/618)
 
 - HeadLogic Outcome is now being trace on every protocol step transition.
