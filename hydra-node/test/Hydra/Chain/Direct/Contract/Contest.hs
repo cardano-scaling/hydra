@@ -65,13 +65,12 @@ healthyContestTx =
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
       }
 
-headTxOutDatum :: TxOutDatum CtxUTxO
-headTxOutDatum = toUTxOContext (mkTxOutDatum healthyClosedState)
-
 headResolvedInput :: TxOut CtxUTxO
 headResolvedInput =
   mkHeadOutput testNetworkId testPolicyId headTxOutDatum
     & addParticipationTokens healthyParties
+ where
+  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyClosedState)
 
 healthyContestSnapshot :: Snapshot Tx
 healthyContestSnapshot =
