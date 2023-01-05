@@ -10,6 +10,7 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
+import Hydra.Contract.Util (hasST)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -52,9 +53,6 @@ import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 
 type DatumType = State
 type RedeemerType = Input
-
-hydraHeadV1 :: BuiltinByteString
-hydraHeadV1 = "HydraHeadV1"
 
 --------------------------------------------------------------------------------
 -- Validators
@@ -191,7 +189,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} Initial{contesta
   commitDatum o = do
     let d = findTxOutDatum txInfo o
     case fromBuiltinData @Commit.DatumType $ getDatum d of
-      Just (_p, _, mCommit) ->
+      Just (_p, _, mCommit, _headId) ->
         mCommit
       Nothing ->
         traceError "commitDatum failed fromBuiltinData"
@@ -382,19 +380,6 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
     UpperBound (Finite time) _ -> addContestationPeriod time cperiod
     _ -> traceError "no upper bound validaty interval defined for close"
 {-# INLINEABLE makeContestationDeadline #-}
-
--- | Checks that the output contains the ST token with the head 'CurrencySymbol'
--- and 'TokenName' of 'hydraHeadV1'
-hasST :: CurrencySymbol -> Value -> Bool
-hasST headPolicyId v =
-  isJust $
-    find
-      (\(cs, tokenMap) -> cs == headPolicyId && hasHydraToken tokenMap)
-      (Map.toList $ getValue v)
- where
-  hasHydraToken tm =
-    isJust $ find (\(tn, q) -> q == 1 && TokenName hydraHeadV1 == tn) (Map.toList tm)
-{-# INLINEABLE hasST #-}
 
 mkHeadAddress :: ScriptContext -> Address
 mkHeadAddress ctx =
