@@ -37,7 +37,7 @@ healthyCommitTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (Fixture.testSeedInput, toUTxOContext healthyInitialOutput)
+    UTxO.singleton (initialInput, toUTxOContext healthyInitialOutput)
       <> UTxO.singleton healthyCommittedUTxO
       <> registryUTxO scriptRegistry
   tx =
@@ -47,7 +47,7 @@ healthyCommitTx =
       (mkHeadId Fixture.testPolicyId)
       commitParty
       (Just healthyCommittedUTxO)
-      (Fixture.testSeedInput, toUTxOContext healthyInitialOutput, initialPubKeyHash)
+      (initialInput, toUTxOContext healthyInitialOutput, initialPubKeyHash)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -58,6 +58,9 @@ healthyCommitTx =
 
 commitVerificationKey :: VerificationKey PaymentKey
 commitVerificationKey = generateWith arbitrary 42
+
+initialInput :: TxIn
+initialInput = generateWith arbitrary 42
 
 healthyInitialOutput :: TxOut CtxTx
 healthyInitialOutput = mkInitialOutput Fixture.testNetworkId Fixture.testPolicyId commitVerificationKey
@@ -97,12 +100,12 @@ genCommitMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation MutateHeadId <$> do
-        otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= Fixture.testSeedInput))
+        otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= initialInput))
         pure $
           Changes
             [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId commitTxOut)
             , ChangeInput
-                Fixture.testSeedInput
+                initialInput
                 (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialOutput)
                 (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef committedTxIn)
             ]
