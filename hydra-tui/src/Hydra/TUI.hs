@@ -293,7 +293,7 @@ handleAppEvent s = \case
   Update CommandFailed{clientInput} -> do
     s & report Error ("Invalid command: " <> show clientInput)
       & stopPending
-  Update HeadInitialized{} -> s
+  Update HeadIsInitialized{} -> s
   Update ReadyToCommit{parties} ->
     let utxo = mempty
         ps = toList parties

@@ -43,7 +43,7 @@ channels:
           - $ref: "#/components/messages/Greetings"
           - $ref: "#/components/messages/PeerConnected"
           - $ref: "#/components/messages/PeerDisconnected"
-          - $ref: "#/components/messages/HeadInitialized"
+          - $ref: "#/components/messages/HeadIsInitialized"
           - $ref: "#/components/messages/ReadyToCommit"
           - $ref: "#/components/messages/Committed"
           - $ref: "#/components/messages/HeadIsOpen"
@@ -270,8 +270,8 @@ components:
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
-    HeadInitialized:
-      title: HeadInitialized
+    HeadIsInitialized:
+      title: HeadIsInitialized
       description: |
         A `Init` transaction has been observed on-chain, with the given HeadId
       payload:
@@ -282,7 +282,7 @@ components:
         properties:
           tag:
             type: string
-            enum: ["HeadInitialized"]
+            enum: ["HeadIsInitialized"]
           headId:
             $ref: "#/components/schemas/HeadId"
 
