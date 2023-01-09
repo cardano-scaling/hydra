@@ -595,7 +595,7 @@ data InvalidOptions
 -- The value is obtained from calculating the costs of running the scripts
 -- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
 maximumNumberOfParties :: Int
-maximumNumberOfParties = 8
+maximumNumberOfParties = 4
 
 explain :: InvalidOptions -> String
 explain = \case

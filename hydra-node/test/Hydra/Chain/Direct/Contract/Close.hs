@@ -56,6 +56,20 @@ healthyCloseTx =
 
   lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
 
+  headDatum :: ScriptData
+  headDatum = fromPlutusData $ toData healthyCloseDatum
+
+  openThreadOutput :: OpenThreadOutput
+  openThreadOutput =
+    OpenThreadOutput
+      { openThreadUTxO = (headInput, headResolvedInput, headDatum)
+      , openParties = healthyOnChainParties
+      , openContestationPeriod = healthyContestationPeriod
+      }
+
+headInput :: TxIn
+headInput = generateWith arbitrary 42
+
 headTxOutDatum :: TxOutDatum CtxUTxO
 headTxOutDatum = toUTxOContext (mkTxOutDatum healthyCloseDatum)
 
@@ -63,20 +77,6 @@ headResolvedInput :: TxOut CtxUTxO
 headResolvedInput =
   mkHeadOutput testNetworkId Fixture.testPolicyId headTxOutDatum
     & addParticipationTokens healthyParties
-
-headDatum :: ScriptData
-headDatum = fromPlutusData $ toData healthyCloseDatum
-
-openThreadOutput :: OpenThreadOutput
-openThreadOutput =
-  OpenThreadOutput
-    { openThreadUTxO = (headInput, headResolvedInput, headDatum)
-    , openParties = healthyOnChainParties
-    , openContestationPeriod = healthyContestationPeriod
-    }
-
-headInput :: TxIn
-headInput = generateWith arbitrary 42
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42

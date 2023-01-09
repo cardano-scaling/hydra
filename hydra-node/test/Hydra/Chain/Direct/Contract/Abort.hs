@@ -177,19 +177,19 @@ genAbortMutation (tx, utxo) =
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
 removePTFromMintedValue output tx =
-  let value = txOutValue output
-      assetNames =
-        [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList value, policyId == testPolicyId
-        ]
-      (originalPolicyId, assetName) =
-        case assetNames of
-          [assetId] -> assetId
-          _ -> error "expected one assetId"
-
-      ptForAssetName = \case
-        (AssetId pid asset, _) ->
-          pid == originalPolicyId && asset == assetName
-        _ -> False
-   in case txMintValue $ txBodyContent $ txBody tx of
-        TxMintValueNone -> error "expected minted value"
-        TxMintValue v _ -> valueFromList $ filter (not . ptForAssetName) $ valueToList v
+  case txMintValue $ txBodyContent $ txBody tx of
+    TxMintValueNone -> error "expected minted value"
+    TxMintValue v _ -> valueFromList $ filter (not . isPT) $ valueToList v
+ where
+  outValue = txOutValue output
+  assetNames =
+    [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList outValue, policyId == testPolicyId
+    ]
+  (headId, assetName) =
+    case assetNames of
+      [assetId] -> assetId
+      _ -> error "expected one assetId"
+  isPT = \case
+    (AssetId pid asset, _) ->
+      pid == headId && asset == assetName
+    _ -> False

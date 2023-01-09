@@ -34,7 +34,7 @@ import Plutus.V2.Ledger.Api (
   ValidatorHash,
   mkValidatorScript,
  )
-import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput)
+import Plutus.V2.Ledger.Contexts (findDatum)
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx
 import qualified PlutusTx.Builtins as Builtins
@@ -97,7 +97,7 @@ type RedeemerType = CommitRedeemer
 --
 --   * on abort, redistribute comitted utxo
 validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
-validator (_party, headScriptHash, commit, headId) consumer ctx@ScriptContext{scriptContextTxInfo = txInfo} =
+validator (_party, headScriptHash, commit, headId) consumer ScriptContext{scriptContextTxInfo = txInfo} =
   case txInInfoResolved <$> findHeadScript of
     Nothing -> traceError "Cannot find Head script"
     Just outValue@(TxOut _ _ d _) ->
@@ -116,7 +116,7 @@ validator (_party, headScriptHash, commit, headId) consumer ctx@ScriptContext{sc
                 -- redeemer)
                 -- However we can't get the redeemer for another input so we'll need to check the datum
                 -- is `Initial`
-                Just Initial{} ->
+                Just Initial{initialHeadId} ->
                   case consumer of
                     ViaAbort ->
                       case commit of
@@ -125,9 +125,12 @@ validator (_party, headScriptHash, commit, headId) consumer ctx@ScriptContext{sc
                           traceIfFalse "cannot find committed output" $
                             -- There should be an output in the transaction corresponding to this preSerializedOutput
                             preSerializedOutput `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo)
+                              && traceIfFalse "ST currency symbol is not matching" (initialHeadId == headId)
                     -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
                     -- delegated to the 'CollectCom' script who has more information to do it.
-                    ViaCollectCom -> traceIfFalse "ST is missing in the output" $ hasST headId (txOutValue outValue)
+                    ViaCollectCom ->
+                      traceIfFalse "ST currency symbol is not matching" (initialHeadId == headId)
+                        && traceIfFalse "ST is missing in the output" (hasST headId (txOutValue outValue))
                 _ -> True
  where
   findHeadScript = find (paytoHeadScript . txInInfoResolved) $ txInfoInputs txInfo

@@ -323,6 +323,7 @@ closeTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
+  -- | Head identifier
   HeadId ->
   Tx
 closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
