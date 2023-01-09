@@ -100,7 +100,7 @@ validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
 validator (_party, headScriptHash, commit, headId) consumer ctx@ScriptContext{scriptContextTxInfo = txInfo} =
   case txInInfoResolved <$> findHeadScript of
     Nothing -> traceError "Cannot find Head script"
-    Just (TxOut _ _ d _) ->
+    Just outValue@(TxOut _ _ d _) ->
       case d of
         NoOutputDatum -> traceError "missing datum"
         OutputDatum _ -> traceError "unexpected inline datum"
@@ -127,11 +127,9 @@ validator (_party, headScriptHash, commit, headId) consumer ctx@ScriptContext{sc
                             preSerializedOutput `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo)
                     -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
                     -- delegated to the 'CollectCom' script who has more information to do it.
-                    ViaCollectCom -> traceIfFalse "ST is missing in the output" $ hasST headId outValue
+                    ViaCollectCom -> traceIfFalse "ST is missing in the output" $ hasST headId (txOutValue outValue)
                 _ -> True
  where
-  outValue =
-    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
   findHeadScript = find (paytoHeadScript . txInInfoResolved) $ txInfoInputs txInfo
 
   paytoHeadScript = \case

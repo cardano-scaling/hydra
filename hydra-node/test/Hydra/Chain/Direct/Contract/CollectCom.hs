@@ -179,7 +179,15 @@ genCollectComMutation (tx, utxo) =
         <$> (ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut <*> pure Nothing)
     , SomeMutation MutateHeadTransition <$> do
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
-        changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> arbitrary <*> (toBuiltin <$> genHash) <*> arbitrary)
+        differencCurrencySymbol <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
+        changeDatum <-
+          ChangeHeadDatum
+            <$> ( Head.Open
+                    <$> arbitrary
+                    <*> arbitrary
+                    <*> (toBuiltin <$> genHash)
+                    <*> pure differencCurrencySymbol
+                )
         pure $ Changes [changeRedeemer, changeDatum]
     , SomeMutation MutateNumberOfParties <$> do
         -- NOTE: This also mutates the contestation period becuase we could not

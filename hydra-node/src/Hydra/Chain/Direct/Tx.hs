@@ -164,7 +164,7 @@ mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
-    mkTxOutDatum $ Initial.InitialDatum $ toPlutusCurrencySymbol tokenPolicyId
+    mkTxOutDatum $ Initial.InitialDatum{headId = toPlutusCurrencySymbol tokenPolicyId}
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 commitTx ::
@@ -213,8 +213,7 @@ commitTx scriptRegistry networkId headId party utxo (initialInput, out, vkh) =
   commitValue =
     txOutValue out <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
-    -- TODO: pass in correct headId
-    mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo (CurrencySymbol "")
+    mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo (headIdToCurrencySymbol headId)
 
 mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> CurrencySymbol -> Plutus.Datum
 mkCommitDatum party headValidatorHash utxo headId =
