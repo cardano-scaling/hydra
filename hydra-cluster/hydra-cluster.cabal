@@ -10,8 +10,8 @@ license:            Apache-2.0
 license-files:
   LICENSE
   NOTICE
-
-extra-source-files:
+extra-source-files: README.md
+data-files:
   config/cardano-configurations/network/preprod/cardano-node/config.json
   config/cardano-configurations/network/preprod/cardano-node/topology.json
   config/cardano-configurations/network/preprod/genesis/alonzo.json
@@ -40,7 +40,6 @@ extra-source-files:
   config/devnet/opcert.cert
   config/devnet/vrf.skey
   config/protocol-parameters.json
-  README.md
 
 source-repository head
   type:     git
