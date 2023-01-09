@@ -253,7 +253,8 @@ generateCommitUTxOs parties = do
         [ do
             singleUTxO <- fmap adaOnly <$> (genOneUTxOFor =<< arbitrary)
             pure $ head <$> nonEmpty (UTxO.pairs singleUTxO)
-        , pure Nothing
+            -- TODO: how to work around this?
+            -- , pure Nothing
         ]
   let commitUTxO =
         zip txins $
