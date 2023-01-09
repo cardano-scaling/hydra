@@ -495,18 +495,20 @@ startChainFromParser =
     )
  where
   readChainPoint :: String -> Maybe ChainPoint
-  readChainPoint chainPointStr =
-    case T.splitOn "." (toText chainPointStr) of
-      [slotNoTxt, headerHashTxt] -> do
-        slotNo <- SlotNo <$> readMaybe (toString slotNoTxt)
-        UsingRawBytesHex headerHash <-
-          either
-            (const Nothing)
-            Just
-            (deserialiseFromRawBytesBase16 (encodeUtf8 headerHashTxt))
-        pure $ ChainPoint slotNo headerHash
-      _emptyOrSingularList ->
-        Nothing
+  readChainPoint = \case
+    "0" -> Just ChainPointAtGenesis
+    chainPointStr ->
+      case T.splitOn "." (toText chainPointStr) of
+        [slotNoTxt, headerHashTxt] -> do
+          slotNo <- SlotNo <$> readMaybe (toString slotNoTxt)
+          UsingRawBytesHex headerHash <-
+            either
+              (const Nothing)
+              Just
+              (deserialiseFromRawBytesBase16 (encodeUtf8 headerHashTxt))
+          pure $ ChainPoint slotNo headerHash
+        _emptyOrSingularList ->
+          Nothing
 
 hydraScriptsTxIdParser :: Parser TxId
 hydraScriptsTxIdParser =
