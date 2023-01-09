@@ -281,7 +281,7 @@ generateCommitUTxOs parties = do
             ]
         ]
     commitScript = fromPlutusScript Commit.validatorScript
-    commitDatum (Just (input, _)) = mkCommitDatum party Head.validatorHash utxo (toPlutusCurrencySymbol $ headPolicyId input)
+    commitDatum (Just (_input, _)) = mkCommitDatum party Head.validatorHash utxo (toPlutusCurrencySymbol testPolicyId)
     commitDatum Nothing = error "Missing utxo"
 
 prettyEvaluationReport :: EvaluationReport -> String
@@ -334,7 +334,7 @@ genAbortableOutputs parties =
 
   initialScript = fromPlutusScript Initial.validatorScript
 
-  initialDatum = Initial.InitialDatum $ toPlutusCurrencySymbol testPolicyId
+  initialDatum = Initial.InitialDatum{headId = toPlutusCurrencySymbol testPolicyId}
 
 fst3 :: (a, b, c) -> a
 fst3 (a, _, _) = a

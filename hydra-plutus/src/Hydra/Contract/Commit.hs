@@ -13,7 +13,7 @@ import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutus
 import qualified Hydra.Cardano.Api as OffChain
 import Hydra.Cardano.Api.Network (Network (Testnet))
 import Hydra.Contract.HeadState (State (..))
-import Hydra.Contract.Util (hasST)
+import Hydra.Contract.Util (hasST, mustBurnPTs)
 import Hydra.Data.Party (Party)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
@@ -27,7 +27,7 @@ import Plutus.V2.Ledger.Api (
   Script,
   ScriptContext (ScriptContext, scriptContextTxInfo),
   TxInInfo (txInInfoResolved),
-  TxInfo (txInfoInputs, txInfoOutputs),
+  TxInfo (txInfoInputs, txInfoMint, txInfoOutputs),
   TxOut (TxOut, txOutAddress, txOutValue),
   TxOutRef,
   Validator (getValidator),
@@ -97,7 +97,7 @@ type RedeemerType = CommitRedeemer
 --
 --   * on abort, redistribute comitted utxo
 validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
-validator (_party, headScriptHash, commit, headId) consumer ScriptContext{scriptContextTxInfo = txInfo} =
+validator (party, headScriptHash, commit, headId) consumer ctx@ScriptContext{scriptContextTxInfo = txInfo} =
   case txInInfoResolved <$> findHeadScript of
     Nothing -> traceError "Cannot find Head script"
     Just outValue@(TxOut _ _ d _) ->
@@ -120,16 +120,19 @@ validator (_party, headScriptHash, commit, headId) consumer ScriptContext{script
                   case consumer of
                     ViaAbort ->
                       case commit of
-                        Nothing -> True
+                        Nothing ->
+                          traceIfFalse "HeadId is not matched" (initialHeadId == headId)
                         Just Commit{preSerializedOutput} ->
-                          traceIfFalse "cannot find committed output" $
+                          traceIfFalse
+                            "cannot find committed output"
                             -- There should be an output in the transaction corresponding to this preSerializedOutput
-                            preSerializedOutput `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo)
-                              && traceIfFalse "ST currency symbol is not matching" (initialHeadId == headId)
+                            (preSerializedOutput `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo))
+                            && traceIfFalse "HeadId is not matched" (initialHeadId == headId)
+                            && traceIfFalse "Failed to burn PT tokens" (mustBurnPTs (txInfoMint $ scriptContextTxInfo ctx) headId [party])
                     -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
                     -- delegated to the 'CollectCom' script who has more information to do it.
                     ViaCollectCom ->
-                      traceIfFalse "ST currency symbol is not matching" (initialHeadId == headId)
+                      traceIfFalse "HeadId is not matched" (initialHeadId == headId)
                         && traceIfFalse "ST is missing in the output" (hasST headId (txOutValue outValue))
                 _ -> True
  where

@@ -2,6 +2,7 @@
 
 module Hydra.Contract.Util where
 
+import Hydra.Data.Party (Party, vkey)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   TokenName (..),
@@ -25,3 +26,20 @@ hasST headPolicyId v =
   hasHydraToken tm =
     isJust $ find (\(tn, q) -> q == 1 && TokenName hydraHeadV1 == tn) (Map.toList tm)
 {-# INLINEABLE hasST #-}
+
+-- | Checks if all the PT tokens for list of parties containing specific
+-- 'CurrencySymbol' are burnt.
+mustBurnPTs :: Value -> CurrencySymbol -> [Party] -> Bool
+mustBurnPTs val headCurrencySymbol parties =
+  case Map.lookup headCurrencySymbol (getValue val) of
+    Nothing -> True
+    Just tokenMap ->
+      and $
+        ( \tn ->
+            case Map.lookup tn tokenMap of
+              Nothing -> True
+              Just v -> v == negate 1
+        )
+          <$> partyTokens
+ where
+  partyTokens = TokenName . vkey <$> parties
