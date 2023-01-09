@@ -61,6 +61,7 @@ import Hydra.Cardano.Api (
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
   fromConsensusPointInMode,
+  fromLedgerUTxO,
   makeShelleyAddress,
   shelleyAddressInEra,
   toLedgerAddr,
@@ -71,6 +72,7 @@ import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Util (Block, markerDatum)
 import qualified Hydra.Chain.Direct.Util as Util
+import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Block (blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
@@ -164,13 +166,13 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
                 let utxo' = applyBlock block (== ledgerAddress) walletUTxO
                 writeTVar walletInfoVar $ walletInfo{walletUTxO = utxo', tip = point}
                 pure utxo'
-              traceWith tracer $ EndUpdate utxo'
+              traceWith tracer $ EndUpdate (fromLedgerUTxO (Ledger.UTxO utxo'))
       }
  where
   initialize = do
     traceWith tracer BeginInitialize
     walletInfo@WalletInfoOnChain{walletUTxO, tip} <- queryWalletInfo QueryTip address
-    traceWith tracer $ EndInitialize{initialUTxO = walletUTxO, tip}
+    traceWith tracer $ EndInitialize{initialUTxO = fromLedgerUTxO (Ledger.UTxO walletUTxO), tip}
     pure walletInfo
 
   address =
@@ -414,9 +416,9 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
 
 data TinyWalletLog
   = BeginInitialize
-  | EndInitialize {initialUTxO :: Map TxIn TxOut, tip :: ChainPoint}
+  | EndInitialize {initialUTxO :: Api.UTxO, tip :: ChainPoint}
   | BeginUpdate {point :: ChainPoint}
-  | EndUpdate {newUTxO :: Map TxIn TxOut}
+  | EndUpdate {newUTxO :: Api.UTxO}
   | SkipUpdate {point :: ChainPoint}
   deriving (Eq, Generic, Show)
 
