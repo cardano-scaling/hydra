@@ -120,9 +120,9 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
   traverseInputs commits = \case
     [] ->
       commits
-    TxInInfo{txInInfoResolved = txOut} : rest
-      | hasPT headContext txOut ->
-        case commitDatum txInfo txOut of
+    TxInInfo{txInInfoResolved = input} : rest
+      | hasPT headContext input ->
+        case commitDatum txInfo input of
           Just Commit{preSerializedOutput} ->
             traverseInputs
               (preSerializedOutput : commits)
@@ -234,13 +234,13 @@ hasPT ctx txOut =
 {-# INLINEABLE hasPT #-}
 
 commitDatum :: TxInfo -> TxOut -> Maybe Commit
-commitDatum txInfo o = do
-  let d = findTxOutDatum txInfo o
-  case fromBuiltinData @Commit.DatumType $ getDatum d of
+commitDatum txInfo input = do
+  let datum = findTxOutDatum txInfo input
+  case fromBuiltinData @Commit.DatumType $ getDatum datum of
     Just (_p, _, mCommit) ->
       mCommit
     Nothing ->
-      traceError "commitDatum failed fromBuiltinData"
+      Nothing
 {-# INLINEABLE commitDatum #-}
 
 -- | The close validator must verify that:
