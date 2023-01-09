@@ -334,7 +334,6 @@ forAllClose ::
   (UTxO -> Tx -> property) ->
   Property
 forAllClose action = do
-  -- FIXME: we should not hardcode number of parties but generate it within bounds
   forAll (genCloseTx maximumNumberOfParties) $ \(ctx, st, tx, sn) ->
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
      in action utxo tx
