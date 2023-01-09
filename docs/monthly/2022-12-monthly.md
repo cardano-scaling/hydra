@@ -50,7 +50,7 @@ This month we have been working on:
   discussion in the form of an ADR. See
   [ADR21](https://hydra.family/head-protocol/adr/21) for more details.
 
-- **Reducted cost of commits** by at least **30%** using referencs scripts also
+- **Reduced cost of commits** by at least **30%** using reference scripts also
   in the `commit` transaction. We only used reference scripts in `abort` so far.
   This reduces the min ADA cost of `commit` because the transactions are roughly
   5.2KB smaller.
@@ -88,7 +88,7 @@ implemented.
 As we also updated the security properties and proofs, we started aggregating a
 LaTeX document on overleaf. While it holds a similar background and
 preliminaries as the original paper, it only specifies a single version of the
-protocol with no variants, less modulariztion, as well as explicit assumptions
+protocol with no variants, less modularization, as well as explicit assumptions
 and important notes for implementors.
   
 ![](./img/2022-12-spec-overleaf.png)
