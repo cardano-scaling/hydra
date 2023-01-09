@@ -8,7 +8,7 @@ import Hydra.Prelude
 import CardanoClient (queryTip)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
-import Data.Aeson (object, (.=))
+import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
@@ -20,7 +20,8 @@ import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
-import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitMatch, withHydraNode)
+import Hydra.Party (Party)
+import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -42,8 +43,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
     withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
       send n1 $ input "Init" []
       -- XXX: might need to tweak the wait time
-      waitFor tracer 10 [n1, n2] $
-        output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
+      waitForAllMatch 10 [n1, n2] $ headIsInitializedWith (Set.fromList [alice, bob])
 
     -- n1 does a commit while n2 is down
     send n1 $ input "Commit" ["utxo" .= object mempty]
@@ -70,13 +70,11 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     send n1 $ input "Init" []
     -- XXX: might need to tweak the wait time
-    waitFor tracer 10 [n1] $
-      output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+    waitMatch 10 n1 $ headIsInitializedWith (Set.fromList [alice])
 
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Also expect to see past server outputs replayed
-    waitFor tracer 10 [n1] $
-      output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+    waitMatch 10 n1 $ headIsInitializedWith (Set.fromList [alice])
     send n1 $ input "Abort" []
     waitFor tracer 10 [n1] $
       output "HeadIsAborted" ["utxo" .= object mempty]
@@ -103,15 +101,14 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
-    waitFor tracer 600 [n1] $
-      output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+    waitMatch 60 n1 $ headIsInitializedWith (Set.fromList [alice])
     -- Commit nothing for now
     send n1 $ input "Commit" ["utxo" .= object mempty]
-    waitFor tracer 600 [n1] $
+    waitFor tracer 60 [n1] $
       output "HeadIsOpen" ["utxo" .= object mempty]
     -- Close head
     send n1 $ input "Close" []
-    deadline <- waitMatch 600 n1 $ \v -> do
+    deadline <- waitMatch 60 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       v ^? key "contestationDeadline" . _JSON
     -- Expect to see ReadyToFanout within 60 seconds after deadline.
@@ -151,16 +148,16 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
-    waitFor tracer 600 [n1] $
-      output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+    waitMatch 60 n1 $ headIsInitializedWith (Set.fromList [alice])
     -- Commit nothing for now
     send n1 $ input "Commit" ["utxo" .= object mempty]
-    waitFor tracer 600 [n1] $
+    waitFor tracer 60 [n1] $
       output "HeadIsOpen" ["utxo" .= object mempty]
     -- Close head
     send n1 $ input "Close" []
-    void $ waitMatch 600 n1 $ \v -> do
-      guard $ v ^? key "tag" == Just "HeadIsClosed"
+    void $
+      waitMatch 60 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "HeadIsClosed"
   traceRemainingFunds Alice
  where
   RunningNode{nodeSocket} = node
@@ -185,3 +182,9 @@ refuelIfNeeded tracer node actor amount = do
   when (fuelBalance < amount) $ do
     utxo <- seedFromFaucet node actorVk amount Fuel (contramap FromFaucet tracer)
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, fuelUTxO = utxo}
+
+headIsInitializedWith :: Set Party -> Value -> Maybe ()
+headIsInitializedWith expectedParties = \v -> do
+  guard $ v ^? key "tag" == Just "HeadIsInitializing"
+  parties <- v ^? key "parties"
+  guard $ parties == toJSON expectedParties

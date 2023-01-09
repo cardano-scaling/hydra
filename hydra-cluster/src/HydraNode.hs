@@ -19,6 +19,7 @@ module HydraNode (
   withNewClient,
   withHydraCluster,
   EndToEndLog (..),
+  waitForAllMatch,
 ) where
 
 import Hydra.Cardano.Api
@@ -119,6 +120,13 @@ waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
 
   align _ [] = []
   align n (h : q) = h : fmap (T.replicate n " " <>) q
+
+-- | Wait given `delay` for some JSON `Value` to match given function.
+--
+-- This is a generalisation of `waitMatch` to multiple nodes.
+waitForAllMatch :: HasCallStack => Natural -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO ()
+waitForAllMatch delay nodes match =
+  forConcurrently_ nodes $ \n -> waitMatch delay n match
 
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages

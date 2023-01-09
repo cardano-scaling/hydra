@@ -89,7 +89,7 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ ReadyToCommit (fromList [alice])
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
 
@@ -98,7 +98,7 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ ReadyToCommit (fromList [alice])
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen (utxoRef 1)
@@ -110,7 +110,7 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ ReadyToCommit (fromList [alice])
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen (utxoRef 1)
@@ -122,7 +122,7 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ ReadyToCommit (fromList [alice])
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen (utxoRef 1)
@@ -136,7 +136,7 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ ReadyToCommit (fromList [alice])
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen (utxoRef 1)
@@ -153,7 +153,7 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
 
               send n1 (Commit (utxoRef 1))
               waitUntil [n1] $ Committed alice (utxoRef 1)
@@ -170,13 +170,13 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
               send n1 (Commit (utxoRefs [1, 2]))
               waitUntil [n1, n2] $ Committed alice (utxoRefs [1, 2])
               send n2 Abort
               waitUntil [n1, n2] $ HeadIsAborted (utxoRefs [1, 2])
               send n1 Init
-              waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
 
     it "cannot abort head when commits have been collected" $
       shouldRunInSim $ do
@@ -184,7 +184,7 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
               send n1 (Commit (utxoRef 1))
               send n2 (Commit (utxoRef 2))
 
@@ -199,7 +199,7 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
 
               send n1 (Commit (utxoRef 1))
               waitUntil [n1] $ Committed alice (utxoRef 1)
@@ -220,7 +220,7 @@ spec = parallel $ do
             withHydraNode aliceSk [bob] chain $ \n1 ->
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 send n1 Init
-                waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
+                waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
                 send n1 (Commit (utxoRef 1))
 
                 waitUntil [n2] $ Committed alice (utxoRef 1)
@@ -409,7 +409,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Init
-                waitUntil [n1] $ ReadyToCommit (fromList [alice])
+                waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
                 send n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
@@ -424,13 +424,13 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Init
-                waitUntil [n1] $ ReadyToCommit (fromList [alice])
+                waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
                 send n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-      logs `shouldContain` [BeginEffect alice (ClientEffect $ ReadyToCommit $ fromList [alice])]
-      logs `shouldContain` [EndEffect alice (ClientEffect $ ReadyToCommit $ fromList [alice])]
+      logs `shouldContain` [BeginEffect alice (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
+      logs `shouldContain` [EndEffect alice (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
 
     roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
@@ -440,18 +440,18 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ ReadyToCommit (fromList [alice])
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             -- We expect the Init to be rolled back and forward again
             rollbackAndForward chain 1
             waitUntil [n1] RolledBack
-            waitUntil [n1] $ ReadyToCommit (fromList [alice])
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
 
     it "does work for rollbacks past open" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ ReadyToCommit (fromList [alice])
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen (utxoRefs [1])
@@ -755,7 +755,7 @@ openHead ::
   IOSim s ()
 openHead n1 n2 = do
   send n1 Init
-  waitUntil [n1, n2] $ ReadyToCommit (fromList [alice, bob])
+  waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
   send n1 (Commit (utxoRef 1))
   waitUntil [n1, n2] $ Committed alice (utxoRef 1)
   send n2 (Commit (utxoRef 2))

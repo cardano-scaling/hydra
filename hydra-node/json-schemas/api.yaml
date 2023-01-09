@@ -43,8 +43,7 @@ channels:
           - $ref: "#/components/messages/Greetings"
           - $ref: "#/components/messages/PeerConnected"
           - $ref: "#/components/messages/PeerDisconnected"
-          - $ref: "#/components/messages/HeadIsInitialized"
-          - $ref: "#/components/messages/ReadyToCommit"
+          - $ref: "#/components/messages/HeadIsInitializing"
           - $ref: "#/components/messages/Committed"
           - $ref: "#/components/messages/HeadIsOpen"
           - $ref: "#/components/messages/HeadIsClosed"
@@ -270,8 +269,8 @@ components:
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
-    HeadIsInitialized:
-      title: HeadIsInitialized
+    HeadIsInitializing:
+      title: HeadIsInitializing
       description: |
         A `Init` transaction has been observed on-chain, with the given HeadId
       payload:
@@ -279,34 +278,18 @@ components:
         required:
           - tag
           - headId
-        properties:
-          tag:
-            type: string
-            enum: ["HeadIsInitialized"]
-          headId:
-            $ref: "#/components/schemas/HeadId"
-
-    ReadyToCommit:
-      title: ReadyToCommit
-      description: |
-        A `Init` transaction has been observed on-chain by the given party who's now ready to commit into the initialized head.
-      payload:
-        type: object
-        required:
-          - tag
           - parties
-          - seq
           - timestamp
         properties:
           tag:
             type: string
-            enum: ["ReadyToCommit"]
+            enum: ["HeadIsInitializing"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           parties:
             type: array
             items:
               $ref: "#/components/schemas/Party"
-          seq:
-            $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 

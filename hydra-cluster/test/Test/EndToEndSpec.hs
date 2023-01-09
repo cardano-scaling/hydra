@@ -50,9 +50,11 @@ import Hydra.Cluster.Fixture (
   carolVk,
  )
 import Hydra.Cluster.Scenarios (
+  canCloseWithLongContestationPeriod,
+  headIsInitializedWith,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
-  singlePartyHeadFullLifeCycle, canCloseWithLongContestationPeriod
+  singlePartyHeadFullLifeCycle,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -73,6 +75,7 @@ import HydraNode (
   readCreateProcess,
   send,
   waitFor,
+  waitForAllMatch,
   waitForNodesConnected,
   waitMatch,
   withHydraCluster,
@@ -139,8 +142,8 @@ spec = around showLogsOnFailure $ do
                 seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
                 send n1 $ input "Init" []
-                waitFor tracer 10 [n1, n2, n3] $
-                  output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
+                waitForAllMatch 10 [n1, n2, n3] $
+                  headIsInitializedWith (Set.fromList [alice, bob, carol])
 
                 -- Get some UTXOs to commit to a head
                 committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
@@ -194,8 +197,7 @@ spec = around showLogsOnFailure $ do
               seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
               tip <- queryTip networkId nodeSocket
               send n1 $ input "Init" []
-              waitFor tracer 10 [n1] $
-                output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+              waitForAllMatch 10 [n1] $ headIsInitializedWith (Set.fromList [alice])
               return tip
 
             -- REVIEW: Do we want to keep this --start-chain-from feature or
@@ -210,8 +212,7 @@ spec = around showLogsOnFailure $ do
                     { startChainFrom = Just tip
                     }
             withHydraNode tracer aliceChainConfig' tmp 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-              waitFor tracer 10 [n1] $
-                output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+              waitForAllMatch 10 [n1] $ headIsInitializedWith (Set.fromList [alice])
 
       it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
         withTempDir "end-to-end-chain-observer" $ \tmp ->
@@ -241,8 +242,7 @@ spec = around showLogsOnFailure $ do
                 waitForNodesConnected tracer [n1, n2]
 
                 send n1 $ input "Init" []
-                waitFor tracer 10 [n1, n2] $
-                  output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
+                waitForAllMatch 10 [n1, n2] $ headIsInitializedWith (Set.fromList [alice, bob])
 
                 committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
                 send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
@@ -307,14 +307,12 @@ spec = around showLogsOnFailure $ do
                   seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
                   send n1 $ input "Init" []
-                  waitFor tracer 10 [n1] $
-                    output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+                  waitForAllMatch 10 [n1] $ headIsInitializedWith (Set.fromList [alice])
 
                   -- Bob opens and immediately aborts a Head with Alice, iow pulls Alice in
                   -- "his" Head
                   send n2 $ input "Init" []
-                  waitFor tracer 10 [n2] $
-                    output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
+                  waitForAllMatch 10 [n2] $ headIsInitializedWith (Set.fromList [alice, bob])
 
                   send n2 $ input "Abort" []
                   waitFor tracer 10 [n2] $
@@ -343,7 +341,7 @@ spec = around showLogsOnFailure $ do
                     seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
                     waitForNodesConnected tracer [n1, n2, n3]
                     send n1 $ input "Init" []
-                    waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
+                    waitForAllMatch 3 [n1] $ headIsInitializedWith (Set.fromList [alice, bob, carol])
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_events" `BS.isInfixOf`)
 
@@ -394,8 +392,8 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
       seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
       send n1 $ input "Init" []
-      waitFor tracer 10 [n1, n2, n3] $
-        output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
+      waitForAllMatch 10 [n1, n2, n3] $
+        headIsInitializedWith (Set.fromList [alice, bob, carol])
 
       -- Get some UTXOs to commit to a head
       committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)

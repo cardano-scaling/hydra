@@ -40,8 +40,7 @@ instance (FromJSON tx, IsChainState tx) => FromJSON (TimedServerOutput tx) where
 data ServerOutput tx
   = PeerConnected {peer :: NodeId}
   | PeerDisconnected {peer :: NodeId}
-  | HeadIsInitialized {headId :: HeadId}
-  | ReadyToCommit {parties :: Set Party}
+  | HeadIsInitializing {headId :: HeadId, parties :: Set Party}
   | Committed {party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {utxo :: UTxOType tx}
   | HeadIsClosed
@@ -93,8 +92,7 @@ instance
   shrink = \case
     PeerConnected p -> PeerConnected <$> shrink p
     PeerDisconnected p -> PeerDisconnected <$> shrink p
-    HeadIsInitialized hid -> HeadIsInitialized <$> shrink hid
-    ReadyToCommit xs -> ReadyToCommit <$> shrink xs
+    HeadIsInitializing hid xs -> HeadIsInitializing <$> shrink hid <*> shrink xs
     Committed p u -> Committed <$> shrink p <*> shrink u
     HeadIsOpen u -> HeadIsOpen <$> shrink u
     HeadIsClosed s t -> HeadIsClosed <$> shrink s <*> shrink t

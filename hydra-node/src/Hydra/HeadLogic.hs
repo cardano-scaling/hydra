@@ -323,7 +323,7 @@ onIdleChainInitTx headState newChainState parties contestationPeriod headId =
         , chainState = newChainState
         }
     )
-    [ClientEffect $ HeadIsInitialized headId, ClientEffect $ ReadyToCommit $ fromList parties]
+    [ClientEffect $ HeadIsInitializing headId (fromList parties)]
 
 -- | Client request to commit a UTxO entry to the head. Provided the client
 -- hasn't committed yet, this leads to a commit transaction on-chain containing

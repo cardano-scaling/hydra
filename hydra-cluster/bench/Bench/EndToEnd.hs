@@ -93,7 +93,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
                 putTextLn "Initializing Head"
                 send leader $ input "Init" []
                 waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
-                  output "ReadyToCommit" ["parties" .= parties]
+                  output "HeadIsInitializing" ["parties" .= parties]
 
                 putTextLn "Comitting initialUTxO from dataset"
                 expectedUTxO <- commitUTxO clients dataset

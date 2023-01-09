@@ -945,6 +945,7 @@ definitions:
           - tag
           - contestationPeriod
           - parties
+          - initHeadId
         description: >-
           The initial transaction of the Head, announcing various parameters and
           the parties, has been posted on-chain.
@@ -961,6 +962,8 @@ definitions:
             type: array
             items:
               $ref: "api.yaml#/components/schemas/Party"
+          initHeadId:
+            $ref: "api.yaml#/components/schemas/HeadId"
       - title: OnCommitTx
         type: object
         additionalProperties: false
@@ -1131,7 +1134,7 @@ definitions:
           - tag
           - effects
         description: >-
-          An outcome representing the list of actions to be taken by the node 
+          An outcome representing the list of actions to be taken by the node
           to transition the protocol.
         properties:
           tag:
@@ -1150,7 +1153,7 @@ definitions:
           - headState
           - effects
         description: >-
-          An outcome representing the list of actions to be taken by the node 
+          An outcome representing the list of actions to be taken by the node
           to transition the protocol, and the new resulting state.
         properties:
           tag:

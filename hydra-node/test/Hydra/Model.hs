@@ -491,7 +491,7 @@ performCommit parties party paymentUTxO = do
   case Map.lookup party nodes of
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
     Just actorNode -> do
-      lift $ waitForReadyToCommit party nodes
+      lift $ waitForHeadIsInitializing party nodes
       let realUTxO =
             UTxO.fromPairs $
               [ (mkMockTxIn vk ix, txOut)
@@ -571,7 +571,7 @@ sendsInput party command = do
 performAbort :: MonadDelay m => Party -> RunMonad m ()
 performAbort party = do
   Nodes{nodes} <- get
-  lift $ waitForReadyToCommit party nodes
+  lift $ waitForHeadIsInitializing party nodes
   party `sendsInput` Input.Abort
 
 stopTheWorld :: MonadAsync m => RunMonad m ()
@@ -602,13 +602,13 @@ checkOutcome _st (Commit _party expectedCommitted) actualCommitted =
   expectedCommitted == actualCommitted
 checkOutcome _ _ _ = True
 
-waitForReadyToCommit ::
+waitForHeadIsInitializing ::
   forall m tx.
   MonadDelay m =>
   Party ->
   Map Party (TestHydraNode tx m) ->
   m ()
-waitForReadyToCommit party nodes = go 100
+waitForHeadIsInitializing party nodes = go 100
  where
   -- The reason why we repeatedly query the server is because we could
   -- miss some outputs _before_ we even call that function which will
@@ -618,10 +618,10 @@ waitForReadyToCommit party nodes = go 100
     0 -> pure ()
     n -> do
       outs <- serverOutputs (nodes ! party)
-      let matchReadyToCommit = \case
-            Output.ReadyToCommit{} -> True
+      let matchHeadIsInitializing = \case
+            Output.HeadIsInitializing{} -> True
             _ -> False
-      case find matchReadyToCommit outs of
+      case find matchHeadIsInitializing outs of
         Nothing ->
           threadDelay 10 >> go (n - 1)
         Just{} ->
