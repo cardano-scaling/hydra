@@ -193,15 +193,12 @@ propTransactionDoesNotValidate (tx, lookupUTxO) =
         Left _ ->
           property True
         Right redeemerReport ->
-          trace "Errors:" $
-            trace
-              (show $ Map.elems redeemerReport)
-              any
-              isLeft
-              (Map.elems redeemerReport)
-              & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
-              & counterexample ("Redeemer report: " <> show redeemerReport)
-              & counterexample "Phase-2 validation should have failed"
+          any
+            isLeft
+            (Map.elems redeemerReport)
+            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample ("Redeemer report: " <> show redeemerReport)
+            & counterexample "Phase-2 validation should have failed"
 
 -- | A 'Property' checking some (transaction, UTxO) pair is valid.
 propTransactionValidates :: (Tx, UTxO) -> Property
