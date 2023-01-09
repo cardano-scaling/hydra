@@ -576,10 +576,10 @@ addPTWithQuantity tx quantity =
 
 -- | Replace original policy id with the arbitrary one
 replacePolicyIdWith :: PolicyId -> PolicyId -> TxOut a -> TxOut a
-replacePolicyIdWith originalHeadId otherHeadId output =
+replacePolicyIdWith originalPolicyId otherPolicyId output =
   let value = txOutValue output
       newValue = valueFromList $ swapPolicyId <$> valueToList value
       swapPolicyId = \case
-        (AssetId policyId t, q) | policyId == originalHeadId -> (AssetId otherHeadId t, q)
+        (AssetId policyId t, q) | policyId == originalPolicyId -> (AssetId otherPolicyId t, q)
         v -> v
    in output{txOutValue = newValue}
