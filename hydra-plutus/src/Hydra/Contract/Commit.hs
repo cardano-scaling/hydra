@@ -103,8 +103,8 @@ validator (_party, _headScriptHash, commit, headId) r ctx@ScriptContext{scriptCo
     -- delegated to the 'CollectCom' script who has more information to do it.
     ViaCollectCom ->
       traceIfFalse "ST is missing in the output" (hasST headId outputs)
--- where
---  outputs = foldMap txOutValue $ txInfoOutputs $ scriptContextTxInfo ctx
+ where
+  outputs = foldMap txOutValue $ txInfoOutputs $ scriptContextTxInfo ctx
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
