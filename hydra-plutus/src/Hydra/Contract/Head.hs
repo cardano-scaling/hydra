@@ -160,8 +160,8 @@ checkCollectCom ::
   ScriptContext ->
   (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
-checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
-  mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
+checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} Initial{contestationPeriod, parties, initialHeadId} =
+  mustContinueHeadWith ctx expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
     && hasST headId outValue
@@ -464,29 +464,14 @@ findParticipationTokens headCurrency (Value val) =
       []
 {-# INLINEABLE findParticipationTokens #-}
 
-mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
-mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =
-  checkOutputDatumAndValue [] (txInfoOutputs txInfo)
+mustContinueHeadWith :: ScriptContext -> Integer -> Datum -> Bool
+mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} changeValue datum =
+  case (txInfoOutputs txInfo) of
+    [headOutput, changeOutput] ->
+      traceIfFalse "wrong output head datum" (findTxOutDatum txInfo headOutput == datum)
+        && traceIfFalse "change not preserved" (txOutValue changeOutput == lovelaceValue changeValue)
+    _otherwise -> traceError "malformed head transaction output"
  where
-  checkOutputDatumAndValue xs = \case
-    [] ->
-      traceError "no continuing head output"
-    (o : rest)
-      | txOutAddress o == headAddress ->
-        traceIfFalse "wrong output head datum" (findTxOutDatum txInfo o == datum)
-          && checkOutputValue (xs <> rest)
-    (o : rest) ->
-      checkOutputDatumAndValue (o : xs) rest
-
-  checkOutputValue = \case
-    [] ->
-      True
-    [o]
-      | txOutAddress o /= headAddress ->
-        txOutValue o == lovelaceValue changeValue
-    _ ->
-      traceError "more than 2 outputs"
-
   lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
 {-# INLINEABLE mustContinueHeadWith #-}
 

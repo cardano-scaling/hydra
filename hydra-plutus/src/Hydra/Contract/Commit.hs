@@ -20,7 +20,7 @@ import Plutus.V2.Ledger.Api (
   Datum (..),
   Redeemer (Redeemer),
   Script,
-  ScriptContext (ScriptContext, scriptContextTxInfo),
+  ScriptContext (scriptContextTxInfo),
   TxInfo (txInfoMint, txInfoOutputs),
   TxOutRef,
   Validator (getValidator),
@@ -30,7 +30,6 @@ import Plutus.V2.Ledger.Api (
  )
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx
-import qualified PlutusTx.Builtins as Builtins
 import qualified Prelude as Haskell
 
 data CommitRedeemer
@@ -88,7 +87,7 @@ type RedeemerType = CommitRedeemer
 --
 --   * spent in a transaction also consuming a v_head output
 validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
-validator (_party, _headScriptHash, commit, headId) r ctx@ScriptContext{scriptContextTxInfo = txInfo} =
+validator (_party, _headScriptHash, _commit, headId) r ctx =
   case r of
     ViaAbort ->
       -- NOTE: In the Abort case the reimbursement of the committed output 'commit' is
