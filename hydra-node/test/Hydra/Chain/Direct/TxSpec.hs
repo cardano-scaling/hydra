@@ -35,7 +35,6 @@ import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
-import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Ledger.Cardano (
   adaOnly,
   genOneUTxOFor,
@@ -48,11 +47,9 @@ import Plutus.V2.Ledger.Api (toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
-  checkCoverage,
   choose,
   conjoin,
   counterexample,
-  cover,
   elements,
   forAll,
   getPositive,

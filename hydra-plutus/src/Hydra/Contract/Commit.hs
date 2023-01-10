@@ -16,22 +16,17 @@ import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
-  Address (Address),
-  Credential (ScriptCredential),
   CurrencySymbol,
   Datum (..),
-  FromData (fromBuiltinData),
-  OutputDatum (..),
   Redeemer (Redeemer),
   Script,
   ScriptContext (ScriptContext, scriptContextTxInfo),
-  TxInInfo (txInInfoResolved),
-  TxInfo (txInfoInputs, txInfoMint, txInfoOutputs),
-  TxOut (TxOut, txOutAddress, txOutValue),
+  TxInfo (txInfoMint, txInfoOutputs),
   TxOutRef,
   Validator (getValidator),
   ValidatorHash,
   mkValidatorScript,
+  txOutValue,
  )
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx

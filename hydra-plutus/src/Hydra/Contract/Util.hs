@@ -2,7 +2,6 @@
 
 module Hydra.Contract.Util where
 
-import Hydra.Data.Party (Party, vkey)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   TokenName (..),
