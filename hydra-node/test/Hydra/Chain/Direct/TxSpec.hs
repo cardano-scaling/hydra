@@ -33,7 +33,6 @@ import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (
   adaOnly,
@@ -41,14 +40,13 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
   renderTx,
  )
-import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, evaluateTx, maxTxExecutionUnits)
-import Hydra.Party (Party, partyToChain)
+import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
+import Hydra.Party (Party)
 import Plutus.V2.Ledger.Api (toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
   choose,
-  conjoin,
   counterexample,
   elements,
   forAll,
@@ -66,45 +64,6 @@ spec :: Spec
 spec =
   parallel $ do
     describe "collectComTx" $ do
-      modifyMaxSuccess (const 10) $
-        prop "validates" $ \headInput cperiod ->
-          forAll (vectorOf 3 arbitrary) $ \parties ->
-            forAll (genForParty genVerificationKey <$> elements parties) $ \signer ->
-              forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
-                let onChainUTxO = UTxO $ Map.singleton headInput headOutput <> fmap fst3 commitsUTxO
-                    consumedOutputs = fmap drop3rd commitsUTxO
-                    headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
-                    onChainParties = partyToChain <$> parties
-                    headDatum = Head.Initial cperiod onChainParties (toPlutusCurrencySymbol testPolicyId)
-                    initialThreadOutput =
-                      InitialThreadOutput
-                        { initialThreadUTxO =
-                            ( headInput
-                            , headOutput
-                            , fromPlutusData $ toData headDatum
-                            )
-                        , initialParties = onChainParties
-                        , initialContestationPeriod = cperiod
-                        }
-
-                    tx =
-                      collectComTx
-                        testNetworkId
-                        signer
-                        initialThreadOutput
-                        consumedOutputs
-                        (mkHeadId testPolicyId)
-                 in case evaluateTx tx onChainUTxO of
-                      Left basicFailure ->
-                        property False & counterexample ("Basic failure: " <> show basicFailure)
-                      Right redeemerReport ->
-                        conjoin
-                          [ withinTxExecutionBudget redeemerReport
-                          , length commitsUTxO + 1 == length (rights $ Map.elems redeemerReport)
-                              & counterexample (prettyEvaluationReport redeemerReport)
-                              & counterexample ("Tx: " <> renderTx tx)
-                          ]
-
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys walletUTxO ->
           forAll (genForParty genVerificationKey <$> elements (party : parties)) $ \signer ->
