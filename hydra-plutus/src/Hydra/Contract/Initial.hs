@@ -9,6 +9,7 @@ import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Util (mustBurnST)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
 import Plutus.V2.Ledger.Api (
@@ -23,7 +24,7 @@ import Plutus.V2.Ledger.Api (
   ToData (toBuiltinData),
   TokenName (unTokenName),
   TxInInfo (txInInfoResolved),
-  TxInfo (txInfoSignatories),
+  TxInfo (txInfoMint, txInfoSignatories),
   TxOut (txOutValue),
   TxOutRef,
   Validator (getValidator),
@@ -77,7 +78,8 @@ validator ::
   Bool
 validator commitValidator InitialDatum{headId} red context =
   case red of
-    ViaAbort -> True
+    ViaAbort ->
+      traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
     ViaCommit{committedRef} ->
       checkCommit commitValidator committedRef context
         && checkAuthorAndHeadPolicy context headId
