@@ -94,7 +94,7 @@ checkAbort ::
   Bool
 checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol parties =
   mustBurnAllHeadTokens
-    && mustBeSignedByParticipant context headContext
+    && mustBeSignedByParticipant ctx headCurrencySymbol
     && mustReimburseCommittedUTxO
  where
   mustBurnAllHeadTokens =
@@ -121,7 +121,7 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
     [] ->
       commits
     TxInInfo{txInInfoResolved = input} : rest
-      | hasPT headContext input ->
+      | hasPT headCurrencySymbol input ->
         case commitDatum txInfo input of
           Just Commit{preSerializedOutput} ->
             traverseInputs
@@ -196,7 +196,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
         traverseInputs
           (fuel, commits, nCommits)
           rest
-      | hasPT headContext txInInfoResolved ->
+      | hasPT initialHeadId txInInfoResolved ->
         case commitDatum txInfo txInInfoResolved of
           Just commit@Commit{} ->
             traverseInputs
@@ -227,18 +227,12 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
         traceError "commitDatum failed fromBuiltinData"
 {-# INLINEABLE checkCollectCom #-}
 
-hasPT :: HeadContext -> TxOut -> Bool
-hasPT ctx txOut =
-  let pts = findParticipationTokens (headCurrencySymbol ctx) (txOutValue txOut)
-   in length pts == 1
-{-# INLINEABLE hasPT #-}
-
 commitDatum :: TxInfo -> TxOut -> Maybe Commit
 commitDatum txInfo input = do
   let datum = findTxOutDatum txInfo input
   case fromBuiltinData @Commit.DatumType $ getDatum datum of
-    Just (_p, _, mCommit) ->
-      mCommit
+    Just (_party, _validatorHash, commit, _headId) ->
+      commit
     Nothing ->
       Nothing
 {-# INLINEABLE commitDatum #-}
@@ -519,6 +513,12 @@ hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
   sha2_256 . foldMap (Builtins.serialiseData . toBuiltinData)
 {-# INLINEABLE hashTxOuts #-}
+
+hasPT :: CurrencySymbol -> TxOut -> Bool
+hasPT headCurrencySymbol txOut =
+  let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
+   in length pts == 1
+{-# INLINEABLE hasPT #-}
 
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber utxoHash sigs =
