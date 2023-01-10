@@ -114,14 +114,14 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
 
   serialisedOutputs = Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo
 
-  committedUTxOs = traverseInputs [] (txInfoOutputs txInfo)
+  committedUTxOs = traverseInputs [] (txInfoInputs txInfo)
 
   traverseInputs commits = \case
     [] ->
       commits
-    txOut : rest
-      | hasPT headContext txOut ->
-        case commitDatum txInfo txOut of
+    TxInInfo{txInInfoResolved = input} : rest
+      | hasPT headCurrencySymbol input ->
+        case commitDatum txInfo input of
           Just Commit{preSerializedOutput} ->
             traverseInputs
               (preSerializedOutput : commits)
@@ -160,7 +160,7 @@ checkCollectCom ::
   (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
-  mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
+  mustContinueHeadWith ctx expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
     && hasST headId outValue
@@ -195,7 +195,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
         traverseInputs
           (fuel, commits, nCommits)
           rest
-      | hasPT initialHeadId txInInfoResolved ->
+      | hasPT headId txInInfoResolved ->
         case commitDatum txInfo txInInfoResolved of
           Just commit@Commit{} ->
             traverseInputs
@@ -211,33 +211,14 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
           rest
 
   isHeadOutput txOut = txOutAddress txOut == headAddress
-
-  hasPT txOut =
-    let pts = findParticipationTokens headId (txOutValue txOut)
-     in length pts == 1
-
-  commitDatum :: TxOut -> Maybe Commit
-  commitDatum o = do
-    let d = findTxOutDatum txInfo o
-    case fromBuiltinData @Commit.DatumType $ getDatum d of
-      Just (_p, _, mCommit, _headId) ->
-        mCommit
-      Nothing ->
-        traceError "commitDatum failed fromBuiltinData"
 {-# INLINEABLE checkCollectCom #-}
 
-hasPT :: HeadContext -> TxOut -> Bool
-hasPT ctx txOut =
-  let pts = findParticipationTokens (headCurrencySymbol ctx) (txOutValue txOut)
-   in length pts == 1
-{-# INLINEABLE hasPT #-}
-
 commitDatum :: TxInfo -> TxOut -> Maybe Commit
-commitDatum txInfo o = do
-  let d = findTxOutDatum txInfo o
-  case fromBuiltinData @Commit.DatumType $ getDatum d of
-    Just (_p, _, mCommit) ->
-      mCommit
+commitDatum txInfo input = do
+  let datum = findTxOutDatum txInfo input
+  case fromBuiltinData @Commit.DatumType $ getDatum datum of
+    Just (_party, _validatorHash, commit, _headId) ->
+      commit
     Nothing ->
       traceError "commitDatum failed fromBuiltinData"
 {-# INLINEABLE commitDatum #-}
