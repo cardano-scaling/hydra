@@ -29,17 +29,12 @@ hasST headPolicyId v =
 
 -- | Checks if all the PT tokens for list of parties containing specific
 -- 'CurrencySymbol' are burnt.
-mustBurnPTs :: Value -> CurrencySymbol -> [Party] -> Bool
-mustBurnPTs val headCurrencySymbol parties =
+mustBurnST :: Value -> CurrencySymbol -> Bool
+mustBurnST val headCurrencySymbol =
   case Map.lookup headCurrencySymbol (getValue val) of
     Nothing -> True
     Just tokenMap ->
-      and $
-        ( \tn ->
-            case Map.lookup tn tokenMap of
-              Nothing -> True
-              Just v -> v == negate 1
-        )
-          <$> partyTokens
- where
-  partyTokens = TokenName . vkey <$> parties
+      case Map.lookup (TokenName hydraHeadV1) tokenMap of
+        Nothing -> True
+        Just v -> v == negate 1
+{-# INLINEABLE mustBurnST #-}
