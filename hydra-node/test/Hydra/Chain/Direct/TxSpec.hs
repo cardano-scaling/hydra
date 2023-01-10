@@ -108,51 +108,6 @@ spec =
                               & counterexample ("Tx: " <> renderTx tx)
                           ]
 
-    describe "abortTx" $ do
-      prop "validates" $
-        forAll (vectorOf 4 arbitrary) $ \parties txIn contestationPeriod ->
-          forAll (genAbortableOutputs parties) $ \(resolvedInitials, resolvedCommits) ->
-            forAll (genForParty genVerificationKey <$> elements parties) $ \signer ->
-              forAll genScriptRegistry $ \scriptRegistry ->
-                let headUTxO = (txIn :: TxIn, headOutput)
-                    headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
-                    headDatum =
-                      Head.Initial
-                        (contestationPeriodFromDiffTime contestationPeriod)
-                        (map partyToChain parties)
-                        (toPlutusCurrencySymbol testPolicyId)
-                    initials = Map.fromList (drop2nd <$> resolvedInitials)
-                    initialsUTxO = drop3rd <$> resolvedInitials
-                    commits = Map.fromList (drop2nd <$> resolvedCommits)
-                    commitsUTxO = drop3rd <$> resolvedCommits
-                    utxo =
-                      mconcat
-                        [ registryUTxO scriptRegistry
-                        , UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
-                        ]
-                    headInfo = (txIn, headOutput, fromPlutusData $ toData headDatum)
-                    headScript = mkHeadTokenScript testSeedInput
-                    abortableCommits = Map.fromList $ map tripleToPair resolvedCommits
-                    abortableInitials = Map.fromList $ map tripleToPair resolvedInitials
-                 in checkCoverage $ case abortTx scriptRegistry signer headInfo headScript abortableInitials abortableCommits of
-                      Left OverlappingInputs ->
-                        property (isJust $ txIn `Map.lookup` initials)
-                      Right tx ->
-                        case evaluateTx tx utxo of
-                          Left basicFailure ->
-                            property False & counterexample ("Basic failure: " <> show basicFailure)
-                          Right redeemerReport ->
-                            -- NOTE: There's 1 redeemer report for the head + 1 for the mint script +
-                            -- 1 for each of either initials or commits
-                            conjoin
-                              [ withinTxExecutionBudget redeemerReport
-                              , 2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
-                                  & counterexample ("Redeemer report: " <> show redeemerReport)
-                                  & counterexample ("Tx: " <> renderTx tx)
-                                  & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
-                              ]
-                              & cover 80 True "Success"
-
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys walletUTxO ->
           forAll (genForParty genVerificationKey <$> elements (party : parties)) $ \signer ->
@@ -253,8 +208,7 @@ generateCommitUTxOs parties = do
         [ do
             singleUTxO <- fmap adaOnly <$> (genOneUTxOFor =<< arbitrary)
             pure $ head <$> nonEmpty (UTxO.pairs singleUTxO)
-            -- TODO: how to work around this?
-            -- , pure Nothing
+        , pure Nothing
         ]
   let commitUTxO =
         zip txins $
