@@ -403,9 +403,10 @@ observesInTimeSatisfying DirectChainTest{waitCallback} check =
   go = do
     e <- waitCallback
     case e of
-      Observation{observedTx} -> do
+      Observation{observedTx} ->
         check observedTx
-      _TickOrRollback -> go
+      _TickOrRollback ->
+        go
 
 waitMatch :: DirectChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b
 waitMatch DirectChainTest{waitCallback} match = go

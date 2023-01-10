@@ -644,7 +644,7 @@ createMockNetwork node nodes =
 toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
   InitTx HeadParameters{contestationPeriod, parties} ->
-    OnInitTx{contestationPeriod, parties, initHeadId = testHeadId}
+    OnInitTx{contestationPeriod, parties, headId = testHeadId}
   (CommitTx pa ut) ->
     OnCommitTx pa ut
   AbortTx{} ->

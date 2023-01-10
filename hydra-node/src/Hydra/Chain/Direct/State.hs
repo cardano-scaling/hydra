@@ -496,7 +496,7 @@ observeInit ctx tx = do
   pure (toEvent observation, toState observation)
  where
   toEvent InitObservation{contestationPeriod, parties, headId} =
-    OnInitTx{contestationPeriod, parties, initHeadId = headId}
+    OnInitTx{contestationPeriod, parties, headId}
 
   toState InitObservation{threadOutput, initials, commits, headId, headTokenScript} =
     InitialState

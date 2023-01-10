@@ -43,7 +43,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
     withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
       send n1 $ input "Init" []
       -- XXX: might need to tweak the wait time
-      waitForAllMatch 10 [n1, n2] $ headIsInitializedWith (Set.fromList [alice, bob])
+      waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
     -- n1 does a commit while n2 is down
     send n1 $ input "Commit" ["utxo" .= object mempty]
@@ -70,11 +70,11 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     send n1 $ input "Init" []
     -- XXX: might need to tweak the wait time
-    waitMatch 10 n1 $ headIsInitializedWith (Set.fromList [alice])
+    waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
 
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Also expect to see past server outputs replayed
-    waitMatch 10 n1 $ headIsInitializedWith (Set.fromList [alice])
+    waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
     send n1 $ input "Abort" []
     waitFor tracer 10 [n1] $
       output "HeadIsAborted" ["utxo" .= object mempty]
@@ -101,7 +101,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
-    waitMatch 60 n1 $ headIsInitializedWith (Set.fromList [alice])
+    waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
     -- Commit nothing for now
     send n1 $ input "Commit" ["utxo" .= object mempty]
     waitFor tracer 60 [n1] $
@@ -148,7 +148,7 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
-    waitMatch 60 n1 $ headIsInitializedWith (Set.fromList [alice])
+    waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
     -- Commit nothing for now
     send n1 $ input "Commit" ["utxo" .= object mempty]
     waitFor tracer 60 [n1] $
@@ -183,8 +183,8 @@ refuelIfNeeded tracer node actor amount = do
     utxo <- seedFromFaucet node actorVk amount Fuel (contramap FromFaucet tracer)
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, fuelUTxO = utxo}
 
-headIsInitializedWith :: Set Party -> Value -> Maybe ()
-headIsInitializedWith expectedParties = \v -> do
+headIsInitializingWith :: Set Party -> Value -> Maybe ()
+headIsInitializingWith expectedParties = \v -> do
   guard $ v ^? key "tag" == Just "HeadIsInitializing"
   parties <- v ^? key "parties"
   guard $ parties == toJSON expectedParties

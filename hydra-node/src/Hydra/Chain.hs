@@ -86,7 +86,7 @@ instance Arbitrary HeadId where
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
 data OnChainTx tx
-  = OnInitTx {initHeadId :: HeadId, contestationPeriod :: ContestationPeriod, parties :: [Party]}
+  = OnInitTx {headId :: HeadId, contestationPeriod :: ContestationPeriod, parties :: [Party]}
   | OnCommitTx {party :: Party, committed :: UTxOType tx}
   | OnAbortTx
   | OnCollectComTx

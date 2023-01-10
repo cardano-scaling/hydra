@@ -871,8 +871,8 @@ update ::
 update Environment{party, signingKey, otherParties, contestationPeriod} ledger st ev = case (st, ev) of
   (IdleState{chainState}, ClientEvent Init) ->
     onIdleClientInit chainState party otherParties contestationPeriod
-  (IdleState{}, OnChainEvent Observation{observedTx = OnInitTx{initHeadId, contestationPeriod = observed, parties}, newChainState}) ->
-    onIdleChainInitTx st newChainState parties observed initHeadId
+  (IdleState{}, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod = observed, parties}, newChainState}) ->
+    onIdleChainInitTx st newChainState parties observed headId
   (InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit chainState party pendingCommits clientInput
   ( InitialState{parameters, pendingCommits, committed}

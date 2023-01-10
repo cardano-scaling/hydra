@@ -945,7 +945,7 @@ definitions:
           - tag
           - contestationPeriod
           - parties
-          - initHeadId
+          - headId
         description: >-
           The initial transaction of the Head, announcing various parameters and
           the parties, has been posted on-chain.
@@ -962,7 +962,7 @@ definitions:
             type: array
             items:
               $ref: "api.yaml#/components/schemas/Party"
-          initHeadId:
+          headId:
             $ref: "api.yaml#/components/schemas/HeadId"
       - title: OnCommitTx
         type: object

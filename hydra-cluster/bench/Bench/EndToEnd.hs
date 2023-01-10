@@ -32,7 +32,7 @@ import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
 import Hydra.Chain.CardanoClient (awaitTransaction, submitTransaction)
 import Hydra.Cluster.Faucet (FaucetLog, Marked (Fuel), publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
-import Hydra.Cluster.Scenarios (headIsInitializedWith)
+import Hydra.Cluster.Scenarios (headIsInitializingWith)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
@@ -95,7 +95,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
                 putTextLn "Initializing Head"
                 send leader $ input "Init" []
                 waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $
-                  headIsInitializedWith parties
+                  headIsInitializingWith parties
 
                 putTextLn "Comitting initialUTxO from dataset"
                 expectedUTxO <- commitUTxO clients dataset
