@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -fno-specialize -Wwarn #-}
+{-# OPTIONS_GHC -fno-specialize #-}
 
 -- | The validator used to collect & open or abort a Head.
 module Hydra.Contract.Commit where
@@ -91,16 +91,11 @@ validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
 validator (_party, _headScriptHash, commit, headId) r ctx@ScriptContext{scriptContextTxInfo = txInfo} =
   case r of
     ViaAbort ->
+      -- NOTE: In the Abort case the reimbursement of the committed output 'commit' is
+      -- delegated to the 'head' script who has more information to do it.
       traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
-    --  && case commit of
-    --    Nothing -> True
-    --    Just Commit{preSerializedOutput} ->
-    --      traceIfFalse
-    --        "cannot find committed output"
-    --        -- There should be an output in the transaction corresponding to this preSerializedOutput
-    --        (preSerializedOutput `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo))
     -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
-    -- delegated to the 'CollectCom' script who has more information to do it.
+    -- delegated to the 'head' script who has more information to do it.
     ViaCollectCom ->
       traceIfFalse "ST is missing in the output" (hasST headId outputs)
  where
