@@ -164,7 +164,6 @@ healthyCommitOutput party committed =
 data CollectComMutation
   = MutateOpenUTxOHash
   | MutateCommitToInitial
-  | MutateHeadScriptInput
   | MutateHeadTransition
   | -- | NOTE: We want to ccheck CollectCom validator checks there's exactly the
     -- expected number of commits. This is needed because the Head protocol
