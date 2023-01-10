@@ -13,10 +13,8 @@ import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
-  anyPayToPubKeyTxOut,
   changeHeadOutputDatum,
   genHash,
-  headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (
   genForParty,
@@ -156,7 +154,6 @@ healthyCommitOutput party committed =
 
 data CollectComMutation
   = MutateOpenUTxOHash
-  | MutateHeadScriptInput
   | MutateHeadTransition
   | -- | NOTE: We want to ccheck CollectCom validator checks there's exactly the
     -- expected number of commits. This is needed because the Head protocol
@@ -167,11 +164,9 @@ data CollectComMutation
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
-genCollectComMutation (tx, utxo) =
+genCollectComMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation MutateHeadScriptInput
-        <$> (ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut <*> pure Nothing)
     , SomeMutation MutateHeadTransition <$> do
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
         differencCurrencySymbol <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)

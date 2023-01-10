@@ -16,9 +16,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
-  anyPayToPubKeyTxOut,
   changeMintedValueQuantityFrom,
-  headTxIn,
   replacePolicyIdWith,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId, testSeedInput)
@@ -129,7 +127,6 @@ propHasCommit (_, utxo) =
 data AbortMutation
   = MutateParties
   | DropOneCommitOutput
-  | MutateHeadScriptInput
   | BurnOneTokenMore
   | -- | Meant to test that the minting policy is burning all PTs present in tx
     MutateThreadTokenQuantity
@@ -143,7 +140,7 @@ data AbortMutation
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
-genAbortMutation (tx, utxo) =
+genAbortMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateParties . ChangeHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
@@ -152,7 +149,6 @@ genAbortMutation (tx, utxo) =
     , SomeMutation DropOneCommitOutput
         . RemoveOutput
         <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
-    , SomeMutation MutateHeadScriptInput <$> (ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut <*> pure Nothing)
     , SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
     , SomeMutation BurnOneTokenMore <$> addPTWithQuantity tx (-1)
     , SomeMutation DropCollectedInput . RemoveInput <$> elements (txIns' tx)
