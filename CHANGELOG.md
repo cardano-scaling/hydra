@@ -20,13 +20,13 @@ changes.
 
 - HeadLogic Outcome is now being trace on every protocol step transition.
 
-- Check commits are reimbursed in nu head.
 
 - **BREAKING** `hydra-cardano-api` changes:
   + Remove `Hydra.Cardano.Api.SlotNo` module.
   + Replace `fromConsensusPointHF` with `fromConsensusPointInMode` and
     `toConsensusPointHF` with `toConsensusPointInMode`.
   + Re-export new `AcquiringFailure` type from `cardano-api`.
+  + The head validator will check that the commits are reimbursed.
 
 - Change the way the internal wallet initializes its state [#621](https://github.com/input-output-hk/hydra/pull/621)
   + The internal wallet does now always query ledger state and parameters at the tip.
