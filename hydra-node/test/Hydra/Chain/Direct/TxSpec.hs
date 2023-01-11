@@ -192,8 +192,9 @@ generateCommitUTxOs parties = do
             ]
         ]
     commitScript = fromPlutusScript Commit.validatorScript
-    commitDatum (Just (_input, _)) = mkCommitDatum party Head.validatorHash utxo (toPlutusCurrencySymbol testPolicyId)
-    commitDatum Nothing = error "Missing utxo"
+    commitDatum = \case
+      (Just (_input, _)) -> mkCommitDatum party Head.validatorHash utxo (toPlutusCurrencySymbol testPolicyId)
+      Nothing -> error "Missing utxo"
 
 prettyEvaluationReport :: EvaluationReport -> String
 prettyEvaluationReport (Map.toList -> xs) =
