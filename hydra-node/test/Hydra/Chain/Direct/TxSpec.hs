@@ -245,7 +245,7 @@ genAbortableOutputs parties =
 
   initialScript = fromPlutusScript Initial.validatorScript
 
-  initialDatum = Initial.InitialDatum{headId = toPlutusCurrencySymbol testPolicyId}
+  initialDatum = Initial.datum (toPlutusCurrencySymbol testPolicyId)
 
 fst3 :: (a, b, c) -> a
 fst3 (a, _, _) = a

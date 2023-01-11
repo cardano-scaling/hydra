@@ -40,12 +40,6 @@ import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
 import qualified PlutusTx.Builtins as Builtins
 
-newtype InitialDatum = InitialDatum
-  { headId :: CurrencySymbol
-  }
-
-PlutusTx.unstableMakeIsData ''InitialDatum
-
 data InitialRedeemer
   = ViaAbort
   | ViaCommit
@@ -55,7 +49,7 @@ data InitialRedeemer
 
 PlutusTx.unstableMakeIsData ''InitialRedeemer
 
-type DatumType = InitialDatum
+type DatumType = CurrencySymbol
 type RedeemerType = InitialRedeemer
 
 -- | The v_initial validator verifies that:
@@ -72,11 +66,11 @@ type RedeemerType = InitialRedeemer
 validator ::
   -- | Commit validator
   ValidatorHash ->
-  InitialDatum ->
-  InitialRedeemer ->
+  DatumType ->
+  RedeemerType ->
   ScriptContext ->
   Bool
-validator commitValidator InitialDatum{headId} red context =
+validator commitValidator headId red context =
   case red of
     ViaAbort ->
       traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
