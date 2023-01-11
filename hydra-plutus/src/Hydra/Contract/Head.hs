@@ -97,7 +97,8 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
     && mustBeSignedByParticipant ctx headCurrencySymbol
  where
   mustBurnAllHeadTokens =
-    burntTokens == length parties + 1
+    traceIfFalse "number of inputs do not match number of parties" $
+      burntTokens == length parties + 1
 
   minted = getValue $ txInfoMint txInfo
 
@@ -137,10 +138,13 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
     && hasST headId outValue
  where
   headAddress = mkHeadAddress ctx
+
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
   everyoneHasCommitted =
-    nTotalCommits == length parties
+    traceIfFalse "not everyone committed" $
+      nTotalCommits == length parties
 
   (expectedChangeValue, collectedCommits, nTotalCommits) =
     traverseInputs
@@ -350,7 +354,8 @@ checkHeadOutputDatum ctx d =
     NoOutputDatum ->
       traceError "missing datum"
     OutputDatumHash actualHash ->
-      Just actualHash == expectedHash
+      traceIfFalse "output datum hash mismatch" $
+        Just actualHash == expectedHash
     OutputDatum actual ->
       traceIfFalse "output datum mismatch" $
         getDatum actual == expectedData
