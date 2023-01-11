@@ -160,8 +160,8 @@ checkCollectCom ::
   ScriptContext ->
   (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
-checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} Initial{contestationPeriod, parties, initialHeadId} =
-  mustContinueHeadWith ctx expectedChangeValue expectedOutputDatum
+checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
+  mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
     && hasST headId outValue
