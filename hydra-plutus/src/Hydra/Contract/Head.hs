@@ -10,6 +10,7 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
+import Hydra.Contract.Util (hasST)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -53,8 +54,9 @@ import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 type DatumType = State
 type RedeemerType = Input
 
-hydraHeadV1 :: BuiltinByteString
-hydraHeadV1 = "HydraHeadV1"
+--------------------------------------------------------------------------------
+-- Validators
+--------------------------------------------------------------------------------
 
 {-# INLINEABLE headValidator #-}
 headValidator ::
@@ -62,97 +64,40 @@ headValidator ::
   Input ->
   ScriptContext ->
   Bool
-headValidator oldState input context =
+headValidator oldState input ctx =
   case (oldState, input) of
-    (Initial{contestationPeriod, parties}, CollectCom) ->
-      checkCollectCom context headContext (contestationPeriod, parties)
-    (Initial{parties}, Abort) ->
-      checkAbort context headContext parties
-    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
-      checkClose context headContext parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      checkContest context headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature
+    (Initial{contestationPeriod, parties, headId}, CollectCom) ->
+      checkCollectCom ctx (contestationPeriod, parties, headId)
+    (Initial{parties, headId}, Abort) ->
+      checkAbort ctx headId parties
+    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
+      checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod headId
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
+      checkContest ctx contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature headId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
-      checkFanout utxoHash contestationDeadline numberOfFanoutOutputs context
+      checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
     _ ->
       traceError "invalid head state transition"
- where
-  headContext = mkHeadContext context
-
-data CheckCollectComError
-  = NoContinuingOutput
-  | MoreThanOneContinuingOutput
-  | OutputValueNotPreserved
-  | OutputHashNotMatching
-
-data HeadContext = HeadContext
-  { headAddress :: Address
-  , headInputValue :: Value
-  , headCurrencySymbol :: CurrencySymbol
-  }
-
-mkHeadContext :: ScriptContext -> HeadContext
-mkHeadContext context =
-  HeadContext
-    { headAddress
-    , headInputValue
-    , headCurrencySymbol
-    }
- where
-  headInput :: TxInInfo
-  headInput =
-    fromMaybe
-      (traceError "script not spending a head input?")
-      (findOwnInput context)
-
-  headInputValue :: Value
-  headInputValue =
-    txOutValue (txInInfoResolved headInput)
-
-  headAddress :: Address
-  headAddress =
-    txOutAddress (txInInfoResolved headInput)
-
-  headCurrencySymbol :: CurrencySymbol
-  headCurrencySymbol =
-    headInputValue
-      & findCandidateSymbols
-      & \case
-        [s] -> s
-        _ -> traceError "malformed thread token, expected exactly one asset."
-
-  findCandidateSymbols :: Value -> [CurrencySymbol]
-  findCandidateSymbols (Value v) = loop (Map.toList v)
-   where
-    loop = \case
-      [] -> []
-      (symbol, assets) : rest ->
-        case filter ((TokenName hydraHeadV1, 1) ==) (Map.toList assets) of
-          [] -> loop rest
-          _ -> symbol : loop rest
-{-# INLINEABLE mkHeadContext #-}
 
 -- | On-Chain verification for 'Abort' transition. It verifies that:
 --
---   * All PTs have been burnt: The right number of Head tokens, both PT for
---     parties and thread token, with the correct head id, are burnt,
+--   * All PTs have been burnt: The right number of Head tokens with the correct
+--     head id are burnt, one PT for each party and a state token ST.
 --
 --   * All committed funds have been redistributed. This is done via v_commit
 --     and it only needs to ensure that we have spent all comitted outputs,
 --     which follows from burning all the PTs.
 checkAbort ::
   ScriptContext ->
-  HeadContext ->
+  CurrencySymbol ->
   [Party] ->
   Bool
-checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parties =
+checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol parties =
   mustBurnAllHeadTokens
-    && mustBeSignedByParticipant context headContext
+    && mustBeSignedByParticipant ctx headCurrencySymbol
  where
-  HeadContext{headCurrencySymbol} = headContext
-
   mustBurnAllHeadTokens =
-    traceIfFalse "number of inputs do not match number of parties" $
+    traceIfFalse "burnt token number mismatch" $
       burntTokens == length parties + 1
 
   minted = getValue $ txInfoMint txInfo
@@ -171,6 +116,8 @@ checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parti
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
 --
+--   * State token (ST) is present in the output
+--
 -- It must also initialize the on-chain state η* with a snapshot number and a
 -- hash of committed outputs.
 --
@@ -182,24 +129,22 @@ checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parti
 checkCollectCom ::
   -- | Script execution context
   ScriptContext ->
-  -- | Static information about the head (i.e. address, value, currency...)
-  HeadContext ->
-  -- | Initial state
-  (ContestationPeriod, [Party]) ->
+  (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
-checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext (contestationPeriod, parties) =
-  mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
+checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
+  mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
-    && mustBeSignedByParticipant context headContext
+    && mustBeSignedByParticipant ctx headId
+    && hasST headId outValue
  where
-  everyoneHasCommitted =
-    traceIfFalse "not everyone committed" $
-      nTotalCommits == length parties
+  headAddress = mkHeadAddress ctx
 
-  HeadContext
-    { headAddress
-    , headCurrencySymbol
-    } = headContext
+  outValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
+  everyoneHasCommitted =
+    traceIfFalse "missing commits" $
+      nTotalCommits == length parties
 
   (expectedChangeValue, collectedCommits, nTotalCommits) =
     traverseInputs
@@ -209,7 +154,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
     let utxoHash = hashPreSerializedCommits collectedCommits
-     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod}
+     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod, headId = headId}
 
   -- Collect fuel and commits from resolved inputs. Any output containing a PT
   -- is treated as a commit, "our" output is the head output and all remaining
@@ -240,14 +185,14 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
   isHeadOutput txOut = txOutAddress txOut == headAddress
 
   hasPT txOut =
-    let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
+    let pts = findParticipationTokens headId (txOutValue txOut)
      in length pts == 1
 
   commitDatum :: TxOut -> Maybe Commit
   commitDatum o = do
     let d = findTxOutDatum txInfo o
     case fromBuiltinData @Commit.DatumType $ getDatum d of
-      Just (_p, _, mCommit) ->
+      Just (_p, _, mCommit, _headId) ->
         mCommit
       Nothing ->
         traceError "commitDatum failed fromBuiltinData"
@@ -263,22 +208,28 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
 --     closing snapshot, depending on snapshot number
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
+--
+--   * State token (ST) is present in the output
 checkClose ::
   ScriptContext ->
-  HeadContext ->
   [Party] ->
   BuiltinByteString ->
   SnapshotNumber ->
   BuiltinByteString ->
   [Signature] ->
   ContestationPeriod ->
+  CurrencySymbol ->
   Bool
-checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod =
+checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod headPolicyId =
   hasBoundedValidity
     && checkSnapshot
-    && mustBeSignedByParticipant ctx headContext
+    && mustBeSignedByParticipant ctx headPolicyId
+    && hasST headPolicyId outValue
  where
   hasBoundedValidity = traceIfFalse "hasBoundedValidity check failed" $ tMax - tMin <= cp
+
+  outValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   checkSnapshot
     | snapshotNumber == 0 =
@@ -288,6 +239,7 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
               , snapshotNumber = 0
               , utxoHash = initialUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
+              , headId = headPolicyId
               }
        in checkHeadOutputDatum ctx expectedOutputDatum
     | snapshotNumber > 0 =
@@ -297,6 +249,7 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
               , snapshotNumber
               , utxoHash = closedUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
+              , headId = headPolicyId
               }
        in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
             && checkHeadOutputDatum ctx expectedOutputDatum
@@ -315,13 +268,6 @@ checkClose ctx headContext parties initialUtxoHash snapshotNumber closedUtxoHash
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
 
-makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
-makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
-  case ivTo (txInfoValidRange scriptContextTxInfo) of
-    UpperBound (Finite time) _ -> addContestationPeriod time cperiod
-    _ -> traceError "no upper bound validaty interval defined for close"
-{-# INLINEABLE makeContestationDeadline #-}
-
 -- | The contest validator must verify that:
 --
 --   * The contest snapshot number is strictly greater than the closed snapshot number.
@@ -331,9 +277,10 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
 --   * The resulting closed state is consistent with the contested snapshot.
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
+--
+--   * State token (ST) is present in the output
 checkContest ::
   ScriptContext ->
-  HeadContext ->
   POSIXTime ->
   [Party] ->
   -- | Snapshot number of the closed state.
@@ -343,26 +290,61 @@ checkContest ::
   SnapshotNumber ->
   BuiltinByteString ->
   [Signature] ->
+  -- | Head id
+  CurrencySymbol ->
   Bool
-checkContest ctx@ScriptContext{scriptContextTxInfo} headContext contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig =
+checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig headPolicyId =
   mustBeNewer
     && mustBeMultiSigned
-    && checkHeadOutputDatum ctx (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline})
-    && mustBeSignedByParticipant ctx headContext
+    && checkHeadOutputDatum
+      ctx
+      (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline, headId = headPolicyId})
+    && mustBeSignedByParticipant ctx headPolicyId
     && mustBeWithinContestationPeriod
+    && hasST headPolicyId outValue
  where
+  outValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
   mustBeNewer =
-    traceIfFalse "too old snapshot" $
-      contestSnapshotNumber > closedSnapshotNumber
+    traceIfFalse "too old snapshot" $ contestSnapshotNumber > closedSnapshotNumber
 
   mustBeMultiSigned =
     verifySnapshotSignature parties contestSnapshotNumber contestUtxoHash sig
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange scriptContextTxInfo) of
-      UpperBound (Finite time) _ -> traceIfFalse "upper bound validity beyond contestation deadline" $ time <= contestationDeadline
-      _ -> traceError "no upper bound validity interval defined for contest"
+      UpperBound (Finite time) _ ->
+        traceIfFalse "upper bound beyond contestation deadline" $ time <= contestationDeadline
+      _ -> traceError "contest: no upper bound defined"
 {-# INLINEABLE checkContest #-}
+
+checkFanout ::
+  BuiltinByteString ->
+  POSIXTime ->
+  Integer ->
+  ScriptContext ->
+  Bool
+checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
+  hasSameUTxOHash && afterContestationDeadline
+ where
+  hasSameUTxOHash = traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == utxoHash
+  fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
+  TxInfo{txInfoOutputs} = txInfo
+
+  afterContestationDeadline =
+    case ivFrom (txInfoValidRange txInfo) of
+      LowerBound (Finite time) _ ->
+        traceIfFalse "lower bound before contestation deadline" $ time > contestationDeadline
+      _ -> traceError "fanout: no lower bound defined"
+{-# INLINEABLE checkFanout #-}
+
+--------------------------------------------------------------------------------
+-- Helpers
+--------------------------------------------------------------------------------
+
+(&) :: a -> (a -> b) -> b
+(&) = flip ($)
+{-# INLINEABLE (&) #-}
 
 -- | Check that the output datum of this script corresponds to an expected
 -- value. Takes care of resolving datum hashes and inline datums.
@@ -372,10 +354,11 @@ checkHeadOutputDatum ctx d =
     NoOutputDatum ->
       traceError "missing datum"
     OutputDatumHash actualHash ->
-      traceIfFalse "output datum hash mismatch" $
+      traceIfFalse "wrong datum hash" $
         Just actualHash == expectedHash
     OutputDatum actual ->
-      traceIfFalse "output datum mismatch" $ getDatum actual == expectedData
+      traceIfFalse "output datum mismatch" $
+        getDatum actual == expectedData
  where
   expectedData = toBuiltinData d
 
@@ -397,42 +380,34 @@ txInfoAdaFee :: TxInfo -> Integer
 txInfoAdaFee tx = valueOf (txInfoFee tx) adaSymbol adaToken
 {-# INLINEABLE txInfoAdaFee #-}
 
-checkFanout ::
-  BuiltinByteString ->
-  POSIXTime ->
-  Integer ->
-  ScriptContext ->
-  Bool
-checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
-  hasSameUTxOHash && afterContestationDeadline
- where
-  hasSameUTxOHash = traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == utxoHash
-  fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
-  TxInfo{txInfoOutputs} = txInfo
+makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
+makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
+  case ivTo (txInfoValidRange scriptContextTxInfo) of
+    UpperBound (Finite time) _ -> addContestationPeriod time cperiod
+    _ -> traceError "close: no upper bound defined"
+{-# INLINEABLE makeContestationDeadline #-}
 
-  afterContestationDeadline =
-    case ivFrom (txInfoValidRange txInfo) of
-      LowerBound (Finite time) _ -> traceIfFalse "lower bound validity before contestation deadline" $ time > contestationDeadline
-      _ -> traceError "no lower bound validity interval defined for fanout"
-{-# INLINEABLE checkFanout #-}
-
-(&) :: a -> (a -> b) -> b
-(&) = flip ($)
-{-# INLINEABLE (&) #-}
+mkHeadAddress :: ScriptContext -> Address
+mkHeadAddress ctx =
+  let headInput =
+        fromMaybe
+          (traceError "script not spending a head input?")
+          (findOwnInput ctx)
+   in txOutAddress (txInInfoResolved headInput)
+{-# INLINEABLE mkHeadAddress #-}
 
 mustBeSignedByParticipant ::
   ScriptContext ->
-  HeadContext ->
+  CurrencySymbol ->
   Bool
-mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} HeadContext{headCurrencySymbol} =
+mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol =
   case getPubKeyHash <$> txInfoSignatories txInfo of
     [signer] ->
-      traceIfFalse "mustBeSignedByParticipant: did not find expected signer" $
-        signer `elem` (unTokenName <$> participationTokens)
+      signer `elem` (unTokenName <$> participationTokens)
     [] ->
-      traceError "mustBeSignedByParticipant: no signers"
+      traceError "no signers"
     _ ->
-      traceError "mustBeSignedByParticipant: too many signers"
+      traceError "too many signers"
  where
   participationTokens = loop (txInfoInputs txInfo)
   loop = \case
@@ -452,17 +427,17 @@ findParticipationTokens headCurrency (Value val) =
 
 mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
 mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =
-  checkOutputDatum [] (txInfoOutputs txInfo)
+  checkOutputDatumAndValue [] (txInfoOutputs txInfo)
  where
-  checkOutputDatum xs = \case
+  checkOutputDatumAndValue xs = \case
     [] ->
       traceError "no continuing head output"
     (o : rest)
       | txOutAddress o == headAddress ->
         traceIfFalse "wrong output head datum" (findTxOutDatum txInfo o == datum)
-          && traceIfFalse "wrong output value" (checkOutputValue (xs <> rest))
+          && checkOutputValue (xs <> rest)
     (o : rest) ->
-      checkOutputDatum (o : xs) rest
+      checkOutputDatumAndValue (o : xs) rest
 
   checkOutputValue = \case
     [] ->
@@ -471,7 +446,7 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
       | txOutAddress o /= headAddress ->
         txOutValue o == lovelaceValue changeValue
     _ ->
-      traceError "invalid collect-com outputs: more than 2 outputs."
+      traceError "more than 2 outputs"
 
   lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
 {-# INLINEABLE mustContinueHeadWith #-}

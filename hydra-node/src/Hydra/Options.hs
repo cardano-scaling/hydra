@@ -13,8 +13,8 @@ import qualified Data.ByteString.Char8 as BSC
 import Data.IP (IP (IPv4), toIPv4w)
 import Data.Text (unpack)
 import qualified Data.Text as T
-import Data.Version (showVersion)
 import Data.Time.Clock (nominalDiffTimeToSeconds)
+import Data.Version (showVersion)
 import Hydra.Cardano.Api (
   AsType (AsTxId),
   ChainPoint (..),
@@ -579,11 +579,12 @@ contestationPeriodParser =
  where
   parseNatural = UnsafeContestationPeriod <$> auto
 
-  parseNominalDiffTime = auto >>= \dt -> do
-    let s = nominalDiffTimeToSeconds dt
-    if s <= 0
-      then fail "negative contestation period"
-      else pure $ UnsafeContestationPeriod $ truncate s
+  parseNominalDiffTime =
+    auto >>= \dt -> do
+      let s = nominalDiffTimeToSeconds dt
+      if s <= 0
+        then fail "negative contestation period"
+        else pure $ UnsafeContestationPeriod $ truncate s
 
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded
@@ -591,7 +592,7 @@ data InvalidOptions
   deriving (Eq, Show)
 
 -- | Hardcoded limit for maximum number of parties in a head protocol
--- The value 4 is obtained from calculating the costs of running the scripts
+-- The value is obtained from calculating the costs of running the scripts
 -- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
 maximumNumberOfParties :: Int
 maximumNumberOfParties = 4

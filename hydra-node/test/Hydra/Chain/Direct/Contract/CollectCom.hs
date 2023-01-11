@@ -13,10 +13,8 @@ import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
-  anyPayToPubKeyTxOut,
   changeHeadOutputDatum,
   genHash,
-  headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (
   genForParty,
@@ -28,14 +26,15 @@ import Hydra.Chain.Direct.Tx (
   InitialThreadOutput (..),
   assetNameFromVerificationKey,
   collectComTx,
-  headPolicyId,
   headValue,
   mkCommitDatum,
+  mkHeadId,
   mkHeadOutput,
  )
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadTokens (headPolicyId)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)
@@ -63,6 +62,7 @@ healthyCollectComTx =
       somePartyCardanoVerificationKey
       initialThreadOutput
       commits
+      (mkHeadId testPolicyId)
 
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties
@@ -105,6 +105,7 @@ healthyCollectComInitialDatum =
   Head.Initial
     { contestationPeriod = healthyContestationPeriod
     , parties = healthyOnChainParties
+    , headId = toPlutusCurrencySymbol testPolicyId
     }
 
 healthyOnChainParties :: [OnChain.Party]
@@ -149,11 +150,10 @@ healthyCommitOutput party committed =
         [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
         ]
   commitDatum =
-    mkCommitDatum party Head.validatorHash (Just committed)
+    mkCommitDatum party Head.validatorHash (Just committed) (toPlutusCurrencySymbol $ headPolicyId healthyHeadInput)
 
 data CollectComMutation
   = MutateOpenUTxOHash
-  | MutateHeadScriptInput
   | MutateHeadTransition
   | -- | NOTE: We want to ccheck CollectCom validator checks there's exactly the
     -- expected number of commits. This is needed because the Head protocol
@@ -164,14 +164,20 @@ data CollectComMutation
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
-genCollectComMutation (tx, utxo) =
+genCollectComMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation MutateHeadScriptInput
-        <$> (ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut <*> pure Nothing)
     , SomeMutation MutateHeadTransition <$> do
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
-        changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> arbitrary <*> (toBuiltin <$> genHash))
+        differencCurrencySymbol <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
+        changeDatum <-
+          ChangeHeadDatum
+            <$> ( Head.Open
+                    <$> arbitrary
+                    <*> arbitrary
+                    <*> (toBuiltin <$> genHash)
+                    <*> pure differencCurrencySymbol
+                )
         pure $ Changes [changeRedeemer, changeDatum]
     , SomeMutation MutateNumberOfParties <$> do
         -- NOTE: This also mutates the contestation period becuase we could not
@@ -180,7 +186,7 @@ genCollectComMutation (tx, utxo) =
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
           Changes
-            [ ChangeHeadDatum $ Head.Initial c moreParties
+            [ ChangeHeadDatum $ Head.Initial c moreParties (toPlutusCurrencySymbol testPolicyId)
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties headTxOut
             ]
     , SomeMutation MutateHeadId <$> do
@@ -199,7 +205,8 @@ genCollectComMutation (tx, utxo) =
 
   mutatedPartiesHeadTxOut parties =
     changeHeadOutputDatum $ \case
-      Head.Open{utxoHash, contestationPeriod} -> Head.Open{Head.parties = parties, contestationPeriod, utxoHash}
+      Head.Open{utxoHash, contestationPeriod, headId} ->
+        Head.Open{Head.parties = parties, contestationPeriod, utxoHash, headId}
       st -> error $ "Unexpected state " <> show st
 
   mutateUTxOHash = do
@@ -207,6 +214,6 @@ genCollectComMutation (tx, utxo) =
     pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
 
   mutateState mutatedUTxOHash = \case
-    Head.Open{parties, contestationPeriod} ->
-      Head.Open{parties, contestationPeriod, Head.utxoHash = toBuiltin mutatedUTxOHash}
+    Head.Open{parties, contestationPeriod, headId} ->
+      Head.Open{parties, contestationPeriod, Head.utxoHash = toBuiltin mutatedUTxOHash, headId}
     st -> st

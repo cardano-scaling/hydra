@@ -1,11 +1,15 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -fno-specialize #-}
 
 -- | Minting policy for a single head tokens.
 module Hydra.Contract.HeadTokens where
 
 import PlutusTx.Prelude
 
+import Hydra.Cardano.Api (PlutusScriptV2, PolicyId, TxIn, fromPlutusScript, scriptPolicyId, toPlutusTxOutRef, pattern PlutusScript)
+import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
@@ -144,3 +148,13 @@ validatorScript = getMintingPolicy . mintingPolicy
 
 validatorHash :: TxOutRef -> ValidatorHash
 validatorHash = scriptValidatorHash . validatorScript
+
+-- * Create PolicyId
+
+headPolicyId :: TxIn -> PolicyId
+headPolicyId =
+  scriptPolicyId . PlutusScript . mkHeadTokenScript
+
+mkHeadTokenScript :: TxIn -> Api.PlutusScript
+mkHeadTokenScript =
+  fromPlutusScript @PlutusScriptV2 . validatorScript . toPlutusTxOutRef

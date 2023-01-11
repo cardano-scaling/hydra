@@ -55,6 +55,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   maxTxSize,
   slotNoFromUTCTime,
  )
+import Hydra.Options (maximumNumberOfParties)
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
 import Test.QuickCheck (generate, sublistOf)
@@ -194,7 +195,7 @@ computeFanOutCost = do
   pure $ interesting <> limit
  where
   compute numElems = do
-    (utxo, tx) <- generate $ genFanoutTx 3 numElems
+    (utxo, tx) <- generate $ genFanoutTx maximumNumberOfParties numElems
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
         pure $ Just (NumUTxO numElems, txSize, memUnit, cpuUnit, minFee)

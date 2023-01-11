@@ -16,10 +16,12 @@ import Hydra.Chain.Direct.Contract.Mutation (
   addParticipationTokens,
   changeHeadOutputDatum,
   genHash,
+  replacePolicyIdWith,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.Party as OnChain
@@ -50,26 +52,29 @@ healthyContestTx =
       (healthySignature healthyContestSnapshotNumber)
       (healthySlotNo, slotNoToUTCTime healthySlotNo)
       closedThreadOutput
-
-  headInput = generateWith arbitrary 42
-
-  headResolvedInput =
-    mkHeadOutput testNetworkId testPolicyId headTxOutDatum
-      & addParticipationTokens healthyParties
-
-  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyClosedState)
+      (mkHeadId testPolicyId)
 
   headDatum = fromPlutusData $ toData healthyClosedState
 
-  lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
+  lookupUTxO = UTxO.singleton (healthyClosedHeadTxIn, healthyClosedHeadTxOut)
 
   closedThreadOutput =
     ClosedThreadOutput
-      { closedThreadUTxO = (headInput, headResolvedInput, headDatum)
+      { closedThreadUTxO = (healthyClosedHeadTxIn, healthyClosedHeadTxOut, headDatum)
       , closedParties =
           healthyOnChainParties
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
       }
+
+healthyClosedHeadTxIn :: TxIn
+healthyClosedHeadTxIn = generateWith arbitrary 42
+
+healthyClosedHeadTxOut :: TxOut CtxUTxO
+healthyClosedHeadTxOut =
+  mkHeadOutput testNetworkId testPolicyId headTxOutDatum
+    & addParticipationTokens healthyParties
+ where
+  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyClosedState)
 
 healthyContestSnapshot :: Snapshot Tx
 healthyContestSnapshot =
@@ -98,6 +103,7 @@ healthyClosedState =
     , utxoHash = healthyClosedUTxOHash
     , parties = healthyOnChainParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+    , headId = toPlutusCurrencySymbol testPolicyId
     }
 
 healthySlotNo :: SlotNo
@@ -157,6 +163,8 @@ data ContestMutation
   | -- | Change the validity interval of the transaction to a value greater
     -- than the contestation deadline
     MutateValidityPastDeadline
+  | -- | Change the head policy id to test the head validators
+    MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -196,11 +204,22 @@ genContestMutation
               , utxoHash = healthyClosedUTxOHash
               , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
               , contestationDeadline = arbitrary `generateWith` 42
+              , headId = toPlutusCurrencySymbol testPolicyId
               }
       , SomeMutation MutateValidityPastDeadline . ChangeValidityInterval <$> do
           lb <- arbitrary
           ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
           pure (lb, ub)
+      , SomeMutation MutateHeadId <$> do
+          otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyClosedHeadTxIn))
+          pure $
+            Changes
+              [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
+              , ChangeInput
+                  healthyClosedHeadTxIn
+                  (replacePolicyIdWith testPolicyId otherHeadId healthyClosedHeadTxOut)
+                  (Just $ toScriptData healthyClosedState)
+              ]
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
@@ -216,6 +235,7 @@ genContestMutation
                 , utxoHash = toBuiltin mutatedUTxOHash
                 , parties = healthyOnChainParties
                 , contestationDeadline = arbitrary `generateWith` 42
+                , headId = toPlutusCurrencySymbol testPolicyId
                 }
           )
           headTxOut

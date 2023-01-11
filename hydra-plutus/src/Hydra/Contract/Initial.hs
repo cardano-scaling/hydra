@@ -9,9 +9,11 @@ import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Util (mustBurnST)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
 import Plutus.V2.Ledger.Api (
+  CurrencySymbol,
   Datum (..),
   FromData (fromBuiltinData),
   OutputDatum (..),
@@ -22,7 +24,7 @@ import Plutus.V2.Ledger.Api (
   ToData (toBuiltinData),
   TokenName (unTokenName),
   TxInInfo (txInInfoResolved),
-  TxInfo (txInfoSignatories),
+  TxInfo (txInfoMint, txInfoSignatories),
   TxOut (txOutValue),
   TxOutRef,
   Validator (getValidator),
@@ -47,7 +49,7 @@ data InitialRedeemer
 
 PlutusTx.unstableMakeIsData ''InitialRedeemer
 
-type DatumType = ()
+type DatumType = CurrencySymbol
 type RedeemerType = InitialRedeemer
 
 -- | The v_initial validator verifies that:
@@ -64,35 +66,34 @@ type RedeemerType = InitialRedeemer
 validator ::
   -- | Commit validator
   ValidatorHash ->
-  () ->
-  InitialRedeemer ->
+  DatumType ->
+  RedeemerType ->
   ScriptContext ->
   Bool
-validator commitValidator () red context =
+validator commitValidator headId red context =
   case red of
-    ViaAbort -> True
+    ViaAbort ->
+      traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
     ViaCommit{committedRef} ->
       checkCommit commitValidator committedRef context
-        && checkAuthor context
+        && checkAuthorAndHeadPolicy context headId
 
 -- | Verifies that the commit is only done by the author
-checkAuthor ::
+checkAuthorAndHeadPolicy ::
   ScriptContext ->
+  CurrencySymbol ->
   Bool
-checkAuthor context@ScriptContext{scriptContextTxInfo = txInfo} =
+checkAuthorAndHeadPolicy context@ScriptContext{scriptContextTxInfo = txInfo} headId =
   traceIfFalse "Missing or invalid commit author" $
-    elem (unTokenName ourParticipationTokenName) (getPubKeyHash <$> txInfoSignatories txInfo)
+    unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
  where
-  -- NOTE: We don't check the currency symbol, only the well-formedness of the value that
-  -- allows us to extract a token name, because this would be validated in other parts of the
-  -- protocol.
   ourParticipationTokenName =
-    case AssocMap.toList (getValue initialValue) of
-      [_someAdas, (_headCurrencyHopefully, tokenMap)] ->
+    case AssocMap.lookup headId (getValue initialValue) of
+      Nothing -> traceError "Could not find the correct CurrencySymbol in tokens"
+      Just tokenMap ->
         case AssocMap.toList tokenMap of
           [(tk, q)] | q == 1 -> tk
-          _ -> traceError "multiple head tokens or more than 1 PTs found"
-      _ -> traceError "missing head tokens"
+          _moreThanOneToken -> traceError "multiple head tokens or more than 1 PTs found"
 
   -- TODO: DRY
   initialValue =
@@ -151,7 +152,7 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
               Just da ->
                 case fromBuiltinData @Commit.DatumType $ getDatum da of
                   Nothing -> traceError "expected commit datum type, got something else"
-                  Just (_party, _headScriptHash, mCommit) ->
+                  Just (_party, _headScriptHash, mCommit, _headId) ->
                     mCommit
       _ -> traceError "expected single commit output"
 

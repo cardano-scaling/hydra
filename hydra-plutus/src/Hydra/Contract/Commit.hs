@@ -12,27 +12,22 @@ import Data.ByteString.Lazy (fromStrict, toStrict)
 import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import qualified Hydra.Cardano.Api as OffChain
 import Hydra.Cardano.Api.Network (Network (Testnet))
-import Hydra.Contract.HeadState (State (..))
+import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
-  Address (Address),
-  Credential (ScriptCredential),
+  CurrencySymbol,
   Datum (..),
-  FromData (fromBuiltinData),
-  OutputDatum (..),
   Redeemer (Redeemer),
   Script,
   ScriptContext (ScriptContext, scriptContextTxInfo),
-  TxInInfo (txInInfoResolved),
-  TxInfo (txInfoInputs, txInfoOutputs),
-  TxOut (TxOut, txOutAddress),
+  TxInfo (txInfoMint, txInfoOutputs),
   TxOutRef,
   Validator (getValidator),
   ValidatorHash,
   mkValidatorScript,
+  txOutValue,
  )
-import Plutus.V2.Ledger.Contexts (findDatum)
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx
 import qualified PlutusTx.Builtins as Builtins
@@ -86,7 +81,7 @@ deserializeCommit Commit{input, preSerializedOutput} =
 -- TODO: Party is not used on-chain but is needed off-chain while it's still
 -- based on mock crypto. When we move to real crypto we could simply use
 -- the PT's token name to identify the committing party
-type DatumType = (Party, ValidatorHash, Maybe Commit)
+type DatumType = (Party, ValidatorHash, Maybe Commit, CurrencySymbol)
 type RedeemerType = CommitRedeemer
 
 -- | The v_commit validator verifies that:
@@ -95,44 +90,23 @@ type RedeemerType = CommitRedeemer
 --
 --   * on abort, redistribute comitted utxo
 validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
-validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextTxInfo = txInfo} =
-  case txInInfoResolved <$> findHeadScript of
-    Nothing -> traceError "Cannot find Head script"
-    Just (TxOut _ _ d _) ->
-      case d of
-        NoOutputDatum -> traceError "missing datum"
-        OutputDatum _ -> traceError "unexpected inline datum"
-        OutputDatumHash dh ->
-          case findDatum dh txInfo of
-            Nothing -> traceError "could not find datum"
-            Just da ->
-              case fromBuiltinData @State $ getDatum da of
-                -- NOTE: we could check the committed txOut is present in the Head output hash, for
-                -- example by providing some proof in the redeemer and checking that but this is redundant
-                -- with what the Head script is already doing so it's enough to check that the Head script
-                -- is actually running in the correct "branch" (eg. handling a `CollectCom` or `Abort`
-                -- redeemer)
-                -- However we can't get the redeemer for another input so we'll need to check the datum
-                -- is `Initial`
-                Just Initial{} ->
-                  case consumer of
-                    ViaAbort ->
-                      case commit of
-                        Nothing -> True
-                        Just Commit{preSerializedOutput} ->
-                          -- There should be an output in the transaction corresponding to this preSerializedOutput
-                          traceIfFalse "cannot find committed output" $
-                            preSerializedOutput `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo)
-                    -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
-                    -- delegated to the 'CollectCom' script who has more information to do it.
-                    ViaCollectCom -> True
-                _ -> traceError "Head script in wrong state"
+validator (_party, _headScriptHash, commit, headId) r ctx@ScriptContext{scriptContextTxInfo = txInfo} =
+  case r of
+    ViaAbort ->
+      traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
+        && case commit of
+          Nothing -> True
+          Just Commit{preSerializedOutput} ->
+            traceIfFalse
+              "cannot find committed output"
+              -- There should be an output in the transaction corresponding to this preSerializedOutput
+              (preSerializedOutput `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo))
+    -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
+    -- delegated to the 'CollectCom' script who has more information to do it.
+    ViaCollectCom ->
+      traceIfFalse "ST is missing in the output" (hasST headId outputs)
  where
-  findHeadScript = find (paytoHeadScript . txInInfoResolved) $ txInfoInputs txInfo
-
-  paytoHeadScript = \case
-    TxOut{txOutAddress = Address (ScriptCredential s) _} -> s == headScriptHash
-    _ -> False
+  outputs = foldMap txOutValue $ txInfoOutputs $ scriptContextTxInfo ctx
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =

@@ -10,11 +10,13 @@ import Hydra.Prelude hiding (label)
 import Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize')
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash)
-import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadOutput)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, replacePolicyIdWith)
+import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
+import qualified Hydra.Chain.Direct.Fixture as Fixture
+import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (fromChain)
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
@@ -45,8 +47,7 @@ healthyCloseTx =
       startSlot
       pointInTime
       openThreadOutput
-
-  headInput = generateWith arbitrary 42
+      (mkHeadId Fixture.testPolicyId)
 
   -- here we need to pass in contestation period when generating start/end tx validity slots/time
   -- since if tx validity bound difference is bigger than contestation period our close validator
@@ -54,22 +55,26 @@ healthyCloseTx =
   (startSlot, pointInTime) =
     genValidityBoundsFromContestationPeriod (fromChain healthyContestationPeriod) `generateWith` 42
 
-  headResolvedInput =
-    mkHeadOutput testNetworkId testPolicyId headTxOutDatum
-      & addParticipationTokens healthyParties
-
-  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyCloseDatum)
+  lookupUTxO = UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
 
   headDatum = fromPlutusData $ toData healthyCloseDatum
 
-  lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
-
   openThreadOutput =
     OpenThreadOutput
-      { openThreadUTxO = (headInput, headResolvedInput, headDatum)
+      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut, headDatum)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }
+
+healthyOpenHeadTxIn :: TxIn
+healthyOpenHeadTxIn = generateWith arbitrary 42
+
+healthyOpenHeadTxOut :: TxOut CtxUTxO
+healthyOpenHeadTxOut =
+  mkHeadOutput testNetworkId Fixture.testPolicyId headTxOutDatum
+    & addParticipationTokens healthyParties
+ where
+  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyCloseDatum)
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
@@ -104,6 +109,7 @@ healthyCloseDatum =
     { parties = healthyOnChainParties
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
     , contestationPeriod = healthyContestationPeriod
+    , headId = toPlutusCurrencySymbol Fixture.testPolicyId
     }
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
@@ -143,6 +149,7 @@ data CloseMutation
   | MutateValidityInterval
   | MutateCloseContestationDeadline
   | MutateCloseContestationDeadlineWithZero
+  | MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -174,6 +181,7 @@ genCloseMutation (tx, _utxo) =
             { parties = mutatedParties
             , utxoHash = ""
             , contestationPeriod = healthyContestationPeriod
+            , headId = toPlutusCurrencySymbol Fixture.testPolicyId
             }
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
@@ -191,6 +199,16 @@ genCloseMutation (tx, _utxo) =
         lb <- arbitrary
         ub <- (lb -) <$> choose (0, lb)
         pure (TxValidityLowerBound (SlotNo lb), TxValidityUpperBound (SlotNo ub))
+    , SomeMutation MutateHeadId <$> do
+        otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
+        pure $
+          Changes
+            [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId headTxOut)
+            , ChangeInput
+                healthyOpenHeadTxIn
+                (replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyOpenHeadTxOut)
+                (Just $ toScriptData healthyCloseDatum)
+            ]
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
@@ -208,12 +226,13 @@ genCloseMutation (tx, _utxo) =
     pure $ changeHeadOutputDatum (mutateHash mutatedUTxOHash) headTxOut
 
   mutateHash mutatedUTxOHash = \case
-    Head.Closed{snapshotNumber, parties, contestationDeadline} ->
+    Head.Closed{snapshotNumber, parties, contestationDeadline, headId} ->
       Head.Closed
         { snapshotNumber
         , utxoHash = toBuiltin mutatedUTxOHash
         , parties
         , contestationDeadline
+        , headId
         }
     st -> error $ "unexpected state " <> show st
   -- In case contestation period param is 'Nothing' we will generate arbitrary value
@@ -232,5 +251,6 @@ genCloseMutation (tx, _utxo) =
         , contestationDeadline =
             let closingTime = slotNoToUTCTime healthySlotNo
              in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
+        , headId = toPlutusCurrencySymbol Fixture.testPolicyId
         }
     st -> error $ "unexpected state " <> show st

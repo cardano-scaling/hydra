@@ -74,6 +74,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   maxTxSize,
   renderEvaluationReportFailures,
  )
+import Hydra.Options (maximumNumberOfParties)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude (
@@ -124,7 +125,7 @@ spec = parallel $ do
     propIsValid forAllInit
 
     prop "is not observed if not invited" $
-      forAll2 (genHydraContext 3) (genHydraContext 3) $ \(ctxA, ctxB) ->
+      forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
         null (ctxParties ctxA `intersect` ctxParties ctxB)
           ==> forAll2 (pickChainContext ctxA) (pickChainContext ctxB)
           $ \(cctxA, cctxB) ->
@@ -166,9 +167,9 @@ spec = parallel $ do
 
     prop "ignore aborts of other heads" $ do
       let twoDistinctHeads = do
-            ctx <- genHydraContext 3
-            (ctx1, st1@InitialState{initialHeadId = h1}) <- genStInitial ctx
-            (ctx2, st2@InitialState{initialHeadId = h2}) <- genStInitial ctx
+            ctx <- genHydraContext maximumNumberOfParties
+            (ctx1, st1@InitialState{headId = h1}) <- genStInitial ctx
+            (ctx2, st2@InitialState{headId = h2}) <- genStInitial ctx
             when (h1 == h2) discard
             pure ((ctx1, st1), (ctx2, st2))
       forAll twoDistinctHeads $ \((ctx1, stHead1), (ctx2, stHead2)) ->
@@ -245,7 +246,7 @@ forAllInit ::
   (UTxO -> Tx -> property) ->
   Property
 forAllInit action =
-  forAllBlind (genHydraContext 3) $ \ctx ->
+  forAllBlind (genHydraContext maximumNumberOfParties) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll ((,) <$> genTxIn <*> genOutput (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
         let tx = initialize cctx (ctxHeadParameters ctx) seedIn
@@ -272,7 +273,7 @@ forAllCommit' ::
   (ChainContext -> InitialState -> UTxO -> Tx -> property) ->
   Property
 forAllCommit' action = do
-  forAll (genHydraContext 3) $ \hctx ->
+  forAll (genHydraContext maximumNumberOfParties) $ \hctx ->
     forAll (genStInitial hctx) $ \(ctx, stInitial) ->
       forAllShow genCommit renderUTxO $ \toCommit ->
         let tx = unsafeCommit ctx stInitial toCommit
@@ -289,7 +290,7 @@ forAllNonEmptyByronCommit ::
   (PostTxError Tx -> Property) ->
   Property
 forAllNonEmptyByronCommit action = do
-  forAll (genHydraContext 3) $ \hctx ->
+  forAll (genHydraContext maximumNumberOfParties) $ \hctx ->
     forAll (genStInitial hctx) $ \(ctx, stInitial) ->
       forAllShow genByronCommit renderUTxO $ \utxo ->
         case commit ctx stInitial utxo of
@@ -301,7 +302,7 @@ forAllAbort ::
   (UTxO -> Tx -> property) ->
   Property
 forAllAbort action = do
-  forAll (genHydraContext 3) $ \ctx ->
+  forAll (genHydraContext maximumNumberOfParties) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx ->
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
@@ -334,7 +335,7 @@ forAllClose ::
   Property
 forAllClose action = do
   -- FIXME: we should not hardcode number of parties but generate it within bounds
-  forAll (genCloseTx 3) $ \(ctx, st, tx, sn) ->
+  forAll (genCloseTx maximumNumberOfParties) $ \(ctx, st, tx, sn) ->
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
      in action utxo tx
           & label (Prelude.head . Prelude.words . show $ sn)
@@ -382,7 +383,7 @@ forAllFanout ::
   Property
 forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
-  forAll (sized $ \n -> genFanoutTx 3 (n `min` maxSupported)) $ \(hctx, stClosed, tx) ->
+  forAll (sized $ \n -> genFanoutTx maximumNumberOfParties (n `min` maxSupported)) $ \(hctx, stClosed, tx) ->
     forAllBlind (pickChainContext hctx) $ \ctx ->
       let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
        in action utxo tx

@@ -16,23 +16,20 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
-  anyPayToPubKeyTxOut,
   changeMintedValueQuantityFrom,
-  headTxIn,
+  replacePolicyIdWith,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
   UTxOWithScript,
   abortTx,
-  headPolicyId,
-  headValue,
   mkHeadOutputInitial,
-  mkHeadTokenScript,
  )
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, partyToChain)
@@ -129,7 +126,6 @@ propHasCommit (_, utxo) =
 data AbortMutation
   = MutateParties
   | DropOneCommitOutput
-  | MutateHeadScriptInput
   | BurnOneTokenMore
   | -- | Meant to test that the minting policy is burning all PTs present in tx
     MutateThreadTokenQuantity
@@ -143,16 +139,15 @@ data AbortMutation
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
-genAbortMutation (tx, utxo) =
+genAbortMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateParties . ChangeHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
-        pure $ Head.Initial c (partyToChain <$> moreParties)
+        pure $ Head.Initial c (partyToChain <$> moreParties) (toPlutusCurrencySymbol $ headPolicyId testSeedInput)
     , SomeMutation DropOneCommitOutput
         . RemoveOutput
         <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
-    , SomeMutation MutateHeadScriptInput <$> (ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut <*> pure Nothing)
     , SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
     , SomeMutation BurnOneTokenMore <$> addPTWithQuantity tx (-1)
     , SomeMutation DropCollectedInput . RemoveInput <$> elements (txIns' tx)
@@ -168,32 +163,28 @@ genAbortMutation (tx, utxo) =
     , SomeMutation UseInputFromOtherHead <$> do
         (input, output, _) <- elements healthyInitials
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
-
-        let value = txOutValue output
-            assetNames =
-              [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList value, policyId == testPolicyId
-              ]
-            (originalPolicyId, assetName) =
-              case assetNames of
-                [assetId] -> assetId
-                _ -> error "expected one assetId"
-
-            newValue = headValue <> valueFromList [(AssetId otherHeadId assetName, 1)]
-
-            ptForAssetName = \case
-              (AssetId pid asset, _) ->
-                pid == originalPolicyId && asset == assetName
-              _ -> False
-
-            mintedValue' = case txMintValue $ txBodyContent $ txBody tx of
-              TxMintValueNone -> error "expected minted value"
-              TxMintValue v _ -> valueFromList $ filter (not . ptForAssetName) $ valueToList v
-
-            output' = output{txOutValue = newValue}
-
         pure $
           Changes
-            [ ChangeInput input output' (Just $ toScriptData Initial.ViaAbort)
-            , ChangeMintedValue mintedValue'
+            [ ChangeInput input (replacePolicyIdWith testPolicyId otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
+            , ChangeMintedValue (removePTFromMintedValue output tx)
             ]
     ]
+
+removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
+removePTFromMintedValue output tx =
+  case txMintValue $ txBodyContent $ txBody tx of
+    TxMintValueNone -> error "expected minted value"
+    TxMintValue v _ -> valueFromList $ filter (not . isPT) $ valueToList v
+ where
+  outValue = txOutValue output
+  assetNames =
+    [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList outValue, policyId == testPolicyId
+    ]
+  (headId, assetName) =
+    case assetNames of
+      [assetId] -> assetId
+      _ -> error "expected one assetId"
+  isPT = \case
+    (AssetId pid asset, _) ->
+      pid == headId && asset == assetName
+    _ -> False

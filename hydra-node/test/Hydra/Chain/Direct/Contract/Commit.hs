@@ -13,10 +13,13 @@ import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
+  replacePolicyIdWith,
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.Tx (commitTx, headPolicyId, mkInitialOutput)
+import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput)
+import Hydra.Contract.HeadTokens (headPolicyId)
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (
   genAddressInEra,
   genOutput,
@@ -35,32 +38,33 @@ healthyCommitTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (initialInput, toUTxOContext initialOutput)
+    UTxO.singleton (healthyIntialTxIn, toUTxOContext healthyInitialTxOut)
       <> UTxO.singleton healthyCommittedUTxO
       <> registryUTxO scriptRegistry
   tx =
     commitTx
       scriptRegistry
       Fixture.testNetworkId
+      (mkHeadId Fixture.testPolicyId)
       commitParty
       (Just healthyCommittedUTxO)
-      (initialInput, toUTxOContext initialOutput, initialPubKeyHash)
+      (healthyIntialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
-  initialInput = generateWith arbitrary 42
-
-  initialOutput = mkInitialOutput Fixture.testNetworkId policyId commitVerificationKey
-
-  policyId = headPolicyId initialInput
-
   initialPubKeyHash = verificationKeyHash commitVerificationKey
-
-  commitVerificationKey :: VerificationKey PaymentKey
-  commitVerificationKey = generateWith arbitrary 42
 
   commitParty :: Party
   commitParty = generateWith arbitrary 42
+
+commitVerificationKey :: VerificationKey PaymentKey
+commitVerificationKey = generateWith arbitrary 42
+
+healthyIntialTxIn :: TxIn
+healthyIntialTxIn = generateWith arbitrary 42
+
+healthyInitialTxOut :: TxOut CtxTx
+healthyInitialTxOut = mkInitialOutput Fixture.testNetworkId Fixture.testPolicyId commitVerificationKey
 
 -- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
 healthyCommittedUTxO :: (TxIn, TxOut CtxUTxO)
@@ -74,6 +78,8 @@ data CommitMutation
   | MutateCommittedValue
   | MutateCommittedAddress
   | MutateRequiredSigner
+  | -- | Change the policy Id of the ST and PTs both in input and output
+    MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
 genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -85,7 +91,6 @@ genCommitMutation (tx, _utxo) =
     , SomeMutation MutateCommittedValue <$> do
         mutatedValue <- genValue `suchThat` (/= committedOutputValue)
         let mutatedOutput = modifyTxOutValue (const mutatedValue) committedTxOut
-
         pure $ ChangeInput committedTxIn mutatedOutput Nothing
     , SomeMutation MutateCommittedAddress <$> do
         mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= committedAddress)
@@ -94,6 +99,16 @@ genCommitMutation (tx, _utxo) =
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation MutateHeadId <$> do
+        otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyIntialTxIn))
+        pure $
+          Changes
+            [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId commitTxOut)
+            , ChangeInput
+                healthyIntialTxIn
+                (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
+                (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef committedTxIn)
+            ]
     ]
  where
   TxOut{txOutValue = commitOutputValue} = commitTxOut

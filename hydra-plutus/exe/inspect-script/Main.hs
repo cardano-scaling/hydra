@@ -2,20 +2,20 @@
 
 module Main where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api (ScriptDataJsonSchema (ScriptDataJsonDetailedSchema), scriptDataToJson, serialiseToTextEnvelope)
-import Cardano.Api.Shelley (fromPlutusData)
 import Codec.Serialise (serialise)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
-import Hydra.Cardano.Api (PlutusScriptV2, fromPlutusScript, hashScriptData)
+import Hydra.Cardano.Api.Prelude (unsafeHashFromBytes)
 import Hydra.Contract (scriptInfo)
 import Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
+import qualified Hydra.Contract.HeadTokens as HeadTokens
 import Hydra.Contract.Initial as Initial
 import Plutus.V2.Ledger.Api (Data, Script, toData)
 import PlutusTx (getPlc)
@@ -47,7 +47,7 @@ main = do
   forM_ datums $ \(aDatum, datumName) ->
     putTextLn $ toText $ datumName <> ": " <> show (hashScriptData $ fromPlutusData aDatum)
  where
-  writeScripts :: [(Script, String)] -> IO ()
+  writeScripts :: [(Plutus.V2.Ledger.Api.Script, String)] -> IO ()
   writeScripts plutus =
     forM_ plutus $ \(item, itemName) -> do
       let itemFile = itemName <> ".plutus"
@@ -80,7 +80,7 @@ main = do
     [ (headScript, "headScript")
     , (initialScript, "initialScript")
     , (commitScript, "commitScript")
-    , (hashScript, "hashScript")
+    , (hashPlutusScript, "hashScript")
     ]
 
   headScript = Head.validatorScript
@@ -89,7 +89,7 @@ main = do
 
   initialScript = Initial.validatorScript
 
-  hashScript = Hash.validatorScript
+  hashPlutusScript = Hash.validatorScript
 
   compiledScripts =
     [ (Compiled Head.compiledValidator, "headScript")
@@ -102,7 +102,9 @@ main = do
     , (abortDatum, "abortDatum")
     ]
 
-  headDatum = toData $ Head.Initial 1_000_000_000_000 []
+  headDatum = toData $ Head.Initial 1_000_000_000_000 [] (toPlutusCurrencySymbol $ HeadTokens.headPolicyId $ someTxIn)
+
+  someTxIn = TxIn (TxId $ unsafeHashFromBytes "01234567890123456789012345678901") (TxIx 1)
 
   abortDatum = toData Head.Final
 

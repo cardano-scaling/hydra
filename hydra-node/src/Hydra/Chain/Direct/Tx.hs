@@ -27,6 +27,7 @@ import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
+import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (addContestationPeriod, posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
@@ -48,7 +49,8 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (fromBuiltin, fromData, toBuiltin)
+import Plutus.V1.Ledger.Api (CurrencySymbol)
+import Plutus.V2.Ledger.Api (CurrencySymbol (CurrencySymbol), fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- | Needed on-chain data to create Head transactions.
@@ -90,16 +92,8 @@ data ClosedThreadOutput = ClosedThreadOutput
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
-headPolicyId :: TxIn -> PolicyId
-headPolicyId =
-  scriptPolicyId . PlutusScript . mkHeadTokenScript
-
-mkHeadTokenScript :: TxIn -> PlutusScript
-mkHeadTokenScript =
-  fromPlutusScript @PlutusScriptV2 . HeadTokens.validatorScript . toPlutusTxOutRef
-
 hydraHeadV1AssetName :: AssetName
-hydraHeadV1AssetName = AssetName (fromBuiltin Head.hydraHeadV1)
+hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
 
 -- FIXME: sould not be hardcoded
 headValue :: Value
@@ -124,9 +118,9 @@ initTx networkId cardanoKeys parameters seed =
         ( mkHeadOutputInitial networkId policyId parameters :
           map (mkInitialOutput networkId policyId) cardanoKeys
         )
-      & mintTokens (mkHeadTokenScript seed) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
+      & mintTokens (HeadTokens.mkHeadTokenScript seed) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
  where
-  policyId = headPolicyId seed
+  policyId = HeadTokens.headPolicyId seed
   participationTokens =
     [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
 
@@ -149,6 +143,7 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
       Head.Initial
         (toChain contestationPeriod)
         (map partyToChain parties)
+        (toPlutusCurrencySymbol tokenPolicyId)
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
 mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
@@ -161,13 +156,14 @@ mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
-    mkTxOutDatum $ Initial.datum ()
+    mkTxOutDatum $ Initial.datum (toPlutusCurrencySymbol tokenPolicyId)
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 commitTx ::
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
   NetworkId ->
+  HeadId ->
   Party ->
   -- | A single UTxO to commit to the Head
   -- We currently limit committing one UTxO to the head because of size limitations.
@@ -176,7 +172,7 @@ commitTx ::
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
   Tx
-commitTx scriptRegistry networkId party utxo (initialInput, out, vkh) =
+commitTx scriptRegistry networkId headId party utxo (initialInput, out, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(initialInput, initialWitness)]
@@ -194,7 +190,7 @@ commitTx scriptRegistry networkId party utxo (initialInput, out, vkh) =
   initialScriptRef =
     fst (initialReference scriptRegistry)
   initialDatum =
-    mkScriptDatum $ Initial.datum ()
+    mkScriptDatum $ Initial.datum (headIdToCurrencySymbol headId)
   initialRedeemer =
     toScriptData . Initial.redeemer $
       Initial.ViaCommit (toPlutusTxOutRef <$> mCommittedInput)
@@ -209,11 +205,11 @@ commitTx scriptRegistry networkId party utxo (initialInput, out, vkh) =
   commitValue =
     txOutValue out <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
-    mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo
+    mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo (headIdToCurrencySymbol headId)
 
-mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> Plutus.Datum
-mkCommitDatum party headValidatorHash utxo =
-  Commit.datum (partyToChain party, headValidatorHash, serializedUTxO)
+mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> CurrencySymbol -> Plutus.Datum
+mkCommitDatum party headValidatorHash utxo headId =
+  Commit.datum (partyToChain party, headValidatorHash, serializedUTxO, headId)
  where
   serializedUTxO = case utxo of
     Nothing ->
@@ -232,8 +228,10 @@ collectComTx ::
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
+  -- | Head id
+  HeadId ->
   Tx
-collectComTx networkId vk initialThreadOutput commits =
+collectComTx networkId vk initialThreadOutput commits headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
@@ -260,12 +258,18 @@ collectComTx networkId vk initialThreadOutput commits =
       headDatumAfter
       ReferenceScriptNone
   headDatumAfter =
-    mkTxOutDatum Head.Open{Head.parties = initialParties, utxoHash, contestationPeriod = initialContestationPeriod}
+    mkTxOutDatum
+      Head.Open
+        { Head.parties = initialParties
+        , utxoHash
+        , contestationPeriod = initialContestationPeriod
+        , headId = headIdToCurrencySymbol headId
+        }
 
   extractCommit d =
     case fromData $ toPlutusData d of
       Nothing -> error "SNAFU"
-      Just ((_, _, Just o) :: Commit.DatumType) -> Just o
+      Just ((_, _, Just o, _) :: Commit.DatumType) -> Just o
       _ -> Nothing
 
   utxoHash =
@@ -311,8 +315,10 @@ closeTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
+  -- | Head identifier
+  HeadId ->
   Tx
-closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput =
+closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -351,6 +357,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput =
         , utxoHash = toBuiltin utxoHashBytes
         , parties = openParties
         , contestationDeadline
+        , headId = headIdToCurrencySymbol headId
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -384,8 +391,9 @@ contestTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
+  HeadId ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline} =
+contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline} headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -413,6 +421,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         , utxoHash
         , parties = closedParties
         , contestationDeadline = closedContestationDeadline
+        , headId = headIdToCurrencySymbol headId
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
@@ -542,7 +551,7 @@ abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
   mkCommitOutput :: ScriptData -> Maybe (TxOut CtxTx)
   mkCommitOutput x =
     case fromData @Commit.DatumType $ toPlutusData x of
-      Just (_party, _validatorHash, serialisedTxOut) ->
+      Just (_party, _validatorHash, serialisedTxOut, _headId) ->
         toTxContext <$> convertTxOut serialisedTxOut
       Nothing -> error "Invalid Commit datum"
 
@@ -577,7 +586,7 @@ observeInitTx ::
 observeInitTx networkId cardanoKeys expectedCP party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
-  (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
+  (ix, headOut, headData, Head.Initial cp ps _headPolicyId) <- findFirst headOutput indexedOutputs
   parties <- mapM partyFromChain ps
   let contestationPeriod = fromChain cp
   guard $ expectedCP == contestationPeriod
@@ -662,7 +671,7 @@ observeCommitTx networkId initials tx = do
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
-  (onChainParty, _, onChainCommit) <- fromData @Commit.DatumType $ toPlutusData dat
+  (onChainParty, _, onChainCommit, _headId) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
   let mCommittedTxOut = convertTxOut onChainCommit
 
@@ -880,6 +889,9 @@ observeAbortTx utxo tx = do
 mkHeadId :: PolicyId -> HeadId
 mkHeadId =
   HeadId . serialiseToRawBytes
+
+headIdToCurrencySymbol :: HeadId -> CurrencySymbol
+headIdToCurrencySymbol (HeadId headId) = CurrencySymbol (toBuiltin headId)
 
 headTokensFromValue :: PlutusScript -> Value -> [(AssetName, Quantity)]
 headTokensFromValue headTokenScript v =

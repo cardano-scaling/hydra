@@ -89,7 +89,6 @@
 --   oneof
 --     [ SomeMutation MutateOpenOutputValue . ChangeOutput ...
 --     , SomeMutation MutateOpenUtxoHash . ChangeOutput ...
---     , SomeMutation MutateHeadScriptInput . ChangeInput ...
 --     , SomeMutation MutateHeadTransition <$> do
 --         changeRedeemer <- ChangeHeadRedeemer <$> ...
 --         changeDatum <- ChangeHeadDatum <$> ...
@@ -117,11 +116,12 @@
 --     does not survive random adversarial mutations
 --       +++ OK, passed 200 tests.
 --
---       CollectComMutation (200 in total):
---       30.5% MutateOpenUtxoHash
---       27.0% MutateHeadTransition
---       23.5% MutateOpenOutputValue
---       19.0% MutateHeadScriptInput
+--       CollectComMutation (100 in total):
+--       23% MutateNumberOfParties
+--       22% MutateHeadTransition
+--       21% MutateHeadId
+--       19% MutateOpenUTxOHash
+--       15% MutateRequiredSigner
 --
 -- Finished in 18.1146 seconds
 -- @
@@ -560,8 +560,7 @@ addPTWithQuantity tx quantity =
     case mintedValue of
       TxMintValue v _ -> do
         -- NOTE: We do not expect Ada or any other assets to be minted, so
-        -- we can take the policy id from the headtake the policy id from
-        -- the head.
+        -- we can take the policy id from the head
         case Prelude.head $ valueToList v of
           (AdaAssetId, _) -> error "unexpected mint of Ada"
           (AssetId pid _an, _) -> do
@@ -572,3 +571,13 @@ addPTWithQuantity tx quantity =
         pure mempty
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
+
+-- | Replace original policy id with the arbitrary one
+replacePolicyIdWith :: PolicyId -> PolicyId -> TxOut a -> TxOut a
+replacePolicyIdWith originalPolicyId otherPolicyId output =
+  let value = txOutValue output
+      newValue = valueFromList $ swapPolicyId <$> valueToList value
+      swapPolicyId = \case
+        (AssetId policyId t, q) | policyId == originalPolicyId -> (AssetId otherPolicyId t, q)
+        v -> v
+   in output{txOutValue = newValue}
