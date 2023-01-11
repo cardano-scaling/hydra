@@ -54,29 +54,26 @@ healthyCloseTx =
   (startSlot, pointInTime) =
     genValidityBoundsFromContestationPeriod (fromChain healthyContestationPeriod) `generateWith` 42
 
-  lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
+  lookupUTxO = UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
 
-  headDatum :: ScriptData
   headDatum = fromPlutusData $ toData healthyCloseDatum
 
-  openThreadOutput :: OpenThreadOutput
   openThreadOutput =
     OpenThreadOutput
-      { openThreadUTxO = (headInput, headResolvedInput, headDatum)
+      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut, headDatum)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }
 
-headInput :: TxIn
-headInput = generateWith arbitrary 42
+healthyOpenHeadTxIn :: TxIn
+healthyOpenHeadTxIn = generateWith arbitrary 42
 
-headTxOutDatum :: TxOutDatum CtxUTxO
-headTxOutDatum = toUTxOContext (mkTxOutDatum healthyCloseDatum)
-
-headResolvedInput :: TxOut CtxUTxO
-headResolvedInput =
+healthyOpenHeadTxOut :: TxOut CtxUTxO
+healthyOpenHeadTxOut =
   mkHeadOutput testNetworkId Fixture.testPolicyId headTxOutDatum
     & addParticipationTokens healthyParties
+ where
+  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyCloseDatum)
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
@@ -207,8 +204,8 @@ genCloseMutation (tx, _utxo) =
           Changes
             [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId headTxOut)
             , ChangeInput
-                headInput
-                (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId (toTxContext headResolvedInput))
+                healthyOpenHeadTxIn
+                (replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyOpenHeadTxOut)
                 (Just $ toScriptData healthyCloseDatum)
             ]
     ]
