@@ -66,8 +66,8 @@ headValidator ::
   Bool
 headValidator oldState input ctx =
   case (oldState, input) of
-    (initialState@Initial{}, CollectCom) ->
-      checkCollectCom ctx initialState
+    (Initial{contestationPeriod, parties, initialHeadId}, CollectCom) ->
+      checkCollectCom ctx (contestationPeriod, parties, initialHeadId)
     (Initial{parties, initialHeadId}, Abort) ->
       checkAbort ctx initialHeadId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
@@ -128,14 +128,13 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
 checkCollectCom ::
   -- | Script execution context
   ScriptContext ->
-  -- | Initial state
-  State ->
+  (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
-checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} Initial{contestationPeriod, parties, initialHeadId} =
+checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
   mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
-    && mustBeSignedByParticipant ctx initialHeadId
-    && hasST initialHeadId outValue
+    && mustBeSignedByParticipant ctx headId
+    && hasST headId outValue
  where
   headAddress = mkHeadAddress ctx
   outValue =
@@ -151,7 +150,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} Initial{contesta
   expectedOutputDatum :: Datum
   expectedOutputDatum =
     let utxoHash = hashPreSerializedCommits collectedCommits
-     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod, headId = initialHeadId}
+     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod, headId = headId}
 
   -- Collect fuel and commits from resolved inputs. Any output containing a PT
   -- is treated as a commit, "our" output is the head output and all remaining
@@ -182,7 +181,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} Initial{contesta
   isHeadOutput txOut = txOutAddress txOut == headAddress
 
   hasPT txOut =
-    let pts = findParticipationTokens initialHeadId (txOutValue txOut)
+    let pts = findParticipationTokens headId (txOutValue txOut)
      in length pts == 1
 
   commitDatum :: TxOut -> Maybe Commit
@@ -193,7 +192,6 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} Initial{contesta
         mCommit
       Nothing ->
         traceError "commitDatum failed fromBuiltinData"
-checkCollectCom _context _ = traceError "Expected Initial state in checkCollectCom"
 {-# INLINEABLE checkCollectCom #-}
 
 -- | The close validator must verify that:
