@@ -81,8 +81,8 @@ headValidator oldState input ctx =
 
 -- | On-Chain verification for 'Abort' transition. It verifies that:
 --
---   * All PTs have been burnt: The right number of Head tokens, both PT for
---     parties and thread token ST, with the correct head id, are burnt,
+--   * All PTs have been burnt: The right number of Head tokens with the correct
+--     head id are burnt, one PT for each party and a state token ST.
 --
 --   * All committed funds have been redistributed. This is done via v_commit
 --     and it only needs to ensure that we have spent all comitted outputs,
@@ -115,7 +115,7 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
 --
---   * ST token is present in the output
+--   * State token (ST) is present in the output
 --
 -- It must also initialize the on-chain state η* with a snapshot number and a
 -- hash of committed outputs.
@@ -207,7 +207,7 @@ checkCollectCom _context _ = traceError "Expected Initial state in checkCollectC
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
 --
---   * ST token is present in the output
+--   * State token (ST) is present in the output
 checkClose ::
   ScriptContext ->
   [Party] ->
@@ -276,7 +276,7 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
 --
---   * ST token is present in the output
+--   * State token (ST) is present in the output
 checkContest ::
   ScriptContext ->
   POSIXTime ->

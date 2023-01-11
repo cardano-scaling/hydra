@@ -13,8 +13,8 @@ import PlutusTx.Prelude
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
 
--- | Checks that the output contains the ST token with the head 'CurrencySymbol'
--- and 'TokenName' of 'hydraHeadV1'
+-- | Checks that the output contains the state token (ST) with the head
+-- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV1'
 hasST :: CurrencySymbol -> Value -> Bool
 hasST headPolicyId v =
   isJust $
@@ -26,7 +26,7 @@ hasST headPolicyId v =
     isJust $ find (\(tn, q) -> q == 1 && TokenName hydraHeadV1 == tn) (Map.toList tm)
 {-# INLINEABLE hasST #-}
 
--- | Checks if all the PT tokens for list of parties containing specific
+-- | Checks if all the state token (ST) for list of parties containing specific
 -- 'CurrencySymbol' are burnt.
 mustBurnST :: Value -> CurrencySymbol -> Bool
 mustBurnST val headCurrencySymbol =

@@ -77,7 +77,7 @@ data CommitMutation
   | MutateCommittedValue
   | MutateCommittedAddress
   | MutateRequiredSigner
-  | -- | Change the policy Id of the PT and ST tokens both in input and output
+  | -- | Change the policy Id of the ST and PTs both in input and output
     MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
