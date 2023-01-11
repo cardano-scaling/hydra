@@ -116,10 +116,12 @@
 --     does not survive random adversarial mutations
 --       +++ OK, passed 200 tests.
 --
---       CollectComMutation (200 in total):
---       30.5% MutateOpenUtxoHash
---       27.0% MutateHeadTransition
---       23.5% MutateOpenOutputValue
+--       CollectComMutation (100 in total):
+--       23% MutateNumberOfParties
+--       22% MutateHeadTransition
+--       21% MutateHeadId
+--       19% MutateOpenUTxOHash
+--       15% MutateRequiredSigner
 --
 -- Finished in 18.1146 seconds
 -- @
