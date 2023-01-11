@@ -97,7 +97,7 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
     && mustBeSignedByParticipant ctx headCurrencySymbol
  where
   mustBurnAllHeadTokens =
-    traceIfFalse "number of inputs do not match number of parties" $
+    traceIfFalse "burnt token number mismatch" $
       burntTokens == length parties + 1
 
   minted = getValue $ txInfoMint txInfo
@@ -143,7 +143,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   everyoneHasCommitted =
-    traceIfFalse "not everyone committed" $
+    traceIfFalse "missing commits" $
       nTotalCommits == length parties
 
   (expectedChangeValue, collectedCommits, nTotalCommits) =
@@ -314,8 +314,8 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange scriptContextTxInfo) of
       UpperBound (Finite time) _ ->
-        traceIfFalse "upper bound validity beyond contestation deadline" $ time <= contestationDeadline
-      _ -> traceError "no upper bound validity interval defined for contest"
+        traceIfFalse "upper bound beyond contestation deadline" $ time <= contestationDeadline
+      _ -> traceError "contest: no upper bound defined"
 {-# INLINEABLE checkContest #-}
 
 checkFanout ::
@@ -334,8 +334,8 @@ checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{sc
   afterContestationDeadline =
     case ivFrom (txInfoValidRange txInfo) of
       LowerBound (Finite time) _ ->
-        traceIfFalse "lower bound validity before contestation deadline" $ time > contestationDeadline
-      _ -> traceError "no lower bound validity interval defined for fanout"
+        traceIfFalse "lower bound before contestation deadline" $ time > contestationDeadline
+      _ -> traceError "fanout: no lower bound defined"
 {-# INLINEABLE checkFanout #-}
 
 --------------------------------------------------------------------------------
@@ -354,7 +354,7 @@ checkHeadOutputDatum ctx d =
     NoOutputDatum ->
       traceError "missing datum"
     OutputDatumHash actualHash ->
-      traceIfFalse "output datum hash mismatch" $
+      traceIfFalse "wrong datum hash" $
         Just actualHash == expectedHash
     OutputDatum actual ->
       traceIfFalse "output datum mismatch" $
@@ -384,7 +384,7 @@ makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
   case ivTo (txInfoValidRange scriptContextTxInfo) of
     UpperBound (Finite time) _ -> addContestationPeriod time cperiod
-    _ -> traceError "no upper bound validaty interval defined for close"
+    _ -> traceError "close: no upper bound defined"
 {-# INLINEABLE makeContestationDeadline #-}
 
 mkHeadAddress :: ScriptContext -> Address
@@ -405,9 +405,9 @@ mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} headCurren
     [signer] ->
       signer `elem` (unTokenName <$> participationTokens)
     [] ->
-      traceError "mustBeSignedByParticipant: no signers"
+      traceError "no signers"
     _ ->
-      traceError "mustBeSignedByParticipant: too many signers"
+      traceError "too many signers"
  where
   participationTokens = loop (txInfoInputs txInfo)
   loop = \case
@@ -446,7 +446,7 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
       | txOutAddress o /= headAddress ->
         txOutValue o == lovelaceValue changeValue
     _ ->
-      traceError "invalid collect-com outputs: more than 2 outputs."
+      traceError "more than 2 outputs"
 
   lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
 {-# INLINEABLE mustContinueHeadWith #-}
