@@ -18,7 +18,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   genHash,
   replacePolicyIdWith,
  )
-import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId, testSeedInput)
+import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, headPolicyId, mkHeadId, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
@@ -55,18 +55,21 @@ healthyContestTx =
 
   headDatum = fromPlutusData $ toData healthyClosedState
 
-  lookupUTxO = UTxO.singleton (testSeedInput, healthyHeadTxOut)
+  lookupUTxO = UTxO.singleton (healthyClosedHeadTxIn, healthyClosedHeadTxOut)
 
   closedThreadOutput =
     ClosedThreadOutput
-      { closedThreadUTxO = (testSeedInput, healthyHeadTxOut, headDatum)
+      { closedThreadUTxO = (healthyClosedHeadTxIn, healthyClosedHeadTxOut, headDatum)
       , closedParties =
           healthyOnChainParties
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
       }
 
-healthyHeadTxOut :: TxOut CtxUTxO
-healthyHeadTxOut =
+healthyClosedHeadTxIn :: TxIn
+healthyClosedHeadTxIn = generateWith arbitrary 42
+
+healthyClosedHeadTxOut :: TxOut CtxUTxO
+healthyClosedHeadTxOut =
   mkHeadOutput testNetworkId testPolicyId headTxOutDatum
     & addParticipationTokens healthyParties
  where
@@ -207,13 +210,13 @@ genContestMutation
           ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
           pure (lb, ub)
       , SomeMutation MutateHeadId <$> do
-          otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
+          otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyClosedHeadTxIn))
           pure $
             Changes
               [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
               , ChangeInput
-                  testSeedInput
-                  (replacePolicyIdWith testPolicyId otherHeadId healthyHeadTxOut)
+                  healthyClosedHeadTxIn
+                  (replacePolicyIdWith testPolicyId otherHeadId healthyClosedHeadTxOut)
                   (Just $ toScriptData healthyClosedState)
               ]
       ]
