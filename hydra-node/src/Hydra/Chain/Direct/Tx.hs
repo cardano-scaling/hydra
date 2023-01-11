@@ -92,14 +92,6 @@ data ClosedThreadOutput = ClosedThreadOutput
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
-headPolicyId :: TxIn -> PolicyId
-headPolicyId =
-  scriptPolicyId . PlutusScript . mkHeadTokenScript
-
-mkHeadTokenScript :: TxIn -> PlutusScript
-mkHeadTokenScript =
-  fromPlutusScript @PlutusScriptV2 . HeadTokens.validatorScript . toPlutusTxOutRef
-
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
 
@@ -126,9 +118,9 @@ initTx networkId cardanoKeys parameters seed =
         ( mkHeadOutputInitial networkId policyId parameters :
           map (mkInitialOutput networkId policyId) cardanoKeys
         )
-      & mintTokens (mkHeadTokenScript seed) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
+      & mintTokens (HeadTokens.mkHeadTokenScript seed) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
  where
-  policyId = headPolicyId seed
+  policyId = HeadTokens.headPolicyId seed
   participationTokens =
     [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
 

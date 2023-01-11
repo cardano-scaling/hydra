@@ -26,7 +26,6 @@ import Hydra.Chain.Direct.Tx (
   InitialThreadOutput (..),
   assetNameFromVerificationKey,
   collectComTx,
-  headPolicyId,
   headValue,
   mkCommitDatum,
   mkHeadId,
@@ -35,6 +34,7 @@ import Hydra.Chain.Direct.Tx (
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadTokens (headPolicyId)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)

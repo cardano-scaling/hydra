@@ -27,7 +27,8 @@ import Hydra.Cardano.Api (
   TxIn,
   verificationKeyHash,
  )
-import Hydra.Chain.Direct.Tx (headPolicyId)
+import Hydra.Chain.Direct.Tx ()
+import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Crypto (Hash (HydraKeyHash))
 import Hydra.Ledger.Cardano.Configuration (newLedgerEnv)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)

@@ -11,8 +11,9 @@ import Hydra.Prelude hiding (label)
 import Cardano.Api.UTxO as UTxO
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
-import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput, mkHeadTokenScript)
+import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (

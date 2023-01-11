@@ -24,13 +24,12 @@ import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
   UTxOWithScript,
   abortTx,
-  headPolicyId,
   mkHeadOutputInitial,
-  mkHeadTokenScript,
  )
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, partyToChain)

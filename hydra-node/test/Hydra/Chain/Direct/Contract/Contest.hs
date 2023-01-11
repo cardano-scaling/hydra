@@ -19,8 +19,9 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replacePolicyIdWith,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, headPolicyId, mkHeadId, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.Party as OnChain

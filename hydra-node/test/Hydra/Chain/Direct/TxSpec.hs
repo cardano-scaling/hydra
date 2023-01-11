@@ -33,6 +33,7 @@ import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
+import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (
   adaOnly,

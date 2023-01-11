@@ -17,7 +17,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.Tx (commitTx, headPolicyId, mkHeadId, mkInitialOutput)
+import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput)
+import Hydra.Contract.HeadTokens (headPolicyId)
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (
   genAddressInEra,
