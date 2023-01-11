@@ -552,19 +552,19 @@ observeCollect st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCollectComTx utxo tx
   let CollectComObservation{threadOutput, headId = collectComHeadId, utxoHash} = observation
-  guard (initialHeadId == collectComHeadId)
+  guard (headId == collectComHeadId)
   let event = OnCollectComTx
   let st' =
         OpenState
           { openThreadOutput = threadOutput
-          , headId = initialHeadId
+          , headId = headId
           , openHeadTokenScript = initialHeadTokenScript
           , openUtxoHash = utxoHash
           }
   pure (event, st')
  where
   InitialState
-    { headId = initialHeadId
+    { headId = headId
     , initialHeadTokenScript
     } = st
 

@@ -365,7 +365,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
         , utxoHash = toBuiltin utxoHashBytes
         , parties = openParties
         , contestationDeadline
-        , closedHeadId = headIdToCurrencySymbol headId
+        , headId = headIdToCurrencySymbol headId
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -429,7 +429,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         , utxoHash
         , parties = closedParties
         , contestationDeadline = closedContestationDeadline
-        , closedHeadId = headIdToCurrencySymbol headId
+        , headId = headIdToCurrencySymbol headId
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 

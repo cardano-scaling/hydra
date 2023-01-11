@@ -225,13 +225,13 @@ genCloseMutation (tx, _utxo) =
     pure $ changeHeadOutputDatum (mutateHash mutatedUTxOHash) headTxOut
 
   mutateHash mutatedUTxOHash = \case
-    Head.Closed{snapshotNumber, parties, contestationDeadline, closedHeadId} ->
+    Head.Closed{snapshotNumber, parties, contestationDeadline, headId} ->
       Head.Closed
         { snapshotNumber
         , utxoHash = toBuiltin mutatedUTxOHash
         , parties
         , contestationDeadline
-        , closedHeadId
+        , headId
         }
     st -> error $ "unexpected state " <> show st
   -- In case contestation period param is 'Nothing' we will generate arbitrary value
@@ -250,6 +250,6 @@ genCloseMutation (tx, _utxo) =
         , contestationDeadline =
             let closingTime = slotNoToUTCTime healthySlotNo
              in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
-        , closedHeadId = toPlutusCurrencySymbol Fixture.testPolicyId
+        , headId = toPlutusCurrencySymbol Fixture.testPolicyId
         }
     st -> error $ "unexpected state " <> show st

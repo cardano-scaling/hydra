@@ -24,7 +24,7 @@ data State
   = Initial
       { contestationPeriod :: ContestationPeriod
       , parties :: [Party]
-      , initialHeadId :: CurrencySymbol
+      , headId :: CurrencySymbol
       }
   | Open
       { contestationPeriod :: ContestationPeriod
@@ -37,7 +37,7 @@ data State
       , snapshotNumber :: SnapshotNumber
       , utxoHash :: Hash
       , contestationDeadline :: POSIXTime
-      , closedHeadId :: CurrencySymbol
+      , headId :: CurrencySymbol
       }
   | Final
   deriving stock (Generic, Show)

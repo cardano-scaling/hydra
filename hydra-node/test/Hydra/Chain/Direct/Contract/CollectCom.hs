@@ -105,7 +105,7 @@ healthyCollectComInitialDatum =
   Head.Initial
     { contestationPeriod = healthyContestationPeriod
     , parties = healthyOnChainParties
-    , initialHeadId = toPlutusCurrencySymbol testPolicyId
+    , headId = toPlutusCurrencySymbol testPolicyId
     }
 
 healthyOnChainParties :: [OnChain.Party]

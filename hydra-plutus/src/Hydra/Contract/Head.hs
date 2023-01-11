@@ -66,14 +66,14 @@ headValidator ::
   Bool
 headValidator oldState input ctx =
   case (oldState, input) of
-    (Initial{contestationPeriod, parties, initialHeadId}, CollectCom) ->
-      checkCollectCom ctx (contestationPeriod, parties, initialHeadId)
-    (Initial{parties, initialHeadId}, Abort) ->
-      checkAbort ctx initialHeadId parties
+    (Initial{contestationPeriod, parties, headId}, CollectCom) ->
+      checkCollectCom ctx (contestationPeriod, parties, headId)
+    (Initial{parties, headId}, Abort) ->
+      checkAbort ctx headId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
       checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod headId
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, closedHeadId}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      checkContest ctx contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature closedHeadId
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
+      checkContest ctx contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature headId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
     _ ->
@@ -235,7 +235,7 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
               , snapshotNumber = 0
               , utxoHash = initialUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
-              , closedHeadId = headPolicyId
+              , headId = headPolicyId
               }
        in checkHeadOutputDatum ctx expectedOutputDatum
     | snapshotNumber > 0 =
@@ -245,7 +245,7 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
               , snapshotNumber
               , utxoHash = closedUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
-              , closedHeadId = headPolicyId
+              , headId = headPolicyId
               }
        in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
             && checkHeadOutputDatum ctx expectedOutputDatum
@@ -294,7 +294,7 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
     && mustBeMultiSigned
     && checkHeadOutputDatum
       ctx
-      (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline, closedHeadId = headPolicyId})
+      (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline, headId = headPolicyId})
     && mustBeSignedByParticipant ctx headPolicyId
     && mustBeWithinContestationPeriod
     && hasST headPolicyId outValue
