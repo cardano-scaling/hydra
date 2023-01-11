@@ -222,7 +222,7 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
     && mustBeSignedByParticipant ctx headPolicyId
     && hasST headPolicyId outValue
  where
-  hasBoundedValidity = tMax - tMin <= cp
+  hasBoundedValidity = traceIfFalse "hasBoundedValidity check failed" $ tMax - tMin <= cp
 
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
@@ -302,14 +302,15 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
   mustBeNewer =
-    contestSnapshotNumber > closedSnapshotNumber
+    traceIfFalse "too old snapshot" $ contestSnapshotNumber > closedSnapshotNumber
 
   mustBeMultiSigned =
     verifySnapshotSignature parties contestSnapshotNumber contestUtxoHash sig
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange scriptContextTxInfo) of
-      UpperBound (Finite time) _ -> time <= contestationDeadline
+      UpperBound (Finite time) _ ->
+        traceIfFalse "upper bound validity beyond contestation deadline" $ time <= contestationDeadline
       _ -> traceError "no upper bound validity interval defined for contest"
 {-# INLINEABLE checkContest #-}
 
@@ -322,13 +323,14 @@ checkFanout ::
 checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
   hasSameUTxOHash && afterContestationDeadline
  where
-  hasSameUTxOHash = fannedOutUtxoHash == utxoHash
+  hasSameUTxOHash = traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == utxoHash
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
   TxInfo{txInfoOutputs} = txInfo
 
   afterContestationDeadline =
     case ivFrom (txInfoValidRange txInfo) of
-      LowerBound (Finite time) _ -> time > contestationDeadline
+      LowerBound (Finite time) _ ->
+        traceIfFalse "lower bound validity before contestation deadline" $ time > contestationDeadline
       _ -> traceError "no lower bound validity interval defined for fanout"
 {-# INLINEABLE checkFanout #-}
 
@@ -350,7 +352,8 @@ checkHeadOutputDatum ctx d =
     OutputDatumHash actualHash ->
       Just actualHash == expectedHash
     OutputDatum actual ->
-      getDatum actual == expectedData
+      traceIfFalse "output datum mismatch" $
+        getDatum actual == expectedData
  where
   expectedData = toBuiltinData d
 
@@ -469,13 +472,15 @@ hashTxOuts =
 
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber utxoHash sigs =
-  length parties == length sigs
-    && all (uncurry $ verifyPartySignature snapshotNumber utxoHash) (zip parties sigs)
+  traceIfFalse "signature verification failed" $
+    length parties == length sigs
+      && all (uncurry $ verifyPartySignature snapshotNumber utxoHash) (zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 
 verifyPartySignature :: SnapshotNumber -> BuiltinByteString -> Party -> Signature -> Bool
-verifyPartySignature snapshotNumber utxoHash party =
-  verifyEd25519Signature (vkey party) message
+verifyPartySignature snapshotNumber utxoHash party signed =
+  traceIfFalse "party signature verification failed" $
+    verifyEd25519Signature (vkey party) message signed
  where
   message =
     -- TODO: document CDDL format, either here or in 'Hydra.Snapshot.getSignableRepresentation'
