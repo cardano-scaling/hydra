@@ -160,7 +160,7 @@ checkCollectCom ::
   (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
-  mustContinueHeadWith ctx expectedChangeValue expectedOutputDatum
+  mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
     && hasST headId outValue
@@ -450,15 +450,29 @@ findParticipationTokens headCurrency (Value val) =
       []
 {-# INLINEABLE findParticipationTokens #-}
 
-mustContinueHeadWith :: ScriptContext -> Integer -> Datum -> Bool
-mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} changeValue datum =
-  case (txInfoOutputs txInfo) of
-    [headOutput, changeOutput] ->
-      traceIfFalse "wrong output head datum" (findTxOutDatum txInfo headOutput == datum)
-        && traceIfFalse "change not preserved" (txOutValue changeOutput == lovelaceValue changeValue)
-    _otherwise -> traceError "malformed head transaction output"
+mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
+mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =
+  checkOutputDatumAndValue [] (txInfoOutputs txInfo)
  where
   lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
+  checkOutputDatumAndValue xs = \case
+    [] ->
+      traceError "no continuing head output"
+    (o : rest)
+      | txOutAddress o == headAddress ->
+        traceIfFalse "wrong output head datum" (findTxOutDatum txInfo o == datum)
+          && checkOutputValue (xs <> rest)
+    (o : rest) ->
+      checkOutputDatumAndValue (o : xs) rest
+
+  checkOutputValue = \case
+    [] ->
+      True
+    [o]
+      | txOutAddress o /= headAddress ->
+        txOutValue o == lovelaceValue changeValue
+    _ ->
+      traceError "more than 2 outputs"
 {-# INLINEABLE mustContinueHeadWith #-}
 
 findTxOutDatum :: TxInfo -> TxOut -> Datum
