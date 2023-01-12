@@ -219,8 +219,7 @@ commitDatum txInfo input = do
   case fromBuiltinData @Commit.DatumType $ getDatum datum of
     Just (_party, _validatorHash, commit, _headId) ->
       commit
-    Nothing ->
-      traceError "commitDatum failed fromBuiltinData"
+    Nothing -> Nothing
 {-# INLINEABLE commitDatum #-}
 
 -- | The close validator must verify that:
