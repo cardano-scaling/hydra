@@ -36,13 +36,9 @@ The documentation is also available in multiple languages and we can easily add 
 
 ### Bug reports
 
-[Submit an issue](https://github.com/input-output-hk/hydra/issues/new/choose) using the "Bug report :bug:" template.
-
-For bug reports, it's very important to explain
-* what version you used,
-* steps to reproduce (or steps you took),
-* what behavior you saw (ideally supported by logs), and
-* what behavior you expected.
+[Submit an issue](https://github.com/input-output-hk/hydra/issues/new/choose)
+using the "Bug report :bug:" template. It's very important that you fill the
+template as thoroughly as possible.
 
 ### Feature ideas
 
