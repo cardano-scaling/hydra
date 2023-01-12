@@ -28,7 +28,7 @@ Contributing to the documentation, its translation, reporting bugs or proposing 
 We host our documentation / user manual as a website [here](https://input-output-hk.github.io/hydra).
 
 Each page has an "Edit this page" button which should take you to the source
-file containing the markup. Should you would want to extend the documentation or
+file containing the markup. Should you want to extend the documentation or
 find some errors, please file an issue pointing to the mistake or even better,
 create a pull request with the changes directly!
 
