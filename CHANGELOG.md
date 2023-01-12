@@ -12,6 +12,10 @@ changes.
 
 - Hydra node can start following the chain from _genesis_ by setting `--start-chain-from 0` at startup time
 
+- **BREAKING**: Replace `ReadyToCommit` event with
+  `HeadIsInitializing` reporting the actual `HeadId` from the `InitTx`
+  observed on-chain as well as the parties
+
 - API server responses now contain a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/input-output-hk/hydra/pull/618)
 
 - HeadLogic Outcome is now being trace on every protocol step transition.

@@ -14,6 +14,7 @@ import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
   ChainSlot (..),
+  HeadId (HeadId),
   HeadParameters (HeadParameters),
   IsChainState,
   OnChainTx (..),
@@ -125,7 +126,7 @@ eventsToOpenHead :: [Event SimpleTx]
 eventsToOpenHead =
   [ NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = NodeId "NodeId1"}}
   , NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = NodeId "NodeId2"}}
-  , observationEvent $ OnInitTx cperiod [alice, bob, carol]
+  , observationEvent $ OnInitTx (HeadId "1234") cperiod [alice, bob, carol]
   , ClientEvent{clientInput = Commit (utxoRef 2)}
   , observationEvent $ OnCommitTx carol (utxoRef 3)
   , observationEvent $ OnCommitTx bob (utxoRef 2)

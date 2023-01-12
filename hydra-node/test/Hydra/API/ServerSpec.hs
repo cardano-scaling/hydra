@@ -17,14 +17,14 @@ import Control.Monad.Class.MonadSTM (
  )
 import qualified Data.Aeson as Aeson
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), TimedServerOutput (..), input)
+import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..), input)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
-import Test.QuickCheck (checkCoverage, cover)
+import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
 spec :: Spec
@@ -53,7 +53,7 @@ spec = parallel $ do
             $ \_ -> do
               waitForClients semaphore
               failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [greeting, greeting]
-              let arbitraryMsg = ReadyToCommit mempty
+              arbitraryMsg <- generate arbitrary
               sendOutput arbitraryMsg
               failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
               failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
@@ -62,7 +62,7 @@ spec = parallel $ do
     showLogsOnFailure $ \tracer -> failAfter 5 $
       withTempDir "ServerSpec" $ \tmpDir -> do
         let persistentFile = tmpDir <> "/history"
-        let arbitraryMsg = ReadyToCommit mempty
+        arbitraryMsg <- generate arbitrary
 
         persistence <- createPersistenceIncremental persistentFile
         withFreePort $ \port -> do
