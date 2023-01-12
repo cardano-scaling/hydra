@@ -213,6 +213,8 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
   isHeadOutput txOut = txOutAddress txOut == headAddress
 {-# INLINEABLE checkCollectCom #-}
 
+-- | Try to find the commit datum in the input and
+-- if it is there return the commited utxo
 commitDatum :: TxInfo -> TxOut -> Maybe Commit
 commitDatum txInfo input = do
   let datum = findTxOutDatum txInfo input
@@ -498,6 +500,7 @@ hashTxOuts =
   sha2_256 . foldMap (Builtins.serialiseData . toBuiltinData)
 {-# INLINEABLE hashTxOuts #-}
 
+-- | Check if 'TxOut' contains the PT token.
 hasPT :: CurrencySymbol -> TxOut -> Bool
 hasPT headCurrencySymbol txOut =
   let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
