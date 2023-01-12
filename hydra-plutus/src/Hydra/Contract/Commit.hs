@@ -86,15 +86,17 @@ type RedeemerType = CommitRedeemer
 -- | The v_commit validator verifies that:
 --
 --   * spent in a transaction also consuming a v_head output
+--
+--   * ST token is burned if the redeemer is 'ViaAbort'
+--
+--   * ST token is present in the output if the redeemer is 'ViaCollectCom'
 validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
 validator (_party, _headScriptHash, _commit, headId) r ctx =
   case r of
-    ViaAbort ->
-      -- NOTE: In the Abort case the reimbursement of the committed output 'commit' is
-      -- delegated to the 'head' script who has more information to do it.
-      traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
-    -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
+    -- NOTE: The reimbursement of the committed output 'commit' is
     -- delegated to the 'head' script who has more information to do it.
+    ViaAbort ->
+      traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
     ViaCollectCom ->
       traceIfFalse "ST is missing in the output" (hasST headId outputs)
  where
