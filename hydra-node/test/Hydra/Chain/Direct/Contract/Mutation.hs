@@ -190,8 +190,10 @@ propTransactionDoesNotValidate :: (Tx, UTxO) -> Property
 propTransactionDoesNotValidate (tx, lookupUTxO) =
   let result = evaluateTx tx lookupUTxO
    in case result of
-        Left _ ->
-          property True
+        Left basicFailure ->
+          property False
+            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
           any isLeft (Map.elems redeemerReport)
             & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
