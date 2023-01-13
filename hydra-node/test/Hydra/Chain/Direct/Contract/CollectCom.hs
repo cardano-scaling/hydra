@@ -163,11 +163,10 @@ healthyCommitOutput party committed =
 
 data CollectComMutation
   = MutateOpenUTxOHash
-  | MutateCommitToInitial
+  | -- | Test that collectCom cannot collect from an initial UTxO.
+    MutateCommitToInitial
   | MutateHeadTransition
-  | -- | NOTE: We want to ccheck CollectCom validator checks there's exactly the
-    -- expected number of commits. This is needed because the Head protocol
-    -- requires to ensure every party has a chance to commit.
+  | -- | Test that every party has a chance to commit.
     MutateNumberOfParties
   | MutateHeadId
   | MutateRequiredSigner
