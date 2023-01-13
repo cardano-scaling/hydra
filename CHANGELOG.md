@@ -26,7 +26,10 @@ changes.
   + Replace `fromConsensusPointHF` with `fromConsensusPointInMode` and
     `toConsensusPointHF` with `toConsensusPointInMode`.
   + Re-export new `AcquiringFailure` type from `cardano-api`.
-  + The head validator will check that the commits are reimbursed.
+
+- **BREAKING** Addressed short-comings in `hydra-plutus` scripts:
+  + Check presence of state token (ST) and that it's consistent against datum.
+  + Moved check to reimburse commits to head validator.
 
 - Change the way the internal wallet initializes its state [#621](https://github.com/input-output-hk/hydra/pull/621)
   + The internal wallet does now always query ledger state and parameters at the tip.
