@@ -130,6 +130,7 @@ data HealthyCommit = HealthyCommit
   , txOut :: TxOut CtxUTxO
   , scriptData :: ScriptData
   }
+  deriving (Show)
 
 healthyCommitOutput ::
   Party ->

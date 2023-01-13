@@ -154,6 +154,7 @@ withinTxExecutionBudget report =
     } = maxTxExecutionUnits
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
+-- NOTE: Uses 'testPolicyId' for the datum.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
 generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData, UTxO))
 generateCommitUTxOs parties = do
@@ -178,9 +179,9 @@ generateCommitUTxOs parties = do
         TxOut
           (mkScriptAddress @PlutusScriptV2 testNetworkId commitScript)
           commitValue
-          (mkTxOutDatum $ commitDatum utxo)
+          (mkTxOutDatum commitDatum)
           ReferenceScriptNone
-    , fromPlutusData (toData $ commitDatum utxo)
+    , fromPlutusData (toData commitDatum)
     , maybe mempty (UTxO.fromPairs . pure) utxo
     )
    where
@@ -192,10 +193,10 @@ generateCommitUTxOs parties = do
             [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
             ]
         ]
+
     commitScript = fromPlutusScript Commit.validatorScript
-    commitDatum = \case
-      (Just (_input, _)) -> mkCommitDatum party Head.validatorHash utxo (toPlutusCurrencySymbol testPolicyId)
-      Nothing -> error "Missing utxo"
+
+    commitDatum = mkCommitDatum party Head.validatorHash utxo (toPlutusCurrencySymbol testPolicyId)
 
 prettyEvaluationReport :: EvaluationReport -> String
 prettyEvaluationReport (Map.toList -> xs) =
@@ -206,6 +207,7 @@ prettyEvaluationReport (Map.toList -> xs) =
   prettyResult =
     either (T.replace "\n" " " . show) show
 
+-- NOTE: Uses 'testPolicyId' for the datum.
 genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [UTxOWithScript])
 genAbortableOutputs parties =
   go `suchThat` notConflict

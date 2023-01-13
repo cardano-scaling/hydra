@@ -108,6 +108,7 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
       Nothing -> 0
       Just tokenMap -> negate $ sum tokenMap
 
+  -- FIXME: This is prone to identical commits only being reimbursed once.
   mustReimburseCommittedUTxO =
     traceIfFalse "committed UTxO not reimbursed" $
       all (`elem` serialisedOutputs) committedUTxOs

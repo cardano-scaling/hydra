@@ -93,14 +93,13 @@ healthyCommits :: [UTxOWithScript]
   -- TODO: Refactor this to be an AbortTx generator because we actually want
   -- to test healthy abort txs with varied combinations of inital and commit
   -- outputs
-  generateWith (genAbortableOutputs healthyParties `suchThat` thereIsAtLeastOneCommit) 42
-
-thereIsAtLeastOneCommit :: ([UTxOWithScript], [UTxOWithScript]) -> Bool
-thereIsAtLeastOneCommit (is, cs) = not (null cs) && not (null is)
+  generateWith (genAbortableOutputs healthyParties `suchThat` thereIsTwoEach) 42
+ where
+  thereIsTwoEach (is, cs) = length is >= 2 && length cs >= 2
 
 healthyParties :: [Party]
 healthyParties =
-  [ generateWith arbitrary i | i <- [1 .. 3]
+  [ generateWith arbitrary i | i <- [1 .. 4]
   ]
 
 propHasInitial :: (Tx, UTxO) -> Property
