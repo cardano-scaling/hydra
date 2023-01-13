@@ -59,7 +59,8 @@ healthyLookupUTxO =
   generateWith (genOneUTxOFor (Prelude.head healthyCardanoKeys)) 42
 
 data InitMutation
-  = MutateThreadTokenQuantity
+  = -- | Mint more than one ST and PTs.
+    MintTooManyTokens
   | MutateAddAnotherPT
   | MutateDropInitialOutput
   | MutateDropSeedInput
@@ -73,7 +74,7 @@ data ObserveInitMutation
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genInitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx 1
+    [ SomeMutation MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
     , SomeMutation MutateAddAnotherPT <$> addPTWithQuantity tx 1
     , SomeMutation MutateInitialOutputValue <$> do
         let outs = txOuts' tx

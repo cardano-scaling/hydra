@@ -325,16 +325,19 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         else
           map snd $
             filter ((/= i) . fst) $ zip [0 ..] es
+  -- FIXME: should also alter the redeemers
   RemoveInput i ->
-    ( alterTxIns (safeFilter (/= i)) tx
+    ( Tx body' wits
     , utxo
     )
    where
-    safeFilter fn xs =
-      let xs' = filter fn xs
-       in if xs' == xs
-            then error "RemoveInput did not remove any input."
-            else xs'
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+    ledgerInputs = Ledger.inputs ledgerBody
+    ledgerInputs' = Set.delete (toLedgerTxIn i) ledgerInputs
+    ledgerBody' = ledgerBody{Ledger.inputs = ledgerInputs'}
+    scriptData' = alterRedeemerFor ledgerInputs (toLedgerTxIn i) (const Nothing) scriptData
+    body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
+  -- TODO: DRY with alterTxIns or so
   AddInput i o ->
     ( Tx body' wits
     , UTxO $ Map.insert i o (UTxO.toMap utxo)
@@ -488,12 +491,19 @@ alterRedeemers fn = \case
     let newRedeemers = Map.mapWithKey fn redeemers
      in TxBodyScriptData dats (Ledger.Redeemers newRedeemers)
 
--- | Remove redeemer for given `TxIn` from the transaction's redeemers map.
+-- | Alter the redeemer for given `TxIn` from the transaction's redeemers map.
+-- If the update function yields 'Nothing', the redeemer pointer is removed.
+-- FIXME: This is broken for 'Nothing' as the indices will be off
 alterRedeemerFor ::
+  -- | All transaction inputs
   Set (Ledger.TxIn a) ->
+  -- | The transaction input to update.
   Ledger.TxIn a ->
+  -- | A function to update the corresponding redeemer.
   (ScriptData -> Maybe ScriptData) ->
+  -- | Original script data.
   TxBodyScriptData ->
+  -- | Resulting script data.
   TxBodyScriptData
 alterRedeemerFor initialInputs txIn fn = \case
   TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
@@ -507,20 +517,6 @@ alterRedeemerFor initialInputs txIn fn = \case
               Just sd' -> [(ptr, (toLedgerData sd', exUnits))]
           | otherwise = [(ptr, (sd, exUnits))]
      in TxBodyScriptData dats newRedeemers
-
-alterTxIns ::
-  ([TxIn] -> [TxIn]) ->
-  Tx ->
-  Tx
-alterTxIns fn (Tx body wits) =
-  Tx (ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity) wits
- where
-  ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-  inputs' = fn . fmap fromLedgerTxIn . toList $ Ledger.inputs ledgerBody
-  ledgerBody' =
-    ledgerBody
-      { Ledger.inputs = Set.fromList (toLedgerTxIn <$> inputs')
-      }
 
 -- | Apply some mapping function over a transaction's outputs.
 alterTxOuts ::
