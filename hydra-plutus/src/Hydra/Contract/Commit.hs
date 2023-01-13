@@ -87,9 +87,9 @@ type RedeemerType = CommitRedeemer
 --
 --   * spent in a transaction also consuming a v_head output
 --
---   * ST token is burned if the redeemer is 'ViaAbort'
+--   * ST is burned if the redeemer is 'ViaAbort'
 --
---   * ST token is present in the output if the redeemer is 'ViaCollectCom'
+--   * ST is present in the output if the redeemer is 'ViaCollectCom'
 validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
 validator (_party, _headScriptHash, _commit, headId) r ctx =
   case r of

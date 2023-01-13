@@ -119,9 +119,9 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
   traverseInputs commits = \case
     [] ->
       commits
-    TxInInfo{txInInfoResolved = input} : rest
-      | hasPT headCurrencySymbol input ->
-        case commitDatum txInfo input of
+    TxInInfo{txInInfoResolved = txOut} : rest
+      | hasPT headCurrencySymbol txOut ->
+        case commitDatum txInfo txOut of
           Just Commit{preSerializedOutput} ->
             traverseInputs
               (preSerializedOutput : commits)
