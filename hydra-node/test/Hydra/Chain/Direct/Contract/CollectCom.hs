@@ -30,6 +30,7 @@ import Hydra.Chain.Direct.Tx (
   mkCommitDatum,
   mkHeadId,
   mkHeadOutput,
+  mkInitialOutput,
  )
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
@@ -54,27 +55,18 @@ healthyCollectComTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput) <> UTxO (fst <$> commits)
+    UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput) <> UTxO (txOut <$> healthyCommits)
 
   tx =
     collectComTx
       testNetworkId
       somePartyCardanoVerificationKey
       initialThreadOutput
-      commits
+      ((txOut &&& scriptData) <$> healthyCommits)
       (mkHeadId testPolicyId)
 
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties
-
-  committedUTxO =
-    generateWith
-      (replicateM (length healthyParties) genCommittableTxOut)
-      42
-
-  commits =
-    (uncurry healthyCommitOutput <$> zip healthyParties committedUTxO)
-      & Map.fromList
 
   headDatum = fromPlutusData $ toData healthyCollectComInitialDatum
 
@@ -84,6 +76,16 @@ healthyCollectComTx =
       , initialParties = healthyOnChainParties
       , initialContestationPeriod = healthyContestationPeriod
       }
+
+healthyCommits :: Map TxIn HealthyCommit
+healthyCommits =
+  (uncurry healthyCommitOutput <$> zip healthyParties committedUTxO)
+    & Map.fromList
+ where
+  committedUTxO =
+    generateWith
+      (replicateM (length healthyParties) genCommittableTxOut)
+      42
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
 healthyContestationPeriod =
@@ -123,21 +125,29 @@ genCommittableTxOut :: Gen (TxIn, TxOut CtxUTxO)
 genCommittableTxOut =
   Prelude.head . UTxO.pairs <$> (genAdaOnlyUTxO `suchThat` (\u -> length u > 1))
 
+data HealthyCommit = HealthyCommit
+  { cardanoKey :: VerificationKey PaymentKey
+  , txOut :: TxOut CtxUTxO
+  , scriptData :: ScriptData
+  }
+  deriving (Show)
+
 healthyCommitOutput ::
   Party ->
   (TxIn, TxOut CtxUTxO) ->
-  (TxIn, (TxOut CtxUTxO, ScriptData))
+  (TxIn, HealthyCommit)
 healthyCommitOutput party committed =
   ( txIn
-  ,
-    ( toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatum commitDatum) ReferenceScriptNone)
-    , fromPlutusData (toData commitDatum)
-    )
+  , HealthyCommit
+      { cardanoKey
+      , txOut = toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatum commitDatum) ReferenceScriptNone)
+      , scriptData = fromPlutusData (toData commitDatum)
+      }
   )
  where
   txIn = genTxIn `genForParty` party
 
-  cardanoVk = genVerificationKey `genForParty` party
+  cardanoKey = genVerificationKey `genForParty` party
 
   commitScript =
     fromPlutusScript Commit.validatorScript
@@ -147,17 +157,17 @@ healthyCommitOutput party committed =
     headValue
       <> (txOutValue . snd) committed
       <> valueFromList
-        [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
+        [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoKey), 1)
         ]
   commitDatum =
     mkCommitDatum party Head.validatorHash (Just committed) (toPlutusCurrencySymbol $ headPolicyId healthyHeadInput)
 
 data CollectComMutation
   = MutateOpenUTxOHash
+  | -- | Test that collectCom cannot collect from an initial UTxO.
+    MutateCommitToInitial
   | MutateHeadTransition
-  | -- | NOTE: We want to ccheck CollectCom validator checks there's exactly the
-    -- expected number of commits. This is needed because the Head protocol
-    -- requires to ensure every party has a chance to commit.
+  | -- | Test that every party has a chance to commit.
     MutateNumberOfParties
   | MutateHeadId
   | MutateRequiredSigner
@@ -199,6 +209,9 @@ genCollectComMutation (tx, _utxo) =
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation MutateCommitToInitial <$> do
+        (txIn, HealthyCommit{cardanoKey}) <- elements $ Map.toList healthyCommits
+        pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testPolicyId cardanoKey) Nothing
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

@@ -93,14 +93,13 @@ healthyCommits :: [UTxOWithScript]
   -- TODO: Refactor this to be an AbortTx generator because we actually want
   -- to test healthy abort txs with varied combinations of inital and commit
   -- outputs
-  generateWith (genAbortableOutputs healthyParties `suchThat` thereIsAtLeastOneCommit) 42
-
-thereIsAtLeastOneCommit :: ([UTxOWithScript], [UTxOWithScript]) -> Bool
-thereIsAtLeastOneCommit (is, cs) = not (null cs) && not (null is)
+  generateWith (genAbortableOutputs healthyParties `suchThat` thereIsTwoEach) 42
+ where
+  thereIsTwoEach (is, cs) = length is >= 2 && length cs >= 2
 
 healthyParties :: [Party]
 healthyParties =
-  [ generateWith arbitrary i | i <- [1 .. 3]
+  [ generateWith arbitrary i | i <- [1 .. 4]
   ]
 
 propHasInitial :: (Tx, UTxO) -> Property
@@ -136,6 +135,8 @@ data AbortMutation
   | -- Spend some abortable output from a different Head
     -- e.g. replace a commit by another commit from a different Head.
     UseInputFromOtherHead
+  | -- | Simulate two identical utxos being committed
+    IdenticalCommits
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -168,6 +169,12 @@ genAbortMutation (tx, _utxo) =
             [ ChangeInput input (replacePolicyIdWith testPolicyId otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
             , ChangeMintedValue (removePTFromMintedValue output tx)
             ]
+    , SomeMutation IdenticalCommits <$> do
+        (_input, output, _d) <- elements healthyCommits
+        newInput <- arbitrary
+        -- XXX: Ideally we should need to modify the PT to simulate a proper new commit
+        -- FIXME: this shouldn't be green
+        pure $ AddInput newInput output
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value

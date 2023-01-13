@@ -20,7 +20,7 @@ import Plutus.V2.Ledger.Api (
   Datum (..),
   Redeemer (Redeemer),
   Script,
-  ScriptContext (ScriptContext, scriptContextTxInfo),
+  ScriptContext (scriptContextTxInfo),
   TxInfo (txInfoMint, txInfoOutputs),
   TxOutRef,
   Validator (getValidator),
@@ -30,7 +30,6 @@ import Plutus.V2.Ledger.Api (
  )
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx
-import qualified PlutusTx.Builtins as Builtins
 import qualified Prelude as Haskell
 
 data CommitRedeemer
@@ -88,21 +87,16 @@ type RedeemerType = CommitRedeemer
 --
 --   * spent in a transaction also consuming a v_head output
 --
---   * on abort, redistribute comitted utxo
+--   * ST is burned if the redeemer is 'ViaAbort'
+--
+--   * ST is present in the output if the redeemer is 'ViaCollectCom'
 validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
-validator (_party, _headScriptHash, commit, headId) r ctx@ScriptContext{scriptContextTxInfo = txInfo} =
+validator (_party, _headScriptHash, _commit, headId) r ctx =
   case r of
+    -- NOTE: The reimbursement of the committed output 'commit' is
+    -- delegated to the 'head' script who has more information to do it.
     ViaAbort ->
       traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
-        && case commit of
-          Nothing -> True
-          Just Commit{preSerializedOutput} ->
-            traceIfFalse
-              "cannot find committed output"
-              -- There should be an output in the transaction corresponding to this preSerializedOutput
-              (preSerializedOutput `elem` (Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo))
-    -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
-    -- delegated to the 'CollectCom' script who has more information to do it.
     ViaCollectCom ->
       traceIfFalse "ST is missing in the output" (hasST headId outputs)
  where

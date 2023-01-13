@@ -95,6 +95,7 @@ checkAbort ::
 checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol parties =
   mustBurnAllHeadTokens
     && mustBeSignedByParticipant ctx headCurrencySymbol
+    && mustReimburseCommittedUTxO
  where
   mustBurnAllHeadTokens =
     traceIfFalse "burnt token number mismatch" $
@@ -106,6 +107,34 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
     case Map.lookup headCurrencySymbol minted of
       Nothing -> 0
       Just tokenMap -> negate $ sum tokenMap
+
+  -- FIXME: This is prone to identical commits only being reimbursed once.
+  mustReimburseCommittedUTxO =
+    traceIfFalse "committed UTxO not reimbursed" $
+      all (`elem` serialisedOutputs) committedUTxOs
+
+  serialisedOutputs = Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo
+
+  committedUTxOs = traverseInputs [] (txInfoInputs txInfo)
+
+  traverseInputs commits = \case
+    [] ->
+      commits
+    TxInInfo{txInInfoResolved = txOut} : rest
+      | hasPT headCurrencySymbol txOut ->
+        case commitDatum txInfo txOut of
+          Just Commit{preSerializedOutput} ->
+            traverseInputs
+              (preSerializedOutput : commits)
+              rest
+          Nothing ->
+            traverseInputs
+              commits
+              rest
+      | otherwise ->
+        traverseInputs
+          commits
+          rest
 
 -- | On-Chain verification for 'CollectCom' transition. It verifies that:
 --
@@ -167,8 +196,8 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
         traverseInputs
           (fuel, commits, nCommits)
           rest
-      | hasPT txInInfoResolved ->
-        case commitDatum txInInfoResolved of
+      | hasPT headId txInInfoResolved ->
+        case commitDatum txInfo txInInfoResolved of
           Just commit@Commit{} ->
             traverseInputs
               (fuel, commit : commits, succ nCommits)
@@ -183,20 +212,18 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
           rest
 
   isHeadOutput txOut = txOutAddress txOut == headAddress
-
-  hasPT txOut =
-    let pts = findParticipationTokens headId (txOutValue txOut)
-     in length pts == 1
-
-  commitDatum :: TxOut -> Maybe Commit
-  commitDatum o = do
-    let d = findTxOutDatum txInfo o
-    case fromBuiltinData @Commit.DatumType $ getDatum d of
-      Just (_p, _, mCommit, _headId) ->
-        mCommit
-      Nothing ->
-        traceError "commitDatum failed fromBuiltinData"
 {-# INLINEABLE checkCollectCom #-}
+
+-- | Try to find the commit datum in the input and
+-- if it is there return the commited utxo
+commitDatum :: TxInfo -> TxOut -> Maybe Commit
+commitDatum txInfo input = do
+  let datum = findTxOutDatum txInfo input
+  case fromBuiltinData @Commit.DatumType $ getDatum datum of
+    Just (_party, _validatorHash, commit, _headId) ->
+      commit
+    Nothing -> Nothing
+{-# INLINEABLE commitDatum #-}
 
 -- | The close validator must verify that:
 --   * Check that the closing tx validity is bounded by contestation period
@@ -429,6 +456,7 @@ mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
 mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =
   checkOutputDatumAndValue [] (txInfoOutputs txInfo)
  where
+  lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
   checkOutputDatumAndValue xs = \case
     [] ->
       traceError "no continuing head output"
@@ -447,8 +475,6 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
         txOutValue o == lovelaceValue changeValue
     _ ->
       traceError "more than 2 outputs"
-
-  lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
 {-# INLINEABLE mustContinueHeadWith #-}
 
 findTxOutDatum :: TxInfo -> TxOut -> Datum
@@ -474,6 +500,13 @@ hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
   sha2_256 . foldMap (Builtins.serialiseData . toBuiltinData)
 {-# INLINEABLE hashTxOuts #-}
+
+-- | Check if 'TxOut' contains the PT token.
+hasPT :: CurrencySymbol -> TxOut -> Bool
+hasPT headCurrencySymbol txOut =
+  let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
+   in length pts == 1
+{-# INLINEABLE hasPT #-}
 
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber utxoHash sigs =
