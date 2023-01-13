@@ -244,6 +244,8 @@ data Mutation
     RemoveOutput Word
   | -- | Drops the given input from the transaction's inputs
     RemoveInput TxIn
+  | -- | Adds given UTxO to the transaction's inputs and UTxO context.
+    AddInput TxIn (TxOut CtxUTxO)
   | -- | Change an input's 'TxOut' to something else.
     -- This mutation alters the redeemers of the transaction to ensure
     -- any matching redeemer for given input matches the new redeemer, otherwise
@@ -331,6 +333,15 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
        in if xs' == xs
             then error "RemoveInput did not remove any input."
             else xs'
+  AddInput i o ->
+    ( Tx body' wits
+    , UTxO $ Map.insert i o (UTxO.toMap utxo)
+    )
+   where
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+    ledgerInputs' = Ledger.inputs ledgerBody <> Set.singleton (toLedgerTxIn i)
+    ledgerBody' = ledgerBody{Ledger.inputs = ledgerInputs'}
+    body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
   ChangeInput txIn txOut maybeRedeemer ->
     ( Tx body' wits
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
