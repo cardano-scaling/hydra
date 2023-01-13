@@ -41,7 +41,7 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (toBuiltin, toData)
+import Plutus.V2.Ledger.Api (PubKeyHash, toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
@@ -108,6 +108,7 @@ healthyCollectComInitialDatum =
     { contestationPeriod = healthyContestationPeriod
     , parties = healthyOnChainParties
     , headId = toPlutusCurrencySymbol testPolicyId
+    , cardanoVkeys = healthyCardanoKeys
     }
 
 healthyOnChainParties :: [OnChain.Party]
@@ -120,6 +121,13 @@ healthyParties = flip generateWith 42 $ do
   bob <- arbitrary
   carol <- arbitrary
   pure [alice, bob, carol]
+
+healthyCardanoKeys :: [PubKeyHash]
+healthyCardanoKeys = flip generateWith 42 $ do
+  aliceKey <- arbitrary
+  bobKey <- arbitrary
+  carolKey <- arbitrary
+  pure [aliceKey, bobKey, carolKey]
 
 genCommittableTxOut :: Gen (TxIn, TxOut CtxUTxO)
 genCommittableTxOut =
@@ -194,9 +202,10 @@ genCollectComMutation (tx, _utxo) =
         -- be bothered to decode/lookup the current one.
         c <- arbitrary
         moreParties <- (: healthyOnChainParties) <$> arbitrary
+        cardanoVKeys <- arbitrary
         pure $
           Changes
-            [ ChangeHeadDatum $ Head.Initial c moreParties (toPlutusCurrencySymbol testPolicyId)
+            [ ChangeHeadDatum $ Head.Initial c moreParties (toPlutusCurrencySymbol testPolicyId) cardanoVKeys
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties headTxOut
             ]
     , SomeMutation Nothing MutateHeadId <$> do

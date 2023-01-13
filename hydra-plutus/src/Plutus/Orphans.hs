@@ -6,9 +6,11 @@ module Plutus.Orphans where
 
 import Hydra.Prelude
 
-import Plutus.V1.Ledger.Api (
+import qualified Data.ByteString as BS
+import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   POSIXTime (..),
+  PubKeyHash (PubKeyHash),
   TokenName,
   UpperBound (..),
   Value,
@@ -16,6 +18,7 @@ import Plutus.V1.Ledger.Api (
  )
 import qualified PlutusTx.AssocMap as AssocMap
 import PlutusTx.Prelude (BuiltinByteString, toBuiltin)
+import Test.QuickCheck (vectorOf)
 import Test.QuickCheck.Instances.ByteString ()
 
 instance Arbitrary BuiltinByteString where
@@ -47,3 +50,6 @@ instance FromJSON POSIXTime where
 
 instance Arbitrary a => Arbitrary (UpperBound a) where
   arbitrary = upperBound <$> arbitrary
+
+instance Arbitrary PubKeyHash where
+  arbitrary = PubKeyHash . toBuiltin . BS.pack <$> vectorOf 28 arbitrary

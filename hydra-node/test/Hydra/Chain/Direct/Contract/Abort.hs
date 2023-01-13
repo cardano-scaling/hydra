@@ -34,7 +34,7 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Test.Hydra.Fixture (cperiod)
-import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchThat)
+import Test.QuickCheck (Property, choose, counterexample, elements, listOf, oneof, suchThat)
 
 --
 -- AbortTx
@@ -67,7 +67,7 @@ healthyAbortTx =
 
   headTokenScript = mkHeadTokenScript testSeedInput
 
-  headOutput = mkHeadOutputInitial testNetworkId testPolicyId healthyHeadParameters
+  headOutput = mkHeadOutputInitial testNetworkId testPolicyId healthyHeadParameters healthyCardanoKeys
 
   headDatum = unsafeGetDatum headOutput
 
@@ -99,6 +99,11 @@ healthyCommits :: [UTxOWithScript]
 
 healthyParties :: [Party]
 healthyParties =
+  [ generateWith arbitrary i | i <- [1 .. 4]
+  ]
+
+healthyCardanoKeys :: [VerificationKey PaymentKey]
+healthyCardanoKeys =
   [ generateWith arbitrary i | i <- [1 .. 4]
   ]
 
@@ -143,7 +148,8 @@ genAbortMutation (tx, _utxo) =
     [ SomeMutation Nothing MutateParties . ChangeHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
-        pure $ Head.Initial c (partyToChain <$> moreParties) (toPlutusCurrencySymbol $ headPolicyId testSeedInput)
+        cardanoKeys <- arbitrary
+        pure $ Head.Initial c (partyToChain <$> moreParties) (toPlutusCurrencySymbol $ headPolicyId testSeedInput) cardanoKeys
     , SomeMutation Nothing DropOneCommitOutput
         . RemoveOutput
         <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
@@ -154,10 +160,12 @@ genAbortMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation Nothing MutateHeadId <$> do
+        cardanoKeys <- listOf genVerificationKey
         illedHeadResolvedInput <-
           mkHeadOutputInitial testNetworkId
             <$> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure healthyHeadParameters
+            <*> pure cardanoKeys
         return $ ChangeInput healthyHeadInput (toUTxOContext illedHeadResolvedInput) (Just $ toScriptData Head.Abort)
     , SomeMutation Nothing UseInputFromOtherHead <$> do
         (input, output, _) <- elements healthyInitials
