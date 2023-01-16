@@ -325,36 +325,20 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         else
           map snd $
             filter ((/= i) . fst) $ zip [0 ..] es
-  -- FIXME: should also alter the redeemers
-  RemoveInput i ->
-    ( Tx body' wits
+  RemoveInput txIn ->
+    ( alterTxIns (filter (\(i, _) -> i /= txIn)) tx
     , utxo
     )
    where
-    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-    ledgerInputs = Ledger.inputs ledgerBody
-    ledgerInputs' = Set.delete (toLedgerTxIn i) ledgerInputs
-    ledgerBody' = ledgerBody{Ledger.inputs = ledgerInputs'}
-    scriptData' = alterRedeemerFor ledgerInputs (toLedgerTxIn i) (const Nothing) scriptData
-    body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
-  -- TODO: DRY with alterTxIns or so
+  -- TODO: add redeemer to 'AddInput'
   AddInput i o ->
-    ( Tx body' wits
+    ( alterTxIns ((i, Nothing) :) tx
     , UTxO $ Map.insert i o (UTxO.toMap utxo)
     )
-   where
-    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-    ledgerInputs' = Ledger.inputs ledgerBody <> Set.singleton (toLedgerTxIn i)
-    ledgerBody' = ledgerBody{Ledger.inputs = ledgerInputs'}
-    body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
   ChangeInput txIn txOut maybeRedeemer ->
-    ( Tx body' wits
+    ( alterTxIns undefined tx
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
     )
-   where
-    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-    redeemers = alterRedeemerFor (Ledger.inputs ledgerBody) (toLedgerTxIn txIn) (const maybeRedeemer) scriptData
-    body' = ShelleyTxBody ledgerBody scripts redeemers mAuxData scriptValidity
   ChangeOutput ix txOut ->
     ( alterTxOuts replaceAtIndex tx
     , utxo
@@ -519,28 +503,44 @@ alterRedeemerFor initialInputs txIn fn = \case
         Just sd' -> Map.update (const $ Just (toLedgerData sd', exUnits)) ptr m
       else m
 
--- | Alter the tx inputs in such way that redeemer pointer stay consistent.
+-- | Alter the tx inputs in such way that redeemer pointer stay consistent. A
+-- value of 'Nothing' for the redeemr means that this is not a script input.
+-- FIXME: should also alter the redeemers
 alterTxIns ::
-  ([TxIn] -> [TxIn]) ->
+  ([(TxIn, Maybe ScriptData)] -> [(TxIn, Maybe ScriptData)]) ->
   Tx ->
   Tx
 alterTxIns fn tx =
   Tx body' wits
  where
   body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
+
   ledgerBody' = ledgerBody{Ledger.inputs = inputs'}
 
-  inputs' =
-    Set.fromList
-      . fmap toLedgerTxIn
-      . fn
-      . fmap fromLedgerTxIn
-      . toList
-      $ Ledger.inputs ledgerBody
+  inputs' = Set.fromList $ (toLedgerTxIn . fst) <$> newSortedInputs
 
-  scriptData' = scriptData
+  scriptData' = scriptData -- TODO: implement using  newSortedInputs
+
+  -- NOTE: This needs to be ordered, such that we can calculate the redeemer
+  -- pointers correctly.
+  newSortedInputs =
+    sortOn fst $
+      fn
+        . resolveRedeemers
+        . fmap fromLedgerTxIn
+        . toList
+        $ Ledger.inputs ledgerBody
+
+  -- resolveRedeemers :: [TxIn] -> [(TxIn, ScriptData)]
+  -- TODO: implement properly using redeemersMap
+  resolveRedeemers = fmap (,Just $ ScriptDataNumber 42)
+
+  redeemersMap = case scriptData of
+    TxBodyNoScriptData -> mempty
+    TxBodyScriptData _ (Ledger.Redeemers r) -> r
 
   ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+
   Tx body wits = tx
 
 -- | Apply some mapping function over a transaction's outputs.
