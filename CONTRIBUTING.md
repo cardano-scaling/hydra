@@ -11,7 +11,7 @@ your contribution gets accepted, making you our newest Hydra contributor!
 
 ## Ask for help
 
-See [`SUPPORT.md`](SUPPORT.md), should you have any questions or need some help in getting set up.
+See [`SUPPORT.md`](SUPPORT.md) should you have any questions or need some help in getting set up.
 
 ## Your first contribution 
 
