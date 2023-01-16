@@ -9,15 +9,9 @@ code itself.
 This document contains guidelines to help you get started and how to make sure
 your contribution gets accepted, making you our newest Hydra contributor!
 
-## Communication channels
+## Ask for help
 
-Should you have any questions or need some help in getting set up, you can use
-these communication channels to reach the Hydra team and get answers in a way
-where others can benefit from it as well:
-
-- #ask-hydra on the IOG [Discord server](https://discord.gg/Qq5vNTg9PT)
-- Github [Discussions](https://github.com/input-output-hk/hydra/discussions)
-- Cardano [StackExchange](https://cardano.stackexchange.com/) using the `hydra` tag
+See [`SUPPORT.md`](SUPPORT.md) should you have any questions or need some help in getting set up.
 
 ## Your first contribution 
 
@@ -28,7 +22,7 @@ Contributing to the documentation, its translation, reporting bugs or proposing 
 We host our documentation / user manual as a website [here](https://input-output-hk.github.io/hydra).
 
 Each page has an "Edit this page" button which should take you to the source
-file containing the markup. Should you would want to extend the documentation or
+file containing the markup. Should you want to extend the documentation or
 find some errors, please file an issue pointing to the mistake or even better,
 create a pull request with the changes directly!
 
@@ -36,13 +30,9 @@ The documentation is also available in multiple languages and we can easily add 
 
 ### Bug reports
 
-[Submit an issue](https://github.com/input-output-hk/hydra/issues/new/choose) using the "Bug report :bug:" template.
-
-For bug reports, it's very important to explain
-* what version you used,
-* steps to reproduce (or steps you took),
-* what behavior you saw (ideally supported by logs), and
-* what behavior you expected.
+[Submit an issue](https://github.com/input-output-hk/hydra/issues/new/choose)
+using the "Bug report :bug:" template. It's very important that you fill the
+template as thoroughly as possible.
 
 ### Feature ideas
 
