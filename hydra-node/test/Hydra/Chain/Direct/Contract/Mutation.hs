@@ -508,7 +508,7 @@ alterRedeemerFor initialInputs txIn fn = \case
 
 -- | Alter the tx inputs in such way that redeemer pointer stay consistent. A
 -- value of 'Nothing' for the redeemr means that this is not a script input.
--- FIXME: should also alter the redeemers
+-- NOTE: This will reset all the execution budgets to 0.
 alterTxIns ::
   ([(TxIn, Maybe ScriptData)] -> [(TxIn, Maybe ScriptData)]) ->
   Tx ->
@@ -522,7 +522,17 @@ alterTxIns fn tx =
 
   inputs' = Set.fromList $ (toLedgerTxIn . fst) <$> newSortedInputs
 
-  scriptData' = scriptData -- TODO: implement using  newSortedInputs
+  scriptData' = TxBodyScriptData dats redeemers'
+
+  redeemers' = Ledger.Redeemers $ rebuiltSpendingRedeemers <> nonSpendingRedeemers
+
+  nonSpendingRedeemers =
+    Map.filterWithKey (\(Ledger.RdmrPtr tag _) _ -> tag /= Ledger.Spend) redeemersMap
+
+  rebuiltSpendingRedeemers = Map.fromList $
+    flip mapMaybe (zip [0 ..] newSortedInputs) $ \(i, (_, mRedeemer)) ->
+      mRedeemer <&> \d ->
+        (Ledger.RdmrPtr Ledger.Spend i, (toLedgerData d, Ledger.ExUnits 0 0))
 
   -- NOTE: This needs to be ordered, such that we can calculate the redeemer
   -- pointers correctly.
@@ -541,9 +551,9 @@ alterTxIns fn tx =
         Nothing -> (txIn, Nothing)
         Just (redeemerData, _exUnits) -> (txIn, Just $ fromLedgerData redeemerData)
 
-  redeemersMap = case scriptData of
-    TxBodyNoScriptData -> mempty
-    TxBodyScriptData _ (Ledger.Redeemers r) -> r
+  (dats, redeemersMap) = case scriptData of
+    TxBodyNoScriptData -> (mempty, mempty)
+    TxBodyScriptData d (Ledger.Redeemers r) -> (d, r)
 
   ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
 
