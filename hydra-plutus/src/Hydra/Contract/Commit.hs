@@ -103,7 +103,7 @@ validator (_party, _headScriptHash, _commit, headId) r ctx =
   headOutputValue =
     case txInfoOutputs (scriptContextTxInfo ctx) of
       [] -> mempty
-      (headOutput : _) -> txOutValue headOutput
+      (headOutput : _otherOutputs) -> txOutValue headOutput
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
