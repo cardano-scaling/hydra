@@ -98,9 +98,12 @@ validator (_party, _headScriptHash, _commit, headId) r ctx =
     ViaAbort ->
       traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
     ViaCollectCom ->
-      traceIfFalse "ST is missing in the output" (hasST headId outputs)
+      traceIfFalse "ST is missing in the output" (hasST headId headOutputValue)
  where
-  outputs = foldMap txOutValue $ txInfoOutputs $ scriptContextTxInfo ctx
+  headOutputValue =
+    case txInfoOutputs (scriptContextTxInfo ctx) of
+      [] -> mempty
+      (headOutput : _) -> txOutValue headOutput
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
