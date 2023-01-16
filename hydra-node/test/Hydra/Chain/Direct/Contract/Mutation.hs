@@ -329,16 +329,19 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ( alterTxIns (filter (\(i, _) -> i /= txIn)) tx
     , utxo
     )
-   where
   -- TODO: add redeemer to 'AddInput'
   AddInput i o ->
     ( alterTxIns ((i, Nothing) :) tx
     , UTxO $ Map.insert i o (UTxO.toMap utxo)
     )
-  ChangeInput txIn txOut maybeRedeemer ->
-    ( alterTxIns undefined tx
+  ChangeInput txIn txOut newRedeemer ->
+    ( alterTxIns replaceRedeemer tx
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
     )
+   where
+    replaceRedeemer =
+      map $ \(txIn', mRedeemer) ->
+        if txIn' == txIn then (txIn, newRedeemer) else (txIn', mRedeemer)
   ChangeOutput ix txOut ->
     ( alterTxOuts replaceAtIndex tx
     , utxo
