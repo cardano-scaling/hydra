@@ -534,9 +534,12 @@ alterTxIns fn tx =
         . toList
         $ Ledger.inputs ledgerBody
 
-  -- resolveRedeemers :: [TxIn] -> [(TxIn, ScriptData)]
-  -- TODO: implement properly using redeemersMap
-  resolveRedeemers = fmap (,Just $ ScriptDataNumber 42)
+  resolveRedeemers :: [TxIn] -> [(TxIn, Maybe ScriptData)]
+  resolveRedeemers txInputs =
+    zip txInputs [0 ..] <&> \(txIn, i) ->
+      case Map.lookup (Ledger.RdmrPtr Ledger.Spend i) redeemersMap of
+        Nothing -> (txIn, Nothing)
+        Just (redeemerData, _exUnits) -> (txIn, Just $ fromLedgerData redeemerData)
 
   redeemersMap = case scriptData of
     TxBodyNoScriptData -> mempty
