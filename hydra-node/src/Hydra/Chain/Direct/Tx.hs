@@ -342,8 +342,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
   headRedeemer =
     toScriptData
       Head.Close
-        { snapshotNumber
-        , utxoHash = toBuiltin utxoHashBytes
+        { utxoHash = toBuiltin utxoHashBytes
         , signature
         }
 
@@ -769,11 +768,11 @@ observeCloseTx utxo tx = do
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Open{parties}, Head.Close{snapshotNumber = onChainSnapshotNumber}) -> do
+    (Head.Open{parties}, Head.Close{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
-      closeContestationDeadline <- case fromData (toPlutusData newHeadDatum) of
-        Just Head.Closed{contestationDeadline} -> pure contestationDeadline
+      (closeContestationDeadline, onChainSnapshotNumber) <- case fromData (toPlutusData newHeadDatum) of
+        Just Head.Closed{contestationDeadline, snapshotNumber} -> pure (contestationDeadline, snapshotNumber)
         _ -> Nothing
       pure
         CloseObservation

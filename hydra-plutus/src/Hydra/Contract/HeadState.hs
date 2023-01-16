@@ -47,8 +47,7 @@ PlutusTx.unstableMakeIsData ''State
 data Input
   = CollectCom
   | Close
-      { snapshotNumber :: SnapshotNumber
-      , utxoHash :: Hash
+      { utxoHash :: Hash
       , signature :: [Signature]
       }
   | Contest

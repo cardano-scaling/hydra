@@ -71,8 +71,8 @@ headValidator oldState input ctx =
       checkCollectCom ctx (contestationPeriod, parties, headId)
     (Initial{parties, headId}, Abort) ->
       checkAbort ctx headId parties
-    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
-      checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod headId
+    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{utxoHash = closedUtxoHash, signature}) ->
+      checkClose ctx parties initialUtxoHash closedUtxoHash signature contestationPeriod headId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId}, Contest{utxoHash = contestUtxoHash, signature}) ->
       checkContest ctx contestationDeadline parties closedSnapshotNumber contestUtxoHash signature headId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
@@ -249,13 +249,12 @@ checkClose ::
   ScriptContext ->
   [Party] ->
   BuiltinByteString ->
-  SnapshotNumber ->
   BuiltinByteString ->
   [Signature] ->
   ContestationPeriod ->
   CurrencySymbol ->
   Bool
-checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod headPolicyId =
+checkClose ctx parties initialUtxoHash closedUtxoHash sig cperiod headPolicyId =
   hasBoundedValidity
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
@@ -266,8 +265,24 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
+  closedSnapshotNumber =
+    case fromBuiltinData @DatumType $ getDatum continuingDatum of
+      Just Closed{snapshotNumber} -> snapshotNumber
+      _ -> traceError "wrong state in output datum"
+
+  continuingDatum =
+    case ownDatum of
+      NoOutputDatum -> traceError "no output datum"
+      OutputDatumHash dh -> fromMaybe (traceError "datum not found") $ findDatum dh (scriptContextTxInfo ctx)
+      OutputDatum d -> d
+   where
+    ownDatum =
+      case getContinuingOutputs ctx of
+        [o] -> txOutDatum o
+        _ -> traceError "expected only one head output"
+
   checkSnapshot
-    | snapshotNumber == 0 =
+    | closedSnapshotNumber == 0 =
       let expectedOutputDatum =
             Closed
               { parties
@@ -277,16 +292,16 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
               , headId = headPolicyId
               }
        in checkHeadOutputDatum ctx expectedOutputDatum
-    | snapshotNumber > 0 =
+    | closedSnapshotNumber > 0 =
       let expectedOutputDatum =
             Closed
               { parties
-              , snapshotNumber
+              , snapshotNumber = closedSnapshotNumber
               , utxoHash = closedUtxoHash
               , contestationDeadline = makeContestationDeadline cperiod ctx
               , headId = headPolicyId
               }
-       in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
+       in verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
             && checkHeadOutputDatum ctx expectedOutputDatum
     | otherwise = traceError "negative snapshot number"
 

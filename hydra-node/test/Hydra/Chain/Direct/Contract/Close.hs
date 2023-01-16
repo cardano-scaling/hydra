@@ -25,9 +25,9 @@ import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod, slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber (UnsafeSnapshotNumber))
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (toBuiltin, toData)
+import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -139,6 +139,20 @@ healthySignature number = aggregate [sign sk snapshot | sk <- healthySigningKeys
  where
   snapshot = healthySnapshot{number}
 
+healthyContestationDeadline :: UTCTime
+healthyContestationDeadline =
+  addUTCTime
+    (fromInteger healthyContestationPeriodSeconds)
+    (slotNoToUTCTime healthySlotNo)
+
+healthyClosedUTxOHash :: BuiltinByteString
+healthyClosedUTxOHash =
+  toBuiltin $ hashUTxO @Tx healthyClosedUTxO
+
+healthyClosedUTxO :: UTxO
+healthyClosedUTxO =
+  genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
+
 data CloseMutation
   = MutateSignatureButNotSnapshotNumber
   | MutateSnapshotNumberButNotSignature
@@ -160,20 +174,37 @@ genCloseMutation (tx, _utxo) =
   -- anywhere after changing this and can be moved into the closeTx
   oneof
     [ SomeMutation Nothing MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        closeRedeemer (number healthySnapshot) <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-    , SomeMutation Nothing MutateSnapshotNumberButNotSignature . ChangeHeadRedeemer <$> do
-        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
-        pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
-    , SomeMutation Nothing MutateSnapshotToIllFormedValue . ChangeHeadRedeemer <$> do
+        closeRedeemer <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+    , SomeMutation Nothing MutateSnapshotNumberButNotSignature . ChangeHeadDatum <$> do
+        (UnsafeSnapshotNumber mutatedSnapshotNumber) <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
+        pure $
+          Head.Closed
+            { snapshotNumber = toInteger mutatedSnapshotNumber
+            , utxoHash = healthyClosedUTxOHash
+            , parties = healthyOnChainParties
+            , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+            , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+            }
+    , SomeMutation Nothing MutateSnapshotToIllFormedValue <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
         let mutatedSignature =
               aggregate [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthySigningKeys]
-        pure
-          Head.Close
-            { snapshotNumber = mutatedSnapshotNumber
-            , signature = toPlutusSignatures mutatedSignature
-            , utxoHash = ""
-            }
+        pure $
+          Changes
+            [ ChangeHeadDatum $
+                Head.Closed
+                  { snapshotNumber = mutatedSnapshotNumber
+                  , utxoHash = healthyClosedUTxOHash
+                  , parties = healthyOnChainParties
+                  , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+                  , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+                  }
+            , ChangeHeadRedeemer $
+                Head.Close
+                  { signature = toPlutusSignatures mutatedSignature
+                  , utxoHash = ""
+                  }
+            ]
     , SomeMutation Nothing MutateParties . ChangeHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $
@@ -213,10 +244,9 @@ genCloseMutation (tx, _utxo) =
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
 
-  closeRedeemer snapshotNumber sig =
+  closeRedeemer sig =
     Head.Close
-      { snapshotNumber = toInteger snapshotNumber
-      , signature = toPlutusSignatures sig
+      { signature = toPlutusSignatures sig
       , utxoHash = ""
       }
 

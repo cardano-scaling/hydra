@@ -178,7 +178,7 @@ genCollectComMutation (tx, _utxo) =
   oneof
     [ SomeMutation Nothing MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
     , SomeMutation Nothing MutateHeadTransition <$> do
-        changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
+        changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close . toBuiltin <$> genHash <*> arbitrary)
         differencCurrencySymbol <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
         changeDatum <-
           ChangeHeadDatum
