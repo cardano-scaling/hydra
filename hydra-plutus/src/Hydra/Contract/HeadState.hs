@@ -51,8 +51,7 @@ data Input
       , signature :: [Signature]
       }
   | Contest
-      { utxoHash :: Hash
-      , signature :: [Signature]
+      { signature :: [Signature]
       }
   | Abort
   | Fanout {numberOfFanoutOutputs :: Integer}

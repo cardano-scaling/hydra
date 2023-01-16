@@ -73,8 +73,8 @@ headValidator oldState input ctx =
       checkAbort ctx headId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{utxoHash = closedUtxoHash, signature}) ->
       checkClose ctx parties initialUtxoHash closedUtxoHash signature contestationPeriod headId
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId}, Contest{utxoHash = contestUtxoHash, signature}) ->
-      checkContest ctx contestationDeadline parties closedSnapshotNumber contestUtxoHash signature headId
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId}, Contest{signature}) ->
+      checkContest ctx contestationDeadline parties closedSnapshotNumber signature headId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
     _ ->
@@ -335,12 +335,11 @@ checkContest ::
   [Party] ->
   -- | Snapshot number of the closed state.
   SnapshotNumber ->
-  BuiltinByteString ->
   [Signature] ->
   -- | Head id
   CurrencySymbol ->
   Bool
-checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber contestUtxoHash sig headPolicyId =
+checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber sig headPolicyId =
   mustBeNewer
     && mustBeMultiSigned
     && checkHeadOutputDatum
@@ -353,9 +352,9 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
-  contestSnapshotNumber =
+  (contestSnapshotNumber, contestUtxoHash) =
     case fromBuiltinData @DatumType $ getDatum continuingDatum of
-      Just Closed{snapshotNumber} -> snapshotNumber
+      Just Closed{snapshotNumber, utxoHash} -> (snapshotNumber, utxoHash)
       _ -> traceError "wrong state in output datum"
 
   continuingDatum =

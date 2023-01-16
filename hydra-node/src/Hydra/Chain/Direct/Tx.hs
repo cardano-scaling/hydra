@@ -408,7 +408,6 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
     toScriptData
       Head.Contest
         { signature = toPlutusSignatures sig
-        , utxoHash
         }
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore

@@ -177,8 +177,7 @@ genContestMutation
           mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
           pure $
             Head.Contest
-              { utxoHash = healthyContestUTxOHash
-              , signature = toPlutusSignatures mutatedSignature
+              { signature = toPlutusSignatures mutatedSignature
               }
       , SomeMutation Nothing MutateToNonNewerSnapshot <$> do
           mutatedSnapshotNumber <- choose (0, toInteger healthyClosedSnapshotNumber)
@@ -194,8 +193,7 @@ genContestMutation
                     }
               , ChangeHeadRedeemer $
                   Head.Contest
-                    { utxoHash = healthyContestUTxOHash
-                    , signature =
+                    { signature =
                         toPlutusSignatures $
                           healthySignature (fromInteger mutatedSnapshotNumber)
                     }
