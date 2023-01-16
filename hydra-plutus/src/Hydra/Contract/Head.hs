@@ -48,6 +48,7 @@ import qualified PlutusTx.AssocMap as Map
 import qualified PlutusTx.Builtins as Builtins
 
 -- REVIEW: Functions not re-exported "as V2", but using the same data types.
+
 import Plutus.V1.Ledger.Time (fromMilliSeconds)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 
@@ -72,8 +73,8 @@ headValidator oldState input ctx =
       checkAbort ctx headId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
       checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod headId
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      checkContest ctx contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature headId
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId}, Contest{utxoHash = contestUtxoHash, signature}) ->
+      checkContest ctx contestationDeadline parties closedSnapshotNumber contestUtxoHash signature headId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
     _ ->
@@ -318,16 +319,13 @@ checkContest ::
   POSIXTime ->
   [Party] ->
   -- | Snapshot number of the closed state.
-  -- XXX: Having two snapshot numbers here is FRAGILE
-  SnapshotNumber ->
-  -- | Snapshot number of the contestin snapshot.
   SnapshotNumber ->
   BuiltinByteString ->
   [Signature] ->
   -- | Head id
   CurrencySymbol ->
   Bool
-checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig headPolicyId =
+checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber contestUtxoHash sig headPolicyId =
   mustBeNewer
     && mustBeMultiSigned
     && checkHeadOutputDatum
@@ -339,6 +337,23 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
  where
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
+  contestSnapshotNumber =
+    case fromBuiltinData @DatumType $ getDatum continuingDatum of
+      Just Closed{snapshotNumber} -> snapshotNumber
+      _ -> traceError "wrong state in output datum"
+
+  continuingDatum =
+    case ownDatum of
+      NoOutputDatum -> traceError "no output datum"
+      OutputDatumHash dh -> fromMaybe (traceError "datum not found") $ findDatum dh scriptContextTxInfo
+      OutputDatum d -> d
+   where
+    ownDatum =
+      case getContinuingOutputs ctx of
+        [o] -> txOutDatum o
+        _ -> traceError "expected only one head output"
+
   mustBeNewer =
     traceIfFalse "too old snapshot" $ contestSnapshotNumber > closedSnapshotNumber
 

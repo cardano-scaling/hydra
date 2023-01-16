@@ -177,21 +177,30 @@ genContestMutation
           mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
           pure $
             Head.Contest
-              { snapshotNumber = toInteger healthyContestSnapshotNumber
-              , utxoHash = healthyContestUTxOHash
+              { utxoHash = healthyContestUTxOHash
               , signature = toPlutusSignatures mutatedSignature
               }
-      , SomeMutation Nothing MutateToNonNewerSnapshot . ChangeHeadRedeemer <$> do
+      , SomeMutation Nothing MutateToNonNewerSnapshot <$> do
           mutatedSnapshotNumber <- choose (0, toInteger healthyClosedSnapshotNumber)
           pure $
-            Head.Contest
-              { snapshotNumber = mutatedSnapshotNumber
-              , utxoHash = healthyContestUTxOHash
-              , signature =
-                  toPlutusSignatures $
-                    healthySignature (fromInteger mutatedSnapshotNumber)
-              }
-      , SomeMutation Nothing MutateRequiredSigner <$> do
+            Changes
+              [ ChangeHeadDatum $
+                  Head.Closed
+                    { snapshotNumber = mutatedSnapshotNumber
+                    , utxoHash = healthyClosedUTxOHash
+                    , parties = healthyOnChainParties
+                    , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+                    , headId = toPlutusCurrencySymbol testPolicyId
+                    }
+              , ChangeHeadRedeemer $
+                  Head.Contest
+                    { utxoHash = healthyContestUTxOHash
+                    , signature =
+                        toPlutusSignatures $
+                          healthySignature (fromInteger mutatedSnapshotNumber)
+                    }
+              ]
+      , SomeMutation MutateRequiredSigner <$> do
           newSigner <- verificationKeyHash <$> genVerificationKey
           pure $ ChangeRequiredSigners [newSigner]
       , SomeMutation Nothing MutateContestUTxOHash . ChangeOutput 0 <$> do

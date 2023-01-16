@@ -52,8 +52,7 @@ data Input
       , signature :: [Signature]
       }
   | Contest
-      { snapshotNumber :: SnapshotNumber
-      , utxoHash :: Hash
+      { utxoHash :: Hash
       , signature :: [Signature]
       }
   | Abort

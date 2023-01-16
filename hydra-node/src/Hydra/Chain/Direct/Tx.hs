@@ -408,8 +408,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
   headRedeemer =
     toScriptData
       Head.Contest
-        { snapshotNumber = toInteger number
-        , signature = toPlutusSignatures sig
+        { signature = toPlutusSignatures sig
         , utxoHash
         }
   headOutputAfter =
@@ -816,9 +815,10 @@ observeContestTx utxo tx = do
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Closed{}, Head.Contest{snapshotNumber = onChainSnapshotNumber}) -> do
+    (Head.Closed{}, Head.Contest{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
+      let onChainSnapshotNumber = closedSnapshotNumber newHeadDatum
       pure
         ContestObservation
           { contestedThreadOutput =
@@ -832,6 +832,11 @@ observeContestTx utxo tx = do
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
+
+  closedSnapshotNumber headDatum =
+    case fromData $ toPlutusData headDatum of
+      Just Head.Closed{snapshotNumber} -> snapshotNumber
+      _ -> error "wrong state in output datum"
 
 data FanoutObservation = FanoutObservation
 
