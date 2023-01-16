@@ -519,6 +519,30 @@ alterRedeemerFor initialInputs txIn fn = \case
         Just sd' -> Map.update (const $ Just (toLedgerData sd', exUnits)) ptr m
       else m
 
+-- | Alter the tx inputs in such way that redeemer pointer stay consistent.
+alterTxIns ::
+  ([TxIn] -> [TxIn]) ->
+  Tx ->
+  Tx
+alterTxIns fn tx =
+  Tx body' wits
+ where
+  body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
+  ledgerBody' = ledgerBody{Ledger.inputs = inputs'}
+
+  inputs' =
+    Set.fromList
+      . fmap toLedgerTxIn
+      . fn
+      . fmap fromLedgerTxIn
+      . toList
+      $ Ledger.inputs ledgerBody
+
+  scriptData' = scriptData
+
+  ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+  Tx body wits = tx
+
 -- | Apply some mapping function over a transaction's outputs.
 alterTxOuts ::
   ([TxOut CtxTx] -> [TxOut CtxTx]) ->
