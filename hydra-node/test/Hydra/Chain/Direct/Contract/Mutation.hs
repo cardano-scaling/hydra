@@ -493,7 +493,6 @@ alterRedeemers fn = \case
 
 -- | Alter the redeemer for given `TxIn` from the transaction's redeemers map.
 -- If the update function yields 'Nothing', the redeemer pointer is removed.
--- FIXME: This is broken for 'Nothing' as the indices will be off
 alterRedeemerFor ::
   -- | All transaction inputs
   Set (Ledger.TxIn a) ->
@@ -508,15 +507,17 @@ alterRedeemerFor ::
 alterRedeemerFor initialInputs txIn fn = \case
   TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
   TxBodyScriptData dats (Ledger.Redeemers initialRedeemers) ->
-    let newRedeemers = Ledger.Redeemers $ Map.fromList $ foldMap removeRedeemer $ Map.toList initialRedeemers
-        sortedInputs = sort $ toList initialInputs
-        removeRedeemer (ptr@(Ledger.RdmrPtr _ idx), (sd, exUnits))
-          | sortedInputs List.!! fromIntegral idx == txIn =
-            case fn (fromLedgerData sd) of
-              Nothing -> []
-              Just sd' -> [(ptr, (toLedgerData sd', exUnits))]
-          | otherwise = [(ptr, (sd, exUnits))]
+    let newRedeemerMap = Map.foldlWithKey buildRedeemerMap (Map.fromList []) initialRedeemers
+        newRedeemers = Ledger.Redeemers newRedeemerMap
      in TxBodyScriptData dats newRedeemers
+ where
+  sortedInputs = sort $ toList initialInputs
+  buildRedeemerMap m ptr@(Ledger.RdmrPtr _ idx) (sd, exUnits) =
+    if sortedInputs List.!! fromIntegral idx == txIn
+      then case fn (fromLedgerData sd) of
+        Nothing -> Map.delete ptr m
+        Just sd' -> Map.update (const $ Just (toLedgerData sd', exUnits)) ptr m
+      else m
 
 -- | Apply some mapping function over a transaction's outputs.
 alterTxOuts ::
