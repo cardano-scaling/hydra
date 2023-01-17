@@ -193,10 +193,15 @@ propTransactionDoesNotValidate (tx, lookupUTxO) =
             & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
-          any isLeft (Map.elems redeemerReport)
-            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
-            & counterexample ("Redeemer report: " <> show redeemerReport)
-            & counterexample "Phase-2 validation should have failed"
+          let errors = lefts $ Map.elems redeemerReport
+           in any (matchesErrorMessage "foo") errors
+                & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+                & counterexample ("Redeemer report: " <> show redeemerReport)
+                & counterexample "Phase-2 validation should have failed"
+ where
+  matchesErrorMessage errMsg = \case
+    ScriptErrorEvaluationFailed _ errList -> errMsg `elem` errList
+    _otherScriptExecutionError -> False
 
 -- | A 'Property' checking some (transaction, UTxO) pair is valid.
 propTransactionValidates :: (Tx, UTxO) -> Property
