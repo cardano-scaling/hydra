@@ -173,7 +173,7 @@ genContestMutation
     , _utxo
     ) =
     oneof
-      [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+      [ SomeMutation Nothing MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
           mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
           pure $
             Head.Contest
@@ -181,7 +181,7 @@ genContestMutation
               , utxoHash = healthyContestUTxOHash
               , signature = toPlutusSignatures mutatedSignature
               }
-      , SomeMutation MutateToNonNewerSnapshot . ChangeHeadRedeemer <$> do
+      , SomeMutation Nothing MutateToNonNewerSnapshot . ChangeHeadRedeemer <$> do
           mutatedSnapshotNumber <- choose (0, toInteger healthyClosedSnapshotNumber)
           pure $
             Head.Contest
@@ -191,12 +191,12 @@ genContestMutation
                   toPlutusSignatures $
                     healthySignature (fromInteger mutatedSnapshotNumber)
               }
-      , SomeMutation MutateRequiredSigner <$> do
+      , SomeMutation Nothing MutateRequiredSigner <$> do
           newSigner <- verificationKeyHash <$> genVerificationKey
           pure $ ChangeRequiredSigners [newSigner]
-      , SomeMutation MutateContestUTxOHash . ChangeOutput 0 <$> do
+      , SomeMutation Nothing MutateContestUTxOHash . ChangeOutput 0 <$> do
           mutateCloseUTxOHash
-      , SomeMutation MutateParties . ChangeHeadDatum <$> do
+      , SomeMutation Nothing MutateParties . ChangeHeadDatum <$> do
           mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
           pure $
             Head.Closed
@@ -206,11 +206,11 @@ genContestMutation
               , contestationDeadline = arbitrary `generateWith` 42
               , headId = toPlutusCurrencySymbol testPolicyId
               }
-      , SomeMutation MutateValidityPastDeadline . ChangeValidityInterval <$> do
+      , SomeMutation Nothing MutateValidityPastDeadline . ChangeValidityInterval <$> do
           lb <- arbitrary
           ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
           pure (lb, ub)
-      , SomeMutation MutateHeadId <$> do
+      , SomeMutation Nothing MutateHeadId <$> do
           otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyClosedHeadTxIn))
           pure $
             Changes

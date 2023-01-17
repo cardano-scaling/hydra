@@ -87,9 +87,9 @@
 -- genCollectComMutation :: (Tx, Utxo) -> Gen SomeMutation
 -- genCollectComMutation (tx, utxo) =
 --   oneof
---     [ SomeMutation MutateOpenOutputValue . ChangeOutput ...
---     , SomeMutation MutateOpenUtxoHash . ChangeOutput ...
---     , SomeMutation MutateHeadTransition <$> do
+--     [ SomeMutation Nothing MutateOpenOutputValue . ChangeOutput ...
+--     , SomeMutation Nothing MutateOpenUtxoHash . ChangeOutput ...
+--     , SomeMutation Nothing MutateHeadTransition <$> do
 --         changeRedeemer <- ChangeHeadRedeemer <$> ...
 --         changeDatum <- ChangeHeadDatum <$> ...
 --         pure $ Changes [changeRedeemer, changeDatum]
@@ -176,16 +176,16 @@ import Test.QuickCheck.Instances ()
 -- structurally valid and having passed "level 1" checks.
 propMutation :: (Tx, UTxO) -> ((Tx, UTxO) -> Gen SomeMutation) -> Property
 propMutation (tx, utxo) genMutation =
-  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
+  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation, expectedError} ->
     (tx, utxo)
       & applyMutation mutation
-      & propTransactionDoesNotValidate
+      & propTransactionDoesNotValidate expectedError
       & genericCoverTable [label]
       & checkCoverage
 
 -- | A 'Property' checking some (transaction, UTxO) pair is invalid.
-propTransactionDoesNotValidate :: (Tx, UTxO) -> Property
-propTransactionDoesNotValidate (tx, lookupUTxO) =
+propTransactionDoesNotValidate :: Maybe Text -> (Tx, UTxO) -> Property
+propTransactionDoesNotValidate mExpectedError (tx, lookupUTxO) =
   let result = evaluateTx tx lookupUTxO
    in case result of
         Left basicFailure ->
@@ -194,10 +194,17 @@ propTransactionDoesNotValidate (tx, lookupUTxO) =
             & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
           let errors = lefts $ Map.elems redeemerReport
-           in any (matchesErrorMessage "foo") errors
-                & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
-                & counterexample ("Redeemer report: " <> show redeemerReport)
-                & counterexample "Phase-2 validation should have failed"
+           in case mExpectedError of
+                Nothing ->
+                  not (null errors)
+                    & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+                    & counterexample ("Redeemer report: " <> show redeemerReport)
+                    & counterexample "Phase-2 validation should have failed"
+                Just expectedError ->
+                  any (matchesErrorMessage expectedError) errors
+                    & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+                    & counterexample ("Redeemer report: " <> show redeemerReport)
+                    & counterexample ("Phase-2 validation should have failed with error message: " <> show expectedError)
  where
   matchesErrorMessage errMsg = \case
     ScriptErrorEvaluationFailed _ errList -> errMsg `elem` errList
@@ -229,7 +236,8 @@ propTransactionValidates (tx, lookupUTxO) =
 data SomeMutation = forall lbl.
   (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =>
   SomeMutation
-  { label :: lbl
+  { expectedError :: Maybe Text
+  , label :: lbl
   , mutation :: Mutation
   }
 

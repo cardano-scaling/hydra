@@ -93,9 +93,9 @@ data FanoutMutation
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 genFanoutMutation (tx, _utxo) =
   oneof
-    [ SomeMutation MutateAddUnexpectedOutput . PrependOutput <$> do
+    [ SomeMutation Nothing MutateAddUnexpectedOutput . PrependOutput <$> do
         arbitrary >>= genOutput
-    , SomeMutation MutateChangeOutputValue <$> do
+    , SomeMutation Nothing MutateChangeOutputValue <$> do
         let outs = txOuts' tx
         -- NOTE: Assumes the fanout transaction has non-empty outputs, which
         -- might not be always the case when testing unbalanced txs and we need
@@ -103,7 +103,7 @@ genFanoutMutation (tx, _utxo) =
         (ix, out) <- elements (zip [0 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
+    , SomeMutation Nothing MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
         lb <- arbitrary `suchThat` slotBeforeContestationDeadline
         pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
     ]
