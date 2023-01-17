@@ -265,20 +265,9 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   (closedSnapshotNumber, closedUtxoHash) =
-    case fromBuiltinData @DatumType $ getDatum continuingDatum of
+    case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
       Just Closed{snapshotNumber, utxoHash} -> (snapshotNumber, utxoHash)
       _ -> traceError "wrong state in output datum"
-
-  continuingDatum =
-    case ownDatum of
-      NoOutputDatum -> traceError "no output datum"
-      OutputDatumHash dh -> fromMaybe (traceError "datum not found") $ findDatum dh (scriptContextTxInfo ctx)
-      OutputDatum d -> d
-   where
-    ownDatum =
-      case getContinuingOutputs ctx of
-        [o] -> txOutDatum o
-        _ -> traceError "expected only one head output"
 
   checkSnapshot
     | closedSnapshotNumber == 0 =
@@ -352,20 +341,9 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   (contestSnapshotNumber, contestUtxoHash) =
-    case fromBuiltinData @DatumType $ getDatum continuingDatum of
+    case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
       Just Closed{snapshotNumber, utxoHash} -> (snapshotNumber, utxoHash)
       _ -> traceError "wrong state in output datum"
-
-  continuingDatum =
-    case ownDatum of
-      NoOutputDatum -> traceError "no output datum"
-      OutputDatumHash dh -> fromMaybe (traceError "datum not found") $ findDatum dh scriptContextTxInfo
-      OutputDatum d -> d
-   where
-    ownDatum =
-      case getContinuingOutputs ctx of
-        [o] -> txOutDatum o
-        _ -> traceError "expected only one head output"
 
   mustBeNewer =
     traceIfFalse "too old snapshot" $ contestSnapshotNumber > closedSnapshotNumber
@@ -512,6 +490,19 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
     _ ->
       traceError "more than 2 outputs"
 {-# INLINEABLE mustContinueHeadWith #-}
+
+continuingDatum :: ScriptContext -> Datum
+continuingDatum ctx =
+  case ownDatum of
+    NoOutputDatum -> traceError "no output datum"
+    OutputDatumHash dh -> fromMaybe (traceError "datum not found") $ findDatum dh (scriptContextTxInfo ctx)
+    OutputDatum d -> d
+ where
+  ownDatum =
+    case getContinuingOutputs ctx of
+      [o] -> txOutDatum o
+      _ -> traceError "expected only one head output"
+{-# INLINEABLE continuingDatum #-}
 
 findTxOutDatum :: TxInfo -> TxOut -> Datum
 findTxOutDatum txInfo o =
