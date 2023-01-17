@@ -137,9 +137,7 @@ import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import Cardano.Ledger.Serialization (mkSized)
-import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
-import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -259,7 +257,8 @@ data Mutation
     ChangeInput TxIn (TxOut CtxUTxO) (Maybe ScriptData)
   | -- | Change the transaction's output at given index to something else.
     ChangeOutput Word (TxOut CtxTx)
-  | -- | Change the transaction's minted values if it is actually minting something.
+  | -- | Change the transaction's minted values if it is actually minting
+    -- something. NOTE: If 'Value' is 'mempty' the redeemers will be wrong.
     ChangeMintedValue Value
   | -- | Change required signers on a transaction'
     ChangeRequiredSigners [Hash PaymentKey]
@@ -478,34 +477,6 @@ alterRedeemers fn = \case
     let newRedeemers = Map.mapWithKey fn redeemers
      in TxBodyScriptData dats (Ledger.Redeemers newRedeemers)
 
--- | Alter the redeemer for given `TxIn` from the transaction's redeemers map.
--- If the update function yields 'Nothing', the redeemer pointer is removed.
-alterRedeemerFor ::
-  -- | All transaction inputs
-  Set (Ledger.TxIn a) ->
-  -- | The transaction input to update.
-  Ledger.TxIn a ->
-  -- | A function to update the corresponding redeemer.
-  (ScriptData -> Maybe ScriptData) ->
-  -- | Original script data.
-  TxBodyScriptData ->
-  -- | Resulting script data.
-  TxBodyScriptData
-alterRedeemerFor initialInputs txIn fn = \case
-  TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData dats (Ledger.Redeemers initialRedeemers) ->
-    let newRedeemerMap = Map.foldlWithKey buildRedeemerMap (Map.fromList []) initialRedeemers
-        newRedeemers = Ledger.Redeemers newRedeemerMap
-     in TxBodyScriptData dats newRedeemers
- where
-  sortedInputs = sort $ toList initialInputs
-  buildRedeemerMap m ptr@(Ledger.RdmrPtr _ idx) (sd, exUnits) =
-    if sortedInputs List.!! fromIntegral idx == txIn
-      then case fn (fromLedgerData sd) of
-        Nothing -> Map.delete ptr m
-        Just sd' -> Map.update (const $ Just (toLedgerData sd', exUnits)) ptr m
-      else m
-
 -- | Alter the tx inputs in such way that redeemer pointer stay consistent. A
 -- value of 'Nothing' for the redeemr means that this is not a script input.
 -- NOTE: This will reset all the execution budgets to 0.
@@ -589,7 +560,8 @@ anyPayToPubKeyTxOut = genKeyPair >>= genOutput . fst
 headTxIn :: UTxO -> TxIn
 headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . UTxO.pairs
 
--- | A 'Mutation' that changes the minted/burnt quantity of all tokens.
+-- | A 'Mutation' that changes the minted/burnt quantity of all tokens to a
+-- non-zero value different than the given one.
 changeMintedValueQuantityFrom :: Tx -> Integer -> Gen Mutation
 changeMintedValueQuantityFrom tx exclude =
   ChangeMintedValue
@@ -597,7 +569,7 @@ changeMintedValueQuantityFrom tx exclude =
       TxMintValueNone ->
         pure mempty
       TxMintValue v _ -> do
-        someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude)
+        someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude) `suchThat` (/= 0)
         pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
