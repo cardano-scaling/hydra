@@ -342,8 +342,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
   headRedeemer =
     toScriptData
       Head.Close
-        { utxoHash = toBuiltin utxoHashBytes
-        , signature
+        { signature
         }
 
   headOutputAfter =

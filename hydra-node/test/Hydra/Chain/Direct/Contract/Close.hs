@@ -202,7 +202,6 @@ genCloseMutation (tx, _utxo) =
             , ChangeHeadRedeemer $
                 Head.Close
                   { signature = toPlutusSignatures mutatedSignature
-                  , utxoHash = ""
                   }
             ]
     , SomeMutation Nothing MutateParties . ChangeHeadDatum <$> do
@@ -247,7 +246,6 @@ genCloseMutation (tx, _utxo) =
   closeRedeemer sig =
     Head.Close
       { signature = toPlutusSignatures sig
-      , utxoHash = ""
       }
 
   mutateCloseUTxOHash :: Gen (TxOut CtxTx)
