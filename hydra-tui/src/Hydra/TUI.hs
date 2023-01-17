@@ -52,7 +52,7 @@ import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Chain (PostTxError (..))
+import Hydra.Chain (HeadId, PostTxError (..))
 import Hydra.Chain.CardanoClient (CardanoClient (..), mkCardanoClient)
 import Hydra.Chain.Direct.State ()
 import Hydra.Chain.Direct.Util (isMarkedOutput)
@@ -88,6 +88,7 @@ data State
       , feedback :: [UserFeedback]
       , now :: UTCTime
       , pending :: Pending
+      , hydraHeadId :: HeadId
       }
 
 data Pending = Pending | NotPending deriving (Eq, Show, Generic)
@@ -117,7 +118,7 @@ data DialogState where
 
 data HeadState
   = Idle
-  | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: UTxO}
+  | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: UTxO, headId :: HeadId}
   | Open {parties :: [Party], utxo :: UTxO}
   | Closed {contestationDeadline :: UTCTime}
   | FanoutPossible
@@ -137,6 +138,7 @@ makeLensesFor
   , ("feedbackState", "feedbackStateL")
   , ("now", "nowL")
   , ("pending", "pendingL")
+  , ("hydraHeadId", "hydraHeadIdL")
   ]
   ''State
 
@@ -144,6 +146,7 @@ makeLensesFor
   [ ("remainingParties", "remainingPartiesL")
   , ("parties", "partiesL")
   , ("utxo", "utxoL")
+  , ("headId", "headIdL")
   ]
   ''HeadState
 
@@ -277,6 +280,7 @@ handleAppEvent s = \case
       , feedback = []
       , now = s ^. nowL
       , pending = NotPending
+      , hydraHeadId = hydraHeadId s
       }
   ClientDisconnected ->
     Disconnected
@@ -293,10 +297,10 @@ handleAppEvent s = \case
   Update CommandFailed{clientInput} -> do
     s & report Error ("Invalid command: " <> show clientInput)
       & stopPending
-  Update HeadIsInitializing{parties} ->
+  Update HeadIsInitializing{parties, headId} ->
     let utxo = mempty
         ps = toList parties
-     in s & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo}
+     in s & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo, headId = headId}
           & stopPending
           & info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
@@ -362,11 +366,12 @@ handleAppEvent s = \case
     s & nowL .~ now
  where
   partyCommitted party commit = \case
-    Initializing{parties, remainingParties, utxo} ->
+    Initializing{parties, remainingParties, utxo, headId} ->
       Initializing
         { parties = parties
         , remainingParties = remainingParties \\ party
         , utxo = utxo <> commit
+        , headId
         }
     hs -> hs
 
@@ -583,6 +588,7 @@ draw Client{sk} CardanoClient{networkId} s =
     hLimit 50 $
       vBox
         [ padLeftRight 1 $ tuiVersion <+> padLeft (Pad 1) nodeStatus
+        , padLeftRight 1 drawHeadId
         , padLeftRight 1 drawPeers
         , hBorder
         , padLeftRight 1 ownParty
@@ -767,6 +773,10 @@ draw Client{sk} CardanoClient{networkId} s =
     case s ^? meL of
       Just (Just me) | p == me -> withAttr own $ drawHex vkey
       _ -> drawHex vkey
+
+  drawHeadId = case s of
+    Disconnected{} -> emptyWidget
+    Connected{hydraHeadId} -> vBox $ str "Head id:" : [drawShow hydraHeadId]
 
   drawPeers = case s of
     Disconnected{} -> emptyWidget
