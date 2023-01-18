@@ -244,13 +244,13 @@ spec = do
         let outcome1 = update bobEnv ledger s0 observeCloseTx
         outcome1 `hasEffect` clientEffect
         outcome1 `hasNoEffectSatisfying` \case
-          ClientEffect ReadyToFanout -> True
+          ClientEffect (ReadyToFanout _) -> True
           _ -> False
         s1 <- assertNewState outcome1
         let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
             stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline
             s2 = update bobEnv ledger s1 stepTimePastDeadline
-        s2 `hasEffect` ClientEffect ReadyToFanout
+        s2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
 
       it "notify user on rollback" $
         forAll arbitrary $ \s -> monadicIO $ do

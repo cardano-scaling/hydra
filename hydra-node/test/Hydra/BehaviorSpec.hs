@@ -129,7 +129,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
-            waitUntil [n1] ReadyToFanout
+            waitUntil [n1] $ ReadyToFanout testHeadId
             nothingHappensFor n1 1000000
 
     it "does finalize head after contestation period upon command" $
@@ -143,7 +143,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
-            waitUntil [n1] ReadyToFanout
+            waitUntil [n1] $ ReadyToFanout testHeadId
             send n1 Fanout
             waitUntil [n1] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRef 1}
 
@@ -370,7 +370,7 @@ spec = parallel $ do
               openHead n1 n2
               send n1 Close
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
-              waitUntil [n1, n2] ReadyToFanout
+              waitUntil [n1, n2] $ ReadyToFanout testHeadId
               send n1 Fanout
               send n2 Fanout
               waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}

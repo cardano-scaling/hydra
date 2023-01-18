@@ -954,6 +954,7 @@
             "tag": "Greetings"
         },
         {
+            "headId": "08080701080105030204070703040505",
             "tag": "ReadyToFanout"
         },
         {
@@ -1324,6 +1325,7 @@
             }
         },
         {
+            "headId": "03080006080600080207050704070406",
             "tag": "ReadyToFanout"
         },
         {
@@ -20799,6 +20801,7 @@
             "tag": "PostTxOnChainFailed"
         },
         {
+            "headId": "08050204030306080707030303060508",
             "tag": "ReadyToFanout"
         },
         {
@@ -20810,6 +20813,7 @@
             "tag": "PeerDisconnected"
         },
         {
+            "headId": "01040402000500080507020807060401",
             "tag": "ReadyToFanout"
         },
         {
@@ -21415,6 +21419,7 @@
             }
         },
         {
+            "headId": "03020506020408020106060308030101",
             "tag": "ReadyToFanout"
         },
         {
@@ -21972,6 +21977,7 @@
             }
         },
         {
+            "headId": "07010504070006060803010507030702",
             "tag": "ReadyToFanout"
         },
         {
@@ -23234,6 +23240,7 @@
             "tag": "HeadIsInitializing"
         },
         {
+            "headId": "04000206050400060306040605030407",
             "tag": "ReadyToFanout"
         },
         {
@@ -27977,6 +27984,7 @@
             "tag": "InvalidInput"
         },
         {
+            "headId": "06080807030001020104010002010504",
             "tag": "ReadyToFanout"
         },
         {

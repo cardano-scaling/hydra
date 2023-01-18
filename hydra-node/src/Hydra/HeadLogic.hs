@@ -968,13 +968,13 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
       onOpenChainCloseTx parameters st newChainState coordinatedHeadState closedSnapshotNumber contestationDeadline headId
   (ClosedState{chainState, confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
     onClosedChainContestTx chainState confirmedSnapshot snapshotNumber headId
-  (cst@ClosedState{contestationDeadline, readyToFanoutSent}, OnChainEvent (Tick chainTime))
+  (cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime))
     | chainTime > contestationDeadline && not readyToFanoutSent ->
       NewState
         -- XXX: Requires -Wno-incomplete-record-updates. Should refactor
         -- 'HeadState' to hold individual 'ClosedState' etc. types
         (cst{readyToFanoutSent = True})
-        [ClientEffect ReadyToFanout]
+        [ClientEffect $ ReadyToFanout headId]
   (ClosedState{chainState, confirmedSnapshot, contestationDeadline}, ClientEvent Fanout) ->
     onClosedClientFanout chainState confirmedSnapshot contestationDeadline
   (ClosedState{confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->

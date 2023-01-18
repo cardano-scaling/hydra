@@ -54,7 +54,7 @@ data ServerOutput tx
       , headId :: HeadId
       }
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber}
-  | ReadyToFanout
+  | ReadyToFanout {headId :: HeadId}
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
   | CommandFailed {clientInput :: ClientInput tx}
@@ -98,7 +98,7 @@ instance
     HeadIsOpen headId u -> HeadIsOpen <$> shrink headId <*> shrink u
     HeadIsClosed s t headId -> HeadIsClosed <$> shrink s <*> shrink t <*> shrink headId
     HeadIsContested headId sn -> HeadIsContested <$> shrink headId <*> shrink sn
-    ReadyToFanout -> []
+    ReadyToFanout headId -> ReadyToFanout <$> shrink headId
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
     CommandFailed i -> CommandFailed <$> shrink i

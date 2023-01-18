@@ -320,7 +320,7 @@ handleAppEvent s = \case
       & stopPending
   Update HeadIsContested{snapshotNumber} ->
     s & info ("Head contested with snapshot number " <> show snapshotNumber)
-  Update ReadyToFanout ->
+  Update (ReadyToFanout _) ->
     s & headStateL .~ FanoutPossible
       & info "Contestation period passed, ready for fanout."
   Update HeadIsAborted{} ->
