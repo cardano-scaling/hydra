@@ -537,7 +537,7 @@ onOpenNetworkReqTx ledger parameters previousRecoverableState chainState headSta
                 , headId
                 }
             )
-            [ClientEffect $ TxSeen tx]
+            [ClientEffect $ TxSeen headId tx]
 
 -- | Receive network message about a snapshot request ('ReqSn') from a peer. We
 -- do distinguish two cases:
