@@ -249,7 +249,7 @@ spec = parallel $ do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
-              waitUntil [n1] $ TxValid (aValidTx 42)
+              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
               waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
 
     it "sending two conflicting transactions should lead one being confirmed and one expired" $
@@ -287,7 +287,7 @@ spec = parallel $ do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
-              waitUntil [n1] $ TxValid (aValidTx 42)
+              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
               waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
 
               let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
@@ -310,7 +310,7 @@ spec = parallel $ do
               send n2 (NewTx secondTx)
               waitUntil [n2] $ TxInvalid (utxoRefs [1, 2]) secondTx (ValidationError "cannot apply transaction")
               send n1 (NewTx firstTx)
-              waitUntil [n1] $ TxValid firstTx
+              waitUntil [n1] $ TxValid testHeadId firstTx
 
               waitUntil [n1, n2] $ TxSeen testHeadId firstTx
               let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
@@ -319,7 +319,7 @@ spec = parallel $ do
               waitUntil [n1, n2] $ SnapshotConfirmed snapshot sigs
 
               send n2 (NewTx secondTx)
-              waitUntil [n2] $ TxValid secondTx
+              waitUntil [n2] $ TxValid testHeadId secondTx
               waitUntil [n1, n2] $ TxSeen testHeadId secondTx
 
     it "multiple transactions get snapshotted" $ do
@@ -333,8 +333,8 @@ spec = parallel $ do
               send n1 (NewTx (aValidTx 42))
               send n1 (NewTx (aValidTx 43))
 
-              waitUntil [n1] $ TxValid (aValidTx 42)
-              waitUntil [n1] $ TxValid (aValidTx 43)
+              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
+              waitUntil [n1] $ TxValid testHeadId (aValidTx 43)
 
               waitUntil [n1] $ TxSeen testHeadId (aValidTx 42)
               waitUntil [n1] $ TxSeen testHeadId (aValidTx 43)

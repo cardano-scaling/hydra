@@ -482,14 +482,15 @@ onOpenClientNewTx ::
   UTxOType tx ->
   -- | The transaction to be submitted to the head.
   tx ->
+  HeadId ->
   Outcome tx
-onOpenClientNewTx ledger party utxo tx =
+onOpenClientNewTx ledger party utxo tx headId =
   OnlyEffects effects
  where
   effects =
     case canApply ledger utxo tx of
       Valid ->
-        [ ClientEffect $ TxValid tx
+        [ ClientEffect $ TxValid headId tx
         , NetworkEffect $ ReqTx party tx
         ]
       Invalid err ->
@@ -928,10 +929,10 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
     onOpenClientClose chainState confirmedSnapshot
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
-  ( OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}}
+  ( OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}, headId}
     , ClientEvent (NewTx tx)
     ) ->
-      onOpenClientNewTx ledger party utxo tx
+      onOpenClientNewTx ledger party utxo tx headId
   (OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId}, NetworkEvent ttl (ReqTx _ tx))
     | ttl == 0 ->
       OnlyEffects [ClientEffect $ TxExpired tx]
