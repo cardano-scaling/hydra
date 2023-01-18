@@ -44,14 +44,14 @@ data ServerOutput tx
   | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsClosed
-      { snapshotNumber :: SnapshotNumber
+      { headId :: HeadId
+      , snapshotNumber :: SnapshotNumber
       , -- | Nominal deadline until which contest can be submitted and after
         -- which fanout is possible. NOTE: Use this only for informational
         -- purpose and wait for 'ReadyToFanout' instead before sending 'Fanout'
         -- as the ledger of our cardano-node might not have progressed
         -- sufficiently in time yet and we do not re-submit transactions (yet).
         contestationDeadline :: UTCTime
-      , headId :: HeadId
       }
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | ReadyToFanout {headId :: HeadId}
@@ -96,7 +96,7 @@ instance
     HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
     Committed headId p u -> Committed <$> shrink headId <*> shrink p <*> shrink u
     HeadIsOpen headId u -> HeadIsOpen <$> shrink headId <*> shrink u
-    HeadIsClosed s t headId -> HeadIsClosed <$> shrink s <*> shrink t <*> shrink headId
+    HeadIsClosed headId s t -> HeadIsClosed <$> shrink headId <*> shrink s <*> shrink t
     HeadIsContested headId sn -> HeadIsContested <$> shrink headId <*> shrink sn
     ReadyToFanout headId -> ReadyToFanout <$> shrink headId
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u

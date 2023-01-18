@@ -360,21 +360,21 @@ components:
         type: object
         required:
           - tag
+          - headId
           - snapshotNumber
           - contestationDeadline
-          - headId
           - seq
           - timestamp
         properties:
           tag:
             type: string
             enum: ["HeadIsClosed"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
           contestationDeadline:
             $ref: "#/components/schemas/UTCTime"
-          headId:
-            $ref: "#/components/schemas/HeadId"
           seq:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:

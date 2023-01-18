@@ -796,9 +796,9 @@ onOpenChainCloseTx
         }
     headIsClosed =
       HeadIsClosed
-        { snapshotNumber = closedSnapshotNumber
+        { headId
+        , snapshotNumber = closedSnapshotNumber
         , contestationDeadline
-        , headId
         }
     onChainEffectCondition =
       number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
