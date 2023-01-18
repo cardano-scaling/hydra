@@ -454,6 +454,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - utxo
           - seq
           - timestamp
@@ -461,6 +462,8 @@ components:
           tag:
             type: string
             enum: ["HeadIsFinalized"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           utxo:
             $ref: "#/components/schemas/UTxO"
           seq:

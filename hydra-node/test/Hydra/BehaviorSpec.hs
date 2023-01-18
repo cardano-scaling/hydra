@@ -21,6 +21,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
+import Data.List ((!!))
 import qualified Data.List as List
 import GHC.Records (getField)
 import Hydra.API.ClientInput
@@ -144,7 +145,7 @@ spec = parallel $ do
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] ReadyToFanout
             send n1 Fanout
-            waitUntil [n1] $ HeadIsFinalized (utxoRef 1)
+            waitUntil [n1] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRef 1}
 
   describe "Two participant Head" $ do
     it "only opens the head after all nodes committed" $
@@ -372,7 +373,7 @@ spec = parallel $ do
               waitUntil [n1, n2] ReadyToFanout
               send n1 Fanout
               send n2 Fanout
-              waitUntil [n1, n2] $ HeadIsFinalized (utxoRefs [1, 2])
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
     it "contest automatically when detecting closing with old snapshot" $
       shouldRunInSim $ do
@@ -781,4 +782,4 @@ assertHeadIsClosedWith expectedSnapshotNumber = \case
 -- | Provide a quick and dirty to way to label stuff from a signing key
 shortLabel :: SigningKey HydraKey -> String
 shortLabel s =
-  take 8 $ drop 1 $ List.head $ drop 2 $ List.words $ show s
+  take 8 $ drop 1 $ List.words (show s) !! 2

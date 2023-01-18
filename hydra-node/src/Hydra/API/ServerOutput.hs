@@ -56,7 +56,7 @@ data ServerOutput tx
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | ReadyToFanout
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
-  | HeadIsFinalized {utxo :: UTxOType tx}
+  | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
   | CommandFailed {clientInput :: ClientInput tx}
   | TxSeen {transaction :: tx}
   | TxValid {transaction :: tx}
@@ -93,14 +93,14 @@ instance
   shrink = \case
     PeerConnected p -> PeerConnected <$> shrink p
     PeerDisconnected p -> PeerDisconnected <$> shrink p
-    HeadIsInitializing hid xs -> HeadIsInitializing <$> shrink hid <*> shrink xs
+    HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
     Committed p u -> Committed <$> shrink p <*> shrink u
-    HeadIsOpen u headId -> HeadIsOpen <$> shrink u <*> shrink headId
+    HeadIsOpen headId u -> HeadIsOpen <$> shrink headId <*> shrink u
     HeadIsClosed s t headId -> HeadIsClosed <$> shrink s <*> shrink t <*> shrink headId
-    HeadIsContested sn headId -> HeadIsContested <$> shrink sn <*> shrink headId
+    HeadIsContested headId sn -> HeadIsContested <$> shrink headId <*> shrink sn
     ReadyToFanout -> []
-    HeadIsFinalized u -> HeadIsFinalized <$> shrink u
-    HeadIsAborted u headId -> HeadIsAborted <$> shrink u <*> shrink headId
+    HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
+    HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
     CommandFailed i -> CommandFailed <$> shrink i
     TxSeen tx -> TxSeen <$> shrink tx
     TxValid tx -> TxValid <$> shrink tx

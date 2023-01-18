@@ -850,11 +850,12 @@ onClosedChainFanoutTx ::
   -- | New chain state
   ChainStateType tx ->
   ConfirmedSnapshot tx ->
+  HeadId ->
   Outcome tx
-onClosedChainFanoutTx newChainState confirmedSnapshot =
+onClosedChainFanoutTx newChainState confirmedSnapshot headId =
   NewState
     IdleState{chainState = newChainState}
-    [ ClientEffect $ HeadIsFinalized $ getField @"utxo" $ getSnapshot confirmedSnapshot
+    [ ClientEffect $ HeadIsFinalized{headId, utxo = getField @"utxo" $ getSnapshot confirmedSnapshot}
     ]
 
 -- | Observe a chain rollback and transition to corresponding previous
@@ -899,21 +900,21 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
   (InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit chainState party pendingCommits clientInput
   ( InitialState{parameters, pendingCommits, committed, headId}
-    , OnChainEvent (Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState})
+    , OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}
     ) ->
       onInitialChainCommitTx st newChainState party parameters pendingCommits committed pt utxo headId
   (InitialState{committed}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
   (InitialState{chainState, committed}, ClientEvent Abort) ->
     onInitialClientAbort chainState committed
-  (_, OnChainEvent (Observation{observedTx = OnCommitTx{}})) ->
+  (_, OnChainEvent Observation{observedTx = OnCommitTx{}}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting (initial) state, if we do,
     --       there's an issue our logic or onChain layer.
     OnlyEffects []
-  (InitialState{parameters, committed, headId}, OnChainEvent (Observation{observedTx = OnCollectComTx{}, newChainState})) ->
+  (InitialState{parameters, committed, headId}, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState}) ->
     onInitialChainCollectTx st newChainState parameters committed headId
-  (InitialState{headId, committed}, OnChainEvent (Observation{observedTx = OnAbortTx{}, newChainState})) ->
+  (InitialState{headId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
     onInitialChainAbortTx newChainState committed headId
   (OpenState{chainState, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     onOpenClientClose chainState confirmedSnapshot
@@ -955,10 +956,10 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
       -- function. Create a dedicated OpenState type!
       onOpenNetworkAckSn parties otherParty parameters previousRecoverableState chainState snapshotSignature headState sn headId
   ( OpenState{parameters, coordinatedHeadState, headId}
-    , OnChainEvent (Observation{observedTx = OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState})
+    , OnChainEvent Observation{observedTx = OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     ) ->
       onOpenChainCloseTx parameters st newChainState coordinatedHeadState closedSnapshotNumber contestationDeadline headId
-  (ClosedState{chainState, confirmedSnapshot, headId}, OnChainEvent (Observation{observedTx = OnContestTx{snapshotNumber}})) ->
+  (ClosedState{chainState, confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
     onClosedChainContestTx chainState confirmedSnapshot snapshotNumber headId
   (cst@ClosedState{contestationDeadline, readyToFanoutSent}, OnChainEvent (Tick chainTime))
     | chainTime > contestationDeadline && not readyToFanoutSent ->
@@ -969,8 +970,8 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
         [ClientEffect ReadyToFanout]
   (ClosedState{chainState, confirmedSnapshot, contestationDeadline}, ClientEvent Fanout) ->
     onClosedClientFanout chainState confirmedSnapshot contestationDeadline
-  (ClosedState{confirmedSnapshot}, OnChainEvent (Observation{observedTx = OnFanoutTx{}, newChainState})) ->
-    onClosedChainFanoutTx newChainState confirmedSnapshot
+  (ClosedState{confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
+    onClosedChainFanoutTx newChainState confirmedSnapshot headId
   (currentState, OnChainEvent (Rollback slot)) ->
     onCurrentChainRollback currentState slot
   (_, OnChainEvent Tick{}) ->
