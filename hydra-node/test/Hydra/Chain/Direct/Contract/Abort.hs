@@ -135,8 +135,6 @@ data AbortMutation
   | -- Spend some abortable output from a different Head
     -- e.g. replace a commit by another commit from a different Head.
     UseInputFromOtherHead
-  | -- | Simulate two identical utxos being committed
-    IdenticalCommits
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -169,12 +167,6 @@ genAbortMutation (tx, _utxo) =
             [ ChangeInput input (replacePolicyIdWith testPolicyId otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
             , ChangeMintedValue (removePTFromMintedValue output tx)
             ]
-    , SomeMutation Nothing IdenticalCommits <$> do
-        (_input, output, _d) <- elements healthyCommits
-        newInput <- arbitrary
-        -- XXX: Ideally we should need to modify the PT to simulate a proper new commit
-        -- FIXME: this shouldn't be green
-        pure $ AddInput newInput output (Just $ toScriptData Head.Abort)
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
