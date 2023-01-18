@@ -308,7 +308,7 @@ spec = parallel $ do
                   secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
 
               send n2 (NewTx secondTx)
-              waitUntil [n2] $ TxInvalid (utxoRefs [1, 2]) secondTx (ValidationError "cannot apply transaction")
+              waitUntil [n2] $ TxInvalid testHeadId (utxoRefs [1, 2]) secondTx (ValidationError "cannot apply transaction")
               send n1 (NewTx firstTx)
               waitUntil [n1] $ TxValid testHeadId firstTx
 

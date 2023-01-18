@@ -494,7 +494,7 @@ onOpenClientNewTx ledger party utxo tx headId =
         , NetworkEffect $ ReqTx party tx
         ]
       Invalid err ->
-        [ ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}
+        [ ClientEffect $ TxInvalid{headId, utxo = utxo, transaction = tx, validationError = err}
         ]
 
 -- | Receive network message about a new transaction request ('ReqTx') from a

@@ -488,6 +488,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - transaction
           - seq
           - timestamp
@@ -495,6 +496,8 @@ components:
           tag:
             type: string
             enum: ["TxSeen"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           transaction:
             $ref: "#/components/schemas/Transaction"
           seq:
@@ -510,6 +513,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - transaction
           - seq
           - timestamp
@@ -517,6 +521,8 @@ components:
           tag:
             type: string
             enum: ["TxValid"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           transaction:
             $ref: "#/components/schemas/Transaction"
           seq:
@@ -533,6 +539,7 @@ components:
         type: object
         required:
         - tag
+        - headId
         - utxo
         - transaction
         - validationError
@@ -542,6 +549,8 @@ components:
           tag:
             type: string
             enum: ["TxInvalid"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           utxo:
             $ref: "#/components/schemas/UTxO"
           transaction:

@@ -60,7 +60,7 @@ data ServerOutput tx
   | CommandFailed {headId :: HeadId, clientInput :: ClientInput tx}
   | TxSeen {headId :: HeadId, transaction :: tx}
   | TxValid {headId :: HeadId, transaction :: tx}
-  | TxInvalid {utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
+  | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
   | TxExpired {transaction :: tx}
   | SnapshotConfirmed
       { snapshot :: Snapshot tx
@@ -105,7 +105,7 @@ instance
     TxSeen headId tx -> TxSeen <$> shrink headId <*> shrink tx
     TxValid headId tx -> TxValid <$> shrink headId <*> shrink tx
     TxExpired tx -> TxExpired <$> shrink tx
-    TxInvalid u tx err -> TxInvalid <$> shrink u <*> shrink tx <*> shrink err
+    TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed s ms -> SnapshotConfirmed <$> shrink s <*> shrink ms
     GetUTxOResponse u -> GetUTxOResponse <$> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i

@@ -248,17 +248,15 @@
             ]
         },
         {
+            "headId": "05000606000308040804080405040302",
             "tag": "TxValid",
             "transaction": {
-                "id": -1,
-                "inputs": [
+                "id": 4,
+                "inputs": [],
+                "outputs": [
                     -6,
-                    -2,
-                    2,
-                    4,
-                    5
-                ],
-                "outputs": []
+                    4
+                ]
             }
         },
         {
@@ -276,6 +274,7 @@
             }
         },
         {
+            "headId": "02070005030507000407070202010303",
             "tag": "TxInvalid",
             "transaction": {
                 "id": 1,
@@ -290,9 +289,8 @@
                 ]
             },
             "utxo": [
-                -3,
-                -2,
-                5
+                -5,
+                3
             ],
             "validationError": {
                 "reason": "pg󲱄\u0017"
@@ -495,20 +493,24 @@
             "tag": "CommandFailed"
         },
         {
+            "headId": "02020601070603040505070308050501",
             "tag": "TxValid",
             "transaction": {
-                "id": 1,
+                "id": -2,
                 "inputs": [
-                    -3
+                    -5,
+                    -2,
+                    -1,
+                    1,
+                    2
                 ],
                 "outputs": [
-                    -5,
-                    -1,
-                    0
+                    -5
                 ]
             }
         },
         {
+            "headId": "05060108080505060107000802040701",
             "tag": "TxInvalid",
             "transaction": {
                 "id": -5,
@@ -528,9 +530,10 @@
                 ]
             },
             "utxo": [
-                -1,
+                -2,
                 0,
-                4
+                2,
+                6
             ],
             "validationError": {
                 "reason": "e\u0014"
@@ -553,6 +556,7 @@
             }
         },
         {
+            "headId": "03060405060308030702020404020306",
             "tag": "TxInvalid",
             "transaction": {
                 "id": -3,
@@ -565,9 +569,7 @@
                     -6
                 ]
             },
-            "utxo": [
-                -4
-            ],
+            "utxo": [],
             "validationError": {
                 "reason": "\u0010􇸁t"
             }
@@ -678,18 +680,16 @@
             "tag": "CommandFailed"
         },
         {
+            "headId": "00040207070705070805060307080600",
             "tag": "TxValid",
             "transaction": {
-                "id": 5,
+                "id": 2,
                 "inputs": [
-                    -5,
-                    -4,
-                    1,
-                    5
+                    -5
                 ],
                 "outputs": [
-                    -5,
-                    2
+                    -4,
+                    -1
                 ]
             }
         },
@@ -911,6 +911,7 @@
             "tag": "PostTxOnChainFailed"
         },
         {
+            "headId": "08010805030200080208030102030701",
             "tag": "TxInvalid",
             "transaction": {
                 "id": -6,
@@ -925,8 +926,8 @@
                 ]
             },
             "utxo": [
-                -4,
-                5
+                -6,
+                3
             ],
             "validationError": {
                 "reason": "`"
@@ -1104,15 +1105,19 @@
             "tag": "InvalidInput"
         },
         {
+            "headId": "01010206040407040402000203010200",
             "tag": "TxValid",
             "transaction": {
-                "id": 2,
-                "inputs": [],
-                "outputs": [
-                    -5,
+                "id": 0,
+                "inputs": [
+                    -6,
                     -1,
-                    3,
-                    5
+                    0,
+                    4
+                ],
+                "outputs": [
+                    -4,
+                    2
                 ]
             }
         },
@@ -1145,6 +1150,7 @@
             "utxo": []
         },
         {
+            "headId": "00010503080605020701000205080504",
             "tag": "TxInvalid",
             "transaction": {
                 "id": -5,
@@ -1161,9 +1167,9 @@
                 ]
             },
             "utxo": [
-                -5,
                 -2,
-                4
+                4,
+                5
             ],
             "validationError": {
                 "reason": "wR"
@@ -1302,6 +1308,7 @@
             ]
         },
         {
+            "headId": "06050705060005040604060203070604",
             "tag": "TxInvalid",
             "transaction": {
                 "id": 4,
@@ -1313,13 +1320,7 @@
                 ],
                 "outputs": []
             },
-            "utxo": [
-                -5,
-                0,
-                1,
-                3,
-                6
-            ],
+            "utxo": [],
             "validationError": {
                 "reason": "w󸛾􈴆m}"
             }
@@ -1417,6 +1418,7 @@
             "tag": "SnapshotConfirmed"
         },
         {
+            "headId": "01030608040306000305010007030500",
             "tag": "TxInvalid",
             "transaction": {
                 "id": 2,
@@ -1435,11 +1437,11 @@
             },
             "utxo": [
                 -6,
+                -5,
                 -3,
+                -2,
                 -1,
-                0,
-                2,
-                5
+                1
             ],
             "validationError": {
                 "reason": "e^"
@@ -1568,20 +1570,25 @@
             ]
         },
         {
+            "headId": "01030207080805000106050706080106",
             "tag": "TxValid",
             "transaction": {
-                "id": -5,
+                "id": 0,
                 "inputs": [
                     -4,
-                    -1,
-                    2
+                    -3,
+                    -2,
+                    1,
+                    6
                 ],
                 "outputs": [
-                    -5
+                    -5,
+                    6
                 ]
             }
         },
         {
+            "headId": "01020107070200060000080304050401",
             "tag": "TxInvalid",
             "transaction": {
                 "id": 2,
@@ -1597,8 +1604,12 @@
                 ]
             },
             "utxo": [
+                -3,
+                -2,
                 -1,
-                0
+                1,
+                2,
+                3
             ],
             "validationError": {
                 "reason": "\\:K\u000c[\""
@@ -1902,35 +1913,42 @@
             "tag": "InvalidInput"
         },
         {
+            "headId": "07070500040502030602080107040003",
             "tag": "TxValid",
             "transaction": {
-                "id": -4,
-                "inputs": [],
-                "outputs": [
+                "id": 6,
+                "inputs": [
                     -5,
-                    -3,
-                    0,
-                    3
+                    -4,
+                    0
+                ],
+                "outputs": [
+                    2,
+                    5,
+                    6
                 ]
             }
         },
         {
+            "headId": "05070503050601000002020504050102",
             "tag": "TxValid",
             "transaction": {
-                "id": -3,
+                "id": -1,
                 "inputs": [
                     -3,
-                    -2,
-                    0,
                     2,
                     6
                 ],
                 "outputs": [
-                    -4
+                    1,
+                    2,
+                    5,
+                    6
                 ]
             }
         },
         {
+            "headId": "06080604050408000706050500080000",
             "tag": "TxInvalid",
             "transaction": {
                 "id": -6,
@@ -1943,10 +1961,9 @@
                 ]
             },
             "utxo": [
-                -5,
-                -3,
+                -4,
                 -2,
-                0
+                1
             ],
             "validationError": {
                 "reason": "A\u001a3"
@@ -2093,6 +2110,7 @@
             }
         },
         {
+            "headId": "08060602050502040008050405030007",
             "tag": "TxInvalid",
             "transaction": {
                 "id": 6,
@@ -2107,11 +2125,7 @@
                     3
                 ]
             },
-            "utxo": [
-                -6,
-                -1,
-                3
-            ],
+            "utxo": [],
             "validationError": {
                 "reason": "Fgc"
             }
@@ -2243,19 +2257,22 @@
             ]
         },
         {
+            "headId": "01070100050103050301080201030306",
             "tag": "TxValid",
             "transaction": {
-                "id": -1,
+                "id": 1,
                 "inputs": [
-                    -5,
-                    6
+                    3
                 ],
                 "outputs": [
-                    -1
+                    -1,
+                    4,
+                    5
                 ]
             }
         },
         {
+            "headId": "07040002030206060306030803000404",
             "tag": "TxInvalid",
             "transaction": {
                 "id": 6,
@@ -2268,7 +2285,11 @@
                 "outputs": []
             },
             "utxo": [
-                -1
+                -6,
+                -5,
+                -2,
+                2,
+                6
             ],
             "validationError": {
                 "reason": "\r"
@@ -2363,6 +2384,7 @@
             "tag": "HeadIsContested"
         },
         {
+            "headId": "05010606030001040102030200010108",
             "tag": "TxInvalid",
             "transaction": {
                 "id": -6,
@@ -2372,11 +2394,7 @@
                 ]
             },
             "utxo": [
-                -3,
-                -2,
-                0,
-                1,
-                5
+                -2
             ],
             "validationError": {
                 "reason": "󶹪Ot`S,"
@@ -2410,6 +2428,7 @@
             ]
         },
         {
+            "headId": "01040807010705030700070202070604",
             "tag": "TxInvalid",
             "transaction": {
                 "id": 4,
@@ -2420,9 +2439,8 @@
                 ]
             },
             "utxo": [
-                -6,
-                -1,
-                4
+                -2,
+                3
             ],
             "validationError": {
                 "reason": "𭃣"
