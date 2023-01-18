@@ -152,6 +152,7 @@ data HeadState tx
         -- 'ReadyToFanout'.
         readyToFanoutSent :: Bool
       , chainState :: ChainStateType tx
+      , headId :: HeadId
       }
   deriving stock (Generic)
 
@@ -783,6 +784,7 @@ onOpenChainCloseTx
         , readyToFanoutSent = False
         , previousRecoverableState = headState
         , chainState = newChainState
+        , headId
         }
     headIsClosed =
       HeadIsClosed
@@ -802,19 +804,20 @@ onClosedChainContestTx ::
   ChainStateType tx ->
   ConfirmedSnapshot tx ->
   SnapshotNumber ->
+  HeadId ->
   Outcome tx
-onClosedChainContestTx chainState confirmedSnapshot snapshotNumber
+onClosedChainContestTx chainState confirmedSnapshot snapshotNumber headId
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
     OnlyEffects
-      [ ClientEffect HeadIsContested{snapshotNumber}
+      [ ClientEffect HeadIsContested{snapshotNumber, headId}
       , OnChainEffect{chainState, postChainTx = ContestTx{confirmedSnapshot}}
       ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
     -- TODO: A more recent snapshot number was succesfully contested, we will
     -- not be able to fanout! We might want to communicate that to the client!
-    OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
+    OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
   | otherwise =
-    OnlyEffects [ClientEffect HeadIsContested{snapshotNumber}]
+    OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
 
 -- | Client request to fanout leads to a fanout transaction on chain using the
 -- latest confirmed snapshot from 'ClosedState'.
@@ -954,8 +957,8 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
     , OnChainEvent (Observation{observedTx = OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState})
     ) ->
       onOpenChainCloseTx parameters st newChainState coordinatedHeadState closedSnapshotNumber contestationDeadline headId
-  (ClosedState{chainState, confirmedSnapshot}, OnChainEvent (Observation{observedTx = OnContestTx{snapshotNumber}})) ->
-    onClosedChainContestTx chainState confirmedSnapshot snapshotNumber
+  (ClosedState{chainState, confirmedSnapshot, headId}, OnChainEvent (Observation{observedTx = OnContestTx{snapshotNumber}})) ->
+    onClosedChainContestTx chainState confirmedSnapshot snapshotNumber headId
   (cst@ClosedState{contestationDeadline, readyToFanoutSent}, OnChainEvent (Tick chainTime))
     | chainTime > contestationDeadline && not readyToFanoutSent ->
       NewState

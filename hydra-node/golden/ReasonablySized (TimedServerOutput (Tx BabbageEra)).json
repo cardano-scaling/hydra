@@ -10946,6 +10946,7 @@
             "timestamp": "1864-05-13T14:18:43.246480380716Z"
         },
         {
+            "headId": "02040300030702070606060201010303",
             "seq": 2,
             "snapshotNumber": 2,
             "tag": "HeadIsContested",
@@ -12877,8 +12878,9 @@
             "timestamp": "1864-05-11T02:54:01.06555099792Z"
         },
         {
+            "headId": "03070808010102070301040801070004",
             "seq": 4,
-            "snapshotNumber": 3,
+            "snapshotNumber": 6,
             "tag": "HeadIsContested",
             "timestamp": "1864-05-04T10:48:47.067252579712Z"
         },
@@ -14235,8 +14237,9 @@
             }
         },
         {
+            "headId": "06040503020004010504080301000706",
             "seq": 6,
-            "snapshotNumber": 6,
+            "snapshotNumber": 2,
             "tag": "HeadIsContested",
             "timestamp": "1864-05-12T18:45:05.89063021999Z"
         },
@@ -15803,8 +15806,9 @@
             "timestamp": "1864-05-03T03:14:11.200046824696Z"
         },
         {
+            "headId": "07010708010802070601070107060800",
             "seq": 5,
-            "snapshotNumber": 4,
+            "snapshotNumber": 5,
             "tag": "HeadIsContested",
             "timestamp": "1864-05-07T11:11:51.887355613973Z"
         },
@@ -15814,8 +15818,9 @@
             "timestamp": "1864-05-15T20:13:34.885011521706Z"
         },
         {
+            "headId": "01080208050604000302010700040708",
             "seq": 0,
-            "snapshotNumber": 2,
+            "snapshotNumber": 4,
             "tag": "HeadIsContested",
             "timestamp": "1864-05-15T13:25:04.271313601631Z"
         },
@@ -17241,8 +17246,9 @@
             "timestamp": "1864-05-11T18:45:22.83999111109Z"
         },
         {
+            "headId": "08050802020608030104080705010206",
             "seq": 0,
-            "snapshotNumber": 4,
+            "snapshotNumber": 6,
             "tag": "HeadIsContested",
             "timestamp": "1864-05-12T05:58:06.673493508656Z"
         },

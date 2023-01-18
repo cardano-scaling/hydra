@@ -410,6 +410,7 @@ inClosedState' parties confirmedSnapshot =
     , contestationDeadline
     , readyToFanoutSent = False
     , chainState = SimpleChainState{slot = ChainSlot 0}
+    , headId = testHeadId
     }
  where
   parameters = HeadParameters cperiod parties

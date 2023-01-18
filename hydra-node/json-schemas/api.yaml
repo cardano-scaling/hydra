@@ -384,6 +384,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - snapshotNumber
           - seq
           - timestamp
@@ -391,6 +392,8 @@ components:
           tag:
             type: string
             enum: ["HeadIsContested"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
           seq:

@@ -53,7 +53,7 @@ data ServerOutput tx
         contestationDeadline :: UTCTime
       , headId :: HeadId
       }
-  | HeadIsContested {snapshotNumber :: SnapshotNumber}
+  | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | ReadyToFanout
   | HeadIsAborted {utxo :: UTxOType tx}
   | HeadIsFinalized {utxo :: UTxOType tx}
@@ -97,7 +97,7 @@ instance
     Committed p u -> Committed <$> shrink p <*> shrink u
     HeadIsOpen u headId -> HeadIsOpen <$> shrink u <*> shrink headId
     HeadIsClosed s t headId -> HeadIsClosed <$> shrink s <*> shrink t <*> shrink headId
-    HeadIsContested sn -> HeadIsContested <$> shrink sn
+    HeadIsContested sn headId -> HeadIsContested <$> shrink sn <*> shrink headId
     ReadyToFanout -> []
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u
     HeadIsAborted u -> HeadIsAborted <$> shrink u

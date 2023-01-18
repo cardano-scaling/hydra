@@ -972,7 +972,8 @@
             "tag": "HeadIsClosed"
         },
         {
-            "snapshotNumber": 5,
+            "headId": "05050704050401030100000008030200",
+            "snapshotNumber": 4,
             "tag": "HeadIsContested"
         },
         {
@@ -9770,7 +9771,8 @@
             "tag": "HeadIsInitializing"
         },
         {
-            "snapshotNumber": 0,
+            "headId": "08070502080801060105070108010000",
+            "snapshotNumber": 4,
             "tag": "HeadIsContested"
         },
         {
@@ -10012,7 +10014,8 @@
             "tag": "RolledBack"
         },
         {
-            "snapshotNumber": 4,
+            "headId": "08050205040604000105010108030002",
+            "snapshotNumber": 6,
             "tag": "HeadIsContested"
         },
         {
@@ -28110,11 +28113,13 @@
             }
         },
         {
-            "snapshotNumber": 5,
+            "headId": "07080308030300070006060801010508",
+            "snapshotNumber": 1,
             "tag": "HeadIsContested"
         },
         {
-            "snapshotNumber": 6,
+            "headId": "04010500010207040303080204060704",
+            "snapshotNumber": 0,
             "tag": "HeadIsContested"
         },
         {
@@ -28375,6 +28380,7 @@
             }
         },
         {
+            "headId": "08040404020004050505000204080207",
             "snapshotNumber": 0,
             "tag": "HeadIsContested"
         },

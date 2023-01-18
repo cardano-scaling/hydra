@@ -662,6 +662,7 @@ definitions:
           - contestationDeadline
           - readyToFanoutSent
           - chainState
+          - headId
         properties:
           tag:
             type: string
@@ -678,6 +679,8 @@ definitions:
             type: boolean
           chainState:
             $ref: "api.yaml#/components/schemas/ChainState"
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
 
   CoordinatedHeadState:
     type: object

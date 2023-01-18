@@ -7,7 +7,8 @@
             ]
         },
         {
-            "snapshotNumber": 1,
+            "headId": "02040201070700050008030806050007",
+            "snapshotNumber": 4,
             "tag": "HeadIsContested"
         },
         {
@@ -31,7 +32,8 @@
             ]
         },
         {
-            "snapshotNumber": 0,
+            "headId": "08020207030407030401020805080201",
+            "snapshotNumber": 2,
             "tag": "HeadIsContested"
         },
         {
@@ -200,11 +202,13 @@
             "tag": "InvalidInput"
         },
         {
-            "snapshotNumber": 3,
+            "headId": "05000704080305070104010101060001",
+            "snapshotNumber": 2,
             "tag": "HeadIsContested"
         },
         {
-            "snapshotNumber": 0,
+            "headId": "00010305000601060408060300080103",
+            "snapshotNumber": 4,
             "tag": "HeadIsContested"
         },
         {
@@ -570,7 +574,8 @@
             }
         },
         {
-            "snapshotNumber": 1,
+            "headId": "01000802080002040602030206000007",
+            "snapshotNumber": 0,
             "tag": "HeadIsContested"
         },
         {
@@ -1747,7 +1752,8 @@
             "utxo": []
         },
         {
-            "snapshotNumber": 0,
+            "headId": "08040504010000010807070703070605",
+            "snapshotNumber": 3,
             "tag": "HeadIsContested"
         },
         {
@@ -1755,7 +1761,8 @@
             "tag": "PeerDisconnected"
         },
         {
-            "snapshotNumber": 4,
+            "headId": "07000508070802070808070302000502",
+            "snapshotNumber": 5,
             "tag": "HeadIsContested"
         },
         {
@@ -2178,7 +2185,8 @@
             "utxo": []
         },
         {
-            "snapshotNumber": 5,
+            "headId": "02010807020802000702060107000106",
+            "snapshotNumber": 6,
             "tag": "HeadIsContested"
         },
         {
@@ -2222,7 +2230,8 @@
             }
         },
         {
-            "snapshotNumber": 3,
+            "headId": "03060607080308070001050402070304",
+            "snapshotNumber": 4,
             "tag": "HeadIsContested"
         },
         {
@@ -2304,7 +2313,8 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "snapshotNumber": 1,
+            "headId": "01010203060300080804070708000206",
+            "snapshotNumber": 2,
             "tag": "HeadIsContested"
         },
         {

@@ -401,7 +401,7 @@ spec = parallel $ do
                 _ -> False
 
               -- Expect n1 to contest with latest snapshot, number 1
-              waitUntil [n1, n2] HeadIsContested{snapshotNumber = 1}
+              waitUntil [n1, n2] HeadIsContested{snapshotNumber = 1, headId = testHeadId}
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do

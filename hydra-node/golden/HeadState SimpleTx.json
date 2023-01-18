@@ -2070,7 +2070,7 @@
         },
         {
             "chainState": {
-                "slot": 18
+                "slot": 26
             },
             "confirmedSnapshot": {
                 "signatures": {
@@ -2103,7 +2103,8 @@
                 },
                 "tag": "ConfirmedSnapshot"
             },
-            "contestationDeadline": "1864-04-19T19:37:45.264065895898Z",
+            "contestationDeadline": "1864-04-13T10:36:42.224302485134Z",
+            "headId": "59329a75491acfa1e0f0fd8067dd80ce",
             "parameters": {
                 "contestationPeriod": 43200,
                 "parties": [
