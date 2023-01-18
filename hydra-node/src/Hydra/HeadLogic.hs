@@ -715,7 +715,7 @@ onOpenNetworkAckSn
                         , headId
                         }
                     )
-                    [ClientEffect $ SnapshotConfirmed snapshot multisig]
+                    [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
                 else
                   NewState
                     ( OpenState

@@ -573,6 +573,7 @@ components:
         type: object
         required:
         - tag
+        - headId
         - transaction
         - seq
         - timestamp
@@ -580,6 +581,8 @@ components:
           tag:
             type: string
             enum: ["TxExpired"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           transaction:
             $ref: "#/components/schemas/Transaction"
           seq:
@@ -595,6 +598,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - snapshot
           - seq
           - timestamp
@@ -602,6 +606,8 @@ components:
           tag:
             type: string
             enum: ["SnapshotConfirmed"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           snapshot:
             $ref: "#/components/schemas/Snapshot"
           seq:

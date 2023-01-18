@@ -97,7 +97,7 @@ monitor transactionsMap metricsMap = \case
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
     tick "hydra_head_requested_tx"
-  (Node (EndEffect _ (ClientEffect (SnapshotConfirmed snapshot _)))) -> do
+  (Node (EndEffect _ (ClientEffect (SnapshotConfirmed _ snapshot _)))) -> do
     t <- getMonotonicTime
     forM_ (confirmed snapshot) $ \tx -> do
       let tid = txId tx

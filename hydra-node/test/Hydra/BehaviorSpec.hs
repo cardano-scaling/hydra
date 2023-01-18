@@ -275,7 +275,7 @@ spec = parallel $ do
                 send n2 (NewTx tx'')
                 let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                    confirmed = SnapshotConfirmed snapshot sigs
+                    confirmed = SnapshotConfirmed testHeadId snapshot sigs
                 waitUntil [n1, n2] confirmed
                 waitUntil [n1, n2] (TxExpired testHeadId tx'')
 
@@ -292,7 +292,7 @@ spec = parallel $ do
 
               let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
                   sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-              waitUntil [n1] $ SnapshotConfirmed snapshot sigs
+              waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
               send n1 Close
               waitForNext n1 >>= assertHeadIsClosedWith 1
@@ -316,7 +316,7 @@ spec = parallel $ do
               let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
                   sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
-              waitUntil [n1, n2] $ SnapshotConfirmed snapshot sigs
+              waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
 
               send n2 (NewTx secondTx)
               waitUntil [n2] $ TxValid testHeadId secondTx
@@ -342,7 +342,7 @@ spec = parallel $ do
               let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43]
                   sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
-              waitUntil [n1] $ SnapshotConfirmed snapshot sigs
+              waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
     it "outputs utxo from confirmed snapshot when client requests it" $
       shouldRunInSim $ do
@@ -356,7 +356,7 @@ spec = parallel $ do
               let snapshot = Snapshot 1 (utxoRefs [2, 42]) [newTx]
                   sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
-              waitUntil [n1, n2] $ SnapshotConfirmed snapshot sigs
+              waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
 
               send n1 GetUTxO
 

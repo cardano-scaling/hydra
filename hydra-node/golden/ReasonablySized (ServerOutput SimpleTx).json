@@ -70,86 +70,38 @@
             }
         },
         {
+            "headId": "00000404000602060205050503030601",
             "signatures": {
-                "multiSignature": []
+                "multiSignature": [
+                    "6923e37fc52aea83cd2ff9518da7210b93ff80ae82ae15dac972dbe6478f7b2e678c201ba2b75e911caba9f96779c046db5e51b36f5c564d71a6b600c91d7001",
+                    "83ee4fc923f719c440016ff1de6216c2566981357d6572b2cf7c4df9b40fd889603d005a2ba61b1f3d65365d4725a01c7ef029810ce8df53220a9cf9a930f30b",
+                    "212b2edb54f19ee8e7fa2337e1f508da65abf363199d03d9966cce0f97e93f9c79d92013a3f746cfe5c7c35fda37b4b105af3aefacb8e44922bd0c76b76ab206",
+                    "50a56aaad2def2f3f6f995a5800d605272ec484a75641b6b6258711f88cb2dc47d1697ca8999bf53985eb1952eb08b6750bf06a326d8f2a456d9ca0a35248201"
+                ]
             },
             "snapshot": {
                 "confirmedTransactions": [
                     {
-                        "id": -2,
-                        "inputs": [
-                            -6,
-                            -4,
-                            -2,
-                            5,
-                            6
-                        ],
-                        "outputs": [
-                            -4,
-                            -2,
-                            0,
-                            2,
-                            3,
-                            6
-                        ]
-                    },
-                    {
-                        "id": 6,
+                        "id": -3,
                         "inputs": [
                             -3,
                             -2,
-                            -1,
-                            3
-                        ],
-                        "outputs": [
-                            -1,
-                            3,
-                            4
-                        ]
-                    },
-                    {
-                        "id": 3,
-                        "inputs": [
-                            0
-                        ],
-                        "outputs": []
-                    },
-                    {
-                        "id": -2,
-                        "inputs": [],
-                        "outputs": [
-                            -5,
-                            -2,
                             1,
                             6
-                        ]
-                    },
-                    {
-                        "id": 0,
-                        "inputs": [
+                        ],
+                        "outputs": [
                             -6,
-                            1,
-                            3,
-                            4,
-                            5,
-                            6
-                        ],
-                        "outputs": [
-                            -1,
-                            1,
+                            -3,
                             2,
-                            5
+                            3
                         ]
                     }
                 ],
-                "snapshotNumber": 3,
+                "snapshotNumber": 0,
                 "utxo": [
-                    -5,
-                    -3,
                     -2,
                     -1,
-                    3,
-                    4
+                    3
                 ]
             },
             "tag": "SnapshotConfirmed"
@@ -384,35 +336,74 @@
             "tag": "HeadIsInitializing"
         },
         {
+            "headId": "07010306020804030505060808050106",
             "signatures": {
-                "multiSignature": [
-                    "c7419aabb9ce9e3df6c63e7fa3b69ee6f3efce3e7caf8c5b7ef2358bdae5b32bc8a5f51cea49f9f14c8c59862145055b7036576067d621f895125806d376f808",
-                    "81307416cd2d6100813450244010e5d078500d796c74083688ece0528a587313a4d7e14199170c61140c787756314ea9bd070face70d7e22e7554672d4d41405",
-                    "d88794ababd5bf94629bffe83e5540ea78b50eb33b5fb13001f14500fc4b79b414d454c64f597b00037183694b74c715f9e1bcb8f8de83c8a0db77b4feaa5b08"
-                ]
+                "multiSignature": []
             },
             "snapshot": {
                 "confirmedTransactions": [
                     {
-                        "id": 4,
+                        "id": 3,
+                        "inputs": [],
+                        "outputs": [
+                            2,
+                            6
+                        ]
+                    },
+                    {
+                        "id": -5,
                         "inputs": [
                             -5,
-                            2,
-                            4,
-                            6
+                            -3,
+                            -1,
+                            5
                         ],
                         "outputs": [
                             -6,
-                            3,
+                            -5,
+                            -1,
+                            0,
+                            2,
                             4
                         ]
+                    },
+                    {
+                        "id": 5,
+                        "inputs": [],
+                        "outputs": []
+                    },
+                    {
+                        "id": 6,
+                        "inputs": [
+                            -6
+                        ],
+                        "outputs": []
+                    },
+                    {
+                        "id": -6,
+                        "inputs": [
+                            -3,
+                            1,
+                            6
+                        ],
+                        "outputs": [
+                            -4,
+                            0
+                        ]
+                    },
+                    {
+                        "id": -1,
+                        "inputs": [
+                            -2,
+                            -1,
+                            3
+                        ],
+                        "outputs": []
                     }
                 ],
                 "snapshotNumber": 6,
                 "utxo": [
-                    -6,
-                    0,
-                    2
+                    0
                 ]
             },
             "tag": "SnapshotConfirmed"
@@ -595,56 +586,52 @@
             ]
         },
         {
+            "headId": "01020306010003020102040400040802",
             "signatures": {
                 "multiSignature": [
-                    "eed3427a9a1f17d8d7397b723ec62a237a300ec806886b57534a1bc9035063a7ea33f73a9b995151b11527294f21da8e228e886b85908e97a474cd5897e6970a",
-                    "0754d294496b219a5b719594525b169b7119427c321c16c5bfb7bee019a6150b55f42c9ba9177251f73a669becfb7cec41b99b0c02eb456f30a0dbdcf8a12e08",
-                    "b76e355bdaf97a70c2ed01405d39b3af8f2c7a5eb68ea259f1ac1e75df685e0973363da862f5574daac81a902030de02fbed9f2118c310743688698cfdfed600",
-                    "db69a0754348a791a1165408f134878619f05345d43a31b3895fc4b2b03014ad79147f7eeaefe848670643033179bc033062189a3b30da2f0ec097be6800cd0a"
+                    "23781089cfbf91b60a421c3d0130741e506938fddb9893cb8c478acc3a59ec99ba5e5aa705fc9a7e74740cf906cf170dd4f0318ee6977478fc34d6df67313c03",
+                    "2dde54150cbc03067ef104c2eb88fb67077e99f5dc29b1f1b5990d9ec094a6741cad147adb6ee9bbaf3931a3a0a2e20cb04ce83fa7d38427b85fcd5ce41f680d",
+                    "a966f7cc445bba489689fe82c57347a5d89dc8552554cc6f577b0c8179c04c3dd1013bdcd54246762c3687c23b6557a4f8ed6b6e213060db957e3d54831f4e09",
+                    "8131ed4a61dd3bd6c74fbf70249df38e553a37c7d3138b59e92a04d972eba6d76dac70bd4b78f681aa25c9e1950177247fcd960c1acb8fd31e60755c5ee06206",
+                    "83df0e0cfd7dd62f7d8fd4924b6b3291b351fffe6a768918e443312c7f94bc12f1040f509ea54025be02ebefd48cf5ee512360787821772287b8932c45dccf0a",
+                    "2b9889b3b58f2f8d8a39fc898b711d3a4cc912d742701b4e7b90fccaf1a7248bf4b41652b1d0a95f4e3ae4085ef0b15808cadbb3eb6be13719895ec721565200"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
                     {
+                        "id": -6,
+                        "inputs": [],
+                        "outputs": [
+                            -6,
+                            -4,
+                            -2,
+                            2
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [
+                            -5
+                        ],
+                        "outputs": [
+                            -6,
+                            -4,
+                            3,
+                            4
+                        ]
+                    },
+                    {
                         "id": 0,
                         "inputs": [
-                            -4,
-                            -1
+                            -5,
+                            0
                         ],
-                        "outputs": [
-                            -4,
-                            -3,
-                            0,
-                            6
-                        ]
-                    },
-                    {
-                        "id": 3,
-                        "inputs": [
-                            1
-                        ],
-                        "outputs": [
-                            1
-                        ]
-                    },
-                    {
-                        "id": 3,
-                        "inputs": [
-                            -2,
-                            6
-                        ],
-                        "outputs": [
-                            -3,
-                            -2
-                        ]
+                        "outputs": []
                     }
                 ],
-                "snapshotNumber": 0,
-                "utxo": [
-                    3,
-                    4,
-                    6
-                ]
+                "snapshotNumber": 1,
+                "utxo": []
             },
             "tag": "SnapshotConfirmed"
         },
@@ -665,14 +652,96 @@
             }
         },
         {
+            "headId": "03010803010805080200020600020508",
             "signatures": {
-                "multiSignature": []
+                "multiSignature": [
+                    "a170cb71259172b98d9fcf5a9eaa5b1ca682abf0d190138e588bd7381a6db566df22509e149c50dd9de0edfbc625bb7c5c48997ad87c9715a97c2050aaa6c903",
+                    "eba81be23b779fdce152bbf9655e7bfd53855e6db9dacc207d44f96de2b89d120493b0e81c8e46b6a71dbea6efa967d7c947e20b76c8494977136effd9a2420b",
+                    "fa76a8c0a6e45ef16eb16deb536e90680aa74c04fb56430e82c139579b7db4d0ed654d0a9ffdf3fed11ad9e69be7c44fefb679f9a01a1c5f411fe648d9154301",
+                    "c9d02f6e530ad7d0e6fa4be29d8146d8198fb8102aac93cc10f42ea876b48426549e638d400a373542988e25c004c6888d1f6bbc92c8cab7ee905a090a4f8c05",
+                    "f48565d393a99fe1b215f5542f7341cdf772f380901bb5883b631d9c109c5e0391a16d71cd5b4649b0cb3730ef6a436c4d4805981b09f52cfc8be6b2abbcb200"
+                ]
             },
             "snapshot": {
-                "confirmedTransactions": [],
-                "snapshotNumber": 1,
+                "confirmedTransactions": [
+                    {
+                        "id": 5,
+                        "inputs": [
+                            -5,
+                            4,
+                            5
+                        ],
+                        "outputs": [
+                            -6,
+                            -5,
+                            -3,
+                            -2
+                        ]
+                    },
+                    {
+                        "id": -4,
+                        "inputs": [
+                            -3
+                        ],
+                        "outputs": [
+                            -6,
+                            -1,
+                            1,
+                            2,
+                            4,
+                            5
+                        ]
+                    },
+                    {
+                        "id": 1,
+                        "inputs": [
+                            -6,
+                            5,
+                            6
+                        ],
+                        "outputs": [
+                            -5,
+                            -1
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [
+                            -3,
+                            1,
+                            5
+                        ],
+                        "outputs": [
+                            -2
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [
+                            -6,
+                            -4,
+                            1,
+                            3
+                        ],
+                        "outputs": []
+                    },
+                    {
+                        "id": -2,
+                        "inputs": [],
+                        "outputs": [
+                            2,
+                            4
+                        ]
+                    }
+                ],
+                "snapshotNumber": 3,
                 "utxo": [
-                    5
+                    -5,
+                    0,
+                    1,
+                    2,
+                    3,
+                    6
                 ]
             },
             "tag": "SnapshotConfirmed"
@@ -804,93 +873,75 @@
             ]
         },
         {
+            "headId": "01040204050602070708020000050604",
             "signatures": {
                 "multiSignature": [
-                    "bcbf67f46d14dc91c5b3a6d0040a5a105cbe8cb193929d0ad375df5f7f4244de7698ffc4a2f638e64ec755216293be99e7cc50623f02175f97808aa3a4f6d809"
+                    "2d2fd0d3f5ff453666537530eac5f33af03be779a4aa675f319f02bcca0b8e61a6f68b304f0c694842e2df39de4f4c4ba0fc6f7c12f6503d9cb2bfd4e759ad00"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
                     {
-                        "id": -6,
-                        "inputs": [
-                            -2
-                        ],
-                        "outputs": [
-                            -5,
-                            -4,
-                            -2
-                        ]
-                    },
-                    {
-                        "id": -6,
+                        "id": -3,
                         "inputs": [
                             -6,
-                            1,
-                            3,
-                            5
+                            -5,
+                            -3,
+                            -2
                         ],
                         "outputs": [
-                            -3,
-                            -2,
-                            3,
-                            4
+                            5
                         ]
                     },
                     {
-                        "id": 4,
+                        "id": -3,
                         "inputs": [
-                            -4,
-                            0,
-                            2
+                            -5,
+                            -1
                         ],
                         "outputs": [
-                            -1
+                            -4,
+                            -3,
+                            -2,
+                            0,
+                            3
                         ]
                     },
                     {
                         "id": 1,
                         "inputs": [
-                            -4
-                        ],
-                        "outputs": [
-                            -6,
-                            -5,
-                            0,
-                            3
-                        ]
-                    },
-                    {
-                        "id": -1,
-                        "inputs": [
                             -4,
-                            -3,
-                            4
-                        ],
-                        "outputs": []
-                    },
-                    {
-                        "id": -5,
-                        "inputs": [
-                            -2,
                             1,
                             2,
                             3
                         ],
                         "outputs": [
+                            -5,
                             -4,
-                            0,
-                            1,
+                            -2,
+                            -1,
                             6
                         ]
+                    },
+                    {
+                        "id": 3,
+                        "inputs": [],
+                        "outputs": []
+                    },
+                    {
+                        "id": 0,
+                        "inputs": [
+                            -6,
+                            -4,
+                            4
+                        ],
+                        "outputs": []
                     }
                 ],
-                "snapshotNumber": 2,
+                "snapshotNumber": 5,
                 "utxo": [
-                    -4,
-                    1,
-                    2,
-                    5
+                    5,
+                    6
                 ]
             },
             "tag": "SnapshotConfirmed"
@@ -1183,98 +1234,81 @@
             }
         },
         {
+            "headId": "04020705070406030102000503070708",
             "signatures": {
                 "multiSignature": [
-                    "494ac429ca87d45ea11cb1e2edcf1249681925357300d1a537e5e5e8f3dea06061f06b940686147b67fbd5a15fba17c224fc1a52d1441f1245d57bbc6280690f",
-                    "02494962d3ad90a20775892305eb876d3f571b4865bf9c2d6fc3a9a467be775f00aaf56b40816660553a027e96e6a76c1b5df0d7600ea1033348aee307cb9f0f",
-                    "7eb8373b26769f7451b9223167d023c9c8edd6fe4a39f6cd7e63278a746954f020e33e249e00e44a5e101dee6fe0610d931b6276079a41e09d5878ef4bfb3c01",
-                    "973cfef34f58cb8460483b2c2044f9eae4fdc2fad49d8e8d757c486827b4d154044684bf16120a88eee73879dbe2e6bd5483e623e5383719adf481d7fed28202",
-                    "df21667d7dce8669b729c955e49da0e00363978cd3aa488b8d1fee5a923aceab6ae0a6a094b2ee1dcec75b8625525e32e47db857e417b40835cecc13bc77d108",
-                    "b76b34b7ac35ffcd31f8710615c68d024ff2c8b9071f038c5ee7e8b4b9bc73e8da3429847a0561b584ff0af6f6b3aa889d6267e5db4e4978d3d5ddf7d4d5e203"
+                    "9a8e8978626874b3e8dd1e392e30993a6a8ad01797b822e1a8e205830dff05fef98c3c9801d84c76e95d8aeeddd9e5d08fc12be8af68a90af66b37fdf5c55e05",
+                    "2a2b75e7eaa39d01d0cd5109499435b8931c29122f196c929bb7dc52bf0acd5679aaf1bb72c3e5a3ae3bdee1058f6e74e91622ad2ec240153919ef15cfcf8600",
+                    "19e037690778d2a2713729ce40c52de7ff064de6b93162c1de447a79e8fac99511d2207576fdf1a773210ec1ae789f87d11ff86e21d0294dfe2cf6b69cd0b10c",
+                    "a5984b1a8dc6cc386be049bcaa34e5722791cac2b6f8b8fa8bcfa9497cdcba110644cfefb25fcbccd37f3cfe8bf79696c7545a003a35ba16c7998aac9f80d707"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
                     {
-                        "id": 3,
-                        "inputs": [],
-                        "outputs": [
-                            -6,
+                        "id": 0,
+                        "inputs": [
                             -5,
-                            -1,
-                            2,
-                            4
-                        ]
-                    },
-                    {
-                        "id": 4,
-                        "inputs": [
+                            1,
+                            2
+                        ],
+                        "outputs": [
                             -3,
-                            0
-                        ],
-                        "outputs": [
-                            -1,
-                            2,
-                            3
-                        ]
-                    },
-                    {
-                        "id": 4,
-                        "inputs": [
-                            -3,
-                            -2,
-                            4
-                        ],
-                        "outputs": [
-                            6
-                        ]
-                    },
-                    {
-                        "id": 6,
-                        "inputs": [
-                            -1
-                        ],
-                        "outputs": [
-                            -6,
-                            -4,
-                            0,
-                            2,
-                            6
-                        ]
-                    },
-                    {
-                        "id": -1,
-                        "inputs": [
-                            -6,
-                            -5,
-                            -2,
-                            0
-                        ],
-                        "outputs": [
-                            2,
-                            3
+                            -2
                         ]
                     },
                     {
                         "id": 5,
                         "inputs": [
+                            -3,
                             -2,
+                            0,
+                            3
+                        ],
+                        "outputs": [
+                            -3,
+                            2,
                             3,
+                            5,
+                            6
+                        ]
+                    },
+                    {
+                        "id": 0,
+                        "inputs": [
+                            -6,
+                            -4,
+                            0,
+                            4,
+                            6
+                        ],
+                        "outputs": [
+                            -1,
+                            0,
                             4,
                             5,
+                            6
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [
+                            -6,
+                            -1,
+                            0,
                             6
                         ],
                         "outputs": [
                             -4,
-                            -3,
-                            -2,
-                            5
+                            -1
                         ]
                     }
                 ],
-                "snapshotNumber": 4,
+                "snapshotNumber": 3,
                 "utxo": [
-                    -4
+                    -4,
+                    -1,
+                    0
                 ]
             },
             "tag": "SnapshotConfirmed"
@@ -1379,48 +1413,31 @@
             "tag": "PostTxOnChainFailed"
         },
         {
+            "headId": "05000704040500040304040603000502",
             "signatures": {
                 "multiSignature": [
-                    "b2a6f3677bd7cff1ce58e1c3db1c8975e900929ce58b6390f5e440a0cce60e64bb963c85f8f3af040e1b32cef0cdb98c3aa4673a076f362502f7a1aa7ec5f906",
-                    "97254a0a77895fa36487bd242557ee4eb34390577a0213d06f58e047a7488bbe9537bf3a98e48009fb521f8a303d8a932eecfae6a5c40fbc7298c17e35094a06",
-                    "b9f5ab38c0309d41d9d058a5bc21a00b8d0884118b2d01dbf1370702dc68019ee486aa2dfec4eb76809132a6cbb714232316f4813e15d4e93755a5f871f13c0d"
+                    "63520fd111f241d39291fe058dbb1e1d2c38d5d90d716cccaabc5b0ef9e649382845109f24c7ea8cd3221e9da67f8341dd8fc427175ebe2c9271431cc808630f",
+                    "59e89629cc18aedcb8131e87545c5b1e170e1fedab5af1cc6e5ad2546da258fdf78d0e4a85ecd1a65cad0d1feaa7b33c502e03224ec84983676dc1ca8a411304"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
                     {
-                        "id": -6,
-                        "inputs": [
-                            6
-                        ],
-                        "outputs": [
-                            -5,
-                            -4,
-                            -3,
-                            -1,
-                            5
-                        ]
-                    },
-                    {
                         "id": -5,
-                        "inputs": [],
-                        "outputs": []
-                    },
-                    {
-                        "id": -2,
                         "inputs": [
-                            2,
-                            4,
-                            5
+                            -4,
+                            -2,
+                            2
                         ],
                         "outputs": [
-                            -3,
-                            5
+                            -6
                         ]
                     }
                 ],
-                "snapshotNumber": 6,
-                "utxo": []
+                "snapshotNumber": 3,
+                "utxo": [
+                    4
+                ]
             },
             "tag": "SnapshotConfirmed"
         },
@@ -1464,62 +1481,39 @@
             "tag": "ReadyToFanout"
         },
         {
+            "headId": "02060307000601040408050404030406",
             "signatures": {
                 "multiSignature": [
-                    "a1900e0fcbda24a160f5bf029a85b939bd64fc74840064cad5922124718131957053257ac78226a002fd54c7e5064db8fb4553cafa3bc5073afcc54ee1a18004",
-                    "0b93580bd76dd8d63ecb4e0e76e61b81f0fd1d218ec02d6dfb928dc40f297612913caed6f576e222b8022e45bd01b6df16b358345dc2b1fa67ca56327afe5108"
+                    "ae913dc916d520b032c8ba5345b66fa46591ac023589bbc92923362b58ed83df14182c676c66dc778ccc87d90b27aaf01556b5bd25f7d4ffc9950177ec499700",
+                    "bed1ed5d3aa847a2c32f36cd484de97a0ef837f94fa4db0636494823949d0135ba8f405e4e677cfc5ee3b60eaea88ec27c26ac0eb72501b51b8e8287feb78f07"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
                     {
-                        "id": 0,
+                        "id": -2,
                         "inputs": [
-                            -6,
                             -5,
                             -4,
-                            -3,
-                            0,
-                            4
-                        ],
-                        "outputs": [
-                            0,
-                            3
-                        ]
-                    },
-                    {
-                        "id": -1,
-                        "inputs": [
-                            2,
+                            -2,
+                            1,
                             5
                         ],
                         "outputs": [
-                            -3,
-                            -1,
-                            0,
-                            4,
                             6
                         ]
                     },
                     {
-                        "id": -1,
-                        "inputs": [
-                            -6,
-                            -1
-                        ],
+                        "id": 2,
+                        "inputs": [],
                         "outputs": [
-                            2
+                            2,
+                            4
                         ]
                     }
                 ],
-                "snapshotNumber": 0,
-                "utxo": [
-                    -5,
-                    0,
-                    2,
-                    3,
-                    5
-                ]
+                "snapshotNumber": 5,
+                "utxo": []
             },
             "tag": "SnapshotConfirmed"
         },
@@ -1643,54 +1637,92 @@
             "tag": "PeerConnected"
         },
         {
+            "headId": "03080702060007020502010300070303",
             "signatures": {
                 "multiSignature": [
-                    "879cf449152d518f051aa4de8855a620031bd287dfe77be19360188891b38c05e14dbf1750ec23f4d3d1a80a6a586bb6cb2dd333267aa38f1a33c4eb4963420b"
+                    "3ef76c8fbdbf5cd525790ffbb3c213e79aae275170b946bf0cb206693ad32a09cacf700f1518e353e7e4e15c76be39fc5bf8d6eebc89d1bd5244780a7e56b706",
+                    "d99b4030dbfa87420ee1009f75ede7dc4fac16615bae00c2c0835dfea39975c4f96fb0a03a296347aebef0e987839ce7b02bf6f37fcab843e1ec09ed21747501",
+                    "33f9792803ad178b1440e19bef293191dd0536c16a024ae08ca4dc936b655aa51803aff13df07bf202ea1f46b7b6af8483bd5aa4f075735275231c1d3a8eca01",
+                    "d536674c99b02bb485d173f2bbd4937157738a5e579a4a3eb80af544e685ef9ee221eeb34cfe51ccfc0cb6ccd6a548006e43efa252d17bcdecff4a2b2f809105"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
                     {
-                        "id": 4,
+                        "id": 5,
                         "inputs": [
-                            -5,
-                            -3,
-                            -1,
-                            4
+                            -6,
+                            3,
+                            6
                         ],
                         "outputs": [
                             -3,
+                            6
+                        ]
+                    },
+                    {
+                        "id": -5,
+                        "inputs": [
+                            -6,
+                            -2,
+                            0,
+                            1,
+                            5,
+                            6
+                        ],
+                        "outputs": [
+                            -2,
                             4
                         ]
                     },
                     {
                         "id": 0,
-                        "inputs": [],
-                        "outputs": [
-                            -6,
-                            -4,
-                            -1,
-                            0,
-                            3
-                        ]
-                    },
-                    {
-                        "id": 6,
                         "inputs": [
-                            -6,
-                            4,
+                            -1,
                             6
                         ],
                         "outputs": [
-                            -2,
+                            -6,
                             1,
-                            5,
+                            2
+                        ]
+                    },
+                    {
+                        "id": -6,
+                        "inputs": [],
+                        "outputs": []
+                    },
+                    {
+                        "id": -2,
+                        "inputs": [
+                            -1,
                             6
+                        ],
+                        "outputs": [
+                            -4
+                        ]
+                    },
+                    {
+                        "id": -5,
+                        "inputs": [
+                            -1
+                        ],
+                        "outputs": [
+                            -5,
+                            -4,
+                            -2,
+                            0
                         ]
                     }
                 ],
-                "snapshotNumber": 1,
-                "utxo": []
+                "snapshotNumber": 6,
+                "utxo": [
+                    -5,
+                    1,
+                    2,
+                    5,
+                    6
+                ]
             },
             "tag": "SnapshotConfirmed"
         },
@@ -2311,80 +2343,90 @@
             "tag": "HeadIsContested"
         },
         {
+            "headId": "05000603010203040801050503050105",
             "signatures": {
                 "multiSignature": [
-                    "f3583fb9f2c4d4b41ebe94216b752e46d03d15e6eaa141894f5d036dd13756b9b693795cfa9f3b3ed230feae53a14c6af0dcc9e6a80676056a3b7e0dc402d300",
-                    "7f387ef076fc3ec52c90b42e2becb56386f6f4ebf5590c9fb61a45dfa8024962d847c8b46281ec51ed56dad7832a7ca4f53a70e7104aff35f34ee10d3954e905",
-                    "370e65e66ce90c1c4ab1d3220c98a4c60b71f398b98a016336dbcb767a973b338298236516b682245909eac1274e0341c16a0553a4a84cc7ed0ab680885e3507",
-                    "02562037068a20a299798872207ccef1540272141152bcd222c30d1371d959a287643e88f3ea521a2efbba3bea813b6c34e62f35c167613165a41cdfc57e0400",
-                    "819d444a23d6e1cbaf1a59848fa07de6db24e49a1c68ece45b6314af7a98636de0b50f17aeeb6c9783ea902b931f719e5f55368fea31defb3164b3aa75708b0e"
+                    "eca817e583c228ac8c6cbb6cfc08a32615ff2c9be8745f8c1745266ec01da70e4d147f3e5f010a78605113948f042c78aca7d7f4b2bb975b93a34a7f9d491503",
+                    "fae2b7d88c006366b0e156c6354c488ac4a91e986c864659bd381cfa4a46a53c3848a1b8706ac910913e72d571ce2fc7adb6f4ed87eb185b06c898e42c874306",
+                    "db3c9f0719fb70b332313365456b8e4d070684cf6409a9e358af8ab93cee5e54b97c469c6ca7c26c39f166241dfe77222a543a20f9e3a4b8514b1bac961c7f04",
+                    "6db9e33f66423e15eb4b96ef9a4c77d5b657779f439e71cf1e0fc25e7403de01d053068cb790791189f61363831c60c8d2289ba5ee163f6b2227ba4d4bebbb0c",
+                    "b3ce32a6c419a11227bd2a9e63e2f2b8ee041c9309c798327335ed5d917a73b3e6b0c47c08097a05b9c5759d51963d45b9b43eeb377a5883313b10eae7331801",
+                    "72877b01301044602001d3e57b7ef7adc7fdcbff70d6e0589d21d1dfe4e963ce6ab6e9deb9f29642097fb651e0a40497c1ecf271cf60051e2fc4d3a4fadaf70b"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
                     {
-                        "id": -6,
+                        "id": 1,
                         "inputs": [
-                            3
+                            -2,
+                            6
                         ],
-                        "outputs": [
-                            -3,
-                            3
-                        ]
+                        "outputs": []
                     },
                     {
-                        "id": 5,
-                        "inputs": [
+                        "id": 1,
+                        "inputs": [],
+                        "outputs": [
                             -6,
                             -3,
-                            1,
-                            3,
-                            5
-                        ],
-                        "outputs": [
-                            -5,
-                            -4,
-                            -3,
-                            3
+                            2,
+                            4
                         ]
                     },
                     {
                         "id": -2,
                         "inputs": [
-                            -5,
-                            -3,
-                            0,
-                            1,
-                            4
-                        ],
-                        "outputs": [
-                            4,
-                            5
-                        ]
-                    },
-                    {
-                        "id": -5,
-                        "inputs": [
-                            -6,
                             -4,
-                            -2,
+                            0,
                             2
                         ],
                         "outputs": [
-                            -6,
+                            -4,
+                            1
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [
                             -3,
-                            1,
-                            3
+                            4,
+                            5
+                        ],
+                        "outputs": [
+                            -1
+                        ]
+                    },
+                    {
+                        "id": 6,
+                        "inputs": [
+                            -6,
+                            -2,
+                            3,
+                            5
+                        ],
+                        "outputs": [
+                            -6,
+                            4
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "inputs": [
+                            -6,
+                            -5,
+                            -1,
+                            3,
+                            5
+                        ],
+                        "outputs": [
+                            -6,
+                            -2
                         ]
                     }
                 ],
-                "snapshotNumber": 4,
-                "utxo": [
-                    1,
-                    2,
-                    3,
-                    6
-                ]
+                "snapshotNumber": 5,
+                "utxo": []
             },
             "tag": "SnapshotConfirmed"
         },
@@ -2477,24 +2519,79 @@
             "tag": "HeadIsInitializing"
         },
         {
+            "headId": "04010004070105080600040301060407",
             "signatures": {
                 "multiSignature": [
-                    "ff0a3218ea0d3bdbdfd7153f167af6b4e085e36d4a3711f17bddff5e5cffa69d07505457e88ba2c0ef62c06ddfe3f625ed82942982135550b1d30d41dc64f00d",
-                    "6a49194d64ceb66795c0d3051e7b3531234ca4e2da9fe81566d68e18f74cc488b8202f5dda68eb268c4d40ef52be282122fab9dcc187b7af2cda79109c06a300",
-                    "8ef913d822caa877067f678ac44f3c5323d0b5913792ae46a2a3fd5723a89cac690f5d2de8cbde45065c28ec07c5cdecbaa246f15e60db0096b52e8164494303",
-                    "4da32c7c5a6d3a2fb9a22472385897144b178476d6fc72f15af8df42c4fb9e83b6d006b27d6f05967522dcc80397808695959857cf1e0fa90530bed74804dc08",
-                    "fee9bb705fd6b56b4f5e1a1937ca41665908ba2b2848890a73827c770c7cb79ba7c8bff03753f16bb62c5a8a6e16314a8599e07e183be19a879bdac26fbff30a",
-                    "966bc3f6bb6f772ee689c4cd286a2628565be0553bad8d22754cd3ed9521b70e73a5de963d657110c42061608cffb482d39b4346b031171198f3ba893d2eba03"
+                    "9e02967f7f47235551d4524c046d709a22d552577b3b1fccfae5465173ffc22db31234cdb7e567f4cd1d60e395ec6544e20c4c56443141462de22f8629f17a07",
+                    "148dce9f323aa1713d01336af436089cb84a3200e478a12356ae0832d116afd39cbe4ce2e6d0a8e91892c1346c4f698151d5e380e36112711b7af0436874180d",
+                    "d07f41639b2155b4ba3af61bce1b39cafebfb13491bae5b5e418743e1b106427375652c7a6856378c007397c78b77262c24d2115a5bfa16828fe0ca62fb3f00d",
+                    "a6f497832ac4abd83778bcb1d39d574205d7b0d39b6117f5eae13142b77c649edc1d73a31a670d02dbdf6f2edbf4810be8cef4289794a4371cd1bec64d8dd502",
+                    "4758087fe178f64e514016fc3e78b0eaab8c17e9b454ee525ac213221ff41a9e4400b5f7e89f1921bb7d436bdd6e7308f1d95d09040ced397c2f64db2db4cb0b"
                 ]
             },
             "snapshot": {
-                "confirmedTransactions": [],
-                "snapshotNumber": 0,
+                "confirmedTransactions": [
+                    {
+                        "id": 3,
+                        "inputs": [],
+                        "outputs": [
+                            -6,
+                            -5,
+                            4,
+                            6
+                        ]
+                    },
+                    {
+                        "id": 1,
+                        "inputs": [
+                            -4,
+                            3
+                        ],
+                        "outputs": [
+                            -6,
+                            -3,
+                            -2,
+                            -1,
+                            5,
+                            6
+                        ]
+                    },
+                    {
+                        "id": 5,
+                        "inputs": [
+                            -1,
+                            1,
+                            5,
+                            6
+                        ],
+                        "outputs": [
+                            -5,
+                            -1,
+                            2,
+                            4
+                        ]
+                    },
+                    {
+                        "id": 3,
+                        "inputs": [],
+                        "outputs": [
+                            3
+                        ]
+                    },
+                    {
+                        "id": -6,
+                        "inputs": [
+                            2
+                        ],
+                        "outputs": []
+                    }
+                ],
+                "snapshotNumber": 6,
                 "utxo": [
-                    -3,
-                    1,
-                    2,
-                    3
+                    -6,
+                    0,
+                    5,
+                    6
                 ]
             },
             "tag": "SnapshotConfirmed"
