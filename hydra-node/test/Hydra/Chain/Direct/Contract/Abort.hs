@@ -174,7 +174,7 @@ genAbortMutation (tx, _utxo) =
         newInput <- arbitrary
         -- XXX: Ideally we should need to modify the PT to simulate a proper new commit
         -- FIXME: this shouldn't be green
-        pure $ AddInput newInput output
+        pure $ AddInput newInput output (Just $ toScriptData Head.Abort)
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value

@@ -258,7 +258,7 @@ data Mutation
   | -- | Drops the given input from the transaction's inputs
     RemoveInput TxIn
   | -- | Adds given UTxO to the transaction's inputs and UTxO context.
-    AddInput TxIn (TxOut CtxUTxO)
+    AddInput TxIn (TxOut CtxUTxO) (Maybe ScriptData)
   | -- | Change an input's 'TxOut' to something else.
     -- This mutation alters the redeemers of the transaction to ensure
     -- any matching redeemer for given input matches the new redeemer, otherwise
@@ -341,11 +341,14 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ( alterTxIns (filter (\(i, _) -> i /= txIn)) tx
     , utxo
     )
-  -- TODO: add redeemer to 'AddInput'
-  AddInput i o ->
-    ( alterTxIns ((i, Nothing) :) tx
+  AddInput i o newRedeemer ->
+    ( alterTxIns addRedeemer tx
     , UTxO $ Map.insert i o (UTxO.toMap utxo)
     )
+   where
+    addRedeemer =
+      map $ \(txIn', mRedeemer) ->
+        if txIn' == i then (i, newRedeemer) else (txIn', mRedeemer)
   ChangeInput txIn txOut newRedeemer ->
     ( alterTxIns replaceRedeemer tx
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
