@@ -52,7 +52,7 @@ import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Chain (HeadId, PostTxError (..))
+import Hydra.Chain (HeadId (HeadId), PostTxError (..))
 import Hydra.Chain.CardanoClient (CardanoClient (..), mkCardanoClient)
 import Hydra.Chain.Direct.State ()
 import Hydra.Chain.Direct.Util (isMarkedOutput)
@@ -77,6 +77,7 @@ data State
   = Disconnected
       { nodeHost :: Host
       , now :: UTCTime
+      , hydraHeadId :: HeadId
       }
   | Connected
       { me :: Maybe Party -- TODO(SN): we could make a nicer type if ClientConnected is only emited of 'Hydra.Client' upon receiving a 'Greeting'
@@ -280,12 +281,13 @@ handleAppEvent s = \case
       , feedback = []
       , now = s ^. nowL
       , pending = NotPending
-      , hydraHeadId = hydraHeadId s
+      , hydraHeadId = s ^. hydraHeadIdL
       }
   ClientDisconnected ->
     Disconnected
       { nodeHost = s ^. nodeHostL
       , now = s ^. nowL
+      , hydraHeadId = s ^. hydraHeadIdL
       }
   Update Greetings{me} ->
     s & meL ?~ me
@@ -889,8 +891,8 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
       , appStartEvent = pure
       , appAttrMap = style
       }
-
-  initialState now = Disconnected{nodeHost = hydraNodeHost, now}
+  -- TODO: can we get access to the proper 'HeadId' here?
+  initialState now = Disconnected{nodeHost = hydraNodeHost, now, hydraHeadId = HeadId ""}
 
   cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
 
