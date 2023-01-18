@@ -419,11 +419,12 @@ onInitialChainAbortTx ::
   -- | New chain state
   ChainStateType tx ->
   Committed tx ->
+  HeadId ->
   Outcome tx
-onInitialChainAbortTx newChainState committed =
+onInitialChainAbortTx newChainState committed headId =
   NewState
     IdleState{chainState = newChainState}
-    [ClientEffect $ HeadIsAborted $ fold committed]
+    [ClientEffect $ HeadIsAborted{headId, utxo = fold committed}]
 
 -- | Observe a collectCom transaction. We initialize the 'OpenState' using the
 -- head parameters from 'IdleState' and construct an 'InitialSnapshot' holding
@@ -912,8 +913,8 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
     OnlyEffects []
   (InitialState{parameters, committed, headId}, OnChainEvent (Observation{observedTx = OnCollectComTx{}, newChainState})) ->
     onInitialChainCollectTx st newChainState parameters committed headId
-  (InitialState{committed}, OnChainEvent (Observation{observedTx = OnAbortTx{}, newChainState})) ->
-    onInitialChainAbortTx newChainState committed
+  (InitialState{headId, committed}, OnChainEvent (Observation{observedTx = OnAbortTx{}, newChainState})) ->
+    onInitialChainAbortTx newChainState committed headId
   (OpenState{chainState, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     onOpenClientClose chainState confirmedSnapshot
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->

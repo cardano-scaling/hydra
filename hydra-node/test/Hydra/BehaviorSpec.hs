@@ -174,7 +174,7 @@ spec = parallel $ do
               send n1 (Commit (utxoRefs [1, 2]))
               waitUntil [n1, n2] $ Committed alice (utxoRefs [1, 2])
               send n2 Abort
-              waitUntil [n1, n2] $ HeadIsAborted (utxoRefs [1, 2])
+              waitUntil [n1, n2] $ HeadIsAborted{headId = testHeadId, utxo = utxoRefs [1, 2]}
               send n1 Init
               waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
 

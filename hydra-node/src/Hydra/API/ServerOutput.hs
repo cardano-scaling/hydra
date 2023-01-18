@@ -55,7 +55,7 @@ data ServerOutput tx
       }
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | ReadyToFanout
-  | HeadIsAborted {utxo :: UTxOType tx}
+  | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {utxo :: UTxOType tx}
   | CommandFailed {clientInput :: ClientInput tx}
   | TxSeen {transaction :: tx}
@@ -100,7 +100,7 @@ instance
     HeadIsContested sn headId -> HeadIsContested <$> shrink sn <*> shrink headId
     ReadyToFanout -> []
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u
-    HeadIsAborted u -> HeadIsAborted <$> shrink u
+    HeadIsAborted u headId -> HeadIsAborted <$> shrink u <*> shrink headId
     CommandFailed i -> CommandFailed <$> shrink i
     TxSeen tx -> TxSeen <$> shrink tx
     TxValid tx -> TxValid <$> shrink tx
