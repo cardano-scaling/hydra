@@ -732,7 +732,8 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "peer": "b",
+            "headId": "01030303020308000601040006040505",
+            "peer": "mgurkp",
             "tag": "PeerDisconnected"
         },
         {
@@ -1347,7 +1348,8 @@
             "tag": "Greetings"
         },
         {
-            "peer": "utnubk",
+            "headId": "06070406050402020502020406080203",
+            "peer": "ywv",
             "tag": "PeerDisconnected"
         },
         {
@@ -1766,7 +1768,8 @@
             "tag": "HeadIsContested"
         },
         {
-            "peer": "cngcef",
+            "headId": "01060704080604040005050601040402",
+            "peer": "zpslll",
             "tag": "PeerDisconnected"
         },
         {
@@ -1953,7 +1956,8 @@
             "tag": "ReadyToFanout"
         },
         {
-            "peer": "b",
+            "headId": "02070005000701070303080801040006",
+            "peer": "ytbv",
             "tag": "PeerDisconnected"
         },
         {
@@ -2151,7 +2155,8 @@
             ]
         },
         {
-            "peer": "l",
+            "headId": "03050105050706070100020503060701",
+            "peer": "gbs",
             "tag": "PeerDisconnected"
         },
         {

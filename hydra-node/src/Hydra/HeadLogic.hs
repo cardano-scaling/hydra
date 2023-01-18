@@ -988,7 +988,9 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
       Nothing -> Error $ InvalidEvent ev st
       Just headId -> OnlyEffects [ClientEffect $ PeerConnected{headId, peer = nodeId}]
   (_, NetworkEvent _ (Disconnected nodeId)) ->
-    OnlyEffects [ClientEffect $ PeerDisconnected nodeId]
+    case getHeadId st of
+      Nothing -> Error $ InvalidEvent ev st
+      Just headId -> OnlyEffects [ClientEffect $ PeerDisconnected{headId, peer = nodeId}]
   (_, PostTxError{postChainTx, postTxError}) ->
     OnlyEffects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
   (_, ClientEvent{clientInput}) ->

@@ -1,7 +1,8 @@
 {
     "samples": [
         {
-            "peer": "jteadb",
+            "headId": "04070302060607050203030303050802",
+            "peer": "qmuaa",
             "tag": "PeerDisconnected"
         },
         {
@@ -390,7 +391,8 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "peer": "xwnvl",
+            "headId": "00080103030307070600060001070701",
+            "peer": "suhu",
             "tag": "PeerDisconnected"
         },
         {
@@ -725,7 +727,8 @@
             }
         },
         {
-            "peer": "sjhi",
+            "headId": "04020406010602020503050407020803",
+            "peer": "ie",
             "tag": "PeerDisconnected"
         },
         {
@@ -2056,7 +2059,8 @@
             }
         },
         {
-            "peer": "qnpb",
+            "headId": "01060704030800060201000206050403",
+            "peer": "zjoz",
             "tag": "PeerDisconnected"
         },
         {
@@ -6777,7 +6781,8 @@
             "tag": "HeadIsClosed"
         },
         {
-            "peer": "katyi",
+            "headId": "05070002030706000405080808050202",
+            "peer": "vff",
             "tag": "PeerDisconnected"
         },
         {
@@ -7517,7 +7522,8 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "peer": "xft",
+            "headId": "02070703050204080607040501070003",
+            "peer": "srge",
             "tag": "PeerDisconnected"
         },
         {
@@ -9549,7 +9555,8 @@
             }
         },
         {
-            "peer": "sypa",
+            "headId": "03040806030400000702020802000704",
+            "peer": "wlgzmy",
             "tag": "PeerDisconnected"
         },
         {
@@ -14589,7 +14596,8 @@
             }
         },
         {
-            "peer": "xvu",
+            "headId": "04000807030308030201040402010701",
+            "peer": "moep",
             "tag": "PeerDisconnected"
         },
         {
@@ -20476,7 +20484,8 @@
             "tag": "RolledBack"
         },
         {
-            "peer": "cenoai",
+            "headId": "03000607030404020602060704060204",
+            "peer": "hhxqd",
             "tag": "PeerDisconnected"
         },
         {
@@ -22878,7 +22887,8 @@
             "utxo": {}
         },
         {
-            "peer": "ski",
+            "headId": "05030504010802020703010207080803",
+            "peer": "cyvek",
             "tag": "PeerDisconnected"
         },
         {
@@ -28044,7 +28054,8 @@
             }
         },
         {
-            "peer": "lg",
+            "headId": "01060100010700010507070205020500",
+            "peer": "abku",
             "tag": "PeerDisconnected"
         },
         {

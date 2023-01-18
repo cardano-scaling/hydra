@@ -258,6 +258,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - peer
           - seq
           - timestamp
@@ -265,6 +266,8 @@ components:
           tag:
             type: string
             enum: ["PeerDisconnected"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           peer:
             $ref: "#/components/schemas/NodeId"
           seq:
