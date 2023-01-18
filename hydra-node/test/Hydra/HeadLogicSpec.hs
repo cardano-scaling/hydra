@@ -15,6 +15,7 @@ import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
   ChainSlot (..),
+  HeadId (..),
   HeadParameters (..),
   IsChainState,
   OnChainTx (..),
@@ -239,7 +240,7 @@ spec = do
                   { snapshotNumber
                   , contestationDeadline
                   }
-            clientEffect = ClientEffect HeadIsClosed{snapshotNumber, contestationDeadline}
+            clientEffect = ClientEffect HeadIsClosed{snapshotNumber, contestationDeadline, headId = testHeadId}
         let outcome1 = update bobEnv ledger s0 observeCloseTx
         outcome1 `hasEffect` clientEffect
         outcome1 `hasNoEffectSatisfying` \case
@@ -348,6 +349,7 @@ inInitialState parties =
     , committed = mempty
     , previousRecoverableState = idleState
     , chainState = SimpleChainState{slot = ChainSlot 0}
+    , headId = testHeadId
     }
  where
   parameters = HeadParameters cperiod parties
@@ -375,6 +377,7 @@ inOpenState' parties coordinatedHeadState =
     , coordinatedHeadState
     , previousRecoverableState
     , chainState = SimpleChainState{slot = ChainSlot 0}
+    , headId = testHeadId
     }
  where
   parameters = HeadParameters cperiod parties
@@ -386,6 +389,7 @@ inOpenState' parties coordinatedHeadState =
       , committed = mempty
       , previousRecoverableState = idleState
       , chainState = SimpleChainState{slot = ChainSlot 0}
+      , headId = testHeadId
       }
 
   idleState =
@@ -461,3 +465,6 @@ assertStateUnchangedFrom st = \case
     st' `shouldBe` st
     eff `shouldBe` []
   anything -> failure $ "unexpected outcome: " <> show anything
+
+testHeadId :: HeadId
+testHeadId = HeadId "1234"

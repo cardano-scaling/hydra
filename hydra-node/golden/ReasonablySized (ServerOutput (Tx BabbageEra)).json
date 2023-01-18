@@ -843,7 +843,8 @@
             }
         },
         {
-            "contestationDeadline": "1864-05-03T14:26:38.2987123864Z",
+            "contestationDeadline": "1864-05-06T00:05:56.396622331302Z",
+            "headId": "04030700050708030301000506040508",
             "snapshotNumber": 4,
             "tag": "HeadIsClosed"
         },
@@ -965,7 +966,8 @@
             }
         },
         {
-            "contestationDeadline": "1864-05-11T05:46:59.685285282135Z",
+            "contestationDeadline": "1864-05-03T03:02:00.618651345259Z",
+            "headId": "08050203030706010405070505020102",
             "snapshotNumber": 1,
             "tag": "HeadIsClosed"
         },
@@ -6734,7 +6736,8 @@
             }
         },
         {
-            "contestationDeadline": "1864-05-06T09:03:16.648951581664Z",
+            "contestationDeadline": "1864-05-09T22:26:39.553552763682Z",
+            "headId": "04030606070505020005060408040801",
             "snapshotNumber": 0,
             "tag": "HeadIsClosed"
         },
@@ -7486,7 +7489,8 @@
             "tag": "RolledBack"
         },
         {
-            "contestationDeadline": "1864-05-08T20:48:59.166012289715Z",
+            "contestationDeadline": "1864-05-09T18:31:39.001943182913Z",
+            "headId": "00010500060301050400000805020502",
             "snapshotNumber": 5,
             "tag": "HeadIsClosed"
         },
@@ -8993,7 +8997,8 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "contestationDeadline": "1864-05-05T09:43:21.155749656049Z",
+            "contestationDeadline": "1864-05-12T04:59:09.513804445567Z",
+            "headId": "01060204030000050400070002000204",
             "snapshotNumber": 0,
             "tag": "HeadIsClosed"
         },
@@ -15507,12 +15512,14 @@
             "utxo": {}
         },
         {
-            "contestationDeadline": "1864-05-03T13:39:50.028844771106Z",
+            "contestationDeadline": "1864-05-09T14:33:28.52655880108Z",
+            "headId": "00060800010705030201050605050005",
             "snapshotNumber": 6,
             "tag": "HeadIsClosed"
         },
         {
-            "contestationDeadline": "1864-05-10T09:41:55.939463838345Z",
+            "contestationDeadline": "1864-05-09T10:29:28.559801433271Z",
+            "headId": "00020807000006000002060005080801",
             "snapshotNumber": 6,
             "tag": "HeadIsClosed"
         },
@@ -20622,7 +20629,8 @@
             }
         },
         {
-            "contestationDeadline": "1864-05-14T21:31:14.496420753363Z",
+            "contestationDeadline": "1864-05-10T01:07:37.989208504512Z",
+            "headId": "08050506060304010607020502000108",
             "snapshotNumber": 0,
             "tag": "HeadIsClosed"
         },
@@ -23499,7 +23507,8 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "contestationDeadline": "1864-05-09T09:59:27.873155257308Z",
+            "contestationDeadline": "1864-05-10T01:58:36.219024845517Z",
+            "headId": "06020303020705080701060100030800",
             "snapshotNumber": 6,
             "tag": "HeadIsClosed"
         },
@@ -24303,7 +24312,8 @@
             "tag": "PeerConnected"
         },
         {
-            "contestationDeadline": "1864-05-04T15:00:06.368788963045Z",
+            "contestationDeadline": "1864-05-15T08:21:18.939138981753Z",
+            "headId": "04060708060301060805020104070105",
             "snapshotNumber": 4,
             "tag": "HeadIsClosed"
         },
@@ -25306,7 +25316,8 @@
             "utxo": {}
         },
         {
-            "contestationDeadline": "1864-05-14T19:45:11.760763315411Z",
+            "contestationDeadline": "1864-05-08T12:07:14.238514376571Z",
+            "headId": "07080407050606000601050408030506",
             "snapshotNumber": 4,
             "tag": "HeadIsClosed"
         },
@@ -26405,7 +26416,8 @@
             }
         },
         {
-            "contestationDeadline": "1864-05-06T17:38:35.623112314839Z",
+            "contestationDeadline": "1864-05-05T17:53:36.006097501827Z",
+            "headId": "01050305010704030203080002080408",
             "snapshotNumber": 4,
             "tag": "HeadIsClosed"
         },
@@ -29530,7 +29542,8 @@
             }
         },
         {
-            "contestationDeadline": "1864-05-04T22:07:01.40638032493Z",
+            "contestationDeadline": "1864-05-12T21:19:42.504597536855Z",
+            "headId": "07010703020800050804060002080406",
             "snapshotNumber": 0,
             "tag": "HeadIsClosed"
         },

@@ -415,7 +415,8 @@
             "utxo": []
         },
         {
-            "contestationDeadline": "1864-05-14T05:37:23.546312740447Z",
+            "contestationDeadline": "1864-05-06T12:17:06.554968960765Z",
+            "headId": "03020000010608050506030505010807",
             "snapshotNumber": 6,
             "tag": "HeadIsClosed"
         },
@@ -2131,7 +2132,8 @@
             "tag": "PeerDisconnected"
         },
         {
-            "contestationDeadline": "1864-05-04T16:52:27.110891623495Z",
+            "contestationDeadline": "1864-05-13T02:48:17.398396623677Z",
+            "headId": "02070700000204020802050808060702",
             "snapshotNumber": 5,
             "tag": "HeadIsClosed"
         },
@@ -2145,7 +2147,8 @@
             "tag": "RolledBack"
         },
         {
-            "contestationDeadline": "1864-05-09T09:41:49.971068837934Z",
+            "contestationDeadline": "1864-05-12T23:24:05.487087927729Z",
+            "headId": "07060208080104020704030000020100",
             "snapshotNumber": 4,
             "tag": "HeadIsClosed"
         },

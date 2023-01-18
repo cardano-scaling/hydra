@@ -12,7 +12,7 @@
                     "a/a/a..vk",
                     "b..vk"
                 ],
-                "contestationPeriod": 81103,
+                "contestationPeriod": 2592000,
                 "networkId": {
                     "magic": 30959,
                     "tag": "Testnet"
@@ -64,7 +64,7 @@
                 "cardanoVerificationKeys": [
                     "a/c..vk"
                 ],
-                "contestationPeriod": 51460,
+                "contestationPeriod": 86400,
                 "networkId": {
                     "magic": 2270,
                     "tag": "Testnet"
@@ -120,7 +120,7 @@
                     "c..vk",
                     "a/b..vk"
                 ],
-                "contestationPeriod": 43200,
+                "contestationPeriod": 31536000,
                 "networkId": {
                     "magic": 9314,
                     "tag": "Testnet"
@@ -193,7 +193,7 @@
                     "a..vk",
                     "a/b..vk"
                 ],
-                "contestationPeriod": 16039,
+                "contestationPeriod": 50430,
                 "networkId": {
                     "magic": 27619,
                     "tag": "Testnet"

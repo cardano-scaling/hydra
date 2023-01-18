@@ -51,6 +51,7 @@ data ServerOutput tx
         -- as the ledger of our cardano-node might not have progressed
         -- sufficiently in time yet and we do not re-submit transactions (yet).
         contestationDeadline :: UTCTime
+      , headId :: HeadId
       }
   | HeadIsContested {snapshotNumber :: SnapshotNumber}
   | ReadyToFanout
@@ -95,7 +96,7 @@ instance
     HeadIsInitializing hid xs -> HeadIsInitializing <$> shrink hid <*> shrink xs
     Committed p u -> Committed <$> shrink p <*> shrink u
     HeadIsOpen u headId -> HeadIsOpen <$> shrink u <*> shrink headId
-    HeadIsClosed s t -> HeadIsClosed <$> shrink s <*> shrink t
+    HeadIsClosed s t headId -> HeadIsClosed <$> shrink s <*> shrink t <*> shrink headId
     HeadIsContested sn -> HeadIsContested <$> shrink sn
     ReadyToFanout -> []
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u

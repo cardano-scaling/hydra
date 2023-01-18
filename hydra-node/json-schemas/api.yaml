@@ -356,6 +356,7 @@ components:
           - tag
           - snapshotNumber
           - contestationDeadline
+          - headId
           - seq
           - timestamp
         properties:
@@ -366,6 +367,8 @@ components:
             $ref: "#/components/schemas/SnapshotNumber"
           contestationDeadline:
             $ref: "#/components/schemas/UTCTime"
+          headId:
+            $ref: "#/components/schemas/HeadId"
           seq:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:
