@@ -72,7 +72,7 @@ spec = do
             reqTx = NetworkEvent ttl $ ReqTx alice tx
             s0 = inOpenState threeParties ledger
 
-        update bobEnv ledger s0 reqTx `hasEffect` ClientEffect (TxExpired tx)
+        update bobEnv ledger s0 reqTx `hasEffect` ClientEffect (TxExpired testHeadId tx)
 
       it "waits if a requested tx is not (yet) applicable" $ do
         let reqTx = NetworkEvent defaultTTL $ ReqTx alice $ SimpleTx 2 inputs mempty

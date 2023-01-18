@@ -935,7 +935,7 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
       onOpenClientNewTx ledger party utxo tx headId
   (OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId}, NetworkEvent ttl (ReqTx _ tx))
     | ttl == 0 ->
-      OnlyEffects [ClientEffect $ TxExpired tx]
+      OnlyEffects [ClientEffect $ TxExpired headId tx]
     | otherwise ->
       -- XXX: This is decomposing 'OpenState', only to re-compose it inside this
       -- function. Create a dedicated OpenState type!
