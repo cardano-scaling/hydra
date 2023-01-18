@@ -240,7 +240,7 @@ spec = do
                   { snapshotNumber
                   , contestationDeadline
                   }
-            clientEffect = ClientEffect HeadIsClosed{snapshotNumber, contestationDeadline, headId = testHeadId}
+            clientEffect = ClientEffect HeadIsClosed{headId = testHeadId, snapshotNumber, contestationDeadline}
         let outcome1 = update bobEnv ledger s0 observeCloseTx
         outcome1 `hasEffect` clientEffect
         outcome1 `hasNoEffectSatisfying` \case

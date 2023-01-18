@@ -978,10 +978,10 @@
             }
         },
         {
-            "contestationDeadline": "1864-05-07T04:09:41.086842899727Z",
-            "headId": "06020005060606000604080603070107",
+            "contestationDeadline": "1864-05-07T12:59:32.75679895353Z",
+            "headId": "00040200070402080703060106000300",
             "seq": 0,
-            "snapshotNumber": 6,
+            "snapshotNumber": 5,
             "tag": "HeadIsClosed",
             "timestamp": "1864-05-10T04:17:50.112891306467Z"
         },
@@ -2051,8 +2051,9 @@
         },
         {
             "clientInput": {
-                "tag": "Init"
+                "tag": "Fanout"
             },
+            "headId": "01010401030204010100080807000308",
             "seq": 3,
             "tag": "CommandFailed",
             "timestamp": "1864-05-12T13:56:51.363916400165Z"
@@ -8928,8 +8929,9 @@
         },
         {
             "clientInput": {
-                "tag": "Fanout"
+                "tag": "Init"
             },
+            "headId": "06030205000802040304080508050806",
             "seq": 6,
             "tag": "CommandFailed",
             "timestamp": "1864-05-05T21:04:29.184435261631Z"
@@ -9063,8 +9065,9 @@
         },
         {
             "clientInput": {
-                "tag": "Close"
+                "tag": "Init"
             },
+            "headId": "06010305000600070600060506070405",
             "seq": 5,
             "tag": "CommandFailed",
             "timestamp": "1864-05-04T08:21:22.928582248965Z"
@@ -9795,10 +9798,10 @@
             }
         },
         {
-            "contestationDeadline": "1864-05-08T18:37:21.58031431456Z",
-            "headId": "04070702000503040600060305070100",
+            "contestationDeadline": "1864-05-12T15:06:02.207980135754Z",
+            "headId": "08040800080202050500020008060502",
             "seq": 3,
-            "snapshotNumber": 6,
+            "snapshotNumber": 5,
             "tag": "HeadIsClosed",
             "timestamp": "1864-05-12T07:23:51.627422288402Z"
         },
@@ -10419,10 +10422,10 @@
             }
         },
         {
-            "contestationDeadline": "1864-05-10T00:22:07.50786598822Z",
-            "headId": "08000400060604040707080008040205",
+            "contestationDeadline": "1864-05-04T08:13:13.94482448442Z",
+            "headId": "07030501060400010602030703040600",
             "seq": 4,
-            "snapshotNumber": 5,
+            "snapshotNumber": 4,
             "tag": "HeadIsClosed",
             "timestamp": "1864-05-05T08:15:09.938872863716Z"
         },
@@ -10440,10 +10443,10 @@
             "timestamp": "1864-05-03T20:52:18.601747343971Z"
         },
         {
-            "contestationDeadline": "1864-05-14T13:24:55.556584782665Z",
-            "headId": "04040303080308080006020603030404",
+            "contestationDeadline": "1864-05-05T05:03:40.517895666769Z",
+            "headId": "08070101030502030705040603030506",
             "seq": 2,
-            "snapshotNumber": 3,
+            "snapshotNumber": 2,
             "tag": "HeadIsClosed",
             "timestamp": "1864-05-11T07:10:59.150336028185Z"
         },
@@ -11375,10 +11378,10 @@
             }
         },
         {
-            "contestationDeadline": "1864-05-15T21:18:53.247109457341Z",
-            "headId": "02040205010104030405020000050500",
+            "contestationDeadline": "1864-05-14T07:04:44.424133585987Z",
+            "headId": "05030406000505000406010304000401",
             "seq": 2,
-            "snapshotNumber": 5,
+            "snapshotNumber": 6,
             "tag": "HeadIsClosed",
             "timestamp": "1864-05-04T10:08:53.712946899511Z"
         },
@@ -11772,17 +11775,18 @@
         },
         {
             "clientInput": {
-                "tag": "GetUTxO"
+                "tag": "Init"
             },
+            "headId": "04010701030005010703020000070602",
             "seq": 4,
             "tag": "CommandFailed",
             "timestamp": "1864-05-14T14:00:10.948445089336Z"
         },
         {
-            "contestationDeadline": "1864-05-04T09:21:02.189297443408Z",
-            "headId": "02000502020208070604060002040106",
+            "contestationDeadline": "1864-05-09T04:26:38.433823092433Z",
+            "headId": "00050202040508000704010102070001",
             "seq": 0,
-            "snapshotNumber": 0,
+            "snapshotNumber": 1,
             "tag": "HeadIsClosed",
             "timestamp": "1864-05-15T11:59:42.164720292021Z"
         },
@@ -15060,6 +15064,7 @@
             "clientInput": {
                 "tag": "Close"
             },
+            "headId": "08010200060606060008080003020606",
             "seq": 0,
             "tag": "CommandFailed",
             "timestamp": "1864-05-09T17:52:13.949604489011Z"
@@ -15258,10 +15263,10 @@
             }
         },
         {
-            "contestationDeadline": "1864-05-07T20:58:49.456407603356Z",
-            "headId": "08050701040501060805040508060403",
+            "contestationDeadline": "1864-05-03T15:27:12.235557516927Z",
+            "headId": "07050803050404040602080508000801",
             "seq": 1,
-            "snapshotNumber": 6,
+            "snapshotNumber": 2,
             "tag": "HeadIsClosed",
             "timestamp": "1864-05-05T04:59:19.5647036572Z"
         },
@@ -17644,6 +17649,7 @@
             "clientInput": {
                 "tag": "Abort"
             },
+            "headId": "04080508080201000503020207050805",
             "seq": 1,
             "tag": "CommandFailed",
             "timestamp": "1864-05-08T18:23:32.090282615681Z"
@@ -17862,6 +17868,7 @@
             "clientInput": {
                 "tag": "Fanout"
             },
+            "headId": "01020307020106030207060601010500",
             "seq": 2,
             "tag": "CommandFailed",
             "timestamp": "1864-05-15T09:41:24.45271755063Z"
@@ -18944,8 +18951,173 @@
         },
         {
             "clientInput": {
-                "tag": "Init"
+                "tag": "NewTx",
+                "transaction": {
+                    "auxiliaryData": "d90103a200a207220d4001858200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a8205194e4e8202838200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825418200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a5682041a00014101820280820282820181820519e970820285820419690682041a0001248d82051a00016c9d830300848200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825418200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e58200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c282041907a8",
+                    "body": {
+                        "auxiliaryDataHash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
+                        "certificates": [
+                            "82068201a28201581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b71902578200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a19017a",
+                            "82068200a0",
+                            "820682001902e5"
+                        ],
+                        "collateral": [
+                            "2208e439244a1d0ef238352e3693098aba9de9dd0154f9056551636c8ed15dc1#1",
+                            "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342#5",
+                            "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25#3",
+                            "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25#5",
+                            "f63498b4ae65be466e4a71878971b9c524458996450b0ff8262cddf3f0d99229#0"
+                        ],
+                        "fees": 85,
+                        "inputs": [
+                            "2208e439244a1d0ef238352e3693098aba9de9dd0154f9056551636c8ed15dc1#1",
+                            "f63498b4ae65be466e4a71878971b9c524458996450b0ff8262cddf3f0d99229#3"
+                        ],
+                        "mint": {
+                            "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
+                                "030002": 3,
+                                "0702030304": -8
+                            },
+                            "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a": {
+                                "": 8
+                            },
+                            "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
+                                "0102060703": -6
+                            }
+                        },
+                        "networkId": "Testnet",
+                        "outputs": [
+                            {
+                                "address": "2RhQhCGqYPDnGDRZhoJs4vF92NGsgCBeAUoJqsSKfnEeRP3vaoWv4fQPgDm2MuBFaosa9dq6rX3ci1JdS6sgeXHcmzCGobZxA8cAeTBy8vGwvT",
+                                "datum": null,
+                                "datumhash": null,
+                                "inlineDatum": null,
+                                "referenceScript": {
+                                    "script": {
+                                        "cborHex": "82028583030383830301818200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e58202818200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b08254182051a00011a558202838201858200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a8200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825418200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a5682041a0001647b82051a0001300e8202818200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a",
+                                        "description": "",
+                                        "type": "SimpleScriptV2"
+                                    },
+                                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                                },
+                                "value": {
+                                    "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a": {
+                                        "080804": 9
+                                    },
+                                    "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
+                                        "0608020601": 10
+                                    },
+                                    "lovelace": 7
+                                }
+                            },
+                            {
+                                "address": "addr1z99v7fmnj978k4ru2a48lugs62a9wv7p789fehr9nt4r5443ddt0tmqxf0n2c09tvq67lt5xkdnvc0wy5r2hzcpawrjs3ydzam",
+                                "datum": null,
+                                "datumhash": "4f539156bfbefc070a3b61cad3d1cedab3050e2b2a62f0ffe16a43eb0edc1ce8",
+                                "inlineDatum": null,
+                                "referenceScript": null,
+                                "value": {
+                                    "1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48": {
+                                        "0300": 9,
+                                        "050303080000": 6
+                                    },
+                                    "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
+                                        "080305": 15
+                                    },
+                                    "lovelace": 10
+                                }
+                            },
+                            {
+                                "address": "addr1qx7s88u4da9nqte6km78cjavxdg22s85ftup4pyjr9xa9snkucrak233ex3vxfmp6fp35xr225xvxg0hnnvdd2pt9xuqhfh89n",
+                                "datum": null,
+                                "inlineDatum": {
+                                    "list": [
+                                        {
+                                            "int": 4
+                                        }
+                                    ]
+                                },
+                                "inlineDatumhash": "82e795f6a28aedb28845b5c4a5ea41d042ccf2ec79db490f8feea5e5dc89fc07",
+                                "referenceScript": null,
+                                "value": {
+                                    "lovelace": 1
+                                }
+                            },
+                            {
+                                "address": "addr1w9vwrdjhrpf3ksjfgcgv2pkw7y8lqv06s9agla6up2ccpecjq4rz2",
+                                "datum": null,
+                                "datumhash": null,
+                                "inlineDatum": null,
+                                "referenceScript": {
+                                    "script": {
+                                        "cborHex": "4746010000220011",
+                                        "description": "",
+                                        "type": "PlutusScriptV1"
+                                    },
+                                    "scriptLanguage": "PlutusScriptLanguage PlutusScriptV1"
+                                },
+                                "value": {
+                                    "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
+                                        "05": 4
+                                    },
+                                    "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
+                                        "04050606": 6
+                                    },
+                                    "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
+                                        "0700": 11
+                                    },
+                                    "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
+                                        "06": 13
+                                    },
+                                    "lovelace": 5
+                                }
+                            }
+                        ],
+                        "requiredSignatures": [
+                            "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4",
+                            "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a",
+                            "b5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54",
+                            "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2",
+                            "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5"
+                        ],
+                        "scriptIntegrityHash": "e88bd757ad5b9bedf372d8d3f0cf6c962a469db61a265f6418e1ffed86da29ec",
+                        "totalCollateral": 232,
+                        "validity": {
+                            "notAfter": null,
+                            "notBefore": 86886
+                        },
+                        "withdrawals": {
+                            "f00d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": 587,
+                            "f1eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": 736
+                        }
+                    },
+                    "id": "e72ccb91944f21750e4ae93860a8e385493d379809393ab899c5a38b678911f0",
+                    "isValid": false,
+                    "witnesses": {
+                        "bootstrap": [
+                            "84582066edd0eada8769f5d9b25d56b7ef1d4005fe5fe01b740370cce3e5eea6ad55aa58406c686c77697164666a646261756165716c7064727a73686f677566717074766c6d6267766e6b706f72636b6971656c7079686a737379787165717a646f646e7341bc439edf7e",
+                            "84582097bedb52e5d3edae469ce29ff8327be6b067fe2f30d0efbb0a3f3c0760e49cdd58409ad4a23fd6e6b16e15c41db062c535a0c6fd40b7faa8651444b70da501dfa10986059832ee1733bf35aa21307a82275ded0b28407dc8c12f9a4c468adf563cc3459a70503cfe447315b647",
+                            "8458209b7ee36ee1d39cbceae7ee02f18c6acb1a33ba4777ff0557452e746d81365bbb58407a6f686667686f70686a766d65736d6675696671766e6e6271796d63726771707679776d6763656f6f636a7779716a6b646b6b716d6a6f676d73657a65616a79404507a0ee881a",
+                            "845820165450493133ea4d87ff1340bfe92669956d77efaf329d33458d6b9bcc5f483958404044893198d84f2c28ff3d0df1a0a6ea13a2ab63ebc6e39f147bf35bb2f9cf353f1f0500e426f570789e2f71827fb1494f42ac7b312bdfe2fa15b894aec2cb4c45b1ff95e6b444a09b121f"
+                        ],
+                        "datums": {
+                            "1c185d878871184a74f12e5848e1aa69def5ad9c750f15ea231c057aba4173b3": "d866821902819fd8668218a99f44b58b2bd0a52205404203884386b9b743dac628430b0aa1024022a20302220442949822ff0443ee558aa3d8668219019d9f44b7b562bd2104ff9f444fceded924014372e039ffd866821902c99f0044fcaffe594449ff0fc421ff42d72140a30304222044d8fd08b940ff",
+                            "2cc3e6fac9b77f76468371b6e703df28e848626e10d80b07b347f1a1e0e68284": "440b8c40a2",
+                            "4aa49cdc93fcbd9a312785349ffd91b70b14abf210b07945cb9b0199aa718f48": "d866821901f79f4430fb8c52ff",
+                            "8c11fee396c09e5235e752cc25c313a3663752d0a767418b96c51b7c61a4b3c3": "a440a3012041070144a0626515d866821903059f426b3c004493858f8d20ff419121a0a5a444759ace0d2202400120415c429a2ad8668219027e9f43cb0e52446323a23403ffa4404431fcfe160203435f66904043d3c93c4118a144fa2266f204d8668219025e9f40ff44f5fd0406d905179f2002402403ffd866821902679f434ffa1d20423fab4040ff05447cd43589d905589fd866821901cd9f2440ff420adc02a343d476254297860441ec2105ff4480cbc1eb"
+                        },
+                        "redeemers": "8584000a424928821b276337d809fe7a5b1b4f9d682905042d1a84000ea49f04ffa29f43818d6e22ff44446fb4fea1418b0223a59f2340030240ff9f425a780444f8dad0eeffa221222043b956349f44acff61892300ff42620b9f433066dd0322ff44ab1fe4f0d8668219033b9f42177d417a002243d95e84ff43ec971ea30540448be5b2250100019fd866821901a49f43a1516c4236a740ffa4000423240321413c41bcff9f049f42c87b44882094684023ff9f014115230223ffd8668219022c9f20ffff244044058fd280821b20b32d70074b9d3c1b61914e5b1050d9e88402069f02d866821901879f01ff20ff821b3ecdce54ba8ac6ec1b36adf136b725938d84030a9f809fd866821902559f204336004c42afff0120ff9f03210424ff80a1034153ffd866821901419f9f412e0001ffa1012120ffd866821902f19f413fffa542b79e422b279f42570941caffa320420be440204450ce3c6822d866821901d69f0521ff9f0441dd240000ffd866821901869f2340ffa2447fe07b2e210544d76d507ea4052442a7cf01220543f34cc82380ff821b58492f022baec5b01b1fe7b203d1509acd84030c01821b0d08a7aede99fb3f1b498c0fd8f1a7e054",
+                        "scripts": {
+                            "41b10c1c25074362d7873128775bbb33bfa971a5103bc1a0e714b747": "820082051a00011898",
+                            "b0002ae7f68694ec5986bfb7c682fe26de4860d789b56a7b6c25ac2b": "820082051a00017675",
+                            "c370d10724c6b5a2448af41238e024ad470c0139da7f4b8527a47d74": "82014746010000220011",
+                            "eed47299fcf6352649220fc62fae1ca49ee00223ffef1bac7dfcedc8": "82008202838200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7820419d9118202858202838200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e48200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e48200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7820519bdc88201848200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e48200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f5482051a000153338202848200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825418200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825418200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56",
+                            "f64b3d35d2a13b9bdd87a31e78ea9dd05ce260a1f268a3c1bdeeaf6e": "82008200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54"
+                        }
+                    }
+                }
             },
+            "headId": "08060004030505030406040408010601",
             "seq": 5,
             "tag": "CommandFailed",
             "timestamp": "1864-05-08T00:40:21.844348942498Z"
@@ -21329,6 +21501,7 @@
             "clientInput": {
                 "tag": "Contest"
             },
+            "headId": "04050304030006000807050007060307",
             "seq": 5,
             "tag": "CommandFailed",
             "timestamp": "1864-05-15T01:45:18.362063088019Z"
@@ -21469,8 +21642,9 @@
         },
         {
             "clientInput": {
-                "tag": "Close"
+                "tag": "Fanout"
             },
+            "headId": "07020101060502080604080603020708",
             "seq": 4,
             "tag": "CommandFailed",
             "timestamp": "1864-05-08T22:28:33.110545284711Z"
@@ -21651,8 +21825,9 @@
         },
         {
             "clientInput": {
-                "tag": "Contest"
+                "tag": "GetUTxO"
             },
+            "headId": "08010102050505000400050602070705",
             "seq": 4,
             "tag": "CommandFailed",
             "timestamp": "1864-05-12T05:29:30.48930408257Z"

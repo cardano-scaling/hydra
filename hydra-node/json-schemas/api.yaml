@@ -701,6 +701,7 @@ components:
         type: object
         required:
         - tag
+        - headId
         - clientInput
         - seq
         - timestamp
@@ -708,6 +709,8 @@ components:
           tag:
             type: string
             enum: ["CommandFailed"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           clientInput:
             oneOf:
               - $ref: "#/components/messages/Init/payload"

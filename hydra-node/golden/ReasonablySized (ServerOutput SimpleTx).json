@@ -158,19 +158,21 @@
             "clientInput": {
                 "tag": "NewTx",
                 "transaction": {
-                    "id": -3,
+                    "id": 4,
                     "inputs": [
-                        -4,
-                        -2,
-                        2,
-                        3,
-                        4
+                        -6,
+                        -5,
+                        1,
+                        5,
+                        6
                     ],
                     "outputs": [
-                        -5
+                        2,
+                        4
                     ]
                 }
             },
+            "headId": "03060607030606070104080208030400",
             "tag": "CommandFailed"
         },
         {
@@ -423,9 +425,9 @@
             "utxo": []
         },
         {
-            "contestationDeadline": "1864-05-06T12:17:06.554968960765Z",
-            "headId": "03020000010608050506030505010807",
-            "snapshotNumber": 6,
+            "contestationDeadline": "1864-05-07T07:33:02.57390431259Z",
+            "headId": "01040406020300060208050400070107",
+            "snapshotNumber": 3,
             "tag": "HeadIsClosed"
         },
         {
@@ -491,8 +493,9 @@
         },
         {
             "clientInput": {
-                "tag": "Fanout"
+                "tag": "Contest"
             },
+            "headId": "06010408000400040101030400060705",
             "tag": "CommandFailed"
         },
         {
@@ -673,8 +676,9 @@
         },
         {
             "clientInput": {
-                "tag": "Contest"
+                "tag": "GetUTxO"
             },
+            "headId": "00050504070307080302010004050602",
             "tag": "CommandFailed"
         },
         {
@@ -973,8 +977,9 @@
         },
         {
             "clientInput": {
-                "tag": "GetUTxO"
+                "tag": "Init"
             },
+            "headId": "06080203030606060806010206020205",
             "tag": "CommandFailed"
         },
         {
@@ -1007,8 +1012,9 @@
         },
         {
             "clientInput": {
-                "tag": "GetUTxO"
+                "tag": "Init"
             },
+            "headId": "08070207040705050807020606020206",
             "tag": "CommandFailed"
         },
         {
@@ -1043,11 +1049,9 @@
         },
         {
             "clientInput": {
-                "tag": "Commit",
-                "utxo": [
-                    6
-                ]
+                "tag": "Abort"
             },
+            "headId": "02010701050400000407040102010507",
             "tag": "CommandFailed"
         },
         {
@@ -2020,8 +2024,9 @@
         },
         {
             "clientInput": {
-                "tag": "GetUTxO"
+                "tag": "Abort"
             },
+            "headId": "08030207050100030803080200040105",
             "tag": "CommandFailed"
         },
         {
@@ -2114,8 +2119,9 @@
         },
         {
             "clientInput": {
-                "tag": "Contest"
+                "tag": "Init"
             },
+            "headId": "00060504000403040404000308010606",
             "tag": "CommandFailed"
         },
         {
@@ -2175,24 +2181,25 @@
             "tag": "PeerDisconnected"
         },
         {
-            "contestationDeadline": "1864-05-13T02:48:17.398396623677Z",
-            "headId": "02070700000204020802050808060702",
-            "snapshotNumber": 5,
+            "contestationDeadline": "1864-05-05T03:37:36.432105943087Z",
+            "headId": "01070307030508060601070603020502",
+            "snapshotNumber": 1,
             "tag": "HeadIsClosed"
         },
         {
             "clientInput": {
-                "tag": "Abort"
+                "tag": "Fanout"
             },
+            "headId": "00050307010602030002050707020008",
             "tag": "CommandFailed"
         },
         {
             "tag": "RolledBack"
         },
         {
-            "contestationDeadline": "1864-05-12T23:24:05.487087927729Z",
-            "headId": "07060208080104020704030000020100",
-            "snapshotNumber": 4,
+            "contestationDeadline": "1864-05-07T20:25:08.562973836553Z",
+            "headId": "01040208060000050305040803030504",
+            "snapshotNumber": 6,
             "tag": "HeadIsClosed"
         },
         {
@@ -2467,8 +2474,12 @@
         },
         {
             "clientInput": {
-                "tag": "GetUTxO"
+                "tag": "Commit",
+                "utxo": [
+                    2
+                ]
             },
+            "headId": "02030304050700040305010702070208",
             "tag": "CommandFailed"
         }
     ],

@@ -57,7 +57,7 @@ data ServerOutput tx
   | ReadyToFanout {headId :: HeadId}
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
-  | CommandFailed {clientInput :: ClientInput tx}
+  | CommandFailed {headId :: HeadId, clientInput :: ClientInput tx}
   | TxSeen {transaction :: tx}
   | TxValid {transaction :: tx}
   | TxInvalid {utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
@@ -101,7 +101,7 @@ instance
     ReadyToFanout headId -> ReadyToFanout <$> shrink headId
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
-    CommandFailed i -> CommandFailed <$> shrink i
+    CommandFailed headId i -> CommandFailed <$> shrink headId <*> shrink i
     TxSeen tx -> TxSeen <$> shrink tx
     TxValid tx -> TxValid <$> shrink tx
     TxExpired tx -> TxExpired <$> shrink tx
