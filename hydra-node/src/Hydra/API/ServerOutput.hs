@@ -38,7 +38,7 @@ instance (FromJSON tx, IsChainState tx) => FromJSON (TimedServerOutput tx) where
 -- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
 data ServerOutput tx
-  = PeerConnected {peer :: NodeId}
+  = PeerConnected {headId :: HeadId, peer :: NodeId}
   | PeerDisconnected {peer :: NodeId}
   | HeadIsInitializing {headId :: HeadId, parties :: Set Party}
   | Committed {party :: Party, utxo :: UTxOType tx}
@@ -91,7 +91,7 @@ instance
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
   shrink = \case
-    PeerConnected p -> PeerConnected <$> shrink p
+    PeerConnected headId p -> PeerConnected <$> shrink headId <*> shrink p
     PeerDisconnected p -> PeerDisconnected <$> shrink p
     HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
     Committed p u -> Committed <$> shrink p <*> shrink u

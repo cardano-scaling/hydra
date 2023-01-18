@@ -43,7 +43,8 @@
             "tag": "HeadIsContested"
         },
         {
-            "peer": "seuv",
+            "headId": "08080801060200020501010505060507",
+            "peer": "w",
             "tag": "PeerConnected"
         },
         {
@@ -294,7 +295,8 @@
             }
         },
         {
-            "peer": "brem",
+            "headId": "08040405000708040203050307020702",
+            "peer": "qui",
             "tag": "PeerConnected"
         },
         {
@@ -471,7 +473,8 @@
             ]
         },
         {
-            "peer": "esokxh",
+            "headId": "00010604060304080804070403080604",
+            "peer": "yob",
             "tag": "PeerConnected"
         },
         {
@@ -954,7 +957,8 @@
             "tag": "RolledBack"
         },
         {
-            "peer": "jwc",
+            "headId": "04070000070008030002020302060205",
+            "peer": "ve",
             "tag": "PeerConnected"
         },
         {
@@ -1072,7 +1076,8 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "peer": "owadi",
+            "headId": "07010808010703000703030203020001",
+            "peer": "hqdm",
             "tag": "PeerConnected"
         },
         {
@@ -1281,7 +1286,8 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "peer": "zlm",
+            "headId": "03070802010602010008070306050200",
+            "peer": "wveavk",
             "tag": "PeerConnected"
         },
         {
@@ -1317,7 +1323,8 @@
             }
         },
         {
-            "peer": "v",
+            "headId": "00000308080301000204080805030106",
+            "peer": "qlqnpl",
             "tag": "PeerConnected"
         },
         {
@@ -1344,7 +1351,8 @@
             "tag": "PeerDisconnected"
         },
         {
-            "peer": "rjfmdt",
+            "headId": "06060404070108020401000203010706",
+            "peer": "m",
             "tag": "PeerConnected"
         },
         {
@@ -1607,7 +1615,8 @@
             "tag": "ReadyToFanout"
         },
         {
-            "peer": "r",
+            "headId": "01040800020302010602010501030706",
+            "peer": "kiwtxi",
             "tag": "PeerConnected"
         },
         {
@@ -1805,7 +1814,8 @@
             ]
         },
         {
-            "peer": "fijuw",
+            "headId": "05030106030307020301010000020708",
+            "peer": "uxua",
             "tag": "PeerConnected"
         },
         {

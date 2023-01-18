@@ -171,6 +171,13 @@ getChainState hs = case hs of
   OpenState{chainState} -> chainState
   ClosedState{chainState} -> chainState
 
+getHeadId :: HeadState tx -> Maybe HeadId
+getHeadId hs = case hs of
+  IdleState{} -> Nothing
+  InitialState{headId} -> Just headId
+  OpenState{headId} -> Just headId
+  ClosedState{headId} -> Just headId
+
 type Committed tx = Map Party (UTxOType tx)
 
 -- | Off-chain state of the Coordinated Head protocol.
@@ -977,7 +984,9 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
   (_, NetworkEvent _ (Connected nodeId)) ->
-    OnlyEffects [ClientEffect $ PeerConnected nodeId]
+    case getHeadId st of
+      Nothing -> Error $ InvalidEvent ev st
+      Just headId -> OnlyEffects [ClientEffect $ PeerConnected{headId, peer = nodeId}]
   (_, NetworkEvent _ (Disconnected nodeId)) ->
     OnlyEffects [ClientEffect $ PeerDisconnected nodeId]
   (_, PostTxError{postChainTx, postTxError}) ->

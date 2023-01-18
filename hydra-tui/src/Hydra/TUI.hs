@@ -292,7 +292,7 @@ handleAppEvent s = \case
   Update Greetings{me} ->
     s & meL ?~ me
       & peersL .~ []
-  Update (PeerConnected p) ->
+  Update (PeerConnected _ p) ->
     s & peersL %~ \cp -> nub $ cp <> [p]
   Update (PeerDisconnected p) ->
     s & peersL %~ \cp -> cp \\ [p]
@@ -778,7 +778,7 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawHeadId = case s of
     Disconnected{} -> emptyWidget
-    Connected{hydraHeadId} -> vBox $ [str "Head id:"] <> (maybe [] ((: []) . drawShow) hydraHeadId)
+    Connected{hydraHeadId} -> vBox $ [str "Head id:"] <> maybe [] ((: []) . drawShow) hydraHeadId
 
   drawPeers = case s of
     Disconnected{} -> emptyWidget

@@ -1905,7 +1905,8 @@
             }
         },
         {
-            "peer": "ydpau",
+            "headId": "00030406080303080807040105000801",
+            "peer": "jyagv",
             "tag": "PeerConnected"
         },
         {
@@ -15758,7 +15759,8 @@
             }
         },
         {
-            "peer": "b",
+            "headId": "01050604020606070104030807030806",
+            "peer": "nsr",
             "tag": "PeerConnected"
         },
         {
@@ -17223,7 +17225,8 @@
             "tag": "CommandFailed"
         },
         {
-            "peer": "g",
+            "headId": "06000304060405040308040703000008",
+            "peer": "cires",
             "tag": "PeerConnected"
         },
         {
@@ -18267,7 +18270,8 @@
             "tag": "InvalidInput"
         },
         {
-            "peer": "zdc",
+            "headId": "06030001070601010803070601030107",
+            "peer": "kkp",
             "tag": "PeerConnected"
         },
         {
@@ -21084,7 +21088,8 @@
             "tag": "ReadyToFanout"
         },
         {
-            "peer": "nr",
+            "headId": "06050700010302070400070507020104",
+            "peer": "ofts",
             "tag": "PeerConnected"
         },
         {
@@ -22863,7 +22868,8 @@
             "utxo": {}
         },
         {
-            "peer": "cdvzl",
+            "headId": "00080800050102020305070802000402",
+            "peer": "efc",
             "tag": "PeerConnected"
         },
         {
@@ -23930,7 +23936,8 @@
             }
         },
         {
-            "peer": "azbz",
+            "headId": "01040508070000030100080702040302",
+            "peer": "t",
             "tag": "PeerConnected"
         },
         {
@@ -28896,7 +28903,8 @@
             "tag": "HeadIsInitializing"
         },
         {
-            "peer": "lfs",
+            "headId": "02010807050106070400030802010606",
+            "peer": "kyic",
             "tag": "PeerConnected"
         },
         {

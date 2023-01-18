@@ -214,7 +214,7 @@ spec = do
       it "notifies client when it receives a ping" $ do
         let nodeId = NodeId "My special node id"
         update bobEnv ledger (inOpenState threeParties ledger) (NetworkEvent defaultTTL $ Connected nodeId)
-          `hasEffect` ClientEffect (PeerConnected nodeId)
+          `hasEffect` ClientEffect (PeerConnected testHeadId nodeId)
 
       it "cannot observe abort after collect com" $ do
         let s0 = inInitialState threeParties
