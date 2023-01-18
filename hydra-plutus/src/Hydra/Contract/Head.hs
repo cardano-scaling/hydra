@@ -115,7 +115,9 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
 
   serialisedOutputs = Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo
 
-  committedUTxOs = traverseInputs [] (txInfoInputs txInfo)
+  committedUTxOs =
+    hashPreSerializedCommits $
+      traverseInputs [] (txInfoInputs txInfo)
 
   traverseInputs commits = \case
     [] ->
@@ -123,9 +125,9 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
     TxInInfo{txInInfoResolved = txOut} : rest
       | hasPT headCurrencySymbol txOut ->
         case commitDatum txInfo txOut of
-          Just Commit{preSerializedOutput} ->
+          Just commit ->
             traverseInputs
-              (preSerializedOutput : commits)
+              (commit : commits)
               rest
           Nothing ->
             traverseInputs

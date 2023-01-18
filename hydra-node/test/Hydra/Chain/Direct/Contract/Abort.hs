@@ -34,7 +34,7 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Test.Hydra.Fixture (cperiod)
-import Test.QuickCheck (Property, choose, counterexample, elements, listOf, oneof, suchThat)
+import Test.QuickCheck (Property, choose, counterexample, elements, listOf, oneof, shuffle, suchThat)
 
 --
 -- AbortTx
@@ -140,6 +140,7 @@ data AbortMutation
   | -- Spend some abortable output from a different Head
     -- e.g. replace a commit by another commit from a different Head.
     UseInputFromOtherHead
+  | ReorderCommitOutputs
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -175,6 +176,11 @@ genAbortMutation (tx, _utxo) =
             [ ChangeInput input (replacePolicyIdWith testPolicyId otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
             , ChangeMintedValue (removePTFromMintedValue output tx)
             ]
+    , SomeMutation Nothing ReorderCommitOutputs <$> do
+        let outputs = txOuts' tx
+        outputs' <- shuffle outputs
+        let reorderedOutputs = uncurry ChangeOutput <$> zip [0 ..] outputs'
+        pure $ Changes reorderedOutputs
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
