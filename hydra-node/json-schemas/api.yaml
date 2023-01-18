@@ -416,12 +416,15 @@ components:
         type: object
         required:
           - tag
+          - headId
           - seq
           - timestamp
         properties:
           tag:
             type: string
             enum: ["ReadyToFanout"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           seq:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:
