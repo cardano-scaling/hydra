@@ -166,7 +166,7 @@ waitForAll tracer delay nodes expected = do
       modifyIORef' msgs (msg :)
       case msg of
         Object km -> do
-          let cleaned = Object $ km & KeyMap.delete "seq" & KeyMap.delete "timestamp"
+          let cleaned = Object $ km & KeyMap.delete "seq" & KeyMap.delete "timestamp" & KeyMap.delete "headId"
           tryNext c msgs (List.delete cleaned stillExpected)
         _ ->
           tryNext c msgs stillExpected
