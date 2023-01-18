@@ -227,7 +227,7 @@ spec = parallel $ do
                 waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
                 send n2 GetUTxO
 
-                waitUntil [n2] $ GetUTxOResponse (utxoRefs [1])
+                waitUntil [n2] $ GetUTxOResponse testHeadId (utxoRefs [1])
 
   describe "in an open head" $ do
     it "sees the head closed by other nodes" $
@@ -360,7 +360,7 @@ spec = parallel $ do
 
               send n1 GetUTxO
 
-              waitUntil [n1] $ GetUTxOResponse (utxoRefs [2, 42])
+              waitUntil [n1] $ GetUTxOResponse testHeadId (utxoRefs [2, 42])
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do

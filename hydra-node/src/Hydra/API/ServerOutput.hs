@@ -67,7 +67,7 @@ data ServerOutput tx
       , snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
       }
-  | GetUTxOResponse {utxo :: UTxOType tx}
+  | GetUTxOResponse {headId :: HeadId, utxo :: UTxOType tx}
   | InvalidInput {reason :: String, input :: Text}
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
@@ -108,7 +108,7 @@ instance
     TxExpired headId tx -> TxExpired <$> shrink headId <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
-    GetUTxOResponse u -> GetUTxOResponse <$> shrink u
+    GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
     Greetings me -> Greetings <$> shrink me
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e

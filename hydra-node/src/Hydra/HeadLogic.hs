@@ -912,8 +912,8 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
     , OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}
     ) ->
       onInitialChainCommitTx st newChainState party parameters pendingCommits committed pt utxo headId
-  (InitialState{committed}, ClientEvent GetUTxO) ->
-    OnlyEffects [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
+  (InitialState{committed, headId}, ClientEvent GetUTxO) ->
+    OnlyEffects [ClientEffect $ GetUTxOResponse headId (mconcat $ Map.elems committed)]
   (InitialState{chainState, committed}, ClientEvent Abort) ->
     onInitialClientAbort chainState committed
   (_, OnChainEvent Observation{observedTx = OnCommitTx{}}) ->
@@ -927,8 +927,8 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
     onInitialChainAbortTx newChainState committed headId
   (OpenState{chainState, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     onOpenClientClose chainState confirmedSnapshot
-  (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent GetUTxO) ->
-    OnlyEffects [ClientEffect . GetUTxOResponse $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+  (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
+    OnlyEffects [ClientEffect . GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   ( OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}, headId}
     , ClientEvent (NewTx tx)
     ) ->
