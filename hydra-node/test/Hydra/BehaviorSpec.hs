@@ -101,7 +101,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 (Commit (utxoRef 2))
             waitUntil [n1] (CommandFailed (Commit (utxoRef 2)))
 
@@ -113,7 +113,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
 
@@ -125,7 +125,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] ReadyToFanout
@@ -139,7 +139,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] ReadyToFanout
@@ -158,11 +158,11 @@ spec = parallel $ do
               send n1 (Commit (utxoRef 1))
               waitUntil [n1] $ Committed alice (utxoRef 1)
               let veryLong = timeout 1000000
-              veryLong (waitForNext n1) >>= (`shouldNotBe` Just (HeadIsOpen (utxoRef 1)))
+              veryLong (waitForNext n1) >>= (`shouldNotBe` Just HeadIsOpen{headId = testHeadId, utxo = utxoRef 1})
 
               send n2 (Commit (utxoRef 2))
               waitUntil [n1] $ Committed bob (utxoRef 2)
-              waitUntil [n1] $ HeadIsOpen (utxoRefs [1, 2])
+              waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
     it "can abort and re-open a head when one party has not committed" $
       shouldRunInSim $ do
@@ -188,7 +188,7 @@ spec = parallel $ do
               send n1 (Commit (utxoRef 1))
               send n2 (Commit (utxoRef 2))
 
-              waitUntil [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
+              waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
               send n1 Abort
               waitUntil [n1] (CommandFailed Abort)
@@ -208,7 +208,7 @@ spec = parallel $ do
 
               send n2 (Commit (utxoRef 2))
               waitUntil [n1] $ Committed bob (utxoRef 2)
-              waitUntil [n1] $ HeadIsOpen (utxoRefs [1, 2])
+              waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
               send n1 (Commit (utxoRef 11))
               waitUntil [n1] (CommandFailed (Commit (utxoRef 11)))
@@ -454,13 +454,13 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRefs [1])
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
             -- We expect one Commit AND the CollectCom to be rolled back and
             -- forward again
             rollbackAndForward chain 2
             waitUntil [n1] RolledBack
             waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRefs [1])
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
 
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
@@ -760,7 +760,7 @@ openHead n1 n2 = do
   waitUntil [n1, n2] $ Committed alice (utxoRef 1)
   send n2 (Commit (utxoRef 2))
   waitUntil [n1, n2] $ Committed bob (utxoRef 2)
-  waitUntil [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
+  waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
 matchFanout :: PostChainTx tx -> Bool
 matchFanout = \case

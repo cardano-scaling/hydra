@@ -134,6 +134,7 @@ data HeadState tx
       , committed :: Committed tx
       , previousRecoverableState :: HeadState tx
       , chainState :: ChainStateType tx
+      , headId :: HeadId
       }
   | OpenState
       { parameters :: HeadParameters
@@ -321,6 +322,7 @@ onIdleChainInitTx headState newChainState parties contestationPeriod headId =
         , committed = mempty
         , previousRecoverableState = headState
         , chainState = newChainState
+        , headId
         }
     )
     [ClientEffect $ HeadIsInitializing headId (fromList parties)]
@@ -367,8 +369,9 @@ onInitialChainCommitTx ::
   Party ->
   -- | Committed UTxO
   UTxOType tx ->
+  HeadId ->
   Outcome tx
-onInitialChainCommitTx headState newChainState party parameters pendingCommits committed pt utxo =
+onInitialChainCommitTx headState newChainState party parameters pendingCommits committed pt utxo headId =
   NewState newHeadState $
     [ClientEffect $ Committed pt utxo]
       <> [ OnChainEffect
@@ -385,6 +388,7 @@ onInitialChainCommitTx headState newChainState party parameters pendingCommits c
       , committed = newCommitted
       , previousRecoverableState = headState
       , chainState = newChainState
+      , headId
       }
   remainingParties = Set.delete pt pendingCommits
   newCommitted = Map.insert pt utxo committed
@@ -432,8 +436,9 @@ onInitialChainCollectTx ::
   ChainStateType tx ->
   HeadParameters ->
   t (UTxOType tx) ->
+  HeadId ->
   Outcome tx
-onInitialChainCollectTx headState newChainState parameters committed =
+onInitialChainCollectTx headState newChainState parameters committed headId =
   -- TODO: We would want to check whether this even matches our local state.
   -- For example, we do expect `null remainingParties` but what happens if
   -- it's untrue?
@@ -448,7 +453,7 @@ onInitialChainCollectTx headState newChainState parameters committed =
             , chainState = newChainState
             }
         )
-        [ClientEffect $ HeadIsOpen u0]
+        [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
 
 -- ** Off-chain protocol
 
@@ -875,10 +880,10 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
     onIdleChainInitTx st newChainState parties observed headId
   (InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit chainState party pendingCommits clientInput
-  ( InitialState{parameters, pendingCommits, committed}
+  ( InitialState{parameters, pendingCommits, committed, headId}
     , OnChainEvent (Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState})
     ) ->
-      onInitialChainCommitTx st newChainState party parameters pendingCommits committed pt utxo
+      onInitialChainCommitTx st newChainState party parameters pendingCommits committed pt utxo headId
   (InitialState{committed}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect $ GetUTxOResponse (mconcat $ Map.elems committed)]
   (InitialState{chainState, committed}, ClientEvent Abort) ->
@@ -888,8 +893,8 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
     --       We shouldn't see any commit outside of the collecting (initial) state, if we do,
     --       there's an issue our logic or onChain layer.
     OnlyEffects []
-  (InitialState{parameters, committed}, OnChainEvent (Observation{observedTx = OnCollectComTx{}, newChainState})) ->
-    onInitialChainCollectTx st newChainState parameters committed
+  (InitialState{parameters, committed, headId}, OnChainEvent (Observation{observedTx = OnCollectComTx{}, newChainState})) ->
+    onInitialChainCollectTx st newChainState parameters committed headId
   (InitialState{committed}, OnChainEvent (Observation{observedTx = OnAbortTx{}, newChainState})) ->
     onInitialChainAbortTx newChainState committed
   (OpenState{chainState, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->

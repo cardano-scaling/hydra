@@ -42,7 +42,7 @@ data ServerOutput tx
   | PeerDisconnected {peer :: NodeId}
   | HeadIsInitializing {headId :: HeadId, parties :: Set Party}
   | Committed {party :: Party, utxo :: UTxOType tx}
-  | HeadIsOpen {utxo :: UTxOType tx}
+  | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsClosed
       { snapshotNumber :: SnapshotNumber
       , -- | Nominal deadline until which contest can be submitted and after
@@ -94,7 +94,7 @@ instance
     PeerDisconnected p -> PeerDisconnected <$> shrink p
     HeadIsInitializing hid xs -> HeadIsInitializing <$> shrink hid <*> shrink xs
     Committed p u -> Committed <$> shrink p <*> shrink u
-    HeadIsOpen u -> HeadIsOpen <$> shrink u
+    HeadIsOpen u headId -> HeadIsOpen <$> shrink u <*> shrink headId
     HeadIsClosed s t -> HeadIsClosed <$> shrink s <*> shrink t
     HeadIsContested sn -> HeadIsContested <$> shrink sn
     ReadyToFanout -> []
