@@ -152,7 +152,7 @@ genAbortMutation (tx, _utxo) =
     , SomeMutation Nothing MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
     , SomeMutation Nothing BurnOneTokenMore <$> addPTWithQuantity tx (-1)
     , SomeMutation Nothing DropCollectedInput . RemoveInput <$> elements (txIns' tx)
-    , SomeMutation Nothing MutateRequiredSigner <$> do
+    , SomeMutation (Just "signer is not a participant") MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation Nothing MutateHeadId <$> do
