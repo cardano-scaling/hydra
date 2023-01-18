@@ -852,118 +852,86 @@
             "tag": "HeadIsClosed"
         },
         {
+            "headId": "08020403070507030406040003040706",
             "party": {
-                "vkey": "3bed4b089dd8bee39de41733a4112ae14421b3bf203f4c24582f985867294177"
+                "vkey": "be907b4bac84fee5ce8811db2defc9bf0b2a2a2bbc3d54d8a2257ecd70441962"
             },
             "tag": "Committed",
             "utxo": {
-                "0206080607040801050504060301030803060205060604000305080708040708#79": {
-                    "address": "EqGAuA8vHnNkaY111uAig6rs28eDTV36t2M6B7wuR6XhuDZ5vHjkPzi23cWTABxUPEmbCWgAMs6zEP8Vy4B7BAFu6gkJ4NEH4oCMJMNLqJCwvMWA3YMT27Q",
+                "0208050706000805040701050103070204030201020805000103020804020803#55": {
+                    "address": "addr12x66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74yuv5zq2y4gv27",
                     "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "8200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8",
-                            "description": "",
-                            "type": "SimpleScriptV2"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
-                    },
-                    "value": {
-                        "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
-                            "0002": 4
-                        },
-                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
-                            "0600": 4
-                        },
-                        "lovelace": 7
-                    }
-                },
-                "0400030403080602030408000107040404060100070201000808010008050006#59": {
-                    "address": "2RhQhCGqYPDqJiiuUFt49XtUBtWYuUNVbC6HnyAkt16y1N8nh8DxpxgYJbkbqC2tp9gpeDoS1qArvCJc4ZamvVafxhHb3bVZz532oqrYfVxdC5",
-                    "datum": null,
-                    "datumhash": null,
+                    "datumhash": "ae85d245a3d00bfde01f59f3c4fe0b4bfae1cb37e9cf91929eadcea4985711de",
                     "inlineDatum": null,
                     "referenceScript": null,
                     "value": {
-                        "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
-                            "": 11
-                        },
-                        "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a": {
-                            "0103020202": 5
-                        },
-                        "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
-                            "030805030705": 13
-                        },
-                        "lovelace": 7
-                    }
-                },
-                "0407050104050403070008060706050604010400020100070108050205030208#98": {
-                    "address": "addr1g9vwrdjhrpf3ksjfgcgv2pkw7y8lqv06s9agla6up2ccpeurlfxqgqsgdxp6k",
-                    "datum": null,
-                    "datumhash": "f63498b4ae65be466e4a71878971b9c524458996450b0ff8262cddf3f0d99229",
-                    "inlineDatum": null,
-                    "referenceScript": null,
-                    "value": {
-                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
-                            "040406": 9
-                        },
                         "1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48": {
-                            "0503": 8
+                            "08": 5
                         },
-                        "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
-                            "0501": 11,
-                            "08": 1
-                        },
-                        "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a": {
-                            "080403": 14
-                        },
-                        "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
-                            "08030003": 2
-                        },
-                        "lovelace": 8
+                        "lovelace": 4
                     }
                 },
-                "0704000202000007050207060402000006000203030507010603020001000606#53": {
-                    "address": "addr_test1wqxefct5wvh0n2h88uu44dz9q7l6nq7k2q3uzx54ruxr9eqfj68ma",
+                "0605000506050207030501030801010501040700040502070801010606000002#68": {
+                    "address": "2RhQhCGqYPDmxVrox3yKN4TDb1vHKLxcK7MDCBvzzZ6qiz3Lu6PVq2KeUFzHJsFeRJU8GYg5M1Ut9aGoLtmvyWx23NoUEMUCfwmT2ACW8QgtRR",
                     "datum": null,
                     "inlineDatum": {
-                        "list": [
-                            {
-                                "bytes": "3cf391f4"
-                            }
-                        ]
+                        "int": -4
                     },
-                    "inlineDatumhash": "2392e8d0f47ab55eaae024727f49e08037d38bd2383ad95a5916ea69022c3e5c",
+                    "inlineDatumhash": "2208e439244a1d0ef238352e3693098aba9de9dd0154f9056551636c8ed15dc1",
                     "referenceScript": null,
                     "value": {
-                        "lovelace": 3
+                        "lovelace": 15
                     }
                 },
-                "0802040004050205050104040501010002030504070608080403050608020704#94": {
-                    "address": "EqGAuA8vHnP1uY8f1SJkoHGVL8kApbCU2my3sjg9Bv9f3mFe5BLt5TS3ZWUZMenotCYXgD9jikuGfegn486wBGtxUf5J9YCu8roDq8a4Uwc79Rd3QmKhCHJ",
+                "0706080206030406010603050706070106040007010800010707000302060802#46": {
+                    "address": "addr_test12pmwvp7m9gcungkryasaysc6rp492rxry8meekxk4q4jnwypmexqvqgxdd7z3",
                     "datum": null,
-                    "datumhash": "0268be9dbd0446eaa217e1dec8f399249305e551d7fc1437dd84521f74aa621c",
+                    "inlineDatum": {
+                        "map": []
+                    },
+                    "inlineDatumhash": "d36a2619a672494604e11bb447cbcf5231e9f2ba25c2169177edc941bd50ad6c",
+                    "referenceScript": null,
+                    "value": {
+                        "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
+                            "05070004": 2
+                        },
+                        "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
+                            "060302": 7
+                        },
+                        "b5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54": {
+                            "05": 10
+                        },
+                        "lovelace": 5
+                    }
+                },
+                "0803030303010800070705020203070803070401030704010105010305010607#17": {
+                    "address": "EqGAuA8vHnP3uLntfzhuhJ7mqdDonUZKTwPYXRuAnAuyPYTzFTQqoh79WWybUbi9qEdGK9iDw1DAYW5t5tjDJevcztZTYouiqQ2QkURLnhxBBNqoxJ41Zpa",
+                    "datum": null,
+                    "datumhash": null,
                     "inlineDatum": null,
                     "referenceScript": {
                         "script": {
-                            "cborHex": "82028282051a0001855e8200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4",
+                            "cborHex": "8200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a",
                             "description": "",
                             "type": "SimpleScriptV2"
                         },
                         "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
                     },
                     "value": {
-                        "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
-                            "02": 5,
-                            "0701": 12,
-                            "080207": 14
+                        "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
+                            "0207": 5
                         },
-                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
-                            "": 9
+                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
+                            "": 12
                         },
-                        "lovelace": 7
+                        "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a": {
+                            "000802": 2
+                        },
+                        "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2": {
+                            "0405": 13,
+                            "0801040801": 11
+                        },
+                        "lovelace": 8
                     }
                 }
             }
@@ -1913,147 +1881,64 @@
             "tag": "PeerConnected"
         },
         {
+            "headId": "04070408060202060008030808000501",
             "party": {
-                "vkey": "ea93f39d6002b0f0156cd115e641757ddeae84877276fb4a8d9d88d4a0033d6a"
+                "vkey": "b970b6d4af2c7127e0b473aaf28c85d28acde0ae800500b48c6da4eeea31d3ac"
             },
             "tag": "Committed",
             "utxo": {
-                "0007040602080201060602030700080107040004080300060103010101050306#45": {
-                    "address": "2RhQhCGqYPDq1aRt1vSMditTGXJfEcW9oHTYx4efpaSoZtAwULjwcxcWJQdjZDt3D4JaECEoG27PBjwts1XWGgWLk2JfZ95DjBqmUQVNTjZXSg",
+                "0308050807040801060201030108040701010506020601020808000300030400#3": {
+                    "address": "addr1gxckk4h4asryhe4v8j4kqd0046rtxekv8hz2p4t3vq7hpevpjpvqgpgqtqrzd",
                     "datum": null,
                     "inlineDatum": {
-                        "bytes": "2ebc0c4c"
+                        "bytes": ""
                     },
-                    "inlineDatumhash": "a34fbc11e6751265883b5dfd2687f566c7c8a921391585b43de5afe8b56a11b9",
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "82028282041a000114998202828201828200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e48201818200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e",
-                            "description": "",
-                            "type": "SimpleScriptV2"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
-                    },
-                    "value": {
-                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
-                            "": 1
-                        },
-                        "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
-                            "080202": 15
-                        },
-                        "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
-                            "0200000502": 12
-                        },
-                        "lovelace": 7
-                    }
-                },
-                "0008050705010805010807020307040705070806070704050604030307050007#32": {
-                    "address": "2cWKMJemoBajg9H7SLTe6ASvqjkrChs2MREV1Ud6L2cTYshX8GuZ6FebDpXhLeFsTZdvD",
-                    "datum": null,
-                    "inlineDatum": {
-                        "bytes": "1d"
-                    },
-                    "inlineDatumhash": "407a140fff6c271600ff68f76005846a7884ab89275b79c2652e1e698dbfc3ed",
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "4746010000220011",
-                            "description": "",
-                            "type": "PlutusScriptV2"
-                        },
-                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
-                    },
-                    "value": {
-                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
-                            "": 13
-                        },
-                        "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a": {
-                            "0808060303": 3
-                        },
-                        "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
-                            "070603": 14
-                        },
-                        "b5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54": {
-                            "00040003": 3
-                        },
-                        "lovelace": 2
-                    }
-                },
-                "0304010805050801000405060005080007040702010605080504020408070600#93": {
-                    "address": "addr1wxnyv36t3a2rzfs4q6mvyu7nqlr4dxjwkmykkskafg54yzs9eqz7s",
-                    "datum": null,
-                    "inlineDatum": {
-                        "int": -4
-                    },
-                    "inlineDatumhash": "2208e439244a1d0ef238352e3693098aba9de9dd0154f9056551636c8ed15dc1",
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "82018483030282830300808200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e482051a000103d282028282051a00013ca0820519eeff820182830301818200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e582051a00016913",
-                            "description": "",
-                            "type": "SimpleScriptV2"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
-                    },
+                    "inlineDatumhash": "39df024ac52722fe8ae4c1a8740e4c5624a38c3820e504a059aae8728421f8bd",
+                    "referenceScript": null,
                     "value": {
                         "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
-                            "": 9,
-                            "02050600": 6
+                            "": 6
                         },
                         "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
-                            "010606": 3,
-                            "020600": 2,
-                            "0703000600": 11
+                            "0408": 12
                         },
-                        "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
-                            "010800020304": 8
+                        "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
+                            "01": 11
+                        },
+                        "b5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54": {
+                            "05000707": 8
+                        },
+                        "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
+                            "01000500": 2
                         },
                         "lovelace": 15
                     }
                 },
-                "0504080305050305040008020400050608010806040102050301020402030505#4": {
-                    "address": "addr1w9vwrdjhrpf3ksjfgcgv2pkw7y8lqv06s9agla6up2ccpecjq4rz2",
+                "0401080406000303060808060206040801020104060305080402060302020504#28": {
+                    "address": "addr12yxefct5wvh0n2h88uu44dz9q7l6nq7k2q3uzx54ruxr9eyrm5fqzqshw84k3",
                     "datum": null,
                     "datumhash": null,
                     "inlineDatum": null,
                     "referenceScript": {
                         "script": {
-                            "cborHex": "8204190f5b",
+                            "cborHex": "82028182051a000114f0",
                             "description": "",
                             "type": "SimpleScriptV2"
                         },
                         "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
                     },
                     "value": {
-                        "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
-                            "050607": 1
-                        },
-                        "lovelace": 8
-                    }
-                },
-                "0706000706030008050707030608020005010004050805000106050105050002#79": {
-                    "address": "addr_test1yp9v7fmnj978k4ru2a48lugs62a9wv7p789fehr9nt4r54jcuxm9wxznrdpyj3ssc5rvaug07qcl4qt63lm4cz43srnsq3szj8",
-                    "datum": null,
-                    "datumhash": "fb3d635c7cb573d1b9e9bff4a64ab4f25190d29b6fd8db94c605a218a23fa9ad",
-                    "inlineDatum": null,
-                    "referenceScript": null,
-                    "value": {
                         "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
-                            "": 7
+                            "": 11,
+                            "0605": 12
                         },
-                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
-                            "02": 13
+                        "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
+                            "040507070105": 2
                         },
                         "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
-                            "070607080704": 5
+                            "0500040200": 13
                         },
-                        "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a": {
-                            "0103010300": 5
-                        },
-                        "b5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54": {
-                            "030806": 14
-                        },
-                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
-                            "0404": 8
-                        },
-                        "lovelace": 13
+                        "lovelace": 12
                     }
                 }
             }
@@ -9094,8 +8979,9 @@
             "tag": "SnapshotConfirmed"
         },
         {
+            "headId": "01050502070200040803000400020308",
             "party": {
-                "vkey": "6fed96d0e1eacbb368786acb8280edcdfac95706a6a106c3ea0c0cdcce7412a4"
+                "vkey": "be907b4bac84fee5ce8811db2defc9bf0b2a2a2bbc3d54d8a2257ecd70441962"
             },
             "tag": "Committed",
             "utxo": {}
@@ -14601,128 +14487,193 @@
             "tag": "PeerDisconnected"
         },
         {
+            "headId": "05080105000706030007080101050005",
             "party": {
-                "vkey": "811ab9b7ce8e6a3c0ceb04b495d53a9009c783123b8d4828dd3335cb2d2fc0d4"
+                "vkey": "51c99b4c6ae7bae716566a96ab10beb34a5c763b0095832cd0b1354a38a1b446"
             },
             "tag": "Committed",
             "utxo": {
-                "0002000806020307030500030508060502070800040801060304060707020206#10": {
-                    "address": "2cWKMJemoBaics3WuBRLpz1sjPMymg5HAJEQ3cjhG65M5CfBGxchMRNSBna6Q4NyfUhqF",
+                "0005040108040207050003000705020603080704020704070407060803040703#7": {
+                    "address": "EqGAuA8vHnPGQ1jLGfVZ5UWVTDUc7PgdDRPBR9NSMvBXjo4KdqLErPkxjnbQBtabwhKM3vXVu4JiiFPLTEZ3QZri9nbXA8aW364Yc4FzGCFxn1VsTATMYCm",
                     "datum": null,
-                    "datumhash": "fb3d635c7cb573d1b9e9bff4a64ab4f25190d29b6fd8db94c605a218a23fa9ad",
+                    "datumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
                     "inlineDatum": null,
                     "referenceScript": null,
                     "value": {
                         "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
-                            "0402": 15
+                            "07070106": 8
                         },
-                        "b5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54": {
-                            "070807": 13
-                        },
-                        "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2": {
-                            "05": 7
-                        },
-                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
-                            "": 11
-                        },
-                        "lovelace": 10
+                        "lovelace": 12
                     }
                 },
-                "0006070401010804010502080801010204020301030600080408040302030507#61": {
-                    "address": "addr1xx66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74qdjnshguewlx4ww0eet26y2pal4xpav5prcydf28cvxtjq5j9zer",
+                "0106020508000205000808080200000806060606040702080703060300010800#98": {
+                    "address": "addr1gyvjpeuz7pywnm6j4nvfcs6p4zwrjzxxupr2mp7ywnllkjyznpjqxpgz47yc7",
                     "datum": null,
                     "datumhash": null,
                     "inlineDatum": null,
                     "referenceScript": {
                         "script": {
-                            "cborHex": "46450100002601",
-                            "description": "",
-                            "type": "PlutusScriptV1"
-                        },
-                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV1"
-                    },
-                    "value": {
-                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
-                            "0302080508": 11
-                        },
-                        "lovelace": 11
-                    }
-                },
-                "0503030400000505030006030807060300010706060604000305070208030106#41": {
-                    "address": "EqGAuA8vHnNuDMpZYvxUWYKqW47AZ6hgQdK8AcXpptjuRvfVvbz61np1qm4GdjYZNbazbhrGXxgCbdLcNSPq6U2FKQGggddC2m9oRAcn1EJtXsHwjrPjNQb",
-                    "datum": null,
-                    "datumhash": "f63498b4ae65be466e4a71878971b9c524458996450b0ff8262cddf3f0d99229",
-                    "inlineDatum": null,
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "82041954cf",
+                            "cborHex": "82018282041a00012d5f820284830301818200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b08254182051a000121568201828200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e58200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78205199834",
                             "description": "",
                             "type": "SimpleScriptV2"
                         },
                         "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
                     },
                     "value": {
-                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
-                            "04": 4
+                        "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
+                            "": 2,
+                            "0204": 7
                         },
-                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
-                            "": 16,
-                            "04010507": 15
+                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
+                            "0501070003": 8
                         },
-                        "65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7": {
-                            "060807040300": 9
-                        },
-                        "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
-                            "01010102": 16
-                        },
-                        "lovelace": 13
+                        "lovelace": 5
                     }
                 },
-                "0508030201040503080203070608070605030605030200040306000303080101#18": {
-                    "address": "EqGAuA8vHnPBf2dXvs3vfVN1QBeQJv4uzpTUjhArs2gCPy33uUELk3yp5Qkoj25whM1y4PhRLvTDd247CSMWWiz5j7hC8TLAFEum6rEAXWGh9Fqs3TxC93W",
+                "0300060508060600040406070801000400010604000804010801040606060001#96": {
+                    "address": "2RhQhCGqYPDnFEAEqnvD8Cnyr5QU4p1AqpWtRuiRXpZVMkmmceb3dhNy6n3MvunShAvv5cQhvjBgDw1AX4SLEdBUacdcqti9iMT7KMs7Yb9bcp",
                     "datum": null,
-                    "datumhash": null,
+                    "inlineDatum": {
+                        "bytes": ""
+                    },
+                    "inlineDatumhash": "39df024ac52722fe8ae4c1a8740e4c5624a38c3820e504a059aae8728421f8bd",
+                    "referenceScript": null,
+                    "value": {
+                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
+                            "": 15
+                        },
+                        "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2": {
+                            "0007": 12
+                        },
+                        "lovelace": 5
+                    }
+                },
+                "0706070802000403040502080808000502040803070100020607070406020306#6": {
+                    "address": "addr_test1xz7s88u4da9nqte6km78cjavxdg22s85ftup4pyjr9xa9s4aqw0e2m6txqhn4dhu0396cv6s54q0gjhcr2zfyx2d6tpq48tcdm",
+                    "datum": null,
+                    "datumhash": "bfa726c3c149165b108e6ff550cb1a1c4f0fdc2e9f26a9a16f48babe73b600ce",
                     "inlineDatum": null,
                     "referenceScript": {
                         "script": {
-                            "cborHex": "8200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e",
+                            "cborHex": "82051913b0",
                             "description": "",
                             "type": "SimpleScriptV2"
                         },
                         "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
                     },
                     "value": {
-                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
-                            "0808": 15
+                        "65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7": {
+                            "060306020303": 1
                         },
-                        "lovelace": 6
+                        "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2": {
+                            "050803080200": 11
+                        },
+                        "lovelace": 2
                     }
                 },
-                "0802000807070107070306080800030608020603010201040501080602060505#91": {
-                    "address": "addr_test12zckk4h4asryhe4v8j4kqd0046rtxekv8hz2p4t3vq7hpevres5qqpqyhdn88",
+                "0800010508010600060006060202020207080405000202080304070400010503#37": {
+                    "address": "2RhQhCGqYPDoaki3WscyfnbvmLE5UrNJC7Et299x9BaQPEM5vkAcgGQUcvQvzPPat4eLm7wkxCheo4U1TFM6SaKaoaU6qrTavpexXjB8VoBRiH",
                     "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
+                    "inlineDatum": {
+                        "list": [
+                            {
+                                "int": 1
+                            },
+                            {
+                                "bytes": "6465"
+                            },
+                            {
+                                "list": [
+                                    {
+                                        "map": [
+                                            {
+                                                "k": {
+                                                    "bytes": ""
+                                                },
+                                                "v": {
+                                                    "int": 5
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "int": -5
+                                                },
+                                                "v": {
+                                                    "int": -5
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "list": []
+                                    },
+                                    {
+                                        "map": [
+                                            {
+                                                "k": {
+                                                    "int": -3
+                                                },
+                                                "v": {
+                                                    "int": -2
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "bytes": "25687d"
+                                                },
+                                                "v": {
+                                                    "bytes": "b56ca15c"
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "int": 1
+                                                },
+                                                "v": {
+                                                    "bytes": ""
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "bytes": ""
+                                                },
+                                                "v": {
+                                                    "int": -2
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "bytes": "421ae5"
+                                                },
+                                                "v": {
+                                                    "int": -5
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "int": 2
+                                    },
+                                    {
+                                        "int": 1
+                                    }
+                                ]
+                            },
+                            {
+                                "int": 5
+                            }
+                        ]
+                    },
+                    "inlineDatumhash": "b453aa0d70c57ea13605f220ada783dd8af005e7c6ed00ca5621c19551b86fb5",
                     "referenceScript": null,
                     "value": {
                         "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
-                            "070308": 14
+                            "070807010703": 11
                         },
-                        "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
-                            "0705010008": 10
+                        "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a": {
+                            "050103": 10
                         },
-                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
-                            "": 10
-                        },
-                        "65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7": {
-                            "03": 11
-                        },
-                        "b5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54": {
-                            "": 3
-                        },
-                        "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2": {
-                            "030105050805": 1
-                        }
+                        "lovelace": 14
                     }
                 }
             }
@@ -15729,39 +15680,255 @@
             }
         },
         {
+            "headId": "05000105030707010704080606010207",
             "party": {
-                "vkey": "be907b4bac84fee5ce8811db2defc9bf0b2a2a2bbc3d54d8a2257ecd70441962"
+                "vkey": "a6ab66742583882a3c60a194463690e9d74b1ed8e4e3b2312fac66cf35c6575f"
             },
             "tag": "Committed",
             "utxo": {
-                "0404050402000803070108070801070605020802010206040206040307000505#60": {
-                    "address": "2RhQhCGqYPDpjXnwK4eLrn2Tq55H8ksvvwe4kSu7EFD24F5JLKR3ZqPn2xkSLg3Sr8PhxGToGrnttafJD9d3GT8JSpG3vVP1T8J85n5Q5cpYF9",
+                "0300080402000002040103060403070504020805070701010304000000040704#33": {
+                    "address": "addr12y659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess85pearqzqgj7r24n",
                     "datum": null,
                     "datumhash": "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342",
                     "inlineDatum": null,
-                    "referenceScript": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "46450100002601",
+                            "description": "",
+                            "type": "PlutusScriptV1"
+                        },
+                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV1"
+                    },
                     "value": {
-                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
-                            "07": 3
+                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
+                            "0004000803": 13
+                        },
+                        "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
+                            "060808": 6
+                        },
+                        "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
+                            "07050708": 4
+                        },
+                        "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
+                            "050808000207": 4
                         },
                         "lovelace": 13
                     }
                 },
-                "0408080001020108000706080100040707030606020701050208070601010607#80": {
-                    "address": "2RhQhCGqYPDoDh1J3gXv973ctzu4xfZDZmiQLcNMbrdNPDpVP2fx8Wa2sTfTVctJansACxC8Z9agVBe6Sa11BKhbLdPiDFyrDo81LCwrxnq2Go",
+                "0301030703030807070300030104020000030201080007080504010103040100#37": {
+                    "address": "addr_test1gpmwvp7m9gcungkryasaysc6rp492rxry8meekxk4q4jnwyr395sypgrw72ac",
                     "datum": null,
                     "datumhash": null,
                     "inlineDatum": null,
                     "referenceScript": {
                         "script": {
-                            "cborHex": "820519904e",
+                            "cborHex": "8204191ff8",
                             "description": "",
                             "type": "SimpleScriptV2"
                         },
                         "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
                     },
                     "value": {
-                        "lovelace": 11
+                        "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
+                            "0606": 9
+                        }
+                    }
+                },
+                "0401070004070406040303030102010701010307010003020601040100070205#78": {
+                    "address": "2RhQhCGqYPDngEeChZwupyEe75d3u4QXjvKkiby1ANaZRKri2jyiEWB1GcXsRDMBeHP4eAxx54RvGGgscCUNYKDp38qrHzFuXJMCyqncQqyJsd",
+                    "datum": null,
+                    "inlineDatum": {
+                        "map": [
+                            {
+                                "k": {
+                                    "constructor": 798,
+                                    "fields": [
+                                        {
+                                            "list": [
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "int": 3
+                                                },
+                                                {
+                                                    "int": 4
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "v": {
+                                    "int": 3
+                                }
+                            },
+                            {
+                                "k": {
+                                    "bytes": "b638"
+                                },
+                                "v": {
+                                    "int": 1
+                                }
+                            },
+                            {
+                                "k": {
+                                    "map": [
+                                        {
+                                            "k": {
+                                                "constructor": 681,
+                                                "fields": [
+                                                    {
+                                                        "int": -5
+                                                    },
+                                                    {
+                                                        "bytes": "4200"
+                                                    },
+                                                    {
+                                                        "bytes": ""
+                                                    }
+                                                ]
+                                            },
+                                            "v": {
+                                                "bytes": "6c3e9adf"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "v": {
+                                    "map": [
+                                        {
+                                            "k": {
+                                                "bytes": "748e"
+                                            },
+                                            "v": {
+                                                "list": [
+                                                    {
+                                                        "bytes": "d5"
+                                                    },
+                                                    {
+                                                        "int": -5
+                                                    },
+                                                    {
+                                                        "int": -1
+                                                    },
+                                                    {
+                                                        "int": 1
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "k": {
+                                                "map": [
+                                                    {
+                                                        "k": {
+                                                            "int": -1
+                                                        },
+                                                        "v": {
+                                                            "bytes": "279b"
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "bytes": "2b"
+                                                        },
+                                                        "v": {
+                                                            "int": 2
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "bytes": "1582"
+                                                        },
+                                                        "v": {
+                                                            "bytes": "638e16"
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "int": 5
+                                                        },
+                                                        "v": {
+                                                            "bytes": "a78200b0"
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "int": -3
+                                                        },
+                                                        "v": {
+                                                            "int": -4
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            "v": {
+                                                "map": []
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "k": {
+                                    "int": 1
+                                },
+                                "v": {
+                                    "int": 1
+                                }
+                            },
+                            {
+                                "k": {
+                                    "int": 3
+                                },
+                                "v": {
+                                    "bytes": "b63f97"
+                                }
+                            }
+                        ]
+                    },
+                    "inlineDatumhash": "84491d268a8736282fb778b7f03055ebedf484ef1a41d2395c518fa4bf4a4354",
+                    "referenceScript": null,
+                    "value": {
+                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
+                            "0306080706": 1
+                        },
+                        "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
+                            "07": 12
+                        },
+                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
+                            "": 15
+                        },
+                        "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
+                            "0501070501": 13
+                        },
+                        "lovelace": 16
+                    }
+                },
+                "0706010801030806060201060400080003070105050307040401080108080006#54": {
+                    "address": "addr1g9vwrdjhrpf3ksjfgcgv2pkw7y8lqv06s9agla6up2ccpeuzlqwqwqqqq9r8s",
+                    "datum": null,
+                    "datumhash": "e88bd757ad5b9bedf372d8d3f0cf6c962a469db61a265f6418e1ffed86da29ec",
+                    "inlineDatum": null,
+                    "referenceScript": null,
+                    "value": {
+                        "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
+                            "03": 14
+                        },
+                        "65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7": {
+                            "05030106": 15
+                        },
+                        "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
+                            "0101080808": 10
+                        },
+                        "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
+                            "02": 1
+                        },
+                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
+                            "01": 6,
+                            "050506040000": 10
+                        },
+                        "lovelace": 5
                     }
                 }
             }
@@ -17488,11 +17655,165 @@
             }
         },
         {
+            "headId": "05080007050504010702020300000704",
             "party": {
-                "vkey": "fc608d2a4ffe87d7db113ef69ec5ccd05b810a882259c2a4cc6dd1a09136558c"
+                "vkey": "be907b4bac84fee5ce8811db2defc9bf0b2a2a2bbc3d54d8a2257ecd70441962"
             },
             "tag": "Committed",
-            "utxo": {}
+            "utxo": {
+                "0108030204010101070703030504000006030706040707020804080204060303#47": {
+                    "address": "EqGAuA8vHnNeuhRug39X69VVns68Yg72ozCcddruqfiNDAmQhiXNEfE9Nhp5hxgTimGMeWXbYDr22VRHcRzGA2W6DcAC4S8XFqoiArNdWpeXAKZrJzbsQFZ",
+                    "datum": null,
+                    "datumhash": "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
+                    "inlineDatum": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "4746010000220011",
+                            "description": "",
+                            "type": "PlutusScriptV1"
+                        },
+                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV1"
+                    },
+                    "value": {
+                        "1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48": {
+                            "0001": 1,
+                            "080801": 15
+                        },
+                        "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
+                            "0403010205": 13
+                        },
+                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
+                            "": 1
+                        },
+                        "65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7": {
+                            "0606": 1
+                        },
+                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
+                            "050702050605": 9
+                        },
+                        "lovelace": 14
+                    }
+                },
+                "0800030602020308010707070103050203050204010706040401000108050107#78": {
+                    "address": "2RhQhCGqYPDohnx3WZz9LhoGcabprFLHrxXqaSBE78q67rvonuNuqA7fGdwE6GCRNUH5kd8FqJUJAi8n8hoPiYPY7xv66Yc3BK3REfvB4Gcmt5",
+                    "datum": null,
+                    "inlineDatum": {
+                        "map": [
+                            {
+                                "k": {
+                                    "constructor": 965,
+                                    "fields": [
+                                        {
+                                            "list": [
+                                                {
+                                                    "int": -4
+                                                },
+                                                {
+                                                    "bytes": "2bb614ee"
+                                                },
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "int": 5
+                                                },
+                                                {
+                                                    "bytes": ""
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "int": -2
+                                        }
+                                    ]
+                                },
+                                "v": {
+                                    "list": [
+                                        {
+                                            "list": [
+                                                {
+                                                    "bytes": "073cc265"
+                                                },
+                                                {
+                                                    "bytes": "5634f162"
+                                                },
+                                                {
+                                                    "bytes": "216879"
+                                                },
+                                                {
+                                                    "bytes": "79"
+                                                },
+                                                {
+                                                    "int": 3
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "int": -4
+                                                    },
+                                                    "v": {
+                                                        "bytes": "20"
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "list": [
+                                                {
+                                                    "int": -1
+                                                },
+                                                {
+                                                    "int": -3
+                                                },
+                                                {
+                                                    "int": 0
+                                                },
+                                                {
+                                                    "bytes": "1a97"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "int": -4
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "inlineDatumhash": "9ed7d30ce224442fe38ac3a34a9c13f1413e9b3c09b7767fff01a4fcc2ebde68",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "820280",
+                            "description": "",
+                            "type": "SimpleScriptV2"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    },
+                    "value": {
+                        "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
+                            "04030104": 13,
+                            "060703010303": 9
+                        },
+                        "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
+                            "050402040806": 4
+                        },
+                        "65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7": {
+                            "000107050004": 12
+                        },
+                        "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
+                            "010104050607": 2
+                        },
+                        "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
+                            "070400030602": 10
+                        },
+                        "lovelace": 12
+                    }
+                }
+            }
         },
         {
             "signatures": {
@@ -23837,110 +24158,35 @@
             }
         },
         {
+            "headId": "02040800030107010806040602000303",
             "party": {
-                "vkey": "cae701a56bc9aa96115b23918d0984862cef89eb4038cb8b9dfeee3dff822a67"
+                "vkey": "33d3ac2bdb085dd129be88d903df800592cef0cf322e9d38d2fa70de8bb6c295"
             },
             "tag": "Committed",
             "utxo": {
-                "0401010108050103060300050403010402070405070708040205040100030501#52": {
-                    "address": "EqGAuA8vHnNp7kLwPtBjH26T9e4skMNpQoKh34oh5PdVmB4AavMUUWWwAhBBF7LcUn7KV8pTC3Si4BqMR9oSpfewCnpc3QZRut7yTg3HmjAyfqJyTYggPBx",
+                "0807020404080402020405060500070604010307040004050708030303010300#50": {
+                    "address": "addr129mwvp7m9gcungkryasaysc6rp492rxry8meekxk4q4jnwyyk5qsxpqzmr2ys",
                     "datum": null,
-                    "datumhash": "0268be9dbd0446eaa217e1dec8f399249305e551d7fc1437dd84521f74aa621c",
-                    "inlineDatum": null,
+                    "inlineDatum": {
+                        "bytes": "3bd7d390"
+                    },
+                    "inlineDatumhash": "8d33e782be3a9ee98041df3766e3bfcea9213d6a95bd3f661d14d33e6d681c51",
                     "referenceScript": {
                         "script": {
-                            "cborHex": "8202858204191350820519a11e820519bf46830302838201828200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825418200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7820519fa76830303838202828200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54830300818200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825418202838200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e48200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b78200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54",
+                            "cborHex": "8303008282051a000173e482051a0001234e",
                             "description": "",
                             "type": "SimpleScriptV2"
                         },
                         "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
                     },
                     "value": {
-                        "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
-                            "": 12,
-                            "020708": 16
-                        },
-                        "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
-                            "0000": 9
-                        },
-                        "b5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54": {
-                            "": 10
+                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
+                            "": 3
                         },
                         "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
-                            "": 15
+                            "040502": 3
                         },
-                        "lovelace": 6
-                    }
-                },
-                "0602020803070604030408060105050106080700030805000304040401080204#8": {
-                    "address": "EqGAuA8vHnP4kDwJ3FjWaoyRj8fyuQzQJVvCH4cpEWvNoxEUmpv7tdp79inZDQUiSh7kRudEbPceiQEVMRg4f3NnL9zkciT27EXC4y83x9nqqX3GStJiZUr",
-                    "datum": null,
-                    "datumhash": "bb30a42c1e62f0afda5f0a4e8a562f7a13a24cea00ee81917b86b89e801314aa",
-                    "inlineDatum": null,
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "4746010000220011",
-                            "description": "",
-                            "type": "PlutusScriptV2"
-                        },
-                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
-                    },
-                    "value": {
-                        "lovelace": 12
-                    }
-                },
-                "0608070508020801030307020500010107000606020803010701080103080503#26": {
-                    "address": "EqGAuA8vHnNejzpni3pq4KhfAiVnvWJrc15WecGaDDksAEv6EbMqB5Fs53qndBV81vnADzyP8eCH9ZfJFv9fnTD9S2fdWabh1LQ6ooMVXnse46b6GCy8JQf",
-                    "datum": null,
-                    "datumhash": "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
-                    "inlineDatum": null,
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "8303028483030181820519c2408202808201808200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7",
-                            "description": "",
-                            "type": "SimpleScriptV2"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
-                    },
-                    "value": {
-                        "1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48": {
-                            "0601000106": 10
-                        },
-                        "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
-                            "0704": 9
-                        },
-                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
-                            "0302": 7
-                        },
-                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
-                            "": 4
-                        },
-                        "lovelace": 11
-                    }
-                },
-                "0807010400010801020706050508050800000107050407050107050702050405#97": {
-                    "address": "Ae2tdPwUPEZFqcUcW14ApUNk83q8S2xcAgPUUVg66yYgNx3NqsVyGrN9QbD",
-                    "datum": null,
-                    "datumhash": "ae85d245a3d00bfde01f59f3c4fe0b4bfae1cb37e9cf91929eadcea4985711de",
-                    "inlineDatum": null,
-                    "referenceScript": null,
-                    "value": {
-                        "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
-                            "010800": 2
-                        },
-                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
-                            "06": 6
-                        },
-                        "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
-                            "010001": 5
-                        },
-                        "b5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54": {
-                            "08070508": 11
-                        },
-                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
-                            "0707": 13
-                        },
-                        "lovelace": 2
+                        "lovelace": 9
                     }
                 }
             }
@@ -27740,163 +27986,75 @@
             "tag": "Greetings"
         },
         {
+            "headId": "02070802010104050606050601010305",
             "party": {
-                "vkey": "be907b4bac84fee5ce8811db2defc9bf0b2a2a2bbc3d54d8a2257ecd70441962"
+                "vkey": "25fcb03ab6435d106b5df1e677f3c6a10a7b22719deedeb3761c005e1306423d"
             },
             "tag": "Committed",
             "utxo": {
-                "0006060206000608000205080001000302010601040202080500010705000004#58": {
-                    "address": "addr1qy659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess84xger5hr65xynp2p4kcfeaxp7826dyadkfddpd6j3f2g9qgykgc2",
-                    "datum": null,
-                    "datumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
-                    "inlineDatum": null,
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "820519d995",
-                            "description": "",
-                            "type": "SimpleScriptV2"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
-                    },
-                    "value": {
-                        "1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48": {
-                            "010601": 6
-                        },
-                        "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
-                            "0504": 7
-                        },
-                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
-                            "02": 10
-                        },
-                        "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a": {
-                            "": 11
-                        },
-                        "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2": {
-                            "0301070201": 11
-                        },
-                        "lovelace": 8
-                    }
-                },
-                "0207050808000303050300060504080603020406010502020605020405020202#68": {
-                    "address": "addr_test1wpmwvp7m9gcungkryasaysc6rp492rxry8meekxk4q4jnwqae5mcf",
-                    "datum": null,
-                    "inlineDatum": {
-                        "list": [
-                            {
-                                "int": 4
-                            },
-                            {
-                                "list": [
-                                    {
-                                        "map": []
-                                    },
-                                    {
-                                        "int": 3
-                                    },
-                                    {
-                                        "bytes": "b94e5889"
-                                    }
-                                ]
-                            },
-                            {
-                                "bytes": "1685f73d"
-                            }
-                        ]
-                    },
-                    "inlineDatumhash": "e9b132fd734f4c4b8d4491520309643f1dc581d417b01f4c0d42cfb177f56dc4",
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "820183830301828201858200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a8200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b78200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568202838200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e48200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8820519e4378201828205195460830300858200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825418200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4",
-                            "description": "",
-                            "type": "SimpleScriptV2"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
-                    },
-                    "value": {
-                        "1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48": {
-                            "": 15,
-                            "0205030800": 16
-                        },
-                        "65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7": {
-                            "": 15
-                        },
-                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
-                            "": 13
-                        },
-                        "lovelace": 11
-                    }
-                },
-                "0304060302070601040702070100030605030707050508030102000307010601#22": {
-                    "address": "2RhQhCGqYPDpBfZS8WqL9VghRW4wL5kUBTN5aEXgYzs58gXF48QBvpRjxKAzmoU4b7UjVLwZJ77hBUpY7i44sGp4YG2zccJViCmG5BBKZrfrxi",
-                    "datum": null,
-                    "inlineDatum": {
-                        "map": []
-                    },
-                    "inlineDatumhash": "d36a2619a672494604e11bb447cbcf5231e9f2ba25c2169177edc941bd50ad6c",
-                    "referenceScript": null,
-                    "value": {
-                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
-                            "080100030704": 1
-                        },
-                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
-                            "000100": 1,
-                            "06080007": 2
-                        },
-                        "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
-                            "02": 12
-                        },
-                        "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2": {
-                            "05080600": 5
-                        },
-                        "lovelace": 8
-                    }
-                },
-                "0506040102070606050304060701040701050802080108070604000207070407#64": {
-                    "address": "2RhQhCGqYPDpFABqhwsBcfs1d7No9pQ7zNHc99mGibdTJvKqo7frTcuE3uR3RjFnppbZpAC1i3hDd8xRNYyJsCELXyooxA7o1du1RA74ZtMyEQ",
+                "0006000007060406050700010703010105080507080300010506070803000403#78": {
+                    "address": "addr_test1vrkvh76uvxt88ury3fpvctuz9jquhs62aeqjw33cazd84agz8fxfh",
                     "datum": null,
                     "datumhash": null,
                     "inlineDatum": null,
                     "referenceScript": null,
                     "value": {
-                        "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
-                            "000701030008": 3
+                        "1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48": {
+                            "05": 15
                         },
-                        "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2": {
-                            "00000806": 1
-                        },
-                        "lovelace": 11
-                    }
-                },
-                "0804080605030403080707040607080602060202050305040504000602000302#5": {
-                    "address": "addr_test1yznyv36t3a2rzfs4q6mvyu7nqlr4dxjwkmykkskafg54yz4xger5hr65xynp2p4kcfeaxp7826dyadkfddpd6j3f2g9qnwecye",
-                    "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "82051a00010cf5",
-                            "description": "",
-                            "type": "SimpleScriptV2"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
-                    },
-                    "value": {
-                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
-                            "03040007": 9
+                        "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
+                            "0406060806": 4
                         },
                         "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
-                            "080801": 6
+                            "06020700": 3
                         },
-                        "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a": {
-                            "0008060402": 8
+                        "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
+                            "0106": 12
+                        },
+                        "lovelace": 10
+                    }
+                },
+                "0206070707030003020401020405070103020101060206070700000506040503#29": {
+                    "address": "addr_test1vrkvh76uvxt88ury3fpvctuz9jquhs62aeqjw33cazd84agz8fxfh",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "referenceScript": null,
+                    "value": {
+                        "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
+                            "080302000100": 11
+                        },
+                        "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
+                            "0003000800": 15,
+                            "07": 12
                         },
                         "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
-                            "0708050404": 16
+                            "07050602": 13
                         },
                         "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2": {
                             "": 5
                         },
-                        "lovelace": 10
+                        "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
+                            "01010000": 4
+                        },
+                        "lovelace": 11
+                    }
+                },
+                "0601070303000704050205060404000600080807050708080002070802000406#18": {
+                    "address": "addr_test12q659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess85rnszqyzqtxy7z5",
+                    "datum": null,
+                    "datumhash": "2208e439244a1d0ef238352e3693098aba9de9dd0154f9056551636c8ed15dc1",
+                    "inlineDatum": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "8200581c1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48",
+                            "description": "",
+                            "type": "SimpleScriptV2"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    },
+                    "value": {
+                        "lovelace": 16
                     }
                 }
             }
@@ -28919,84 +29077,30 @@
             "tag": "PeerConnected"
         },
         {
+            "headId": "06080300050504040404010207030608",
             "party": {
-                "vkey": "b4e6aff3dd4b6190c0a9c7de5c71a26a0967d43e67a8cb005aebd5ab90b5af17"
+                "vkey": "0549244adfff5468568a864a3a1c1c1c2278cc04b45ddd3d2fa8fa4ee38b7a2f"
             },
             "tag": "Committed",
             "utxo": {
-                "0100080105010701080500010300030800030004080807020002060201070704#57": {
-                    "address": "2RhQhCGqYPDqPwe5BL5vfLSwRFuxZQQ4kTcVVzkswy2otBsLAD9cs2m3H7asxoyeLnmnPVcfK6DUjxXGbNh3XxxkNXaC3pcUhjDvFNLy2FGgSX",
-                    "datum": null,
-                    "datumhash": "2208e439244a1d0ef238352e3693098aba9de9dd0154f9056551636c8ed15dc1",
-                    "inlineDatum": null,
-                    "referenceScript": null,
-                    "value": {
-                        "65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7": {
-                            "04": 11
-                        },
-                        "lovelace": 15
-                    }
-                },
-                "0401020206080604030207070703010801000305070203000508010202030608#62": {
-                    "address": "addr_test1vqxefct5wvh0n2h88uu44dz9q7l6nq7k2q3uzx54ruxr9eqq6x8va",
-                    "datum": null,
-                    "inlineDatum": {
-                        "list": [
-                            {
-                                "list": [
-                                    {
-                                        "bytes": "6cd58588"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    "inlineDatumhash": "0a4d8f6fbc98fd843bdd30b3c6a06e9a22e40853c616b848bea2af5e4e6c3089",
-                    "referenceScript": null,
-                    "value": {
-                        "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
-                            "": 4
-                        },
-                        "65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7": {
-                            "0103060807": 15,
-                            "06": 4
-                        },
-                        "lovelace": 11
-                    }
-                },
-                "0604010200080005060804000002030805040201080608030106000606070406#53": {
-                    "address": "Ae2tdPwUPEZ2QWAJmT4Y686ZgpaTrXAK6NpZD1Br5n86CBAaytiSdUQv3XV",
+                "0805050003030106050004010601060407010203010702030405010508050807#69": {
+                    "address": "addr_test1ypjlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50da44enr4t4gu5qp277lfw406m6m5r89wk0he4qsrlqn9a2quynymn",
                     "datum": null,
                     "datumhash": null,
                     "inlineDatum": null,
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "8200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56",
-                            "description": "",
-                            "type": "SimpleScriptV2"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
-                    },
+                    "referenceScript": null,
                     "value": {
                         "3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e": {
-                            "0401050806": 13
+                            "070006000403": 5
                         },
-                        "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
-                            "00": 12
+                        "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
+                            "070004": 5
                         },
-                        "65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7": {
-                            "0300070700": 7
+                        "b5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54": {
+                            "03": 2,
+                            "0708050304": 16
                         },
-                        "a646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a": {
-                            "020201080404": 6
-                        },
-                        "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2": {
-                            "0205000706": 5
-                        },
-                        "eccbfb5c619673f0648a42cc2f822c81cbc34aee41274638e89a7af5": {
-                            "0208": 8
-                        },
-                        "lovelace": 12
+                        "lovelace": 1
                     }
                 }
             }

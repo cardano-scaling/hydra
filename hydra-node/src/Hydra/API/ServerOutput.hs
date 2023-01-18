@@ -41,7 +41,7 @@ data ServerOutput tx
   = PeerConnected {headId :: HeadId, peer :: NodeId}
   | PeerDisconnected {headId :: HeadId, peer :: NodeId}
   | HeadIsInitializing {headId :: HeadId, parties :: Set Party}
-  | Committed {party :: Party, utxo :: UTxOType tx}
+  | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsClosed
       { snapshotNumber :: SnapshotNumber
@@ -94,7 +94,7 @@ instance
     PeerConnected headId p -> PeerConnected <$> shrink headId <*> shrink p
     PeerDisconnected headId p -> PeerDisconnected <$> shrink headId <*> shrink p
     HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
-    Committed p u -> Committed <$> shrink p <*> shrink u
+    Committed headId p u -> Committed <$> shrink headId <*> shrink p <*> shrink u
     HeadIsOpen headId u -> HeadIsOpen <$> shrink headId <*> shrink u
     HeadIsClosed s t headId -> HeadIsClosed <$> shrink s <*> shrink t <*> shrink headId
     HeadIsContested headId sn -> HeadIsContested <$> shrink headId <*> shrink sn

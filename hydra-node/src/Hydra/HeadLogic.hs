@@ -382,7 +382,7 @@ onInitialChainCommitTx ::
   Outcome tx
 onInitialChainCommitTx headState newChainState party parameters pendingCommits committed pt utxo headId =
   NewState newHeadState $
-    [ClientEffect $ Committed pt utxo]
+    [ClientEffect $ Committed headId pt utxo]
       <> [ OnChainEffect
           { chainState = newChainState
           , postChainTx = CollectComTx collectedUTxO

@@ -233,14 +233,16 @@
             "tag": "RolledBack"
         },
         {
+            "headId": "00060404020503010506060007000607",
             "party": {
-                "vkey": "9d774e32e00e972cc51a3eb1c35fddf462120ce91972b7f1a5ea108ac231b89e"
+                "vkey": "32e15514e513e355d8e5efe8eec4e71c8a456e5fe45134c46f780e5be79cfbba"
             },
             "tag": "Committed",
             "utxo": [
+                -2,
                 -1,
-                4,
-                5
+                0,
+                2
             ]
         },
         {
@@ -300,15 +302,14 @@
             "tag": "PeerConnected"
         },
         {
+            "headId": "05080601080703060006060406030007",
             "party": {
-                "vkey": "11339499ef20be28b200727460cb0fd5deddd66ca589ae6fc7ac5b0f026f4b39"
+                "vkey": "be907b4bac84fee5ce8811db2defc9bf0b2a2a2bbc3d54d8a2257ecd70441962"
             },
             "tag": "Committed",
             "utxo": [
-                -4,
                 -1,
-                1,
-                3
+                6
             ]
         },
         {
@@ -578,13 +579,13 @@
             "tag": "HeadIsContested"
         },
         {
+            "headId": "07080103000107010201050102040300",
             "party": {
-                "vkey": "35bb78703926e9324d2307bc0c5769b08dabc8855f2971c70c386918d74f6a56"
+                "vkey": "beb3306bfd2dca25297b512f6ed5399e56c1f98f646caa9290e79bb2b11ba568"
             },
             "tag": "Committed",
             "utxo": [
-                -5,
-                -3
+                -1
             ]
         },
         {
@@ -765,12 +766,17 @@
             "tag": "InvalidInput"
         },
         {
+            "headId": "03060500030608010706080303040006",
             "party": {
-                "vkey": "9c32627c9465bbb4616450a57f30f3ce148981d13d976120a3379eeda4d7a5ce"
+                "vkey": "fbef1add713fdc11ee9aeaa08d60120c1d9a9a242225938d51ff90aa22487c43"
             },
             "tag": "Committed",
             "utxo": [
-                -1
+                -6,
+                -4,
+                1,
+                2,
+                3
             ]
         },
         {
@@ -1804,16 +1810,13 @@
             "tag": "HeadIsInitializing"
         },
         {
+            "headId": "01040506040700060108020800070602",
             "party": {
-                "vkey": "a3d080a0513b57c80f8d1ef2f830e12c25636006876859c53be805f4a9797281"
+                "vkey": "0134abe5151ffe0914a87e34226839e0859c93f6486259db3eba111f49b446a9"
             },
             "tag": "Committed",
             "utxo": [
-                -5,
-                -4,
-                -3,
-                -2,
-                2
+                6
             ]
         },
         {
@@ -1978,13 +1981,16 @@
             "tag": "InvalidInput"
         },
         {
+            "headId": "05030407000402080402060608030704",
             "party": {
-                "vkey": "be907b4bac84fee5ce8811db2defc9bf0b2a2a2bbc3d54d8a2257ecd70441962"
+                "vkey": "ad1143be84ee6bc89f5047cdf7240c5e8f81e47d4726bc2c68702900f3bad03a"
             },
             "tag": "Committed",
             "utxo": [
-                1,
-                6
+                -5,
+                -3,
+                0,
+                2
             ]
         },
         {
@@ -2362,11 +2368,16 @@
             }
         },
         {
+            "headId": "05080803010700040208040002040605",
             "party": {
-                "vkey": "29e0757ab43b86b74edf9d4126ff3b2a4b1df8219679836effea09bfddedfb34"
+                "vkey": "756e57fd9f12129ea5643652baa504f8d849ecb3542f836ddbe8220e1f4ab64b"
             },
             "tag": "Committed",
-            "utxo": []
+            "utxo": [
+                -5,
+                1,
+                6
+            ]
         },
         {
             "headId": "07070506020706060301070308020103",
@@ -2374,13 +2385,13 @@
             "utxo": []
         },
         {
+            "headId": "08000604070307050504040602040600",
             "party": {
-                "vkey": "8749d75b11b0f3091360dbde2fa2e1fd3c5336357c4d8db9f4cd882dc7aba815"
+                "vkey": "361a05ca81dfda5a253569759d826f2fe79c4bb290b1dd37b6ca72f1601120ac"
             },
             "tag": "Committed",
             "utxo": [
-                -6,
-                -4
+                4
             ]
         },
         {
@@ -2403,14 +2414,12 @@
             }
         },
         {
+            "headId": "07010106040204070504010504020003",
             "party": {
-                "vkey": "5a68e2d30f8ec6f3c65a13670de43992b220bf907d0d0b749d69ea4cfac51372"
+                "vkey": "546d239de798f7dda1d39f5b61e530511c7a310258e35ffdcfa55002b7655e7c"
             },
             "tag": "Committed",
-            "utxo": [
-                -3,
-                1
-            ]
+            "utxo": []
         },
         {
             "tag": "RolledBack"
