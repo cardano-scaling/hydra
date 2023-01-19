@@ -547,13 +547,16 @@ abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
   reimbursedOutputs =
-    mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
+    fmap snd $
+      sortOn
+        fst
+        $ mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
 
-  mkCommitOutput :: ScriptData -> Maybe (TxOut CtxTx)
+  mkCommitOutput :: ScriptData -> Maybe (TxIn, TxOut CtxTx)
   mkCommitOutput x =
     case fromData @Commit.DatumType $ toPlutusData x of
       Just (_party, _validatorHash, serialisedTxOut, _headId) ->
-        toTxContext <$> convertTxOut serialisedTxOut
+        second toTxContext <$> convertTxOut serialisedTxOut
       Nothing -> error "Invalid Commit datum"
 
 -- * Observe Hydra Head transactions
@@ -681,7 +684,7 @@ observeCommitTx networkId initials tx = do
     -- reduces the cases as we can either interpret the commit or not.
     case (mCommittedTxIn, mCommittedTxOut) of
       (Nothing, Nothing) -> Just mempty
-      (Just i, Just o) -> Just $ UTxO.singleton (i, o)
+      (Just i, Just (_i, o)) -> Just $ UTxO.singleton (i, o)
       (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
       (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
 
@@ -708,12 +711,12 @@ observeCommitTx networkId initials tx = do
 
   commitScript = fromPlutusScript Commit.validatorScript
 
-convertTxOut :: Maybe Commit.Commit -> Maybe (TxOut CtxUTxO)
+convertTxOut :: Maybe Commit.Commit -> Maybe (TxIn, TxOut CtxUTxO)
 convertTxOut = \case
   Nothing -> Nothing
   Just commit ->
     case Commit.deserializeCommit commit of
-      Just (_i, o) -> Just o
+      Just (i, o) -> Just (i, o)
       Nothing -> error "couldn't deserialize serialized output in commit's datum."
 
 data CollectComObservation = CollectComObservation

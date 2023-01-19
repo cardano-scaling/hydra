@@ -176,9 +176,9 @@ genAbortMutation (tx, _utxo) =
             [ ChangeInput input (replacePolicyIdWith testPolicyId otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
             , ChangeMintedValue (removePTFromMintedValue output tx)
             ]
-    , SomeMutation Nothing ReorderCommitOutputs <$> do
+    , SomeMutation (Just "hash of committed UTxo do not match hash of outputs") ReorderCommitOutputs <$> do
         let outputs = txOuts' tx
-        outputs' <- shuffle outputs
+        outputs' <- shuffle outputs `suchThat` (/= outputs)
         let reorderedOutputs = uncurry ChangeOutput <$> zip [0 ..] outputs'
         pure $ Changes reorderedOutputs
     ]

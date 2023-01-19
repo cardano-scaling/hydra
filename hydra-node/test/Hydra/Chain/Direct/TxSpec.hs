@@ -53,7 +53,6 @@ import Test.QuickCheck (
   forAll,
   getPositive,
   label,
-  oneof,
   property,
   suchThat,
   vectorOf,
@@ -155,19 +154,16 @@ withinTxExecutionBudget report =
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- NOTE: Uses 'testPolicyId' for the datum.
+-- NOTE: We don't generate empty commits and it is used only at one place so perhaps move it?
 -- FIXME: This function is very complicated and it's hard to understand it after a while
 generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData, UTxO))
 generateCommitUTxOs parties = do
   txins <- vectorOf (length parties) (arbitrary @TxIn)
   let vks = (\p -> (genVerificationKey `genForParty` p, p)) <$> parties
   committedUTxO <-
-    vectorOf (length parties) $
-      oneof
-        [ do
-            singleUTxO <- fmap adaOnly <$> (genOneUTxOFor =<< arbitrary)
-            pure $ head <$> nonEmpty (UTxO.pairs singleUTxO)
-        , pure Nothing
-        ]
+    vectorOf (length parties) $ do
+      singleUTxO <- fmap adaOnly <$> (genOneUTxOFor =<< arbitrary)
+      pure $ head <$> nonEmpty (UTxO.pairs singleUTxO)
   let commitUTxO =
         zip txins $
           uncurry mkCommitUTxO <$> zip vks committedUTxO
