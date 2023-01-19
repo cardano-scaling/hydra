@@ -142,7 +142,7 @@ spec = around showLogsOnFailure $ do
                 seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
                 send n1 $ input "Init" []
-                [headId] <-
+                (headId : _) <-
                   waitForAllMatch 10 [n1, n2, n3] $
                     headIsInitializingWith (Set.fromList [alice, bob, carol])
 
@@ -245,7 +245,7 @@ spec = around showLogsOnFailure $ do
                 waitForNodesConnected tracer [n1, n2]
 
                 send n1 $ input "Init" []
-                [headId] <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
+                (headId : _) <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
                 committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
                 send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
@@ -399,7 +399,7 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
       seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
       send n1 $ input "Init" []
-      [headId] <-
+      (headId : _) <-
         waitForAllMatch 10 [n1, n2, n3] $
           headIsInitializingWith (Set.fromList [alice, bob, carol])
 
@@ -420,7 +420,7 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
               aliceCardanoSk
       send n1 $ input "NewTx" ["transaction" .= tx]
       waitFor tracer 10 [n1, n2, n3] $
-        output "TxSeen" ["transaction" .= tx]
+        output "TxSeen" ["transaction" .= tx, "headId" .= headId]
 
       -- The expected new utxo set is the created payment to bob,
       -- alice's remaining utxo in head and whatever bot has
@@ -457,7 +457,6 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
               [ "snapshotNumber" .= int expectedSnapshotNumber
               , "utxo" .= newUTxO
               , "confirmedTransactions" .= [tx]
-              , "headId" .= headId
               ]
           expectedSnapshotNumber = 1
 
