@@ -171,13 +171,6 @@ getChainState hs = case hs of
   OpenState{chainState} -> chainState
   ClosedState{chainState} -> chainState
 
-getHeadId :: HeadState tx -> Maybe HeadId
-getHeadId hs = case hs of
-  IdleState{} -> Nothing
-  InitialState{headId} -> Just headId
-  OpenState{headId} -> Just headId
-  ClosedState{headId} -> Just headId
-
 type Committed tx = Map Party (UTxOType tx)
 
 -- | Off-chain state of the Coordinated Head protocol.
@@ -347,15 +340,14 @@ onInitialClientCommit ::
   Party ->
   PendingCommits ->
   ClientInput tx ->
-  HeadId ->
   Outcome tx
-onInitialClientCommit chainState party pendingCommits clientInput headId =
+onInitialClientCommit chainState party pendingCommits clientInput =
   case clientInput of
     (Commit utxo)
       -- REVIEW: Is 'canCommit' something we want to handle here or have the OCV
       -- deal with it?
       | canCommit -> OnlyEffects [OnChainEffect{chainState, postChainTx = CommitTx party utxo}]
-    _ -> OnlyEffects [ClientEffect $ CommandFailed headId clientInput]
+    _ -> OnlyEffects [ClientEffect $ CommandFailed clientInput]
  where
   canCommit = party `Set.member` pendingCommits
 
@@ -906,8 +898,8 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
     onIdleClientInit chainState party otherParties contestationPeriod
   (IdleState{}, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod = observed, parties}, newChainState}) ->
     onIdleChainInitTx st newChainState parties observed headId
-  (InitialState{chainState, pendingCommits, headId}, ClientEvent clientInput@(Commit _)) ->
-    onInitialClientCommit chainState party pendingCommits clientInput headId
+  (InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
+    onInitialClientCommit chainState party pendingCommits clientInput
   ( InitialState{parameters, pendingCommits, committed, headId}
     , OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}
     ) ->
@@ -986,19 +978,13 @@ update Environment{party, signingKey, otherParties, contestationPeriod} ledger s
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
   (_, NetworkEvent _ (Connected nodeId)) ->
-    case getHeadId st of
-      Nothing -> Error $ InvalidEvent ev st
-      Just headId -> OnlyEffects [ClientEffect $ PeerConnected{headId, peer = nodeId}]
+    OnlyEffects [ClientEffect $ PeerConnected{peer = nodeId}]
   (_, NetworkEvent _ (Disconnected nodeId)) ->
-    case getHeadId st of
-      Nothing -> Error $ InvalidEvent ev st
-      Just headId -> OnlyEffects [ClientEffect $ PeerDisconnected{headId, peer = nodeId}]
+    OnlyEffects [ClientEffect $ PeerDisconnected{peer = nodeId}]
   (_, PostTxError{postChainTx, postTxError}) ->
     OnlyEffects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
   (_, ClientEvent{clientInput}) ->
-    case getHeadId st of
-      Nothing -> Error $ InvalidEvent ev st
-      Just headId -> OnlyEffects [ClientEffect $ CommandFailed headId clientInput]
+    OnlyEffects [ClientEffect $ CommandFailed clientInput]
   _ ->
     Error $ InvalidEvent ev st
 

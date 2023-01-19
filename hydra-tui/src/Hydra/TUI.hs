@@ -292,9 +292,9 @@ handleAppEvent s = \case
   Update Greetings{me} ->
     s & meL ?~ me
       & peersL .~ []
-  Update (PeerConnected _ p) ->
+  Update (PeerConnected p) ->
     s & peersL %~ \cp -> nub $ cp <> [p]
-  Update (PeerDisconnected _ p) ->
+  Update (PeerDisconnected p) ->
     s & peersL %~ \cp -> cp \\ [p]
   Update CommandFailed{clientInput} -> do
     s & report Error ("Invalid command: " <> show clientInput)

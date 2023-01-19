@@ -38,8 +38,8 @@ instance (FromJSON tx, IsChainState tx) => FromJSON (TimedServerOutput tx) where
 -- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
 data ServerOutput tx
-  = PeerConnected {headId :: HeadId, peer :: NodeId}
-  | PeerDisconnected {headId :: HeadId, peer :: NodeId}
+  = PeerConnected {peer :: NodeId}
+  | PeerDisconnected {peer :: NodeId}
   | HeadIsInitializing {headId :: HeadId, parties :: Set Party}
   | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
@@ -57,7 +57,7 @@ data ServerOutput tx
   | ReadyToFanout {headId :: HeadId}
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
-  | CommandFailed {headId :: HeadId, clientInput :: ClientInput tx}
+  | CommandFailed {clientInput :: ClientInput tx}
   | TxSeen {headId :: HeadId, transaction :: tx}
   | TxValid {headId :: HeadId, transaction :: tx}
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
@@ -92,8 +92,8 @@ instance
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
   shrink = \case
-    PeerConnected headId p -> PeerConnected <$> shrink headId <*> shrink p
-    PeerDisconnected headId p -> PeerDisconnected <$> shrink headId <*> shrink p
+    PeerConnected p -> PeerConnected <$> shrink p
+    PeerDisconnected p -> PeerDisconnected <$> shrink p
     HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
     Committed headId p u -> Committed <$> shrink headId <*> shrink p <*> shrink u
     HeadIsOpen headId u -> HeadIsOpen <$> shrink headId <*> shrink u
@@ -102,7 +102,7 @@ instance
     ReadyToFanout headId -> ReadyToFanout <$> shrink headId
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
-    CommandFailed headId i -> CommandFailed <$> shrink headId <*> shrink i
+    CommandFailed i -> CommandFailed <$> shrink i
     TxSeen headId tx -> TxSeen <$> shrink headId <*> shrink tx
     TxValid headId tx -> TxValid <$> shrink headId <*> shrink tx
     TxExpired headId tx -> TxExpired <$> shrink headId <*> shrink tx
