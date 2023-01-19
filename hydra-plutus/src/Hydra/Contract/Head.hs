@@ -108,33 +108,32 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
       Nothing -> 0
       Just tokenMap -> negate $ sum tokenMap
 
-  -- FIXME: This is prone to identical commits only being reimbursed once.
   mustReimburseCommittedUTxO =
-    traceIfFalse "committed UTxO not reimbursed" $
-      all (`elem` serialisedOutputs) committedUTxOs
+    traceIfFalse "hash of committed UTxo do not match hash of outputs" $
+      hashOfCommittedUTxO == hashOfOutputs
 
-  serialisedOutputs = Builtins.serialiseData . toBuiltinData <$> txInfoOutputs txInfo
+  hashOfOutputs =
+    hashTxOuts $ txInfoOutputs txInfo
 
-  committedUTxOs =
-    hashPreSerializedCommits $
-      traverseInputs [] (txInfoInputs txInfo)
+  hashOfCommittedUTxO =
+    hashPreSerializedCommits $ committedUTxO [] (txInfoInputs txInfo)
 
-  traverseInputs commits = \case
+  committedUTxO commits = \case
     [] ->
       commits
     TxInInfo{txInInfoResolved = txOut} : rest
       | hasPT headCurrencySymbol txOut ->
         case commitDatum txInfo txOut of
           Just commit ->
-            traverseInputs
+            committedUTxO
               (commit : commits)
               rest
           Nothing ->
-            traverseInputs
+            committedUTxO
               commits
               rest
       | otherwise ->
-        traverseInputs
+        committedUTxO
           commits
           rest
 

@@ -54,7 +54,10 @@ import Test.QuickCheck (
   forAll,
   forAllShrink,
   property,
+  shuffle,
+  (=/=),
   (===),
+  (==>),
  )
 import Test.QuickCheck.Instances ()
 
@@ -76,6 +79,7 @@ spec = parallel $ do
     modifyMaxSuccess (const 20) $ do
       prop "OffChain.hashUTxO == OnChain.hashTxOuts (on sorted tx outs)" prop_consistentOnAndOffChainHashOfTxOuts
       prop "OnChain.hashPreSerializedCommits == OnChain.hashTxOuts (on sorted tx outs)" prop_consistentHashPreSerializedCommits
+      prop "does care about ordering of TxOut" prop_hashingCaresAboutOrderingOfTxOuts
 
   describe "Serializing commits" $
     prop "deserializeCommit . serializeCommit === id" prop_serializingCommitRoundtrip
@@ -169,6 +173,25 @@ prop_consistentHashPreSerializedCommits =
           & counterexample ("Hashed txOuts: " <> decodeUtf8 (Base16.encode $ fromBuiltin hashedTxOuts))
           & counterexample ("Serialized commits: " <> show serializedCommits)
           & counterexample ("To fanout txOuts: " <> show toFanoutTxOuts)
+
+prop_hashingCaresAboutOrderingOfTxOuts :: Property
+prop_hashingCaresAboutOrderingOfTxOuts =
+  forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
+    (length utxo > 1)
+      ==> let plutusTxOuts =
+                rights $
+                  zipWith
+                    (\ix o -> txInfoOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
+                    [0 ..]
+                    txOuts
+              txOuts = snd <$> UTxO.pairs utxo
+           in forAll (shuffle plutusTxOuts) $ \shuffledTxOuts ->
+                (shuffledTxOuts /= plutusTxOuts)
+                  ==> let hashed = OnChain.hashTxOuts plutusTxOuts
+                          hashShuffled = OnChain.hashTxOuts shuffledTxOuts
+                       in (hashed =/= hashShuffled)
+                            & counterexample ("Plutus: " <> show plutusTxOuts)
+                            & counterexample ("Shuffled: " <> show shuffledTxOuts)
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
