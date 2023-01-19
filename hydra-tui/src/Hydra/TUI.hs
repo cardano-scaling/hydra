@@ -77,7 +77,6 @@ data State
   = Disconnected
       { nodeHost :: Host
       , now :: UTCTime
-      , hydraHeadId :: Maybe HeadId
       }
   | Connected
       { me :: Maybe Party -- TODO(SN): we could make a nicer type if ClientConnected is only emited of 'Hydra.Client' upon receiving a 'Greeting'
@@ -293,13 +292,12 @@ handleAppEvent s = \case
       , feedback = []
       , now = s ^. nowL
       , pending = NotPending
-      , hydraHeadId = s ^. hydraHeadIdL
+      , hydraHeadId = Nothing
       }
   ClientDisconnected ->
     Disconnected
       { nodeHost = s ^. nodeHostL
       , now = s ^. nowL
-      , hydraHeadId = s ^. hydraHeadIdL
       }
   Update Greetings{me} ->
     s & meL ?~ me
@@ -332,7 +330,7 @@ handleAppEvent s = \case
       & stopPending
   Update HeadIsContested{headId, snapshotNumber} ->
     s & info ("Head " <> show headId <> " contested with snapshot number " <> show snapshotNumber)
-  Update (ReadyToFanout{headId}) ->
+  Update ReadyToFanout{headId} ->
     s & headStateL .~ FanoutPossible{headId}
       & info "Contestation period passed, ready for fanout."
   Update HeadIsAborted{} ->
@@ -714,7 +712,7 @@ draw Client{sk} CardanoClient{networkId} s =
     Connected{headState, pending = Pending} -> drawVBox headState $ txt " (Transition pending)"
    where
     drawVBox headState drawPending =
-      vBox $
+      vBox
         [ padLeftRight 1 $
             vBox
               [ txt "Head status: "
@@ -909,7 +907,6 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
     Disconnected
       { nodeHost = hydraNodeHost
       , now
-      , hydraHeadId = Nothing
       }
 
   cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
