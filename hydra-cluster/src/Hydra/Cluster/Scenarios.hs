@@ -10,8 +10,10 @@ import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
+import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
+import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -22,6 +24,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
+import Test.Hspec.Expectations (shouldBe)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -40,7 +43,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
       <&> \config -> (config :: ChainConfig){networkId}
 
   withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n1 -> do
-    withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
+    headId <- withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
       send n1 $ input "Init" []
       -- XXX: might need to tweak the wait time
       waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
@@ -48,12 +51,12 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
     -- n1 does a commit while n2 is down
     send n1 $ input "Commit" ["utxo" .= object mempty]
     waitFor tracer 10 [n1] $
-      output "Committed" ["party" .= bob, "utxo" .= object mempty]
+      output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
 
     -- n2 is back and does observe the commit
     withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
       waitFor tracer 10 [n2] $
-        output "Committed" ["party" .= bob, "utxo" .= object mempty]
+        output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
@@ -67,17 +70,18 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
       -- need for persistence
       <&> \config -> config{networkId, startChainFrom = Nothing}
 
-  withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+  headId1 <- withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     send n1 $ input "Init" []
     -- XXX: might need to tweak the wait time
     waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
 
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Also expect to see past server outputs replayed
-    waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+    headId2 <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+    headId1 `shouldBe` headId2
     send n1 $ input "Abort" []
     waitFor tracer 10 [n1] $
-      output "HeadIsAborted" ["utxo" .= object mempty]
+      output "HeadIsAborted" ["utxo" .= object mempty, "headId" .= headId2]
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
@@ -101,24 +105,25 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
-    waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
+    headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
     -- Commit nothing for now
     send n1 $ input "Commit" ["utxo" .= object mempty]
     waitFor tracer 60 [n1] $
-      output "HeadIsOpen" ["utxo" .= object mempty]
+      output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
     -- Close head
     send n1 $ input "Close" []
     deadline <- waitMatch 60 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
+      guard $ v ^? key "headId" == Just (toJSON headId)
       v ^? key "contestationDeadline" . _JSON
     -- Expect to see ReadyToFanout within 60 seconds after deadline.
     -- XXX: We still would like to have a network-specific time here
     remainingTime <- diffUTCTime deadline <$> getCurrentTime
     waitFor tracer (truncate $ remainingTime + 60) [n1] $
-      output "ReadyToFanout" []
+      output "ReadyToFanout" ["headId" .= headId]
     send n1 $ input "Fanout" []
     waitFor tracer 10 [n1] $
-      output "HeadIsFinalized" ["utxo" .= object mempty]
+      output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
   traceRemainingFunds Alice
  where
   RunningNode{nodeSocket} = node
@@ -148,11 +153,11 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
-    waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
+    headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
     -- Commit nothing for now
     send n1 $ input "Commit" ["utxo" .= object mempty]
     waitFor tracer 60 [n1] $
-      output "HeadIsOpen" ["utxo" .= object mempty]
+      output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
     -- Close head
     send n1 $ input "Close" []
     void $
@@ -183,8 +188,10 @@ refuelIfNeeded tracer node actor amount = do
     utxo <- seedFromFaucet node actorVk amount Fuel (contramap FromFaucet tracer)
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, fuelUTxO = utxo}
 
-headIsInitializingWith :: Set Party -> Value -> Maybe ()
-headIsInitializingWith expectedParties = \v -> do
+headIsInitializingWith :: Set Party -> Value -> Maybe HeadId
+headIsInitializingWith expectedParties v = do
   guard $ v ^? key "tag" == Just "HeadIsInitializing"
   parties <- v ^? key "parties"
   guard $ parties == toJSON expectedParties
+  headId <- v ^? key "headId"
+  parseMaybe parseJSON headId

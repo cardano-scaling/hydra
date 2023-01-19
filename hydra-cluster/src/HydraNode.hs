@@ -29,6 +29,7 @@ import Cardano.BM.Tracing (ToObject)
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Exception (IOException)
+import Control.Monad.Class.MonadAsync (forConcurrently)
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson (Value (..), object, (.=))
 import qualified Data.Aeson as Aeson
@@ -124,9 +125,9 @@ waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
 -- | Wait given `delay` for some JSON `Value` to match given function.
 --
 -- This is a generalisation of `waitMatch` to multiple nodes.
-waitForAllMatch :: HasCallStack => Natural -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO ()
+waitForAllMatch :: HasCallStack => Natural -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO [a]
 waitForAllMatch delay nodes match =
-  forConcurrently_ nodes $ \n -> waitMatch delay n match
+  forConcurrently nodes $ \n -> waitMatch delay n match
 
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages
@@ -166,7 +167,7 @@ waitForAll tracer delay nodes expected = do
       modifyIORef' msgs (msg :)
       case msg of
         Object km -> do
-          let cleaned = Object $ km & KeyMap.delete "seq" & KeyMap.delete "timestamp" & KeyMap.delete "headId"
+          let cleaned = Object $ km & KeyMap.delete "seq" & KeyMap.delete "timestamp"
           tryNext c msgs (List.delete cleaned stillExpected)
         _ ->
           tryNext c msgs stillExpected
