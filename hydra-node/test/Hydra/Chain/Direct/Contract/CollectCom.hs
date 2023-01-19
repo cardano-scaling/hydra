@@ -108,7 +108,6 @@ healthyCollectComInitialDatum =
     { contestationPeriod = healthyContestationPeriod
     , parties = healthyOnChainParties
     , headId = toPlutusCurrencySymbol testPolicyId
-    , cardanoVkeys = healthyCardanoKeys
     }
 
 healthyOnChainParties :: [OnChain.Party]
@@ -121,13 +120,6 @@ healthyParties = flip generateWith 42 $ do
   bob <- arbitrary
   carol <- arbitrary
   pure [alice, bob, carol]
-
-healthyCardanoKeys :: [PubKeyHash]
-healthyCardanoKeys = flip generateWith 42 $ do
-  aliceKey <- arbitrary
-  bobKey <- arbitrary
-  carolKey <- arbitrary
-  pure [aliceKey, bobKey, carolKey]
 
 genCommittableTxOut :: Gen (TxIn, TxOut CtxUTxO)
 genCommittableTxOut =
@@ -202,10 +194,9 @@ genCollectComMutation (tx, _utxo) =
         -- be bothered to decode/lookup the current one.
         c <- arbitrary
         moreParties <- (: healthyOnChainParties) <$> arbitrary
-        cardanoVKeys <- arbitrary
         pure $
           Changes
-            [ ChangeHeadDatum $ Head.Initial c moreParties (toPlutusCurrencySymbol testPolicyId) cardanoVKeys
+            [ ChangeHeadDatum $ Head.Initial c moreParties (toPlutusCurrencySymbol testPolicyId)
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties headTxOut
             ]
     , SomeMutation Nothing MutateHeadId <$> do

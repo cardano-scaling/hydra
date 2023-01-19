@@ -115,7 +115,7 @@ initTx networkId cardanoKeys parameters seed =
     emptyTxBody
       & addVkInputs [seed]
       & addOutputs
-        ( mkHeadOutputInitial networkId policyId parameters cardanoKeys :
+        ( mkHeadOutputInitial networkId policyId parameters :
           map (mkInitialOutput networkId policyId) cardanoKeys
         )
       & mintTokens (HeadTokens.mkHeadTokenScript seed) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
@@ -134,8 +134,8 @@ mkHeadOutput networkId tokenPolicyId datum =
  where
   headScript = fromPlutusScript Head.validatorScript
 
-mkHeadOutputInitial :: NetworkId -> PolicyId -> HeadParameters -> [VerificationKey PaymentKey] -> TxOut CtxTx
-mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, parties} cardanoKeys =
+mkHeadOutputInitial :: NetworkId -> PolicyId -> HeadParameters -> TxOut CtxTx
+mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, parties} =
   mkHeadOutput networkId tokenPolicyId headDatum
  where
   headDatum =
@@ -144,7 +144,6 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
         (toChain contestationPeriod)
         (map partyToChain parties)
         (toPlutusCurrencySymbol tokenPolicyId)
-        (Plutus.PubKeyHash . toBuiltin . serialiseToRawBytes . verificationKeyHash <$> cardanoKeys)
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
 mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
@@ -590,7 +589,7 @@ observeInitTx ::
 observeInitTx networkId cardanoKeys expectedCP party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
-  (ix, headOut, headData, Head.Initial cp ps _headPolicyId _cardanoKeys) <- findFirst headOutput indexedOutputs
+  (ix, headOut, headData, Head.Initial cp ps _headPolicyId) <- findFirst headOutput indexedOutputs
   parties <- mapM partyFromChain ps
   let contestationPeriod = fromChain cp
   guard $ expectedCP == contestationPeriod
