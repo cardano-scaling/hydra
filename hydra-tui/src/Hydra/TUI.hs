@@ -119,10 +119,22 @@ data DialogState where
 
 data HeadState
   = Idle
-  | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: UTxO, headId :: HeadId}
-  | Open {parties :: [Party], utxo :: UTxO}
-  | Closed {contestationDeadline :: UTCTime}
-  | FanoutPossible
+  | Initializing
+      { parties :: [Party]
+      , remainingParties :: [Party]
+      , utxo :: UTxO
+      , headId :: HeadId
+      }
+  | Open
+      { parties :: [Party]
+      , utxo :: UTxO
+      , headId :: HeadId
+      }
+  | Closed
+      { contestationDeadline :: UTCTime
+      , headId :: HeadId
+      }
+  | FanoutPossible {headId :: HeadId}
   | Final {utxo :: UTxO}
   deriving (Eq, Show, Generic)
 
@@ -314,14 +326,14 @@ handleAppEvent s = \case
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & info "Head is now open!"
-  Update HeadIsClosed{snapshotNumber, contestationDeadline} ->
-    s & headStateL .~ Closed{contestationDeadline}
+  Update HeadIsClosed{headId, snapshotNumber, contestationDeadline} ->
+    s & headStateL .~ Closed{headId, contestationDeadline}
       & info ("Head closed with snapshot number " <> show snapshotNumber)
       & stopPending
-  Update HeadIsContested{snapshotNumber} ->
-    s & info ("Head contested with snapshot number " <> show snapshotNumber)
-  Update (ReadyToFanout _) ->
-    s & headStateL .~ FanoutPossible
+  Update HeadIsContested{headId, snapshotNumber} ->
+    s & info ("Head " <> show headId <> " contested with snapshot number " <> show snapshotNumber)
+  Update (ReadyToFanout{headId}) ->
+    s & headStateL .~ FanoutPossible{headId}
       & info "Contestation period passed, ready for fanout."
   Update HeadIsAborted{} ->
     s & headStateL .~ Idle
@@ -378,7 +390,7 @@ handleAppEvent s = \case
     hs -> hs
 
   headIsOpen utxo = \case
-    Initializing{parties} -> Open{parties, utxo}
+    Initializing{headId, parties} -> Open{headId, parties, utxo}
     hs -> hs
 
   snapshotConfirmed Snapshot{utxo, number} =
@@ -590,7 +602,6 @@ draw Client{sk} CardanoClient{networkId} s =
     hLimit 50 $
       vBox
         [ padLeftRight 1 $ tuiVersion <+> padLeft (Pad 1) nodeStatus
-        , padLeftRight 1 drawHeadId
         , padLeftRight 1 drawPeers
         , hBorder
         , padLeftRight 1 ownParty
@@ -622,7 +633,7 @@ draw Client{sk} CardanoClient{networkId} s =
           Just Initializing{} -> ["[C]ommit", "[A]bort", "[Q]uit"]
           Just Open{} -> ["[N]ew Transaction", "[C]lose", "[Q]uit"]
           Just Closed{} -> ["[Q]uit"]
-          Just FanoutPossible -> ["[F]anout", "[Q]uit"]
+          Just FanoutPossible{} -> ["[F]anout", "[Q]uit"]
           Just Final{} -> ["[I]nit", "[Q]uit"]
           Nothing -> ["[Q]uit"]
 
@@ -670,7 +681,7 @@ draw Client{sk} CardanoClient{networkId} s =
               , drawRemainingContestationPeriod contestationDeadline
               ]
               commandList
-          Just FanoutPossible ->
+          Just FanoutPossible{} ->
             withCommands
               [ drawHeadState
               , txt "Ready to fanout!"
@@ -703,13 +714,20 @@ draw Client{sk} CardanoClient{networkId} s =
     Connected{headState, pending = Pending} -> drawVBox headState $ txt " (Transition pending)"
    where
     drawVBox headState drawPending =
-      vBox
+      vBox $
         [ padLeftRight 1 $
-            txt "Head status: "
-              <+> withAttr infoA (txt $ Prelude.head (words $ show headState))
-              <+> drawPending
+            vBox
+              [ txt "Head status: "
+                  <+> withAttr infoA (txt $ Prelude.head (words $ show headState))
+                  <+> drawPending
+              , drawHeadId (headState ^? headIdL)
+              ]
         , hBorder
         ]
+
+    drawHeadId = \case
+      Nothing -> emptyWidget
+      Just headId -> txt $ "Head id: " <> serialiseToRawBytesHexText headId
 
   drawUTxO utxo =
     let byAddress =
@@ -775,10 +793,6 @@ draw Client{sk} CardanoClient{networkId} s =
     case s ^? meL of
       Just (Just me) | p == me -> withAttr own $ drawHex vkey
       _ -> drawHex vkey
-
-  drawHeadId = case s of
-    Disconnected{} -> emptyWidget
-    Connected{hydraHeadId} -> vBox $ [str "Head id:"] <> maybe [] ((: []) . drawShow) hydraHeadId
 
   drawPeers = case s of
     Disconnected{} -> emptyWidget
@@ -891,8 +905,12 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
       , appStartEvent = pure
       , appAttrMap = style
       }
-  -- TODO: What should 'HeadId' be when the tui is disconnected?
-  initialState now = Disconnected{nodeHost = hydraNodeHost, now, hydraHeadId = Nothing}
+  initialState now =
+    Disconnected
+      { nodeHost = hydraNodeHost
+      , now
+      , hydraHeadId = Nothing
+      }
 
   cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
 
