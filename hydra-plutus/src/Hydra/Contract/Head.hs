@@ -113,10 +113,16 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
       hashOfCommittedUTxO == hashOfOutputs
 
   hashOfOutputs =
-    hashTxOuts $ txInfoOutputs txInfo
+    -- NOTE: It is enough to just _take_ the same number of outputs
+    -- that correspond to the number of commit inputs to make sure
+    -- everything is reimbursed because the two are already sorted
+    -- and there are no other outputs a part from change.
+    hashTxOuts $ take (length commited) (txInfoOutputs txInfo)
 
   hashOfCommittedUTxO =
-    hashPreSerializedCommits $ committedUTxO [] (txInfoInputs txInfo)
+    hashPreSerializedCommits commited
+
+  commited = committedUTxO [] (txInfoInputs txInfo)
 
   committedUTxO commits = \case
     [] ->
