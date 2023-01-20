@@ -329,6 +329,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - utxo
           - seq
           - timestamp
@@ -336,6 +337,8 @@ components:
           tag:
             type: string
             enum: ["HeadIsOpen"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           utxo:
             $ref: "#/components/schemas/UTxO"
           seq:
@@ -351,6 +354,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - snapshotNumber
           - contestationDeadline
           - seq
@@ -359,6 +363,8 @@ components:
           tag:
             type: string
             enum: ["HeadIsClosed"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
           contestationDeadline:
@@ -378,6 +384,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - snapshotNumber
           - seq
           - timestamp
@@ -385,6 +392,8 @@ components:
           tag:
             type: string
             enum: ["HeadIsContested"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           snapshotNumber:
             $ref: "#/components/schemas/SnapshotNumber"
           seq:
@@ -401,12 +410,15 @@ components:
         type: object
         required:
           - tag
+          - headId
           - seq
           - timestamp
         properties:
           tag:
             type: string
             enum: ["ReadyToFanout"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           seq:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:
@@ -420,6 +432,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - utxo
           - seq
           - timestamp
@@ -427,6 +440,8 @@ components:
           tag:
             type: string
             enum: ["HeadIsAborted"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           utxo:
             $ref: "#/components/schemas/UTxO"
           seq:
@@ -442,6 +457,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - utxo
           - seq
           - timestamp
@@ -449,6 +465,8 @@ components:
           tag:
             type: string
             enum: ["HeadIsFinalized"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           utxo:
             $ref: "#/components/schemas/UTxO"
           seq:
@@ -464,6 +482,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - transaction
           - seq
           - timestamp
@@ -471,6 +490,8 @@ components:
           tag:
             type: string
             enum: ["TxSeen"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           transaction:
             $ref: "#/components/schemas/Transaction"
           seq:
@@ -486,6 +507,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - transaction
           - seq
           - timestamp
@@ -493,6 +515,8 @@ components:
           tag:
             type: string
             enum: ["TxValid"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           transaction:
             $ref: "#/components/schemas/Transaction"
           seq:
@@ -509,6 +533,7 @@ components:
         type: object
         required:
         - tag
+        - headId
         - utxo
         - transaction
         - validationError
@@ -518,6 +543,8 @@ components:
           tag:
             type: string
             enum: ["TxInvalid"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           utxo:
             $ref: "#/components/schemas/UTxO"
           transaction:
@@ -540,6 +567,7 @@ components:
         type: object
         required:
         - tag
+        - headId
         - transaction
         - seq
         - timestamp
@@ -547,6 +575,8 @@ components:
           tag:
             type: string
             enum: ["TxExpired"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           transaction:
             $ref: "#/components/schemas/Transaction"
           seq:
@@ -562,6 +592,7 @@ components:
         type: object
         required:
           - tag
+          - headId
           - snapshot
           - seq
           - timestamp
@@ -569,6 +600,8 @@ components:
           tag:
             type: string
             enum: ["SnapshotConfirmed"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           snapshot:
             $ref: "#/components/schemas/Snapshot"
           seq:
@@ -584,6 +617,7 @@ components:
         type: object
         required:
         - tag
+        - headId
         - utxo
         - seq
         - timestamp
@@ -591,6 +625,8 @@ components:
           tag:
             type: string
             enum: ["GetUTxOResponse"]
+          headId:
+            $ref: "#/components/schemas/HeadId"
           utxo:
             $ref: "#/components/schemas/UTxO"
           seq:

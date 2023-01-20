@@ -2,25 +2,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NumericUnderscores #-}
 
-module HydraNode (
-  HydraClient (..),
-  withHydraNode,
-  send,
-  input,
-  waitFor,
-  waitMatch,
-  output,
-  getMetrics,
-  queryNode,
-  hydraNodeProcess,
-  module System.Process,
-  waitForNodesConnected,
-  waitNext,
-  withNewClient,
-  withHydraCluster,
-  EndToEndLog (..),
-  waitForAllMatch,
-) where
+module HydraNode where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
@@ -29,6 +11,7 @@ import Cardano.BM.Tracing (ToObject)
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Exception (IOException)
+import Control.Monad.Class.MonadAsync (forConcurrently)
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson (Value (..), object, (.=))
 import qualified Data.Aeson as Aeson
@@ -53,11 +36,8 @@ import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (
   CreateProcess (..),
-  ProcessHandle,
   StdStream (..),
   proc,
-  readCreateProcess,
-  waitForProcess,
   withCreateProcess,
  )
 import System.Timeout (timeout)
@@ -96,6 +76,7 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 waitFor :: HasCallStack => Tracer IO EndToEndLog -> Natural -> [HydraClient] -> Aeson.Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
+-- | Wait up to some time for an API server output to match the given predicate.
 waitMatch :: HasCallStack => Natural -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
   seenMsgs <- newTVarIO []
@@ -121,12 +102,20 @@ waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
   align _ [] = []
   align n (h : q) = h : fmap (T.replicate n " " <>) q
 
--- | Wait given `delay` for some JSON `Value` to match given function.
+-- | Wait up to some `delay` for some JSON `Value` to match given function.
 --
 -- This is a generalisation of `waitMatch` to multiple nodes.
-waitForAllMatch :: HasCallStack => Natural -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO ()
-waitForAllMatch delay nodes match =
-  forConcurrently_ nodes $ \n -> waitMatch delay n match
+waitForAllMatch :: (Eq a, Show a, HasCallStack) => Natural -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO a
+waitForAllMatch delay nodes match = do
+  when (null nodes) $
+    failure "no clients to wait for"
+  results <- forConcurrently nodes $ \n -> waitMatch delay n match
+  case results of
+    [] -> failure $ "empty results, but " <> (show $ length nodes) <> " clients"
+    (r : rs) -> do
+      unless (all (== r) rs) $
+        failure $ "inconsistent results: " <> show results
+      pure r
 
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages

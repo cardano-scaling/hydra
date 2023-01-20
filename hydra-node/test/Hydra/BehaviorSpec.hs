@@ -21,6 +21,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
+import Data.List ((!!))
 import qualified Data.List as List
 import GHC.Records (getField)
 import Hydra.API.ClientInput
@@ -91,7 +92,7 @@ spec = parallel $ do
             send n1 Init
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
-            waitUntil [n1] $ Committed alice (utxoRef 1)
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
 
     it "not accepts commits when the head is open" $
       shouldRunInSim $ do
@@ -100,8 +101,8 @@ spec = parallel $ do
             send n1 Init
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
-            waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRef 1)
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 (Commit (utxoRef 2))
             waitUntil [n1] (CommandFailed (Commit (utxoRef 2)))
 
@@ -112,8 +113,8 @@ spec = parallel $ do
             send n1 Init
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
-            waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRef 1)
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
 
@@ -124,11 +125,11 @@ spec = parallel $ do
             send n1 Init
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
-            waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRef 1)
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
-            waitUntil [n1] ReadyToFanout
+            waitUntil [n1] $ ReadyToFanout testHeadId
             nothingHappensFor n1 1000000
 
     it "does finalize head after contestation period upon command" $
@@ -138,13 +139,13 @@ spec = parallel $ do
             send n1 Init
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
-            waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRef 1)
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
-            waitUntil [n1] ReadyToFanout
+            waitUntil [n1] $ ReadyToFanout testHeadId
             send n1 Fanout
-            waitUntil [n1] $ HeadIsFinalized (utxoRef 1)
+            waitUntil [n1] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRef 1}
 
   describe "Two participant Head" $ do
     it "only opens the head after all nodes committed" $
@@ -156,13 +157,13 @@ spec = parallel $ do
               waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
 
               send n1 (Commit (utxoRef 1))
-              waitUntil [n1] $ Committed alice (utxoRef 1)
+              waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
               let veryLong = timeout 1000000
-              veryLong (waitForNext n1) >>= (`shouldNotBe` Just (HeadIsOpen (utxoRef 1)))
+              veryLong (waitForNext n1) >>= (`shouldNotBe` Just HeadIsOpen{headId = testHeadId, utxo = utxoRef 1})
 
               send n2 (Commit (utxoRef 2))
-              waitUntil [n1] $ Committed bob (utxoRef 2)
-              waitUntil [n1] $ HeadIsOpen (utxoRefs [1, 2])
+              waitUntil [n1] $ Committed testHeadId bob (utxoRef 2)
+              waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
     it "can abort and re-open a head when one party has not committed" $
       shouldRunInSim $ do
@@ -172,9 +173,9 @@ spec = parallel $ do
               send n1 Init
               waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
               send n1 (Commit (utxoRefs [1, 2]))
-              waitUntil [n1, n2] $ Committed alice (utxoRefs [1, 2])
+              waitUntil [n1, n2] $ Committed testHeadId alice (utxoRefs [1, 2])
               send n2 Abort
-              waitUntil [n1, n2] $ HeadIsAborted (utxoRefs [1, 2])
+              waitUntil [n1, n2] $ HeadIsAborted{headId = testHeadId, utxo = utxoRefs [1, 2]}
               send n1 Init
               waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
 
@@ -188,7 +189,7 @@ spec = parallel $ do
               send n1 (Commit (utxoRef 1))
               send n2 (Commit (utxoRef 2))
 
-              waitUntil [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
+              waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
               send n1 Abort
               waitUntil [n1] (CommandFailed Abort)
@@ -202,13 +203,13 @@ spec = parallel $ do
               waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
 
               send n1 (Commit (utxoRef 1))
-              waitUntil [n1] $ Committed alice (utxoRef 1)
+              waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
               send n1 (Commit (utxoRef 11))
               waitUntil [n1] (CommandFailed (Commit (utxoRef 11)))
 
               send n2 (Commit (utxoRef 2))
-              waitUntil [n1] $ Committed bob (utxoRef 2)
-              waitUntil [n1] $ HeadIsOpen (utxoRefs [1, 2])
+              waitUntil [n1] $ Committed testHeadId bob (utxoRef 2)
+              waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
               send n1 (Commit (utxoRef 11))
               waitUntil [n1] (CommandFailed (Commit (utxoRef 11)))
@@ -223,10 +224,10 @@ spec = parallel $ do
                 waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
                 send n1 (Commit (utxoRef 1))
 
-                waitUntil [n2] $ Committed alice (utxoRef 1)
+                waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
                 send n2 GetUTxO
 
-                waitUntil [n2] $ GetUTxOResponse (utxoRefs [1])
+                waitUntil [n2] $ GetUTxOResponse testHeadId (utxoRefs [1])
 
   describe "in an open head" $ do
     it "sees the head closed by other nodes" $
@@ -248,8 +249,8 @@ spec = parallel $ do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
-              waitUntil [n1] $ TxValid (aValidTx 42)
-              waitUntil [n1, n2] $ TxSeen (aValidTx 42)
+              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
+              waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
 
     it "sending two conflicting transactions should lead one being confirmed and one expired" $
       shouldRunInSim $
@@ -274,9 +275,9 @@ spec = parallel $ do
                 send n2 (NewTx tx'')
                 let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                    confirmed = SnapshotConfirmed snapshot sigs
+                    confirmed = SnapshotConfirmed testHeadId snapshot sigs
                 waitUntil [n1, n2] confirmed
-                waitUntil [n1, n2] (TxExpired tx'')
+                waitUntil [n1, n2] (TxExpired testHeadId tx'')
 
     it "valid new transactions get snapshotted" $
       shouldRunInSim $ do
@@ -286,12 +287,12 @@ spec = parallel $ do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
-              waitUntil [n1] $ TxValid (aValidTx 42)
-              waitUntil [n1, n2] $ TxSeen (aValidTx 42)
+              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
+              waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
 
               let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
                   sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-              waitUntil [n1] $ SnapshotConfirmed snapshot sigs
+              waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
               send n1 Close
               waitForNext n1 >>= assertHeadIsClosedWith 1
@@ -307,19 +308,19 @@ spec = parallel $ do
                   secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
 
               send n2 (NewTx secondTx)
-              waitUntil [n2] $ TxInvalid (utxoRefs [1, 2]) secondTx (ValidationError "cannot apply transaction")
+              waitUntil [n2] $ TxInvalid testHeadId (utxoRefs [1, 2]) secondTx (ValidationError "cannot apply transaction")
               send n1 (NewTx firstTx)
-              waitUntil [n1] $ TxValid firstTx
+              waitUntil [n1] $ TxValid testHeadId firstTx
 
-              waitUntil [n1, n2] $ TxSeen firstTx
+              waitUntil [n1, n2] $ TxSeen testHeadId firstTx
               let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
                   sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
-              waitUntil [n1, n2] $ SnapshotConfirmed snapshot sigs
+              waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
 
               send n2 (NewTx secondTx)
-              waitUntil [n2] $ TxValid secondTx
-              waitUntil [n1, n2] $ TxSeen secondTx
+              waitUntil [n2] $ TxValid testHeadId secondTx
+              waitUntil [n1, n2] $ TxSeen testHeadId secondTx
 
     it "multiple transactions get snapshotted" $ do
       pendingWith "This test is not longer true after recent changes which simplify the snapshot construction."
@@ -332,16 +333,16 @@ spec = parallel $ do
               send n1 (NewTx (aValidTx 42))
               send n1 (NewTx (aValidTx 43))
 
-              waitUntil [n1] $ TxValid (aValidTx 42)
-              waitUntil [n1] $ TxValid (aValidTx 43)
+              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
+              waitUntil [n1] $ TxValid testHeadId (aValidTx 43)
 
-              waitUntil [n1] $ TxSeen (aValidTx 42)
-              waitUntil [n1] $ TxSeen (aValidTx 43)
+              waitUntil [n1] $ TxSeen testHeadId (aValidTx 42)
+              waitUntil [n1] $ TxSeen testHeadId (aValidTx 43)
 
               let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43]
                   sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
-              waitUntil [n1] $ SnapshotConfirmed snapshot sigs
+              waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
     it "outputs utxo from confirmed snapshot when client requests it" $
       shouldRunInSim $ do
@@ -355,11 +356,11 @@ spec = parallel $ do
               let snapshot = Snapshot 1 (utxoRefs [2, 42]) [newTx]
                   sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
-              waitUntil [n1, n2] $ SnapshotConfirmed snapshot sigs
+              waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
 
               send n1 GetUTxO
 
-              waitUntil [n1] $ GetUTxOResponse (utxoRefs [2, 42])
+              waitUntil [n1] $ GetUTxOResponse testHeadId (utxoRefs [2, 42])
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
@@ -369,10 +370,10 @@ spec = parallel $ do
               openHead n1 n2
               send n1 Close
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
-              waitUntil [n1, n2] ReadyToFanout
+              waitUntil [n1, n2] $ ReadyToFanout testHeadId
               send n1 Fanout
               send n2 Fanout
-              waitUntil [n1, n2] $ HeadIsFinalized (utxoRefs [1, 2])
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
     it "contest automatically when detecting closing with old snapshot" $
       shouldRunInSim $ do
@@ -401,7 +402,7 @@ spec = parallel $ do
                 _ -> False
 
               -- Expect n1 to contest with latest snapshot, number 1
-              waitUntil [n1, n2] HeadIsContested{snapshotNumber = 1}
+              waitUntil [n1, n2] HeadIsContested{snapshotNumber = 1, headId = testHeadId}
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -453,14 +454,14 @@ spec = parallel $ do
             send n1 Init
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
-            waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRefs [1])
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
             -- We expect one Commit AND the CollectCom to be rolled back and
             -- forward again
             rollbackAndForward chain 2
             waitUntil [n1] RolledBack
-            waitUntil [n1] $ Committed alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen (utxoRefs [1])
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
 
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
@@ -757,10 +758,10 @@ openHead n1 n2 = do
   send n1 Init
   waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
   send n1 (Commit (utxoRef 1))
-  waitUntil [n1, n2] $ Committed alice (utxoRef 1)
+  waitUntil [n1, n2] $ Committed testHeadId alice (utxoRef 1)
   send n2 (Commit (utxoRef 2))
-  waitUntil [n1, n2] $ Committed bob (utxoRef 2)
-  waitUntil [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
+  waitUntil [n1, n2] $ Committed testHeadId bob (utxoRef 2)
+  waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
 matchFanout :: PostChainTx tx -> Bool
 matchFanout = \case
@@ -781,4 +782,4 @@ assertHeadIsClosedWith expectedSnapshotNumber = \case
 -- | Provide a quick and dirty to way to label stuff from a signing key
 shortLabel :: SigningKey HydraKey -> String
 shortLabel s =
-  take 8 $ drop 1 $ List.head $ drop 2 $ List.words $ show s
+  take 8 $ drop 1 $ List.words (show s) !! 2

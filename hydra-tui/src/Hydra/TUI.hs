@@ -52,7 +52,7 @@ import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Chain (PostTxError (..))
+import Hydra.Chain (HeadId, PostTxError (..))
 import Hydra.Chain.CardanoClient (CardanoClient (..), mkCardanoClient)
 import Hydra.Chain.Direct.State ()
 import Hydra.Chain.Direct.Util (isMarkedOutput)
@@ -88,6 +88,7 @@ data State
       , feedback :: [UserFeedback]
       , now :: UTCTime
       , pending :: Pending
+      , hydraHeadId :: Maybe HeadId
       }
 
 data Pending = Pending | NotPending deriving (Eq, Show, Generic)
@@ -117,10 +118,22 @@ data DialogState where
 
 data HeadState
   = Idle
-  | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: UTxO}
-  | Open {parties :: [Party], utxo :: UTxO}
-  | Closed {contestationDeadline :: UTCTime}
-  | FanoutPossible
+  | Initializing
+      { parties :: [Party]
+      , remainingParties :: [Party]
+      , utxo :: UTxO
+      , headId :: HeadId
+      }
+  | Open
+      { parties :: [Party]
+      , utxo :: UTxO
+      , headId :: HeadId
+      }
+  | Closed
+      { contestationDeadline :: UTCTime
+      , headId :: HeadId
+      }
+  | FanoutPossible {headId :: HeadId}
   | Final {utxo :: UTxO}
   deriving (Eq, Show, Generic)
 
@@ -137,6 +150,7 @@ makeLensesFor
   , ("feedbackState", "feedbackStateL")
   , ("now", "nowL")
   , ("pending", "pendingL")
+  , ("hydraHeadId", "hydraHeadIdL")
   ]
   ''State
 
@@ -144,6 +158,7 @@ makeLensesFor
   [ ("remainingParties", "remainingPartiesL")
   , ("parties", "partiesL")
   , ("utxo", "utxoL")
+  , ("headId", "headIdL")
   ]
   ''HeadState
 
@@ -277,6 +292,7 @@ handleAppEvent s = \case
       , feedback = []
       , now = s ^. nowL
       , pending = NotPending
+      , hydraHeadId = Nothing
       }
   ClientDisconnected ->
     Disconnected
@@ -293,10 +309,10 @@ handleAppEvent s = \case
   Update CommandFailed{clientInput} -> do
     s & report Error ("Invalid command: " <> show clientInput)
       & stopPending
-  Update HeadIsInitializing{parties} ->
+  Update HeadIsInitializing{parties, headId} ->
     let utxo = mempty
         ps = toList parties
-     in s & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo}
+     in s & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo, headId = headId}
           & stopPending
           & info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
@@ -308,14 +324,14 @@ handleAppEvent s = \case
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & info "Head is now open!"
-  Update HeadIsClosed{snapshotNumber, contestationDeadline} ->
-    s & headStateL .~ Closed{contestationDeadline}
+  Update HeadIsClosed{headId, snapshotNumber, contestationDeadline} ->
+    s & headStateL .~ Closed{headId, contestationDeadline}
       & info ("Head closed with snapshot number " <> show snapshotNumber)
       & stopPending
-  Update HeadIsContested{snapshotNumber} ->
-    s & info ("Head contested with snapshot number " <> show snapshotNumber)
-  Update ReadyToFanout ->
-    s & headStateL .~ FanoutPossible
+  Update HeadIsContested{headId, snapshotNumber} ->
+    s & info ("Head " <> show headId <> " contested with snapshot number " <> show snapshotNumber)
+  Update ReadyToFanout{headId} ->
+    s & headStateL .~ FanoutPossible{headId}
       & info "Contestation period passed, ready for fanout."
   Update HeadIsAborted{} ->
     s & headStateL .~ Idle
@@ -362,16 +378,17 @@ handleAppEvent s = \case
     s & nowL .~ now
  where
   partyCommitted party commit = \case
-    Initializing{parties, remainingParties, utxo} ->
+    Initializing{parties, remainingParties, utxo, headId} ->
       Initializing
         { parties = parties
         , remainingParties = remainingParties \\ party
         , utxo = utxo <> commit
+        , headId
         }
     hs -> hs
 
   headIsOpen utxo = \case
-    Initializing{parties} -> Open{parties, utxo}
+    Initializing{headId, parties} -> Open{headId, parties, utxo}
     hs -> hs
 
   snapshotConfirmed Snapshot{utxo, number} =
@@ -614,7 +631,7 @@ draw Client{sk} CardanoClient{networkId} s =
           Just Initializing{} -> ["[C]ommit", "[A]bort", "[Q]uit"]
           Just Open{} -> ["[N]ew Transaction", "[C]lose", "[Q]uit"]
           Just Closed{} -> ["[Q]uit"]
-          Just FanoutPossible -> ["[F]anout", "[Q]uit"]
+          Just FanoutPossible{} -> ["[F]anout", "[Q]uit"]
           Just Final{} -> ["[I]nit", "[Q]uit"]
           Nothing -> ["[Q]uit"]
 
@@ -662,7 +679,7 @@ draw Client{sk} CardanoClient{networkId} s =
               , drawRemainingContestationPeriod contestationDeadline
               ]
               commandList
-          Just FanoutPossible ->
+          Just FanoutPossible{} ->
             withCommands
               [ drawHeadState
               , txt "Ready to fanout!"
@@ -697,11 +714,18 @@ draw Client{sk} CardanoClient{networkId} s =
     drawVBox headState drawPending =
       vBox
         [ padLeftRight 1 $
-            txt "Head status: "
-              <+> withAttr infoA (txt $ Prelude.head (words $ show headState))
-              <+> drawPending
+            vBox
+              [ txt "Head status: "
+                  <+> withAttr infoA (txt $ Prelude.head (words $ show headState))
+                  <+> drawPending
+              , drawHeadId (headState ^? headIdL)
+              ]
         , hBorder
         ]
+
+    drawHeadId = \case
+      Nothing -> emptyWidget
+      Just headId -> txt $ "Head id: " <> serialiseToRawBytesHexText headId
 
   drawUTxO utxo =
     let byAddress =
@@ -879,8 +903,11 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
       , appStartEvent = pure
       , appAttrMap = style
       }
-
-  initialState now = Disconnected{nodeHost = hydraNodeHost, now}
+  initialState now =
+    Disconnected
+      { nodeHost = hydraNodeHost
+      , now
+      }
 
   cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
 

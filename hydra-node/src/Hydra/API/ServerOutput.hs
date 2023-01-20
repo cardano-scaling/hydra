@@ -41,10 +41,11 @@ data ServerOutput tx
   = PeerConnected {peer :: NodeId}
   | PeerDisconnected {peer :: NodeId}
   | HeadIsInitializing {headId :: HeadId, parties :: Set Party}
-  | Committed {party :: Party, utxo :: UTxOType tx}
-  | HeadIsOpen {utxo :: UTxOType tx}
+  | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
+  | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsClosed
-      { snapshotNumber :: SnapshotNumber
+      { headId :: HeadId
+      , snapshotNumber :: SnapshotNumber
       , -- | Nominal deadline until which contest can be submitted and after
         -- which fanout is possible. NOTE: Use this only for informational
         -- purpose and wait for 'ReadyToFanout' instead before sending 'Fanout'
@@ -52,20 +53,21 @@ data ServerOutput tx
         -- sufficiently in time yet and we do not re-submit transactions (yet).
         contestationDeadline :: UTCTime
       }
-  | HeadIsContested {snapshotNumber :: SnapshotNumber}
-  | ReadyToFanout
-  | HeadIsAborted {utxo :: UTxOType tx}
-  | HeadIsFinalized {utxo :: UTxOType tx}
+  | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber}
+  | ReadyToFanout {headId :: HeadId}
+  | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
+  | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
   | CommandFailed {clientInput :: ClientInput tx}
-  | TxSeen {transaction :: tx}
-  | TxValid {transaction :: tx}
-  | TxInvalid {utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
-  | TxExpired {transaction :: tx}
+  | TxSeen {headId :: HeadId, transaction :: tx}
+  | TxValid {headId :: HeadId, transaction :: tx}
+  | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
+  | TxExpired {headId :: HeadId, transaction :: tx}
   | SnapshotConfirmed
-      { snapshot :: Snapshot tx
+      { headId :: HeadId
+      , snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
       }
-  | GetUTxOResponse {utxo :: UTxOType tx}
+  | GetUTxOResponse {headId :: HeadId, utxo :: UTxOType tx}
   | InvalidInput {reason :: String, input :: Text}
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
@@ -92,21 +94,21 @@ instance
   shrink = \case
     PeerConnected p -> PeerConnected <$> shrink p
     PeerDisconnected p -> PeerDisconnected <$> shrink p
-    HeadIsInitializing hid xs -> HeadIsInitializing <$> shrink hid <*> shrink xs
-    Committed p u -> Committed <$> shrink p <*> shrink u
-    HeadIsOpen u -> HeadIsOpen <$> shrink u
-    HeadIsClosed s t -> HeadIsClosed <$> shrink s <*> shrink t
-    HeadIsContested sn -> HeadIsContested <$> shrink sn
-    ReadyToFanout -> []
-    HeadIsFinalized u -> HeadIsFinalized <$> shrink u
-    HeadIsAborted u -> HeadIsAborted <$> shrink u
+    HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
+    Committed headId p u -> Committed <$> shrink headId <*> shrink p <*> shrink u
+    HeadIsOpen headId u -> HeadIsOpen <$> shrink headId <*> shrink u
+    HeadIsClosed headId s t -> HeadIsClosed <$> shrink headId <*> shrink s <*> shrink t
+    HeadIsContested headId sn -> HeadIsContested <$> shrink headId <*> shrink sn
+    ReadyToFanout headId -> ReadyToFanout <$> shrink headId
+    HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
+    HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
     CommandFailed i -> CommandFailed <$> shrink i
-    TxSeen tx -> TxSeen <$> shrink tx
-    TxValid tx -> TxValid <$> shrink tx
-    TxExpired tx -> TxExpired <$> shrink tx
-    TxInvalid u tx err -> TxInvalid <$> shrink u <*> shrink tx <*> shrink err
-    SnapshotConfirmed s ms -> SnapshotConfirmed <$> shrink s <*> shrink ms
-    GetUTxOResponse u -> GetUTxOResponse <$> shrink u
+    TxSeen headId tx -> TxSeen <$> shrink headId <*> shrink tx
+    TxValid headId tx -> TxValid <$> shrink headId <*> shrink tx
+    TxExpired headId tx -> TxExpired <$> shrink headId <*> shrink tx
+    TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
+    SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
+    GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
     Greetings me -> Greetings <$> shrink me
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e

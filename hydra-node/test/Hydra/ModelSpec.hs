@@ -274,7 +274,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
     node `send` GetUTxO
     let loop =
           waitForNext node >>= \case
-            GetUTxOResponse u -> pure u
+            GetUTxOResponse _ u -> pure u
             _ -> loop
     loop
 

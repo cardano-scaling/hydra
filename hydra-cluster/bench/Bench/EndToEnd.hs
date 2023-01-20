@@ -94,14 +94,15 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
 
                 putTextLn "Initializing Head"
                 send leader $ input "Init" []
-                waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $
-                  headIsInitializingWith parties
+                headId <-
+                  waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $
+                    headIsInitializingWith parties
 
                 putTextLn "Comitting initialUTxO from dataset"
                 expectedUTxO <- commitUTxO clients dataset
 
                 waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
-                  output "HeadIsOpen" ["utxo" .= expectedUTxO]
+                  output "HeadIsOpen" ["utxo" .= expectedUTxO, "headId" .= headId]
 
                 putTextLn "HeadIsOpen"
                 processedTransactions <- processTransactions clients dataset
@@ -110,17 +111,19 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
                 send leader $ input "Close" []
                 deadline <- waitMatch 3 leader $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsClosed"
+                  guard $ v ^? key "headId" == Just (toJSON headId)
                   v ^? key "contestationDeadline" . _JSON
 
                 -- Expect to see ReadyToFanout within 3 seconds after deadline
                 remainingTime <- diffUTCTime deadline <$> getCurrentTime
                 waitFor tracer (truncate $ remainingTime + 3) [leader] $
-                  output "ReadyToFanout" []
+                  output "ReadyToFanout" ["headId" .= headId]
 
                 putTextLn "Finalizing the Head"
                 send leader $ input "Fanout" []
-                waitMatch 10 leader $ \v ->
+                waitMatch 10 leader $ \v -> do
                   guard (v ^? key "tag" == Just "HeadIsFinalized")
+                  guard $ v ^? key "headId" == Just (toJSON headId)
 
                 let res = mapMaybe analyze . Map.toList $ processedTransactions
                     aggregates = movingAverage res

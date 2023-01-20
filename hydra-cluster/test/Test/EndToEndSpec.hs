@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
@@ -65,14 +64,11 @@ import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainConfig (startChainFrom))
 import Hydra.Party (deriveParty)
 import HydraNode (
-  CreateProcess (std_out),
   EndToEndLog (..),
-  StdStream (CreatePipe),
+  HydraClient,
   getMetrics,
   input,
   output,
-  proc,
-  readCreateProcess,
   send,
   waitFor,
   waitForAllMatch,
@@ -84,7 +80,7 @@ import HydraNode (
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import System.IO (hGetLine)
-import System.Process (withCreateProcess)
+import System.Process (CreateProcess (..), StdStream (..), proc, readCreateProcess, withCreateProcess)
 import Test.QuickCheck (generate)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
@@ -142,8 +138,9 @@ spec = around showLogsOnFailure $ do
                 seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
                 send n1 $ input "Init" []
-                waitForAllMatch 10 [n1, n2, n3] $
-                  headIsInitializingWith (Set.fromList [alice, bob, carol])
+                headId <-
+                  waitForAllMatch 10 [n1, n2, n3] $
+                    headIsInitializingWith (Set.fromList [alice, bob, carol])
 
                 -- Get some UTXOs to commit to a head
                 committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
@@ -154,11 +151,12 @@ spec = around showLogsOnFailure $ do
 
                 let u0 = committedUTxOByAlice <> committedUTxOByBob
 
-                waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0]
+                waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0, "headId" .= headId]
 
                 send n1 $ input "Close" []
                 deadline <- waitMatch 3 n1 $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsClosed"
+                  guard $ v ^? key "headId" == Just (toJSON headId)
                   snapshotNumber <- v ^? key "snapshotNumber"
                   guard $ snapshotNumber == Aeson.Number 0
                   v ^? key "contestationDeadline" . _JSON
@@ -166,11 +164,11 @@ spec = around showLogsOnFailure $ do
                 -- Expect to see ReadyToFanout within 3 seconds after deadline
                 remainingTime <- diffUTCTime deadline <$> getCurrentTime
                 waitFor tracer (truncate $ remainingTime + 3) [n1] $
-                  output "ReadyToFanout" []
+                  output "ReadyToFanout" ["headId" .= headId]
 
                 send n1 $ input "Fanout" []
                 waitFor tracer 3 [n1] $
-                  output "HeadIsFinalized" ["utxo" .= u0]
+                  output "HeadIsFinalized" ["utxo" .= u0, "headId" .= headId]
 
     describe "restarting nodes" $ do
       it "can abort head after restart" $ \tracer -> do
@@ -193,12 +191,12 @@ spec = around showLogsOnFailure $ do
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [] contestationPeriod
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             let nodeId = 1
-            tip <- withHydraNode tracer aliceChainConfig tmp nodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+            (tip, aliceHeadId) <- withHydraNode tracer aliceChainConfig tmp nodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
               seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
               tip <- queryTip networkId nodeSocket
               send n1 $ input "Init" []
-              waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
-              return tip
+              headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+              return (tip, headId)
 
             -- REVIEW: Do we want to keep this --start-chain-from feature or
             -- replace it with an event source load from persistence?
@@ -212,7 +210,8 @@ spec = around showLogsOnFailure $ do
                     { startChainFrom = Just tip
                     }
             withHydraNode tracer aliceChainConfig' tmp 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-              waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+              headId' <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+              headId' `shouldBe` aliceHeadId
 
       it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
         withTempDir "end-to-end-chain-observer" $ \tmp ->
@@ -234,20 +233,22 @@ spec = around showLogsOnFailure $ do
             let aliceNodeId = 1
                 bobNodeId = 2
                 allNodesIds = [aliceNodeId, bobNodeId]
+                withAliceNode :: (HydraClient -> IO a) -> IO a
                 withAliceNode = withHydraNode tracer aliceChainConfig tmp aliceNodeId aliceSk [bobVk] allNodesIds hydraScriptsTxId
+                withBobNode :: (HydraClient -> IO a) -> IO a
                 withBobNode = withHydraNode tracer bobChainConfig tmp bobNodeId bobSk [aliceVk] allNodesIds hydraScriptsTxId
 
             withAliceNode $ \n1 -> do
-              withBobNode $ \n2 -> do
+              headId <- withBobNode $ \n2 -> do
                 waitForNodesConnected tracer [n1, n2]
 
                 send n1 $ input "Init" []
-                waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
+                headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
                 committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
                 send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
                 send n2 $ input "Commit" ["utxo" .= Object mempty]
-                waitFor tracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice]
+                waitFor tracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
                 -- Create an arbitrary transaction using some input.
                 let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
@@ -260,7 +261,9 @@ spec = around showLogsOnFailure $ do
 
                 waitMatch 10 n1 $ \v -> do
                   guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+                  guard $ v ^? key "headId" == Just (toJSON headId)
 
+                return headId
               -- NOTE: Need to clear state on disk to have bob close with
               -- initial snapshot
               removeDirectoryRecursive $ tmp </> "state-" <> show bobNodeId
@@ -268,17 +271,19 @@ spec = around showLogsOnFailure $ do
               withBobNode $ \n2 -> do
                 waitMatch 10 n2 $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsOpen"
+                  guard $ v ^? key "headId" == Just (toJSON headId)
 
                 send n2 $ input "Close" []
 
                 let isHeadClosedWith0 v = do
                       guard $ v ^? key "tag" == Just "HeadIsClosed"
+                      guard $ v ^? key "headId" == Just (toJSON headId)
                       snapshotNumber <- v ^? key "snapshotNumber"
                       guard $ snapshotNumber == toJSON (0 :: Word)
                 waitMatch 10 n1 isHeadClosedWith0
                 waitMatch 10 n2 isHeadClosedWith0
 
-                waitFor tracer 10 [n1, n2] $ output "HeadIsContested" ["snapshotNumber" .= (1 :: Word)]
+                waitFor tracer 10 [n1, n2] $ output "HeadIsContested" ["snapshotNumber" .= (1 :: Word), "headId" .= headId]
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
@@ -307,21 +312,21 @@ spec = around showLogsOnFailure $ do
                   seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
                   send n1 $ input "Init" []
-                  waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+                  headIdAliceOnly <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
 
                   -- Bob opens and immediately aborts a Head with Alice, iow pulls Alice in
                   -- "his" Head
                   send n2 $ input "Init" []
-                  waitForAllMatch 10 [n2] $ headIsInitializingWith (Set.fromList [alice, bob])
+                  headIdAliceAndBob <- waitMatch 10 n2 $ headIsInitializingWith (Set.fromList [alice, bob])
 
                   send n2 $ input "Abort" []
                   waitFor tracer 10 [n2] $
-                    output "HeadIsAborted" ["utxo" .= Object mempty]
+                    output "HeadIsAborted" ["utxo" .= Object mempty, "headId" .= headIdAliceAndBob]
 
                   -- Alice should be able to continue working with her Head
                   send n1 $ input "Commit" ["utxo" .= Object mempty]
                   waitFor tracer 10 [n1] $
-                    output "HeadIsOpen" ["utxo" .= Object mempty]
+                    output "HeadIsOpen" ["utxo" .= Object mempty, "headId" .= headIdAliceOnly]
 
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
@@ -341,7 +346,7 @@ spec = around showLogsOnFailure $ do
                     seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
                     waitForNodesConnected tracer [n1, n2, n3]
                     send n1 $ input "Init" []
-                    waitForAllMatch 3 [n1] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+                    void $ waitForAllMatch 3 [n1] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_events" `BS.isInfixOf`)
 
@@ -392,8 +397,9 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
       seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
       send n1 $ input "Init" []
-      waitForAllMatch 10 [n1, n2, n3] $
-        headIsInitializingWith (Set.fromList [alice, bob, carol])
+      headId <-
+        waitForAllMatch 10 [n1, n2, n3] $
+          headIsInitializingWith (Set.fromList [alice, bob, carol])
 
       -- Get some UTXOs to commit to a head
       committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
@@ -401,7 +407,7 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
       send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
       send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
       send n3 $ input "Commit" ["utxo" .= Object mempty]
-      waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice <> committedUTxOByBob)]
+      waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice <> committedUTxOByBob), "headId" .= headId]
 
       -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
       let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
@@ -412,7 +418,7 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
               aliceCardanoSk
       send n1 $ input "NewTx" ["transaction" .= tx]
       waitFor tracer 10 [n1, n2, n3] $
-        output "TxSeen" ["transaction" .= tx]
+        output "TxSeen" ["transaction" .= tx, "headId" .= headId]
 
       -- The expected new utxo set is the created payment to bob,
       -- alice's remaining utxo in head and whatever bot has
@@ -454,15 +460,17 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
 
       waitMatch 10 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        guard $ v ^? key "headId" == Just (toJSON headId)
         snapshot <- v ^? key "snapshot"
         guard $ snapshot == expectedSnapshot
 
       send n1 $ input "GetUTxO" []
-      waitFor tracer 10 [n1] $ output "GetUTxOResponse" ["utxo" .= newUTxO]
+      waitFor tracer 10 [n1] $ output "GetUTxOResponse" ["utxo" .= newUTxO, "headId" .= headId]
 
       send n1 $ input "Close" []
       deadline <- waitMatch 3 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "HeadIsClosed"
+        guard $ v ^? key "headId" == Just (toJSON headId)
         snapshotNumber <- v ^? key "snapshotNumber"
         guard $ snapshotNumber == toJSON expectedSnapshotNumber
         v ^? key "contestationDeadline" . _JSON
@@ -470,11 +478,11 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
       -- Expect to see ReadyToFanout within 3 seconds after deadline
       remainingTime <- diffUTCTime deadline <$> getCurrentTime
       waitFor tracer (truncate $ remainingTime + 3) [n1] $
-        output "ReadyToFanout" []
+        output "ReadyToFanout" ["headId" .= headId]
 
       send n1 $ input "Fanout" []
       waitFor tracer 3 [n1] $
-        output "HeadIsFinalized" ["utxo" .= newUTxO]
+        output "HeadIsFinalized" ["utxo" .= newUTxO, "headId" .= headId]
 
       case fromJSON $ toJSON newUTxO of
         Error err ->

@@ -74,13 +74,15 @@ spec = do
           threadDelay 1
           shouldRender "Invalid command: Fanout"
       it "supports the init & abort Head life cycle" $
-        \TUITest{sendInputEvent, shouldRender} -> do
+        \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
           threadDelay 1
           shouldRender "connected"
           shouldRender "Idle"
+          shouldNotRender "Head id"
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
           shouldRender "Initializing"
+          shouldRender "Head id"
           sendInputEvent $ EvKey (KChar 'a') []
           threadDelay 1
           shouldRender "Idle"
@@ -153,9 +155,9 @@ spec = do
           days = hours * 24
           time = 10 * days + 1 * hours + 1 * minutes + 15 * seconds
       renderTime (time :: NominalDiffTime) `shouldBe` "10d 1h 1m 15s"
-      renderTime (-time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
+      renderTime (- time :: NominalDiffTime) `shouldBe` "-10d 1h 1m 15s"
       let time' = 1 * hours + 1 * minutes + 15 * seconds
-      renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
+      renderTime (- time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
   context "text rendering errors" $ do
     around setupNotEnoughFundsNodeAndTUI $ do

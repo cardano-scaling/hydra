@@ -608,6 +608,7 @@ definitions:
           - committed
           - previousRecoverableState
           - chainState
+          - headId
         properties:
           tag:
             type: string
@@ -626,6 +627,8 @@ definitions:
             $ref: "#/definitions/HeadState"
           chainState:
             $ref: "api.yaml#/components/schemas/ChainState"
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
       - title: "OpenState"
         additionalProperties: false
         required:
@@ -634,6 +637,7 @@ definitions:
           - coordinatedHeadState
           - previousRecoverableState
           - chainState
+          - headId
         properties:
           tag:
             type: string
@@ -646,6 +650,8 @@ definitions:
             $ref: "#/definitions/HeadState"
           chainState:
             $ref: "api.yaml#/components/schemas/ChainState"
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
       - title: "ClosedState"
         additionalProperties: false
         required:
@@ -656,6 +662,7 @@ definitions:
           - contestationDeadline
           - readyToFanoutSent
           - chainState
+          - headId
         properties:
           tag:
             type: string
@@ -672,6 +679,8 @@ definitions:
             type: boolean
           chainState:
             $ref: "api.yaml#/components/schemas/ChainState"
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
 
   CoordinatedHeadState:
     type: object

@@ -645,7 +645,7 @@ waitForUTxOToSpend utxo key value node = go 100
       node `send` Input.GetUTxO
       threadDelay 5
       timeout 10 (waitForNext node) >>= \case
-        Just (GetUTxOResponse u)
+        Just (GetUTxOResponse _ u)
           | u /= mempty ->
             maybe
               (go (n - 1))

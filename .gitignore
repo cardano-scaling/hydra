@@ -31,5 +31,4 @@ hspec-results.md
 
 # Getting started / demo instructions
 /demo/devnet/
-demo/chainstate
-demo/headstate
+/demo/persistence/

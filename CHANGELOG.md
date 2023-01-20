@@ -10,16 +10,10 @@ changes.
 
 ## [0.9.0] - UNRELEASED
 
-- Hydra node can start following the chain from _genesis_ by setting `--start-chain-from 0` at startup time
-
-- **BREAKING**: Replace `ReadyToCommit` event with
-  `HeadIsInitializing` reporting the actual `HeadId` from the `InitTx`
-  observed on-chain as well as the parties
-
-- API server responses now contain a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/input-output-hk/hydra/pull/618)
-
-- HeadLogic Outcome is now being trace on every protocol step transition.
-
+- **BREAKING** Changes to the API:
+  + Rename `ReadyToCommit -> HeadIsInitializing`
+  + Add the `HeadId` to most server outputs. [#678](https://github.com/input-output-hk/hydra/pull/678)
+  + Add a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/input-output-hk/hydra/pull/618)
 
 - **BREAKING** `hydra-cardano-api` changes:
   + Remove `Hydra.Cardano.Api.SlotNo` module.
@@ -30,20 +24,7 @@ changes.
 - **BREAKING** Addressed short-comings in `hydra-plutus` scripts:
   + Check presence of state token (ST) and that it's consistent against datum.
   + Moved check to reimburse commits to head validator.
-
-- Change the way the internal wallet initializes its state [#621](https://github.com/input-output-hk/hydra/pull/621)
-  + The internal wallet does now always query ledger state and parameters at the tip.
-  + This should fix the `AcquireFailure` issues.
-  + Changed logs of `BeginInitialize` and `EndInitialize`.
-  + Added `SkipUpdate` constructor to the wallet logs.
-
-- Reduce cost of `commitTx` by using the initial script as input reference.
-
-- Switched to using [nix flakes](https://nixos.wiki/wiki/Flakes):
-  + Allows us to use some CI services (cicero).
-  + Makes configuration of binary-caches easier to discover (you get asked about adding them).
-  + Will make bumping dependencies (e.g. cardano-node) easier.
-  + Build commands for binaries and docker images change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
+  + Reduce cost of `commitTx` by using the initial script as input reference.
 
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds
@@ -56,9 +37,25 @@ changes.
     that all parties need to agree on the same value for contestation period.
   + API request payload to create the Init transaction does not contain the field `contestationPeriod` any more.
 
+- Change the way the internal wallet initializes its state. [#621](https://github.com/input-output-hk/hydra/pull/621)
+  + The internal wallet does now always query ledger state and parameters at the tip.
+  + This should fix the `AcquireFailure` issues.
+  + Changed logs of `BeginInitialize` and `EndInitialize`.
+  + Added `SkipUpdate` constructor to the wallet logs.
+
+- Hydra node can start following the chain from _genesis_ by setting `--start-chain-from 0` at startup time
+
 - Introducing `NoFuelUTXOFound` error. Previously the node would fail with
   `NotEnoughFuel` when utxo was not found. Now `NotEnoughFuel` is used when
   there is not enough fuel and `NoFuelUTXOFound` when utxo was not to be found.
+
+- HeadLogic Outcome is now being traced on every protocol step transition.
+
+- Switched to using [nix flakes](https://nixos.wiki/wiki/Flakes):
+  + Allows us to use some CI services (cicero).
+  + Makes configuration of binary-caches easier to discover (you get asked about adding them).
+  + Will make bumping dependencies (e.g. cardano-node) easier.
+  + Build commands for binaries and docker images change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
 
 ## [0.8.1] - 2022-11-17
 

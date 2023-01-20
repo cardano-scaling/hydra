@@ -34,7 +34,7 @@ paintPixel signingKeyPath cnx pixel = do
   putStrLn $ "Received from Hydra-node: " <> show msg
   case Aeson.eitherDecode @(ServerOutput Tx) msg of
     Left e -> error $ "Failed to decode server answer:  " <> show e
-    Right (GetUTxOResponse (UTxO utxo)) -> do
+    Right (GetUTxOResponse _ (UTxO utxo)) -> do
       let myAddress = mkVkAddress networkId vk
           (txIn, txOut) = Map.findMin $ Map.filter (\TxOut{txOutAddress = addr} -> addr == myAddress) utxo
       case mkPaintTx (txIn, txOut) (myAddress, txOutValue txOut) sk pixel of

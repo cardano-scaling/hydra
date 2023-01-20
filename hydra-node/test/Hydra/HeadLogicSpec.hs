@@ -15,6 +15,7 @@ import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
   ChainSlot (..),
+  HeadId (..),
   HeadParameters (..),
   IsChainState,
   OnChainTx (..),
@@ -71,7 +72,7 @@ spec = do
             reqTx = NetworkEvent ttl $ ReqTx alice tx
             s0 = inOpenState threeParties ledger
 
-        update bobEnv ledger s0 reqTx `hasEffect` ClientEffect (TxExpired tx)
+        update bobEnv ledger s0 reqTx `hasEffect` ClientEffect (TxExpired testHeadId tx)
 
       it "waits if a requested tx is not (yet) applicable" $ do
         let reqTx = NetworkEvent defaultTTL $ ReqTx alice $ SimpleTx 2 inputs mempty
@@ -239,17 +240,17 @@ spec = do
                   { snapshotNumber
                   , contestationDeadline
                   }
-            clientEffect = ClientEffect HeadIsClosed{snapshotNumber, contestationDeadline}
+            clientEffect = ClientEffect HeadIsClosed{headId = testHeadId, snapshotNumber, contestationDeadline}
         let outcome1 = update bobEnv ledger s0 observeCloseTx
         outcome1 `hasEffect` clientEffect
         outcome1 `hasNoEffectSatisfying` \case
-          ClientEffect ReadyToFanout -> True
+          ClientEffect (ReadyToFanout _) -> True
           _ -> False
         s1 <- assertNewState outcome1
         let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
             stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline
             s2 = update bobEnv ledger s1 stepTimePastDeadline
-        s2 `hasEffect` ClientEffect ReadyToFanout
+        s2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
 
       it "notify user on rollback" $
         forAll arbitrary $ \s -> monadicIO $ do
@@ -348,6 +349,7 @@ inInitialState parties =
     , committed = mempty
     , previousRecoverableState = idleState
     , chainState = SimpleChainState{slot = ChainSlot 0}
+    , headId = testHeadId
     }
  where
   parameters = HeadParameters cperiod parties
@@ -375,6 +377,7 @@ inOpenState' parties coordinatedHeadState =
     , coordinatedHeadState
     , previousRecoverableState
     , chainState = SimpleChainState{slot = ChainSlot 0}
+    , headId = testHeadId
     }
  where
   parameters = HeadParameters cperiod parties
@@ -386,6 +389,7 @@ inOpenState' parties coordinatedHeadState =
       , committed = mempty
       , previousRecoverableState = idleState
       , chainState = SimpleChainState{slot = ChainSlot 0}
+      , headId = testHeadId
       }
 
   idleState =
@@ -406,6 +410,7 @@ inClosedState' parties confirmedSnapshot =
     , contestationDeadline
     , readyToFanoutSent = False
     , chainState = SimpleChainState{slot = ChainSlot 0}
+    , headId = testHeadId
     }
  where
   parameters = HeadParameters cperiod parties
@@ -461,3 +466,6 @@ assertStateUnchangedFrom st = \case
     st' `shouldBe` st
     eff `shouldBe` []
   anything -> failure $ "unexpected outcome: " <> show anything
+
+testHeadId :: HeadId
+testHeadId = HeadId "1234"
