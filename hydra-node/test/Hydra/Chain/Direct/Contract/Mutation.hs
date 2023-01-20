@@ -87,9 +87,9 @@
 -- genCollectComMutation :: (Tx, Utxo) -> Gen SomeMutation
 -- genCollectComMutation (tx, utxo) =
 --   oneof
---     [ SomeMutation MutateOpenOutputValue . ChangeOutput ...
---     , SomeMutation MutateOpenUtxoHash . ChangeOutput ...
---     , SomeMutation MutateHeadTransition <$> do
+--     [ SomeMutation Nothing MutateOpenOutputValue . ChangeOutput ...
+--     , SomeMutation Nothing MutateOpenUtxoHash . ChangeOutput ...
+--     , SomeMutation Nothing MutateHeadTransition <$> do
 --         changeRedeemer <- ChangeHeadRedeemer <$> ...
 --         changeDatum <- ChangeHeadDatum <$> ...
 --         pure $ Changes [changeRedeemer, changeDatum]
@@ -137,9 +137,7 @@ import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import Cardano.Ledger.Serialization (mkSized)
-import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
-import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -178,25 +176,39 @@ import Test.QuickCheck.Instances ()
 -- structurally valid and having passed "level 1" checks.
 propMutation :: (Tx, UTxO) -> ((Tx, UTxO) -> Gen SomeMutation) -> Property
 propMutation (tx, utxo) genMutation =
-  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
+  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation, expectedError} ->
     (tx, utxo)
       & applyMutation mutation
-      & propTransactionDoesNotValidate
+      & propTransactionDoesNotValidate expectedError
       & genericCoverTable [label]
       & checkCoverage
 
 -- | A 'Property' checking some (transaction, UTxO) pair is invalid.
-propTransactionDoesNotValidate :: (Tx, UTxO) -> Property
-propTransactionDoesNotValidate (tx, lookupUTxO) =
+propTransactionDoesNotValidate :: Maybe Text -> (Tx, UTxO) -> Property
+propTransactionDoesNotValidate mExpectedError (tx, lookupUTxO) =
   let result = evaluateTx tx lookupUTxO
    in case result of
-        Left _ ->
-          property True
-        Right redeemerReport ->
-          any isLeft (Map.elems redeemerReport)
+        Left basicFailure ->
+          property False
             & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
-            & counterexample ("Redeemer report: " <> show redeemerReport)
-            & counterexample "Phase-2 validation should have failed"
+            & counterexample ("Phase-1 validation failed: " <> show basicFailure)
+        Right redeemerReport ->
+          let errors = lefts $ Map.elems redeemerReport
+           in case mExpectedError of
+                Nothing ->
+                  not (null errors)
+                    & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+                    & counterexample ("Redeemer report: " <> show redeemerReport)
+                    & counterexample "Phase-2 validation should have failed"
+                Just expectedError ->
+                  any (matchesErrorMessage expectedError) errors
+                    & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+                    & counterexample ("Redeemer report: " <> show redeemerReport)
+                    & counterexample ("Phase-2 validation should have failed with error message: " <> show expectedError)
+ where
+  matchesErrorMessage errMsg = \case
+    ScriptErrorEvaluationFailed _ errList -> errMsg `elem` errList
+    _otherScriptExecutionError -> False
 
 -- | A 'Property' checking some (transaction, UTxO) pair is valid.
 propTransactionValidates :: (Tx, UTxO) -> Property
@@ -224,7 +236,8 @@ propTransactionValidates (tx, lookupUTxO) =
 data SomeMutation = forall lbl.
   (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =>
   SomeMutation
-  { label :: lbl
+  { expectedError :: Maybe Text
+  , label :: lbl
   , mutation :: Mutation
   }
 
@@ -245,7 +258,7 @@ data Mutation
   | -- | Drops the given input from the transaction's inputs
     RemoveInput TxIn
   | -- | Adds given UTxO to the transaction's inputs and UTxO context.
-    AddInput TxIn (TxOut CtxUTxO)
+    AddInput TxIn (TxOut CtxUTxO) (Maybe ScriptData)
   | -- | Change an input's 'TxOut' to something else.
     -- This mutation alters the redeemers of the transaction to ensure
     -- any matching redeemer for given input matches the new redeemer, otherwise
@@ -257,7 +270,8 @@ data Mutation
     ChangeInput TxIn (TxOut CtxUTxO) (Maybe ScriptData)
   | -- | Change the transaction's output at given index to something else.
     ChangeOutput Word (TxOut CtxTx)
-  | -- | Change the transaction's minted values if it is actually minting something.
+  | -- | Change the transaction's minted values if it is actually minting
+    -- something. NOTE: If 'Value' is 'mempty' the redeemers will be wrong.
     ChangeMintedValue Value
   | -- | Change required signers on a transaction'
     ChangeRequiredSigners [Hash PaymentKey]
@@ -323,33 +337,26 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         else
           map snd $
             filter ((/= i) . fst) $ zip [0 ..] es
-  RemoveInput i ->
-    ( alterTxIns (safeFilter (/= i)) tx
+  RemoveInput txIn ->
+    ( alterTxIns (filter (\(i, _) -> i /= txIn)) tx
     , utxo
     )
-   where
-    safeFilter fn xs =
-      let xs' = filter fn xs
-       in if xs' == xs
-            then error "RemoveInput did not remove any input."
-            else xs'
-  AddInput i o ->
-    ( Tx body' wits
+  AddInput i o newRedeemer ->
+    ( alterTxIns addRedeemer tx
     , UTxO $ Map.insert i o (UTxO.toMap utxo)
     )
    where
-    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-    ledgerInputs' = Ledger.inputs ledgerBody <> Set.singleton (toLedgerTxIn i)
-    ledgerBody' = ledgerBody{Ledger.inputs = ledgerInputs'}
-    body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
-  ChangeInput txIn txOut maybeRedeemer ->
-    ( Tx body' wits
+    addRedeemer =
+      map $ \(txIn', mRedeemer) ->
+        if txIn' == i then (i, newRedeemer) else (txIn', mRedeemer)
+  ChangeInput txIn txOut newRedeemer ->
+    ( alterTxIns replaceRedeemer tx
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
     )
    where
-    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-    redeemers = alterRedeemerFor (Ledger.inputs ledgerBody) (toLedgerTxIn txIn) (const maybeRedeemer) scriptData
-    body' = ShelleyTxBody ledgerBody scripts redeemers mAuxData scriptValidity
+    replaceRedeemer =
+      map $ \(txIn', mRedeemer) ->
+        if txIn' == txIn then (txIn, newRedeemer) else (txIn', mRedeemer)
   ChangeOutput ix txOut ->
     ( alterTxOuts replaceAtIndex tx
     , utxo
@@ -486,39 +493,58 @@ alterRedeemers fn = \case
     let newRedeemers = Map.mapWithKey fn redeemers
      in TxBodyScriptData dats (Ledger.Redeemers newRedeemers)
 
--- | Remove redeemer for given `TxIn` from the transaction's redeemers map.
-alterRedeemerFor ::
-  Set (Ledger.TxIn a) ->
-  Ledger.TxIn a ->
-  (ScriptData -> Maybe ScriptData) ->
-  TxBodyScriptData ->
-  TxBodyScriptData
-alterRedeemerFor initialInputs txIn fn = \case
-  TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData dats (Ledger.Redeemers initialRedeemers) ->
-    let newRedeemers = Ledger.Redeemers $ Map.fromList $ foldMap removeRedeemer $ Map.toList initialRedeemers
-        sortedInputs = sort $ toList initialInputs
-        removeRedeemer (ptr@(Ledger.RdmrPtr _ idx), (sd, exUnits))
-          | sortedInputs List.!! fromIntegral idx == txIn =
-            case fn (fromLedgerData sd) of
-              Nothing -> []
-              Just sd' -> [(ptr, (toLedgerData sd', exUnits))]
-          | otherwise = [(ptr, (sd, exUnits))]
-     in TxBodyScriptData dats newRedeemers
-
+-- | Alter the tx inputs in such way that redeemer pointer stay consistent. A
+-- value of 'Nothing' for the redeemr means that this is not a script input.
+-- NOTE: This will reset all the execution budgets to 0.
 alterTxIns ::
-  ([TxIn] -> [TxIn]) ->
+  ([(TxIn, Maybe ScriptData)] -> [(TxIn, Maybe ScriptData)]) ->
   Tx ->
   Tx
-alterTxIns fn (Tx body wits) =
-  Tx (ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity) wits
+alterTxIns fn tx =
+  Tx body' wits
  where
+  body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
+
+  ledgerBody' = ledgerBody{Ledger.inputs = inputs'}
+
+  inputs' = Set.fromList $ (toLedgerTxIn . fst) <$> newSortedInputs
+
+  scriptData' = TxBodyScriptData dats redeemers'
+
+  redeemers' = Ledger.Redeemers $ rebuiltSpendingRedeemers <> nonSpendingRedeemers
+
+  nonSpendingRedeemers =
+    Map.filterWithKey (\(Ledger.RdmrPtr tag _) _ -> tag /= Ledger.Spend) redeemersMap
+
+  rebuiltSpendingRedeemers = Map.fromList $
+    flip mapMaybe (zip [0 ..] newSortedInputs) $ \(i, (_, mRedeemer)) ->
+      mRedeemer <&> \d ->
+        (Ledger.RdmrPtr Ledger.Spend i, (toLedgerData d, Ledger.ExUnits 0 0))
+
+  -- NOTE: This needs to be ordered, such that we can calculate the redeemer
+  -- pointers correctly.
+  newSortedInputs =
+    sortOn fst $
+      fn
+        . resolveRedeemers
+        . fmap fromLedgerTxIn
+        . toList
+        $ Ledger.inputs ledgerBody
+
+  resolveRedeemers :: [TxIn] -> [(TxIn, Maybe ScriptData)]
+  resolveRedeemers txInputs =
+    zip txInputs [0 ..] <&> \(txIn, i) ->
+      case Map.lookup (Ledger.RdmrPtr Ledger.Spend i) redeemersMap of
+        Nothing -> (txIn, Nothing)
+        Just (redeemerData, _exUnits) -> (txIn, Just $ fromLedgerData redeemerData)
+
+  (dats, redeemersMap) = case scriptData of
+    TxBodyNoScriptData -> (mempty, mempty)
+    TxBodyScriptData d (Ledger.Redeemers r) -> (d, r)
+
   ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-  inputs' = fn . fmap fromLedgerTxIn . toList $ Ledger.inputs ledgerBody
-  ledgerBody' =
-    ledgerBody
-      { Ledger.inputs = Set.fromList (toLedgerTxIn <$> inputs')
-      }
+
+  Tx body wits = tx
 
 -- | Apply some mapping function over a transaction's outputs.
 alterTxOuts ::
@@ -550,7 +576,8 @@ anyPayToPubKeyTxOut = genKeyPair >>= genOutput . fst
 headTxIn :: UTxO -> TxIn
 headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . UTxO.pairs
 
--- | A 'Mutation' that changes the minted/burnt quantity of all tokens.
+-- | A 'Mutation' that changes the minted/burnt quantity of all tokens to a
+-- non-zero value different than the given one.
 changeMintedValueQuantityFrom :: Tx -> Integer -> Gen Mutation
 changeMintedValueQuantityFrom tx exclude =
   ChangeMintedValue
@@ -558,7 +585,7 @@ changeMintedValueQuantityFrom tx exclude =
       TxMintValueNone ->
         pure mempty
       TxMintValue v _ -> do
-        someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude)
+        someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude) `suchThat` (/= 0)
         pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx

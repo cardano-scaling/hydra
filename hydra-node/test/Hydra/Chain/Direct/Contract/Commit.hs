@@ -85,21 +85,21 @@ data CommitMutation
 genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCommitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation MutateCommitOutputValue . ChangeOutput 0 <$> do
+    [ SomeMutation Nothing MutateCommitOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- genValue `suchThat` (/= commitOutputValue)
         pure $ commitTxOut{txOutValue = mutatedValue}
-    , SomeMutation MutateCommittedValue <$> do
+    , SomeMutation Nothing MutateCommittedValue <$> do
         mutatedValue <- genValue `suchThat` (/= committedOutputValue)
         let mutatedOutput = modifyTxOutValue (const mutatedValue) committedTxOut
         pure $ ChangeInput committedTxIn mutatedOutput Nothing
-    , SomeMutation MutateCommittedAddress <$> do
+    , SomeMutation Nothing MutateCommittedAddress <$> do
         mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= committedAddress)
         let mutatedOutput = modifyTxOutAddress (const mutatedAddress) committedTxOut
         pure $ ChangeInput committedTxIn mutatedOutput Nothing
-    , SomeMutation MutateRequiredSigner <$> do
+    , SomeMutation Nothing MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation MutateHeadId <$> do
+    , SomeMutation Nothing MutateHeadId <$> do
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyIntialTxIn))
         pure $
           Changes

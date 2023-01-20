@@ -159,12 +159,12 @@ genCloseMutation (tx, _utxo) =
   -- That is, using the on-chain types. 'closeRedeemer' is also not used
   -- anywhere after changing this and can be moved into the closeTx
   oneof
-    [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    [ SomeMutation Nothing MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         closeRedeemer (number healthySnapshot) <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-    , SomeMutation MutateSnapshotNumberButNotSignature . ChangeHeadRedeemer <$> do
+    , SomeMutation Nothing MutateSnapshotNumberButNotSignature . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
         pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
-    , SomeMutation MutateSnapshotToIllFormedValue . ChangeHeadRedeemer <$> do
+    , SomeMutation Nothing MutateSnapshotToIllFormedValue . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
         let mutatedSignature =
               aggregate [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthySigningKeys]
@@ -174,7 +174,7 @@ genCloseMutation (tx, _utxo) =
             , signature = toPlutusSignatures mutatedSignature
             , utxoHash = ""
             }
-    , SomeMutation MutateParties . ChangeHeadDatum <$> do
+    , SomeMutation Nothing MutateParties . ChangeHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $
           Head.Open
@@ -183,23 +183,23 @@ genCloseMutation (tx, _utxo) =
             , contestationPeriod = healthyContestationPeriod
             , headId = toPlutusCurrencySymbol Fixture.testPolicyId
             }
-    , SomeMutation MutateRequiredSigner <$> do
+    , SomeMutation Nothing MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
-    , SomeMutation MutateCloseContestationDeadline . ChangeOutput 0
+    , SomeMutation Nothing MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
+    , SomeMutation Nothing MutateCloseContestationDeadline . ChangeOutput 0
         <$> (mutateClosedContestationDeadline =<< arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds))
-    , SomeMutation MutateCloseContestationDeadlineWithZero . ChangeOutput 0 <$> mutateClosedContestationDeadline 0
-    , SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
+    , SomeMutation Nothing MutateCloseContestationDeadlineWithZero . ChangeOutput 0 <$> mutateClosedContestationDeadline 0
+    , SomeMutation Nothing MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
         ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
         pure (lb, ub)
     , -- try to change a tx so that lower bound is higher than the upper bound
-      SomeMutation MutateValidityInterval . ChangeValidityInterval <$> do
+      SomeMutation Nothing MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
         ub <- (lb -) <$> choose (0, lb)
         pure (TxValidityLowerBound (SlotNo lb), TxValidityUpperBound (SlotNo ub))
-    , SomeMutation MutateHeadId <$> do
+    , SomeMutation Nothing MutateHeadId <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
         pure $
           Changes

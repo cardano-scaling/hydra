@@ -135,33 +135,31 @@ data AbortMutation
   | -- Spend some abortable output from a different Head
     -- e.g. replace a commit by another commit from a different Head.
     UseInputFromOtherHead
-  | -- | Simulate two identical utxos being committed
-    IdenticalCommits
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
 genAbortMutation (tx, _utxo) =
   oneof
-    [ SomeMutation MutateParties . ChangeHeadDatum <$> do
+    [ SomeMutation Nothing MutateParties . ChangeHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
         pure $ Head.Initial c (partyToChain <$> moreParties) (toPlutusCurrencySymbol $ headPolicyId testSeedInput)
-    , SomeMutation DropOneCommitOutput
+    , SomeMutation Nothing DropOneCommitOutput
         . RemoveOutput
         <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
-    , SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
-    , SomeMutation BurnOneTokenMore <$> addPTWithQuantity tx (-1)
-    , SomeMutation DropCollectedInput . RemoveInput <$> elements (txIns' tx)
-    , SomeMutation MutateRequiredSigner <$> do
+    , SomeMutation Nothing MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
+    , SomeMutation Nothing BurnOneTokenMore <$> addPTWithQuantity tx (-1)
+    , SomeMutation Nothing DropCollectedInput . RemoveInput <$> elements (txIns' tx)
+    , SomeMutation (Just "signer is not a participant") MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation MutateHeadId <$> do
+    , SomeMutation Nothing MutateHeadId <$> do
         illedHeadResolvedInput <-
           mkHeadOutputInitial testNetworkId
             <$> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure healthyHeadParameters
         return $ ChangeInput healthyHeadInput (toUTxOContext illedHeadResolvedInput) (Just $ toScriptData Head.Abort)
-    , SomeMutation UseInputFromOtherHead <$> do
+    , SomeMutation Nothing UseInputFromOtherHead <$> do
         (input, output, _) <- elements healthyInitials
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
         pure $
@@ -169,12 +167,6 @@ genAbortMutation (tx, _utxo) =
             [ ChangeInput input (replacePolicyIdWith testPolicyId otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
             , ChangeMintedValue (removePTFromMintedValue output tx)
             ]
-    , SomeMutation IdenticalCommits <$> do
-        (_input, output, _d) <- elements healthyCommits
-        newInput <- arbitrary
-        -- XXX: Ideally we should need to modify the PT to simulate a proper new commit
-        -- FIXME: this shouldn't be green
-        pure $ AddInput newInput output
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value

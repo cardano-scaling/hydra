@@ -176,8 +176,8 @@ data CollectComMutation
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCollectComMutation (tx, _utxo) =
   oneof
-    [ SomeMutation MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation MutateHeadTransition <$> do
+    [ SomeMutation Nothing MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
+    , SomeMutation Nothing MutateHeadTransition <$> do
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
         differencCurrencySymbol <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
         changeDatum <-
@@ -189,7 +189,7 @@ genCollectComMutation (tx, _utxo) =
                     <*> pure differencCurrencySymbol
                 )
         pure $ Changes [changeRedeemer, changeDatum]
-    , SomeMutation MutateNumberOfParties <$> do
+    , SomeMutation Nothing MutateNumberOfParties <$> do
         -- NOTE: This also mutates the contestation period becuase we could not
         -- be bothered to decode/lookup the current one.
         c <- arbitrary
@@ -199,17 +199,17 @@ genCollectComMutation (tx, _utxo) =
             [ ChangeHeadDatum $ Head.Initial c moreParties (toPlutusCurrencySymbol testPolicyId)
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties headTxOut
             ]
-    , SomeMutation MutateHeadId <$> do
+    , SomeMutation Nothing MutateHeadId <$> do
         illedHeadResolvedInput <-
           mkHeadOutput
             <$> pure testNetworkId
             <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
         return $ ChangeInput healthyHeadInput illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
-    , SomeMutation MutateRequiredSigner <$> do
+    , SomeMutation Nothing MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation MutateCommitToInitial <$> do
+    , SomeMutation Nothing MutateCommitToInitial <$> do
         (txIn, HealthyCommit{cardanoKey}) <- elements $ Map.toList healthyCommits
         pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testPolicyId cardanoKey) Nothing
     ]

@@ -59,7 +59,8 @@ healthyLookupUTxO =
   generateWith (genOneUTxOFor (Prelude.head healthyCardanoKeys)) 42
 
 data InitMutation
-  = MutateThreadTokenQuantity
+  = -- | Mint more than one ST and PTs.
+    MintTooManyTokens
   | MutateAddAnotherPT
   | MutateDropInitialOutput
   | MutateDropSeedInput
@@ -73,17 +74,17 @@ data ObserveInitMutation
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genInitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx 1
-    , SomeMutation MutateAddAnotherPT <$> addPTWithQuantity tx 1
-    , SomeMutation MutateInitialOutputValue <$> do
+    [ SomeMutation Nothing MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
+    , SomeMutation Nothing MutateAddAnotherPT <$> addPTWithQuantity tx 1
+    , SomeMutation Nothing MutateInitialOutputValue <$> do
         let outs = txOuts' tx
         (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation MutateDropInitialOutput <$> do
+    , SomeMutation Nothing MutateDropInitialOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
-    , SomeMutation MutateDropSeedInput <$> do
+    , SomeMutation Nothing MutateDropSeedInput <$> do
         pure $ RemoveInput healthySeedInput
     ]
 
@@ -98,7 +99,7 @@ genInitMutation (tx, _utxo) =
 genObserveInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genObserveInitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation MutateSomePT <$> do
+    [ SomeMutation Nothing MutateSomePT <$> do
         let minted = txMintAssets tx
         vk' <- genVerificationKey `suchThat` (`notElem` healthyCardanoKeys)
         let minted' = swapTokenName (verificationKeyHash vk') minted

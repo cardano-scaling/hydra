@@ -430,7 +430,8 @@ mustBeSignedByParticipant ::
 mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol =
   case getPubKeyHash <$> txInfoSignatories txInfo of
     [signer] ->
-      signer `elem` (unTokenName <$> participationTokens)
+      traceIfFalse "signer is not a participant" $
+        signer `elem` (unTokenName <$> participationTokens)
     [] ->
       traceError "no signers"
     _ ->
