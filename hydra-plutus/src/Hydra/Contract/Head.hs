@@ -472,16 +472,10 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
 {-# INLINEABLE mustContinueHeadWith #-}
 
 continuingDatum :: ScriptContext -> Datum
-continuingDatum ctx =
-  case ownDatum of
-    NoOutputDatum -> traceError "no output datum"
-    OutputDatumHash dh -> fromMaybe (traceError "datum not found") $ findDatum dh (scriptContextTxInfo ctx)
-    OutputDatum d -> d
- where
-  ownDatum =
-    case getContinuingOutputs ctx of
-      [o] -> txOutDatum o
-      _ -> traceError "expected only one head output"
+continuingDatum ctx@ScriptContext{scriptContextTxInfo} =
+  case getContinuingOutputs ctx of
+    [o] -> findTxOutDatum scriptContextTxInfo o
+    _ -> traceError "expected only one continuing output"
 {-# INLINEABLE continuingDatum #-}
 
 findTxOutDatum :: TxInfo -> TxOut -> Datum
