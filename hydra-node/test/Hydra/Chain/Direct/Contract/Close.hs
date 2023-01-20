@@ -25,7 +25,7 @@ import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod, slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber (UnsafeSnapshotNumber))
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
@@ -168,15 +168,11 @@ data CloseMutation
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseMutation (tx, _utxo) =
-  -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
-  -- the power of the mutators, we should test at the level of the validator.
-  -- That is, using the on-chain types. 'closeRedeemer' is also not used
-  -- anywhere after changing this and can be moved into the closeTx
   oneof
     [ SomeMutation Nothing MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        closeRedeemer <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
     , SomeMutation Nothing MutateSnapshotNumberButNotSignature . ChangeHeadDatum <$> do
-        (UnsafeSnapshotNumber mutatedSnapshotNumber) <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
+        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
         pure $
           Head.Closed
             { snapshotNumber = toInteger mutatedSnapshotNumber
@@ -242,11 +238,6 @@ genCloseMutation (tx, _utxo) =
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
-
-  closeRedeemer sig =
-    Head.Close
-      { signature = toPlutusSignatures sig
-      }
 
   mutateCloseUTxOHash :: Gen (TxOut CtxTx)
   mutateCloseUTxOHash = do
