@@ -237,6 +237,7 @@ spec = around showLogsOnFailure $ do
             let aliceNodeId = 1
                 bobNodeId = 2
                 allNodesIds = [aliceNodeId, bobNodeId]
+                withAliceNode :: (HydraClient -> IO a) -> IO a
                 withAliceNode = withHydraNode tracer aliceChainConfig tmp aliceNodeId aliceSk [bobVk] allNodesIds hydraScriptsTxId
                 withBobNode :: (HydraClient -> IO a) -> IO a
                 withBobNode = withHydraNode tracer bobChainConfig tmp bobNodeId bobSk [aliceVk] allNodesIds hydraScriptsTxId
