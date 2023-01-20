@@ -269,27 +269,8 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
       _ -> traceError "wrong state in output datum"
 
   checkSnapshot
-    | closedSnapshotNumber == 0 =
-      let expectedOutputDatum =
-            Closed
-              { parties
-              , snapshotNumber = 0
-              , utxoHash = initialUtxoHash
-              , contestationDeadline = makeContestationDeadline cperiod ctx
-              , headId = headPolicyId
-              }
-       in checkHeadOutputDatum ctx expectedOutputDatum
-    | closedSnapshotNumber > 0 =
-      let expectedOutputDatum =
-            Closed
-              { parties
-              , snapshotNumber = closedSnapshotNumber
-              , utxoHash = closedUtxoHash
-              , contestationDeadline = makeContestationDeadline cperiod ctx
-              , headId = headPolicyId
-              }
-       in verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
-            && checkHeadOutputDatum ctx expectedOutputDatum
+    | closedSnapshotNumber <= 0 = closedUtxoHash == initialUtxoHash
+    | closedSnapshotNumber > 0 = verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
     | otherwise = traceError "negative snapshot number"
 
   cp = fromMilliSeconds (milliseconds cperiod)

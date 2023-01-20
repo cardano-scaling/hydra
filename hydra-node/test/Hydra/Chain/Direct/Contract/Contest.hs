@@ -198,7 +198,7 @@ genContestMutation
                           healthySignature (fromInteger mutatedSnapshotNumber)
                     }
               ]
-      , SomeMutation MutateRequiredSigner <$> do
+      , SomeMutation Nothing MutateRequiredSigner <$> do
           newSigner <- verificationKeyHash <$> genVerificationKey
           pure $ ChangeRequiredSigners [newSigner]
       , SomeMutation Nothing MutateContestUTxOHash . ChangeOutput 0 <$> do
