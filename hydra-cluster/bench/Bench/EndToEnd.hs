@@ -94,7 +94,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
 
                 putTextLn "Initializing Head"
                 send leader $ input "Init" []
-                (headId : _) <-
+                headId <-
                   waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $
                     headIsInitializingWith parties
 

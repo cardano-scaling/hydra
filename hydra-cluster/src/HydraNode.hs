@@ -125,9 +125,10 @@ waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
 -- | Wait given `delay` for some JSON `Value` to match given function.
 --
 -- This is a generalisation of `waitMatch` to multiple nodes.
-waitForAllMatch :: HasCallStack => Natural -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO [a]
-waitForAllMatch delay nodes match =
-  forConcurrently nodes $ \n -> waitMatch delay n match
+waitForAllMatch :: HasCallStack => Natural -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO a
+waitForAllMatch delay nodes match = do
+  (firstResult : _) <- forConcurrently nodes $ \n -> waitMatch delay n match
+  return firstResult
 
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages

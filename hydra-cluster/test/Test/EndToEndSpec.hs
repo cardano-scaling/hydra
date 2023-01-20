@@ -142,7 +142,7 @@ spec = around showLogsOnFailure $ do
                 seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
                 send n1 $ input "Init" []
-                (headId : _) <-
+                headId <-
                   waitForAllMatch 10 [n1, n2, n3] $
                     headIsInitializingWith (Set.fromList [alice, bob, carol])
 
@@ -245,7 +245,7 @@ spec = around showLogsOnFailure $ do
                 waitForNodesConnected tracer [n1, n2]
 
                 send n1 $ input "Init" []
-                (headId : _) <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
+                headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
                 committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
                 send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
@@ -314,12 +314,12 @@ spec = around showLogsOnFailure $ do
                   seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
                   send n1 $ input "Init" []
-                  [headIdAliceOnly] <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+                  headIdAliceOnly <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
 
                   -- Bob opens and immediately aborts a Head with Alice, iow pulls Alice in
                   -- "his" Head
                   send n2 $ input "Init" []
-                  [headIdAliceAndBob] <- waitForAllMatch 10 [n2] $ headIsInitializingWith (Set.fromList [alice, bob])
+                  headIdAliceAndBob <- waitForAllMatch 10 [n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
                   send n2 $ input "Abort" []
                   waitFor tracer 10 [n2] $
@@ -399,7 +399,7 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
       seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
       send n1 $ input "Init" []
-      (headId : _) <-
+      headId <-
         waitForAllMatch 10 [n1, n2, n3] $
           headIsInitializingWith (Set.fromList [alice, bob, carol])
 
