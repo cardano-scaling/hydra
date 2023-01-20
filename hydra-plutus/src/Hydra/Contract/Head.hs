@@ -113,10 +113,10 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
       hashOfCommittedUTxO == hashOfOutputs
 
   hashOfOutputs =
-    -- NOTE: It is enough to just _take_ the same number of outputs
-    -- that correspond to the number of commit inputs to make sure
-    -- everything is reimbursed because the two are already sorted
-    -- and there are no other outputs a part from change.
+    -- NOTE: It is enough to just _take_ the same number of outputs that
+    -- correspond to the number of commit inputs to make sure everything is
+    -- reimbursed because we assume the outputs are correctly sorted with
+    -- reimbursed commits coming first
     hashTxOuts $ take (length commited) (txInfoOutputs txInfo)
 
   hashOfCommittedUTxO =
