@@ -64,15 +64,11 @@ import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainConfig (startChainFrom))
 import Hydra.Party (deriveParty)
 import HydraNode (
-  CreateProcess (std_out),
   EndToEndLog (..),
   HydraClient,
-  StdStream (CreatePipe),
   getMetrics,
   input,
   output,
-  proc,
-  readCreateProcess,
   send,
   waitFor,
   waitForAllMatch,
@@ -84,7 +80,7 @@ import HydraNode (
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import System.IO (hGetLine)
-import System.Process (withCreateProcess)
+import System.Process (CreateProcess (..), StdStream (..), proc, readCreateProcess, withCreateProcess)
 import Test.QuickCheck (generate)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
