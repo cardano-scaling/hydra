@@ -180,10 +180,10 @@ genCloseMutation (tx, _utxo) =
         pure $
           Head.Closed
             { snapshotNumber = toInteger mutatedSnapshotNumber
-            , utxoHash = healthyClosedUTxOHash
-            , parties = healthyOnChainParties
-            , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-            , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+            , utxoHash = Head.utxoHash healthyCloseDatum
+            , parties = Head.parties healthyCloseDatum
+            , contestationDeadline = Head.contestationDeadline healthyCloseDatum
+            , headId = Head.headId healthyCloseDatum
             }
     , SomeMutation Nothing MutateSnapshotToIllFormedValue <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
