@@ -316,12 +316,12 @@ spec = around showLogsOnFailure $ do
                   seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
                   send n1 $ input "Init" []
-                  headIdAliceOnly <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+                  headIdAliceOnly <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
 
                   -- Bob opens and immediately aborts a Head with Alice, iow pulls Alice in
                   -- "his" Head
                   send n2 $ input "Init" []
-                  headIdAliceAndBob <- waitForAllMatch 10 [n2] $ headIsInitializingWith (Set.fromList [alice, bob])
+                  headIdAliceAndBob <- waitMatch 10 n2 $ headIsInitializingWith (Set.fromList [alice, bob])
 
                   send n2 $ input "Abort" []
                   waitFor tracer 10 [n2] $
