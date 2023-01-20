@@ -195,12 +195,12 @@ spec = around showLogsOnFailure $ do
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [] contestationPeriod
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             let nodeId = 1
-            tip <- withHydraNode tracer aliceChainConfig tmp nodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+            (tip, aliceHeadId) <- withHydraNode tracer aliceChainConfig tmp nodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
               seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
               tip <- queryTip networkId nodeSocket
               send n1 $ input "Init" []
-              void $ waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
-              return tip
+              headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+              return (tip, headId)
 
             -- REVIEW: Do we want to keep this --start-chain-from feature or
             -- replace it with an event source load from persistence?
@@ -214,7 +214,8 @@ spec = around showLogsOnFailure $ do
                     { startChainFrom = Just tip
                     }
             withHydraNode tracer aliceChainConfig' tmp 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-              void $ waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+              headId' <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+              headId' `shouldBe` aliceHeadId
 
       it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
         withTempDir "end-to-end-chain-observer" $ \tmp ->
