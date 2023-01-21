@@ -81,8 +81,8 @@ headValidator oldState input ctx =
       checkAbort ctx headId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{signature}) ->
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId}, Contest{signature}) ->
-      checkContest ctx contestationDeadline parties closedSnapshotNumber signature headId
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId, contestors}, Contest{signature}) ->
+      checkContest ctx contestationDeadline parties closedSnapshotNumber signature contestors headId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
     _ ->
@@ -346,15 +346,18 @@ checkContest ::
   -- | Snapshot number of the closed state.
   SnapshotNumber ->
   [Signature] ->
+  -- | Keys of party member which already contested.
+  [PubKeyHash] ->
   -- | Head id
   CurrencySymbol ->
   Bool
-checkContest ctx contestationDeadline parties closedSnapshotNumber sig headId =
+checkContest ctx contestationDeadline parties closedSnapshotNumber sig contestors headId =
   mustNotMintOrBurn txInfo
     && mustBeNewer
     && mustBeMultiSigned
     && mustNotChangeParameters
     && mustBeSignedByParticipant ctx headId
+    && checkSignedParticipantContestOnlyOnce
     && mustBeWithinContestationPeriod
     && hasST headId outValue
  where
@@ -394,6 +397,16 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig headId =
       _ -> traceError "wrong state in output datum"
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
+
+  checkSignedParticipantContestOnlyOnce =
+    case txInfoSignatories txInfo of
+      [signer] ->
+        traceIfFalse "signer is not a participant" $
+          notElem signer contestors
+      [] ->
+        traceError "no signers"
+      _ ->
+        traceError "too many signers"
 {-# INLINEABLE checkContest #-}
 
 checkFanout ::

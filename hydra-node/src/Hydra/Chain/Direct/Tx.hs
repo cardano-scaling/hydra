@@ -49,8 +49,7 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (CurrencySymbol)
-import Plutus.V2.Ledger.Api (CurrencySymbol (CurrencySymbol), fromBuiltin, fromData, toBuiltin)
+import Plutus.V1.Ledger.Api (CurrencySymbol (CurrencySymbol), fromBuiltin, fromData, toBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- | Needed on-chain data to create Head transactions.
@@ -89,6 +88,7 @@ data ClosedThreadOutput = ClosedThreadOutput
   { closedThreadUTxO :: UTxOWithScript
   , closedParties :: [OnChain.Party]
   , closedContestationDeadline :: Plutus.POSIXTime
+  , closedContestors :: [Plutus.PubKeyHash]
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -356,6 +356,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
         , parties = openParties
         , contestationDeadline
         , headId = headIdToCurrencySymbol headId
+        , contestors = []
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -391,7 +392,7 @@ contestTx ::
   ClosedThreadOutput ->
   HeadId ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline} headId =
+contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline, closedContestors} headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -410,6 +411,9 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         }
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
+
+  contestor = toPlutusKeyHash (verificationKeyHash vk)
+
   headDatumAfter =
     mkTxOutDatum
       Head.Closed
@@ -418,6 +422,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         , parties = closedParties
         , contestationDeadline = closedContestationDeadline
         , headId = headIdToCurrencySymbol headId
+        , contestors = contestor : closedContestors
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
@@ -783,6 +788,7 @@ observeCloseTx utxo tx = do
                     )
                 , closedParties = parties
                 , closedContestationDeadline = closeContestationDeadline
+                , closedContestors = []
                 }
           , headId
           , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
@@ -795,6 +801,7 @@ data ContestObservation = ContestObservation
   { contestedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData)
   , headId :: HeadId
   , snapshotNumber :: SnapshotNumber
+  , closedContestors :: [Plutus.PubKeyHash]
   }
   deriving (Show, Eq)
 
@@ -812,7 +819,7 @@ observeContestTx utxo tx = do
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Closed{}, Head.Contest{}) -> do
+    (Head.Closed{contestors}, Head.Contest{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
       let onChainSnapshotNumber = closedSnapshotNumber newHeadDatum
@@ -825,6 +832,7 @@ observeContestTx utxo tx = do
               )
           , headId
           , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
+          , closedContestors = contestors
           }
     _ -> Nothing
  where

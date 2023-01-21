@@ -47,6 +47,7 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (UnsafeSnapshotNumber), getSnapshot)
+import qualified Plutus.V1.Ledger.Api as Plutus
 
 -- * Types
 
@@ -153,6 +154,7 @@ data HeadState tx
         readyToFanoutSent :: Bool
       , chainState :: ChainStateType tx
       , headId :: HeadId
+      , closedContestors :: [Plutus.PubKeyHash]
       }
   deriving stock (Generic)
 
@@ -787,6 +789,7 @@ onOpenChainCloseTx
         , previousRecoverableState = headState
         , chainState = newChainState
         , headId
+        , closedContestors = []
         }
     headIsClosed =
       HeadIsClosed

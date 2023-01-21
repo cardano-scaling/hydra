@@ -663,6 +663,7 @@ definitions:
           - readyToFanoutSent
           - chainState
           - headId
+          - closedContestors
         properties:
           tag:
             type: string
@@ -681,6 +682,10 @@ definitions:
             $ref: "api.yaml#/components/schemas/ChainState"
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
+          closedContestors:
+            type: array
+            items:
+              type: string
 
   CoordinatedHeadState:
     type: object

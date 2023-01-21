@@ -82,6 +82,7 @@ healthyFanoutDatum =
     , parties = partyToChain <$> arbitrary `generateWith` 42
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
     , headId = toPlutusCurrencySymbol testPolicyId
+    , contestors = []
     }
 
 data FanoutMutation

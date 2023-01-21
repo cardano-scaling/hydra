@@ -2070,127 +2070,151 @@
         },
         {
             "chainState": {
-                "slot": 26
+                "slot": 19
             },
+            "closedContestors": [
+                {
+                    "keyHash": "2ab09d3271",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "f25533",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "c2cbc5c250ace08e1003ba3440ba760840328e3a",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "f24551f28a2a4b60958cff6eacb5b762c2aa",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "ca7db55a4c234184e1fc591f96a261aed66dbae46bdc",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "8f87756966138bb4ad1eb86b7506adf50c24ca5f130e978d",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "938ab0ebb81a2ed6d26d3f2461ca599f249fd2c47e64c73c",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "67e822ed6eaea42fa31fec740594aff17ce5e67012",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "5a35e0ee054a4f82e03643fe1dfdfbcae55a1803968ad4b1d6a3ae",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "720064e291e4c8d1ed3a23565bd4a96a7d40bd2aacacebdaee",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "1eb1196795",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "fe74e4902744e0d6734373bd",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "d23c8ad006d029a1105cb2f12ee43521ffc4973ffffbf02bd7ec13bb97",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "811902a83e615e3a7fa579816eb7f156b844f59a",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "3d61fc238387795b87ab6538d263",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "31980c1590b1b0ba85fa7bac",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "d92c0f4c7999a91ac6b9da9d30c90ccaf7653694af",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "fa3bf90b88cdbcd20b8e476e4d71d03e815f73e7590b9a46419c5e",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "4fc27eb1aeb2e0c8de",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "209d76b1cf2e671ecef90d4926a7cf26d00bdee119",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "3f8ccd544e0707",
+                    "tag": "PubKeyHash"
+                },
+                {
+                    "keyHash": "238af6cb61914263d1cdf4cddc25e434",
+                    "tag": "PubKeyHash"
+                }
+            ],
             "confirmedSnapshot": {
-                "signatures": {
-                    "multiSignature": [
-                        "3322b0622db6684b6a052cdba429dfea26eff43a857f4e169702d23afb841cbf069f93d9f9503917b9eb6b0df0c0f233cb4ccc799df91dc148f78eaa67cddb0e"
-                    ]
-                },
-                "snapshot": {
-                    "confirmedTransactions": [],
-                    "snapshotNumber": 7,
-                    "utxo": [
-                        -29,
-                        -25,
-                        -24,
-                        -13,
-                        -11,
-                        -5,
-                        4,
-                        5,
-                        8,
-                        9,
-                        19,
-                        21,
-                        23,
-                        26,
-                        27,
-                        28,
-                        29
-                    ]
-                },
-                "tag": "ConfirmedSnapshot"
+                "initialUTxO": [
+                    -28,
+                    -18,
+                    -17,
+                    -14,
+                    -11,
+                    -9,
+                    -8,
+                    -7,
+                    -6,
+                    -5,
+                    -4,
+                    -3,
+                    2,
+                    4,
+                    5,
+                    9,
+                    12,
+                    13,
+                    18,
+                    21
+                ],
+                "tag": "InitialSnapshot"
             },
-            "contestationDeadline": "1864-04-13T10:36:42.224302485134Z",
-            "headId": "59329a75491acfa1e0f0fd8067dd80ce",
+            "contestationDeadline": "1864-04-24T05:51:19.836341964375Z",
+            "headId": "853d0a0960543a35b7d16f1168377c25",
             "parameters": {
-                "contestationPeriod": 43200,
+                "contestationPeriod": 31536000,
                 "parties": [
                     {
-                        "vkey": "6758d32d1fa8e15d658209eb00dc707e25f91c73b05fbcc32635344174499ba8"
+                        "vkey": "9943ff5e1a886a0051548eddb76d89913d3e00f89d9aebb9155143f49e07ee68"
                     },
                     {
-                        "vkey": "5f3b83176afb2b4fcd94fcbb8c1f30dc77c2589e53655fa2550928ddebf07585"
-                    },
-                    {
-                        "vkey": "dca43f4e3058a5bcf585d0054ca184436a902300bb9223d2ef13abe06f93fd43"
-                    },
-                    {
-                        "vkey": "23cd742d3e90ed10fb4adc7584a5592bb7852b9ca68247d6483d6b6139a0d3aa"
-                    },
-                    {
-                        "vkey": "f811954ea9bc404706ea4d1a8fcda5ec987a3b0016ee641bc822d57a9d5fe120"
-                    },
-                    {
-                        "vkey": "523dad75a30f22bfffc8cbbfcbd1d44cb70a82b0c12555222b2abcb78b9e44c4"
-                    },
-                    {
-                        "vkey": "278cf93b9648ae17c8083882c1965d7a7d58b62c55e57df6e6cd5d6d01cf2ca5"
-                    },
-                    {
-                        "vkey": "cbaa8ee33c26f6705936ba38a3da76faf0e6681380e361aeafa16aa5b3f6fe5a"
-                    },
-                    {
-                        "vkey": "6982615deb896785a57fcccbb223b46004dcefbcd71ca38dbaad96fc833e5c24"
-                    },
-                    {
-                        "vkey": "29337594e0f4d7d3d5da39f52b05422d00cfaf9400932a1dc3a22f4c610c1f16"
-                    },
-                    {
-                        "vkey": "be907b4bac84fee5ce8811db2defc9bf0b2a2a2bbc3d54d8a2257ecd70441962"
-                    },
-                    {
-                        "vkey": "bb7644f397d70d18e65b414b344431c8a3b3a1722d51b41ad5943969eb25bad7"
-                    },
-                    {
-                        "vkey": "93ad92476fb8355ba75e163c57e1315fcee790c5b5dd237be23f54244ad1d17a"
-                    },
-                    {
-                        "vkey": "3bedc28d62525e49c4c710de06e50aa2a574955126c94c39d381f0b24808aec9"
-                    },
-                    {
-                        "vkey": "1cbab02c476d06a644c1d264ed993d07fcd477adb4d83e4dd7271f369f508466"
-                    },
-                    {
-                        "vkey": "10d85b741e6f7831eab8d579fec913aa5b11063059e4dd89552a0fe7b1766113"
-                    },
-                    {
-                        "vkey": "1904143610e4416804a08e003b06c29d185919e7668e05a73ff58ce984b0e075"
-                    },
-                    {
-                        "vkey": "c998de8a7be61a8271484e811de2d358891f0804af85eed8b4ce6a85a7577629"
-                    },
-                    {
-                        "vkey": "0e392b22f822963bd61a18a6b67f2cce8bbb4630a9d73a1e43485a160d5af234"
-                    },
-                    {
-                        "vkey": "c0fde6c421ecdd5656173e1375d4c172b729971822456d23d99a1b971205ea9a"
-                    },
-                    {
-                        "vkey": "fe20e8d13fc9158f662e6161039725a2ec0d67c302680ca4a3bea02be7040e8d"
-                    },
-                    {
-                        "vkey": "370b890f5aa6a58fed0ad916dd176acee4dd27f66d745e25be74513af714f3a2"
-                    },
-                    {
-                        "vkey": "e0811bfa8b29dff8e287468830b8768435118f45cee1181d40aa25031f614f58"
-                    },
-                    {
-                        "vkey": "4910d02135b77a2edb718e71c7f67cd0a0fa64c7f9326344d2630a0442b4b468"
-                    },
-                    {
-                        "vkey": "a6e50b4ed04f4d7eae480dc5e194f78ad130285d722490b3e01d65dae6a3b2e7"
-                    },
-                    {
-                        "vkey": "b0f02d51b983fb1351b51178289ede02a9f7f34b73862d97cf3d07375ed97fd4"
+                        "vkey": "84d05e86e1ece0c944b2a129377f9492b1841f65698f1cdd295d711cf7dc8c7d"
                     }
                 ]
             },
             "previousRecoverableState": {
                 "chainState": {
-                    "slot": 12
+                    "slot": 21
                 },
                 "tag": "IdleState"
             },

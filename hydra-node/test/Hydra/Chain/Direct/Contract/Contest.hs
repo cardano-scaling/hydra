@@ -68,6 +68,7 @@ healthyContestTx =
       , closedParties =
           healthyOnChainParties
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
+      , closedContestors = []
       }
 
 healthyClosedHeadTxIn :: TxIn
@@ -108,6 +109,7 @@ healthyClosedState =
     , parties = healthyOnChainParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
     , headId = toPlutusCurrencySymbol testPolicyId
+    , contestors = []
     }
 
 healthySlotNo :: SlotNo
@@ -171,6 +173,8 @@ data ContestMutation
     MutateHeadId
   | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenMintingOrBurning
+  | -- | Change the contestors list to test the head validators
+    MutateContestors
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -227,9 +231,37 @@ genContestMutation
               ]
       , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
           <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
+      , SomeMutation Nothing MutateContestors . ChangeInputHeadDatum <$> do
+          let contestor = toPlutusKeyHash (verificationKeyHash somePartyCardanoVerificationKey)
+          pure $
+            Head.Closed
+              { parties = healthyOnChainParties
+              , utxoHash = healthyClosedUTxOHash
+              , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
+              , contestationDeadline = arbitrary `generateWith` 42
+              , headId = toPlutusCurrencySymbol testPolicyId
+              , contestors = [contestor]
+              }
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
+
+    mutateCloseUTxOHash :: Gen (TxOut CtxTx)
+    mutateCloseUTxOHash = do
+      mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
+      pure $
+        changeHeadOutputDatum
+          ( const $
+              Head.Closed
+                { snapshotNumber = fromIntegral healthyContestSnapshotNumber
+                , utxoHash = toBuiltin mutatedUTxOHash
+                , parties = healthyOnChainParties
+                , contestationDeadline = arbitrary `generateWith` 42
+                , headId = toPlutusCurrencySymbol testPolicyId
+                , contestors = []
+                }
+          )
+          headTxOut
 
     slotOverContestationDeadline slotNo =
       slotNoToUTCTime slotNo > healthyContestationDeadline
