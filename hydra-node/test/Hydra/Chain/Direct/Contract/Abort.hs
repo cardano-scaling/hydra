@@ -47,18 +47,21 @@ healthyAbortTx =
   lookupUTxO =
     UTxO.singleton (healthyHeadInput, toUTxOContext headOutput)
       <> UTxO (Map.fromList (drop3rd <$> healthyInitials))
-      <> UTxO (Map.fromList (drop3rd <$> healthyCommits))
+      <> UTxO (Map.fromList (map (\(i, o, _, _) -> (i, o)) healthyCommits))
       <> registryUTxO scriptRegistry
 
   tx =
     either (error . show) id $
       abortTx
+        committedUTxO
         scriptRegistry
         somePartyCardanoVerificationKey
         (healthyHeadInput, toUTxOContext headOutput, headDatum)
         headTokenScript
         (Map.fromList (tripleToPair <$> healthyInitials))
-        (Map.fromList (tripleToPair <$> healthyCommits))
+        (Map.fromList (map (\(i, o, sd, _) -> (i, (o, sd))) healthyCommits))
+
+  committedUTxO = foldMap (\(_, _, _, u) -> u) healthyCommits
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -88,7 +91,7 @@ healthyHeadParameters =
     }
 
 healthyInitials :: [UTxOWithScript]
-healthyCommits :: [UTxOWithScript]
+healthyCommits :: [(TxIn, TxOut CtxUTxO, ScriptData, UTxO)]
 (healthyInitials, healthyCommits) =
   -- TODO: Refactor this to be an AbortTx generator because we actually want
   -- to test healthy abort txs with varied combinations of inital and commit

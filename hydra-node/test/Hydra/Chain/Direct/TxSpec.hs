@@ -14,7 +14,6 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Babbage.PParams (PParams)
-import Data.List (intersectBy)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import GHC.Natural (wordToNatural)
@@ -54,7 +53,6 @@ import Test.QuickCheck (
   getPositive,
   label,
   property,
-  suchThat,
   vectorOf,
   withMaxSuccess,
  )
@@ -81,7 +79,7 @@ spec =
                               ]
                               & Map.mapKeys toLedgerTxIn
                               & Map.map toLedgerTxOut
-                       in case abortTx scriptRegistry signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
+                       in case abortTx mempty scriptRegistry signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
                             Left err ->
                               property False & counterexample ("AbortTx construction failed: " <> show err)
                             Right (toLedgerTx -> txAbort) ->
@@ -204,18 +202,15 @@ prettyEvaluationReport (Map.toList -> xs) =
     either (T.replace "\n" " " . show) show
 
 -- NOTE: Uses 'testPolicyId' for the datum.
-genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [UTxOWithScript])
+genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [(TxIn, TxOut CtxUTxO, ScriptData, UTxO)])
 genAbortableOutputs parties =
-  go `suchThat` notConflict
+  go
  where
   go = do
     (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
     initials <- mapM genInitial initParties
-    commits <- fmap (\(a, (b, c, _)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
+    commits <- fmap (\(a, (b, c, u)) -> (a, b, c, u)) . Map.toList <$> generateCommitUTxOs commitParties
     pure (initials, commits)
-
-  notConflict (is, cs) =
-    null $ intersectBy (\(i, _, _) (c, _, _) -> i == c) is cs
 
   genInitial p =
     mkInitial (genVerificationKey `genForParty` p) <$> arbitrary
