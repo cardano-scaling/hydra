@@ -466,6 +466,8 @@ data AbortTxError = OverlappingInputs
 -- | Create transaction which aborts a head by spending the Head output and all
 -- other "initial" outputs.
 abortTx ::
+  -- | Committed UTxOs to reimburse.
+  UTxO ->
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
@@ -481,7 +483,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
+abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
@@ -545,18 +547,7 @@ abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
-  reimbursedOutputs =
-    fmap snd $
-      sortOn
-        fst
-        $ mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
-
-  mkCommitOutput :: ScriptData -> Maybe (TxIn, TxOut CtxTx)
-  mkCommitOutput x =
-    case fromData @Commit.DatumType $ toPlutusData x of
-      Just (_party, _validatorHash, serialisedTxOut, _headId) ->
-        second toTxContext <$> convertTxOut serialisedTxOut
-      Nothing -> error "Invalid Commit datum"
+  reimbursedOutputs = toTxContext . snd <$> UTxO.pairs committedUTxO
 
 -- * Observe Hydra Head transactions
 

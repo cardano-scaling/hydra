@@ -247,8 +247,8 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
           pure $ initialize ctx params seedInput
         Nothing ->
           throwIO (NoSeedInput @Tx)
-    (AbortTx{}, Initial st) ->
-      pure $ abort ctx st
+    (AbortTx{utxo}, Initial st) ->
+      pure $ abort utxo ctx st
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
