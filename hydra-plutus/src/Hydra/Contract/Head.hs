@@ -109,7 +109,7 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
       Just tokenMap -> negate $ sum tokenMap
 
   mustReimburseCommittedUTxO =
-    traceIfFalse "hash of committed UTxo do not match hash of outputs" $
+    traceIfFalse "reimbursed outputs dont match" $
       hashOfCommittedUTxO == hashOfOutputs
 
   hashOfOutputs =
