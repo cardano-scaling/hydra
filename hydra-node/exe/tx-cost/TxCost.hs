@@ -185,8 +185,8 @@ computeAbortCost =
     initTx <- genInitTx ctx
     commits <- sublistOf =<< genCommits ctx initTx
     cctx <- pickChainContext ctx
-    let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (abort cctx stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
+    let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+    pure (abort (fold committed) cctx stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do
