@@ -667,12 +667,12 @@ observeCommitTx networkId initials tx = do
   dat <- getScriptData commitOut
   (onChainParty, _, onChainCommit, _headId) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
-  let mCommittedTxOut = convertTxOut onChainCommit
 
   committed <-
-    -- TODO: we do now record the TxOutRef also in the 'onChainCommit'. This
-    -- reduces the cases as we can either interpret the commit or not.
-    case (mCommittedTxIn, mCommittedTxOut) of
+    -- TODO: We could simplify this by just using the datum. However, we would
+    -- need to ensure the commit is belonging to a head / is rightful. By just
+    -- looking for some known initials we achieve this (a bit complicated) now.
+    case (mCommittedTxIn, onChainCommit >>= Commit.deserializeCommit) of
       (Nothing, Nothing) -> Just mempty
       (Just i, Just (_i, o)) -> Just $ UTxO.singleton (i, o)
       (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
@@ -700,14 +700,6 @@ observeCommitTx networkId initials tx = do
   commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
 
   commitScript = fromPlutusScript Commit.validatorScript
-
-convertTxOut :: Maybe Commit.Commit -> Maybe (TxIn, TxOut CtxUTxO)
-convertTxOut = \case
-  Nothing -> Nothing
-  Just commit ->
-    case Commit.deserializeCommit commit of
-      Just (i, o) -> Just (i, o)
-      Nothing -> error "couldn't deserialize serialized output in commit's datum."
 
 data CollectComObservation = CollectComObservation
   { threadOutput :: OpenThreadOutput
