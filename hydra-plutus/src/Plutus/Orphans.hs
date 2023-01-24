@@ -6,7 +6,7 @@ module Plutus.Orphans where
 
 import Hydra.Prelude
 
-import Plutus.V1.Ledger.Api (
+import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   POSIXTime (..),
   TokenName,

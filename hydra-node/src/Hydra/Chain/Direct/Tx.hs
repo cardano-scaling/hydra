@@ -466,6 +466,8 @@ data AbortTxError = OverlappingInputs
 -- | Create transaction which aborts a head by spending the Head output and all
 -- other "initial" outputs.
 abortTx ::
+  -- | Committed UTxOs to reimburse.
+  UTxO ->
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
@@ -481,7 +483,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
+abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
@@ -545,15 +547,7 @@ abortTx scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> h
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
-  reimbursedOutputs =
-    mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
-
-  mkCommitOutput :: ScriptData -> Maybe (TxOut CtxTx)
-  mkCommitOutput x =
-    case fromData @Commit.DatumType $ toPlutusData x of
-      Just (_party, _validatorHash, serialisedTxOut, _headId) ->
-        toTxContext <$> convertTxOut serialisedTxOut
-      Nothing -> error "Invalid Commit datum"
+  reimbursedOutputs = toTxContext . snd <$> UTxO.pairs committedUTxO
 
 -- * Observe Hydra Head transactions
 
@@ -673,14 +667,14 @@ observeCommitTx networkId initials tx = do
   dat <- getScriptData commitOut
   (onChainParty, _, onChainCommit, _headId) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
-  let mCommittedTxOut = convertTxOut onChainCommit
 
   committed <-
-    -- TODO: we do now record the TxOutRef also in the 'onChainCommit'. This
-    -- reduces the cases as we can either interpret the commit or not.
-    case (mCommittedTxIn, mCommittedTxOut) of
+    -- TODO: We could simplify this by just using the datum. However, we would
+    -- need to ensure the commit is belonging to a head / is rightful. By just
+    -- looking for some known initials we achieve this (a bit complicated) now.
+    case (mCommittedTxIn, onChainCommit >>= Commit.deserializeCommit) of
       (Nothing, Nothing) -> Just mempty
-      (Just i, Just o) -> Just $ UTxO.singleton (i, o)
+      (Just i, Just (_i, o)) -> Just $ UTxO.singleton (i, o)
       (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
       (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
 
@@ -706,14 +700,6 @@ observeCommitTx networkId initials tx = do
   commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
 
   commitScript = fromPlutusScript Commit.validatorScript
-
-convertTxOut :: Maybe Commit.Commit -> Maybe (TxOut CtxUTxO)
-convertTxOut = \case
-  Nothing -> Nothing
-  Just commit ->
-    case Commit.deserializeCommit commit of
-      Just (_i, o) -> Just o
-      Nothing -> error "couldn't deserialize serialized output in commit's datum."
 
 data CollectComObservation = CollectComObservation
   { threadOutput :: OpenThreadOutput

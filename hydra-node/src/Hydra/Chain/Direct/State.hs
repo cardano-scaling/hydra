@@ -337,14 +337,16 @@ commit ctx st utxo = do
 -- reimburse all the already committed outputs.
 abort ::
   HasCallStack =>
+  -- | Committed UTxOs to reimburse.
+  UTxO ->
   ChainContext ->
   InitialState ->
   Tx
-abort ctx st = do
+abort committedUTxO ctx st = do
   let InitialThreadOutput{initialThreadUTxO = (i, o, dat)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
-   in case abortTx scriptRegistry ownVerificationKey (i, o, dat) initialHeadTokenScript initials commits of
+   in case abortTx committedUTxO scriptRegistry ownVerificationKey (i, o, dat) initialHeadTokenScript initials commits of
         Left OverlappingInputs ->
           -- FIXME: This is a "should not happen" error. We should try to fix
           -- the arguments of abortTx to make it impossible of having

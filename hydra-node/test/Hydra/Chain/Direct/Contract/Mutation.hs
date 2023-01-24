@@ -182,6 +182,7 @@ propMutation (tx, utxo) genMutation =
       & propTransactionDoesNotValidate expectedError
       & genericCoverTable [label]
       & checkCoverage
+      & counterexample ("Original transaction: " <> renderTxWithUTxO utxo tx)
 
 -- | A 'Property' checking some (transaction, UTxO) pair is invalid.
 propTransactionDoesNotValidate :: Maybe Text -> (Tx, UTxO) -> Property
@@ -190,19 +191,19 @@ propTransactionDoesNotValidate mExpectedError (tx, lookupUTxO) =
    in case result of
         Left basicFailure ->
           property False
-            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
           let errors = lefts $ Map.elems redeemerReport
            in case mExpectedError of
                 Nothing ->
                   not (null errors)
-                    & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+                    & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
                     & counterexample ("Redeemer report: " <> show redeemerReport)
                     & counterexample "Phase-2 validation should have failed"
                 Just expectedError ->
                   any (matchesErrorMessage expectedError) errors
-                    & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+                    & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
                     & counterexample ("Redeemer report: " <> show redeemerReport)
                     & counterexample ("Phase-2 validation should have failed with error message: " <> show expectedError)
  where
@@ -217,11 +218,11 @@ propTransactionValidates (tx, lookupUTxO) =
    in case result of
         Left basicFailure ->
           property False
-            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
           all isRight (Map.elems redeemerReport)
-            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Redeemer report: " <> show redeemerReport)
             & counterexample "Phase-2 validation failed"
 

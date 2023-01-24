@@ -14,7 +14,6 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Babbage.PParams (PParams)
-import Data.List (intersectBy)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import GHC.Natural (wordToNatural)
@@ -53,9 +52,7 @@ import Test.QuickCheck (
   forAll,
   getPositive,
   label,
-  oneof,
   property,
-  suchThat,
   vectorOf,
   withMaxSuccess,
  )
@@ -82,7 +79,7 @@ spec =
                               ]
                               & Map.mapKeys toLedgerTxIn
                               & Map.map toLedgerTxOut
-                       in case abortTx scriptRegistry signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
+                       in case abortTx mempty scriptRegistry signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
                             Left err ->
                               property False & counterexample ("AbortTx construction failed: " <> show err)
                             Right (toLedgerTx -> txAbort) ->
@@ -155,19 +152,16 @@ withinTxExecutionBudget report =
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- NOTE: Uses 'testPolicyId' for the datum.
+-- NOTE: We don't generate empty commits and it is used only at one place so perhaps move it?
 -- FIXME: This function is very complicated and it's hard to understand it after a while
 generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData, UTxO))
 generateCommitUTxOs parties = do
   txins <- vectorOf (length parties) (arbitrary @TxIn)
   let vks = (\p -> (genVerificationKey `genForParty` p, p)) <$> parties
   committedUTxO <-
-    vectorOf (length parties) $
-      oneof
-        [ do
-            singleUTxO <- fmap adaOnly <$> (genOneUTxOFor =<< arbitrary)
-            pure $ head <$> nonEmpty (UTxO.pairs singleUTxO)
-        , pure Nothing
-        ]
+    vectorOf (length parties) $ do
+      singleUTxO <- fmap adaOnly <$> (genOneUTxOFor =<< arbitrary)
+      pure $ head <$> nonEmpty (UTxO.pairs singleUTxO)
   let commitUTxO =
         zip txins $
           uncurry mkCommitUTxO <$> zip vks committedUTxO
@@ -208,18 +202,15 @@ prettyEvaluationReport (Map.toList -> xs) =
     either (T.replace "\n" " " . show) show
 
 -- NOTE: Uses 'testPolicyId' for the datum.
-genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [UTxOWithScript])
+genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [(TxIn, TxOut CtxUTxO, ScriptData, UTxO)])
 genAbortableOutputs parties =
-  go `suchThat` notConflict
+  go
  where
   go = do
     (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
     initials <- mapM genInitial initParties
-    commits <- fmap (\(a, (b, c, _)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
+    commits <- fmap (\(a, (b, c, u)) -> (a, b, c, u)) . Map.toList <$> generateCommitUTxOs commitParties
     pure (initials, commits)
-
-  notConflict (is, cs) =
-    null $ intersectBy (\(i, _, _) (c, _, _) -> i == c) is cs
 
   genInitial p =
     mkInitial (genVerificationKey `genForParty` p) <$> arbitrary
