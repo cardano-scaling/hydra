@@ -61,7 +61,7 @@ import Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContestors))
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters))
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genOutput,
@@ -356,7 +356,7 @@ forAllContest action =
             & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
             & counterexample ("Contestation period: " <> show ctxContestationPeriod)
             & counterexample ("Close point: " <> show closePointInTime)
-            & counterexample ("Closed contestors: " <> show (getClosedContestors stClosed))
+            & counterexample ("Closed contesters: " <> show (getClosedContestors stClosed))
             & tabulate "Contestation period" (tabulateContestationPeriod ctxContestationPeriod)
             & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
  where
@@ -380,7 +380,7 @@ forAllContest action =
   oneMonth = oneDay * 30
   oneYear = oneDay * 365
 
-  getClosedContestors stClosed = closedContestors . closedThreadOutput $ stClosed
+  getClosedContestors stClosed = closedContesters . closedThreadOutput $ stClosed
 
 forAllFanout ::
   (Testable property) =>

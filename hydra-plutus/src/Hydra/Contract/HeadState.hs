@@ -38,7 +38,7 @@ data State
       , utxoHash :: Hash
       , contestationDeadline :: POSIXTime
       , headId :: CurrencySymbol
-      , contestors :: [PubKeyHash]
+      , contesters :: [PubKeyHash]
       }
   | Final
   deriving stock (Generic, Show)

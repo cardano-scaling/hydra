@@ -88,7 +88,7 @@ data ClosedThreadOutput = ClosedThreadOutput
   { closedThreadUTxO :: UTxOWithScript
   , closedParties :: [OnChain.Party]
   , closedContestationDeadline :: Plutus.POSIXTime
-  , closedContestors :: [Plutus.PubKeyHash]
+  , closedContesters :: [Plutus.PubKeyHash]
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -356,7 +356,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
         , parties = openParties
         , contestationDeadline
         , headId = headIdToCurrencySymbol headId
-        , contestors = []
+        , contesters = []
         }
 
   snapshotNumber = toInteger $ case closing of
@@ -392,7 +392,7 @@ contestTx ::
   ClosedThreadOutput ->
   HeadId ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline, closedContestors} headId =
+contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline, closedContesters} headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -422,7 +422,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         , parties = closedParties
         , contestationDeadline = closedContestationDeadline
         , headId = headIdToCurrencySymbol headId
-        , contestors = contestor : closedContestors
+        , contesters = contestor : closedContesters
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
@@ -788,7 +788,7 @@ observeCloseTx utxo tx = do
                     )
                 , closedParties = parties
                 , closedContestationDeadline = closeContestationDeadline
-                , closedContestors = []
+                , closedContesters = []
                 }
           , headId
           , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
@@ -801,7 +801,7 @@ data ContestObservation = ContestObservation
   { contestedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData)
   , headId :: HeadId
   , snapshotNumber :: SnapshotNumber
-  , closedContestors :: [Plutus.PubKeyHash]
+  , closedContesters :: [Plutus.PubKeyHash]
   }
   deriving (Show, Eq)
 
@@ -832,7 +832,7 @@ observeContestTx utxo tx = do
               )
           , headId
           , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
-          , closedContestors = contestors
+          , closedContesters = contesters
           }
     _ -> Nothing
  where

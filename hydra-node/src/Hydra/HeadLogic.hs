@@ -154,7 +154,7 @@ data HeadState tx
         readyToFanoutSent :: Bool
       , chainState :: ChainStateType tx
       , headId :: HeadId
-      , closedContestors :: [Plutus.PubKeyHash]
+      , closedContesters :: [Plutus.PubKeyHash]
       }
   deriving stock (Generic)
 
@@ -789,7 +789,7 @@ onOpenChainCloseTx
         , previousRecoverableState = headState
         , chainState = newChainState
         , headId
-        , closedContestors = []
+        , closedContesters = []
         }
     headIsClosed =
       HeadIsClosed

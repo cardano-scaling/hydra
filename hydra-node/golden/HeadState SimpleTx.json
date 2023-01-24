@@ -2072,7 +2072,7 @@
             "chainState": {
                 "slot": 19
             },
-            "closedContestors": [
+            "closedContesters": [
                 {
                     "keyHash": "2ab09d3271",
                     "tag": "PubKeyHash"

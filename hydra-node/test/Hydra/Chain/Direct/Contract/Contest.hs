@@ -68,7 +68,7 @@ healthyContestTx =
       , closedParties =
           healthyOnChainParties
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
-      , closedContestors = []
+      , closedContesters = []
       }
 
 healthyClosedHeadTxIn :: TxIn
@@ -109,7 +109,7 @@ healthyClosedState =
     , parties = healthyOnChainParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
     , headId = toPlutusCurrencySymbol testPolicyId
-    , contestors = []
+    , contesters = []
     }
 
 healthySlotNo :: SlotNo
@@ -173,7 +173,7 @@ data ContestMutation
     MutateHeadId
   | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenMintingOrBurning
-  | -- | Change the contestors list to test the head validators
+  | -- | Change the contesters list to test the head validators
     MutateContestors
   deriving (Generic, Show, Enum, Bounded)
 
@@ -240,7 +240,7 @@ genContestMutation
               , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
               , contestationDeadline = arbitrary `generateWith` 42
               , headId = toPlutusCurrencySymbol testPolicyId
-              , contestors = [contestor]
+              , contesters = [contestor]
               }
       ]
    where
@@ -258,7 +258,7 @@ genContestMutation
                 , parties = healthyOnChainParties
                 , contestationDeadline = arbitrary `generateWith` 42
                 , headId = toPlutusCurrencySymbol testPolicyId
-                , contestors = []
+                , contesters = []
                 }
           )
           headTxOut

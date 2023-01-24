@@ -81,8 +81,8 @@ headValidator oldState input ctx =
       checkAbort ctx headId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{signature}) ->
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId, contestors}, Contest{signature}) ->
-      checkContest ctx contestationDeadline parties closedSnapshotNumber signature contestors headId
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId, contesters}, Contest{signature}) ->
+      checkContest ctx contestationDeadline parties closedSnapshotNumber signature contesters headId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
     _ ->
@@ -351,7 +351,7 @@ checkContest ::
   -- | Head id
   CurrencySymbol ->
   Bool
-checkContest ctx contestationDeadline parties closedSnapshotNumber sig contestors headId =
+checkContest ctx contestationDeadline parties closedSnapshotNumber sig contesters headId =
   mustNotMintOrBurn txInfo
     && mustBeNewer
     && mustBeMultiSigned
@@ -402,7 +402,7 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contestor
     case txInfoSignatories txInfo of
       [signer] ->
         traceIfFalse "signer is not a participant" $
-          notElem signer contestors
+          notElem signer contesters
       [] ->
         traceError "no signers"
       _ ->
