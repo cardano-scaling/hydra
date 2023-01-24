@@ -271,6 +271,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
   checkSnapshot
     | closedSnapshotNumber == 0 =
       traceIfFalse "closed with non-initial hash" (closedUtxoHash == initialUtxoHash)
+        && traceIfFalse "incorrect contestation deadline for initial close" (closedContestationDeadline == (makeContestationDeadline cperiod ctx))
     | closedSnapshotNumber > 0 =
       traceIfFalse "invalid snapshot signature" (verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig)
         && traceIfFalse "incorrect closed contestation deadline" (closedContestationDeadline == (makeContestationDeadline cperiod ctx))

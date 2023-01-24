@@ -18,7 +18,7 @@ import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOH
 import Hydra.ContestationPeriod (fromChain)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Crypto (HydraKey, MultiSignature, toPlutusSignatures)
+import Hydra.Crypto (HydraKey)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
@@ -26,7 +26,7 @@ import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod, slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
@@ -124,9 +124,7 @@ healthyContestationDeadline =
     (slotNoToUTCTime healthySlotNo)
 
 data CloseMutation
-  = MutateSignatureButNotSnapshotNumber
-  | MutateSnapshotNumberButNotSignature
-  | MutateSnapshotToIllFormedValue
+  = MutateSnapshotNumberButNotSignature
   | MutateParties
   | MutateRequiredSigner
   | MutateCloseUTxOHash
@@ -139,9 +137,7 @@ data CloseMutation
 genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseInitialMutation (tx, _utxo) =
   oneof
-    [ SomeMutation Nothing MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-    , SomeMutation Nothing MutateSnapshotNumberButNotSignature . ChangeInputHeadDatum <$> do
+    [ SomeMutation Nothing MutateSnapshotNumberButNotSignature . ChangeInputHeadDatum <$> do
         -- FIXME: This is failing for the wrong reason, we would expect "invalid snapshot signature" here
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
         pure $
@@ -165,9 +161,9 @@ genCloseInitialMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation Nothing MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
-    , SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadline . ChangeOutput 0
+    , SomeMutation (Just "incorrect contestation deadline for initial close") MutateCloseContestationDeadline . ChangeOutput 0
         <$> (mutateClosedContestationDeadline =<< arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds))
-    , SomeMutation Nothing MutateCloseContestationDeadlineWithZero . ChangeOutput 0
+    , SomeMutation (Just "incorrect contestation deadline for initial close") MutateCloseContestationDeadlineWithZero . ChangeOutput 0
         <$> mutateClosedContestationDeadline 0
     , SomeMutation Nothing MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
