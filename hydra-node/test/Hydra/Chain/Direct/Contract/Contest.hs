@@ -183,7 +183,7 @@ genContestMutation
           mutatedSnapshotNumber <- choose (0, toInteger healthyClosedSnapshotNumber)
           pure $
             Changes
-              [ ChangeHeadDatum $
+              [ ChangeInputHeadDatum $
                   Head.Closed
                     { snapshotNumber = mutatedSnapshotNumber
                     , utxoHash = healthyClosedUTxOHash
@@ -203,7 +203,7 @@ genContestMutation
           pure $ ChangeRequiredSigners [newSigner]
       , SomeMutation Nothing MutateContestUTxOHash . ChangeOutput 0 <$> do
           mutateCloseUTxOHash
-      , SomeMutation Nothing MutateParties . ChangeHeadDatum <$> do
+      , SomeMutation Nothing MutateParties . ChangeInputHeadDatum <$> do
           mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
           pure $
             Head.Closed

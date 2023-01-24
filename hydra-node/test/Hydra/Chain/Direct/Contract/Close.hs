@@ -171,7 +171,8 @@ genCloseMutation (tx, _utxo) =
   oneof
     [ SomeMutation Nothing MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-    , SomeMutation Nothing MutateSnapshotNumberButNotSignature . ChangeHeadDatum <$> do
+    , SomeMutation Nothing MutateSnapshotNumberButNotSignature . ChangeInputHeadDatum <$> do
+        -- FIXME: This is failing for the wrong reason, we would expect "invalid snapshot signature" here
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
         pure $
           Head.Closed
@@ -187,7 +188,7 @@ genCloseMutation (tx, _utxo) =
               aggregate [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthySigningKeys]
         pure $
           Changes
-            [ ChangeHeadDatum $
+            [ ChangeInputHeadDatum $
                 Head.Closed
                   { snapshotNumber = mutatedSnapshotNumber
                   , utxoHash = healthyClosedUTxOHash
@@ -200,7 +201,7 @@ genCloseMutation (tx, _utxo) =
                   { signature = toPlutusSignatures mutatedSignature
                   }
             ]
-    , SomeMutation Nothing MutateParties . ChangeHeadDatum <$> do
+    , SomeMutation Nothing MutateParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $
           Head.Open

@@ -57,7 +57,7 @@
 -- @
 -- data Mutation
 --   = ChangeHeadRedeemer Head.Input
---   | ChangeHeadDatum Head.State
+--   | ChangeInputHeadDatum Head.State
 --   ...
 --   | Changes [Mutation]
 -- @
@@ -91,7 +91,7 @@
 --     , SomeMutation Nothing MutateOpenUtxoHash . ChangeOutput ...
 --     , SomeMutation Nothing MutateHeadTransition <$> do
 --         changeRedeemer <- ChangeHeadRedeemer <$> ...
---         changeDatum <- ChangeHeadDatum <$> ...
+--         changeDatum <- ChangeInputHeadDatum <$> ...
 --         pure $ Changes [changeRedeemer, changeDatum]
 --     ]
 -- @
@@ -248,10 +248,10 @@ deriving instance Show SomeMutation
 data Mutation
   = -- | Changes the 'Head' script's redeemer to the given value.
     ChangeHeadRedeemer Head.Input
-  | -- | Changes the 'Head' script's datum to the given value.
-    -- This modifies both the  'DatumHash' in the UTxO context and the
-    -- map of 'DatumHash' to 'Datum' in the transaction's witnesses.
-    ChangeHeadDatum Head.State
+  | -- | Changes the spent 'Head' script datum to the given value. This modifies
+    -- both the 'DatumHash' in the UTxO context and the map of 'DatumHash' to
+    -- 'Datum' in the transaction's witnesses.
+    ChangeInputHeadDatum Head.State
   | -- | Adds given output to the transaction's outputs.
     PrependOutput (TxOut CtxTx)
   | -- | Removes given output from the transaction's outputs.
@@ -309,7 +309,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         redeemers = alterRedeemers newHeadRedeemer scriptData
         body' = ShelleyTxBody ledgerBody scripts redeemers mAuxData scriptValidity
      in (Tx body' wits, utxo)
-  ChangeHeadDatum d' ->
+  ChangeInputHeadDatum d' ->
     let datum = mkTxOutDatum d'
         datumHash = mkTxOutDatumHash d'
         -- change the lookup UTXO
