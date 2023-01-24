@@ -57,6 +57,8 @@ changes.
   + Will make bumping dependencies (e.g. cardano-node) easier.
   + Build commands for binaries and docker images change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
 
+- Add script sizes to `hydra-node --script-info` and published transaction cost benchmarks.
+
 ## [0.8.1] - 2022-11-17
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
