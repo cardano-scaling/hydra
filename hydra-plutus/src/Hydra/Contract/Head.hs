@@ -263,9 +263,9 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
-  (closedSnapshotNumber, closedUtxoHash) =
+  (closedSnapshotNumber, closedUtxoHash, closedContestationDeadline) =
     case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
-      Just Closed{snapshotNumber, utxoHash} -> (snapshotNumber, utxoHash)
+      Just Closed{snapshotNumber, utxoHash, contestationDeadline} -> (snapshotNumber, utxoHash, contestationDeadline)
       _ -> traceError "wrong state in output datum"
 
   checkSnapshot
@@ -280,16 +280,8 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
               }
        in checkHeadOutputDatum ctx expectedOutputDatum
     | closedSnapshotNumber > 0 =
-      let expectedOutputDatum =
-            Closed
-              { parties
-              , snapshotNumber = closedSnapshotNumber
-              , utxoHash = closedUtxoHash
-              , contestationDeadline = makeContestationDeadline cperiod ctx
-              , headId = headPolicyId
-              }
-       in verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
-            && checkHeadOutputDatum ctx expectedOutputDatum
+      traceIfFalse "invalid snapshot signature" (verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig)
+        && traceIfFalse "incorrect closed contestation deadline" (closedContestationDeadline == (makeContestationDeadline cperiod ctx))
     | otherwise = traceError "negative snapshot number"
 
   cp = fromMilliSeconds (milliseconds cperiod)

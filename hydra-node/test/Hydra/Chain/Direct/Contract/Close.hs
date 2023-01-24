@@ -213,7 +213,7 @@ genCloseMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation Nothing MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
-    , SomeMutation Nothing MutateCloseContestationDeadline . ChangeOutput 0
+    , SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadline . ChangeOutput 0
         <$> (mutateClosedContestationDeadline =<< arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds))
     , SomeMutation Nothing MutateCloseContestationDeadlineWithZero . ChangeOutput 0 <$> mutateClosedContestationDeadline 0
     , SomeMutation Nothing MutateValidityInterval . ChangeValidityInterval <$> do
