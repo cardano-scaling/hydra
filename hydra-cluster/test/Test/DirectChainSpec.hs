@@ -131,7 +131,7 @@ spec = around showLogsOnFailure $ do
                 aliceChain `observesInTime` OnCommitTx alice aliceUTxO
                 bobChain `observesInTime` OnCommitTx alice aliceUTxO
 
-                postTx $ AbortTx mempty
+                postTx $ AbortTx aliceUTxO
 
                 aliceChain `observesInTime` OnAbortTx
                 bobChain `observesInTime` OnAbortTx
