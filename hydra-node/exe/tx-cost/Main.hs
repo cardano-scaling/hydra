@@ -2,7 +2,7 @@ import Hydra.Prelude hiding (catch)
 
 import Data.ByteString (hPut)
 import Data.Fixed (Centi)
-import Hydra.Cardano.Api (Lovelace (Lovelace))
+import Hydra.Cardano.Api (Lovelace (Lovelace), serialiseToRawBytesHexText)
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
 import Options.Applicative (
@@ -127,10 +127,10 @@ scriptSizes =
   [ "## Script summary"
   , ""
   , "| Name   | Hash | Size (Bytes) "
-  , "| :----- | ---: | -----------: "
-  , "| " <> "νInitial" <> " | " <> show initialScriptHash <> " | " <> show initialScriptSize <> " | "
-  , "| " <> "νCommit" <> " | " <> show commitScriptHash <> " | " <> show commitScriptSize <> " | "
-  , "| " <> "νHead" <> " | " <> show headScriptHash <> " | " <> show headScriptSize <> " | "
+  , "| :----- | :--- | -----------: "
+  , "| " <> "νInitial" <> " | " <> serialiseToRawBytesHexText initialScriptHash <> " | " <> show initialScriptSize <> " | "
+  , "| " <> "νCommit" <> " | " <> serialiseToRawBytesHexText commitScriptHash <> " | " <> show commitScriptSize <> " | "
+  , "| " <> "νHead" <> " | " <> serialiseToRawBytesHexText headScriptHash <> " | " <> show headScriptSize <> " | "
   ]
  where
   ScriptInfo
