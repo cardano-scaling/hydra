@@ -184,13 +184,7 @@ genContestMutation
           pure $
             Changes
               [ ChangeInputHeadDatum $
-                  Head.Closed
-                    { snapshotNumber = mutatedSnapshotNumber
-                    , utxoHash = healthyClosedUTxOHash
-                    , parties = healthyOnChainParties
-                    , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-                    , headId = toPlutusCurrencySymbol testPolicyId
-                    }
+                  healthyClosedState & updateSnapshotNumber mutatedSnapshotNumber
               , ChangeHeadRedeemer $
                   Head.Contest
                     { signature =
@@ -202,17 +196,15 @@ genContestMutation
           newSigner <- verificationKeyHash <$> genVerificationKey
           pure $ ChangeRequiredSigners [newSigner]
       , SomeMutation Nothing MutateContestUTxOHash . ChangeOutput 0 <$> do
-          mutateCloseUTxOHash
+          mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
+          pure $
+            changeHeadOutputDatum
+              (const $ healthyClosedState & updateUtxoHash (toBuiltin mutatedUTxOHash))
+              headTxOut
       , SomeMutation Nothing MutateParties . ChangeInputHeadDatum <$> do
           mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
           pure $
-            Head.Closed
-              { parties = mutatedParties
-              , utxoHash = healthyClosedUTxOHash
-              , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
-              , contestationDeadline = arbitrary `generateWith` 42
-              , headId = toPlutusCurrencySymbol testPolicyId
-              }
+            healthyClosedState & updateParties mutatedParties
       , SomeMutation Nothing MutateValidityPastDeadline . ChangeValidityInterval <$> do
           lb <- arbitrary
           ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
@@ -231,21 +223,38 @@ genContestMutation
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
 
-    mutateCloseUTxOHash :: Gen (TxOut CtxTx)
-    mutateCloseUTxOHash = do
-      mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
-      pure $
-        changeHeadOutputDatum
-          ( const $
-              Head.Closed
-                { snapshotNumber = fromIntegral healthyContestSnapshotNumber
-                , utxoHash = toBuiltin mutatedUTxOHash
-                , parties = healthyOnChainParties
-                , contestationDeadline = arbitrary `generateWith` 42
-                , headId = toPlutusCurrencySymbol testPolicyId
-                }
-          )
-          headTxOut
+    updateSnapshotNumber snapshotNumber = \case
+      Head.Closed{parties, utxoHash, contestationDeadline, headId} ->
+        Head.Closed
+          { Head.parties = parties
+          , Head.snapshotNumber = snapshotNumber
+          , Head.utxoHash = utxoHash
+          , Head.contestationDeadline = contestationDeadline
+          , Head.headId = headId
+          }
+      otherState -> otherState
+
+    updateParties parties = \case
+      Head.Closed{snapshotNumber, utxoHash, contestationDeadline, headId} ->
+        Head.Closed
+          { Head.parties = parties
+          , Head.snapshotNumber = snapshotNumber
+          , Head.utxoHash = utxoHash
+          , Head.contestationDeadline = contestationDeadline
+          , Head.headId = headId
+          }
+      otherState -> otherState
+
+    updateUtxoHash utxoHash = \case
+      Head.Closed{parties, snapshotNumber, contestationDeadline, headId} ->
+        Head.Closed
+          { Head.parties = parties
+          , Head.snapshotNumber = snapshotNumber
+          , Head.utxoHash = utxoHash
+          , Head.contestationDeadline = contestationDeadline
+          , Head.headId = headId
+          }
+      otherState -> otherState
 
     slotOverContestationDeadline slotNo =
       slotNoToUTCTime slotNo > healthyContestationDeadline
