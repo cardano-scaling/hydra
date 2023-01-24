@@ -259,6 +259,7 @@ test-suite tests
     Hydra.BehaviorSpec
     Hydra.Chain.Direct.Contract.Abort
     Hydra.Chain.Direct.Contract.Close
+    Hydra.Chain.Direct.Contract.CloseInitial
     Hydra.Chain.Direct.Contract.CollectCom
     Hydra.Chain.Direct.Contract.Commit
     Hydra.Chain.Direct.Contract.Contest
@@ -363,5 +364,5 @@ test-suite tests
     , websockets
     , yaml
 
-  build-tool-depends: hspec-discover:hspec-discover
+  build-tool-depends: hspec-discover:hspec-discover -any
   ghc-options:        -threaded -rtsopts

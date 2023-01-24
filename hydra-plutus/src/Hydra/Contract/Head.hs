@@ -270,15 +270,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   checkSnapshot
     | closedSnapshotNumber == 0 =
-      let expectedOutputDatum =
-            Closed
-              { parties
-              , snapshotNumber = 0
-              , utxoHash = initialUtxoHash
-              , contestationDeadline = makeContestationDeadline cperiod ctx
-              , headId = headPolicyId
-              }
-       in checkHeadOutputDatum ctx expectedOutputDatum
+      traceIfFalse "closed with non-initial hash" (closedUtxoHash == initialUtxoHash)
     | closedSnapshotNumber > 0 =
       traceIfFalse "invalid snapshot signature" (verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig)
         && traceIfFalse "incorrect closed contestation deadline" (closedContestationDeadline == (makeContestationDeadline cperiod ctx))
