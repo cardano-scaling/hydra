@@ -254,6 +254,7 @@ checkClose ::
   Bool
 checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
   hasBoundedValidity
+    && checkDeadline
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
     && hasST headPolicyId outValue
@@ -269,13 +270,12 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
       _ -> traceError "wrong state in output datum"
 
   checkSnapshot
-    | closedSnapshotNumber == 0 =
-      traceIfFalse "closed with non-initial hash" (closedUtxoHash == initialUtxoHash)
-        && traceIfFalse "incorrect contestation deadline for initial close" (closedContestationDeadline == (makeContestationDeadline cperiod ctx))
     | closedSnapshotNumber > 0 =
       traceIfFalse "invalid snapshot signature" (verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig)
-        && traceIfFalse "incorrect closed contestation deadline" (closedContestationDeadline == (makeContestationDeadline cperiod ctx))
-    | otherwise = traceError "negative snapshot number"
+    | otherwise =
+      traceIfFalse "closed with non-initial hash" (closedUtxoHash == initialUtxoHash)
+
+  checkDeadline = traceIfFalse "incorrect closed contestation deadline" (closedContestationDeadline == (makeContestationDeadline cperiod ctx))
 
   cp = fromMilliSeconds (milliseconds cperiod)
 
