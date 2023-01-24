@@ -190,8 +190,8 @@ computeAbortCost =
 
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 20]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 21]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 51]
   pure $ interesting <> limit
  where
   compute numElems = do
