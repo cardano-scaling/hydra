@@ -40,10 +40,11 @@ import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
+import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import Plutus.V2.Ledger.Api (BuiltinByteString, POSIXTime, toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof, suchThat)
+import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Instances ()
 
 --
@@ -220,6 +221,7 @@ data CloseMutation
   | MutateHeadId
   | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenMintingOrBurning
+  | MutateContestors
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -278,6 +280,7 @@ genCloseMutation (tx, _utxo) =
             ]
     , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
+    , SomeMutation Nothing MutateContestors . ChangeOutput 0 <$> mutateCloseContesters
     ]
  where
   genOversizedTransactionValidity = do
