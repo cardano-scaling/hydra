@@ -178,7 +178,7 @@ genCloseMutation (tx, _utxo) =
             { snapshotNumber = toInteger mutatedSnapshotNumber
             , utxoHash = Head.utxoHash healthyCloseDatum
             , parties = Head.parties healthyCloseDatum
-            , contestationDeadline = Head.contestationDeadline healthyCloseDatum
+            , contestationDeadline = posixFromUTCTime healthyContestationDeadline
             , headId = Head.headId healthyCloseDatum
             }
     , SomeMutation Nothing MutateSnapshotToIllFormedValue <$> do
