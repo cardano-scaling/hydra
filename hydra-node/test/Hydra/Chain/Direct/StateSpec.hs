@@ -395,9 +395,10 @@ forAllFanout action =
 
   prettyLength len
     | len > maxSupported = "> " <> show maxSupported <> " ???"
-    | len >= 50 = "50-" <> show maxSupported
-    | len >= 10 = "10-49"
-    | otherwise = "00-10"
+    | len >= 40 = "40-" <> show maxSupported
+    | len >= 10 = "10-40"
+    | len >= 1 = "1-10"
+    | otherwise = "0"
 
 --
 -- Generators
