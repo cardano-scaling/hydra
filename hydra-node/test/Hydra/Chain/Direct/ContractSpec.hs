@@ -20,8 +20,7 @@ import Hydra.Cardano.Api (
   toPlutusTxOut,
  )
 import Hydra.Chain.Direct.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
-import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
-import Hydra.Chain.Direct.Contract.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
+import Hydra.Chain.Direct.Contract.Close (genCloseInitialMutation, genCloseMutation, healthyCloseInitialTx, healthyCloseTx)
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx)

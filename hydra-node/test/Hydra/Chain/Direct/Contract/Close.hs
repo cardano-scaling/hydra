@@ -52,13 +52,55 @@ healthyCloseTx =
 
   lookupUTxO = UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
 
-  headDatum = fromPlutusData $ toData healthyOpenHeadState
+  headDatum = fromPlutusData $ toData healthyOpenHeadDatum
 
   openThreadOutput =
     OpenThreadOutput
       { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut, headDatum)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
+      }
+  healthyClosingSnapshot :: ClosingSnapshot
+  healthyClosingSnapshot =
+    CloseWithConfirmedSnapshot
+      { snapshotNumber = healthySnapshotNumber
+      , closeUtxoHash = UTxOHash $ hashUTxO @Tx healthyCloseUTxO
+      , signatures = healthySignature healthySnapshotNumber
+      }
+
+healthyCloseInitialTx :: (Tx, UTxO)
+healthyCloseInitialTx =
+  (tx, lookupUTxO)
+ where
+  tx =
+    closeTx
+      somePartyCardanoVerificationKey
+      healthyClosingSnapshot
+      startSlot
+      pointInTime
+      openThreadOutput
+      (mkHeadId Fixture.testPolicyId)
+
+  -- here we need to pass in contestation period when generating start/end tx validity slots/time
+  -- since if tx validity bound difference is bigger than contestation period our close validator
+  -- will fail
+  (startSlot, pointInTime) =
+    genValidityBoundsFromContestationPeriod (fromChain healthyContestationPeriod) `generateWith` 42
+
+  lookupUTxO = UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
+
+  headDatum = fromPlutusData $ toData healthyOpenHeadDatum
+
+  openThreadOutput =
+    OpenThreadOutput
+      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut, headDatum)
+      , openParties = healthyOnChainParties
+      , openContestationPeriod = healthyContestationPeriod
+      }
+  healthyClosingSnapshot :: ClosingSnapshot
+  healthyClosingSnapshot =
+    CloseWithInitialSnapshot
+      { openUtxoHash = UTxOHash $ hashUTxO @Tx healthyUTxO
       }
 
 -- NOTE: We need to use the contestation period when generating start/end tx
@@ -77,19 +119,11 @@ healthyOpenHeadTxOut =
   mkHeadOutput testNetworkId Fixture.testPolicyId headTxOutDatum
     & addParticipationTokens healthyParties
  where
-  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyOpenHeadState)
+  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyOpenHeadDatum)
 
 -- FIXME: This is not a healthy value anyhow related to the 'healthyCloseTx' above
 brokenSlotNo :: SlotNo
 brokenSlotNo = arbitrary `generateWith` 42
-
-healthyClosingSnapshot :: ClosingSnapshot
-healthyClosingSnapshot =
-  CloseWithConfirmedSnapshot
-    { snapshotNumber = healthySnapshotNumber
-    , closeUtxoHash = UTxOHash $ hashUTxO @Tx healthyCloseUTxO
-    , signatures = healthySignature healthySnapshotNumber
-    }
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
@@ -107,8 +141,8 @@ healthyCloseUTxO =
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotNumber = 1
 
-healthyOpenHeadState :: Head.State
-healthyOpenHeadState =
+healthyOpenHeadDatum :: Head.State
+healthyOpenHeadDatum =
   Head.Open
     { parties = healthyOnChainParties
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
@@ -256,7 +290,7 @@ genCloseMutation (tx, _utxo) =
             , ChangeInput
                 healthyOpenHeadTxIn
                 (replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyOpenHeadTxOut)
-                (Just $ toScriptData healthyOpenHeadState)
+                (Just $ toScriptData healthyOpenHeadDatum)
             ]
     ]
  where
@@ -294,5 +328,43 @@ genCloseMutation (tx, _utxo) =
             let closingTime = slotNoToUTCTime brokenSlotNo
              in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
         , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+        }
+    st -> error $ "unexpected state " <> show st
+
+data CloseInitialMutation
+  = MutateCloseContestationDeadline'
+  | MutateCloseContestationDeadlineWithZero'
+  deriving (Generic, Show, Enum, Bounded)
+
+-- TODO: THESE SHOULD ACTUALLY BE PART OF Close.hs in a generic enough way to
+-- not duplicate these mutations.
+genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
+genCloseInitialMutation (tx, _utxo) =
+  oneof
+    [ SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadline' . ChangeOutput 0
+        <$> (mutateClosedContestationDeadline =<< arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds))
+    , SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadlineWithZero' . ChangeOutput 0
+        <$> mutateClosedContestationDeadline 0
+    ]
+ where
+  headTxOut = fromJust $ txOuts' tx !!? 0
+
+  -- In case contestation period param is 'Nothing' we will generate arbitrary value
+  mutateClosedContestationDeadline :: Integer -> Gen (TxOut CtxTx)
+  mutateClosedContestationDeadline contestationPeriodSeconds = do
+    -- NOTE: we need to be sure the generated contestation period is large enough to have an impact on the on-chain
+    -- deadline computation, which means having a resolution of seconds instead of the default picoseconds
+    pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
+
+  mutateContestationDeadline contestationPeriod = \case
+    Head.Closed{snapshotNumber, utxoHash, parties, headId} ->
+      Head.Closed
+        { snapshotNumber
+        , utxoHash
+        , parties
+        , contestationDeadline =
+            let closingTime = slotNoToUTCTime brokenSlotNo
+             in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
+        , headId
         }
     st -> error $ "unexpected state " <> show st
