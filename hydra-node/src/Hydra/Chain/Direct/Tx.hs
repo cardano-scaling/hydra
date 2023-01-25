@@ -309,9 +309,9 @@ closeTx ::
   VerificationKey PaymentKey ->
   -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
-  -- | 'Tx' validity lower bound
+  -- | Lower validity slot number, usually a current or quite recent slot number.
   SlotNo ->
-  -- | Current slot and UTC time to compute the contestation deadline time.
+  -- | Upper validity slot and UTC time to compute the contestation deadline time.
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->

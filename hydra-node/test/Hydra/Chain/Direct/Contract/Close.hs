@@ -13,6 +13,7 @@ import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, replacePolicyIdWith)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
+import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (fromChain)
 import qualified Hydra.Contract.HeadState as Head
@@ -44,16 +45,10 @@ healthyCloseTx =
     closeTx
       somePartyCardanoVerificationKey
       healthyClosingSnapshot
-      startSlot
-      pointInTime
+      healthyCloseLowerBoundSlot
+      healthyCloseUpperBoundPointInTime
       openThreadOutput
       (mkHeadId Fixture.testPolicyId)
-
-  -- here we need to pass in contestation period when generating start/end tx validity slots/time
-  -- since if tx validity bound difference is bigger than contestation period our close validator
-  -- will fail
-  (startSlot, pointInTime) =
-    genValidityBoundsFromContestationPeriod (fromChain healthyContestationPeriod) `generateWith` 42
 
   lookupUTxO = UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
 
@@ -66,6 +61,14 @@ healthyCloseTx =
       , openContestationPeriod = healthyContestationPeriod
       }
 
+-- NOTE: We need to use the contestation period when generating start/end tx
+-- validity slots/time since if tx validity bound difference is bigger than
+-- contestation period our close validator will fail
+healthyCloseLowerBoundSlot :: SlotNo
+healthyCloseUpperBoundPointInTime :: PointInTime
+(healthyCloseLowerBoundSlot, healthyCloseUpperBoundPointInTime) =
+  genValidityBoundsFromContestationPeriod (fromChain healthyContestationPeriod) `generateWith` 42
+
 healthyOpenHeadTxIn :: TxIn
 healthyOpenHeadTxIn = generateWith arbitrary 42
 
@@ -77,8 +80,8 @@ healthyOpenHeadTxOut =
   headTxOutDatum = toUTxOContext (mkTxOutDatum healthyCloseDatum)
 
 -- FIXME: This is not a healthy value anyhow related to the 'healthyCloseTx' above
-healthySlotNo :: SlotNo
-healthySlotNo = arbitrary `generateWith` 42
+brokenSlotNo :: SlotNo
+brokenSlotNo = arbitrary `generateWith` 42
 
 healthyClosingSnapshot :: ClosingSnapshot
 healthyClosingSnapshot =
@@ -144,7 +147,7 @@ healthyContestationDeadline :: UTCTime
 healthyContestationDeadline =
   addUTCTime
     (fromInteger healthyContestationPeriodSeconds)
-    (slotNoToUTCTime healthySlotNo)
+    (snd healthyCloseUpperBoundPointInTime)
 
 healthyClosedUTxOHash :: BuiltinByteString
 healthyClosedUTxOHash =
@@ -156,7 +159,9 @@ healthyClosedUTxO =
 
 data CloseMutation
   = MutateSignatureButNotSnapshotNumber
-  | MutateSnapshotNumberButNotSignature
+  | -- | Change the resulting snapshot number, this should make the signature
+    -- invalid.
+    MutateSnapshotNumberButNotSignature
   | MutateSnapshotToIllFormedValue
   | MutateParties
   | MutateRequiredSigner
@@ -172,17 +177,17 @@ genCloseMutation (tx, _utxo) =
   oneof
     [ SomeMutation Nothing MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-    , SomeMutation Nothing MutateSnapshotNumberButNotSignature . ChangeInputHeadDatum <$> do
-        -- FIXME: This is failing for the wrong reason, we would expect "invalid snapshot signature" here
+    , SomeMutation (Just "invalid snapshot signature") MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
-        pure $
-          Head.Closed
-            { snapshotNumber = toInteger mutatedSnapshotNumber
-            , utxoHash = Head.utxoHash healthyCloseDatum
-            , parties = Head.parties healthyCloseDatum
-            , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-            , headId = Head.headId healthyCloseDatum
-            }
+        let newClosedState =
+              Head.Closed
+                { snapshotNumber = toInteger mutatedSnapshotNumber
+                , utxoHash = Head.utxoHash healthyCloseDatum
+                , parties = Head.parties healthyCloseDatum
+                , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+                , headId = Head.headId healthyCloseDatum
+                }
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (const newClosedState) headTxOut
     , SomeMutation Nothing MutateSnapshotToIllFormedValue <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
         let mutatedSignature =
@@ -220,7 +225,7 @@ genCloseMutation (tx, _utxo) =
     , SomeMutation Nothing MutateCloseContestationDeadlineWithZero . ChangeOutput 0 <$> mutateClosedContestationDeadline 0
     , SomeMutation Nothing MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
-        ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
+        ub <- arbitrary `suchThat` (/= TxValidityUpperBound brokenSlotNo)
         pure (lb, ub)
     , -- try to change a tx so that lower bound is higher than the upper bound
       SomeMutation Nothing MutateValidityInterval . ChangeValidityInterval <$> do
@@ -270,7 +275,7 @@ genCloseMutation (tx, _utxo) =
         , utxoHash
         , parties
         , contestationDeadline =
-            let closingTime = slotNoToUTCTime healthySlotNo
+            let closingTime = slotNoToUTCTime brokenSlotNo
              in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
         , headId = toPlutusCurrencySymbol Fixture.testPolicyId
         }

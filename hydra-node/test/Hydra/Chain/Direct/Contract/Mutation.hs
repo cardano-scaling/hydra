@@ -182,7 +182,6 @@ propMutation (tx, utxo) genMutation =
       & propTransactionDoesNotValidate expectedError
       & genericCoverTable [label]
       & checkCoverage
-      & counterexample ("Original transaction: " <> renderTxWithUTxO utxo tx)
 
 -- | A 'Property' checking some (transaction, UTxO) pair is invalid.
 propTransactionDoesNotValidate :: Maybe Text -> (Tx, UTxO) -> Property
