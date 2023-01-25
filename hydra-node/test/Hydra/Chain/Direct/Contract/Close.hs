@@ -52,7 +52,7 @@ healthyCloseTx =
 
   lookupUTxO = UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
 
-  headDatum = fromPlutusData $ toData healthyCloseDatum
+  headDatum = fromPlutusData $ toData healthyOpenHeadState
 
   openThreadOutput =
     OpenThreadOutput
@@ -77,7 +77,7 @@ healthyOpenHeadTxOut =
   mkHeadOutput testNetworkId Fixture.testPolicyId headTxOutDatum
     & addParticipationTokens healthyParties
  where
-  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyCloseDatum)
+  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyOpenHeadState)
 
 -- FIXME: This is not a healthy value anyhow related to the 'healthyCloseTx' above
 brokenSlotNo :: SlotNo
@@ -107,8 +107,8 @@ healthyCloseUTxO =
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotNumber = 1
 
-healthyCloseDatum :: Head.State
-healthyCloseDatum =
+healthyOpenHeadState :: Head.State
+healthyOpenHeadState =
   Head.Open
     { parties = healthyOnChainParties
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
@@ -162,6 +162,8 @@ data CloseMutation
   | -- | Change the resulting snapshot number, this should make the signature
     -- invalid.
     MutateSnapshotNumberButNotSignature
+  | -- | This test the case when we have a non-initial utxo hash but the snapshot number is 0
+    MutateSnapshotNumberToZero
   | MutateSnapshotToIllFormedValue
   | MutateParties
   | MutateRequiredSigner
@@ -177,17 +179,31 @@ genCloseMutation (tx, _utxo) =
   oneof
     [ SomeMutation Nothing MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+    , SomeMutation (Just "closed with non-initial hash") MutateSnapshotNumberToZero <$> do
+        let updateSnapshotNumber snapshotNumber = \case
+              Head.Closed{parties, utxoHash, contestationDeadline, headId} ->
+                Head.Closed
+                  { Head.parties = parties
+                  , Head.snapshotNumber = snapshotNumber
+                  , Head.utxoHash = utxoHash
+                  , Head.contestationDeadline = contestationDeadline
+                  , Head.headId = headId
+                  }
+              otherState -> otherState
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (updateSnapshotNumber 0) headTxOut
     , SomeMutation (Just "invalid snapshot signature") MutateSnapshotNumberButNotSignature <$> do
+        let updateSnapshotNumber snapshotNumber = \case
+              Head.Closed{parties, utxoHash, contestationDeadline, headId} ->
+                Head.Closed
+                  { Head.parties = parties
+                  , Head.snapshotNumber = snapshotNumber
+                  , Head.utxoHash = utxoHash
+                  , Head.contestationDeadline = contestationDeadline
+                  , Head.headId = headId
+                  }
+              otherState -> otherState
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
-        let newClosedState =
-              Head.Closed
-                { snapshotNumber = toInteger mutatedSnapshotNumber
-                , utxoHash = Head.utxoHash healthyCloseDatum
-                , parties = Head.parties healthyCloseDatum
-                , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-                , headId = Head.headId healthyCloseDatum
-                }
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (const newClosedState) headTxOut
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (updateSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , SomeMutation Nothing MutateSnapshotToIllFormedValue <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
         let mutatedSignature =
@@ -240,7 +256,7 @@ genCloseMutation (tx, _utxo) =
             , ChangeInput
                 healthyOpenHeadTxIn
                 (replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyOpenHeadTxOut)
-                (Just $ toScriptData healthyCloseDatum)
+                (Just $ toScriptData healthyOpenHeadState)
             ]
     ]
  where
