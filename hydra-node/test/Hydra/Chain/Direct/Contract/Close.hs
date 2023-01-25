@@ -271,8 +271,8 @@ genCloseMutation (tx, _utxo) =
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation Nothing MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
     , SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadline . ChangeOutput 0
-        <$> (mutateClosedContestationDeadline =<< arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds))
-    , SomeMutation Nothing MutateCloseContestationDeadlineWithZero . ChangeOutput 0 <$> mutateClosedContestationDeadline 0
+        <$> (mutateClosedContestationDeadline headTxOut =<< arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds))
+    , SomeMutation Nothing MutateCloseContestationDeadlineWithZero . ChangeOutput 0 <$> mutateClosedContestationDeadline headTxOut 0
     , SomeMutation Nothing MutateValidityInterval . ChangeValidityInterval <$> do
         lb <- arbitrary
         ub <- arbitrary `suchThat` (/= TxValidityUpperBound brokenSlotNo)
@@ -311,51 +311,31 @@ genCloseMutation (tx, _utxo) =
         , headId
         }
     st -> error $ "unexpected state " <> show st
-  -- In case contestation period param is 'Nothing' we will generate arbitrary value
-  mutateClosedContestationDeadline :: Integer -> Gen (TxOut CtxTx)
-  mutateClosedContestationDeadline contestationPeriodSeconds = do
-    -- NOTE: we need to be sure the generated contestation period is large enough to have an impact on the on-chain
-    -- deadline computation, which means having a resolution of seconds instead of the default picoseconds
-    pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
-
-  mutateContestationDeadline contestationPeriod = \case
-    Head.Closed{snapshotNumber, utxoHash, parties} ->
-      Head.Closed
-        { snapshotNumber
-        , utxoHash
-        , parties
-        , contestationDeadline =
-            let closingTime = slotNoToUTCTime brokenSlotNo
-             in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
-        , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-        }
-    st -> error $ "unexpected state " <> show st
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'
   | MutateCloseContestationDeadlineWithZero'
   deriving (Generic, Show, Enum, Bounded)
 
--- TODO: THESE SHOULD ACTUALLY BE PART OF Close.hs in a generic enough way to
--- not duplicate these mutations.
 genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseInitialMutation (tx, _utxo) =
   oneof
     [ SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadline' . ChangeOutput 0
-        <$> (mutateClosedContestationDeadline =<< arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds))
+        <$> (mutateClosedContestationDeadline headTxOut =<< arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds))
     , SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadlineWithZero' . ChangeOutput 0
-        <$> mutateClosedContestationDeadline 0
+        <$> mutateClosedContestationDeadline headTxOut 0
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
 
-  -- In case contestation period param is 'Nothing' we will generate arbitrary value
-  mutateClosedContestationDeadline :: Integer -> Gen (TxOut CtxTx)
-  mutateClosedContestationDeadline contestationPeriodSeconds = do
-    -- NOTE: we need to be sure the generated contestation period is large enough to have an impact on the on-chain
-    -- deadline computation, which means having a resolution of seconds instead of the default picoseconds
-    pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
-
+-- In case contestation period param is 'Nothing' we will generate arbitrary value
+--mutateClosedContestationDeadline :: TxOut CtxTx UTXO.Era -> Integer -> Gen (TxOut CtxTx)
+mutateClosedContestationDeadline :: TxOut CtxTx -> Integer -> Gen (TxOut CtxTx)
+mutateClosedContestationDeadline headTxOut contestationPeriodSeconds = do
+  -- NOTE: we need to be sure the generated contestation period is large enough to have an impact on the on-chain
+  -- deadline computation, which means having a resolution of seconds instead of the default picoseconds
+  pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
+ where
   mutateContestationDeadline contestationPeriod = \case
     Head.Closed{snapshotNumber, utxoHash, parties, headId} ->
       Head.Closed
