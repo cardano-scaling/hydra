@@ -177,7 +177,7 @@ data CloseMutation
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseMutation (tx, _utxo) =
   oneof
-    [ SomeMutation Nothing MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    [ SomeMutation (Just "invalid snapshot signature") MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
     , SomeMutation (Just "closed with non-initial hash") MutateSnapshotNumberToZero <$> do
         let updateSnapshotNumber snapshotNumber = \case

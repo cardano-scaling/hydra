@@ -63,6 +63,8 @@ healthyCloseInitialTx =
       , openContestationPeriod = healthyContestationPeriod
       }
 
+-- TODO: INLINE or throw away all thse healthy things when not used
+
 healthyOpenHeadTxIn :: TxIn
 healthyOpenHeadTxIn = generateWith arbitrary 42
 
@@ -82,9 +84,6 @@ healthyClosingSnapshot =
   CloseWithInitialSnapshot
     { openUtxoHash = UTxOHash $ hashUTxO @Tx healthyUTxO
     }
-
-healthySnapshotNumber :: SnapshotNumber
-healthySnapshotNumber = 1
 
 healthyOpenHeadDatum :: Head.State
 healthyOpenHeadDatum =
@@ -124,85 +123,23 @@ healthyContestationDeadline =
     (slotNoToUTCTime healthySlotNo)
 
 data CloseMutation
-  = MutateSnapshotNumberButNotSignature
-  | MutateParties
-  | MutateRequiredSigner
-  | MutateCloseUTxOHash
-  | MutateValidityInterval
-  | MutateCloseContestationDeadline
+  = MutateCloseContestationDeadline
   | MutateCloseContestationDeadlineWithZero
-  | MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
+-- TODO: THESE SHOULD ACTUALLY BE PART OF Close.hs in a generic enough way to
+-- not duplicate these mutations.
 genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseInitialMutation (tx, _utxo) =
   oneof
-    [ SomeMutation Nothing MutateSnapshotNumberButNotSignature . ChangeInputHeadDatum <$> do
-        -- FIXME: This is failing for the wrong reason, we would expect "invalid snapshot signature" here
-        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
-        pure $
-          Head.Closed
-            { snapshotNumber = toInteger mutatedSnapshotNumber
-            , utxoHash = Head.utxoHash healthyOpenHeadDatum
-            , parties = Head.parties healthyOpenHeadDatum
-            , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-            , headId = Head.headId healthyOpenHeadDatum
-            }
-    , SomeMutation Nothing MutateParties . ChangeInputHeadDatum <$> do
-        mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
-        pure $
-          Head.Open
-            { parties = mutatedParties
-            , utxoHash = ""
-            , contestationPeriod = healthyContestationPeriod
-            , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-            }
-    , SomeMutation Nothing MutateRequiredSigner <$> do
-        newSigner <- verificationKeyHash <$> genVerificationKey
-        pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation Nothing MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
-    , SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadline . ChangeOutput 0
+    [ SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadline . ChangeOutput 0
         <$> (mutateClosedContestationDeadline =<< arbitrary @Integer `suchThat` (/= healthyContestationPeriodSeconds))
     , SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadlineWithZero . ChangeOutput 0
         <$> mutateClosedContestationDeadline 0
-    , SomeMutation Nothing MutateValidityInterval . ChangeValidityInterval <$> do
-        lb <- arbitrary
-        ub <- arbitrary `suchThat` (/= TxValidityUpperBound healthySlotNo)
-        pure (lb, ub)
-    , -- try to change a tx so that lower bound is higher than the upper bound
-      SomeMutation Nothing MutateValidityInterval . ChangeValidityInterval <$> do
-        lb <- arbitrary
-        ub <- (lb -) <$> choose (0, lb)
-        pure (TxValidityLowerBound (SlotNo lb), TxValidityUpperBound (SlotNo ub))
-    , SomeMutation Nothing MutateHeadId <$> do
-        otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
-        pure $
-          Changes
-            [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId headTxOut)
-            , ChangeInput
-                healthyOpenHeadTxIn
-                (replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyOpenHeadTxOut)
-                (Just $ toScriptData healthyOpenHeadDatum)
-            ]
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
 
-  mutateCloseUTxOHash :: Gen (TxOut CtxTx)
-  mutateCloseUTxOHash = do
-    mutatedUTxOHash <- genHash
-    pure $ changeHeadOutputDatum (mutateHash mutatedUTxOHash) headTxOut
-
-  mutateHash mutatedUTxOHash = \case
-    Head.Closed{snapshotNumber, parties, contestationDeadline, headId} ->
-      Head.Closed
-        { snapshotNumber
-        , utxoHash = toBuiltin mutatedUTxOHash
-        , parties
-        , contestationDeadline
-        , headId
-        }
-    st -> error $ "unexpected state " <> show st
   -- In case contestation period param is 'Nothing' we will generate arbitrary value
   mutateClosedContestationDeadline :: Integer -> Gen (TxOut CtxTx)
   mutateClosedContestationDeadline contestationPeriodSeconds = do

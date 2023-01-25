@@ -259,7 +259,9 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && mustBeSignedByParticipant ctx headPolicyId
     && hasST headPolicyId outValue
  where
-  hasBoundedValidity = traceIfFalse "hasBoundedValidity check failed" $ tMax - tMin <= cp
+  hasBoundedValidity =
+    traceIfFalse "hasBoundedValidity check failed" $
+      tMax - tMin <= cp
 
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
@@ -271,11 +273,15 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
-      traceIfFalse "invalid snapshot signature" (verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig)
+      traceIfFalse "invalid snapshot signature" $
+        verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
     | otherwise =
-      traceIfFalse "closed with non-initial hash" (closedUtxoHash == initialUtxoHash)
+      traceIfFalse "closed with non-initial hash" $
+        closedUtxoHash == initialUtxoHash
 
-  checkDeadline = traceIfFalse "incorrect closed contestation deadline" (closedContestationDeadline == (makeContestationDeadline cperiod ctx))
+  checkDeadline =
+    traceIfFalse "incorrect closed contestation deadline" $
+      closedContestationDeadline == makeContestationDeadline cperiod ctx
 
   cp = fromMilliSeconds (milliseconds cperiod)
 
