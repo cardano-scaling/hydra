@@ -16,7 +16,10 @@ import Hydra.Chain.Direct.Contract.Mutation (
   addParticipationTokens,
   changeHeadOutputDatum,
   genHash,
+  replaceParties,
   replacePolicyIdWith,
+  replaceSnapshotNumber,
+  replaceUtxoHash,
  )
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
@@ -184,7 +187,7 @@ genContestMutation
           pure $
             Changes
               [ ChangeInputHeadDatum $
-                  healthyClosedState & updateSnapshotNumber mutatedSnapshotNumber
+                  healthyClosedState & replaceSnapshotNumber mutatedSnapshotNumber
               , ChangeHeadRedeemer $
                   Head.Contest
                     { signature =
@@ -199,12 +202,12 @@ genContestMutation
           mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
           pure $
             changeHeadOutputDatum
-              (const $ healthyClosedState & updateUtxoHash (toBuiltin mutatedUTxOHash))
+              (const $ healthyClosedState & replaceUtxoHash (toBuiltin mutatedUTxOHash))
               headTxOut
       , SomeMutation Nothing MutateParties . ChangeInputHeadDatum <$> do
           mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
           pure $
-            healthyClosedState & updateParties mutatedParties
+            healthyClosedState & replaceParties mutatedParties
       , SomeMutation Nothing MutateValidityPastDeadline . ChangeValidityInterval <$> do
           lb <- arbitrary
           ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
@@ -222,39 +225,6 @@ genContestMutation
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
-
-    updateSnapshotNumber snapshotNumber = \case
-      Head.Closed{parties, utxoHash, contestationDeadline, headId} ->
-        Head.Closed
-          { Head.parties = parties
-          , Head.snapshotNumber = snapshotNumber
-          , Head.utxoHash = utxoHash
-          , Head.contestationDeadline = contestationDeadline
-          , Head.headId = headId
-          }
-      otherState -> otherState
-
-    updateParties parties = \case
-      Head.Closed{snapshotNumber, utxoHash, contestationDeadline, headId} ->
-        Head.Closed
-          { Head.parties = parties
-          , Head.snapshotNumber = snapshotNumber
-          , Head.utxoHash = utxoHash
-          , Head.contestationDeadline = contestationDeadline
-          , Head.headId = headId
-          }
-      otherState -> otherState
-
-    updateUtxoHash utxoHash = \case
-      Head.Closed{parties, snapshotNumber, contestationDeadline, headId} ->
-        Head.Closed
-          { Head.parties = parties
-          , Head.snapshotNumber = snapshotNumber
-          , Head.utxoHash = utxoHash
-          , Head.contestationDeadline = contestationDeadline
-          , Head.headId = headId
-          }
-      otherState -> otherState
 
     slotOverContestationDeadline slotNo =
       slotNoToUTCTime slotNo > healthyContestationDeadline

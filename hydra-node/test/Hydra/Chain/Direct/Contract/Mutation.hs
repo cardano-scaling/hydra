@@ -146,12 +146,13 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
+import qualified Hydra.Data.Party as Data (Party)
 import Hydra.Ledger.Cardano (genKeyPair, genOutput, genVerificationKey, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (fromData, toData)
+import Plutus.V2.Ledger.Api (POSIXTime, fromData, toData)
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -619,3 +620,71 @@ replacePolicyIdWith originalPolicyId otherPolicyId output =
         (AssetId policyId t, q) | policyId == originalPolicyId -> (AssetId otherPolicyId t, q)
         v -> v
    in output{txOutValue = newValue}
+
+replaceSnapshotNumber :: Head.SnapshotNumber -> Head.State -> Head.State
+replaceSnapshotNumber snapshotNumber = \case
+  Head.Closed{parties, utxoHash, contestationDeadline, headId} ->
+    Head.Closed
+      { Head.parties = parties
+      , Head.snapshotNumber = snapshotNumber
+      , Head.utxoHash = utxoHash
+      , Head.contestationDeadline = contestationDeadline
+      , Head.headId = headId
+      }
+  otherState -> otherState
+
+replaceParties :: [Data.Party] -> Head.State -> Head.State
+replaceParties parties = \case
+  Head.Initial{contestationPeriod, headId} ->
+    Head.Initial
+      { Head.contestationPeriod = contestationPeriod
+      , Head.parties = parties
+      , Head.headId = headId
+      }
+  Head.Open{contestationPeriod, utxoHash, headId} ->
+    Head.Open
+      { Head.contestationPeriod = contestationPeriod
+      , Head.parties = parties
+      , Head.utxoHash = utxoHash
+      , Head.headId = headId
+      }
+  Head.Closed{snapshotNumber, utxoHash, contestationDeadline, headId} ->
+    Head.Closed
+      { Head.parties = parties
+      , Head.snapshotNumber = snapshotNumber
+      , Head.utxoHash = utxoHash
+      , Head.contestationDeadline = contestationDeadline
+      , Head.headId = headId
+      }
+  otherState -> otherState
+
+replaceUtxoHash :: Head.Hash -> Head.State -> Head.State
+replaceUtxoHash utxoHash = \case
+  Head.Open{contestationPeriod, parties, headId} ->
+    Head.Open
+      { Head.contestationPeriod = contestationPeriod
+      , Head.parties = parties
+      , Head.utxoHash = utxoHash
+      , Head.headId = headId
+      }
+  Head.Closed{parties, snapshotNumber, contestationDeadline, headId} ->
+    Head.Closed
+      { Head.parties = parties
+      , Head.snapshotNumber = snapshotNumber
+      , Head.utxoHash = utxoHash
+      , Head.contestationDeadline = contestationDeadline
+      , Head.headId = headId
+      }
+  otherState -> otherState
+
+replaceContestationDeadline :: POSIXTime -> Head.State -> Head.State
+replaceContestationDeadline contestationDeadline = \case
+  Head.Closed{snapshotNumber, utxoHash, parties, headId} ->
+    Head.Closed
+      { snapshotNumber
+      , utxoHash
+      , parties
+      , contestationDeadline
+      , headId
+      }
+  otherState -> otherState

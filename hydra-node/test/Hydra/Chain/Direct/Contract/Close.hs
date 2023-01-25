@@ -10,7 +10,7 @@ import Hydra.Prelude hiding (label)
 import Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize')
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, replacePolicyIdWith)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, replaceContestationDeadline, replacePolicyIdWith, replaceSnapshotNumber, replaceUtxoHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -214,30 +214,10 @@ genCloseMutation (tx, _utxo) =
     [ SomeMutation (Just "invalid snapshot signature") MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
     , SomeMutation (Just "closed with non-initial hash") MutateSnapshotNumberToZero <$> do
-        let updateSnapshotNumber snapshotNumber = \case
-              Head.Closed{parties, utxoHash, contestationDeadline, headId} ->
-                Head.Closed
-                  { Head.parties = parties
-                  , Head.snapshotNumber = snapshotNumber
-                  , Head.utxoHash = utxoHash
-                  , Head.contestationDeadline = contestationDeadline
-                  , Head.headId = headId
-                  }
-              otherState -> otherState
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (updateSnapshotNumber 0) headTxOut
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber 0) headTxOut
     , SomeMutation (Just "invalid snapshot signature") MutateSnapshotNumberButNotSignature <$> do
-        let updateSnapshotNumber snapshotNumber = \case
-              Head.Closed{parties, utxoHash, contestationDeadline, headId} ->
-                Head.Closed
-                  { Head.parties = parties
-                  , Head.snapshotNumber = snapshotNumber
-                  , Head.utxoHash = utxoHash
-                  , Head.contestationDeadline = contestationDeadline
-                  , Head.headId = headId
-                  }
-              otherState -> otherState
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (updateSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , SomeMutation Nothing MutateSnapshotToIllFormedValue <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
         let mutatedSignature =
@@ -245,6 +225,7 @@ genCloseMutation (tx, _utxo) =
         pure $
           Changes
             [ ChangeInputHeadDatum $
+                -- FIXME use replaceSnapshotNumber above
                 Head.Closed
                   { snapshotNumber = mutatedSnapshotNumber
                   , utxoHash = healthyClosedUTxOHash
@@ -299,18 +280,7 @@ genCloseMutation (tx, _utxo) =
   mutateCloseUTxOHash :: Gen (TxOut CtxTx)
   mutateCloseUTxOHash = do
     mutatedUTxOHash <- genHash
-    pure $ changeHeadOutputDatum (mutateHash mutatedUTxOHash) headTxOut
-
-  mutateHash mutatedUTxOHash = \case
-    Head.Closed{snapshotNumber, parties, contestationDeadline, headId} ->
-      Head.Closed
-        { snapshotNumber
-        , utxoHash = toBuiltin mutatedUTxOHash
-        , parties
-        , contestationDeadline
-        , headId
-        }
-    st -> error $ "unexpected state " <> show st
+    pure $ changeHeadOutputDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'
@@ -334,17 +304,6 @@ mutateClosedContestationDeadline :: TxOut CtxTx -> Integer -> Gen (TxOut CtxTx)
 mutateClosedContestationDeadline headTxOut contestationPeriodSeconds = do
   -- NOTE: we need to be sure the generated contestation period is large enough to have an impact on the on-chain
   -- deadline computation, which means having a resolution of seconds instead of the default picoseconds
-  pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
- where
-  mutateContestationDeadline contestationPeriod = \case
-    Head.Closed{snapshotNumber, utxoHash, parties, headId} ->
-      Head.Closed
-        { snapshotNumber
-        , utxoHash
-        , parties
-        , contestationDeadline =
-            let closingTime = slotNoToUTCTime brokenSlotNo
-             in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
-        , headId
-        }
-    st -> error $ "unexpected state " <> show st
+  let closingTime = slotNoToUTCTime brokenSlotNo
+  let contestationDeadline = posixFromUTCTime $ addUTCTime (fromInteger contestationPeriodSeconds) closingTime
+  pure $ changeHeadOutputDatum (replaceContestationDeadline contestationDeadline) headTxOut
