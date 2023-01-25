@@ -273,19 +273,19 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     | closedSnapshotNumber > 0 =
       traceIfFalse "invalid snapshot signature" (verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig)
     | otherwise =
-      traceIfFalse "non-initial hash" (closedUtxoHash == initialUtxoHash)
+      traceIfFalse "closed with non-initial hash" (closedUtxoHash == initialUtxoHash)
 
-  checkDeadline = traceIfFalse "invalid contest. deadline" (closedContestationDeadline == (makeContestationDeadline cperiod ctx))
+  checkDeadline = traceIfFalse "incorrect closed contestation deadline" (closedContestationDeadline == (makeContestationDeadline cperiod ctx))
 
   cp = fromMilliSeconds (milliseconds cperiod)
 
   tMax = case ivTo $ txInfoValidRange txInfo of
     UpperBound (Finite t) _ -> t
-    _InfiniteBound -> traceError "inf. upper bound"
+    _InfiniteBound -> traceError "infinite upper bound"
 
   tMin = case ivFrom $ txInfoValidRange txInfo of
     LowerBound (Finite t) _ -> t
-    _InfiniteBound -> traceError "inf. lower bound"
+    _InfiniteBound -> traceError "infinite lower bound"
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
