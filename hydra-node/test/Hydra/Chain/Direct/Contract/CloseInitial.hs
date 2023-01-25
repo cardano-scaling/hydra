@@ -11,13 +11,12 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, replacePolicyIdWith)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (fromChain)
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Crypto (HydraKey)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
@@ -26,11 +25,10 @@ import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod, slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
-import Hydra.Snapshot (SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof, suchThat)
+import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 healthyCloseInitialTx :: (Tx, UTxO)
@@ -148,7 +146,7 @@ genCloseInitialMutation (tx, _utxo) =
     pure $ changeHeadOutputDatum (mutateContestationDeadline contestationPeriodSeconds) headTxOut
 
   mutateContestationDeadline contestationPeriod = \case
-    Head.Closed{snapshotNumber, utxoHash, parties} ->
+    Head.Closed{snapshotNumber, utxoHash, parties, headId} ->
       Head.Closed
         { snapshotNumber
         , utxoHash
@@ -156,6 +154,6 @@ genCloseInitialMutation (tx, _utxo) =
         , contestationDeadline =
             let closingTime = slotNoToUTCTime healthySlotNo
              in posixFromUTCTime $ addUTCTime (fromInteger contestationPeriod) closingTime
-        , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+        , headId
         }
     st -> error $ "unexpected state " <> show st
