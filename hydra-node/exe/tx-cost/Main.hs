@@ -2,7 +2,8 @@ import Hydra.Prelude hiding (catch)
 
 import Data.ByteString (hPut)
 import Data.Fixed (Centi)
-import Hydra.Cardano.Api (Lovelace (Lovelace))
+import Hydra.Cardano.Api (Lovelace (Lovelace), serialiseToRawBytesHexText)
+import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
 import Options.Applicative (
   Parser,
@@ -83,6 +84,7 @@ writeTransactionCostMarkdown hdl = do
     encodeUtf8 $
       unlines $
         pageHeader
+          <> scriptSizes
           <> intersperse
             ""
             [ initC
@@ -119,6 +121,26 @@ pageHeader =
 {-# NOINLINE now #-}
 now :: UTCTime
 now = unsafePerformIO getCurrentTime
+
+scriptSizes :: [Text]
+scriptSizes =
+  [ "## Script summary"
+  , ""
+  , "| Name   | Hash | Size (Bytes) "
+  , "| :----- | :--- | -----------: "
+  , "| " <> "νInitial" <> " | " <> serialiseToRawBytesHexText initialScriptHash <> " | " <> show initialScriptSize <> " | "
+  , "| " <> "νCommit" <> " | " <> serialiseToRawBytesHexText commitScriptHash <> " | " <> show commitScriptSize <> " | "
+  , "| " <> "νHead" <> " | " <> serialiseToRawBytesHexText headScriptHash <> " | " <> show headScriptSize <> " | "
+  ]
+ where
+  ScriptInfo
+    { initialScriptHash
+    , initialScriptSize
+    , commitScriptHash
+    , commitScriptSize
+    , headScriptHash
+    , headScriptSize
+    } = scriptInfo
 
 costOfInit :: IO Text
 costOfInit = markdownInitCost <$> computeInitCost
