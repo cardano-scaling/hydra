@@ -8,6 +8,7 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)
 import PlutusTx.IsData
+import qualified PlutusTx.Prelude as PlutusTx
 import Test.QuickCheck (vector)
 
 -- | On-chain representation of a Hydra party.
@@ -21,7 +22,7 @@ import Test.QuickCheck (vector)
 -- always come from off-chain code via 'partyFromVerificationKeyBytes'.
 newtype Party = UnsafeParty {vkey :: BuiltinByteString}
   deriving stock (Eq, Generic)
-  deriving newtype (Show)
+  deriving newtype (Show, PlutusTx.Eq)
 
 instance Arbitrary Party where
   arbitrary = partyFromVerificationKeyBytes . BS.pack <$> vector 32
