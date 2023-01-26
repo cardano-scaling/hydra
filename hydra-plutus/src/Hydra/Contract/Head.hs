@@ -276,6 +276,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   (closedSnapshotNumber, closedUtxoHash, closedContestationDeadline) =
+    -- XXX: fromBuiltinData is super big (and also expensive?)
     case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
       Just Closed{snapshotNumber, utxoHash, contestationDeadline} -> (snapshotNumber, utxoHash, contestationDeadline)
       _ -> traceError "wrong state in output datum"
