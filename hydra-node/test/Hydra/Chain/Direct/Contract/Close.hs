@@ -18,12 +18,12 @@ import Hydra.ContestationPeriod (fromChain)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
-import Hydra.Data.ContestationPeriod (posixFromUTCTime)
+import Hydra.Data.ContestationPeriod (addContestationPeriod, posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
@@ -114,10 +114,6 @@ healthyOpenHeadTxOut =
  where
   headTxOutDatum = toUTxOContext (mkTxOutDatum healthyOpenHeadDatum)
 
--- FIXME: This is not a healthy value anyhow related to the 'healthyCloseTx' above
-brokenSlotNo :: SlotNo
-brokenSlotNo = arbitrary `generateWith` 42
-
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
   Snapshot
@@ -194,12 +190,12 @@ data CloseMutation
   | MutateParties
   | MutateRequiredSigner
   | MutateCloseUTxOHash
-  | -- | Changing the validity interval to not be bounded by contestation
-    -- period. See spec: 5.5, rule 5
+  | InfiniteLowerBound
+  | InfiniteUpperBound
+  | -- | See spec: 5.5 rule 4 -> contestationDeadline = upperBound + contestationPeriod
+    MutateContestationDeadline
+  | -- See spec: 5.5. rule 5 -> upperBound - lowerBound <= contestationPeriod
     MutateValidityInterval
-  | -- | Changing the deadline without chanigng the upper bound ensures they are
-    -- checked to correspond. See spec: 5.5, rule 4
-    MutateCloseContestationDeadline
   | MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
@@ -227,13 +223,22 @@ genCloseMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation Nothing MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
-    , SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadline <$> do
+    , SomeMutation (Just "incorrect closed contestation deadline") MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationDeadline mutatedDeadline) headTxOut
-    , SomeMutation Nothing MutateValidityInterval . ChangeValidityInterval <$> do
-        lb <- arbitrary
-        ub <- arbitrary `suchThat` (/= TxValidityUpperBound brokenSlotNo)
-        pure (lb, ub)
+    , SomeMutation (Just "infinite lower bound") InfiniteLowerBound . ChangeValidityLowerBound <$> do
+        pure TxValidityNoLowerBound
+    , SomeMutation (Just "infinite upper bound") InfiniteUpperBound . ChangeValidityUpperBound <$> do
+        pure TxValidityNoUpperBound
+    , SomeMutation (Just "hasBoundedValidity check failed") MutateValidityInterval <$> do
+        (lowerSlotNo, lowerUTCTime) <- genPointInTime
+        (upperSlotNo, upperUTCTime) <- genPointInTime `suchThat` ((> (addContestationPeriod (posixFromUTCTime lowerUTCTime) healthyContestationPeriod)) . posixFromUTCTime . snd)
+        let adjustedContestationDeadline = addContestationPeriod (posixFromUTCTime upperUTCTime) healthyContestationPeriod
+        pure $
+          Changes
+            [ ChangeValidityInterval (TxValidityLowerBound lowerSlotNo, TxValidityUpperBound upperSlotNo)
+            , ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationDeadline adjustedContestationDeadline) headTxOut
+            ]
     , SomeMutation Nothing MutateHeadId <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
         pure $
@@ -275,8 +280,8 @@ genMutatedDeadline = do
     , valuesAroundDeadline
     ]
  where
-  valuesAroundZero = arbitrary `suchThat` (/= dl)
+  valuesAroundZero = arbitrary `suchThat` (/= deadline)
 
-  valuesAroundDeadline = arbitrary `suchThat` (/= 0) <&> (+ dl)
+  valuesAroundDeadline = arbitrary `suchThat` (/= 0) <&> (+ deadline)
 
-  dl = posixFromUTCTime healthyContestationDeadline
+  deadline = posixFromUTCTime healthyContestationDeadline

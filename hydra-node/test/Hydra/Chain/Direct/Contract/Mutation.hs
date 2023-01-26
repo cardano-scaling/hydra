@@ -278,6 +278,8 @@ data Mutation
     ChangeRequiredSigners [Hash PaymentKey]
   | -- | Change the validity interval of the transaction.
     ChangeValidityInterval (TxValidityLowerBound, TxValidityUpperBound)
+  | ChangeValidityLowerBound TxValidityLowerBound
+  | ChangeValidityUpperBound TxValidityUpperBound
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
     -- change of more than one thing in the transaction and/or UTxO set, for
@@ -385,17 +387,30 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
       ledgerBody
         { Ledger.reqSignerHashes = Set.fromList (toLedgerKeyHash <$> newSigners)
         }
-  ChangeValidityInterval (lb, up) ->
+  ChangeValidityInterval (lowerBound, upperBound) ->
+    changeValidityInterval (Just lowerBound) (Just upperBound)
+  ChangeValidityLowerBound bound ->
+    changeValidityInterval (Just bound) Nothing
+  ChangeValidityUpperBound bound ->
+    changeValidityInterval Nothing (Just bound)
+  Changes mutations ->
+    foldr applyMutation (tx, utxo) mutations
+ where
+  changeValidityInterval lowerBound' upperBound' =
     (Tx body' wits, utxo)
    where
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
     body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
     ledgerBody' =
       ledgerBody
-        { Ledger.txvldt = toLedgerValidityInterval (lb, up)
+        { Ledger.txvldt =
+            toLedgerValidityInterval
+              ( fromMaybe lowerBound lowerBound'
+              , fromMaybe upperBound upperBound'
+              )
         }
-  Changes mutations ->
-    foldr applyMutation (tx, utxo) mutations
+    (lowerBound, upperBound) = fromLedgerValidityInterval ledgerValidityInterval
+    ledgerValidityInterval = Ledger.txvldt ledgerBody
 
 --
 -- Generators
