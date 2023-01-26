@@ -194,8 +194,11 @@ data CloseMutation
   | MutateParties
   | MutateRequiredSigner
   | MutateCloseUTxOHash
-  | MutateValidityInterval
-  | -- | Changing the deadline without chanigng the upper bound ensures they are checked to correspond.
+  | -- | Changing the validity interval to not be bounded by contestation
+    -- period. See spec: 5.5, rule 5
+    MutateValidityInterval
+  | -- | Changing the deadline without chanigng the upper bound ensures they are
+    -- checked to correspond. See spec: 5.5, rule 4
     MutateCloseContestationDeadline
   | MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
