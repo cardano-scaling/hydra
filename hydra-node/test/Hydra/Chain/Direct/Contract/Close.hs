@@ -8,7 +8,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
-import Cardano.Binary (serialize')
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, replaceContestationDeadline, replacePolicyIdWith, replaceSnapshotNumber, replaceUtxoHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
@@ -196,9 +195,8 @@ data CloseMutation
   | -- | Change the resulting snapshot number, this should make the signature
     -- invalid.
     MutateSnapshotNumberButNotSignature
-  | -- | This test the case when we have a non-initial utxo hash but the snapshot number is 0
-    MutateSnapshotNumberToZero
-  | MutateSnapshotToIllFormedValue
+  | -- | This test the case when we have a non-initial utxo hash but the snapshot number is less than or equal to 0
+    MutateSnapshotNumberToLessThanZero
   | MutateParties
   | MutateRequiredSigner
   | MutateCloseUTxOHash
@@ -213,31 +211,12 @@ genCloseMutation (tx, _utxo) =
   oneof
     [ SomeMutation (Just "invalid snapshot signature") MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-    , SomeMutation (Just "closed with non-initial hash") MutateSnapshotNumberToZero <$> do
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber 0) headTxOut
+    , SomeMutation (Just "closed with non-initial hash") MutateSnapshotNumberToLessThanZero <$> do
+        mutatedSnapshotNumber <- arbitrary `suchThat` (<= 0)
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
     , SomeMutation (Just "invalid snapshot signature") MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
-    , SomeMutation Nothing MutateSnapshotToIllFormedValue <$> do
-        mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
-        let mutatedSignature =
-              aggregate [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthySigningKeys]
-        pure $
-          Changes
-            [ ChangeInputHeadDatum $
-                -- FIXME use replaceSnapshotNumber above
-                Head.Closed
-                  { snapshotNumber = mutatedSnapshotNumber
-                  , utxoHash = healthyClosedUTxOHash
-                  , parties = healthyOnChainParties
-                  , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-                  , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-                  }
-            , ChangeHeadRedeemer $
-                Head.Close
-                  { signature = toPlutusSignatures mutatedSignature
-                  }
-            ]
     , SomeMutation Nothing MutateParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $
