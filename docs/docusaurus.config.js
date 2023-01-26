@@ -232,12 +232,12 @@ const config = {
                 to: "/docs/haskell_packages",
               },
               {
-                label: "Logbook",
-                to: "https://github.com/input-output-hk/hydra/wiki/Logbook",
+                label: "Monthly reports",
+                to: "/monthly",
               },
               {
-                label: "Input Output (Blog)",
-                to: "https://iohk.io/en/blog",
+                label: "Logbook",
+                to: "https://github.com/input-output-hk/hydra/wiki/Logbook",
               },
             ],
           },
