@@ -8,7 +8,7 @@ It would spin up a `cardano-node` as a network participant, synchronize the
 block chain and execute a single scenario (single party, full life cycle) using
 funds available to the `config/credentials/faucet.sk` on that network.
 
-The `hydra-cluster` requires `hydra-node` to be in scope. You could use a
+The `hydra-cluster` requires `hydra-node` and `cardano-node` to be in scope. You could use a
 special nix shell containing `hydra-node` and `hydra-cluster` executables:
 
 ```sh
@@ -28,6 +28,23 @@ Then, to run the smoke test against the official cardano testnet using a local
 ```sh
 hydra-cluster --preview --state-directory state-testnet
 ```
+
+## Local devnet
+
+It's possible to use `hydra-cluster` to run a local cardano devnet in the form of a single
+block producer with a faster production rate than normal. This is useful in situations where
+one wants to test Hydra-based DApps, eg. applications and services using Hydra.
+
+```sh
+HYDRA_CONFIG_DIR=hydra-cluster/config hydra-cluster --devnet --state-directory my-test
+```
+
+The `HYDRA_CONFIG_DIR` environment variable is used to control where the executable will look
+for its configuration files. By default those files are resolved usign the cabal package's
+data structure which is not always convenient.
+
+Adding ` --publish-hydra-scripts` argument will ensure Hydra validator scripts are published
+on the network and available as reference inputs for hydra-node.
 
 ## Test suite
 
