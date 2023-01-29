@@ -54,7 +54,8 @@ hydraClusterOptions =
         <> progDesc
           "Starts a local cluster of interconnected Hydra nodes \
           \talking to a configurable cardano network.\n\
-          \Right now, a cluster of size 1 is started and walks a \
-          \simple 1 party Hydra Head through its full life cycle."
+          \Right now, a cluster of size 1 is started and either walks a \
+          \simple 1 party Hydra Head through its full life cycle, or\
+          \just provides a running standalone cardano network."
         <> header "hydra-cluster - running hydra-node clusters"
     )
