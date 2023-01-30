@@ -40,7 +40,10 @@ import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
+<<<<<<< HEAD
 import qualified Plutus.V1.Ledger.Api as Plutus
+=======
+>>>>>>> b306ecada (Add mutation spec to check validator fails if the list of contesters is wrong in the output datum)
 import Plutus.V1.Ledger.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import Plutus.V2.Ledger.Api (BuiltinByteString, POSIXTime, toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
@@ -280,7 +283,7 @@ genCloseMutation (tx, _utxo) =
             ]
     , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-    , SomeMutation Nothing MutateContestors . ChangeOutput 0 <$> mutateCloseContesters
+    , SomeMutation Nothing MutateContesters . ChangeOutput 0 <$> mutateCloseContesters
     ]
  where
   genOversizedTransactionValidity = do

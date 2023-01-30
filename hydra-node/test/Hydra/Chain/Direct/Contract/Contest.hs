@@ -35,9 +35,10 @@ import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
+import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (elements, oneof, suchThat)
+import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -242,9 +243,29 @@ genContestMutation
               , headId = toPlutusCurrencySymbol testPolicyId
               , contesters = [contester]
               }
+      , SomeMutation Nothing MutateContesters . ChangeOutput 0 <$> mutateClosedContesters
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
+
+    mutateClosedContesters :: Gen (TxOut CtxTx)
+    mutateClosedContesters = do
+      n <- elements [0, 2]
+      hashes <- vectorOf n genHash
+      let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
+      pure $ changeHeadOutputDatum (mutateContesters mutatedContesters) headTxOut
+
+    mutateContesters mutatedContesters = \case
+      Head.Closed{snapshotNumber, parties, contestationDeadline, headId, utxoHash} ->
+        Head.Closed
+          { snapshotNumber
+          , utxoHash
+          , parties
+          , contestationDeadline
+          , headId
+          , contesters = mutatedContesters
+          }
+      st -> error $ "unexpected state " <> show st
 
     mutateCloseUTxOHash :: Gen (TxOut CtxTx)
     mutateCloseUTxOHash = do
