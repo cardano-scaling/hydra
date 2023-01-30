@@ -5,7 +5,7 @@ authors: ch1bo
 tags: [monthly]
 ---
 
-This report summarizes the work on Hydra since December 2022 and serves as
+This report summarizes the work on Hydra since December 2022. It serves as
 preparation for the monthly review meeting, where the teams update major project
 stakeholders on recent developments to gather their feedback on the proposed
 plan forward.
@@ -13,7 +13,7 @@ plan forward.
 ## Roadmap
 
 Looking at the [roadmap](https://github.com/orgs/input-output-hk/projects/21),
-just a few things to report this month:
+there are just a few things to report this month:
 
 - Regroomed [Create updated specification for coordinated head protocol
   #448](https://github.com/input-output-hk/hydra/issues/448) to :yellow_heart:,
@@ -33,17 +33,17 @@ changes, which needs a reflection of the latest objectives. </center></small>
 [Issues closed since last
 report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2022-12-23..2023-01-24)
 
-This month, the team worked on:
+This month, the team worked on the following:
   
-- **First write-up of Hydra spec online**. As mentioned previously, the team has
-  been aggregating the latest definitions of on- and off-chain semantics into a
-  new technical specification. The latest version can still be found [on
+- **First write-up of Hydra spec online**. The team has been aggregating the
+  latest definitions of on- and off-chain semantics into a new technical
+  specification. The latest version can still be found [on
   Overleaf](https://www.overleaf.com/project/6389ba5edbcf7a51fda1328f), before
   its integration into the core Hydra repository. Should you have feedback,
   please send it our way through one of the [communication
   channels](https://github.com/input-output-hk/hydra/blob/master/SUPPORT.md).
 
-- **Closed more gaps in the Head Contract**. The team addressed two more gaps in
+- **Closed more gaps in the Head Contract.** The team addressed two more gaps in
   the on-chain scripts based on discussions on the specification.
 
   + All validators are authenticated now and ensure contract continuity by
@@ -58,7 +58,7 @@ This month, the team worked on:
   item, lacking some rationale on certain requirements, so we intend to break
   this down into smaller pieces over the next days and weeks.
 
-- **Mutation test framework improvements**. While closing gaps in the contracts,
+- **Mutation test framework improvements.** While closing gaps in the contracts,
   the team realized that some of the [mutation
   tests](https://hydra.family/head-protocol/haddock/hydra-node/tests/Hydra-Chain-Direct-Contract-Mutation.html)
   were correctly tripping validators and making transactions invalid, but not
@@ -68,22 +68,22 @@ This month, the team worked on:
   of the failure by checking strings in the validator log.
   [#679](https://github.com/input-output-hk/hydra/pulls/679)
 
-- **Add `headId` in API and TUI to make it easier for identifying heads**. The
-  team added not only the unique `headId` to the appropriate server outputs and
-  the TUI [#678](https://github.com/input-output-hk/hydra/pull/678), but also
-  added sequence numbers and timestamps to produced outputs
-  [#618](https://github.com/input-output-hk/hydra/pull/618). This was asked for
-  by users and simplifies the process of integration with the hydra-node.
+- **Add `headId` in API and TUI.** The team not only added the unique `headId`
+  to the appropriate server outputs and the TUI
+  [#678](https://github.com/input-output-hk/hydra/pull/678), but also added
+  sequence numbers and timestamps to produced outputs
+  [#618](https://github.com/input-output-hk/hydra/pull/618). This feature was
+  asked for by users and simplifies identifying of heads and integration with
+  the hydra-node.
 
-- **Hydra explorer experiment**. Some of the team used the holiday season to
+- **Hydra explorer experiment.** Some of the team used the holiday season to
   conduct some experiments on summarizing Hydra Heads observed on a network.
-  This is only a quick hack, but already demonstrates the value of a Hydra
-  explorer as a tool to measure adoption by open heads on a given network.
-  Naturally, it would reuse code from the hydra-node and challenge the
-  architecture used in it for tracking multiple heads. Also, it will drive
-  discussion about the versioning of hydra-plutus and the possibility to track
-  multiple versions of the Hydra protocol on the chain (hashes/addresses change
-  in each version).
+  This quick hack already demonstrates the value of a Hydra explorer as a tool
+  to measure adoption by open heads on a given network. Naturally, it would
+  reuse code from the hydra-node and challenge the architecture used in it for
+  tracking multiple heads. Also, it will drive discussion about the versioning
+  of hydra-plutus and the possibility to track multiple versions of the Hydra
+  protocol on the chain (hashes/addresses change in each version).
   
 ![](./img/2023-01-explorer.png) <small><center> Hydra explorer first experiment
 UI </center></small>
@@ -92,14 +92,14 @@ UI </center></small>
 
 - **The Hydra for Voting project**, which got kicked off in December is picking
   up steam with deep dives into Catalyst voting and Hydra technology.
-  Discussions are currently held in various settings and we’re continuing to
-  develop a picture of what is achievable.
+  Discussions are currently held in various settings and the team is continuing
+  to develop a picture of what is achievable.
 
-- **Hydra for auctions litepaper**. IOG is partnering with MLabs on exploring
-  how Hydra can improve auction use cases. At this stage, the teams discussed
-  multiple approaches on how to structure the problem space with various Hydra
-  topologies and specific trade-offs. The full case study was published [on
-  Essential
+- **Hydra for auctions lite paper**. IOG is collaborating with MLabs on
+  exploring how Hydra can improve auction use cases. At this stage, the teams
+  discussed multiple approaches on structuring the problem space with various
+  Hydra topologies and specific trade-offs. The full case study was published
+  [on Essential
   Cardano](https://www.essentialcardano.io/article/implementing-auction-projects-using-hydra).
   The teams plan to upstream the findings back into the [use case
   section](https://hydra.family/head-protocol/use-cases/nft-auction/) on the
@@ -139,9 +139,9 @@ Voltaire:
   + **Next steps:**
     - Build a basic Hydra Head explorer to measure adoption
     - Benchmark off-chain performance (of a selected scenario)
-    - Demonstrate Hydra for Payments to potential users
-    - Support Hydra for Voting project
-    - Hydra for Auctions project exploring a delegated voucher auction
+    - Demonstrate Hydra for payments to potential users
+    - Support Hydra for voting project
+    - Hydra for auctions project exploring a delegated voucher auction
 
 - **Sustainable open-source-development**
   + **Why?** The team wants to scale Cardano in the long run. Hence this project
@@ -152,13 +152,13 @@ Voltaire:
   + **Next steps:**
     - Open up monthly reviews
     - Add tutorials to the website
-    - Publish and maintain a use case centric roadmap and feature map
+    - Publish and maintain a use-case-centric roadmap and feature map
 
 ## Conclusion
 
 This monthly review was the first public one with not only stakeholders from IOG
-and the CF, but also partners of the latest projects. This was the first step to
-a more open and transparent development process.
+and the CF, but also collaborators of the latest projects. This was the first
+step to a more open and transparent development process.
 
 The teams showed some classic demos – like the ‘hydraw’ application which has
 been running on the same Hydra Head for four weeks now – and some new
@@ -168,7 +168,7 @@ TUI.
 It was very interesting to bring various teams together to exchange ideas and
 thoughts on the individual roadmaps for the new year. The teams also shared the
 relevant themes and objectives of the Hydra project for 2023 (as also listed
-above) and will now make sure to reflect these steps into this concrete
+above). They will now make sure to reflect these steps into this concrete
 [roadmap](https://github.com/orgs/input-output-hk/projects/21) such that it will
 contain [marketable features](https://www.agilealliance.org/glossary/mmf/)
 bringing us closer to these goals.
