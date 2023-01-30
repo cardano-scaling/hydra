@@ -136,8 +136,8 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = d
     Left ErrScriptExecutionFailed{} ->
       throwIO
         ( PlutusValidationFailed
-            { plutusFailure = "TODO: extract this"
-            , plutusDebugInfo = "TODO: extract this or keep empty or defina new error type"
+            { plutusFailure = "" -- TODO: extract this
+            , plutusDebugInfo = "" -- TODO: extract this or keep empty or defina new error type
             } ::
             PostTxError Tx
         )
