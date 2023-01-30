@@ -38,7 +38,7 @@ participant which synchronizes the block chain and then executes a
 single scenario (single party, full life cycle) using funds available
 to the `config/credentials/faucet.sk` on that network. The Hydra nodes
 can reference pre-existing contracts living at some well-known
-transaction or can post a new transaction to use those contracts.z
+transaction or can post a new transaction to use those contracts.
 
 To run the smoke test against the official cardano testnet using a
 local `state-testnet` directory (to re-use the synchronized chain db):
