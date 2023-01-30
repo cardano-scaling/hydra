@@ -28,7 +28,7 @@ alias hydra-node=$(cabal exec which -- hydra-node)
 ```
 
 The `HYDRA_CONFIG_DIR` environment variable is used to control where the executable will look
-for its configuration files. By default those files are resolved usign the cabal package's
+for its configuration files. By default those files are resolved using the cabal package's
 data structure which is not always convenient.
 
 ## Smoke Testing
