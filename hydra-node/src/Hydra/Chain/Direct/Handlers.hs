@@ -133,6 +133,14 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = d
       throwIO (NoFuelUTXOFound :: PostTxError Tx)
     Left ErrNotEnoughFunds{} ->
       throwIO (NotEnoughFuel :: PostTxError Tx)
+    Left ErrScriptExecutionFailed{} ->
+      throwIO
+        ( PlutusValidationFailed
+            { plutusFailure = "TODO: extract this"
+            , plutusDebugInfo = "TODO: extract this or keep empty or defina new error type"
+            } ::
+            PostTxError Tx
+        )
     Left e ->
       throwIO
         ( InternalWalletError

@@ -341,6 +341,74 @@ spec = around showLogsOnFailure $ do
                     (removeTrailingNewline (encodeUtf8 hydraScriptsTxIdStr))
         failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
 
+  it "can only contest once" $ \tracer -> do
+    withTempDir "hydra-cluster" $ \tmp -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
+        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+        -- Alice setup
+        (aliceCardanoVk, _) <- keysFor Alice
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [] cperiod
+        aliceChainContext <- loadChainContext aliceChainConfig alice hydraScriptsTxId
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
+          \aliceChain@DirectChainTest{postTx} -> do
+            -- Scenario
+            someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
+
+            postTx $ InitTx $ HeadParameters cperiod [alice]
+            aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+
+            postTx $ CommitTx alice someUTxO
+            aliceChain `observesInTime` OnCommitTx alice someUTxO
+
+            postTx $ CollectComTx someUTxO
+            aliceChain `observesInTime` OnCollectComTx
+            -- Head is open with someUTxO
+
+            -- Alice close with the initial snapshot U0
+            postTx $ CloseTx InitialSnapshot{initialUTxO = someUTxO}
+            waitMatch aliceChain $ \case
+              Observation{observedTx = OnCloseTx{snapshotNumber}}
+                | snapshotNumber == 0 -> Just ()
+              _ -> Nothing
+
+            -- Alice contests with some snapshot U1 -> successful
+            let snapshot1 =
+                  Snapshot
+                    { number = 1
+                    , utxo = someUTxO
+                    , confirmed = []
+                    }
+            postTx . ContestTx $
+              ConfirmedSnapshot
+                { snapshot = snapshot1
+                , signatures = aggregate [sign aliceSk snapshot1]
+                }
+            aliceChain `observesInTime` OnContestTx{snapshotNumber = 1}
+
+            -- Alice contests with some snapshot U2 -> expect fail
+            let snapshot2 =
+                  Snapshot
+                    { number = 2
+                    , utxo = someUTxO
+                    , confirmed = []
+                    }
+            let contestAgain =
+                  postTx . ContestTx $
+                    ConfirmedSnapshot
+                      { snapshot = snapshot2
+                      , signatures = aggregate [sign aliceSk snapshot2]
+                      }
+            -- NOTE: We deliberately expect the transactino creation and
+            -- submission code of the Chain.Direct module to fail here because
+            -- the scripts don't validate. That is, the on-chain code prevented
+            -- this from happening and NOT any off-chain guard we added. Also
+            -- note, that we don't try to check whether it's failing for the
+            -- right reason here (see corresponding mutation test for this).
+            contestAgain `shouldThrow` \case
+              (PlutusValidationFailed{} :: PostTxError Tx) -> True
+              _ -> False
+
 data DirectChainTestLog
   = FromNode NodeLog
   | FromDirectChain Text DirectChainLog
