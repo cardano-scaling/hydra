@@ -21,7 +21,6 @@ flag hydra-development
 common project-config
   default-language:   Haskell2010
   default-extensions:
-    NoImplicitPrelude
     BangPatterns
     BinaryLiterals
     ConstraintKinds
@@ -142,7 +141,6 @@ library
     , cborg
     , containers
     , data-default
-    , hydra-prelude
     , ouroboros-network               ==0.1.0.1
     , plutus-ledger-api               ==1.0.0.0
     , QuickCheck

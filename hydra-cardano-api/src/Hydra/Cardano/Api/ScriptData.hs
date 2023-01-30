@@ -88,4 +88,4 @@ instance FromJSON ScriptData where
     text :: Text <- parseJSON v
     either fail (pure . fromPlutusData) $ do
       bytes <- Base16.decode (encodeUtf8 text)
-      left show $ deserialiseOrFail $ toLazy bytes
+      left show $ deserialiseOrFail $ fromStrict bytes

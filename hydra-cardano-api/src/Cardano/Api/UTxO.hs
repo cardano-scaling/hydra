@@ -8,13 +8,15 @@
 --   cardano-api in the first palce.
 module Cardano.Api.UTxO where
 
-import Hydra.Prelude
-
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
 import qualified Cardano.Api
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import Data.Set (Set)
+import Data.Map (Map)
+import Data.Text (Text)
+import Data.Coerce (coerce)
 
 type Era = BabbageEra
 

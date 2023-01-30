@@ -31,8 +31,6 @@ module Hydra.Cardano.Api (
   module X,
 ) where
 
-import Hydra.Prelude
-
 import Cardano.Api as X hiding (
   AddressInEra (..),
   AddressTypeInEra (..),
@@ -95,7 +93,7 @@ import Cardano.Api.UTxO (
 import Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,
-  StandardCrypto,
+  StandardCrypto, Map,
  )
 
 import Hydra.Cardano.Api.Address ()
@@ -143,6 +141,7 @@ import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.Tx as Ledger hiding (TxBody)
+import Data.ByteString.Short (ShortByteString)
 
 -- ** AddressInEra
 

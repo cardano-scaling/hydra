@@ -3,14 +3,15 @@
 -- With some minor modifications of also using encodeUtf8 in 'IsString' instance.
 module Hydra.Cardano.Api.UsingRawBytesHex where
 
-import Hydra.Cardano.Api.Prelude hiding (show)
+import Hydra.Cardano.Api.Prelude
 
 import Data.Aeson (FromJSONKey, ToJSONKey)
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString.Base16 as Base16
+import Data.String (IsString (..))
+import qualified Data.Text as Text
 import Data.Typeable (tyConName, typeRep, typeRepTyCon)
-import Text.Show (Show (..))
 
 -- | For use with @deriving via@, to provide instances for any\/all of 'Show',
 -- 'IsString', 'ToJSON', 'FromJSON', 'ToJSONKey', FromJSONKey' using a hex
@@ -25,7 +26,7 @@ instance SerialiseAsRawBytes a => Show (UsingRawBytesHex a) where
   show (UsingRawBytesHex x) = show (serialiseToRawBytesHex x)
 
 instance SerialiseAsRawBytes a => IsString (UsingRawBytesHex a) where
-  fromString = either (error . toText) id . deserialiseFromRawBytesBase16 . encodeUtf8
+  fromString = either error id . deserialiseFromRawBytesBase16 . encodeUtf8 . Text.pack
 
 instance SerialiseAsRawBytes a => ToJSON (UsingRawBytesHex a) where
   toJSON (UsingRawBytesHex x) = toJSON (serialiseToRawBytesHexText x)
@@ -62,4 +63,4 @@ unsafeDeserialiseFromRawBytesBase16 ::
   ByteString ->
   a
 unsafeDeserialiseFromRawBytesBase16 =
-  either (error . toText) (\(UsingRawBytesHex a) -> a) . deserialiseFromRawBytesBase16
+  either error (\(UsingRawBytesHex a) -> a) . deserialiseFromRawBytesBase16

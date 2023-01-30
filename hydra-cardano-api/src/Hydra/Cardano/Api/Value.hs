@@ -11,6 +11,7 @@ import Hydra.Cardano.Api.MultiAssetSupportedInEra (multiAssetSupportedInEra)
 import Plutus.V1.Ledger.Value (flattenValue)
 import Plutus.V2.Ledger.Api (CurrencySymbol, adaSymbol, adaToken, fromBuiltin, unCurrencySymbol, unTokenName)
 import qualified Plutus.V2.Ledger.Api as Plutus
+import Data.Word (Word64)
 
 -- * Extras
 

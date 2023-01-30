@@ -77,7 +77,7 @@ toLedgerTx = \case
                 , Ledger.txwitsBoot =
                     toLedgerBootstrapWitness vkWits
                 , Ledger.txscripts =
-                    fromList
+                    Map.fromList
                       [ ( Ledger.hashScript @(ShelleyLedgerEra Era) s
                         , s
                         )

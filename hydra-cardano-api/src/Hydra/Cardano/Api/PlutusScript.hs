@@ -8,6 +8,7 @@ import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Codec.Serialise (serialise)
 import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import qualified Plutus.V2.Ledger.Api as Plutus
+import Data.ByteString.Short (toShort)
 
 -- * Type Conversions
 
@@ -37,7 +38,7 @@ toLedgerScript (PlutusScriptSerialised bytes) =
 -- | Convert a plutus 'Script' into a cardano-api 'PlutusScript'
 fromPlutusScript :: Plutus.Script -> PlutusScript lang
 fromPlutusScript =
-  PlutusScriptSerialised . toShort . fromLazy . serialise
+  PlutusScriptSerialised . toShort . toStrict . serialise
 
 -- * Orphans
 
