@@ -174,7 +174,7 @@ data ContestMutation
   | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenMintingOrBurning
   | -- | Change the contesters list to test the head validators
-    MutateContestors
+    MutateContesters
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -240,7 +240,7 @@ genContestMutation
               , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
               , contestationDeadline = arbitrary `generateWith` 42
               , headId = toPlutusCurrencySymbol testPolicyId
-              , contesters = [contestor]
+              , contesters = [contester]
               }
       ]
    where

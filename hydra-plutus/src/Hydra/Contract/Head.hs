@@ -401,7 +401,7 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
   checkSignedParticipantContestOnlyOnce =
     case txInfoSignatories txInfo of
       [signer] ->
-        traceIfFalse "signer is not a participant" $
+        traceIfFalse "signer already contested" $
           notElem signer contesters
       [] ->
         traceError "no signers"

@@ -356,7 +356,7 @@ forAllContest action =
             & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
             & counterexample ("Contestation period: " <> show ctxContestationPeriod)
             & counterexample ("Close point: " <> show closePointInTime)
-            & counterexample ("Closed contesters: " <> show (getClosedContestors stClosed))
+            & counterexample ("Closed contesters: " <> show (getClosedContesters stClosed))
             & tabulate "Contestation period" (tabulateContestationPeriod ctxContestationPeriod)
             & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
  where
@@ -380,7 +380,7 @@ forAllContest action =
   oneMonth = oneDay * 30
   oneYear = oneDay * 365
 
-  getClosedContestors stClosed = closedContesters . closedThreadOutput $ stClosed
+  getClosedContesters stClosed = closedContesters . closedThreadOutput $ stClosed
 
 forAllFanout ::
   (Testable property) =>

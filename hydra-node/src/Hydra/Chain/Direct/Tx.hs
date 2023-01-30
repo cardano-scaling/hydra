@@ -412,7 +412,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-  contestor = toPlutusKeyHash (verificationKeyHash vk)
+  contester = toPlutusKeyHash (verificationKeyHash vk)
 
   headDatumAfter =
     mkTxOutDatum
@@ -422,7 +422,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         , parties = closedParties
         , contestationDeadline = closedContestationDeadline
         , headId = headIdToCurrencySymbol headId
-        , contesters = contestor : closedContesters
+        , contesters = contester : closedContesters
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
