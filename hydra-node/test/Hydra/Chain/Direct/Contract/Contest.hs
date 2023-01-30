@@ -231,8 +231,8 @@ genContestMutation
               ]
       , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
           <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-      , SomeMutation Nothing MutateContestors . ChangeInputHeadDatum <$> do
-          let contestor = toPlutusKeyHash (verificationKeyHash somePartyCardanoVerificationKey)
+      , SomeMutation (Just "signer already contested") MutateContesters . ChangeInputHeadDatum <$> do
+          let contester = toPlutusKeyHash (verificationKeyHash somePartyCardanoVerificationKey)
           pure $
             Head.Closed
               { parties = healthyOnChainParties
