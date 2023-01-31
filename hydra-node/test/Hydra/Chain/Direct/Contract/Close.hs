@@ -9,7 +9,7 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, replaceContestationDeadline, replacePolicyIdWith, replaceSnapshotNumber, replaceUtxoHash)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, replaceContestationDeadline, replaceHeadId, replaceParties, replacePolicyIdWith, replaceSnapshotNumber, replaceUtxoHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -195,6 +195,8 @@ data CloseMutation
   | MutateParties
   | MutateRequiredSigner
   | MutateCloseUTxOHash
+  | MutatePartiesInOutput
+  | MutateHeadIdInOutput
   | InfiniteLowerBound
   | InfiniteUpperBound
   | -- | See spec: 5.5 rule 4 -> contestationDeadline = upperBound + contestationPeriod
@@ -224,6 +226,12 @@ genCloseMutation (tx, _utxo) =
             , contestationPeriod = healthyContestationPeriod
             , headId = toPlutusCurrencySymbol Fixture.testPolicyId
             }
+    , SomeMutation (Just "changed parameters") MutatePartiesInOutput <$> do
+        mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceParties mutatedParties) headTxOut
+    , SomeMutation (Just "changed parameters") MutateHeadIdInOutput <$> do
+        otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId otherHeadId) headTxOut
     , SomeMutation Nothing MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]

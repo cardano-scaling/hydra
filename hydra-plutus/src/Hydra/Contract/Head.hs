@@ -267,6 +267,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
     && hasST headPolicyId outValue
+    && mustNotChangeParameters
  where
   hasBoundedValidity =
     traceIfFalse "hasBoundedValidity check failed" $
@@ -275,10 +276,17 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
-  (closedSnapshotNumber, closedUtxoHash, closedContestationDeadline) =
+  (closedSnapshotNumber, closedUtxoHash, parties', closedContestationDeadline, headId') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
     case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
-      Just Closed{snapshotNumber, utxoHash, contestationDeadline} -> (snapshotNumber, utxoHash, contestationDeadline)
+      Just
+        Closed
+          { snapshotNumber
+          , utxoHash
+          , parties = p
+          , contestationDeadline
+          , headId
+          } -> (snapshotNumber, utxoHash, p, contestationDeadline, headId)
       _ -> traceError "wrong state in output datum"
 
   checkSnapshot
@@ -302,6 +310,11 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
   tMin = case ivFrom $ txInfoValidRange txInfo of
     LowerBound (Finite t) _ -> t
     _InfiniteBound -> traceError "infinite lower bound"
+
+  mustNotChangeParameters =
+    traceIfFalse "changed parameters" $
+      headId' == headPolicyId
+        && parties' == parties
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}

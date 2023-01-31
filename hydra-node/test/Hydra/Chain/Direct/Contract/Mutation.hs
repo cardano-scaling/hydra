@@ -152,7 +152,7 @@ import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (POSIXTime, fromData, toData)
+import Plutus.V2.Ledger.Api (CurrencySymbol, POSIXTime, fromData, toData)
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -701,5 +701,30 @@ replaceContestationDeadline contestationDeadline = \case
       , parties
       , contestationDeadline
       , headId
+      }
+  otherState -> otherState
+
+replaceHeadId :: CurrencySymbol -> Head.State -> Head.State
+replaceHeadId headId = \case
+  Head.Initial{contestationPeriod, parties} ->
+    Head.Initial
+      { Head.contestationPeriod = contestationPeriod
+      , Head.parties = parties
+      , Head.headId = headId
+      }
+  Head.Open{contestationPeriod, utxoHash, parties} ->
+    Head.Open
+      { Head.contestationPeriod = contestationPeriod
+      , Head.parties = parties
+      , Head.utxoHash = utxoHash
+      , Head.headId = headId
+      }
+  Head.Closed{snapshotNumber, utxoHash, contestationDeadline, parties} ->
+    Head.Closed
+      { Head.parties = parties
+      , Head.snapshotNumber = snapshotNumber
+      , Head.utxoHash = utxoHash
+      , Head.contestationDeadline = contestationDeadline
+      , Head.headId = headId
       }
   otherState -> otherState
