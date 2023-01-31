@@ -6,16 +6,23 @@ module Plutus.Orphans where
 
 import Hydra.Prelude
 
+import Data.Aeson (object, withObject, (.:), (.=))
+import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Base16 as Base16
+import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   POSIXTime (..),
   TokenName,
   UpperBound (..),
   Value,
+  fromBuiltin,
+  getPubKeyHash,
+  toBuiltin,
   upperBound,
  )
 import qualified PlutusTx.AssocMap as AssocMap
-import PlutusTx.Prelude (BuiltinByteString, toBuiltin)
+import PlutusTx.Prelude (BuiltinByteString)
 import Test.QuickCheck.Instances.ByteString ()
 
 instance Arbitrary BuiltinByteString where
@@ -47,3 +54,24 @@ instance FromJSON POSIXTime where
 
 instance Arbitrary a => Arbitrary (UpperBound a) where
   arbitrary = upperBound <$> arbitrary
+
+instance ToJSON Plutus.PubKeyHash where
+  toJSON = \kh ->
+    object
+      [ "tag" .= Aeson.String "PubKeyHash"
+      , "keyHash" .= Aeson.String (decodeUtf8 $ Base16.encode $ fromBuiltin $ getPubKeyHash kh)
+      ]
+
+instance FromJSON Plutus.PubKeyHash where
+  parseJSON = withObject "PubKeyHash" $ \o -> do
+    tag <- o .: "tag"
+    case tag :: Text of
+      "PubKeyHash" -> do
+        hexText :: Text <- o .: "keyHash"
+        case Base16.decode $ encodeUtf8 hexText of
+          Left e -> fail e
+          Right bs -> pure $ Plutus.PubKeyHash (toBuiltin bs)
+      _ -> fail "Expected tag to be PubKeyHash"
+
+instance Arbitrary Plutus.PubKeyHash where
+  arbitrary = genericArbitrary

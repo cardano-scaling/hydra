@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | Types and functions revolving around a Hydra 'Party'. That is, a
 -- participant in a Hydra Head, which signs transactions or snapshots in the
 -- Hydra protocol.
@@ -7,16 +5,11 @@ module Hydra.Party where
 
 import Hydra.Prelude hiding (show)
 
-import Data.Aeson (ToJSONKey, object, withObject, (.:), (.=))
-import qualified Data.Aeson as Aeson
+import Data.Aeson (ToJSONKey)
 import Data.Aeson.Types (FromJSONKey)
-import qualified Data.ByteString.Base16 as Base16
 import Hydra.Cardano.Api (AsType (AsVerificationKey), SerialiseAsRawBytes (deserialiseFromRawBytes, serialiseToRawBytes), SigningKey, VerificationKey, getVerificationKey, verificationKeyHash)
 import Hydra.Crypto (AsType (AsHydraKey), HydraKey)
 import qualified Hydra.Data.Party as OnChain
-import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (fromBuiltin, getPubKeyHash, toBuiltin)
-import qualified Plutus.V1.Ledger.Api as Plutus
 
 -- | Identifies a party in a Hydra head by it's 'VerificationKey'.
 newtype Party = Party {vkey :: VerificationKey HydraKey}
@@ -58,26 +51,3 @@ partyFromChain =
   maybe (fail "partyFromChain got Nothing") (pure . Party)
     . deserialiseFromRawBytes (AsVerificationKey AsHydraKey)
     . OnChain.partyToVerficationKeyBytes
-
--- * Orphans
-
-instance ToJSON Plutus.PubKeyHash where
-  toJSON = \kh ->
-    object
-      [ "tag" .= Aeson.String "PubKeyHash"
-      , "keyHash" .= Aeson.String (decodeUtf8 $ Base16.encode $ fromBuiltin $ getPubKeyHash kh)
-      ]
-
-instance FromJSON Plutus.PubKeyHash where
-  parseJSON = withObject "PubKeyHash" $ \o -> do
-    tag <- o .: "tag"
-    case tag :: Text of
-      "PubKeyHash" -> do
-        hexText :: Text <- o .: "keyHash"
-        case Base16.decode $ encodeUtf8 hexText of
-          Left e -> fail e
-          Right bs -> pure $ Plutus.PubKeyHash (toBuiltin bs)
-      _ -> fail "Expected tag to be PubKeyHash"
-
-instance Arbitrary Plutus.PubKeyHash where
-  arbitrary = genericArbitrary
