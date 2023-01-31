@@ -36,6 +36,8 @@ import Test.QuickCheck.Instances ()
 -- CloseTx
 --
 
+-- | Healthy close transaction for the generic case were we close a head
+--   after one or more snapshot have been agreed upon between the members.
 healthyCloseTx :: (Tx, UTxO)
 healthyCloseTx =
   (tx, lookupUTxO)
@@ -67,6 +69,9 @@ healthyCloseTx =
       , signatures = healthySignature healthySnapshotNumber
       }
 
+-- | Healthy close transaction for the specific case were we close a head
+--   with the initial UtxO, that is, no snapshot have been agreed upon and
+--   signed by the head members yet.
 healthyCloseInitialTx :: (Tx, UTxO)
 healthyCloseInitialTx =
   (tx, lookupUTxO)
