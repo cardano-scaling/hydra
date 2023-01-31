@@ -283,7 +283,7 @@ genCloseMutation (tx, _utxo) =
             ]
     , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-    , SomeMutation Nothing MutateContesters . ChangeOutput 0 <$> mutateCloseContesters
+    , SomeMutation (Just "wrong datum hash") MutateContesters . ChangeOutput 0 <$> mutateClosedContesters
     ]
  where
   genOversizedTransactionValidity = do

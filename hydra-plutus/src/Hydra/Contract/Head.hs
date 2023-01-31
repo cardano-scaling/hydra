@@ -335,6 +335,9 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 --   * No other parameters have changed.
 --
 --   * The transaction is performed before the deadline.
+--   * Party can contest only once.
+--
+--   * The resulting closed state is consistent with the contested snapshot.
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
 --
