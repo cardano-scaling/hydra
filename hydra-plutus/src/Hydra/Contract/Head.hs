@@ -373,6 +373,7 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
         && headId' == headId
 
   (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', headId') =
+    -- XXX: fromBuiltinData is super big (and also expensive?)
     case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
       Just
         Closed
