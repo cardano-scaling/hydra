@@ -366,7 +366,6 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
     CloseWithInitialSnapshot{openUtxoHash} -> openUtxoHash
     CloseWithConfirmedSnapshot{closeUtxoHash} -> closeUtxoHash
 
-  -- FIXME the redeemer should be a maybe as it is useless in the initial close case
   signature = case closing of
     CloseWithInitialSnapshot{} -> mempty
     CloseWithConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
