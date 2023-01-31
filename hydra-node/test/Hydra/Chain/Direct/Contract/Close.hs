@@ -267,6 +267,12 @@ data CloseInitialMutation
   = MutateCloseContestationDeadline'
   deriving (Generic, Show, Enum, Bounded)
 
+-- | Mutations for the specific case of closing with the intial state.
+-- We should probably validate all the mutation to this initial state but at
+-- least we keep this regression test as we stumbled upon problems with the following case.
+-- The nice thing to do would probably to generate either "normal" healthy close or
+-- or initial healthy close and apply all the mutation to it but we did'nt manage to do that
+-- rightaway.
 genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseInitialMutation (tx, _utxo) =
   oneof
