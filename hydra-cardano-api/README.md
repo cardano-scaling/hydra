@@ -1,10 +1,20 @@
 # Hydra Cardano API
 
-A Haskell API for Cardano, tailored to the Hydra project. This package provides a wrapper around the cardano-ledger, cardano-api and plutus libraries with extra utilities and function commonly used across the Hydra project. 
+A Haskell API for Cardano, tailored to the Hydra project. This package provides
+a wrapper around the cardano-ledger, cardano-api and plutus libraries with extra
+utilities and function commonly used across the Hydra project.
 
-Some of those addition may be likely candidates for upstream change requests, but having this extra space gives us an opportunity to iterate faster and to unify not-always-consistent names / approches across the Cardano ecosystem.
+Some of those addition may be likely candidates for upstream change requests,
+but having this extra space gives us an opportunity to iterate faster and to
+unify not-always-consistent names / approches across the Cardano ecosystem.
 
-In addition, the top-level module `Hydra.Cardano.Api` does re-export only specialized types and constructors for all underlying types. Everything is indeed specialized to the latest era (e.g. Babbage) making the era type parameter redundant in most cases. This also removes the need for extra indirections or, for proxy-values witnessing era types as present in many `cardano-api` constructors. For example, a vanilla usage of the `cardano-api` would looks like the followings:
+In addition, the top-level module `Hydra.Cardano.Api` does re-export only
+specialized types and constructors for all underlying types. Everything is
+indeed specialized to the **latest era** (e.g. `Babbage`) and **latest plutus
+version** (e.g. `PlutusV2`) making the era type parameter redundant in most
+cases. This also removes the need for extra indirections or, for proxy-values
+witnessing era types as present in many `cardano-api` constructors. For example,
+a vanilla usage of the `cardano-api` would looks like the followings:
 
 ```hs
 changeOutput :: Address ShelleyAddr -> TxOut CtxUTxO BabbageEra
