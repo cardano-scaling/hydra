@@ -22,9 +22,13 @@ import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
 
 -- | Lookup a config file similar reading a file from disk.
+-- If the env variable `HYDRA_CONFIG_DIR` is set, filenames will be
+-- resolved relative to its value otherwise they will be looked up in the
+-- package's data path.
 readConfigFile :: FilePath -> IO ByteString
 readConfigFile source = do
-  filename <- Pkg.getDataFileName ("config" </> source)
+  filename <- lookupEnv "HYDRA_CONFIG_DIR" >>=
+    maybe (Pkg.getDataFileName ("config" </> source)) (pure . (</> source))
   BS.readFile filename
 
 -- | Get the "well-known" keys for given actor.

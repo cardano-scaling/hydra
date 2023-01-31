@@ -155,7 +155,7 @@ withCardanoNodeDevnet tracer stateDirectory action = do
       readConfigFile ("devnet" </> file)
         >>= writeFileBS destination
     setFileMode destination ownerReadMode
-    pure destination
+    pure file
 
   copyDevnetFiles args = do
     readConfigFile ("devnet" </> "cardano-node.json")

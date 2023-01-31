@@ -8,7 +8,7 @@ import Options.Applicative (Parser, eitherReader, flag', help, long, metavar, st
 import Options.Applicative.Builder (option)
 
 data Options = Options
-  { knownNetwork :: KnownNetwork
+  { knownNetwork :: Maybe KnownNetwork
   , stateDirectory :: Maybe FilePath
   , publishHydraScripts :: PublishOrReuse
   }
@@ -26,8 +26,20 @@ parseOptions =
     <*> parsePublishHydraScripts
  where
   parseKnownNetwork =
-    flag' Preview (long "preview" <> help "The preview testnet")
-      <|> flag' Preproduction (long "preprod" <> help "The pre-production testnet")
+    flag' (Just Preview) (long "preview" <> help "The preview testnet")
+      <|> flag' (Just Preproduction) (long "preprod" <> help "The pre-production testnet")
+      <|> flag'
+        Nothing
+        ( long "devnet"
+            <> help
+              ( toString $
+                  unlines
+                    [ "Run cardano-node over a devnet and stand-by. This is useful when one"
+                    , "wants to have a local devnet possibly primed with Hydra contracts and"
+                    , "use it for testing"
+                    ]
+              )
+        )
 
   parseStateDirectory =
     optional . strOption $

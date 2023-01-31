@@ -2,7 +2,7 @@ module Main where
 
 import Hydra.Prelude
 
-import CardanoNode (withCardanoNodeOnKnownNetwork)
+import CardanoNode (withCardanoNodeOnKnownNetwork, withCardanoNodeDevnet)
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), parseOptions)
@@ -20,9 +20,15 @@ run :: Options -> IO ()
 run options =
   withTracer (Verbose "hydra-cluster") $ \tracer -> do
     withStateDirectory $ \workDir ->
-      withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir knownNetwork $ \node -> do
-        publishOrReuseHydraScripts tracer node
-          >>= singlePartyHeadFullLifeCycle tracer workDir node
+      case knownNetwork of
+        Just network ->
+          withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir network $ \node -> do
+            publishOrReuseHydraScripts tracer node
+              >>= singlePartyHeadFullLifeCycle tracer workDir node
+        Nothing ->
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node -> do
+            publishOrReuseHydraScripts tracer node
+              >> forever (threadDelay 60) -- do nothing
  where
   Options{knownNetwork, stateDirectory, publishHydraScripts} = options
 
@@ -48,7 +54,8 @@ hydraClusterOptions =
         <> progDesc
           "Starts a local cluster of interconnected Hydra nodes \
           \talking to a configurable cardano network.\n\
-          \Right now, a cluster of size 1 is started and walks a \
-          \simple 1 party Hydra Head through its full life cycle."
+          \Right now, a cluster of size 1 is started and either walks a \
+          \simple 1 party Hydra Head through its full life cycle, or\
+          \just provides a running standalone cardano network."
         <> header "hydra-cluster - running hydra-node clusters"
     )

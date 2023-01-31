@@ -59,6 +59,8 @@ changes.
 
 - Add script sizes to `hydra-node --script-info` and published transaction cost benchmarks.
 
+-  `hydra-cluster` executable can be used to provide a local cardano "network" with `--devnet` argument
+
 ## [0.8.1] - 2022-11-17
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
