@@ -43,7 +43,7 @@ healthyCloseTx =
   tx =
     closeTx
       somePartyCardanoVerificationKey
-      healthyClosingSnapshot
+      closingSnapshot
       healthyCloseLowerBoundSlot
       healthyCloseUpperBoundPointInTime
       openThreadOutput
@@ -59,8 +59,8 @@ healthyCloseTx =
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }
-  healthyClosingSnapshot :: ClosingSnapshot
-  healthyClosingSnapshot =
+  closingSnapshot :: ClosingSnapshot
+  closingSnapshot =
     CloseWithConfirmedSnapshot
       { snapshotNumber = healthySnapshotNumber
       , closeUtxoHash = UTxOHash $ hashUTxO @Tx healthyCloseUTxO
@@ -74,7 +74,7 @@ healthyCloseInitialTx =
   tx =
     closeTx
       somePartyCardanoVerificationKey
-      healthyClosingSnapshot
+      closingSnapshot
       healthyCloseLowerBoundSlot
       healthyCloseUpperBoundPointInTime
       openThreadOutput
@@ -90,8 +90,8 @@ healthyCloseInitialTx =
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }
-  healthyClosingSnapshot :: ClosingSnapshot
-  healthyClosingSnapshot =
+  closingSnapshot :: ClosingSnapshot
+  closingSnapshot =
     CloseWithInitialSnapshot
       { openUtxoHash = UTxOHash $ hashUTxO @Tx healthyUTxO
       }
