@@ -801,7 +801,7 @@ data ContestObservation = ContestObservation
   { contestedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData)
   , headId :: HeadId
   , snapshotNumber :: SnapshotNumber
-  , closedContesters :: [Plutus.PubKeyHash]
+  , contesters :: [Plutus.PubKeyHash]
   }
   deriving (Show, Eq)
 
@@ -832,7 +832,7 @@ observeContestTx utxo tx = do
               )
           , headId
           , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
-          , closedContesters = contesters
+          , contesters
           }
     _ -> Nothing
  where

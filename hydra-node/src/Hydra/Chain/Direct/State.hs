@@ -623,10 +623,10 @@ observeContest ::
 observeContest st tx = do
   let utxo = getKnownUTxO st
   observation <- observeContestTx utxo tx
-  let ContestObservation{contestedThreadOutput, headId = contestObservationHeadId, snapshotNumber, closedContesters} = observation
+  let ContestObservation{contestedThreadOutput, headId = contestObservationHeadId, snapshotNumber, contesters} = observation
   guard (closedStateHeadId == contestObservationHeadId)
   let event = OnContestTx{snapshotNumber}
-  let st' = st{closedThreadOutput = closedThreadOutput{closedThreadUTxO = contestedThreadOutput, closedContesters}}
+  let st' = st{closedThreadOutput = closedThreadOutput{closedThreadUTxO = contestedThreadOutput, closedContesters = contesters}}
   pure (event, st')
  where
   ClosedState
