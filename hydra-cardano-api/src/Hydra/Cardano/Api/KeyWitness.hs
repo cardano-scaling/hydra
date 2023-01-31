@@ -37,7 +37,7 @@ toLedgerKeyWitness ::
   [KeyWitness era] ->
   Set (Ledger.WitVKey 'Ledger.Witness StandardCrypto)
 toLedgerKeyWitness vkWits =
-  fromList [w | ShelleyKeyWitness _ w <- vkWits]
+  Set.fromList [w | ShelleyKeyWitness _ w <- vkWits]
 
 -- | Convert a 'List' of cardano-api's 'KeyWitness' into a 'Set' of
 -- cardano-ledger's 'BootstrapWitness'.
@@ -47,7 +47,7 @@ toLedgerBootstrapWitness ::
   [KeyWitness era] ->
   Set (Ledger.BootstrapWitness StandardCrypto)
 toLedgerBootstrapWitness vkWits =
-  fromList [w | ShelleyBootstrapWitness _ w <- vkWits]
+  Set.fromList [w | ShelleyBootstrapWitness _ w <- vkWits]
 
 -- | Convert a cardano-ledger's 'TxWitness' object into a list of cardano-api's
 -- 'KeyWitness'.

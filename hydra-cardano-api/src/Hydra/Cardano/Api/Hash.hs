@@ -74,5 +74,5 @@ unsafeCastHash ::
 unsafeCastHash a =
   either
     (\e -> error $ "unsafeCastHash: incompatible hash: " <> show e)
-    identity
+    id
     (deserialiseFromCBOR (proxyToAsType Proxy) (serialiseToCBOR a))

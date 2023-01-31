@@ -21,6 +21,7 @@ import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupp
 import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
 import Plutus.V2.Ledger.Api (OutputDatum (..), fromBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
+import qualified Data.List as List
 
 -- * Extras
 
@@ -76,7 +77,7 @@ findTxOutByAddress ::
   Tx era ->
   Maybe (TxIn, TxOut CtxTx era)
 findTxOutByAddress address tx =
-  flip find indexedOutputs $ \(_, TxOut addr _ _ _) -> addr == address
+  flip List.find indexedOutputs $ \(_, TxOut addr _ _ _) -> addr == address
  where
   indexedOutputs = zip [mkTxIn tx ix | ix <- [0 ..]] (txOuts' tx)
 
@@ -87,7 +88,7 @@ findTxOutByScript ::
   PlutusScript lang ->
   Maybe (TxIn, TxOut CtxUTxO Era)
 findTxOutByScript utxo script =
-  find matchScript (UTxO.pairs utxo)
+  List.find matchScript (UTxO.pairs utxo)
  where
   version = plutusScriptVersion (proxyToAsType $ Proxy @lang)
   matchScript = \case

@@ -19,7 +19,7 @@ instance ToJSON (Address ByronAddr) where
 instance FromJSON (Address ByronAddr) where
   parseJSON =
     Aeson.withText "Address Byron" $
-      maybe empty pure . deserialiseAddress AsByronAddress
+      maybe mempty pure . deserialiseAddress AsByronAddress
 
 instance Arbitrary (Address ByronAddr) where
   arbitrary = do
