@@ -287,7 +287,7 @@ genCloseMutation (tx, _utxo) =
 
   mutateClosedContesters :: Gen (TxOut CtxTx)
   mutateClosedContesters = do
-    n <- elements [1, 3]
+    n <- arbitrary `suchThat` (> 0)
     hashes <- vectorOf n genHash
     let mutatedContesters = PubKeyHash . toBuiltin <$> hashes
     pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut
