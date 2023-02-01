@@ -18,18 +18,19 @@ import Hydra.ContestationPeriod (fromChain)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
-import Hydra.Data.ContestationPeriod (addContestationPeriod, posixFromUTCTime)
+import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTime, genValidityBoundsFromContestationPeriod)
+import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
+import Plutus.V1.Ledger.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import Plutus.V2.Ledger.Api (BuiltinByteString, POSIXTime, toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
+import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 --
@@ -201,7 +202,7 @@ data CloseMutation
   | InfiniteUpperBound
   | -- | See spec: 5.5 rule 4 -> contestationDeadline = upperBound + contestationPeriod
     MutateContestationDeadline
-  | -- See spec: 5.5. rule 5 -> upperBound - lowerBound <= contestationPeriod
+  | -- | See spec: 5.5. rule 5 -> upperBound - lowerBound <= contestationPeriod
     MutateValidityInterval
   | MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
@@ -244,9 +245,7 @@ genCloseMutation (tx, _utxo) =
     , SomeMutation (Just "infinite upper bound") InfiniteUpperBound . ChangeValidityUpperBound <$> do
         pure TxValidityNoUpperBound
     , SomeMutation (Just "hasBoundedValidity check failed") MutateValidityInterval <$> do
-        (lowerSlotNo, lowerUTCTime) <- genPointInTime
-        (upperSlotNo, upperUTCTime) <- genPointInTime `suchThat` ((> (addContestationPeriod (posixFromUTCTime lowerUTCTime) healthyContestationPeriod)) . posixFromUTCTime . snd)
-        let adjustedContestationDeadline = addContestationPeriod (posixFromUTCTime upperUTCTime) healthyContestationPeriod
+        (lowerSlotNo, upperSlotNo, adjustedContestationDeadline) <- genOversizedTransactionValidity
         pure $
           Changes
             [ ChangeValidityInterval (TxValidityLowerBound lowerSlotNo, TxValidityUpperBound upperSlotNo)
@@ -264,6 +263,14 @@ genCloseMutation (tx, _utxo) =
             ]
     ]
  where
+  genOversizedTransactionValidity = do
+    -- Implicit hypotheses: the slot length is and has always been 1 seconds so we can add slot with seconds
+    lowerValidityBound <- arbitrary :: Gen Word64
+    upperValidityBound <- choose (lowerValidityBound + fromIntegral healthyContestationPeriodSeconds, maxBound)
+    let adjustedContestationDeadline =
+          fromMilliSeconds . DiffMilliSeconds $ (healthyContestationPeriodSeconds + fromIntegral upperValidityBound) * 1000
+    pure (SlotNo lowerValidityBound, SlotNo upperValidityBound, adjustedContestationDeadline)
+
   headTxOut = fromJust $ txOuts' tx !!? 0
 
   mutateCloseUTxOHash :: Gen (TxOut CtxTx)
