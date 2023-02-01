@@ -177,7 +177,8 @@ checkCollectCom ::
   (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
-  mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
+  mustNotBurnTokens ctx headId
+    && mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
     && hasST headId outValue
