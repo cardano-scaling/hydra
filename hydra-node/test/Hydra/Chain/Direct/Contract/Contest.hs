@@ -15,6 +15,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   SomeMutation (..),
   addParticipationTokens,
   changeHeadOutputDatum,
+  changeMintedTokens,
   genHash,
   replaceParties,
   replacePolicyIdWith,
@@ -168,6 +169,8 @@ data ContestMutation
     MutateValidityPastDeadline
   | -- | Change the head policy id to test the head validators
     MutateHeadId
+  | -- | Burning of the tokens should not be possible in v_head a part from 'checkAbort'
+    MutateTokenBurning
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -222,6 +225,8 @@ genContestMutation
                   (replacePolicyIdWith testPolicyId otherHeadId healthyClosedHeadTxOut)
                   (Just $ toScriptData healthyClosedState)
               ]
+      , SomeMutation (Just "burning is forbidden") MutateTokenBurning
+          <$> changeMintedTokens tx (valueFromList [(AssetId testPolicyId "badTokenBurned", Quantity (-1))])
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
