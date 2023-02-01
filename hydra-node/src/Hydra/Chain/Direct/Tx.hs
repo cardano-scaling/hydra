@@ -819,7 +819,7 @@ observeContestTx utxo tx = do
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Closed{contestors}, Head.Contest{}) -> do
+    (Head.Closed{contesters}, Head.Contest{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
       let onChainSnapshotNumber = closedSnapshotNumber newHeadDatum

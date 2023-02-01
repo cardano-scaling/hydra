@@ -17,6 +17,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   addParticipationTokens,
   changeHeadOutputDatum,
   changeMintedTokens,
+  replaceContesters,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
@@ -233,56 +234,23 @@ genContestMutation
       , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
           <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
       , SomeMutation (Just "signer already contested") MutateContesters . ChangeInputHeadDatum <$> do
+          n <- elements [0, 2]
+          hashes <- vectorOf n genHash
           let contester = toPlutusKeyHash (verificationKeyHash somePartyCardanoVerificationKey)
+              contesters = Plutus.PubKeyHash . toBuiltin <$> hashes
           pure $
-            Head.Closed
-              { parties = healthyOnChainParties
-              , utxoHash = healthyClosedUTxOHash
-              , snapshotNumber = fromIntegral healthyClosedSnapshotNumber
-              , contestationDeadline = arbitrary `generateWith` 42
-              , headId = toPlutusCurrencySymbol testPolicyId
-              , contesters = [contester]
-              }
+            healthyClosedState & replaceContesters (contester : contesters)
       , SomeMutation Nothing MutateContesters . ChangeOutput 0 <$> mutateClosedContesters
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
+
+    slotOverContestationDeadline slotNo =
+      slotNoToUTCTime slotNo > healthyContestationDeadline
 
     mutateClosedContesters :: Gen (TxOut CtxTx)
     mutateClosedContesters = do
       n <- elements [0, 2]
       hashes <- vectorOf n genHash
       let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
-      pure $ changeHeadOutputDatum (mutateContesters mutatedContesters) headTxOut
-
-    mutateContesters mutatedContesters = \case
-      Head.Closed{snapshotNumber, parties, contestationDeadline, headId, utxoHash} ->
-        Head.Closed
-          { snapshotNumber
-          , utxoHash
-          , parties
-          , contestationDeadline
-          , headId
-          , contesters = mutatedContesters
-          }
-      st -> error $ "unexpected state " <> show st
-
-    mutateCloseUTxOHash :: Gen (TxOut CtxTx)
-    mutateCloseUTxOHash = do
-      mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
-      pure $
-        changeHeadOutputDatum
-          ( const $
-              Head.Closed
-                { snapshotNumber = fromIntegral healthyContestSnapshotNumber
-                , utxoHash = toBuiltin mutatedUTxOHash
-                , parties = healthyOnChainParties
-                , contestationDeadline = arbitrary `generateWith` 42
-                , headId = toPlutusCurrencySymbol testPolicyId
-                , contesters = []
-                }
-          )
-          headTxOut
-
-    slotOverContestationDeadline slotNo =
-      slotNoToUTCTime slotNo > healthyContestationDeadline
+      pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut

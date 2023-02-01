@@ -10,19 +10,7 @@ import Hydra.Prelude hiding (label)
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
-import Hydra.Chain.Direct.Contract.Mutation (
-  Mutation (..),
-  SomeMutation (..),
-  addParticipationTokens,
-  changeHeadOutputDatum,
-  changeMintedTokens,
-  replaceContestationDeadline,
-  replaceHeadId,
-  replaceParties,
-  replacePolicyIdWith,
-  replaceSnapshotNumber,
-  replaceUtxoHash,
- )
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, changeMintedTokens, replaceContestationDeadline, replaceContesters, replaceHeadId, replaceParties, replacePolicyIdWith, replaceSnapshotNumber, replaceUtxoHash)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -40,12 +28,8 @@ import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-<<<<<<< HEAD
-import qualified Plutus.V1.Ledger.Api as Plutus
-=======
->>>>>>> b306ecada (Add mutation spec to check validator fails if the list of contesters is wrong in the output datum)
 import Plutus.V1.Ledger.Time (DiffMilliSeconds (..), fromMilliSeconds)
-import Plutus.V2.Ledger.Api (BuiltinByteString, POSIXTime, toBuiltin, toData)
+import Plutus.V2.Ledger.Api (BuiltinByteString, POSIXTime, PubKeyHash (PubKeyHash), toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Instances ()
@@ -224,7 +208,7 @@ data CloseMutation
   | MutateHeadId
   | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenMintingOrBurning
-  | MutateContestors
+  | MutateContesters
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -283,7 +267,7 @@ genCloseMutation (tx, _utxo) =
             ]
     , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-    , SomeMutation (Just "wrong datum hash") MutateContesters . ChangeOutput 0 <$> mutateClosedContesters
+    , SomeMutation (Just "changed parameters") MutateContesters . ChangeOutput 0 <$> mutateClosedContesters
     ]
  where
   genOversizedTransactionValidity = do
@@ -300,6 +284,13 @@ genCloseMutation (tx, _utxo) =
   mutateCloseUTxOHash = do
     mutatedUTxOHash <- genHash
     pure $ changeHeadOutputDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
+
+  mutateClosedContesters :: Gen (TxOut CtxTx)
+  mutateClosedContesters = do
+    n <- elements [1, 3]
+    hashes <- vectorOf n genHash
+    let mutatedContesters = PubKeyHash . toBuiltin <$> hashes
+    pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'
