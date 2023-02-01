@@ -14,6 +14,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   changeHeadOutputDatum,
+  changeMintedTokens,
   genHash,
  )
 import Hydra.Chain.Direct.Fixture (
@@ -171,6 +172,7 @@ data CollectComMutation
     MutateNumberOfParties
   | MutateHeadId
   | MutateRequiredSigner
+  | MutateTokenBurning
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -212,6 +214,8 @@ genCollectComMutation (tx, _utxo) =
     , SomeMutation Nothing MutateCommitToInitial <$> do
         (txIn, HealthyCommit{cardanoKey}) <- elements $ Map.toList healthyCommits
         pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testPolicyId cardanoKey) Nothing
+    , SomeMutation (Just "burning is forbidden") MutateTokenBurning
+        <$> changeMintedTokens tx (valueFromList [(AssetId testPolicyId "badTokenBurned", Quantity (-1))])
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
