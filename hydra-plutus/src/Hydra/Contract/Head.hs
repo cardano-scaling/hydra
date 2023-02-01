@@ -343,8 +343,9 @@ checkContest ::
   -- | Head id
   CurrencySymbol ->
   Bool
-checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber sig headId =
-  mustBeNewer
+checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig headPolicyId =
+  mustNotBurnTokens ctx headPolicyId
+    && mustBeNewer
     && mustBeMultiSigned
     && mustNotChangeParameters
     && mustBeSignedByParticipant ctx headId
