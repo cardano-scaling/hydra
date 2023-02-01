@@ -20,7 +20,7 @@ import Hydra.Cardano.Api (
   toPlutusTxOut,
  )
 import Hydra.Chain.Direct.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
-import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
+import Hydra.Chain.Direct.Contract.Close (genCloseInitialMutation, genCloseMutation, healthyCloseInitialTx, healthyCloseTx)
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx)
@@ -114,6 +114,11 @@ spec = parallel $ do
       propTransactionValidates healthyCloseTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseTx genCloseMutation
+  describe "CloseInitial" $ do
+    prop "is healthy" $
+      propTransactionValidates healthyCloseInitialTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCloseInitialTx genCloseInitialMutation
   describe "Contest" $ do
     prop "is healthy" $
       propTransactionValidates healthyContestTx

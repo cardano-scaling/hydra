@@ -57,7 +57,7 @@
 -- @
 -- data Mutation
 --   = ChangeHeadRedeemer Head.Input
---   | ChangeHeadDatum Head.State
+--   | ChangeInputHeadDatum Head.State
 --   ...
 --   | Changes [Mutation]
 -- @
@@ -91,7 +91,7 @@
 --     , SomeMutation Nothing MutateOpenUtxoHash . ChangeOutput ...
 --     , SomeMutation Nothing MutateHeadTransition <$> do
 --         changeRedeemer <- ChangeHeadRedeemer <$> ...
---         changeDatum <- ChangeHeadDatum <$> ...
+--         changeDatum <- ChangeInputHeadDatum <$> ...
 --         pure $ Changes [changeRedeemer, changeDatum]
 --     ]
 -- @
@@ -146,12 +146,13 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
+import qualified Hydra.Data.Party as Data (Party)
 import Hydra.Ledger.Cardano (genKeyPair, genOutput, genVerificationKey, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (fromData, toData)
+import Plutus.V2.Ledger.Api (CurrencySymbol, POSIXTime, fromData, toData)
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -182,7 +183,6 @@ propMutation (tx, utxo) genMutation =
       & propTransactionDoesNotValidate expectedError
       & genericCoverTable [label]
       & checkCoverage
-      & counterexample ("Original transaction: " <> renderTxWithUTxO utxo tx)
 
 -- | A 'Property' checking some (transaction, UTxO) pair is invalid.
 propTransactionDoesNotValidate :: Maybe Text -> (Tx, UTxO) -> Property
@@ -248,10 +248,10 @@ deriving instance Show SomeMutation
 data Mutation
   = -- | Changes the 'Head' script's redeemer to the given value.
     ChangeHeadRedeemer Head.Input
-  | -- | Changes the 'Head' script's datum to the given value.
-    -- This modifies both the  'DatumHash' in the UTxO context and the
-    -- map of 'DatumHash' to 'Datum' in the transaction's witnesses.
-    ChangeHeadDatum Head.State
+  | -- | Changes the spent 'Head' script datum to the given value. This modifies
+    -- both the 'DatumHash' in the UTxO context and the map of 'DatumHash' to
+    -- 'Datum' in the transaction's witnesses.
+    ChangeInputHeadDatum Head.State
   | -- | Adds given output to the transaction's outputs.
     PrependOutput (TxOut CtxTx)
   | -- | Removes given output from the transaction's outputs.
@@ -278,6 +278,8 @@ data Mutation
     ChangeRequiredSigners [Hash PaymentKey]
   | -- | Change the validity interval of the transaction.
     ChangeValidityInterval (TxValidityLowerBound, TxValidityUpperBound)
+  | ChangeValidityLowerBound TxValidityLowerBound
+  | ChangeValidityUpperBound TxValidityUpperBound
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
     -- change of more than one thing in the transaction and/or UTxO set, for
@@ -309,7 +311,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         redeemers = alterRedeemers newHeadRedeemer scriptData
         body' = ShelleyTxBody ledgerBody scripts redeemers mAuxData scriptValidity
      in (Tx body' wits, utxo)
-  ChangeHeadDatum d' ->
+  ChangeInputHeadDatum d' ->
     let datum = mkTxOutDatum d'
         datumHash = mkTxOutDatumHash d'
         -- change the lookup UTXO
@@ -385,17 +387,30 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
       ledgerBody
         { Ledger.reqSignerHashes = Set.fromList (toLedgerKeyHash <$> newSigners)
         }
-  ChangeValidityInterval (lb, up) ->
+  ChangeValidityInterval (lowerBound, upperBound) ->
+    changeValidityInterval (Just lowerBound) (Just upperBound)
+  ChangeValidityLowerBound bound ->
+    changeValidityInterval (Just bound) Nothing
+  ChangeValidityUpperBound bound ->
+    changeValidityInterval Nothing (Just bound)
+  Changes mutations ->
+    foldr applyMutation (tx, utxo) mutations
+ where
+  changeValidityInterval lowerBound' upperBound' =
     (Tx body' wits, utxo)
    where
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
     body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
     ledgerBody' =
       ledgerBody
-        { Ledger.txvldt = toLedgerValidityInterval (lb, up)
+        { Ledger.txvldt =
+            toLedgerValidityInterval
+              ( fromMaybe lowerBound lowerBound'
+              , fromMaybe upperBound upperBound'
+              )
         }
-  Changes mutations ->
-    foldr applyMutation (tx, utxo) mutations
+    (lowerBound, upperBound) = fromLedgerValidityInterval ledgerValidityInterval
+    ledgerValidityInterval = Ledger.txvldt ledgerBody
 
 --
 -- Generators
@@ -620,3 +635,96 @@ replacePolicyIdWith originalPolicyId otherPolicyId output =
         (AssetId policyId t, q) | policyId == originalPolicyId -> (AssetId otherPolicyId t, q)
         v -> v
    in output{txOutValue = newValue}
+
+replaceSnapshotNumber :: Head.SnapshotNumber -> Head.State -> Head.State
+replaceSnapshotNumber snapshotNumber = \case
+  Head.Closed{parties, utxoHash, contestationDeadline, headId} ->
+    Head.Closed
+      { Head.parties = parties
+      , Head.snapshotNumber = snapshotNumber
+      , Head.utxoHash = utxoHash
+      , Head.contestationDeadline = contestationDeadline
+      , Head.headId = headId
+      }
+  otherState -> otherState
+
+replaceParties :: [Data.Party] -> Head.State -> Head.State
+replaceParties parties = \case
+  Head.Initial{contestationPeriod, headId} ->
+    Head.Initial
+      { Head.contestationPeriod = contestationPeriod
+      , Head.parties = parties
+      , Head.headId = headId
+      }
+  Head.Open{contestationPeriod, utxoHash, headId} ->
+    Head.Open
+      { Head.contestationPeriod = contestationPeriod
+      , Head.parties = parties
+      , Head.utxoHash = utxoHash
+      , Head.headId = headId
+      }
+  Head.Closed{snapshotNumber, utxoHash, contestationDeadline, headId} ->
+    Head.Closed
+      { Head.parties = parties
+      , Head.snapshotNumber = snapshotNumber
+      , Head.utxoHash = utxoHash
+      , Head.contestationDeadline = contestationDeadline
+      , Head.headId = headId
+      }
+  otherState -> otherState
+
+replaceUtxoHash :: Head.Hash -> Head.State -> Head.State
+replaceUtxoHash utxoHash = \case
+  Head.Open{contestationPeriod, parties, headId} ->
+    Head.Open
+      { Head.contestationPeriod = contestationPeriod
+      , Head.parties = parties
+      , Head.utxoHash = utxoHash
+      , Head.headId = headId
+      }
+  Head.Closed{parties, snapshotNumber, contestationDeadline, headId} ->
+    Head.Closed
+      { Head.parties = parties
+      , Head.snapshotNumber = snapshotNumber
+      , Head.utxoHash = utxoHash
+      , Head.contestationDeadline = contestationDeadline
+      , Head.headId = headId
+      }
+  otherState -> otherState
+
+replaceContestationDeadline :: POSIXTime -> Head.State -> Head.State
+replaceContestationDeadline contestationDeadline = \case
+  Head.Closed{snapshotNumber, utxoHash, parties, headId} ->
+    Head.Closed
+      { snapshotNumber
+      , utxoHash
+      , parties
+      , contestationDeadline
+      , headId
+      }
+  otherState -> otherState
+
+replaceHeadId :: CurrencySymbol -> Head.State -> Head.State
+replaceHeadId headId = \case
+  Head.Initial{contestationPeriod, parties} ->
+    Head.Initial
+      { Head.contestationPeriod = contestationPeriod
+      , Head.parties = parties
+      , Head.headId = headId
+      }
+  Head.Open{contestationPeriod, utxoHash, parties} ->
+    Head.Open
+      { Head.contestationPeriod = contestationPeriod
+      , Head.parties = parties
+      , Head.utxoHash = utxoHash
+      , Head.headId = headId
+      }
+  Head.Closed{snapshotNumber, utxoHash, contestationDeadline, parties} ->
+    Head.Closed
+      { Head.parties = parties
+      , Head.snapshotNumber = snapshotNumber
+      , Head.utxoHash = utxoHash
+      , Head.contestationDeadline = contestationDeadline
+      , Head.headId = headId
+      }
+  otherState -> otherState

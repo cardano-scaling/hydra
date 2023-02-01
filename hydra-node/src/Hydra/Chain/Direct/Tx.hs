@@ -309,9 +309,9 @@ closeTx ::
   VerificationKey PaymentKey ->
   -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
-  -- | 'Tx' validity lower bound
+  -- | Lower validity slot number, usually a current or quite recent slot number.
   SlotNo ->
-  -- | Current slot and UTC time to compute the contestation deadline time.
+  -- | Upper validity slot and UTC time to compute the contestation deadline time.
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
@@ -342,9 +342,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
   headRedeemer =
     toScriptData
       Head.Close
-        { snapshotNumber
-        , utxoHash = toBuiltin utxoHashBytes
-        , signature
+        { signature
         }
 
   headOutputAfter =
@@ -408,9 +406,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
   headRedeemer =
     toScriptData
       Head.Contest
-        { snapshotNumber = toInteger number
-        , signature = toPlutusSignatures sig
-        , utxoHash
+        { signature = toPlutusSignatures sig
         }
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
@@ -770,11 +766,11 @@ observeCloseTx utxo tx = do
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Open{parties}, Head.Close{snapshotNumber = onChainSnapshotNumber}) -> do
+    (Head.Open{parties}, Head.Close{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
-      closeContestationDeadline <- case fromData (toPlutusData newHeadDatum) of
-        Just Head.Closed{contestationDeadline} -> pure contestationDeadline
+      (closeContestationDeadline, onChainSnapshotNumber) <- case fromData (toPlutusData newHeadDatum) of
+        Just Head.Closed{contestationDeadline, snapshotNumber} -> pure (contestationDeadline, snapshotNumber)
         _ -> Nothing
       pure
         CloseObservation
@@ -816,9 +812,10 @@ observeContestTx utxo tx = do
   datum <- fromData $ toPlutusData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Closed{}, Head.Contest{snapshotNumber = onChainSnapshotNumber}) -> do
+    (Head.Closed{}, Head.Contest{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
+      let onChainSnapshotNumber = closedSnapshotNumber newHeadDatum
       pure
         ContestObservation
           { contestedThreadOutput =
@@ -832,6 +829,11 @@ observeContestTx utxo tx = do
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
+
+  closedSnapshotNumber headDatum =
+    case fromData $ toPlutusData headDatum of
+      Just Head.Closed{snapshotNumber} -> snapshotNumber
+      _ -> error "wrong state in output datum"
 
 data FanoutObservation = FanoutObservation
 

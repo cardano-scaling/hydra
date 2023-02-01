@@ -3,7 +3,18 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
-module Hydra.Contract.Head where
+module Hydra.Contract.Head (
+  DatumType,
+  RedeemerType,
+  headValidator,
+  hashPreSerializedCommits,
+  hashTxOuts,
+  verifyPartySignature,
+  verifySnapshotSignature,
+  compiledValidator,
+  validatorScript,
+  validatorHash,
+) where
 
 import PlutusTx.Prelude
 
@@ -14,6 +25,8 @@ import Hydra.Contract.Util (hasST)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import Plutus.V1.Ledger.Time (fromMilliSeconds)
+import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 import Plutus.V2.Ledger.Api (
   Address,
   CurrencySymbol,
@@ -41,15 +54,11 @@ import Plutus.V2.Ledger.Api (
   adaToken,
   mkValidatorScript,
  )
-import Plutus.V2.Ledger.Contexts (findDatum, findDatumHash, findOwnInput, getContinuingOutputs)
+import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput, getContinuingOutputs)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 import qualified PlutusTx.Builtins as Builtins
-
--- REVIEW: Functions not re-exported "as V2", but using the same data types.
-import Plutus.V1.Ledger.Time (fromMilliSeconds)
-import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 
 type DatumType = State
 type RedeemerType = Input
@@ -70,10 +79,10 @@ headValidator oldState input ctx =
       checkCollectCom ctx (contestationPeriod, parties, headId)
     (Initial{parties, headId}, Abort) ->
       checkAbort ctx headId parties
-    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{snapshotNumber, utxoHash = closedUtxoHash, signature}) ->
-      checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash signature contestationPeriod headId
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId}, Contest{snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, signature}) ->
-      checkContest ctx contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash signature headId
+    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{signature}) ->
+      checkClose ctx parties initialUtxoHash signature contestationPeriod headId
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId}, Contest{signature}) ->
+      checkContest ctx contestationDeadline parties closedSnapshotNumber signature headId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
     _ ->
@@ -233,13 +242,13 @@ commitDatum txInfo input = do
 {-# INLINEABLE commitDatum #-}
 
 -- | The close validator must verify that:
+--
 --   * Check that the closing tx validity is bounded by contestation period
---     Expressed in our spec as: `T_max <= T_min + CP`
 --
---   * The closing snapshot number and signature is correctly signed
+--   * Check that the deadline corresponds with tx validity and contestation period.
 --
---   * The resulting closed state is consistent with the open state or the
---     closing snapshot, depending on snapshot number
+--   * The resulting utxo hash is correctly signed or the initial utxo hash,
+--     depending on snapshot number
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
 --
@@ -248,46 +257,49 @@ checkClose ::
   ScriptContext ->
   [Party] ->
   BuiltinByteString ->
-  SnapshotNumber ->
-  BuiltinByteString ->
   [Signature] ->
   ContestationPeriod ->
   CurrencySymbol ->
   Bool
-checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod headPolicyId =
+checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
   hasBoundedValidity
+    && checkDeadline
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
     && hasST headPolicyId outValue
+    && mustNotChangeParameters
  where
-  hasBoundedValidity = traceIfFalse "hasBoundedValidity check failed" $ tMax - tMin <= cp
+  hasBoundedValidity =
+    traceIfFalse "hasBoundedValidity check failed" $
+      tMax - tMin <= cp
 
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
+  (closedSnapshotNumber, closedUtxoHash, parties', closedContestationDeadline, headId') =
+    -- XXX: fromBuiltinData is super big (and also expensive?)
+    case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
+      Just
+        Closed
+          { snapshotNumber
+          , utxoHash
+          , parties = p
+          , contestationDeadline
+          , headId
+          } -> (snapshotNumber, utxoHash, p, contestationDeadline, headId)
+      _ -> traceError "wrong state in output datum"
+
   checkSnapshot
-    | snapshotNumber == 0 =
-      let expectedOutputDatum =
-            Closed
-              { parties
-              , snapshotNumber = 0
-              , utxoHash = initialUtxoHash
-              , contestationDeadline = makeContestationDeadline cperiod ctx
-              , headId = headPolicyId
-              }
-       in checkHeadOutputDatum ctx expectedOutputDatum
-    | snapshotNumber > 0 =
-      let expectedOutputDatum =
-            Closed
-              { parties
-              , snapshotNumber
-              , utxoHash = closedUtxoHash
-              , contestationDeadline = makeContestationDeadline cperiod ctx
-              , headId = headPolicyId
-              }
-       in verifySnapshotSignature parties snapshotNumber closedUtxoHash sig
-            && checkHeadOutputDatum ctx expectedOutputDatum
-    | otherwise = traceError "negative snapshot number"
+    | closedSnapshotNumber > 0 =
+      traceIfFalse "invalid snapshot signature" $
+        verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
+    | otherwise =
+      traceIfFalse "closed with non-initial hash" $
+        closedUtxoHash == initialUtxoHash
+
+  checkDeadline =
+    traceIfFalse "incorrect closed contestation deadline" $
+      closedContestationDeadline == makeContestationDeadline cperiod ctx
 
   cp = fromMilliSeconds (milliseconds cperiod)
 
@@ -299,6 +311,11 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
     LowerBound (Finite t) _ -> t
     _InfiniteBound -> traceError "infinite lower bound"
 
+  mustNotChangeParameters =
+    traceIfFalse "changed parameters" $
+      headId' == headPolicyId
+        && parties' == parties
+
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
 
@@ -308,7 +325,9 @@ checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod
 --
 --   * The contest snapshot is correctly signed.
 --
---   * The resulting closed state is consistent with the contested snapshot.
+--   * No other parameters have changed.
+--
+--   * The transaction is performed before the deadline.
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
 --
@@ -318,29 +337,25 @@ checkContest ::
   POSIXTime ->
   [Party] ->
   -- | Snapshot number of the closed state.
-  -- XXX: Having two snapshot numbers here is FRAGILE
   SnapshotNumber ->
-  -- | Snapshot number of the contestin snapshot.
-  SnapshotNumber ->
-  BuiltinByteString ->
   [Signature] ->
   -- | Head id
   CurrencySymbol ->
   Bool
-checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig headPolicyId =
+checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber sig headId =
   mustBeNewer
     && mustBeMultiSigned
-    && checkHeadOutputDatum
-      ctx
-      (Closed{parties, snapshotNumber = contestSnapshotNumber, utxoHash = contestUtxoHash, contestationDeadline, headId = headPolicyId})
-    && mustBeSignedByParticipant ctx headPolicyId
+    && mustNotChangeParameters
+    && mustBeSignedByParticipant ctx headId
     && mustBeWithinContestationPeriod
-    && hasST headPolicyId outValue
+    && hasST headId outValue
  where
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
   mustBeNewer =
-    traceIfFalse "too old snapshot" $ contestSnapshotNumber > closedSnapshotNumber
+    traceIfFalse "too old snapshot" $
+      contestSnapshotNumber > closedSnapshotNumber
 
   mustBeMultiSigned =
     verifySnapshotSignature parties contestSnapshotNumber contestUtxoHash sig
@@ -350,6 +365,25 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
       UpperBound (Finite time) _ ->
         traceIfFalse "upper bound beyond contestation deadline" $ time <= contestationDeadline
       _ -> traceError "contest: no upper bound defined"
+
+  mustNotChangeParameters =
+    traceIfFalse "changed parameters" $
+      parties' == parties
+        && contestationDeadline' == contestationDeadline
+        && headId' == headId
+
+  (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', headId') =
+    -- XXX: fromBuiltinData is super big (and also expensive?)
+    case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
+      Just
+        Closed
+          { snapshotNumber
+          , utxoHash
+          , parties = p
+          , contestationDeadline = dl
+          , headId = hid
+          } -> (snapshotNumber, utxoHash, p, dl, hid)
+      _ -> traceError "wrong state in output datum"
 {-# INLINEABLE checkContest #-}
 
 checkFanout ::
@@ -379,32 +413,6 @@ checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{sc
 (&) :: a -> (a -> b) -> b
 (&) = flip ($)
 {-# INLINEABLE (&) #-}
-
--- | Check that the output datum of this script corresponds to an expected
--- value. Takes care of resolving datum hashes and inline datums.
-checkHeadOutputDatum :: ToData a => ScriptContext -> a -> Bool
-checkHeadOutputDatum ctx d =
-  case ownDatum of
-    NoOutputDatum ->
-      traceError "missing datum"
-    OutputDatumHash actualHash ->
-      traceIfFalse "wrong datum hash" $
-        Just actualHash == expectedHash
-    OutputDatum actual ->
-      traceIfFalse "output datum mismatch" $
-        getDatum actual == expectedData
- where
-  expectedData = toBuiltinData d
-
-  expectedHash = findDatumHash (Datum $ toBuiltinData d) txInfo
-
-  ownDatum =
-    case getContinuingOutputs ctx of
-      [o] -> txOutDatum o
-      _ -> traceError "expected only one head output"
-
-  ScriptContext{scriptContextTxInfo = txInfo} = ctx
-{-# INLINEABLE checkHeadOutputDatum #-}
 
 txOutAdaValue :: TxOut -> Integer
 txOutAdaValue o = valueOf (txOutValue o) adaSymbol adaToken
@@ -484,6 +492,13 @@ mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress cha
     _ ->
       traceError "more than 2 outputs"
 {-# INLINEABLE mustContinueHeadWith #-}
+
+continuingDatum :: ScriptContext -> Datum
+continuingDatum ctx@ScriptContext{scriptContextTxInfo} =
+  case getContinuingOutputs ctx of
+    [o] -> findTxOutDatum scriptContextTxInfo o
+    _ -> traceError "expected only one continuing output"
+{-# INLINEABLE continuingDatum #-}
 
 findTxOutDatum :: TxInfo -> TxOut -> Datum
 findTxOutDatum txInfo o =

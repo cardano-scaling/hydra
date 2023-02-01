@@ -22,6 +22,18 @@ toLedgerValidityInterval (lowerBound, upperBound) =
           TxValidityNoUpperBound _ -> SNothing
           TxValidityUpperBound _ s -> SJust s
     }
+fromLedgerValidityInterval ::
+  Ledger.ValidityInterval ->
+  (TxValidityLowerBound Era, TxValidityUpperBound Era)
+fromLedgerValidityInterval validityInterval =
+  let Ledger.ValidityInterval{Ledger.invalidBefore = invalidBefore, Ledger.invalidHereafter = invalidHereAfter} = validityInterval
+      lowerBound = case invalidBefore of
+        SNothing -> TxValidityNoLowerBound
+        SJust s -> TxValidityLowerBound ValidityLowerBoundInBabbageEra s
+      upperBound = case invalidHereAfter of
+        SNothing -> TxValidityNoUpperBound ValidityNoUpperBoundInBabbageEra
+        SJust s -> TxValidityUpperBound ValidityUpperBoundInBabbageEra s
+   in (lowerBound, upperBound)
 
 instance Arbitrary (TxValidityLowerBound Era) where
   arbitrary =

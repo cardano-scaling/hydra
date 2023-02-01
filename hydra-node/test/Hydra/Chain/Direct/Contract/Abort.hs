@@ -144,7 +144,7 @@ data AbortMutation
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
 genAbortMutation (tx, _utxo) =
   oneof
-    [ SomeMutation Nothing MutateParties . ChangeHeadDatum <$> do
+    [ SomeMutation Nothing MutateParties . ChangeInputHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
         pure $ Head.Initial c (partyToChain <$> moreParties) (toPlutusCurrencySymbol $ headPolicyId testSeedInput)

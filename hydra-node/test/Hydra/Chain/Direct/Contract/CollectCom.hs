@@ -178,10 +178,10 @@ genCollectComMutation (tx, _utxo) =
   oneof
     [ SomeMutation Nothing MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
     , SomeMutation Nothing MutateHeadTransition <$> do
-        changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
+        changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close <$> arbitrary)
         differencCurrencySymbol <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
         changeDatum <-
-          ChangeHeadDatum
+          ChangeInputHeadDatum
             <$> ( Head.Open
                     <$> arbitrary
                     <*> arbitrary
@@ -196,7 +196,7 @@ genCollectComMutation (tx, _utxo) =
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
           Changes
-            [ ChangeHeadDatum $ Head.Initial c moreParties (toPlutusCurrencySymbol testPolicyId)
+            [ ChangeInputHeadDatum $ Head.Initial c moreParties (toPlutusCurrencySymbol testPolicyId)
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties headTxOut
             ]
     , SomeMutation Nothing MutateHeadId <$> do
