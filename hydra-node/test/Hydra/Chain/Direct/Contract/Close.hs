@@ -9,7 +9,7 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, replaceContestationDeadline, replaceHeadId, replaceParties, replacePolicyIdWith, replaceSnapshotNumber, replaceUtxoHash)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, changeMintedTokens, genHash, replaceContestationDeadline, replaceHeadId, replaceParties, replacePolicyIdWith, replaceSnapshotNumber, replaceUtxoHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -205,6 +205,8 @@ data CloseMutation
   | -- | See spec: 5.5. rule 5 -> upperBound - lowerBound <= contestationPeriod
     MutateValidityInterval
   | MutateHeadId
+  | -- | Burning of the tokens should not be possible in v_head a part from 'checkAbort'
+    MutateTokenBurning
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -261,6 +263,8 @@ genCloseMutation (tx, _utxo) =
                 (replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyOpenHeadTxOut)
                 (Just $ toScriptData healthyOpenHeadDatum)
             ]
+    , SomeMutation (Just "burning is forbidden") MutateTokenBurning
+        <$> changeMintedTokens tx (valueFromList [(AssetId Fixture.testPolicyId "badTokenBurned", Quantity (-1))])
     ]
  where
   genOversizedTransactionValidity = do

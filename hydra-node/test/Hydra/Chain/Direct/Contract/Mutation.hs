@@ -205,6 +205,7 @@ propTransactionDoesNotValidate mExpectedError (tx, lookupUTxO) =
                   any (matchesErrorMessage expectedError) errors
                     & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
                     & counterexample ("Redeemer report: " <> show redeemerReport)
+                    & counterexample ("But errors were: " <> show errors)
                     & counterexample ("Phase-2 validation should have failed with error message: " <> show expectedError)
  where
   matchesErrorMessage errMsg = \case
@@ -523,7 +524,7 @@ alterTxIns fn tx =
 
   ledgerBody' = ledgerBody{Ledger.inputs = inputs'}
 
-  inputs' = Set.fromList $ (toLedgerTxIn . fst) <$> newSortedInputs
+  inputs' = Set.fromList $ toLedgerTxIn . fst <$> newSortedInputs
 
   scriptData' = TxBodyScriptData dats redeemers'
 
@@ -603,6 +604,18 @@ changeMintedValueQuantityFrom tx exclude =
       TxMintValue v _ -> do
         someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude) `suchThat` (/= 0)
         pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
+ where
+  mintedValue = txMintValue $ txBodyContent $ txBody tx
+
+-- | A 'Mutation' that changes the minted/burnt quantity of tokens
+changeMintedTokens :: Tx -> Value -> Gen Mutation
+changeMintedTokens tx mintValue =
+  ChangeMintedValue
+    <$> case mintedValue of
+      TxMintValueNone ->
+        pure mintValue
+      TxMintValue v _ ->
+        pure $ v <> mintValue
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
 

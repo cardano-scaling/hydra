@@ -262,7 +262,8 @@ checkClose ::
   CurrencySymbol ->
   Bool
 checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
-  hasBoundedValidity
+  mustNotBurnTokens ctx headPolicyId
+    && hasBoundedValidity
     && checkDeadline
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
@@ -530,6 +531,16 @@ hasPT headCurrencySymbol txOut =
   let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
    in length pts == 1
 {-# INLINEABLE hasPT #-}
+
+mustNotBurnTokens :: ScriptContext -> CurrencySymbol -> Bool
+mustNotBurnTokens ScriptContext{scriptContextTxInfo} headCurrencySymbol =
+  case Map.lookup headCurrencySymbol minted of
+    Nothing -> True
+    Just tokenMap ->
+      traceIfFalse "burning is forbidden" $ Map.empty == tokenMap
+ where
+  minted = getValue (txInfoMint scriptContextTxInfo)
+{-# INLINEABLE mustNotBurnTokens #-}
 
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber utxoHash sigs =
