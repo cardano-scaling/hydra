@@ -607,7 +607,9 @@ changeMintedValueQuantityFrom tx exclude =
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
 
--- | A 'Mutation' that changes the minted/burnt quantity of tokens
+-- | A 'Mutation' that changes the forged quantity of tokens like this:
+-- - when no value is being forged -> add some value to be forged
+-- - when tx is forging values -> add more values on top of that
 changeMintedTokens :: Tx -> Value -> Gen Mutation
 changeMintedTokens tx mintValue =
   ChangeMintedValue

@@ -172,7 +172,8 @@ data CollectComMutation
     MutateNumberOfParties
   | MutateHeadId
   | MutateRequiredSigner
-  | MutateTokenBurning
+  | -- | Burning of the tokens should not be possible in v_head a part from 'checkAbort' or 'checkFanout'
+    MutateTokenBurning
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
