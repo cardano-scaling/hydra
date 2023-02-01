@@ -217,7 +217,7 @@ data ErrCoverFee
   = ErrNotEnoughFunds ChangeError
   | ErrNoFuelUTxOFound
   | ErrUnknownInput {input :: TxIn}
-  | ErrScriptExecutionFailed (RdmrPtr, TransactionScriptFailure StandardCrypto)
+  | ErrScriptExecutionFailed {scriptFailure :: (RdmrPtr, TransactionScriptFailure StandardCrypto)}
   | ErrTranslationError (TranslationError StandardCrypto)
   deriving (Show)
 
