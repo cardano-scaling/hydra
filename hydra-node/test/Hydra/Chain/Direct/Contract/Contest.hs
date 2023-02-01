@@ -250,7 +250,7 @@ genContestMutation
 
     mutateClosedContesters :: Gen (TxOut CtxTx)
     mutateClosedContesters = do
-      n <- elements [0, 2]
+      n <- arbitrary `suchThat` (>= 0)
       hashes <- vectorOf n genHash
       let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
       pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut

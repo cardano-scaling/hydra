@@ -387,7 +387,7 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
       parties' == parties
         && contestationDeadline' == contestationDeadline
         && headId' == headId
-        && contesters' == (contester <> contesters)
+        && contesters' == (contester : contesters)
 
   (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
@@ -405,20 +405,14 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 
-  contester = maybeToList $
+  contester =
     case txInfoSignatories txInfo of
-      [signer] -> Just signer
-      _ -> Nothing
+      [signer] -> signer
+      _ -> traceError "wrong number of signers"
 
   checkSignedParticipantContestOnlyOnce =
-    case txInfoSignatories txInfo of
-      [signer] ->
-        traceIfFalse "signer already contested" $
-          notElem signer contesters
-      [] ->
-        traceError "no signers"
-      _ ->
-        traceError "too many signers"
+    traceIfFalse "signer already contested" $
+      contester `notElem` contesters
 {-# INLINEABLE checkContest #-}
 
 checkFanout ::
