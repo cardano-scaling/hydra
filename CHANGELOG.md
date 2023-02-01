@@ -63,6 +63,8 @@ changes.
 
 -  `hydra-cluster` executable can be used to provide a local cardano "network" with `--devnet` argument
 
+- Check no tokens are burnt in v-head for close, contest and collectCom tx.
+
 ## [0.8.1] - 2022-11-17
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
