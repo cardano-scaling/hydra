@@ -169,8 +169,8 @@ data ContestMutation
     MutateValidityPastDeadline
   | -- | Change the head policy id to test the head validators
     MutateHeadId
-  | -- | Burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
-    MutateTokenBurning
+  | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
+    MutateTokenMintingOrBurning
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -225,7 +225,7 @@ genContestMutation
                   (replacePolicyIdWith testPolicyId otherHeadId healthyClosedHeadTxOut)
                   (Just $ toScriptData healthyClosedState)
               ]
-      , SomeMutation (Just "burning is forbidden") MutateTokenBurning
+      , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
           <$> changeMintedTokens tx (valueFromList [(AssetId testPolicyId "badTokenBurned", Quantity (-1))])
       ]
    where

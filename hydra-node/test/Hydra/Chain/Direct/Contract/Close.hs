@@ -205,8 +205,8 @@ data CloseMutation
   | -- | See spec: 5.5. rule 5 -> upperBound - lowerBound <= contestationPeriod
     MutateValidityInterval
   | MutateHeadId
-  | -- | Burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
-    MutateTokenBurning
+  | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
+    MutateTokenMintingOrBurning
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -263,7 +263,7 @@ genCloseMutation (tx, _utxo) =
                 (replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyOpenHeadTxOut)
                 (Just $ toScriptData healthyOpenHeadDatum)
             ]
-    , SomeMutation (Just "burning is forbidden") MutateTokenBurning
+    , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
         <$> changeMintedTokens tx (valueFromList [(AssetId Fixture.testPolicyId "badTokenBurned", Quantity (-1))])
     ]
  where

@@ -205,7 +205,6 @@ propTransactionDoesNotValidate mExpectedError (tx, lookupUTxO) =
                   any (matchesErrorMessage expectedError) errors
                     & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
                     & counterexample ("Redeemer report: " <> show redeemerReport)
-                    & counterexample ("But errors were: " <> show errors)
                     & counterexample ("Phase-2 validation should have failed with error message: " <> show expectedError)
  where
   matchesErrorMessage errMsg = \case

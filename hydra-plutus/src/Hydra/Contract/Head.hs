@@ -21,12 +21,12 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
-import Hydra.Contract.Util (hasST)
+import Hydra.Contract.Util (hasST, mustNotMintOrBurn)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Time (fromMilliSeconds)
-import Plutus.V1.Ledger.Value (assetClass, assetClassValue, isZero, valueOf)
+import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
 import Plutus.V2.Ledger.Api (
   Address,
   CurrencySymbol,
@@ -535,12 +535,6 @@ hasPT headCurrencySymbol txOut =
   let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
    in length pts == 1
 {-# INLINEABLE hasPT #-}
-
-mustNotMintOrBurn :: TxInfo -> Bool
-mustNotMintOrBurn TxInfo{txInfoMint} =
-  traceIfFalse "minting or burning is forbidden" $
-    isZero txInfoMint
-{-# INLINEABLE mustNotMintOrBurn #-}
 
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber utxoHash sigs =

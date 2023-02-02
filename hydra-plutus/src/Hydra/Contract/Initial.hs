@@ -9,7 +9,7 @@ import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
-import Hydra.Contract.Util (mustBurnST)
+import Hydra.Contract.Util (mustBurnST, mustNotMintOrBurn)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
 import Plutus.V2.Ledger.Api (
@@ -106,7 +106,9 @@ checkCommit ::
   ScriptContext ->
   Bool
 checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxInfo = txInfo} =
-  checkCommittedValue && checkLockedCommit
+  mustNotMintOrBurn txInfo
+    && checkCommittedValue
+    && checkLockedCommit
  where
   checkCommittedValue =
     traceIfFalse "lockedValue does not match" $

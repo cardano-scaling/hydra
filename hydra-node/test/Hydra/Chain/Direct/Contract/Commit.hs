@@ -13,6 +13,7 @@ import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
+  changeMintedTokens,
   replacePolicyIdWith,
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
@@ -80,6 +81,8 @@ data CommitMutation
   | MutateRequiredSigner
   | -- | Change the policy Id of the ST and PTs both in input and output
     MutateHeadId
+  | -- | Minting or burning of the tokens should not be possible in v_initial when checking the commit
+    MutateTokenMintingOrBurning
   deriving (Generic, Show, Enum, Bounded)
 
 genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -109,6 +112,8 @@ genCommitMutation (tx, _utxo) =
                 (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
                 (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef committedTxIn)
             ]
+    , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
+        <$> changeMintedTokens tx (valueFromList [(AssetId Fixture.testPolicyId "badTokenBurned", Quantity (-1))])
     ]
  where
   TxOut{txOutValue = commitOutputValue} = commitTxOut
