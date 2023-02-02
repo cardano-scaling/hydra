@@ -1,6 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Hydra.Cluster.Scenarios where
 
@@ -218,11 +217,7 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
       pure headId
     -- Bob's node is down now
 
-    let Right tx =
-          mkSimpleTx
-            firstCommittedUTxO
-            (inHeadAddress bobCardanoVk, paymentFromAliceToBob)
-            aliceCardanoSk
+    let tx = buildSimpleTx firstCommittedUTxO bobCardanoVk paymentFromAliceToBob aliceCardanoSk
         paymentFromAliceToBob = lovelaceToValue 1_000_000
         firstCommittedUTxO = List.head $ UTxO.pairs committedUTxOByAlice
     send n1 $ input "NewTx" ["transaction" .= tx]
@@ -243,6 +238,11 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
+
+  buildSimpleTx utxo vk payment sk =
+    case mkSimpleTx utxo (inHeadAddress vk, payment) sk of
+      Right tx -> tx
+      _ -> error "cant build simple tx"
 
 -- * Helpers
 
