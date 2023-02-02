@@ -14,6 +14,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   changeMintedTokens,
+  genMintedOrBurnedValue,
   replacePolicyIdWith,
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
@@ -113,7 +114,7 @@ genCommitMutation (tx, _utxo) =
                 (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef committedTxIn)
             ]
     , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
-        <$> changeMintedTokens tx (valueFromList [(AssetId Fixture.testPolicyId "badTokenBurned", Quantity (-1))])
+        <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]
  where
   TxOut{txOutValue = commitOutputValue} = commitTxOut

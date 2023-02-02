@@ -305,6 +305,7 @@ test-suite tests
     , base
     , base16-bytestring
     , bytestring
+    , cardano-api
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo

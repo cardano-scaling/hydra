@@ -9,7 +9,7 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, changeMintedTokens, genHash, replaceContestationDeadline, replaceHeadId, replaceParties, replacePolicyIdWith, replaceSnapshotNumber, replaceUtxoHash)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, changeMintedTokens, genHash, genMintedOrBurnedValue, replaceContestationDeadline, replaceHeadId, replaceParties, replacePolicyIdWith, replaceSnapshotNumber, replaceUtxoHash)
 import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -264,7 +264,7 @@ genCloseMutation (tx, _utxo) =
                 (Just $ toScriptData healthyOpenHeadDatum)
             ]
     , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
-        <$> changeMintedTokens tx (valueFromList [(AssetId Fixture.testPolicyId "badTokenBurned", Quantity (-1))])
+        <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]
  where
   genOversizedTransactionValidity = do

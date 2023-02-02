@@ -17,6 +17,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeHeadOutputDatum,
   changeMintedTokens,
   genHash,
+  genMintedOrBurnedValue,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
@@ -226,7 +227,7 @@ genContestMutation
                   (Just $ toScriptData healthyClosedState)
               ]
       , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
-          <$> changeMintedTokens tx (valueFromList [(AssetId testPolicyId "badTokenBurned", Quantity (-1))])
+          <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0

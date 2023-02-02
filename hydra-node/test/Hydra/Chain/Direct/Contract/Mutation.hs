@@ -143,16 +143,19 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain.Direct.Fixture (genForParty, testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
+import qualified Hydra.Chain.Direct.Fixture as Fixtures
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadTokens (headPolicyId)
+import Hydra.Contract.Util (hydraHeadV1)
 import qualified Hydra.Data.Party as Data (Party)
 import Hydra.Ledger.Cardano (genKeyPair, genOutput, genVerificationKey, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (CurrencySymbol, POSIXTime, fromData, toData)
+import Plutus.V2.Ledger.Api (CurrencySymbol, POSIXTime, fromBuiltin, fromData, toData)
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -160,6 +163,7 @@ import Test.QuickCheck (
   checkCoverage,
   counterexample,
   forAll,
+  oneof,
   property,
   suchThat,
   vector,
@@ -606,9 +610,9 @@ changeMintedValueQuantityFrom tx exclude =
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
 
--- | A 'Mutation' that changes the forged quantity of tokens like this:
--- - when no value is being forged -> add some value to be forged
--- - when tx is forging values -> add more values on top of that
+-- | A 'Mutation' that changes the minted/burned quantity of tokens like this:
+-- - when no value is being minted/burned -> add a value
+-- - when tx is minting or burning values -> add more values on top of that
 changeMintedTokens :: Tx -> Value -> Gen Mutation
 changeMintedTokens tx mintValue =
   ChangeMintedValue
@@ -742,3 +746,19 @@ replaceHeadId headId = \case
       , Head.headId = headId
       }
   otherState -> otherState
+
+-- | Generates value such that:
+-- - alters between policy id we use in test fixtures with a random one.
+-- - mixing arbitrary token names with 'hydraHeadV1'
+-- - using range from -3 to 3 (excluding 0) for quantity to mimic minting/burning
+genMintedOrBurnedValue :: Gen Value
+genMintedOrBurnedValue = do
+  policyId <-
+    oneof
+      [ headPolicyId <$> arbitrary
+      , pure Fixtures.testPolicyId
+      ]
+  tokenName <- oneof [arbitrary, pure (AssetName $ fromBuiltin hydraHeadV1)]
+  -- simulate minting or burning. 3 tokens should suffice
+  quantity <- oneof (pure <$> [-3, -2, -1, 1, 2, 3])
+  pure $ valueFromList [(AssetId policyId tokenName, Quantity quantity)]
