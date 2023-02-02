@@ -17,16 +17,10 @@ import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
-  AddressInEra,
   Key (SigningKey),
-  NetworkId (Testnet),
-  NetworkMagic (NetworkMagic),
-  PaymentKey,
   TxId,
   TxIn (..),
-  VerificationKey,
   lovelaceToValue,
-  mkVkAddress,
   serialiseAddress,
   writeFileTextEnvelope,
  )
@@ -62,7 +56,7 @@ import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
-import Hydra.Logging (Tracer, Verbosity (Verbose), showLogsOnFailure, withTracer)
+import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainConfig (startChainFrom))
 import Hydra.Party (deriveParty)
 import HydraNode (

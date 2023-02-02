@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Hydra.Cluster.Scenarios where
 
@@ -228,7 +229,7 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
     -- Expect the tx to time out
     -- TODO
     waitMatch 10 n1 $ \v -> do
-      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+      guard $ v ^? key "tag" == Just "TxExpired"
 
     -- Expect the UTxO to be still unchanged
     send n1 $ input "GetUTxO" [] -- TODO wait for response and expect
