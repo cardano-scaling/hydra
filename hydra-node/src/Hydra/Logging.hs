@@ -28,6 +28,7 @@ module Hydra.Logging (
 import Hydra.Prelude
 
 import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
+import Control.Concurrent (newMVar, withMVar)
 import Control.Monad.Class.MonadFork (myThreadId)
 import Control.Monad.Class.MonadSTM (
   modifyTVar,
@@ -95,15 +96,13 @@ withTracerOutputTo ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracerOutputTo hdl namespace action = do
-  action tracer `finally` flushLogs
- where
-  tracer =
-    Tracer $
-      mkEnvelope namespace >=> liftIO . write . Aeson.encode
-
-  flushLogs = liftIO $ hFlush hdl
-
-  write bs = LBS.hPut hdl (bs <> "\n")
+  hdlMutex <- newMVar ()
+  let write bs = withMVar hdlMutex (\_ -> LBS.hPut hdl (bs <> "\n"))
+      flushLogs = liftIO $ hFlush hdl
+      tracer =
+        Tracer $
+          mkEnvelope namespace >=> liftIO . write . Aeson.encode
+   in action tracer `finally` flushLogs
 
 -- | Capture logs and output them to stdout when an exception was raised by the
 -- given 'action'. This tracer is wrapping 'msg' into an 'Envelope' with
