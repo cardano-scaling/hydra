@@ -183,6 +183,12 @@ spec = around showLogsOnFailure $ do
             publishHydraScriptsAs node Faucet
               >>= restartedNodeCanObserveCommitTx tracer tmpDir node
 
+      it "is live even when other nodes were temporarily gone" $ \tracer ->
+        withTempDir "hydra-cluster-end-to-end" $ \tmpDir ->
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= restartingNodeNotKillingLiveness tracer tmpDir node
+
       it "can start chain from the past and replay on-chain events" $ \tracer ->
         withTempDir "end-to-end-chain-observer" $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do

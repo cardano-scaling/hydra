@@ -28,8 +28,8 @@ import Test.Hspec.Expectations (shouldBe)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
-  let clients = [Alice, Bob]
-  [(aliceCardanoVk, _), (bobCardanoVk, _)] <- forM clients keysFor
+  (aliceCardanoVk, _) <- keysFor Alice
+  (bobCardanoVk, _) <- keysFor Bob
   seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
   seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
@@ -171,6 +171,65 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
     (actorVk, _) <- keysFor actor
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+
+-- | Two hydra nodes in a single Head. When the non-leader is not online, but
+-- the leader processes a transaction will not make the leader stuck and can
+-- process more transactions later.
+restartingNodeNotKillingLiveness ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = do
+  -- TODO: Shorten access to alice's cardano key
+  (aliceCardanoVk, _) <- keysFor Alice
+  (bobCardanoVk, _) <- keysFor Bob
+  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+
+  let contestationPeriod = UnsafeContestationPeriod 1
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket [Bob] contestationPeriod
+      <&> \config -> (config :: ChainConfig){networkId}
+
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket [Alice] contestationPeriod
+      <&> \config -> (config :: ChainConfig){networkId}
+
+  -- Start alice node
+  withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n1 -> do
+    -- Start bob's node
+    withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n2 -> do
+      -- Open the head with one UTxO available for alice (the first snapshot leader)
+      send n1 $ input "Init" []
+      headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
+      -- Alice commit something
+      send n1 $ input "Commit" ["utxo" .= object mempty] -- TODO
+      -- Bob commit nothing
+      send n2 $ input "Commit" ["utxo" .= object mempty]
+      waitFor tracer 60 [n1] $
+        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+    -- Bob's node is down now
+    send n1 $ input "NewTx" [] -- TODO craft newtx
+
+    -- Expect the tx to time out
+    -- TODO
+
+    -- Expect the UTxO to be still unchanged
+    send n1 $ input "GetUTxO" [] -- TODO wait for response and expect
+
+    -- Restart bob's node
+    withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n2 -> do
+      -- Resubmit transaction
+      send n1 $ input "NewTx" [] -- TODO re-use tx
+      -- Expect the transaction to be confirmed in a snapshot eventually
+      -- TODO
+ where
+  RunningNode{nodeSocket, networkId} = cardanoNode
+
+-- * Helpers
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::
