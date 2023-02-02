@@ -209,7 +209,7 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
       send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
       -- Bob commit nothing
       send n2 $ input "Commit" ["utxo" .= object mempty]
-      waitFor tracer 60 [n1] $
+      waitFor tracer 10 [n1, n2] $
         output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Bob's node is down now
