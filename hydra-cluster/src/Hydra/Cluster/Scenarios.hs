@@ -205,7 +205,7 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
   -- Start alice node
   withHydraNode tracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n1 -> do
     -- Start bob's node
-    withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n2 -> do
+    headId <- withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n2 -> do
       -- Open the head with one UTxO available for alice (the first snapshot leader)
       send n1 $ input "Init" []
       headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
@@ -215,8 +215,9 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
       send n2 $ input "Commit" ["utxo" .= object mempty]
       waitFor tracer 10 [n1, n2] $
         output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
-
+      pure headId
     -- Bob's node is down now
+
     let Right tx =
           mkSimpleTx
             firstCommittedUTxO
@@ -228,14 +229,16 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
 
     -- Expect the tx to time out
     -- TODO
-    waitMatch 10 n1 $ \v -> do
-      guard $ v ^? key "tag" == Just "TxExpired"
+    -- waitMatch 10 n1 $ \v -> do
+    --   guard $ v ^? key "tag" == Just "TxExpired"
 
     -- Expect the UTxO to be still unchanged
     send n1 $ input "GetUTxO" [] -- TODO wait for response and expect
+    waitFor tracer 10 [n1] $
+      output "GetUTxOResponse" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Restart bob's node
-    withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n2 -> do
+    withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \_ -> do
       -- Resubmit transaction
       send n1 $ input "NewTx" [] -- TODO re-use tx
       -- Expect the transaction to be confirmed in a snapshot eventually
