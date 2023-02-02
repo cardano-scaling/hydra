@@ -223,6 +223,8 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
     send n1 $ input "NewTx" ["transaction" .= tx]
 
     -- TODO: Expect the tx to time out or some kind of notification here
+    waitMatch 10 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "TxValid"
 
     -- Expect the UTxO to be still unchanged
     send n1 $ input "GetUTxO" []
@@ -233,6 +235,8 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
     withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \_ -> do
       -- Resubmit transaction
       send n1 $ input "NewTx" ["transaction" .= tx]
+      waitMatch 10 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "TxValid"
       -- Expect the transaction to be confirmed in a snapshot eventually
       waitMatch 10 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
