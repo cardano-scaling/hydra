@@ -172,7 +172,7 @@ data CollectComMutation
     MutateNumberOfParties
   | MutateHeadId
   | MutateRequiredSigner
-  | -- | Burning of the tokens should not be possible in v_head a part from 'checkAbort' or 'checkFanout'
+  | -- | Burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenBurning
   deriving (Generic, Show, Enum, Bounded)
 
@@ -215,7 +215,7 @@ genCollectComMutation (tx, _utxo) =
     , SomeMutation Nothing MutateCommitToInitial <$> do
         (txIn, HealthyCommit{cardanoKey}) <- elements $ Map.toList healthyCommits
         pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testPolicyId cardanoKey) Nothing
-    , SomeMutation (Just "burning is forbidden") MutateTokenBurning
+    , SomeMutation (Just "minting or burning is forbidden") MutateTokenBurning
         <$> changeMintedTokens tx (valueFromList [(AssetId testPolicyId "badTokenBurned", Quantity (-1))])
     ]
  where

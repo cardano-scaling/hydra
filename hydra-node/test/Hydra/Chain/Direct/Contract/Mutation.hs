@@ -219,11 +219,11 @@ propTransactionValidates (tx, lookupUTxO) =
    in case result of
         Left basicFailure ->
           property False
-            & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
           all isRight (Map.elems redeemerReport)
-            & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Redeemer report: " <> show redeemerReport)
             & counterexample "Phase-2 validation failed"
 

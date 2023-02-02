@@ -205,7 +205,7 @@ data CloseMutation
   | -- | See spec: 5.5. rule 5 -> upperBound - lowerBound <= contestationPeriod
     MutateValidityInterval
   | MutateHeadId
-  | -- | Burning of the tokens should not be possible in v_head a part from 'checkAbort' or 'checkFanout'
+  | -- | Burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenBurning
   deriving (Generic, Show, Enum, Bounded)
 

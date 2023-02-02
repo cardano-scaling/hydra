@@ -169,7 +169,7 @@ data ContestMutation
     MutateValidityPastDeadline
   | -- | Change the head policy id to test the head validators
     MutateHeadId
-  | -- | Burning of the tokens should not be possible in v_head a part from 'checkAbort' or 'checkFanout'
+  | -- | Burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenBurning
   deriving (Generic, Show, Enum, Bounded)
 

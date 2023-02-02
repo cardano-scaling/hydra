@@ -26,7 +26,7 @@ import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod,
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Time (fromMilliSeconds)
-import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
+import Plutus.V1.Ledger.Value (assetClass, assetClassValue, isZero, valueOf)
 import Plutus.V2.Ledger.Api (
   Address,
   CurrencySymbol,
@@ -177,7 +177,7 @@ checkCollectCom ::
   (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
-  mustNotBurnTokens ctx headId
+  mustNotMintOrBurn txInfo
     && mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
@@ -262,8 +262,8 @@ checkClose ::
   ContestationPeriod ->
   CurrencySymbol ->
   Bool
-checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
-  mustNotBurnTokens ctx headPolicyId
+checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod headPolicyId =
+  mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
     && checkSnapshot
@@ -344,8 +344,8 @@ checkContest ::
   -- | Head id
   CurrencySymbol ->
   Bool
-checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig headPolicyId =
-  mustNotBurnTokens ctx headPolicyId
+checkContest ctx contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig headPolicyId =
+  mustNotMintOrBurn txInfo
     && mustBeNewer
     && mustBeMultiSigned
     && mustNotChangeParameters
@@ -364,7 +364,7 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
     verifySnapshotSignature parties contestSnapshotNumber contestUtxoHash sig
 
   mustBeWithinContestationPeriod =
-    case ivTo (txInfoValidRange scriptContextTxInfo) of
+    case ivTo (txInfoValidRange txInfo) of
       UpperBound (Finite time) _ ->
         traceIfFalse "upper bound beyond contestation deadline" $ time <= contestationDeadline
       _ -> traceError "contest: no upper bound defined"
@@ -387,6 +387,8 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
           , headId = hid
           } -> (snapshotNumber, utxoHash, p, dl, hid)
       _ -> traceError "wrong state in output datum"
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkContest #-}
 
 checkFanout ::
@@ -534,15 +536,11 @@ hasPT headCurrencySymbol txOut =
    in length pts == 1
 {-# INLINEABLE hasPT #-}
 
-mustNotBurnTokens :: ScriptContext -> CurrencySymbol -> Bool
-mustNotBurnTokens ScriptContext{scriptContextTxInfo} headCurrencySymbol =
-  case Map.lookup headCurrencySymbol minted of
-    Nothing -> True
-    Just tokenMap ->
-      traceIfFalse "burning is forbidden" $ Map.empty == tokenMap
- where
-  minted = getValue (txInfoMint scriptContextTxInfo)
-{-# INLINEABLE mustNotBurnTokens #-}
+mustNotMintOrBurn :: TxInfo -> Bool
+mustNotMintOrBurn TxInfo{txInfoMint} =
+  traceIfFalse "minting or burning is forbidden" $
+    isZero txInfoMint
+{-# INLINEABLE mustNotMintOrBurn #-}
 
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber utxoHash sigs =
