@@ -6,11 +6,15 @@
 -- @plutus@ libraries with extra utilities and function commonly used across the
 -- Hydra project.
 --
--- NOTE: We always use the latest era available in our codebase, so to ease type
--- signatures and notations, we specialize any type of the @cardano-api@ normally
--- parameterized by an era to the latest era 'Era'. As a consequence, we've
--- defined pattern synonyms for most constructors in the @cardano-api@ to also
--- get rid of era witnesses.
+-- NOTE: We always use the **latest era** available in our codebase, so to ease
+-- type signatures and notations, we specialize any type of the @cardano-api@
+-- normally parameterized by an era to the latest era 'Era'. As a consequence,
+-- we've defined pattern synonyms for most constructors in the @cardano-api@ to
+-- also get rid of era witnesses.
+--
+-- NOTE: This module also uses the **latest plutus version** available
+-- (currently 'PlutusScriptV2'). So make sure that you give it a plutus script
+-- of the right version (e.g. when compiling and serializing plutus-tx).
 module Hydra.Cardano.Api (
   -- * Common type-alias
   StandardCrypto,
