@@ -262,7 +262,7 @@ checkClose ::
   ContestationPeriod ->
   CurrencySymbol ->
   Bool
-checkClose ctx parties initialUtxoHash snapshotNumber closedUtxoHash sig cperiod headPolicyId =
+checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
   mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
@@ -344,7 +344,7 @@ checkContest ::
   -- | Head id
   CurrencySymbol ->
   Bool
-checkContest ctx contestationDeadline parties closedSnapshotNumber contestSnapshotNumber contestUtxoHash sig headPolicyId =
+checkContest ctx contestationDeadline parties closedSnapshotNumber sig headId =
   mustNotMintOrBurn txInfo
     && mustBeNewer
     && mustBeMultiSigned
