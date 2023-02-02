@@ -227,22 +227,20 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
         firstCommittedUTxO = List.head $ UTxO.pairs committedUTxOByAlice
     send n1 $ input "NewTx" ["transaction" .= tx]
 
-    -- Expect the tx to time out
-    -- TODO
-    -- waitMatch 10 n1 $ \v -> do
-    --   guard $ v ^? key "tag" == Just "TxExpired"
+    -- TODO: Expect the tx to time out or some kind of notification here
 
     -- Expect the UTxO to be still unchanged
-    send n1 $ input "GetUTxO" [] -- TODO wait for response and expect
+    send n1 $ input "GetUTxO" []
     waitFor tracer 10 [n1] $
       output "GetUTxOResponse" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Restart bob's node
     withHydraNode tracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \_ -> do
       -- Resubmit transaction
-      send n1 $ input "NewTx" [] -- TODO re-use tx
+      send n1 $ input "NewTx" ["transaction" .= tx]
       -- Expect the transaction to be confirmed in a snapshot eventually
-      -- TODO
+      waitMatch 10 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "SnapshotConfirmed"
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
