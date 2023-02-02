@@ -5,21 +5,23 @@ module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
+import qualified Data.List as List
 import qualified Data.Set as Set
-import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
+import Hydra.Cardano.Api (AddressInEra, Lovelace, NetworkId (Testnet), NetworkMagic (NetworkMagic), PaymentKey, TxId, VerificationKey, lovelaceToValue, mkVkAddress, selectLovelace)
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel, Normal), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
-import Hydra.Ledger.Cardano (Tx)
+import Hydra.Ledger.Cardano (Tx, mkSimpleTx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
@@ -183,9 +185,11 @@ restartingNodeNotKillingLiveness ::
   IO ()
 restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = do
   -- TODO: Shorten access to alice's cardano key
-  (aliceCardanoVk, _) <- keysFor Alice
-  (bobCardanoVk, _) <- keysFor Bob
+  (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
   seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+  committedUTxOByAlice <- seedFromFaucet cardanoNode aliceCardanoVk 20_000_000 Normal (contramap FromFaucet tracer)
+
+  (bobCardanoVk, _) <- keysFor Bob
   seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
   let contestationPeriod = UnsafeContestationPeriod 1
@@ -205,7 +209,6 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
       send n1 $ input "Init" []
       headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
       -- Alice commit something
-      committedUTxOByAlice <- seedFromFaucet cardanoNode aliceCardanoVk 20_000_000 Normal (contramap FromFaucet tracer)
       send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
       -- Bob commit nothing
       send n2 $ input "Commit" ["utxo" .= object mempty]
@@ -213,10 +216,19 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
         output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Bob's node is down now
-    send n1 $ input "NewTx" [] -- TODO craft newtx
+    let Right tx =
+          mkSimpleTx
+            firstCommittedUTxO
+            (inHeadAddress bobCardanoVk, paymentFromAliceToBob)
+            aliceCardanoSk
+        paymentFromAliceToBob = lovelaceToValue 1_000_000
+        firstCommittedUTxO = List.head $ UTxO.pairs committedUTxOByAlice
+    send n1 $ input "NewTx" ["transaction" .= tx]
 
     -- Expect the tx to time out
     -- TODO
+    waitMatch 10 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
 
     -- Expect the UTxO to be still unchanged
     send n1 $ input "GetUTxO" [] -- TODO wait for response and expect
@@ -231,6 +243,12 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
   RunningNode{nodeSocket, networkId} = cardanoNode
 
 -- * Helpers
+
+inHeadAddress :: VerificationKey PaymentKey -> AddressInEra
+inHeadAddress =
+  mkVkAddress network
+ where
+  network = Testnet (NetworkMagic 42)
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::

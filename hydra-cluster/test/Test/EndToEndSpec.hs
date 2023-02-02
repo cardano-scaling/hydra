@@ -51,6 +51,7 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Scenarios (
   canCloseWithLongContestationPeriod,
   headIsInitializingWith,
+  inHeadAddress,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
   restartingNodeNotKillingLiveness,
@@ -512,12 +513,6 @@ paymentFromAliceToBob = 1_000_000
 
 someTxId :: IsString s => s
 someTxId = "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
-
-inHeadAddress :: VerificationKey PaymentKey -> AddressInEra
-inHeadAddress =
-  mkVkAddress network
- where
-  network = Testnet (NetworkMagic 14)
 
 --
 -- Helpers
