@@ -14,7 +14,7 @@ import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
 import Hydra.Chain (HeadId)
-import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (Marked (Fuel, Normal), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -205,11 +205,12 @@ restartingNodeNotKillingLiveness tracer workDir cardanoNode hydraScriptsTxId = d
       send n1 $ input "Init" []
       headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
       -- Alice commit something
-      send n1 $ input "Commit" ["utxo" .= object mempty] -- TODO
+      committedUTxOByAlice <- seedFromFaucet cardanoNode aliceCardanoVk 20_000_000 Normal (contramap FromFaucet tracer)
+      send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
       -- Bob commit nothing
       send n2 $ input "Commit" ["utxo" .= object mempty]
       waitFor tracer 60 [n1] $
-        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+        output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Bob's node is down now
     send n1 $ input "NewTx" [] -- TODO craft newtx
