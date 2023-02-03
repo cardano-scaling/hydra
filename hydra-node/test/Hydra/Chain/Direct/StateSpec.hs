@@ -77,6 +77,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   renderEvaluationReportFailures,
  )
 import Hydra.Options (maximumNumberOfParties)
+import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude (
@@ -113,6 +114,9 @@ spec :: Spec
 spec = parallel $ do
   describe "ChainState" $
     roundtripAndGoldenSpecs (Proxy @ChainState)
+
+  describe "Plutus.PubKeyHash" $
+    roundtripAndGoldenSpecs (Proxy @Plutus.PubKeyHash)
 
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $
