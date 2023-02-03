@@ -9,8 +9,21 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, changeMintedTokens, genHash, genMintedOrBurnedValue, replaceContestationDeadline, replaceHeadId, replaceParties, replacePolicyIdWith, replaceSnapshotNumber, replaceUtxoHash)
-import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
+import Hydra.Chain.Direct.Contract.ContractGenerators (genForParty, genHash, genMintedOrBurnedValue)
+import Hydra.Chain.Direct.Contract.Mutation (
+  Mutation (..),
+  SomeMutation (..),
+  addParticipationTokens,
+  changeHeadOutputDatum,
+  changeMintedTokens,
+  replaceContestationDeadline,
+  replaceHeadId,
+  replaceParties,
+  replacePolicyIdWith,
+  replaceSnapshotNumber,
+  replaceUtxoHash,
+ )
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)

@@ -137,25 +137,22 @@ import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import Cardano.Ledger.Serialization (mkSized)
-import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain.Direct.Fixture (genForParty, testPolicyId)
+import Hydra.Chain.Direct.Contract.ContractGenerators (genForParty)
+import Hydra.Chain.Direct.Fixture (testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import qualified Hydra.Chain.Direct.Fixture as Fixtures
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Util (hydraHeadV1)
 import qualified Hydra.Data.Party as Data (Party)
 import Hydra.Ledger.Cardano (genKeyPair, genOutput, genVerificationKey, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (CurrencySymbol, POSIXTime, fromBuiltin, fromData, toData)
+import Plutus.V2.Ledger.Api (CurrencySymbol, POSIXTime, fromData, toData)
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -163,10 +160,8 @@ import Test.QuickCheck (
   checkCoverage,
   counterexample,
   forAll,
-  oneof,
   property,
   suchThat,
-  vector,
  )
 import Test.QuickCheck.Instances ()
 
@@ -415,16 +410,6 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         }
     (lowerBound, upperBound) = fromLedgerValidityInterval ledgerValidityInterval
     ledgerValidityInterval = Ledger.txvldt ledgerBody
-
---
--- Generators
---
-
-genBytes :: Gen ByteString
-genBytes = arbitrary
-
-genHash :: Gen ByteString
-genHash = BS.pack <$> vector 32
 
 -- * Orphans
 
@@ -746,19 +731,3 @@ replaceHeadId headId = \case
       , Head.headId = headId
       }
   otherState -> otherState
-
--- | Generates value such that:
--- - alters between policy id we use in test fixtures with a random one.
--- - mixing arbitrary token names with 'hydraHeadV1'
--- - using range from -3 to 3 (excluding 0) for quantity to mimic minting/burning
-genMintedOrBurnedValue :: Gen Value
-genMintedOrBurnedValue = do
-  policyId <-
-    oneof
-      [ headPolicyId <$> arbitrary
-      , pure Fixtures.testPolicyId
-      ]
-  tokenName <- oneof [arbitrary, pure (AssetName $ fromBuiltin hydraHeadV1)]
-  -- simulate minting or burning. 3 tokens should suffice
-  quantity <- oneof (pure <$> [-3, -2, -1, 1, 2, 3])
-  pure $ valueFromList [(AssetId policyId tokenName, Quantity quantity)]

@@ -10,11 +10,11 @@ import Hydra.Chain.Direct.TxSpec ()
 
 import qualified Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
+import Hydra.Chain.Direct.Contract.ContractGenerators (genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   changeMintedTokens,
-  genMintedOrBurnedValue,
   replacePolicyIdWith,
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture

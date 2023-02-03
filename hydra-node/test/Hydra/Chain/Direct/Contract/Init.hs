@@ -7,13 +7,14 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain.Direct.Contract.ContractGenerators (genForParty)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
   changeMintedValueQuantityFrom,
  )
-import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Tx (hydraHeadV1AssetName, initTx)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Party (Party)
