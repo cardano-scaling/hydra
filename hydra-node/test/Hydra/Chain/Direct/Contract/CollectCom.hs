@@ -23,7 +23,7 @@ import Hydra.Chain.Direct.Fixture (
   testPolicyId,
   testSeedInput,
  )
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
   InitialThreadOutput (..),
   assetNameFromVerificationKey,
@@ -68,7 +68,9 @@ healthyCollectComTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput) <> UTxO (txOut <$> healthyCommits)
+    UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput)
+      <> UTxO (txOut <$> healthyCommits)
+      <> registryUTxO scriptRegistry
 
   tx =
     collectComTx
