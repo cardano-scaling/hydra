@@ -137,11 +137,11 @@ import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import Cardano.Ledger.Serialization (mkSized)
-import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain.Direct.Fixture (genForParty, testPolicyId)
+import Hydra.Chain.Direct.Contract.Gen (genForParty)
+import Hydra.Chain.Direct.Fixture (testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import qualified Hydra.Contract.Head as Head
@@ -162,7 +162,6 @@ import Test.QuickCheck (
   forAll,
   property,
   suchThat,
-  vector,
  )
 import Test.QuickCheck.Instances ()
 
@@ -218,11 +217,11 @@ propTransactionValidates (tx, lookupUTxO) =
    in case result of
         Left basicFailure ->
           property False
-            & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
           all isRight (Map.elems redeemerReport)
-            & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
+            & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Redeemer report: " <> show redeemerReport)
             & counterexample "Phase-2 validation failed"
 
@@ -412,16 +411,6 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     (lowerBound, upperBound) = fromLedgerValidityInterval ledgerValidityInterval
     ledgerValidityInterval = Ledger.txvldt ledgerBody
 
---
--- Generators
---
-
-genBytes :: Gen ByteString
-genBytes = arbitrary
-
-genHash :: Gen ByteString
-genHash = BS.pack <$> vector 32
-
 -- * Orphans
 
 deriving instance Eq Head.Input
@@ -523,7 +512,7 @@ alterTxIns fn tx =
 
   ledgerBody' = ledgerBody{Ledger.inputs = inputs'}
 
-  inputs' = Set.fromList $ (toLedgerTxIn . fst) <$> newSortedInputs
+  inputs' = Set.fromList $ toLedgerTxIn . fst <$> newSortedInputs
 
   scriptData' = TxBodyScriptData dats redeemers'
 
@@ -603,6 +592,20 @@ changeMintedValueQuantityFrom tx exclude =
       TxMintValue v _ -> do
         someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude) `suchThat` (/= 0)
         pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
+ where
+  mintedValue = txMintValue $ txBodyContent $ txBody tx
+
+-- | A 'Mutation' that changes the minted/burned quantity of tokens like this:
+-- - when no value is being minted/burned -> add a value
+-- - when tx is minting or burning values -> add more values on top of that
+changeMintedTokens :: Tx -> Value -> Gen Mutation
+changeMintedTokens tx mintValue =
+  ChangeMintedValue
+    <$> case mintedValue of
+      TxMintValueNone ->
+        pure mintValue
+      TxMintValue v _ ->
+        pure $ v <> mintValue
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
 

@@ -18,9 +18,9 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import GHC.Natural (wordToNatural)
 import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Fixture (
   epochInfo,
-  genForParty,
   pparams,
   systemStart,
   testNetworkId,

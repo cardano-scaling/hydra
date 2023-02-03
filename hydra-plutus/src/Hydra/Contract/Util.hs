@@ -3,9 +3,11 @@
 
 module Hydra.Contract.Util where
 
+import Plutus.V1.Ledger.Value (isZero)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   TokenName (..),
+  TxInfo (TxInfo, txInfoMint),
   Value (getValue),
  )
 import qualified PlutusTx.AssocMap as Map
@@ -38,3 +40,9 @@ mustBurnST val headCurrencySymbol =
         Nothing -> True
         Just v -> v == negate 1
 {-# INLINEABLE mustBurnST #-}
+
+mustNotMintOrBurn :: TxInfo -> Bool
+mustNotMintOrBurn TxInfo{txInfoMint} =
+  traceIfFalse "minting or burning is forbidden" $
+    isZero txInfoMint
+{-# INLINEABLE mustNotMintOrBurn #-}

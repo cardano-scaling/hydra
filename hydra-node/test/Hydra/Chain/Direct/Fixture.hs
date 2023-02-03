@@ -11,11 +11,9 @@ module Hydra.Chain.Direct.Fixture (
 
 import Hydra.Prelude
 
-import Cardano.Crypto.Hash (hashToBytes)
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import qualified Cardano.Slotting.Time as Slotting
-import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   ExecutionUnitPrices (ExecutionUnitPrices),
@@ -25,33 +23,12 @@ import Hydra.Cardano.Api (
   PolicyId,
   ProtocolParameters (..),
   TxIn,
-  verificationKeyHash,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Crypto (Hash (HydraKeyHash))
 import Hydra.Ledger.Cardano ()
 import Hydra.Ledger.Cardano.Configuration (newLedgerEnv)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)
-import Hydra.Party (Party (..))
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-
--- * Party / key utilities
-
--- | Generate some 'a' given the Party as a seed. NOTE: While this is useful to
--- generate party-specific values, it DOES depend on the generator used. For
--- example, `genForParty genVerificationKey` and `genForParty (fst <$>
--- genKeyPair)` do not yield the same verification keys!
-genForParty :: Gen a -> Party -> a
-genForParty gen Party{vkey} =
-  generateWith gen seed
- where
-  seed =
-    fromIntegral
-      . uintegerFromBytes
-      . hydraKeyHashToBytes
-      $ verificationKeyHash vkey
-
-  hydraKeyHashToBytes (HydraKeyHash h) = hashToBytes h
 
 -- * Cardano tx utilities
 

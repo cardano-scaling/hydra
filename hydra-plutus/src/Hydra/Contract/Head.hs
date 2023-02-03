@@ -21,7 +21,7 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
-import Hydra.Contract.Util (hasST)
+import Hydra.Contract.Util (hasST, mustNotMintOrBurn)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -177,7 +177,8 @@ checkCollectCom ::
   (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
-  mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
+  mustNotMintOrBurn txInfo
+    && mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
     && hasST headId outValue
@@ -262,7 +263,8 @@ checkClose ::
   CurrencySymbol ->
   Bool
 checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
-  hasBoundedValidity
+  mustNotMintOrBurn txInfo
+    && hasBoundedValidity
     && checkDeadline
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
@@ -342,8 +344,9 @@ checkContest ::
   -- | Head id
   CurrencySymbol ->
   Bool
-checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties closedSnapshotNumber sig headId =
-  mustBeNewer
+checkContest ctx contestationDeadline parties closedSnapshotNumber sig headId =
+  mustNotMintOrBurn txInfo
+    && mustBeNewer
     && mustBeMultiSigned
     && mustNotChangeParameters
     && mustBeSignedByParticipant ctx headId
@@ -361,7 +364,7 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
     verifySnapshotSignature parties contestSnapshotNumber contestUtxoHash sig
 
   mustBeWithinContestationPeriod =
-    case ivTo (txInfoValidRange scriptContextTxInfo) of
+    case ivTo (txInfoValidRange txInfo) of
       UpperBound (Finite time) _ ->
         traceIfFalse "upper bound beyond contestation deadline" $ time <= contestationDeadline
       _ -> traceError "contest: no upper bound defined"
@@ -384,6 +387,8 @@ checkContest ctx@ScriptContext{scriptContextTxInfo} contestationDeadline parties
           , headId = hid
           } -> (snapshotNumber, utxoHash, p, dl, hid)
       _ -> traceError "wrong state in output datum"
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkContest #-}
 
 checkFanout ::

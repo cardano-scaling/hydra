@@ -9,8 +9,21 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), addParticipationTokens, changeHeadOutputDatum, genHash, replaceContestationDeadline, replaceHeadId, replaceParties, replacePolicyIdWith, replaceSnapshotNumber, replaceUtxoHash)
-import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId)
+import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
+import Hydra.Chain.Direct.Contract.Mutation (
+  Mutation (..),
+  SomeMutation (..),
+  addParticipationTokens,
+  changeHeadOutputDatum,
+  changeMintedTokens,
+  replaceContestationDeadline,
+  replaceHeadId,
+  replaceParties,
+  replacePolicyIdWith,
+  replaceSnapshotNumber,
+  replaceUtxoHash,
+ )
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)
@@ -205,6 +218,8 @@ data CloseMutation
   | -- | See spec: 5.5. rule 5 -> upperBound - lowerBound <= contestationPeriod
     MutateValidityInterval
   | MutateHeadId
+  | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
+    MutateTokenMintingOrBurning
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -261,6 +276,8 @@ genCloseMutation (tx, _utxo) =
                 (replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyOpenHeadTxOut)
                 (Just $ toScriptData healthyOpenHeadDatum)
             ]
+    , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
+        <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]
  where
   genOversizedTransactionValidity = do

@@ -10,14 +10,14 @@ import Hydra.Prelude hiding (label)
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   changeHeadOutputDatum,
-  genHash,
+  changeMintedTokens,
  )
 import Hydra.Chain.Direct.Fixture (
-  genForParty,
   testNetworkId,
   testPolicyId,
   testSeedInput,
@@ -171,6 +171,8 @@ data CollectComMutation
     MutateNumberOfParties
   | MutateHeadId
   | MutateRequiredSigner
+  | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
+    MutateTokenMintingOrBurning
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -212,6 +214,8 @@ genCollectComMutation (tx, _utxo) =
     , SomeMutation Nothing MutateCommitToInitial <$> do
         (txIn, HealthyCommit{cardanoKey}) <- elements $ Map.toList healthyCommits
         pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testPolicyId cardanoKey) Nothing
+    , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
+        <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

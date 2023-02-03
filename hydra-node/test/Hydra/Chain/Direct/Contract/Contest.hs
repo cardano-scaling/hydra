@@ -10,18 +10,19 @@ import Hydra.Prelude hiding (label)
 import Data.Maybe (fromJust)
 
 import Cardano.Api.UTxO as UTxO
+import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addParticipationTokens,
   changeHeadOutputDatum,
-  genHash,
+  changeMintedTokens,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceUtxoHash,
  )
-import Hydra.Chain.Direct.Fixture (genForParty, testNetworkId, testPolicyId)
+import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
@@ -168,6 +169,8 @@ data ContestMutation
     MutateValidityPastDeadline
   | -- | Change the head policy id to test the head validators
     MutateHeadId
+  | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
+    MutateTokenMintingOrBurning
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -222,6 +225,8 @@ genContestMutation
                   (replacePolicyIdWith testPolicyId otherHeadId healthyClosedHeadTxOut)
                   (Just $ toScriptData healthyClosedState)
               ]
+      , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
+          <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
