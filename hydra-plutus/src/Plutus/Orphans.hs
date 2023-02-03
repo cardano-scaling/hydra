@@ -9,7 +9,6 @@ import Hydra.Prelude
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
-import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   POSIXTime (..),
@@ -21,6 +20,7 @@ import Plutus.V2.Ledger.Api (
   toBuiltin,
   upperBound,
  )
+import qualified Plutus.V2.Ledger.Api as Plutus
 import qualified PlutusTx.AssocMap as AssocMap
 import PlutusTx.Prelude (BuiltinByteString)
 import Test.QuickCheck.Instances.ByteString ()
