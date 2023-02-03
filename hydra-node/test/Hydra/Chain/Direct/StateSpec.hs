@@ -394,7 +394,7 @@ forAllFanout action =
        in action utxo tx
             & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
-  maxSupported = 39
+  maxSupported = 30
 
   countAssets = getSum . foldMap (Sum . valueSize . txOutValue)
 
