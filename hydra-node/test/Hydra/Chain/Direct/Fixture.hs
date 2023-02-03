@@ -23,7 +23,6 @@ import Hydra.Cardano.Api (
   PolicyId,
   ProtocolParameters (..),
   TxIn,
-  verificationKeyHash,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano ()
