@@ -28,7 +28,6 @@ module Hydra.Logging (
 import Hydra.Prelude
 
 import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
-import Control.Concurrent (newMVar, withMVar)
 import Control.Monad.Class.MonadFork (myThreadId)
 import Control.Monad.Class.MonadSTM (
   modifyTVar,
@@ -44,6 +43,7 @@ import Control.Tracer (
  )
 import Data.Aeson (pairs, (.=))
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as Text
 import Test.QuickCheck.Instances.Text ()
@@ -96,8 +96,7 @@ withTracerOutputTo ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracerOutputTo hdl namespace action = do
-  hdlMutex <- newMVar ()
-  let write bs = withMVar hdlMutex (\_ -> LBS.hPut hdl (bs <> "\n"))
+  let write bs = BS.hPut hdl (LBS.toStrict $ bs <> "\n")
       flushLogs = liftIO $ hFlush hdl
       tracer =
         Tracer $
