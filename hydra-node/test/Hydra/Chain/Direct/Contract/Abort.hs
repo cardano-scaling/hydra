@@ -12,7 +12,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.ContractGenerators (genForParty)
+import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),

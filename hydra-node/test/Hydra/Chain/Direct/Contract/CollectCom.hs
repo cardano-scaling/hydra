@@ -10,7 +10,7 @@ import Hydra.Prelude hiding (label)
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.ContractGenerators (genForParty, genHash, genMintedOrBurnedValue)
+import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),

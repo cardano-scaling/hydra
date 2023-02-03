@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.ContractGenerators (genForParty)
+import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),

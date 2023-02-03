@@ -140,7 +140,7 @@ import Cardano.Ledger.Serialization (mkSized)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain.Direct.Contract.ContractGenerators (genForParty)
+import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Fixture (testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)

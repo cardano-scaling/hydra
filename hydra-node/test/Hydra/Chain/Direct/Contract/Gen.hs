@@ -1,5 +1,5 @@
 -- | Generators used in mutation testing framework
-module Hydra.Chain.Direct.Contract.ContractGenerators where
+module Hydra.Chain.Direct.Contract.Gen where
 
 import Cardano.Crypto.Hash (hashToBytes)
 import Codec.CBOR.Magic (uintegerFromBytes)
