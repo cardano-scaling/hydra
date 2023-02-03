@@ -278,7 +278,16 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && hasST headPolicyId outValue
     && mustInitializeContesters
     && mustNotChangeParameters
+    && mustPreserveValue
  where
+  mustPreserveValue =
+    traceIfFalse "head value is not preserved" $
+      outValue == headOutputValue
+  headOutputValue =
+    case txInfoOutputs txInfo of
+      [headOutput, _] -> txOutValue headOutput
+      _ -> traceError "does not have exactly two outputs"
+
   hasBoundedValidity =
     traceIfFalse "hasBoundedValidity check failed" $
       tMax - tMin <= cp
