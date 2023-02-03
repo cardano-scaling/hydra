@@ -8,6 +8,7 @@ import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   TokenName (..),
   TxInfo (TxInfo, txInfoMint),
+  TxOut (txOutValue),
   Value (getValue),
  )
 import qualified PlutusTx.AssocMap as Map
@@ -46,3 +47,14 @@ mustNotMintOrBurn TxInfo{txInfoMint} =
   traceIfFalse "minting or burning is forbidden" $
     isZero txInfoMint
 {-# INLINEABLE mustNotMintOrBurn #-}
+
+mustPreserveValue :: Value -> Value -> Bool
+mustPreserveValue outValue headOutValue =
+  traceIfFalse "head value is not preserved" $
+    outValue == headOutValue
+{-# INLINEABLE mustPreserveValue #-}
+
+headOutputValue :: [TxOut] -> Value
+headOutputValue (headOutput : _outputs) = txOutValue headOutput
+headOutputValue _ = traceError "does not have at least head output"
+{-# INLINEABLE headOutputValue #-}

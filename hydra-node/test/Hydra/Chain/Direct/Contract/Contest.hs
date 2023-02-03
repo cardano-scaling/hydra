@@ -31,7 +31,7 @@ import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatur
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
-import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
@@ -179,6 +179,8 @@ data ContestMutation
     MutateInputContesters
   | -- | Change the resulting contesters arbitrarily to see if they are checked
     MutateContesters
+  | -- | See spec: 5.5. rule 6 -> value is preserved
+    MutateValueInOutput
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -251,6 +253,9 @@ genContestMutation
           hashes <- listOf genHash
           let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
           pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut
+      , SomeMutation (Just "head value is not preserved") MutateValueInOutput <$> do
+          newValue <- genValue
+          pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
