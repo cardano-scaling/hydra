@@ -193,7 +193,8 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
       nTotalCommits == length parties
 
   (expectedChangeValue, collectedCommits, nTotalCommits) =
-    traverseInputs
+    foldr
+      traverseInputs
       (negate (txInfoAdaFee txInfo), [], 0)
       (txInfoInputs txInfo)
 
@@ -205,28 +206,17 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
   -- Collect fuel and commits from resolved inputs. Any output containing a PT
   -- is treated as a commit, "our" output is the head output and all remaining
   -- will be accumulated as 'fuel'.
-  traverseInputs (fuel, commits, nCommits) = \case
-    [] ->
+  traverseInputs TxInInfo{txInInfoResolved} (fuel, commits, nCommits)
+    | isHeadOutput txInInfoResolved =
       (fuel, commits, nCommits)
-    TxInInfo{txInInfoResolved} : rest
-      | isHeadOutput txInInfoResolved ->
-        traverseInputs
-          (fuel, commits, nCommits)
-          rest
-      | hasPT headId txInInfoResolved ->
-        case commitDatum txInfo txInInfoResolved of
-          Just commit@Commit{} ->
-            traverseInputs
-              (fuel, commit : commits, succ nCommits)
-              rest
-          Nothing ->
-            traverseInputs
-              (fuel, commits, succ nCommits)
-              rest
-      | otherwise ->
-        traverseInputs
-          (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
-          rest
+    | hasPT headId txInInfoResolved =
+      case commitDatum txInfo txInInfoResolved of
+        Just commit@Commit{} ->
+          (fuel, commit : commits, succ nCommits)
+        Nothing ->
+          (fuel, commits, succ nCommits)
+    | otherwise =
+      (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
 
   isHeadOutput txOut = txOutAddress txOut == headAddress
 {-# INLINEABLE checkCollectCom #-}
