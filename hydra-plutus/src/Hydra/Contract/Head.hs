@@ -466,12 +466,10 @@ findParticipationTokens headCurrency (Value val) =
 mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
 mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =
   case txInfoOutputs txInfo of
-    [] -> traceError "no continuing head output"
-    [headOutput] -> checkHeadOutput headOutput
     [headOutput, changeOutput] ->
       checkHeadOutput headOutput
         && traceIfFalse "change value does not match" (lovelaceValue changeValue == txOutValue changeOutput)
-    _moreThanTwoOutputs -> traceError "more than 2 outputs"
+    _moreThanTwoOutputs -> traceError "does not have exactly two outputs"
  where
   lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
   checkHeadOutput headOutput =
