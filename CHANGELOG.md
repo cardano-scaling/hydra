@@ -25,12 +25,9 @@ changes.
   + Check presence of state token (ST) and that it's consistent against datum.
   + Reduce cost of `commitTx` by using the initial script as input reference.
   + Moved check to reimburse commits to head validator and ensure its completeness.
-<<<<<<< HEAD
   + Remove snapshot number and utxo hash from Close and Contest reedemer as they
     were already present in Closed datum.
-=======
   + Check no tokens are minted/burnt in v-head for close, contest, commit and collectCom tx.
->>>>>>> 67e6f2daf (Generate better values)
 
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds
@@ -66,7 +63,6 @@ changes.
 - Add script sizes to `hydra-node --script-info` and published transaction cost benchmarks.
 
 -  `hydra-cluster` executable can be used to provide a local cardano "network" with `--devnet` argument
-
 
 ## [0.8.1] - 2022-11-17
 
