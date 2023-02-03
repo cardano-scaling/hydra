@@ -14,7 +14,6 @@ import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedV
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
-  alterTxOuts,
   changeHeadOutputDatum,
   changeMintedTokens,
  )
@@ -33,13 +32,14 @@ import Hydra.Chain.Direct.Tx (
   mkHeadOutput,
   mkInitialOutput,
  )
+import Hydra.Chain.Direct.Util (addChangeOutput)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genTxOutAdaOnly, genVerificationKey)
+import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
@@ -78,14 +78,6 @@ healthyCollectComTx =
       , initialParties = healthyOnChainParties
       , initialContestationPeriod = healthyContestationPeriod
       }
-
-  -- NOTE: Add one output containing 0 ada to make sure we have the right number of outputs (2).
-  -- In practise the change should cover the fees and here they are zero.
-  addChangeOutput transaction =
-    alterTxOuts (\outs -> outs <> [changeOutput{txOutValue = lovelaceToValue 0}]) transaction
-   where
-    changeOutput =
-      generateWith genTxOutAdaOnly 42
 
 healthyCommits :: Map TxIn HealthyCommit
 healthyCommits =

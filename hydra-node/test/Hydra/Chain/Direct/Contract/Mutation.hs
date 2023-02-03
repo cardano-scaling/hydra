@@ -136,14 +136,13 @@ import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
-import Cardano.Ledger.Serialization (mkSized)
 import qualified Data.Map as Map
-import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Fixture (testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
+import Hydra.Chain.Direct.Util (addDatum, alterTxOuts)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as Data (Party)
@@ -430,23 +429,6 @@ isHeadOutput TxOut{txOutAddress = addr} = addr == headAddress
   headAddress = mkScriptAddress @PlutusScriptV2 Fixture.testNetworkId headScript
   headScript = fromPlutusScript Head.validatorScript
 
--- | Adds given 'Datum' and corresponding hash to the transaction's scripts.
--- TODO: As we are creating the `TxOutDatum` from a known datum, passing a `TxOutDatum` is
--- pointless and requires more work than needed to check impossible variants.
-addDatum :: TxOutDatum CtxTx -> TxBodyScriptData -> TxBodyScriptData
-addDatum datum scriptData =
-  case datum of
-    TxOutDatumNone -> error "unexpected datum none"
-    TxOutDatumHash _ha -> error "hash only, expected full datum"
-    TxOutDatumInline _sd -> error "not useful for inline datums"
-    TxOutDatumInTx sd ->
-      case scriptData of
-        TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-        TxBodyScriptData (Ledger.TxDats dats) redeemers ->
-          let dat = toLedgerData sd
-              newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
-           in TxBodyScriptData newDats redeemers
-
 changeHeadOutputDatum :: (Head.State -> Head.State) -> TxOut CtxTx -> TxOut CtxTx
 changeHeadOutputDatum fn txOut =
   case txOutDatum txOut of
@@ -473,16 +455,6 @@ addParticipationTokens parties txOut =
         [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
         | cardanoVk <- genForParty genVerificationKey <$> parties
         ]
-
--- | Ensures the included datums of given 'TxOut's are included in the transactions' 'TxBodyScriptData'.
-ensureDatums :: [TxOut CtxTx] -> TxBodyScriptData -> TxBodyScriptData
-ensureDatums outs scriptData =
-  foldr ensureDatum scriptData outs
- where
-  ensureDatum txOut sd =
-    case txOutDatum txOut of
-      d@(TxOutDatumInTx _) -> addDatum d sd
-      _ -> sd
 
 -- | Alter a transaction's  redeemers map given some mapping function.
 alterRedeemers ::
@@ -549,26 +521,6 @@ alterTxIns fn tx =
 
   ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
 
-  Tx body wits = tx
-
--- | Apply some mapping function over a transaction's outputs.
-alterTxOuts ::
-  ([TxOut CtxTx] -> [TxOut CtxTx]) ->
-  Tx ->
-  Tx
-alterTxOuts fn tx =
-  Tx body' wits
- where
-  body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
-  ledgerBody' = ledgerBody{Ledger.outputs = ledgerOutputs'}
-
-  ledgerOutputs' = StrictSeq.fromList . map (mkSized . toLedgerTxOut . toCtxUTxOTxOut) $ outputs'
-
-  outputs' = fn . fmap fromLedgerTxOut . toList $ Ledger.outputs' ledgerBody
-
-  scriptData' = ensureDatums outputs' scriptData
-
-  ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   Tx body wits = tx
 
 -- | Generates an output that pays to some arbitrary pubkey.
