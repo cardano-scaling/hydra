@@ -50,6 +50,7 @@ import Hydra.HeadLogic (
   defaultTTL,
   emitSnapshot,
   getChainState,
+  setChainState,
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
@@ -273,7 +274,7 @@ chainCallback NodeState{modifyHeadState} eq cont = do
       Nothing ->
         (Nothing, hs)
       Just ev@Observation{newChainState} ->
-        (Just ev, hs{chainState = newChainState})
+        (Just ev, setChainState newChainState hs)
       Just ev ->
         (Just ev, hs)
   case mEvent of

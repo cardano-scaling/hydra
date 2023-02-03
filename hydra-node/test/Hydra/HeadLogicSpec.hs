@@ -28,6 +28,7 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
+  IdleState (..),
   LogicError (..),
   Outcome (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
@@ -347,7 +348,7 @@ inInitialState parties =
     { parameters
     , pendingCommits = Set.fromList parties
     , committed = mempty
-    , previousRecoverableState = idleState
+    , previousRecoverableState = Idle idleState
     , chainState = SimpleChainState{slot = ChainSlot 0}
     , headId = testHeadId
     }
@@ -387,7 +388,7 @@ inOpenState' parties coordinatedHeadState =
       { parameters
       , pendingCommits = mempty
       , committed = mempty
-      , previousRecoverableState = idleState
+      , previousRecoverableState = Idle idleState
       , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
       }

@@ -127,7 +127,7 @@ instance
 -- practice, clients should not send transactions right way but wait for a
 -- certain grace period to minimize the risk.
 data HeadState tx
-  = IdleState {chainState :: ChainStateType tx}
+  = Idle (IdleState tx)
   | InitialState
       { parameters :: HeadParameters
       , pendingCommits :: PendingCommits
@@ -164,12 +164,35 @@ deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (HeadState tx)
 deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (HeadState tx)
 deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
 
+-- | Get the chain state in any 'HeadState'.
 getChainState :: HeadState tx -> ChainStateType tx
-getChainState hs = case hs of
-  IdleState{chainState} -> chainState
+getChainState = \case
+  Idle IdleState{chainState} -> chainState
   InitialState{chainState} -> chainState
   OpenState{chainState} -> chainState
   ClosedState{chainState} -> chainState
+
+-- | Update the chain state in any 'HeadState'.
+setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
+setChainState chainState = \case
+  Idle IdleState{} -> Idle IdleState{chainState}
+  st@InitialState{} -> st{chainState}
+  st@OpenState{} -> st{chainState}
+  st@ClosedState{} -> st{chainState}
+
+-- ** Idle
+
+-- | An 'Idle' head only having a chain state with things seen on chain so far.
+newtype IdleState tx = IdleState {chainState :: ChainStateType tx}
+  deriving (Generic)
+
+deriving instance Eq (ChainStateType tx) => Eq (IdleState tx)
+deriving instance Show (ChainStateType tx) => Show (IdleState tx)
+deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (IdleState tx)
+deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (IdleState tx)
+
+instance (Arbitrary (ChainStateType tx)) => Arbitrary (IdleState tx) where
+  arbitrary = genericArbitrary
 
 type Committed tx = Map Party (UTxOType tx)
 
@@ -282,19 +305,12 @@ data Environment = Environment
 -- | Client request to init the head. This leads to an init transaction on chain,
 -- containing the head parameters.
 --
--- TODO: maybe change signature so it takes [Party] instead (all parties)?
---
 -- __Transition__: 'IdleState' → 'IdleState'
 onIdleClientInit ::
-  -- | Current chain state
-  ChainStateType tx ->
-  -- | Us
-  Party ->
-  -- | Others
-  [Party] ->
-  ContestationPeriod ->
+  Environment ->
+  IdleState tx ->
   Outcome tx
-onIdleClientInit chainState party otherParties contestationPeriod =
+onIdleClientInit env st =
   OnlyEffects [OnChainEffect{chainState, postChainTx = InitTx parameters}]
  where
   parameters =
@@ -303,26 +319,29 @@ onIdleClientInit chainState party otherParties contestationPeriod =
       , parties = party : otherParties
       }
 
+  Environment{party, otherParties, contestationPeriod} = env
+
+  IdleState{chainState} = st
+
 -- | Observe an init transaction, initialize parameters in an 'InitialState' and
 -- notify clients that they can now commit.
 --
 -- __Transition__: 'IdleState' → 'InitialState'
 onIdleChainInitTx ::
-  -- | Current head state.
-  HeadState tx ->
+  IdleState tx ->
   -- | New chain state.
   ChainStateType tx ->
   [Party] ->
   ContestationPeriod ->
   HeadId ->
   Outcome tx
-onIdleChainInitTx headState newChainState parties contestationPeriod headId =
+onIdleChainInitTx idleState newChainState parties contestationPeriod headId =
   NewState
     ( InitialState
         { parameters = HeadParameters{contestationPeriod, parties}
         , pendingCommits = Set.fromList parties
         , committed = mempty
-        , previousRecoverableState = headState
+        , previousRecoverableState = Idle idleState
         , chainState = newChainState
         , headId
         }
@@ -423,7 +442,7 @@ onInitialChainAbortTx ::
   Outcome tx
 onInitialChainAbortTx newChainState committed headId =
   NewState
-    IdleState{chainState = newChainState}
+    (Idle IdleState{chainState = newChainState})
     [ClientEffect $ HeadIsAborted{headId, utxo = fold committed}]
 
 -- | Observe a collectCom transaction. We initialize the 'OpenState' using the
@@ -855,7 +874,7 @@ onClosedChainFanoutTx ::
   Outcome tx
 onClosedChainFanoutTx newChainState confirmedSnapshot headId =
   NewState
-    IdleState{chainState = newChainState}
+    (Idle IdleState{chainState = newChainState})
     [ ClientEffect $ HeadIsFinalized{headId, utxo = getField @"utxo" $ getSnapshot confirmedSnapshot}
     ]
 
@@ -875,7 +894,7 @@ onCurrentChainRollback currentState slot =
     | chainStateSlot (getChainState hs) <= rollbackSlot = hs
     | otherwise =
       case hs of
-        IdleState{} -> hs
+        Idle{} -> hs
         InitialState{previousRecoverableState} ->
           rollback rollbackSlot previousRecoverableState
         OpenState{previousRecoverableState} ->
@@ -893,11 +912,11 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party, signingKey, otherParties, contestationPeriod} ledger st ev = case (st, ev) of
-  (IdleState{chainState}, ClientEvent Init) ->
-    onIdleClientInit chainState party otherParties contestationPeriod
-  (IdleState{}, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod = observed, parties}, newChainState}) ->
-    onIdleChainInitTx st newChainState parties observed headId
+update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
+  (Idle idleState, ClientEvent Init) ->
+    onIdleClientInit env idleState
+  (Idle idleState, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
+    onIdleChainInitTx idleState newChainState parties contestationPeriod headId
   (InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit chainState party pendingCommits clientInput
   ( InitialState{parameters, pendingCommits, committed, headId}
