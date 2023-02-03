@@ -12,7 +12,6 @@ import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Util (mustBurnST, mustNotMintOrBurn)
 import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   Datum (..),
@@ -31,8 +30,6 @@ import Plutus.V2.Ledger.Api (
   Validator (getValidator),
   ValidatorHash,
   Value (getValue),
-  adaSymbol,
-  adaToken,
   mkValidatorScript,
  )
 import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
@@ -114,10 +111,7 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
  where
   checkCommittedValue =
     traceIfFalse "I03" $
-      traceIfFalse ("lockedValue: " `appendString` debugValue lockedValue) $
-        traceIfFalse ("initialValue: " `appendString` debugValue initialValue) $
-          traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
-            lockedValue == initialValue + committedValue
+      lockedValue == initialValue + committedValue
 
   checkLockedCommit =
     case (committedTxOut, lockedCommit) of
@@ -159,27 +153,6 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
                   Just (_party, _headScriptHash, mCommit, _headId) ->
                     mCommit
       _ -> traceError "I13"
-
-  debugValue v =
-    debugInteger . assetClassValueOf v $ assetClass adaSymbol adaToken
-
--- | Show an 'Integer' as decimal number. This is very inefficient and only
--- should be used for debugging.
-debugInteger :: Integer -> BuiltinString
-debugInteger i
-  | i == 0 = "0"
-  | i == 1 = "1"
-  | i == 2 = "2"
-  | i == 3 = "3"
-  | i == 4 = "4"
-  | i == 5 = "5"
-  | i == 6 = "6"
-  | i == 7 = "7"
-  | i == 8 = "8"
-  | i == 9 = "9"
-  | i >= 10 = debugInteger (i `quotient` 10) `appendString` "0"
-  | otherwise = "-" `appendString` debugInteger (negate i)
-{-# INLINEABLE debugInteger #-}
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
