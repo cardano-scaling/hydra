@@ -17,7 +17,7 @@ import qualified PlutusTx
 
 newtype ContestationPeriod = UnsafeContestationPeriod {milliseconds :: DiffMilliSeconds}
   deriving stock (Generic, Eq, Ord, Show)
-  deriving newtype (Num)
+  deriving newtype (Num, Plutus.Eq)
 
 PlutusTx.unstableMakeIsData ''ContestationPeriod
 

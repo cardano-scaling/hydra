@@ -178,11 +178,34 @@ checkCollectCom ::
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
   mustNotMintOrBurn txInfo
-    && mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
+    && mustCollectUtxoHash
+    && mustNotChangeParameters
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
     && hasST headId outValue
  where
+  mustCollectUtxoHash =
+    traceIfFalse "incorrect utxo hash" $
+      utxoHash == hashPreSerializedCommits collectedCommits
+
+  mustNotChangeParameters =
+    traceIfFalse "changed parameters" $
+      parties' == parties
+        && contestationPeriod' == contestationPeriod
+        && headId' == headId
+
+  (parties', utxoHash, contestationPeriod', headId') =
+    -- XXX: fromBuiltinData is super big (and also expensive?)
+    case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
+      Just
+        Open
+          { parties = p
+          , utxoHash = h
+          , contestationPeriod = cp
+          , headId = hId
+          } ->
+          (p, h, cp, hId)
+      _ -> traceError "wrong state in output datum"
   headAddress = mkHeadAddress ctx
 
   outValue =
@@ -192,31 +215,23 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
     traceIfFalse "missing commits" $
       nTotalCommits == length parties
 
-  (expectedChangeValue, collectedCommits, nTotalCommits) =
+  (collectedCommits, nTotalCommits) =
     foldr
       traverseInputs
-      (negate (txInfoAdaFee txInfo), [], 0)
+      ([], 0)
       (txInfoInputs txInfo)
 
-  expectedOutputDatum :: Datum
-  expectedOutputDatum =
-    let utxoHash = hashPreSerializedCommits collectedCommits
-     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod, headId = headId}
-
-  -- Collect fuel and commits from resolved inputs. Any output containing a PT
-  -- is treated as a commit, "our" output is the head output and all remaining
-  -- will be accumulated as 'fuel'.
-  traverseInputs TxInInfo{txInInfoResolved} (fuel, commits, nCommits)
+  traverseInputs TxInInfo{txInInfoResolved} (commits, nCommits)
     | isHeadOutput txInInfoResolved =
-      (fuel, commits, nCommits)
+      (commits, nCommits)
     | hasPT headId txInInfoResolved =
       case commitDatum txInfo txInInfoResolved of
         Just commit@Commit{} ->
-          (fuel, commit : commits, succ nCommits)
+          (commit : commits, succ nCommits)
         Nothing ->
-          (fuel, commits, succ nCommits)
+          (commits, succ nCommits)
     | otherwise =
-      (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
+      (commits, nCommits)
 
   isHeadOutput txOut = txOutAddress txOut == headAddress
 {-# INLINEABLE checkCollectCom #-}
@@ -462,27 +477,6 @@ findParticipationTokens headCurrency (Value val) =
     _ ->
       []
 {-# INLINEABLE findParticipationTokens #-}
-
-mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
-mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =
-  case txInfoOutputs txInfo of
-    -- NOTE: in the real scenario here we should always get two outputs - head
-    -- and change one. But, since we are not dealing with the change outputs in
-    -- tests we either need to keep this pattern match for a single head output
-    -- or fix the end-to-end spec to actually add a change output and have more
-    -- realistic txs.
-    [headOutput] ->
-      checkHeadOutput headOutput
-    [headOutput, changeOutput] ->
-      checkHeadOutput headOutput
-        && traceIfFalse "change value does not match" (lovelaceValue changeValue == txOutValue changeOutput)
-    _moreThanTwoOutputs -> traceError "does not have exactly two outputs"
- where
-  lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
-  checkHeadOutput headOutput =
-    traceIfFalse "first output should be head address" (txOutAddress headOutput == headAddress)
-      && traceIfFalse "wrong output head datum" (findTxOutDatum txInfo headOutput == datum)
-{-# INLINEABLE mustContinueHeadWith #-}
 
 continuingDatum :: ScriptContext -> Datum
 continuingDatum ctx@ScriptContext{scriptContextTxInfo} =
