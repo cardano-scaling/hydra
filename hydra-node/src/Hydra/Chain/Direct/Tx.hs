@@ -392,6 +392,8 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
 -- something more principled at the protocol level itself and "merge" close and
 -- contest as one operation.
 contestTx ::
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Contested snapshot number (i.e. the one we contest to)
@@ -405,47 +407,60 @@ contestTx ::
   HeadId ->
   ContestationPeriod ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline, closedContesters} headId contestationPeriod =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs [(headInput, headWitness)]
-      & addOutputs [headOutputAfter]
-      & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValidityUpperBound slotNo
- where
-  headWitness =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
-  headScript =
-    fromPlutusScript @PlutusScriptV2 Head.validatorScript
-  headRedeemer =
-    toScriptData
-      Head.Contest
-        { signature = toPlutusSignatures sig
-        }
-  headOutputAfter =
-    modifyTxOutDatum (const headDatumAfter) headOutputBefore
+contestTx
+  scriptRegistry
+  vk
+  Snapshot{number, utxo}
+  sig
+  (slotNo, _)
+  ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline, closedContesters}
+  headId
+  contestationPeriod =
+    unsafeBuildTransaction $
+      emptyTxBody
+        & addInputs [(headInput, headWitness)]
+        & addReferenceInputs [headScriptRef]
+        & addOutputs [headOutputAfter]
+        & addExtraRequiredSigners [verificationKeyHash vk]
+        & setValidityUpperBound slotNo
+   where
+    headWitness =
+      BuildTxWith $
+        ScriptWitness scriptWitnessCtx $
+          mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+    headScriptRef =
+      fst (headReference scriptRegistry)
+    headScript =
+      fromPlutusScript @PlutusScriptV2 Head.validatorScript
+    headRedeemer =
+      toScriptData
+        Head.Contest
+          { signature = toPlutusSignatures sig
+          }
+    headOutputAfter =
+      modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-  contester = toPlutusKeyHash (verificationKeyHash vk)
+    contester = toPlutusKeyHash (verificationKeyHash vk)
 
-  onChainConstestationPeriod = toChain contestationPeriod
+    onChainConstestationPeriod = toChain contestationPeriod
 
-  newContestationDeadline =
-    if length (contester : closedContesters) == length closedParties
-      then closedContestationDeadline
-      else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
+    newContestationDeadline =
+      if length (contester : closedContesters) == length closedParties
+        then closedContestationDeadline
+        else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
 
-  headDatumAfter =
-    mkTxOutDatum
-      Head.Closed
-        { snapshotNumber = toInteger number
-        , utxoHash
-        , parties = closedParties
-        , contestationDeadline = newContestationDeadline
-        , contestationPeriod = onChainConstestationPeriod
-        , headId = headIdToCurrencySymbol headId
-        , contesters = contester : closedContesters
-        }
-  utxoHash = toBuiltin $ hashUTxO @Tx utxo
+    headDatumAfter =
+      mkTxOutDatum
+        Head.Closed
+          { snapshotNumber = toInteger number
+          , utxoHash
+          , parties = closedParties
+          , contestationDeadline = newContestationDeadline
+          , contestationPeriod = onChainConstestationPeriod
+          , headId = headIdToCurrencySymbol headId
+          , contesters = contester : closedContesters
+          }
+    utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need
