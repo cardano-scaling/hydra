@@ -25,7 +25,7 @@ State-channels extend the traditional concept of payment channels to support sma
 
 **Side chains** allow for transferring assets from a layer 1 protocol to a new chain with its own set of consensus rules. Usually, a side-chain provides either a simpler or more efficient consensus mechanism which allows for more scalability or which ease the implementation of new functionality harder to get adopted on the layer 1. Often, this comes at the price of decentralization or security, since side-chains are typically involving only few actors or committees at their root. 
 
-Side chains are however "proper chains", with blocks produced by validator and usually, smart-contract capabilities. Therefore, unlike state-channels, they provide data-availability and often ways to participate into the validation and observation of the chain (in a state-channel, only participants of the channel really have a reliable view of what is going on in the channel). Entering a side-chain is usually done by burning or locking assets on the layer 1, to receive an equivalent counterpart on the side-chain network. 
+Side chains are however "proper chains", with blocks produced by validator and usually, smart-contract capabilities. Therefore, unlike state-channels, they provide data-availability and offer ways to participate into the validation and observation of the chain (in a state-channel, only participants of the channel really have a reliable view of what is going on in the channel). Entering a side-chain is usually done by burning or locking assets on the layer 1, to receive an equivalent counterpart on the side-chain network. 
 
 #### Examples
 
