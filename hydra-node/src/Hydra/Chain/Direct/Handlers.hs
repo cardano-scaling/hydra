@@ -281,7 +281,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
       pure (contest ctx st confirmedSnapshot upperBound)
     (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
-      pure (fanout st utxo deadlineSlot)
+      pure (fanout ctx st utxo deadlineSlot)
     (_, _) -> throwIO $ InvalidStateToPost{txTried = tx, chainState = cst}
  where
   -- XXX: Might want a dedicated exception type here

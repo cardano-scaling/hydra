@@ -455,14 +455,17 @@ contest ctx st confirmedSnapshot pointInTime = do
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
 -- agreed 'UTxO' set to fan out.
 fanout ::
+  ChainContext ->
   ClosedState ->
   UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Tx
-fanout st utxo deadlineSlotNo = do
-  fanoutTx utxo (i, o, dat) deadlineSlotNo closedHeadTokenScript
+fanout ctx st utxo deadlineSlotNo = do
+  fanoutTx scriptRegistry utxo (i, o, dat) deadlineSlotNo closedHeadTokenScript
  where
+  ChainContext{scriptRegistry} = ctx
+
   ClosedState{closedThreadOutput, closedHeadTokenScript} = st
 
   ClosedThreadOutput{closedThreadUTxO = (i, o, dat)} = closedThreadOutput
@@ -897,8 +900,9 @@ genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
   utxo <- genUTxOAdaOnlyOfSize numOutputs
   (_, toFanout, stClosed) <- genStClosed ctx utxo
+  cctx <- pickChainContext ctx
   let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
-  pure (ctx, stClosed, fanout stClosed toFanout deadlineSlotNo)
+  pure (ctx, stClosed, fanout cctx stClosed toFanout deadlineSlotNo)
 
 getContestationDeadline :: ClosedState -> UTCTime
 getContestationDeadline

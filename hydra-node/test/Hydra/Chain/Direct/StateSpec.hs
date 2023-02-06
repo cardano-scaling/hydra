@@ -292,7 +292,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"
   -- Fanout
-  let txFanout = fanout stClosed initialUTxO (Fixture.slotNoFromUTCTime deadline)
+  let txFanout = fanout cctx stClosed initialUTxO (Fixture.slotNoFromUTCTime deadline)
 
   -- Properties
   let collectFails =
