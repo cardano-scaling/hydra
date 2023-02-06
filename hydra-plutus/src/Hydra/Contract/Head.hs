@@ -259,6 +259,8 @@ commitDatum txInfo input = do
 --   * The transaction is performed (i.e. signed) by one of the head participants
 --
 --   * State token (ST) is present in the output
+--
+--   * Contesters must be initialize as empty
 checkClose ::
   ScriptContext ->
   [Party] ->
@@ -274,6 +276,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
     && hasST headPolicyId outValue
+    && mustInitializeContesters
     && mustNotChangeParameters
  where
   hasBoundedValidity =
@@ -323,7 +326,10 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     traceIfFalse "changed parameters" $
       headId' == headPolicyId
         && parties' == parties
-        && null contesters'
+
+  mustInitializeContesters =
+    traceIfFalse "contesters non-empty" $
+      null contesters'
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
@@ -341,6 +347,8 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 --   * The transaction is performed before the deadline.
 --
 --   * State token (ST) is present in the output
+--
+--   * Add signer to list of contesters.
 --
 --   * No other parameters have changed.
 checkContest ::
@@ -363,6 +371,7 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
     && checkSignedParticipantContestOnlyOnce
     && mustBeWithinContestationPeriod
     && hasST headId outValue
+    && mustUpdateContesters
     && mustNotChangeParameters
  where
   outValue =
@@ -386,7 +395,10 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
       parties' == parties
         && contestationDeadline' == contestationDeadline
         && headId' == headId
-        && contesters' == (contester : contesters)
+
+  mustUpdateContesters =
+    traceIfFalse "contester not included" $
+      contesters' == (contester : contesters)
 
   (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)

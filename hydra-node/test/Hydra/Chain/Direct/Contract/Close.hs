@@ -44,7 +44,7 @@ import Plutus.Orphans ()
 import Plutus.V1.Ledger.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import Plutus.V2.Ledger.Api (BuiltinByteString, POSIXTime, PubKeyHash (PubKeyHash), toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof, suchThat, vectorOf)
+import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 --
@@ -221,7 +221,8 @@ data CloseMutation
   | MutateHeadId
   | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenMintingOrBurning
-  | MutateContesters
+  | -- | Change the resulting contesters to non-empty to see if they are checked
+    MutateContesters
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -280,7 +281,9 @@ genCloseMutation (tx, _utxo) =
             ]
     , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-    , SomeMutation (Just "changed parameters") MutateContesters . ChangeOutput 0 <$> mutateClosedContesters
+    , SomeMutation (Just "contesters non-empty") MutateContesters . ChangeOutput 0 <$> do
+        mutatedContesters <- listOf1 $ PubKeyHash . toBuiltin <$> genHash
+        pure $ headTxOut & changeHeadOutputDatum (replaceContesters mutatedContesters)
     ]
  where
   genOversizedTransactionValidity = do
@@ -297,13 +300,6 @@ genCloseMutation (tx, _utxo) =
   mutateCloseUTxOHash = do
     mutatedUTxOHash <- genHash
     pure $ changeHeadOutputDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
-
-  mutateClosedContesters :: Gen (TxOut CtxTx)
-  mutateClosedContesters = do
-    n <- arbitrary `suchThat` (> 0)
-    hashes <- vectorOf n genHash
-    let mutatedContesters = PubKeyHash . toBuiltin <$> hashes
-    pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'

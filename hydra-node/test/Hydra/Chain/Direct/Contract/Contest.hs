@@ -39,7 +39,7 @@ import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
+import Test.QuickCheck (elements, listOf, oneof, suchThat)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -175,7 +175,9 @@ data ContestMutation
     MutateHeadId
   | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenMintingOrBurning
-  | -- | Change the contesters list to test the head validators
+  | -- | Change the contesters to check if already contested
+    MutateInputContesters
+  | -- | Change the resulting contesters arbitrarily to see if they are checked
     MutateContesters
   deriving (Generic, Show, Enum, Bounded)
 
@@ -233,24 +235,25 @@ genContestMutation
               ]
       , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
           <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-      , SomeMutation (Just "signer already contested") MutateContesters . ChangeInputHeadDatum <$> do
-          n <- elements [0, 2]
-          hashes <- vectorOf n genHash
+      , SomeMutation (Just "signer already contested") MutateInputContesters . ChangeInputHeadDatum <$> do
           let contester = toPlutusKeyHash (verificationKeyHash somePartyCardanoVerificationKey)
-              contesters = Plutus.PubKeyHash . toBuiltin <$> hashes
+              contesterAndSomeOthers = do
+                contesters <- listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
+                pure (contester : contesters)
+          mutatedContesters <-
+            oneof
+              [ pure [contester]
+              , contesterAndSomeOthers
+              ]
           pure $
-            healthyClosedState & replaceContesters (contester : contesters)
-      , SomeMutation Nothing MutateContesters . ChangeOutput 0 <$> mutateClosedContesters
+            healthyClosedState & replaceContesters mutatedContesters
+      , SomeMutation (Just "contester not included") MutateContesters . ChangeOutput 0 <$> do
+          hashes <- listOf genHash
+          let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
+          pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
 
     slotOverContestationDeadline slotNo =
       slotNoToUTCTime slotNo > healthyContestationDeadline
-
-    mutateClosedContesters :: Gen (TxOut CtxTx)
-    mutateClosedContesters = do
-      n <- arbitrary `suchThat` (>= 0)
-      hashes <- vectorOf n genHash
-      let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
-      pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut
