@@ -126,7 +126,7 @@ computeCollectComCost =
     initTx <- genInitTx ctx
     commits <- genCommits' (genUTxOAdaOnlyOfSize 1) ctx initTx
     let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (fold committedUTxOs, collect cctx stInitialized, getKnownUTxO stInitialized)
+    pure (fold committedUTxOs, collect cctx stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCloseCost = do
@@ -135,8 +135,8 @@ computeCloseCost = do
   pure $ interesting <> limit
  where
   compute numParties = do
-    (_, st, tx, _sn) <- generate $ genCloseTx numParties
-    let utxo = getKnownUTxO st
+    (ctx, st, tx, _sn) <- generate $ genCloseTx numParties
+    let utxo = getKnownUTxO st <> getKnownUTxO ctx
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
         pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
@@ -150,8 +150,7 @@ computeContestCost = do
   pure $ interesting <> limit
  where
   compute numParties = do
-    (st, tx) <- generate $ genContestTx numParties
-    let utxo = getKnownUTxO st
+    (tx, utxo) <- generate $ genContestTx numParties
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
         pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
@@ -165,7 +164,7 @@ computeContestCost = do
     cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (stClosed, contest cctx stClosed snapshot pointInTime)
+    pure (contest cctx stClosed snapshot pointInTime, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeAbortCost =
@@ -174,8 +173,8 @@ computeAbortCost =
   catMaybes <$> forM [1 .. 100] compute
  where
   compute numParties = do
-    (tx, knownUtxo) <- generate $ genAbortTx numParties
-    case checkSizeAndEvaluate tx knownUtxo of
+    (tx, utxo) <- generate $ genAbortTx numParties
+    case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) -> do
         pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
