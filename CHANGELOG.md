@@ -28,6 +28,7 @@ changes.
   + Remove snapshot number and utxo hash from Close and Contest reedemer as they
     were already present in Closed datum.
   + Check no tokens are minted/burnt in v-head for close, contest, commit and collectCom tx.
+  + The v_head output must now be the first output of the transaction so that we can make the validator code simpler.
 
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds

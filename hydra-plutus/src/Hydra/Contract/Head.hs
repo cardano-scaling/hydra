@@ -26,7 +26,7 @@ import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod,
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Time (fromMilliSeconds)
-import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
+import Plutus.V1.Ledger.Value (valueOf)
 import Plutus.V2.Ledger.Api (
   Address,
   CurrencySymbol,
@@ -54,7 +54,7 @@ import Plutus.V2.Ledger.Api (
   adaToken,
   mkValidatorScript,
  )
-import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput, getContinuingOutputs)
+import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
@@ -178,11 +178,34 @@ checkCollectCom ::
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
   mustNotMintOrBurn txInfo
-    && mustContinueHeadWith ctx headAddress expectedChangeValue expectedOutputDatum
+    && mustCollectUtxoHash
+    && mustNotChangeParameters
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
     && hasST headId outValue
  where
+  mustCollectUtxoHash =
+    traceIfFalse "incorrect utxo hash" $
+      utxoHash == hashPreSerializedCommits collectedCommits
+
+  mustNotChangeParameters =
+    traceIfFalse "changed parameters" $
+      parties' == parties
+        && contestationPeriod' == contestationPeriod
+        && headId' == headId
+
+  (parties', utxoHash, contestationPeriod', headId') =
+    -- XXX: fromBuiltinData is super big (and also expensive?)
+    case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
+      Just
+        Open
+          { parties = p
+          , utxoHash = h
+          , contestationPeriod = cp
+          , headId = hId
+          } ->
+          (p, h, cp, hId)
+      _ -> traceError "wrong state in output datum"
   headAddress = mkHeadAddress ctx
 
   outValue =
@@ -192,41 +215,23 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
     traceIfFalse "missing commits" $
       nTotalCommits == length parties
 
-  (expectedChangeValue, collectedCommits, nTotalCommits) =
-    traverseInputs
-      (negate (txInfoAdaFee txInfo), [], 0)
+  (collectedCommits, nTotalCommits) =
+    foldr
+      extractAndCountCommits
+      ([], 0)
       (txInfoInputs txInfo)
 
-  expectedOutputDatum :: Datum
-  expectedOutputDatum =
-    let utxoHash = hashPreSerializedCommits collectedCommits
-     in Datum $ toBuiltinData Open{parties, utxoHash, contestationPeriod, headId = headId}
-
-  -- Collect fuel and commits from resolved inputs. Any output containing a PT
-  -- is treated as a commit, "our" output is the head output and all remaining
-  -- will be accumulated as 'fuel'.
-  traverseInputs (fuel, commits, nCommits) = \case
-    [] ->
-      (fuel, commits, nCommits)
-    TxInInfo{txInInfoResolved} : rest
-      | isHeadOutput txInInfoResolved ->
-        traverseInputs
-          (fuel, commits, nCommits)
-          rest
-      | hasPT headId txInInfoResolved ->
-        case commitDatum txInfo txInInfoResolved of
-          Just commit@Commit{} ->
-            traverseInputs
-              (fuel, commit : commits, succ nCommits)
-              rest
-          Nothing ->
-            traverseInputs
-              (fuel, commits, succ nCommits)
-              rest
-      | otherwise ->
-        traverseInputs
-          (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
-          rest
+  extractAndCountCommits TxInInfo{txInInfoResolved} (commits, nCommits)
+    | isHeadOutput txInInfoResolved =
+      (commits, nCommits)
+    | hasPT headId txInInfoResolved =
+      case commitDatum txInfo txInInfoResolved of
+        Just commit@Commit{} ->
+          (commit : commits, succ nCommits)
+        Nothing ->
+          (commits, succ nCommits)
+    | otherwise =
+      (commits, nCommits)
 
   isHeadOutput txOut = txOutAddress txOut == headAddress
 {-# INLINEABLE checkCollectCom #-}
@@ -280,7 +285,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   (closedSnapshotNumber, closedUtxoHash, parties', closedContestationDeadline, headId') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
-    case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
+    case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
         Closed
           { snapshotNumber
@@ -377,7 +382,7 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig headId =
 
   (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', headId') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
-    case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
+    case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
         Closed
           { snapshotNumber
@@ -473,37 +478,12 @@ findParticipationTokens headCurrency (Value val) =
       []
 {-# INLINEABLE findParticipationTokens #-}
 
-mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
-mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =
-  checkOutputDatumAndValue [] (txInfoOutputs txInfo)
+headOutputDatum :: ScriptContext -> Datum
+headOutputDatum ctx =
+  findTxOutDatum txInfo (head $ txInfoOutputs txInfo)
  where
-  lovelaceValue = assetClassValue (assetClass adaSymbol adaToken)
-  checkOutputDatumAndValue xs = \case
-    [] ->
-      traceError "no continuing head output"
-    (o : rest)
-      | txOutAddress o == headAddress ->
-        traceIfFalse "wrong output head datum" (findTxOutDatum txInfo o == datum)
-          && checkOutputValue (xs <> rest)
-    (o : rest) ->
-      checkOutputDatumAndValue (o : xs) rest
-
-  checkOutputValue = \case
-    [] ->
-      True
-    [o]
-      | txOutAddress o /= headAddress ->
-        txOutValue o == lovelaceValue changeValue
-    _ ->
-      traceError "more than 2 outputs"
-{-# INLINEABLE mustContinueHeadWith #-}
-
-continuingDatum :: ScriptContext -> Datum
-continuingDatum ctx@ScriptContext{scriptContextTxInfo} =
-  case getContinuingOutputs ctx of
-    [o] -> findTxOutDatum scriptContextTxInfo o
-    _ -> traceError "expected only one continuing output"
-{-# INLINEABLE continuingDatum #-}
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
+{-# INLINEABLE headOutputDatum #-}
 
 findTxOutDatum :: TxInfo -> TxOut -> Datum
 findTxOutDatum txInfo o =
