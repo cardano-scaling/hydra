@@ -1007,6 +1007,26 @@ components:
             tag:
               type: string
               enum: ["MoreThanOneUTxOCommitted"]
+        - title: ScriptFailedInWallet
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - redeemerPtr
+          - failureReason
+          description: >-
+            Script execution failed when finalizing a transaction in the wallet.
+            The redeemer pointer should give an indication which script failed
+            while the reason is a dump of the error. Not intended to be
+            machine-processable (right now).
+          properties:
+            tag:
+              type: string
+              enum: ["ScriptFailedInWallet"]
+            redeemerPtr:
+              type: string
+            failureReason:
+              type: string
         - title: InternalWalletError
           type: object
           additionalProperties: false

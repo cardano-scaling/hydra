@@ -399,14 +399,14 @@ spec = around showLogsOnFailure $ do
                       { snapshot = snapshot2
                       , signatures = aggregate [sign aliceSk snapshot2]
                       }
-            -- NOTE: We deliberately expect the transactino creation and
+            -- NOTE: We deliberately expect the transaction creation and
             -- submission code of the Chain.Direct module to fail here because
             -- the scripts don't validate. That is, the on-chain code prevented
             -- this from happening and NOT any off-chain guard we added. Also
             -- note, that we don't try to check whether it's failing for the
             -- right reason here (see corresponding mutation test for this).
             contestAgain `shouldThrow` \case
-              (PlutusValidationFailed{} :: PostTxError Tx) -> True
+              (ScriptFailedInWallet{} :: PostTxError Tx) -> True
               _ -> False
 
 data DirectChainTestLog
