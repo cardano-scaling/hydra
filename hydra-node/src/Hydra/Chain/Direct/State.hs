@@ -342,12 +342,12 @@ commit ctx st utxo = do
 -- reimburse all the already committed outputs.
 abort ::
   HasCallStack =>
-  -- | Committed UTxOs to reimburse.
-  UTxO ->
   ChainContext ->
   InitialState ->
+  -- | Committed UTxOs to reimburse.
+  UTxO ->
   Tx
-abort committedUTxO ctx st = do
+abort ctx st committedUTxO = do
   let InitialThreadOutput{initialThreadUTxO = (i, o, dat)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
