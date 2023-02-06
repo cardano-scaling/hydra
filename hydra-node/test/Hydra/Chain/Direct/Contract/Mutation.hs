@@ -293,23 +293,25 @@ data Mutation
 applyMutation :: Mutation -> (Tx, UTxO) -> (Tx, UTxO)
 applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
   ChangeHeadRedeemer newRedeemer ->
-    let ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-        headOutputIndices =
-          fst
-            <$> filter
-              (isHeadOutput . snd . snd)
-              (zip [0 :: Word64 ..] $ Map.toAscList $ UTxO.toMap utxo)
-        headInputIdx = case headOutputIndices of
-          [i] -> i
-          _ -> error $ "could not find head output in utxo: " <> show utxo
+    (Tx body' wits, utxo)
+   where
+    body' = ShelleyTxBody ledgerBody scripts redeemers' mAuxData scriptValidity
 
-        newHeadRedeemer (Ledger.RdmrPtr _ ix) (dat, units)
-          | ix == headInputIdx = (Ledger.Data (toData newRedeemer), units)
-          | otherwise = (dat, units)
+    redeemers' = alterRedeemers newHeadRedeemer scriptData
 
-        redeemers = alterRedeemers newHeadRedeemer scriptData
-        body' = ShelleyTxBody ledgerBody scripts redeemers mAuxData scriptValidity
-     in (Tx body' wits, utxo)
+    newHeadRedeemer (Ledger.RdmrPtr _ ix) (dat, units)
+      | isHeadOutput (resolveInput ix) = (Ledger.Data (toData newRedeemer), units)
+      | otherwise = (dat, units)
+
+    resolveInput ix =
+      let txIn = Set.elemAt (fromIntegral ix) ledgerInputs -- NOTE: calls 'error' if out of bounds
+       in case UTxO.resolve (fromLedgerTxIn txIn) utxo of
+            Nothing -> error $ "txIn not resolvable: " <> show txIn
+            Just o -> o
+
+    ledgerInputs = Ledger.inputs ledgerBody
+
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   ChangeInputHeadDatum d' ->
     let datum = mkTxOutDatum d'
         datumHash = mkTxOutDatumHash d'
