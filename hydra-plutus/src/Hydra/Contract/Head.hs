@@ -18,7 +18,6 @@ module Hydra.Contract.Head (
 
 import PlutusTx.Prelude
 
-import Data.Maybe (maybeToList)
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
