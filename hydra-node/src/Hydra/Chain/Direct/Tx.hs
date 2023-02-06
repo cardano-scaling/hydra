@@ -316,6 +316,8 @@ data ClosingSnapshot
 -- | Create a transaction closing a head with either the initial snapshot or
 -- with a multi-signed confirmed snapshot.
 closeTx ::
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | The snapshot to close with, can be either initial or confirmed one.
@@ -329,10 +331,11 @@ closeTx ::
   -- | Head identifier
   HeadId ->
   Tx
-closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
+closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
+      & addReferenceInputs [headScriptRef]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
       & setValidityLowerBound startSlotNo
@@ -345,7 +348,12 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
     } = openThreadOutput
 
   headWitness =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+
+  headScriptRef =
+    fst (headReference scriptRegistry)
 
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript

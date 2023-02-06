@@ -606,8 +606,6 @@ TxOutRef{txOutRefId, txOutRefIdx} `compareRef` TxOutRef{txOutRefId = id', txOutR
     ord -> ord
 {-# INLINEABLE compareRef #-}
 
--- TODO: Add a NetworkId so that we can properly serialise address hashes
--- see 'encodeAddress' for details
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
   $$(PlutusTx.compile [||wrap headValidator||])
