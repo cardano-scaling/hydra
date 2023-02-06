@@ -1,0 +1,25 @@
+{
+    "samples": [
+        {
+            "keyHash": "ab2915825b313a645bd540fa67ca3c0f21aa27bb",
+            "tag": "PubKeyHash"
+        },
+        {
+            "keyHash": "b0b32de46dc4fd5468",
+            "tag": "PubKeyHash"
+        },
+        {
+            "keyHash": "5e0920ee24ed4129142b7b7d07653c58eddb2a",
+            "tag": "PubKeyHash"
+        },
+        {
+            "keyHash": "bb9e63696414045d45d37c940a1d416a335add52",
+            "tag": "PubKeyHash"
+        },
+        {
+            "keyHash": "0a9984db8f458c2536f31821689071b2e0e7cf45f53dda",
+            "tag": "PubKeyHash"
+        }
+    ],
+    "seed": 1271340067
+}
