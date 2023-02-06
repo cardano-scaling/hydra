@@ -108,19 +108,27 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) whe
 
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
-  = MoreThanOneUTxOCommitted
-  | InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
+  = NoSeedInput
+  | MoreThanOneUTxOCommitted
+  | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
+  | UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
+  | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
   | NotEnoughFuel
   | NoFuelUTXOFound
-  | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
-  | FailedToPostTx {failureReason :: Text}
-  | -- NOTE: PlutusDebugInfo does not have much available instances so we put it in Text
-    -- form but it's lame
+  | -- | Script execution failed when finalizing a transaction in the wallet.
+    -- XXX: Ideally we want a cardano-api type with corresonding JSON instance
+    -- here. But the wallet still uses ledger types and we don't want to copy the
+    -- conversion from ledger 'TransactionScriptFailure' to the cardano-api
+    -- 'ScriptExecutionError' type.
+    ScriptFailedInWallet {redeemerPtr :: Text, failureReason :: Text}
+  | -- | A generic error happened when finalizing a transction in the wallet.
+    InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
+  | -- | An error occurred when submitting a transaction to the cardano-node.
+    FailedToPostTx {failureReason :: Text}
+  | -- | A plutus script failed in a transaction submitted to the cardano-node.
+    -- NOTE: PlutusDebugInfo does not have much available instances so we put it
+    -- in Text form but it's lame
     PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
-  | NoSeedInput
-  | NoPaymentInput
-  | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
-  | UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)

@@ -36,6 +36,7 @@ import Hydra.Chain.Direct.State (
   HydraContext (..),
   InitialState (..),
   abort,
+  closedThreadOutput,
   commit,
   ctxHeadParameters,
   ctxParties,
@@ -60,6 +61,7 @@ import Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters))
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genOutput,
@@ -75,6 +77,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   renderEvaluationReportFailures,
  )
 import Hydra.Options (maximumNumberOfParties)
+import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude (
@@ -111,6 +114,9 @@ spec :: Spec
 spec = parallel $ do
   describe "ChainState" $
     roundtripAndGoldenSpecs (Proxy @ChainState)
+
+  describe "Plutus.PubKeyHash" $
+    roundtripAndGoldenSpecs (Proxy @Plutus.PubKeyHash)
 
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $
@@ -354,6 +360,7 @@ forAllContest action =
             & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
             & counterexample ("Contestation period: " <> show ctxContestationPeriod)
             & counterexample ("Close point: " <> show closePointInTime)
+            & counterexample ("Closed contesters: " <> show (getClosedContesters stClosed))
             & tabulate "Contestation period" (tabulateContestationPeriod ctxContestationPeriod)
             & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
  where
@@ -377,6 +384,8 @@ forAllContest action =
   oneMonth = oneDay * 30
   oneYear = oneDay * 365
 
+  getClosedContesters stClosed = closedContesters . closedThreadOutput $ stClosed
+
 forAllFanout ::
   (Testable property) =>
   (UTxO -> Tx -> property) ->
@@ -389,7 +398,7 @@ forAllFanout action =
        in action utxo tx
             & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
-  maxSupported = 39
+  maxSupported = 30
 
   countAssets = getSum . foldMap (Sum . valueSize . txOutValue)
 

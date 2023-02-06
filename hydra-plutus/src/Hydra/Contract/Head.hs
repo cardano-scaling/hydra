@@ -81,8 +81,8 @@ headValidator oldState input ctx =
       checkAbort ctx headId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{signature}) ->
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId}, Contest{signature}) ->
-      checkContest ctx contestationDeadline parties closedSnapshotNumber signature headId
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId, contesters}, Contest{signature}) ->
+      checkContest ctx contestationDeadline parties closedSnapshotNumber signature contesters headId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
     _ ->
@@ -259,6 +259,8 @@ commitDatum txInfo input = do
 --   * The transaction is performed (i.e. signed) by one of the head participants
 --
 --   * State token (ST) is present in the output
+--
+--   * Contesters must be initialize as empty
 checkClose ::
   ScriptContext ->
   [Party] ->
@@ -274,6 +276,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
     && hasST headPolicyId outValue
+    && mustInitializeContesters
     && mustNotChangeParameters
  where
   hasBoundedValidity =
@@ -283,7 +286,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
-  (closedSnapshotNumber, closedUtxoHash, parties', closedContestationDeadline, headId') =
+  (closedSnapshotNumber, closedUtxoHash, parties', closedContestationDeadline, headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
@@ -293,7 +296,8 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
           , parties = p
           , contestationDeadline
           , headId
-          } -> (snapshotNumber, utxoHash, p, contestationDeadline, headId)
+          , contesters
+          } -> (snapshotNumber, utxoHash, p, contestationDeadline, headId, contesters)
       _ -> traceError "wrong state in output datum"
 
   checkSnapshot
@@ -323,6 +327,10 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
       headId' == headPolicyId
         && parties' == parties
 
+  mustInitializeContesters =
+    traceIfFalse "contesters non-empty" $
+      null contesters'
+
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
 
@@ -332,13 +340,17 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 --
 --   * The contest snapshot is correctly signed.
 --
---   * No other parameters have changed.
+--   * The transaction is performed (i.e. signed) by one of the head participants
+--
+--   * Party can contest only once.
 --
 --   * The transaction is performed before the deadline.
 --
---   * The transaction is performed (i.e. signed) by one of the head participants
---
 --   * State token (ST) is present in the output
+--
+--   * Add signer to list of contesters.
+--
+--   * No other parameters have changed.
 checkContest ::
   ScriptContext ->
   POSIXTime ->
@@ -346,17 +358,21 @@ checkContest ::
   -- | Snapshot number of the closed state.
   SnapshotNumber ->
   [Signature] ->
+  -- | Keys of party member which already contested.
+  [PubKeyHash] ->
   -- | Head id
   CurrencySymbol ->
   Bool
-checkContest ctx contestationDeadline parties closedSnapshotNumber sig headId =
+checkContest ctx contestationDeadline parties closedSnapshotNumber sig contesters headId =
   mustNotMintOrBurn txInfo
     && mustBeNewer
     && mustBeMultiSigned
-    && mustNotChangeParameters
     && mustBeSignedByParticipant ctx headId
+    && checkSignedParticipantContestOnlyOnce
     && mustBeWithinContestationPeriod
     && hasST headId outValue
+    && mustUpdateContesters
+    && mustNotChangeParameters
  where
   outValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
@@ -380,7 +396,11 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig headId =
         && contestationDeadline' == contestationDeadline
         && headId' == headId
 
-  (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', headId') =
+  mustUpdateContesters =
+    traceIfFalse "contester not included" $
+      contesters' == (contester : contesters)
+
+  (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
@@ -390,10 +410,20 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig headId =
           , parties = p
           , contestationDeadline = dl
           , headId = hid
-          } -> (snapshotNumber, utxoHash, p, dl, hid)
+          , contesters = cs
+          } -> (snapshotNumber, utxoHash, p, dl, hid, cs)
       _ -> traceError "wrong state in output datum"
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
+
+  contester =
+    case txInfoSignatories txInfo of
+      [signer] -> signer
+      _ -> traceError "wrong number of signers"
+
+  checkSignedParticipantContestOnlyOnce =
+    traceIfFalse "signer already contested" $
+      contester `notElem` contesters
 {-# INLINEABLE checkContest #-}
 
 checkFanout ::

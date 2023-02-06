@@ -17,6 +17,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   addParticipationTokens,
   changeHeadOutputDatum,
   changeMintedTokens,
+  replaceContesters,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
@@ -36,8 +37,9 @@ import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
+import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (elements, oneof, suchThat)
+import Test.QuickCheck (elements, listOf, oneof, suchThat)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -68,6 +70,7 @@ healthyContestTx =
       , closedParties =
           healthyOnChainParties
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
+      , closedContesters = []
       }
 
 healthyClosedHeadTxIn :: TxIn
@@ -108,6 +111,7 @@ healthyClosedState =
     , parties = healthyOnChainParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
     , headId = toPlutusCurrencySymbol testPolicyId
+    , contesters = []
     }
 
 healthySlotNo :: SlotNo
@@ -171,6 +175,10 @@ data ContestMutation
     MutateHeadId
   | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenMintingOrBurning
+  | -- | Change the contesters to check if already contested
+    MutateInputContesters
+  | -- | Change the resulting contesters arbitrarily to see if they are checked
+    MutateContesters
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -227,6 +235,22 @@ genContestMutation
               ]
       , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
           <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
+      , SomeMutation (Just "signer already contested") MutateInputContesters . ChangeInputHeadDatum <$> do
+          let contester = toPlutusKeyHash (verificationKeyHash somePartyCardanoVerificationKey)
+              contesterAndSomeOthers = do
+                contesters <- listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
+                pure (contester : contesters)
+          mutatedContesters <-
+            oneof
+              [ pure [contester]
+              , contesterAndSomeOthers
+              ]
+          pure $
+            healthyClosedState & replaceContesters mutatedContesters
+      , SomeMutation (Just "contester not included") MutateContesters . ChangeOutput 0 <$> do
+          hashes <- listOf genHash
+          let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
+          pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0

@@ -133,6 +133,14 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = d
       throwIO (NoFuelUTXOFound :: PostTxError Tx)
     Left ErrNotEnoughFunds{} ->
       throwIO (NotEnoughFuel :: PostTxError Tx)
+    Left ErrScriptExecutionFailed{scriptFailure = (redeemerPtr, scriptFailure)} ->
+      throwIO
+        ( ScriptFailedInWallet
+            { redeemerPtr = show redeemerPtr
+            , failureReason = show scriptFailure
+            } ::
+            PostTxError Tx
+        )
     Left e ->
       throwIO
         ( InternalWalletError
