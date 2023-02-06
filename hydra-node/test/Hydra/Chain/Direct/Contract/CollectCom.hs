@@ -32,7 +32,6 @@ import Hydra.Chain.Direct.Tx (
   mkHeadOutput,
   mkInitialOutput,
  )
-import Hydra.Chain.Direct.Util (addChangeOutput)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -59,13 +58,12 @@ healthyCollectComTx =
     UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput) <> UTxO (txOut <$> healthyCommits)
 
   tx =
-    addChangeOutput $
-      collectComTx
-        testNetworkId
-        somePartyCardanoVerificationKey
-        initialThreadOutput
-        ((txOut &&& scriptData) <$> healthyCommits)
-        (mkHeadId testPolicyId)
+    collectComTx
+      testNetworkId
+      somePartyCardanoVerificationKey
+      initialThreadOutput
+      ((txOut &&& scriptData) <$> healthyCommits)
+      (mkHeadId testPolicyId)
 
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties

@@ -201,16 +201,6 @@ isMarkedOutput = \case
 -- TEST RELATED FUNCTIONS
 -----------------------------------------------------------------------------
 
--- NOTE: Add one output containing 0 ada to make sure we have the right number
--- of outputs (2). In practise the change should cover the fees and here they
--- are zero.
-addChangeOutput :: Tx -> Tx
-addChangeOutput transaction =
-  alterTxOuts (\outs -> outs <> [changeOutput{txOutValue = lovelaceToValue 0}]) transaction
- where
-  changeOutput =
-    generateWith genTxOutAdaOnly 42
-
 -- | Apply some mapping function over a transaction's outputs.
 alterTxOuts ::
   ([TxOut CtxTx] -> [TxOut CtxTx]) ->
