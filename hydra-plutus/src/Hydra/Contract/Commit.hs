@@ -101,9 +101,7 @@ validator (_party, _headScriptHash, _commit, headId) r ctx =
       traceIfFalse "ST is missing in the output" (hasST headId headOutputValue)
  where
   headOutputValue =
-    case txInfoOutputs (scriptContextTxInfo ctx) of
-      [] -> mempty
-      (headOutput : _otherOutputs) -> txOutValue headOutput
+    txOutValue . head $ txInfoOutputs (scriptContextTxInfo ctx)
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =

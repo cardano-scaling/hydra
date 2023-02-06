@@ -480,8 +480,9 @@ findParticipationTokens headCurrency (Value val) =
 
 headOutputDatum :: ScriptContext -> Datum
 headOutputDatum ScriptContext{scriptContextTxInfo} =
-  let headOutput = head (txInfoOutputs scriptContextTxInfo)
-   in findTxOutDatum scriptContextTxInfo headOutput
+  findTxOutDatum scriptContextTxInfo (head $ txInfoOutputs txInfo)
+ where
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE headOutputDatum #-}
 
 findTxOutDatum :: TxInfo -> TxOut -> Datum
