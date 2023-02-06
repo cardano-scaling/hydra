@@ -129,8 +129,6 @@ data PostTxError tx
     -- NOTE: PlutusDebugInfo does not have much available instances so we put it
     -- in Text form but it's lame
     PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
-  | -- TODO: remove; it's unused
-    NoPaymentInput
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)
