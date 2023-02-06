@@ -28,7 +28,6 @@ import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)
-import Hydra.Chain.Direct.Util (addChangeOutput)
 import Hydra.ContestationPeriod (fromChain)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
@@ -59,14 +58,13 @@ healthyCloseTx =
   (tx, lookupUTxO)
  where
   tx =
-    addChangeOutput $
-      closeTx
-        somePartyCardanoVerificationKey
-        closingSnapshot
-        healthyCloseLowerBoundSlot
-        healthyCloseUpperBoundPointInTime
-        openThreadOutput
-        (mkHeadId Fixture.testPolicyId)
+    closeTx
+      somePartyCardanoVerificationKey
+      closingSnapshot
+      healthyCloseLowerBoundSlot
+      healthyCloseUpperBoundPointInTime
+      openThreadOutput
+      (mkHeadId Fixture.testPolicyId)
 
   lookupUTxO = UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
 
@@ -94,14 +92,13 @@ healthyCloseInitialTx =
   (tx, lookupUTxO)
  where
   tx =
-    addChangeOutput $
-      closeTx
-        somePartyCardanoVerificationKey
-        closingSnapshot
-        healthyCloseLowerBoundSlot
-        healthyCloseUpperBoundPointInTime
-        openThreadOutput
-        (mkHeadId Fixture.testPolicyId)
+    closeTx
+      somePartyCardanoVerificationKey
+      closingSnapshot
+      healthyCloseLowerBoundSlot
+      healthyCloseUpperBoundPointInTime
+      openThreadOutput
+      (mkHeadId Fixture.testPolicyId)
 
   lookupUTxO = UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
 
