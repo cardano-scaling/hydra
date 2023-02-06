@@ -217,11 +217,11 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
 
   (collectedCommits, nTotalCommits) =
     foldr
-      traverseInputs
+      extractAndCountCommits
       ([], 0)
       (txInfoInputs txInfo)
 
-  traverseInputs TxInInfo{txInInfoResolved} (commits, nCommits)
+  extractAndCountCommits TxInInfo{txInInfoResolved} (commits, nCommits)
     | isHeadOutput txInInfoResolved =
       (commits, nCommits)
     | hasPT headId txInInfoResolved =
