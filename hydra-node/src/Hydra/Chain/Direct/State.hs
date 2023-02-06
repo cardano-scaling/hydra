@@ -301,9 +301,9 @@ commit ctx st utxo = do
       case UTxO.pairs utxo of
         [aUTxO] -> do
           rejectByronAddress aUTxO
-          Right $ commitTx scriptRegistry networkId headId ownParty (Just aUTxO) initial
+          Right $ commitTx networkId scriptRegistry headId ownParty (Just aUTxO) initial
         [] -> do
-          Right $ commitTx scriptRegistry networkId headId ownParty Nothing initial
+          Right $ commitTx networkId scriptRegistry headId ownParty Nothing initial
         _ ->
           Left (MoreThanOneUTxOCommitted @Tx)
  where
