@@ -26,7 +26,7 @@ import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod,
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Time (fromMilliSeconds)
-import Plutus.V1.Ledger.Value (assetClass, assetClassValue, valueOf)
+import Plutus.V1.Ledger.Value (valueOf)
 import Plutus.V2.Ledger.Api (
   Address,
   CurrencySymbol,
@@ -54,7 +54,7 @@ import Plutus.V2.Ledger.Api (
   adaToken,
   mkValidatorScript,
  )
-import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput, getContinuingOutputs)
+import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
@@ -196,7 +196,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
 
   (parties', utxoHash, contestationPeriod', headId') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
-    case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
+    case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
         Open
           { parties = p
@@ -285,7 +285,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   (closedSnapshotNumber, closedUtxoHash, parties', closedContestationDeadline, headId') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
-    case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
+    case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
         Closed
           { snapshotNumber
@@ -382,7 +382,7 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig headId =
 
   (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', headId') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
-    case fromBuiltinData @DatumType $ getDatum (continuingDatum ctx) of
+    case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
         Closed
           { snapshotNumber
@@ -478,12 +478,11 @@ findParticipationTokens headCurrency (Value val) =
       []
 {-# INLINEABLE findParticipationTokens #-}
 
-continuingDatum :: ScriptContext -> Datum
-continuingDatum ctx@ScriptContext{scriptContextTxInfo} =
-  case getContinuingOutputs ctx of
-    [o] -> findTxOutDatum scriptContextTxInfo o
-    _ -> traceError "expected only one continuing output"
-{-# INLINEABLE continuingDatum #-}
+headOutputDatum :: ScriptContext -> Datum
+headOutputDatum ScriptContext{scriptContextTxInfo} =
+  let headOutput = head (txInfoOutputs scriptContextTxInfo)
+   in findTxOutDatum scriptContextTxInfo headOutput
+{-# INLINEABLE headOutputDatum #-}
 
 findTxOutDatum :: TxInfo -> TxOut -> Datum
 findTxOutDatum txInfo o =
