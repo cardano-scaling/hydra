@@ -11,6 +11,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect)
+import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
@@ -138,6 +139,27 @@ spec = parallel $ do
             forAll genTxIn $ \seedInput ->
               let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
                in isNothing (observeInit cctxB tx)
+
+    prop "is not observed if wrong number of PT tokens distributed" $
+      forAll (genHydraContext maximumNumberOfParties) $ \ctx ->
+        forAll (pickChainContext ctx) $
+          \cctx ->
+            forAll genTxIn $ \seedInput ->
+              let wrongCctx =
+                    ChainContext
+                      { networkId = networkId cctx
+                      , -- Here we use a wrong number of cardano-keys to build the tx
+                        -- as they are used to generate the PT tokens to be minted
+                        peerVerificationKeys = List.tail $ peerVerificationKeys cctx
+                      , ownVerificationKey = ownVerificationKey cctx
+                      , ownParty = ownParty cctx
+                      , scriptRegistry = scriptRegistry cctx
+                      , contestationPeriod = contestationPeriod cctx
+                      }
+                  headParameters = ctxHeadParameters ctx
+                  tx = initialize wrongCctx headParameters seedInput
+               in isNothing (observeInit cctx tx)
+                    & counterexample "observeInit returned Observation"
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
