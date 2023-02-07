@@ -47,8 +47,3 @@ mustNotMintOrBurn TxInfo{txInfoMint} =
     isZero txInfoMint
 {-# INLINEABLE mustNotMintOrBurn #-}
 
-mustPreserveValue :: Value -> Value -> Bool
-mustPreserveValue outValue headOutValue =
-  traceIfFalse "head value is not preserved" $
-    outValue == headOutValue
-{-# INLINEABLE mustPreserveValue #-}

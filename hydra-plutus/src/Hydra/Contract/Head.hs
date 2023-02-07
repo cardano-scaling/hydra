@@ -21,7 +21,7 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
-import Hydra.Contract.Util (hasST, mustNotMintOrBurn, mustPreserveValue)
+import Hydra.Contract.Util (hasST, mustNotMintOrBurn)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -182,7 +182,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
     && mustNotChangeParameters
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
-    && hasST headId outValue
+    && hasST headId val
  where
   mustCollectUtxoHash =
     traceIfFalse "incorrect utxo hash" $
@@ -208,7 +208,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
       _ -> traceError "wrong state in output datum"
   headAddress = mkHeadAddress ctx
 
-  outValue =
+  val =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   everyoneHasCommitted =
@@ -261,6 +261,8 @@ commitDatum txInfo input = do
 --   * State token (ST) is present in the output
 --
 --   * Contesters must be initialize as empty
+--
+--   * Value in v_head is preserved
 checkClose ::
   ScriptContext ->
   [Party] ->
@@ -275,18 +277,24 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && checkDeadline
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
-    && hasST headPolicyId outValue
+    && hasST headPolicyId val
     && mustInitializeContesters
+    && hasST headPolicyId val
     && mustNotChangeParameters
-    && mustPreserveValue outValue headOutValue
+    && mustPreserveValue
  where
-  headOutValue = txOutValue . head $ txInfoOutputs txInfo
+
+  mustPreserveValue =
+    traceIfFalse "head value is not preserved" $
+      val == val'
+
+  val' = txOutValue . head $ txInfoOutputs txInfo
+
+  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
   hasBoundedValidity =
     traceIfFalse "hasBoundedValidity check failed" $
       tMax - tMin <= cp
-
-  outValue =
-    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   (closedSnapshotNumber, closedUtxoHash, parties', closedContestationDeadline, headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
@@ -353,6 +361,8 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 --   * Add signer to list of contesters.
 --
 --   * No other parameters have changed.
+--
+--   * Value in v_head is preserved
 checkContest ::
   ScriptContext ->
   POSIXTime ->
@@ -372,14 +382,18 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
     && mustBeSignedByParticipant ctx headId
     && checkSignedParticipantContestOnlyOnce
     && mustBeWithinContestationPeriod
-    && hasST headId outValue
     && mustUpdateContesters
+    && hasST headId val
     && mustNotChangeParameters
-    && mustPreserveValue outValue headOutValue
+    && mustPreserveValue
  where
-  headOutValue = txOutValue . head $ txInfoOutputs txInfo
-  outValue =
-    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+  mustPreserveValue =
+    traceIfFalse "head value is not preserved" $
+      val == val'
+
+  val' = txOutValue . head $ txInfoOutputs txInfo
+
+  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   mustBeNewer =
     traceIfFalse "too old snapshot" $
