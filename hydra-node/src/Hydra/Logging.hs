@@ -30,9 +30,13 @@ import Hydra.Prelude
 import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
 import Control.Monad.Class.MonadFork (myThreadId)
 import Control.Monad.Class.MonadSTM (
+  flushTBQueue,
   modifyTVar,
+  newTBQueueIO,
   newTVarIO,
+  readTBQueue,
   readTVarIO,
+  writeTBQueue,
  )
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (
@@ -73,9 +77,12 @@ instance ToJSON a => ToJSON (Envelope a) where
 instance Arbitrary a => Arbitrary (Envelope a) where
   arbitrary = genericArbitrary
 
--- | This tracer will dump all messages on @stdout@, one message per line,
---  formatted as JSON. This tracer is wrapping 'msg' into an 'Envelope'
---  with metadata.
+defaultQueueSize :: Natural
+defaultQueueSize = 500
+
+-- | Start logging thread and acquire a 'Tracer'. This tracer will dump all
+-- messsages on @stdout@, one message per line, formatted as JSON. This tracer
+-- is wrapping 'msg' into an 'Envelope' with metadata.
 withTracer ::
   forall m msg a.
   (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
@@ -85,8 +92,9 @@ withTracer ::
 withTracer Quiet = ($ nullTracer)
 withTracer (Verbose namespace) = withTracerOutputTo stdout namespace
 
--- | Outputting JSON formatted messages to some 'Handle'. This tracer is
--- wrapping 'msg' into an 'Envelope' with metadata.
+-- | Start logging thread acquiring a 'Tracer', outputting JSON formatted
+-- messages to some 'Handle'. This tracer is wrapping 'msg' into an 'Envelope'
+-- with metadata.
 withTracerOutputTo ::
   forall m msg a.
   (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
@@ -95,13 +103,23 @@ withTracerOutputTo ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracerOutputTo hdl namespace action = do
-  action tracer `finally` flushLogs
+  msgQueue <- newTBQueueIO @_ @(Envelope msg) defaultQueueSize
+  withAsync (writeLogs msgQueue) $ \_ ->
+    action (tracer msgQueue) `finally` flushLogs msgQueue
  where
-  tracer =
+  tracer queue =
     Tracer $
-      mkEnvelope namespace >=> liftIO . write . Aeson.encode
+      mkEnvelope namespace >=> liftIO . atomically . writeTBQueue queue
 
-  flushLogs = liftIO $ hFlush hdl
+  writeLogs queue =
+    forever $ do
+      atomically (readTBQueue queue) >>= write . Aeson.encode
+      hFlush hdl
+
+  flushLogs queue = liftIO $ do
+    entries <- atomically $ flushTBQueue queue
+    forM_ entries (write . Aeson.encode)
+    hFlush hdl
 
   write bs = LBS.hPut hdl (bs <> "\n")
 
