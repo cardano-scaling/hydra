@@ -15,6 +15,7 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
  )
+import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
   ChainContext (contestationPeriod),
   abort,
@@ -27,7 +28,6 @@ import Hydra.Chain.Direct.State (
   fanout,
   genCloseTx,
   genCommits,
-  genHydraContext,
   genHydraContextFor,
   genInitTx,
   genStClosed,
@@ -55,9 +55,10 @@ import Hydra.Ledger.Cardano.Evaluate (
   maxTxSize,
   slotNoFromUTCTime,
  )
-import Hydra.Options (maximumNumberOfParties)
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
+import Plutus.V2.Ledger.Api (toBuiltinData)
+import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.QuickCheck (generate, sublistOf)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
@@ -188,17 +189,21 @@ computeAbortCost =
     let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     pure (abort (fold committed) cctx stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
-computeFanOutCost :: IO [(NumParties, NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do
-  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [1 .. 100], u <- [10]]
+  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [5], u <- [1, 5, 10, 20]]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute 5) [100, 99 .. 21]
   pure $ interesting <> limit
  where
   compute parties numElems = do
-    (utxo, tx) <- generate $ genFanoutTx parties numElems
-    case checkSizeAndEvaluate tx utxo of
+    (utxo, tx, knownUTxO) <- generate $ genFanoutTx parties numElems
+    let utxoSerializedSize =
+          fromIntegral
+            . lengthOfByteString
+            $ foldMap (serialiseData . toBuiltinData . fromJust . toPlutusTxOut) utxo
+    case checkSizeAndEvaluate tx knownUTxO of
       Just (txSize, memUnit, cpuUnit, minFee) ->
-        pure $ Just (NumParties parties, NumUTxO numElems, txSize, memUnit, cpuUnit, minFee)
+        pure $ Just (NumParties parties, NumUTxO numElems, utxoSerializedSize, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
@@ -214,7 +219,7 @@ computeFanOutCost = do
     let closeTx = close cctx stOpen snapshot startSlot closePoint
     let stClosed = snd . fromJust $ observeClose stOpen closeTx
     let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
-    pure (getKnownUTxO stClosed, fanout stClosed utxo deadlineSlotNo)
+    pure (utxo, fanout stClosed utxo deadlineSlotNo, getKnownUTxO stClosed)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
