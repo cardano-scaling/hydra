@@ -129,8 +129,8 @@ computeCollectComCost =
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCloseCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 31]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
   pure $ interesting <> limit
  where
   compute numParties = do
@@ -144,8 +144,8 @@ computeCloseCost = do
 
 computeContestCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeContestCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 30]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 31]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
   pure $ interesting <> limit
  where
   compute numParties = do

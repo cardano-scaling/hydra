@@ -46,3 +46,4 @@ mustNotMintOrBurn TxInfo{txInfoMint} =
   traceIfFalse "minting or burning is forbidden" $
     isZero txInfoMint
 {-# INLINEABLE mustNotMintOrBurn #-}
+

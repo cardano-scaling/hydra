@@ -30,6 +30,7 @@ changes.
   + Check no tokens are minted/burnt in v-head for close, contest, commit and collectCom tx.
   + The v_head output must now be the first output of the transaction so that we can make the validator code simpler.
   + Introduce check in head validator to allow contest only once per party.
+  + Check that value is preserved in v_head
 
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds
