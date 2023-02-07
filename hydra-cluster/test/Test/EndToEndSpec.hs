@@ -357,15 +357,19 @@ spec = around showLogsOnFailure $ do
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
 
       it "logs its command line arguments" $ \_ -> do
-        failAfter 60 $
+        failAfter 10 $
           withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
             let hydraSK = dir </> "hydra.sk"
             hydraSKey :: SigningKey HydraKey <- generate arbitrary
             void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
             withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
-              \_ (Just nodeOutput) _ _ -> do
-                out <- hGetLine nodeOutput
-                out ^? key "message" . key "tag" `shouldBe` Just (Aeson.String "NodeOptions")
+              \_ (Just nodeOutput) _ _ ->
+                let waitForNodeOptions = do
+                      out <- hGetLine nodeOutput
+                      unless
+                        (out ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions"))
+                        waitForNodeOptions
+                 in waitForNodeOptions
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
