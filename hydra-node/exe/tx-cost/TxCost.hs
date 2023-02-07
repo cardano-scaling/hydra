@@ -110,16 +110,15 @@ computeCommitCost = do
     (cctx, stInitial) <- genStInitial ctx
     pure (commit cctx stInitial utxo, getKnownUTxO stInitial <> getKnownUTxO cctx)
 
-computeCollectComCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeCollectComCost :: IO [(NumParties, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCollectComCost =
   catMaybes <$> mapM compute [1 .. 100]
  where
   compute numParties = do
-    (st, tx) <- generate $ genCollectComTx numParties
-    let utxo = getKnownUTxO st
-    case checkSizeAndEvaluate tx utxo of
+    (utxo, tx, knownUtxo) <- generate $ genCollectComTx numParties
+    case checkSizeAndEvaluate tx knownUtxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
-        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
+        pure $ Just (NumParties numParties, serializedSize utxo, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
@@ -128,8 +127,8 @@ computeCollectComCost =
     cctx <- pickChainContext ctx
     initTx <- genInitTx ctx
     commits <- genCommits ctx initTx
-    let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (stInitialized, collect cctx stInitialized)
+    let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+    pure (fold committedUTxOs, collect cctx stInitialized, getKnownUTxO stInitialized)
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCloseCost = do
@@ -194,16 +193,17 @@ computeAbortCost =
 
 computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do
-  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [5], u <- [1, 5, 10, 20]]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute 5) [100, 99 .. 21]
+  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | u <- [0, 1, 5, 10, 20, 30, 40, 50], p <- [5]]
+  limit <-
+    maybeToList . getFirst
+      <$> foldMapM
+        (\(p, u) -> First <$> compute p u)
+        [(p, u) | p <- [5], u <- [100, 99 .. 0]]
   pure $ interesting <> limit
  where
   compute parties numElems = do
     (utxo, tx, knownUTxO) <- generate $ genFanoutTx parties numElems
-    let utxoSerializedSize =
-          fromIntegral
-            . lengthOfByteString
-            $ foldMap (serialiseData . toBuiltinData . fromJust . toPlutusTxOut) utxo
+    let utxoSerializedSize = serializedSize utxo
     case checkSizeAndEvaluate tx knownUTxO of
       Just (txSize, memUnit, cpuUnit, minFee) ->
         pure $ Just (NumParties parties, NumUTxO numElems, utxoSerializedSize, txSize, memUnit, cpuUnit, minFee)
@@ -258,3 +258,9 @@ checkSizeAndEvaluate tx knownUTxO = do
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42
+
+serializedSize :: UTxO -> Natural
+serializedSize =
+  fromIntegral
+    . lengthOfByteString
+    . foldMap (serialiseData . toBuiltinData . fromJust . toPlutusTxOut)
