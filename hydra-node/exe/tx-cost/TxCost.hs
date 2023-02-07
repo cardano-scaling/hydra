@@ -126,7 +126,7 @@ computeCollectComCost =
     ctx <- genHydraContextFor numParties
     cctx <- pickChainContext ctx
     initTx <- genInitTx ctx
-    commits <- genCommits ctx initTx
+    commits <- genCommits' (genUTxOSized 1) ctx initTx
     let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     pure (fold committedUTxOs, collect cctx stInitialized, getKnownUTxO stInitialized)
 
@@ -212,7 +212,7 @@ computeFanOutCost = do
 
   -- Generate a fanout with a defined number of outputs.
   genFanoutTx numParties numOutputs = do
-    let utxo = genUTxOAdaOnlyOfSize numOutputs `generateWith` 42
+    utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
     (_committed, stOpen) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures

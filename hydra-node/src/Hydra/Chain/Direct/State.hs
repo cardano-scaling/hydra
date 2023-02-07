@@ -830,11 +830,19 @@ genCommits ::
   HydraContext ->
   Tx ->
   Gen [Tx]
-genCommits ctx txInit = do
+genCommits =
+  genCommits' genCommit
+
+genCommits' ::
+  Gen UTxO ->
+  HydraContext ->
+  Tx ->
+  Gen [Tx]
+genCommits' genUTxOToCommit ctx txInit = do
   allChainContexts <- deriveChainContexts ctx
   forM allChainContexts $ \cctx -> do
     let (_, stInitial) = fromJust $ observeInit cctx txInit
-    unsafeCommit cctx stInitial <$> genCommit
+    unsafeCommit cctx stInitial <$> genUTxOToCommit
 
 genCommit :: Gen UTxO
 genCommit =
