@@ -16,6 +16,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   SomeMutation (..),
   changeHeadOutputDatum,
   changeMintedTokens,
+  replaceParties,
  )
 import Hydra.Chain.Direct.Fixture (
   testNetworkId,
@@ -166,7 +167,10 @@ data CollectComMutation
   = MutateOpenUTxOHash
   | -- | Test that collectCom cannot collect from an initial UTxO.
     MutateCommitToInitial
-  | -- | Test that every party has a chance to commit.
+  | -- | Every party should have commited and been taken into account for the collectCom transaction to be
+    --   valid. Here we increase the number of parties in input and output but keep the commits unchanged.
+    --   This simulates the situation where one participant would not have commited already or whose commit
+    --   would have been ignored by the collectCom transaction.
     MutateNumberOfParties
   | MutateHeadId
   | MutateRequiredSigner
@@ -177,28 +181,28 @@ data CollectComMutation
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCollectComMutation (tx, _utxo) =
   oneof
-    [ SomeMutation Nothing MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation Nothing MutateNumberOfParties <$> do
-        -- NOTE: This also mutates the contestation period becuase we could not
-        -- be bothered to decode/lookup the current one.
-        c <- arbitrary
+    [ SomeMutation (Just "incorrect utxo hash") MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
+    , SomeMutation (Just "missing commits") MutateNumberOfParties <$> do
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
           Changes
-            [ ChangeInputHeadDatum $ Head.Initial c moreParties (toPlutusCurrencySymbol testPolicyId)
+            [ ChangeInputHeadDatum $ replaceParties moreParties healthyCollectComInitialDatum
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties headTxOut
             ]
-    , SomeMutation Nothing MutateHeadId <$> do
+    , SomeMutation (Just "ST not spent") MutateHeadId <$> do
         illedHeadResolvedInput <-
           mkHeadOutput
             <$> pure testNetworkId
             <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
         return $ ChangeInput healthyHeadInput illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
-    , SomeMutation Nothing MutateRequiredSigner <$> do
+    , SomeMutation (Just "signer is not a participant") MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation Nothing MutateCommitToInitial <$> do
+    , SomeMutation (Just "datum not found") MutateCommitToInitial <$> do
+        -- we're satisfied with "datum not found" as the current version of the validator will consider
+        -- the initial input as if it were a commit input, hence fetching the datum which is expected
+        -- in a commit and complaining that it did not find it
         (txIn, HealthyCommit{cardanoKey}) <- elements $ Map.toList healthyCommits
         pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testPolicyId cardanoKey) Nothing
     , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning

@@ -182,7 +182,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
     && mustNotChangeParameters
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
-    && hasST headId val
+    && traceIfFalse "ST not spent" (hasST headId val)
  where
   mustCollectUtxoHash =
     traceIfFalse "incorrect utxo hash" $
