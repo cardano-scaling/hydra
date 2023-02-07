@@ -188,24 +188,24 @@ computeAbortCost =
     let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     pure (abort (fold committed) cctx stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
-computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeFanOutCost :: IO [(NumParties, NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 20]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 21]
+  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [1 .. 100], u <- [10]]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute 5) [100, 99 .. 21]
   pure $ interesting <> limit
  where
-  compute numElems = do
-    (utxo, tx) <- generate $ genFanoutTx maximumNumberOfParties numElems
+  compute parties numElems = do
+    (utxo, tx) <- generate $ genFanoutTx parties numElems
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
-        pure $ Just (NumUTxO numElems, txSize, memUnit, cpuUnit, minFee)
+        pure $ Just (NumParties parties, NumUTxO numElems, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
   -- Generate a fanout with a defined number of outputs.
   genFanoutTx numParties numOutputs = do
-    utxo <- genUTxOAdaOnlyOfSize numOutputs
-    ctx <- genHydraContext numParties
+    let utxo = genUTxOAdaOnlyOfSize numOutputs `generateWith` 42
+    ctx <- genHydraContextFor numParties
     (_committed, stOpen) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx

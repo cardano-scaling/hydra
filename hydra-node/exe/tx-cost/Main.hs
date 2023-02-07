@@ -302,13 +302,15 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
       [ "## Cost of FanOut Transaction"
       , "Involves spending head output and burning head tokens. Uses ada-only UTxO for better comparability."
       , ""
-      , "| UTxO  | Tx size | % max Mem | % max CPU | Min fee ₳ |"
-      , "| :---- | ------: | --------: | --------: | --------: |"
+      , "| Parties | UTxO  | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :------ | :---- | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numElems, txSize, mem, cpu, Lovelace minFee) ->
-              "| " <> show numElems
-                <> "| "
+          ( \(parties, numElems, txSize, mem, cpu, Lovelace minFee) ->
+              "| " <> show parties
+                <> " | "
+                <> show numElems
+                <> " | "
                 <> show txSize
                 <> " | "
                 <> show (mem `percentOf` maxMem)
