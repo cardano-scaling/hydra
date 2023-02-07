@@ -262,6 +262,36 @@ genUTxOAlonzo = do
     i <- arbitrary
     pure (i, fromLedgerTxOut o)
 
+-- | Generate a 'Babbage' era 'UTxO' with given number of outputs. See also
+-- 'genTxOut'.
+genUTxOSized :: Int -> Gen UTxO
+genUTxOSized numUTxO =
+  fold <$> vectorOf numUTxO (UTxO.singleton <$> gen)
+ where
+  gen = (,) <$> arbitrary <*> genTxOut
+
+-- | Generate a 'Babbage' era 'TxOut', which may contain arbitrary assets
+-- addressed to public keys and scripts, as well as reference scripts. NOTE:
+-- This generator does not produce byron addresses as most of the cardano
+-- ecosystem dropped support for that (including plutus).
+genTxOut :: Gen (TxOut ctx)
+genTxOut =
+  (tweakAddress . fromLedgerTxOut <$> arbitrary)
+    `suchThat` notByronAddress
+ where
+  notByronAddress (TxOut addr _ _ _) = case addr of
+    ByronAddressInEra{} -> False
+    _ -> True
+
+  tweakAddress out@(TxOut addr val dat refScript) = case addr of
+    ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
+      case sr of
+        Ledger.StakeRefPtr _ ->
+          TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat refScript
+        _ ->
+          TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre sr)) val dat refScript
+    _ -> out
+
 -- | Generate utxos owned by the given cardano key.
 genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
 genUTxOFor vk = do
@@ -358,7 +388,7 @@ instance Arbitrary TxId where
     onlyTxId (TxIn txi _) = txi
 
 instance Arbitrary (TxOut CtxUTxO) where
-  arbitrary = fromLedgerTxOut <$> arbitrary
+  arbitrary = genTxOut
 
 instance Arbitrary (VerificationKey PaymentKey) where
   arbitrary = fst <$> genKeyPair

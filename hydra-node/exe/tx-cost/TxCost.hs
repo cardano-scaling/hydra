@@ -44,6 +44,9 @@ import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
   genUTxOAdaOnlyOfSize,
+  genUTxOAlonzo,
+  genUTxOSized,
+  simplifyUTxO,
  )
 import Hydra.Ledger.Cardano.Evaluate (
   estimateMinFee,
