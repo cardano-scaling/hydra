@@ -28,6 +28,7 @@ import Hydra.Chain.Direct.State (
   fanout,
   genCloseTx,
   genCommits,
+  genCommits',
   genHydraContextFor,
   genInitTx,
   genStClosed,
@@ -44,9 +45,6 @@ import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
   genUTxOAdaOnlyOfSize,
-  genUTxOAlonzo,
-  genUTxOSized,
-  simplifyUTxO,
  )
 import Hydra.Ledger.Cardano.Evaluate (
   estimateMinFee,
@@ -112,7 +110,7 @@ computeCommitCost = do
 
 computeCollectComCost :: IO [(NumParties, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCollectComCost =
-  catMaybes <$> mapM compute [1 .. 100]
+  catMaybes <$> mapM compute [1 .. 10]
  where
   compute numParties = do
     (utxo, tx, knownUtxo) <- generate $ genCollectComTx numParties
@@ -126,7 +124,7 @@ computeCollectComCost =
     ctx <- genHydraContextFor numParties
     cctx <- pickChainContext ctx
     initTx <- genInitTx ctx
-    commits <- genCommits' (genUTxOSized 1) ctx initTx
+    commits <- genCommits' (genUTxOAdaOnlyOfSize 1) ctx initTx
     let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     pure (fold committedUTxOs, collect cctx stInitialized, getKnownUTxO stInitialized)
 
@@ -193,7 +191,7 @@ computeAbortCost =
 
 computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do
-  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | u <- [0, 1, 5, 10, 20, 30, 40, 50], p <- [5]]
+  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [5], u <- [0, 1, 5, 10, 20, 30, 40, 50]]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
