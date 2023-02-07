@@ -140,6 +140,15 @@ spec = parallel $
                   }
             }
 
+    it "parses --network-id option as string for mainnet" $ do
+      setFlags ["--network-id", "Mainnet"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                defaultChainConfig
+                  { networkId = Mainnet
+                  }
+            }
     it "parses --contestation-period option as a number of seconds" $ do
       shouldNotParse ["--contestation-period", "abc"]
       shouldNotParse ["--contestation-period", "s"]
