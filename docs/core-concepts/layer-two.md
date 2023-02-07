@@ -16,10 +16,10 @@ State-channels extend the traditional concept of payment channels to support sma
 
 #### Examples
 
-- Lightning (Bitcoin);
-- Perun (Ethereum, Polkadot, Cosmos);
-- Sprites (Ethereum);
-- And of course, our favorite: **Hydra: Head** (Cardano)!
+- Lightning (Bitcoin)
+- Perun (Ethereum, Polkadot, Cosmos)
+- Sprites (Ethereum)
+- And of course, our favorite: **Hydra: Head** (Cardano)
 
 ## Side Chains
 
@@ -29,20 +29,24 @@ Side chains are however "proper chains", with blocks produced by validator and u
 
 #### Examples
 
-- Liquid Network (Bitcoin);
-- RSK (Bitcoin);
-- Polygon (Ethereum);
-- Milkomeda (Cardano).
+- Liquid Network (Bitcoin)
+- RSK (Bitcoin)
+- Polygon (Ethereum)
+- Milkomeda (Cardano)
 
 ## Rollups
 
-Another major type of layer 2 solution is **Rollups**. They provide a way for moving transaction execution off-chain only to keep a much more compact representation of the execution on the layer 1. Rollups are typically driven by a central actor(popular called Sequencers in most projects) offering high availability and high computational capability off-chain while regularly leaving verifiable breadcrumbs on-chain (the rollups).
+Another major type of layer 2 solution is **Rollups**. They provide a way for moving transaction execution off-chain only to keep a much more compact representation of the execution on the layer 1. Rollups are typically driven by a central actor, often called _sequencer_, with high availability and computational resource demands off-chain, while regularly leaving verifiable breadcrumbs on-chain (the rollups).
 
-In general, rollups come in two popular flavours: **Optimistic Rollups**(involving interactive games for fraud disputes) or **Validity Rollups**(involving Zero-Knowledge-based proofs for validity checks). In the former, rollups are posted on-chain optimistically and verification are done _a posteriori_ by independent validators. In case of disagreement, the dispute is resolved on-chain and the rollup batch publisher endure financial consequences. In zero-knowledge approaches, a succinct proof of execution is calculated off-chain, published alongside the rollup batch commitment and controlled by on-chain validators (which thus enforce the rightful execution of the rollup). 
+In general, rollups come in two popular flavours 
++ **optimistic** rollups involving interactive games for fraud disputes, and
++ **validity** rollups involving Zero-Knowledge-based proofs for validity checks.
+
+In the former, rollups are posted on-chain optimistically and verification are done _a posteriori_ by independent validators. In case of disagreement, the dispute is resolved on-chain and the rollup batch publisher endure financial consequences. In zero-knowledge approaches, a succinct proof of execution is calculated off-chain, published alongside the rollup batch commitment and controlled by on-chain validators (which thus enforce the rightful execution of the rollup). 
 
 #### Examples
 
-- Arbitrum (Ethereum);
-- Optimism (Ethereum);
-- Hermez (Ethereum);
-- ZKSync (Ethereum).
+- Arbitrum (Ethereum)
+- Optimism (Ethereum)
+- Hermez (Ethereum)
+- ZKSync (Ethereum)
