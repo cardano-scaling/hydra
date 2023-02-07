@@ -80,6 +80,7 @@ import HydraNode (
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import System.IO (hGetLine)
+import System.IO.Error (isEOFError)
 import System.Process (CreateProcess (..), StdStream (..), proc, readCreateProcess, withCreateProcess)
 import Test.QuickCheck (generate)
 import Text.Regex.TDFA ((=~))
@@ -364,12 +365,36 @@ spec = around showLogsOnFailure $ do
             void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
             withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
               \_ (Just nodeOutput) _ _ ->
-                let waitForNodeOptions = do
-                      out <- hGetLine nodeOutput
-                      unless
-                        (out ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions"))
-                        waitForNodeOptions
-                 in waitForNodeOptions
+                assertALogMatches
+                  nodeOutput
+                  100
+                  (\line -> line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions"))
+                  "JSON object with key NodeOptions"
+
+assertALogMatches :: Handle -> Int -> (String -> Bool) -> String -> IO ()
+assertALogMatches nodeOutput nbLines predicate failureMessage =
+  go nbLines []
+ where
+  go :: Int -> [String] -> IO ()
+  go 0 messages =
+    fail messages
+  go n messages = do
+    out <- tryJust (guard . isEOFError) $ hGetLine nodeOutput
+    case out of
+      Left _eofError -> fail messages
+      Right out' ->
+        if predicate out'
+          then return ()
+          else go (n - 1) $ out' : messages
+  fail :: [String] -> IO ()
+  fail messages =
+    failure $
+      "No log message matching the predicate found in the "
+        <> show nbLines
+        <> " first lines of logs: "
+        <> failureMessage
+        <> "\nCaptured logs:\n"
+        <> show messages
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
