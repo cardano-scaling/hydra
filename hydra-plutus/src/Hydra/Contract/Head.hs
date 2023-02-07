@@ -277,15 +277,17 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && checkDeadline
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
-    && hasST headPolicyId val
     && mustInitializeContesters
     && hasST headPolicyId val
-    && mustNotChangeParameters
     && mustPreserveValue
+    && mustNotChangeParameters
  where
-
   mustPreserveValue =
     traceIfFalse "head value is not preserved" $
+      -- XXX: Equality on value is very memory intensive as it's defined on
+      -- associative lists and Map equality is implemented. Instead we should be
+      -- more strict and require EXACTLY the same value and compare using a
+      -- simple fold or even compare the serialised bytes.
       val == val'
 
   val' = txOutValue . head $ txInfoOutputs txInfo
@@ -389,6 +391,10 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
  where
   mustPreserveValue =
     traceIfFalse "head value is not preserved" $
+      -- XXX: Equality on value is very memory intensive as it's defined on
+      -- associative lists and Map equality is implemented. Instead we should be
+      -- more strict and require EXACTLY the same value and compare using a
+      -- simple fold or even compare the serialised bytes.
       val == val'
 
   val' = txOutValue . head $ txInfoOutputs txInfo
