@@ -52,10 +52,11 @@ validate initialValidator headValidator seedInput action context =
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
 validateTokensMinting initialValidator headValidator seedInput context =
   traceIfFalse "minted wrong" $
-    participationTokensAreDistributed currency initialValidator txInfo nParties
+    seedInputIsConsumed
+      -- TODO remove below checks and Init mutations
+      && participationTokensAreDistributed currency initialValidator txInfo nParties
       && checkQuantities
       && assetNamesInPolicy == nParties + 1
-      && seedInputIsConsumed
  where
   currency = ownCurrencySymbol context
 
