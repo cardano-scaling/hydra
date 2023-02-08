@@ -311,28 +311,19 @@ chainConfigParser =
     <*> contestationPeriodParser
 
 networkIdParser :: Parser NetworkId
-networkIdParser = pTestnet <|> pMainnet
-  where
-    pMainnet :: Parser NetworkId
-    pMainnet =
-      option expectMainnetString
-      (long "network-id"
-      <> metavar "TEXT"
-      <> help "Use the mainnet network."
-      )
-
-    pTestnet :: Parser NetworkId
-    pTestnet = option expectTestnetMagic
+networkIdParser =
+  option
+  (expectTestnetMagic <|> expectMainnetString)
       (  long "network-id"
-      <> metavar "NATURAL"
       <> showDefault
-      <> completer (listCompleter ["1", "2", "42"])
+      <> value (Testnet (NetworkMagic 42))
+      <> completer (listCompleter ["1", "2", "42", "mainnet", "Mainnet","m"])
       <>  help
-              "Network identifier for a testnet to connect to. We only need to \
+              "Either Mainnet network or identifier for a testnet to connect to. We only need to \
               \provide the magic number here. For example: '2' is the 'preview' \
               \network. See https://book.world.dev.cardano.org/environments.html for available networks."
       )
-
+  where
     expectTestnetMagic :: ReadM NetworkId
     expectTestnetMagic = eitherReader go
       where go :: String -> Either String NetworkId
@@ -346,7 +337,8 @@ networkIdParser = pTestnet <|> pMainnet
       where go :: String -> Either String NetworkId
             go "Mainnet" = pure Mainnet
             go "mainnet" = pure Mainnet
-            go _         = Left "Expected TEXT value Mainnet or mainnet"
+            go "m"       = pure Mainnet
+            go _         = Left "Expected TEXT value (Mainnet, mainnet or just m)"
 
 
 nodeSocketParser :: Parser FilePath

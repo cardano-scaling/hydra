@@ -140,8 +140,24 @@ spec = parallel $
                   }
             }
 
-    it "parses --network-id option as string for mainnet" $ do
+    it "parses --network-id string option mainnet" $ do
+      setFlags ["--network-id", "mainnet"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                defaultChainConfig
+                  { networkId = Mainnet
+                  }
+            }
       setFlags ["--network-id", "Mainnet"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                defaultChainConfig
+                  { networkId = Mainnet
+                  }
+            }
+      setFlags ["--network-id", "m"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
