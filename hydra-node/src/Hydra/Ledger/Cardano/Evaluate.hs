@@ -118,6 +118,12 @@ renderEvaluationReportFailures reportMap =
  where
   failures = lefts $ foldMap (: []) reportMap
 
+  renderScriptExecutionError = \case
+    ScriptErrorMissingScript missingRdmrPtr _ ->
+      "Missing script of redeemer pointer " <> show missingRdmrPtr
+    f ->
+      show f
+
 -- | Estimate minimum fee for given transaction and evaluated redeemers. Instead
 -- of using the budgets from the transaction (which might are usually set to 0
 -- until balancing), this directly computes the fee from transaction size and
@@ -138,13 +144,6 @@ estimateMinFee tx evaluationReport =
   b = Coin . fromIntegral $ _minfeeB pp
   pp = toLedgerPParams (shelleyBasedEra @Era) pparams
   allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport
-
-renderScriptExecutionError :: ScriptExecutionError -> Text
-renderScriptExecutionError = \case
-  ScriptErrorMissingScript missingRdmrPtr _ ->
-    "Missing script of redeemer pointer " <> show missingRdmrPtr
-  f ->
-    show f
 
 -- * Fixtures
 
