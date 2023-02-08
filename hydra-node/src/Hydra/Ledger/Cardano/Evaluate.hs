@@ -15,22 +15,28 @@ module Hydra.Ledger.Cardano.Evaluate where
 import Hydra.Prelude hiding (label)
 
 import qualified Cardano.Api.UTxO as UTxO
+import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
+import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Ledger
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (..), Prices (..), txscriptfee)
 import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
+import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import Cardano.Ledger.Babbage.PParams (PParams' (..))
+import qualified Cardano.Ledger.Babbage.Tx as Babbage
 import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
 import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength (getSlotLength), SystemStart (SystemStart), mkSlotLength, toRelativeTime)
+import Control.Arrow (left)
 import qualified Data.ByteString as BS
 import Data.Default (def)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import Flat (flat)
 import Hydra.Cardano.Api (
   CardanoMode,
   ConsensusMode (CardanoMode),
@@ -39,6 +45,7 @@ import Hydra.Cardano.Api (
   EraInMode (BabbageEraInCardanoMode),
   ExecutionUnits (..),
   IsShelleyBasedEra (shelleyBasedEra),
+  LedgerEra,
   Lovelace,
   ProtocolParameters (protocolParamMaxTxExUnits, protocolParamMaxTxSize),
   ScriptExecutionError (ScriptErrorMissingScript),
@@ -53,8 +60,11 @@ import Hydra.Cardano.Api (
   fromLedgerPParams,
   getTxBody,
   shelleyBasedEra,
+  toLedgerEpochInfo,
   toLedgerExUnits,
   toLedgerPParams,
+  toLedgerTx,
+  toLedgerUTxO,
  )
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
@@ -70,9 +80,13 @@ import Ouroboros.Consensus.HardFork.History (
   mkInterpreter,
  )
 import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
+import Plutus.ApiCommon (mkTermToEvaluate)
+import qualified Plutus.ApiCommon as Plutus
+import qualified PlutusCore as PLC
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import Test.QuickCheck (choose)
 import Test.QuickCheck.Gen (chooseWord64)
+import qualified UntypedPlutusCore as UPLC
 
 -- | Thin wrapper around 'evaluateTransactionExecutionUnits', which uses
 -- fixtures for system start, era history and protocol parameters. See
@@ -144,6 +158,37 @@ estimateMinFee tx evaluationReport =
   b = Coin . fromIntegral $ _minfeeB pp
   pp = toLedgerPParams (shelleyBasedEra @Era) pparams
   allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport
+
+-- | Like 'evaluateTx', but instead of actual evaluation, return the
+-- flat-encoded, fully applied scripts for each redeemer to be evaluated
+-- externally by 'uplc'. Use input format "flat-namedDeBruijn". This can be used
+-- to gather profiling information.
+--
+-- NOTE: This assumes we use 'Babbage' and only 'PlutusV2' scripts are used.
+prepareTxScripts ::
+  Tx ->
+  UTxO ->
+  Either String [ByteString]
+prepareTxScripts tx utxo = do
+  -- Tuples with scripts and their arguments collected from the tx
+  results <-
+    case Ledger.collectTwoPhaseScriptInputs ei systemStart pp ltx lutxo of
+      Left e -> Left $ show e
+      Right x -> pure x
+
+  -- Fully applied UPLC programs which we could run using the cekMachine
+  programs <- forM results $ \(script, _language, arguments, _exUnits, _costModel) -> do
+    let pv = Ledger.transProtocolVersion (_protocolVersion pp)
+        pArgs = Ledger.getPlutusData <$> arguments
+    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 pv script pArgs
+    pure $ UPLC.Program () (PLC.defaultVersion ()) appliedTerm
+
+  pure $ flat <$> programs
+ where
+  pp = toLedgerPParams (shelleyBasedEra @Era) pparams
+  ltx = toLedgerTx tx :: Babbage.ValidatedTx LedgerEra
+  lutxo = toLedgerUTxO utxo
+  ei = toLedgerEpochInfo eraHistory
 
 -- * Fixtures
 

@@ -143,6 +143,7 @@ library
     , data-default
     , directory
     , filepath
+    , flat
     , formatting
     , gitrev
     , hedgehog-quickcheck
@@ -163,6 +164,7 @@ library
     , ouroboros-consensus-shelley
     , ouroboros-network
     , ouroboros-network-framework
+    , plutus-core
     , plutus-ledger-api
     , prometheus
     , QuickCheck
@@ -262,8 +264,8 @@ test-suite tests
     Hydra.Chain.Direct.Contract.CollectCom
     Hydra.Chain.Direct.Contract.Commit
     Hydra.Chain.Direct.Contract.Contest
-    Hydra.Chain.Direct.Contract.Gen
     Hydra.Chain.Direct.Contract.FanOut
+    Hydra.Chain.Direct.Contract.Gen
     Hydra.Chain.Direct.Contract.Init
     Hydra.Chain.Direct.Contract.Mutation
     Hydra.Chain.Direct.ContractSpec
@@ -364,5 +366,5 @@ test-suite tests
     , websockets
     , yaml
 
-  build-tool-depends: hspec-discover:hspec-discover
+  build-tool-depends: hspec-discover:hspec-discover -any
   ghc-options:        -threaded -rtsopts
