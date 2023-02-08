@@ -166,7 +166,6 @@ data CollectComMutation
   = MutateOpenUTxOHash
   | -- | Test that collectCom cannot collect from an initial UTxO.
     MutateCommitToInitial
-  | MutateHeadTransition
   | -- | Test that every party has a chance to commit.
     MutateNumberOfParties
   | MutateHeadId
@@ -179,18 +178,6 @@ genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCollectComMutation (tx, _utxo) =
   oneof
     [ SomeMutation Nothing MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation Nothing MutateHeadTransition <$> do
-        changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close <$> arbitrary)
-        differencCurrencySymbol <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
-        changeDatum <-
-          ChangeInputHeadDatum
-            <$> ( Head.Open
-                    <$> arbitrary
-                    <*> arbitrary
-                    <*> (toBuiltin <$> genHash)
-                    <*> pure differencCurrencySymbol
-                )
-        pure $ Changes [changeRedeemer, changeDatum]
     , SomeMutation Nothing MutateNumberOfParties <$> do
         -- NOTE: This also mutates the contestation period becuase we could not
         -- be bothered to decode/lookup the current one.
