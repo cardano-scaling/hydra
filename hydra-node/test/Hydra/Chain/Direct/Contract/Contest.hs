@@ -10,7 +10,6 @@ import Hydra.Prelude hiding (label)
 import Data.Maybe (fromJust)
 
 import Cardano.Api.UTxO as UTxO
-import Hydra.Chain.Direct.Contract.Close (genMutatedDeadline)
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -27,10 +26,12 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
+import Hydra.ContestationPeriod (ContestationPeriod, fromChain)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
+import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
@@ -61,6 +62,7 @@ healthyContestTx =
       (healthySlotNo, slotNoToUTCTime healthySlotNo)
       closedThreadOutput
       (mkHeadId testPolicyId)
+      healthyContestationPeriod
 
   headDatum = fromPlutusData $ toData healthyClosedState
 
@@ -112,6 +114,7 @@ healthyClosedState =
     , utxoHash = healthyClosedUTxOHash
     , parties = healthyOnChainParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+    , contestationPeriod = fromInteger healthyContestationPeriodSeconds
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
     }
@@ -124,6 +127,9 @@ healthyContestationDeadline =
   addUTCTime
     (fromInteger healthyContestationPeriodSeconds)
     (slotNoToUTCTime healthySlotNo)
+
+healthyContestationPeriod :: ContestationPeriod
+healthyContestationPeriod = fromChain $ OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
 
 healthyContestationPeriodSeconds :: Integer
 healthyContestationPeriodSeconds = 10
@@ -262,12 +268,11 @@ genContestMutation
           newValue <- genValue
           pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
       , SomeMutation (Just "must push deadline") MutateContestationDeadlineInTheClosedState . ChangeOutput 0 <$> do
-          -- let deadline =
-          --       case healthyClosedState of
-          --         Head.Closed{contestationDeadline} -> contestationDeadline
-          --         _ -> error "not in a closed state"
-          -- mutatedDeadline <- genMutatedDeadline `suchThat` (> deadline)
-          pure headTxOut -- changeHeadOutputDatum (replaceContestationDeadline deadline) headTxOut
+          let deadline =
+                case healthyClosedState of
+                  Head.Closed{contestationDeadline} -> contestationDeadline
+                  _ -> error "not in a closed state"
+          pure $ changeHeadOutputDatum (replaceContestationDeadline deadline) headTxOut
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
