@@ -21,7 +21,7 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
-import Hydra.Contract.Util (hasST, mustNotMintOrBurn, (===!))
+import Hydra.Contract.Util (hasST, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -284,7 +284,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
  where
   mustPreserveValue =
     traceIfFalse "head value is not preserved" $
-      val ===! val'
+      val === val'
 
   val' = txOutValue . head $ txInfoOutputs txInfo
 
@@ -387,7 +387,7 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
  where
   mustPreserveValue =
     traceIfFalse "head value is not preserved" $
-      val ===! val'
+      val === val'
 
   val' = txOutValue . head $ txInfoOutputs txInfo
 

@@ -50,13 +50,13 @@ mustNotMintOrBurn TxInfo{txInfoMint} =
 
 
 
-infix 4 ===!
+infix 4 ===
 
 -- | Checks for exact exuality between two serialized values
 -- Equality on value is very memory intensive as it's defined on associative
 -- lists and Map equality is implemented. Instead we can be more strict and
 -- require EXACTLY the same value and compare using the serialised bytes.
-(===!) :: Value -> Value -> Bool
-(===!) val val' =
+(===) :: Value -> Value -> Bool
+(===) val val' =
   serialiseData (toBuiltinData val) == serialiseData (toBuiltinData val')
-{-# INLINEABLE (===!) #-}
+{-# INLINEABLE (===) #-}
