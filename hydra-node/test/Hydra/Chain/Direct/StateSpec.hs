@@ -151,7 +151,7 @@ spec = parallel $ do
                       { networkId = networkId cctx
                       , -- Here we use wrong cardano-keys to build the tx
                         -- as they are used to generate the PT tokens to be minted
-                        peerVerificationKeys = ownVerificationKey cctx : List.tail (peerVerificationKeys cctx)
+                        peerVerificationKeys = List.head (peerVerificationKeys cctx) : peerVerificationKeys cctx
                       , ownVerificationKey = ownVerificationKey cctx
                       , ownParty = ownParty cctx
                       , scriptRegistry = scriptRegistry cctx
