@@ -21,7 +21,7 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
-import Hydra.Contract.Util (hasST, mustNotMintOrBurn)
+import Hydra.Contract.Util (hasST, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -284,11 +284,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
  where
   mustPreserveValue =
     traceIfFalse "head value is not preserved" $
-      -- XXX: Equality on value is very memory intensive as it's defined on
-      -- associative lists and Map equality is implemented. Instead we should be
-      -- more strict and require EXACTLY the same value and compare using a
-      -- simple fold or even compare the serialised bytes.
-      val == val'
+      val === val'
 
   val' = txOutValue . head $ txInfoOutputs txInfo
 
@@ -391,11 +387,7 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
  where
   mustPreserveValue =
     traceIfFalse "head value is not preserved" $
-      -- XXX: Equality on value is very memory intensive as it's defined on
-      -- associative lists and Map equality is implemented. Instead we should be
-      -- more strict and require EXACTLY the same value and compare using a
-      -- simple fold or even compare the serialised bytes.
-      val == val'
+      val === val'
 
   val' = txOutValue . head $ txInfoOutputs txInfo
 

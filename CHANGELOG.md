@@ -31,6 +31,7 @@ changes.
   + The v_head output must now be the first output of the transaction so that we can make the validator code simpler.
   + Introduce check in head validator to allow contest only once per party.
   + Check that value is preserved in v_head
+  + Introduce a function `(===!)` for strict equality check between serialized `Value`.
 
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds
