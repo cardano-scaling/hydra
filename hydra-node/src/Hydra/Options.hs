@@ -313,33 +313,32 @@ chainConfigParser =
 networkIdParser :: Parser NetworkId
 networkIdParser =
   option
-  (expectTestnetMagic <|> expectMainnetString)
-      (  long "network-id"
-      <> showDefault
-      <> value (Testnet (NetworkMagic 42))
-      <> completer (listCompleter ["1", "2", "42", "mainnet", "Mainnet","m"])
-      <>  help
-              "Either Mainnet network or identifier for a testnet to connect to. We only need to \
-              \provide the magic number here. For example: '2' is the 'preview' \
-              \network. See https://book.world.dev.cardano.org/environments.html for available networks."
-      )
-  where
-    expectTestnetMagic :: ReadM NetworkId
-    expectTestnetMagic = eitherReader go
-      where go :: String -> Either String NetworkId
-            go s =
-              case readMaybe s :: Maybe Word32 of
-                Nothing -> Left "Could not parse Testnet network magic"
-                Just i -> pure $ Testnet (NetworkMagic i)
+    (parseTestnet <|> parseMainnet)
+    ( long "network-id"
+        <> showDefault
+        <> value (Testnet (NetworkMagic 42))
+        <> completer (listCompleter ["1", "2", "42", "mainnet", "Mainnet", "m"])
+        <> help
+          "Either Mainnet network or a magic number identifying the testnet to connect to. We only need to \
+          \provide the magic number here. For example: '2' is the 'preview' \
+          \network. See https://book.world.dev.cardano.org/environments.html for available networks."
+    )
+ where
+  parseTestnet = eitherReader go
+   where
+    go :: String -> Either String NetworkId
+    go s =
+      case readMaybe s :: Maybe Word32 of
+        Nothing -> Left "Could not parse Testnet network magic"
+        Just i -> pure $ Testnet (NetworkMagic i)
 
-    expectMainnetString :: ReadM NetworkId
-    expectMainnetString = eitherReader go
-      where go :: String -> Either String NetworkId
-            go "Mainnet" = pure Mainnet
-            go "mainnet" = pure Mainnet
-            go "m"       = pure Mainnet
-            go _         = Left "Expected TEXT value (Mainnet, mainnet or just m)"
-
+  parseMainnet = eitherReader go
+   where
+    go :: String -> Either String NetworkId
+    go "Mainnet" = pure Mainnet
+    go "mainnet" = pure Mainnet
+    go "m" = pure Mainnet
+    go _ = Left "Expected TEXT value (Mainnet, mainnet or just m)"
 
 nodeSocketParser :: Parser FilePath
 nodeSocketParser =

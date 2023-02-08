@@ -3,14 +3,16 @@ module Hydra.TUI.Options where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (
-  NetworkId (Testnet, Mainnet),
+  NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
  )
 import Hydra.Network (Host (Host))
 import Options.Applicative (
   Parser,
+  ReadM,
   auto,
   completer,
+  eitherReader,
   help,
   listCompleter,
   long,
@@ -19,7 +21,7 @@ import Options.Applicative (
   short,
   showDefault,
   strOption,
-  value, ReadM, eitherReader,
+  value,
  )
 
 data Options = Options
@@ -57,34 +59,35 @@ parseNodeHost =
         <> value (Host "0.0.0.0" 4001)
         <> showDefault
     )
+
 -- TODO: this is now the same parser as is Hydra.Options. DRY?
 parseCardanoNetworkId :: Parser NetworkId
 parseCardanoNetworkId =
   option
-  (expectTestnetMagic <|> expectMainnetString)
-      (  long "network-id"
-      <> short 'n'
-      <> showDefault
-      <> completer (listCompleter ["1097911063", "42", "Mainnet", "mainnet", "m"])
-      <>  help
-              "Either Mainnet network or a magic number identifying the testnet to connect to."
-      )
-  where
-    expectTestnetMagic :: ReadM NetworkId
-    expectTestnetMagic = eitherReader go
-      where go :: String -> Either String NetworkId
-            go s =
-              case readMaybe s :: Maybe Word32 of
-                Nothing -> Left "Could not parse Testnet network magic"
-                Just i -> pure $ Testnet (NetworkMagic i)
+    (parseTestnet <|> parseMainnet)
+    ( long "network-id"
+        <> short 'n'
+        <> showDefault
+        <> completer (listCompleter ["1097911063", "42", "Mainnet", "mainnet", "m"])
+        <> help
+          "Either Mainnet network or a magic number identifying the testnet to connect to."
+    )
+ where
+  parseTestnet = eitherReader go
+   where
+    go :: String -> Either String NetworkId
+    go s =
+      case readMaybe s :: Maybe Word32 of
+        Nothing -> Left "Could not parse Testnet network magic"
+        Just i -> pure $ Testnet (NetworkMagic i)
 
-    expectMainnetString :: ReadM NetworkId
-    expectMainnetString = eitherReader go
-      where go :: String -> Either String NetworkId
-            go "Mainnet" = pure Mainnet
-            go "mainnet" = pure Mainnet
-            go "m"       = pure Mainnet
-            go _         = Left "Expected TEXT value (Mainnet, mainnet or just m)"
+  parseMainnet = eitherReader go
+   where
+    go :: String -> Either String NetworkId
+    go "Mainnet" = pure Mainnet
+    go "mainnet" = pure Mainnet
+    go "m" = pure Mainnet
+    go _ = Left "Expected TEXT value (Mainnet, mainnet or just m)"
 
 parseCardanoSigningKey :: Parser FilePath
 parseCardanoSigningKey =
