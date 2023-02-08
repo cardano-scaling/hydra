@@ -3,7 +3,7 @@ module Hydra.TUI.Options where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (
-  NetworkId (Testnet),
+  NetworkId (Testnet, Mainnet),
   NetworkMagic (NetworkMagic),
  )
 import Hydra.Network (Host (Host))
@@ -19,7 +19,7 @@ import Options.Applicative (
   short,
   showDefault,
   strOption,
-  value,
+  value, ReadM, eitherReader,
  )
 
 data Options = Options
@@ -57,19 +57,34 @@ parseNodeHost =
         <> value (Host "0.0.0.0" 4001)
         <> showDefault
     )
-
+-- TODO: this is now the same parser as is Hydra.Options. DRY?
 parseCardanoNetworkId :: Parser NetworkId
 parseCardanoNetworkId =
-  Testnet . NetworkMagic
-    <$> option
-      auto
-      ( long "network-id"
-          <> short 'n'
-          <> metavar "INTEGER"
-          <> help "The network magic number identifying the testnet to connect to."
-          <> completer (listCompleter ["1097911063", "42"])
-          <> showDefault
+  option
+  (expectTestnetMagic <|> expectMainnetString)
+      (  long "network-id"
+      <> short 'n'
+      <> showDefault
+      <> completer (listCompleter ["1097911063", "42", "Mainnet", "mainnet", "m"])
+      <>  help
+              "Either Mainnet network or a magic number identifying the testnet to connect to."
       )
+  where
+    expectTestnetMagic :: ReadM NetworkId
+    expectTestnetMagic = eitherReader go
+      where go :: String -> Either String NetworkId
+            go s =
+              case readMaybe s :: Maybe Word32 of
+                Nothing -> Left "Could not parse Testnet network magic"
+                Just i -> pure $ Testnet (NetworkMagic i)
+
+    expectMainnetString :: ReadM NetworkId
+    expectMainnetString = eitherReader go
+      where go :: String -> Either String NetworkId
+            go "Mainnet" = pure Mainnet
+            go "mainnet" = pure Mainnet
+            go "m"       = pure Mainnet
+            go _         = Left "Expected TEXT value (Mainnet, mainnet or just m)"
 
 parseCardanoSigningKey :: Parser FilePath
 parseCardanoSigningKey =
