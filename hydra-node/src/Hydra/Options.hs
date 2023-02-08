@@ -39,7 +39,6 @@ import Options.Applicative (
   Parser,
   ParserInfo,
   ParserResult (..),
-  ReadM,
   auto,
   command,
   completer,

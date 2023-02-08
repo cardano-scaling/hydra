@@ -9,7 +9,6 @@ import Hydra.Cardano.Api (
 import Hydra.Network (Host (Host))
 import Options.Applicative (
   Parser,
-  ReadM,
   auto,
   completer,
   eitherReader,
