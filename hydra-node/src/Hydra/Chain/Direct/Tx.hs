@@ -636,8 +636,9 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
 
   assetNames headAssetName =
     [ assetName
-    | (AssetId _ assetName, _) <- txMintAssets tx
+    | (AssetId _ assetName, assetQuantity) <- txMintAssets tx
     , assetName /= headAssetName
+    , assetQuantity == 1
     ]
 
 data CommitObservation = CommitObservation
