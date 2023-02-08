@@ -19,13 +19,15 @@ import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Handler.WebSockets as Wai
 import qualified Network.WebSockets as WS
 import Safe (readMay)
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 
 main :: IO ()
 main = do
   key <- fromMaybe (error "set HYDRAW_CARDANO_SIGNING_KEY environment variable") <$> lookupEnv "HYDRAW_CARDANO_SIGNING_KEY"
   host <- readHost . fromMaybe (error "set HYDRA_API_HOST environment variable") =<< lookupEnv "HYDRA_API_HOST"
+  network <- parseNetwork <$> lookupEnv "HYDRAW_NETWORK"
   withClient host $ \cnx -> do
-    Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp key cnx)
+    Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp network key cnx)
       & Warp.runSettings settings
  where
   port = 1337
@@ -38,6 +40,15 @@ main = do
             putStrLn "Server started..."
             putStrLn $ "Listening on: tcp/" <> show port
         )
+  -- try to parse magic number and if unsuccessfull default to 'Mainnet'
+  -- NOTE: if not set default network is 'Testnet' with magic 42
+  parseNetwork mStr =
+    case mStr of
+      Nothing -> Testnet (NetworkMagic 42)
+      Just i ->
+        case readMaybe i :: Maybe Word32 of
+          Nothing -> Mainnet
+          Just m  -> Testnet (NetworkMagic m)
 
 websocketApp :: Host -> WS.PendingConnection -> IO ()
 websocketApp host pendingConnection = do
@@ -60,8 +71,8 @@ websocketApp host pendingConnection = do
       (forever $ await >>= WS.send cnx)
       (forever $ WS.receive cnx >>= yield)
 
-httpApp :: FilePath -> WS.Connection -> Application
-httpApp key cnx req send =
+httpApp :: NetworkId -> FilePath -> WS.Connection -> Application
+httpApp networkId key cnx req send =
   case (requestMethod req, pathInfo req) of
     ("HEAD", _) -> do
       send $
@@ -74,16 +85,16 @@ httpApp key cnx req send =
     ("GET", "paint" : args) -> do
       case traverse (readMay . toString) args of
         Just [x, y, r, g, b] ->
-          send =<< handleGetPaint key cnx (x, y) (r, g, b)
+          send =<< handleGetPaint networkId key cnx (x, y) (r, g, b)
         _ ->
           send handleError
     (_, _) ->
       send handleNotFound
 
-handleGetPaint :: FilePath -> WS.Connection -> (Word8, Word8) -> (Word8, Word8, Word8) -> IO Response
-handleGetPaint key cnx (x, y) (red, green, blue) = do
+handleGetPaint :: NetworkId -> FilePath -> WS.Connection -> (Word8, Word8) -> (Word8, Word8, Word8) -> IO Response
+handleGetPaint networkId key cnx (x, y) (red, green, blue) = do
   putStrLn $ show (x, y) <> " -> " <> show (red, green, blue)
-  paintPixel key cnx Pixel{x, y, red, green, blue}
+  paintPixel networkId key cnx Pixel{x, y, red, green, blue}
   pure $ responseLBS status200 corsHeaders "OK"
 
 handleError :: Response
