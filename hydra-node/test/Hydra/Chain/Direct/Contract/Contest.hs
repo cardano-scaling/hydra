@@ -18,7 +18,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeHeadOutputDatum,
   changeMintedTokens,
   replaceContestationDeadline,
-  replaceContestationPeriod,
   replaceContesters,
   replaceParties,
   replacePolicyIdWith,
@@ -193,15 +192,19 @@ data ContestMutation
     MutateContesters
   | -- | See spec: 5.5. rule 6 -> value is preserved
     MutateValueInOutput
-  | -- | Should change the 'ContestationDeadline' in the 'Closed' output datum for contest tx such that
-    -- deadline is not pushed away
-    MutateContestationDeadlineOnOutputClosedState
-  | -- | Should change the 'ContestationDeadline' in the 'Closed' input datum for contest tx such that
-    -- deadline is not pushed away
-    MutateContestationDeadlineOnInputClosedState
-  | -- | Should change the 'ContestationPeriod' in the 'Closed' input datum for contest tx such that
-    -- deadline is not pushed away
-    MutateContestationPeriodOnInputClosedState
+  | -- | Change the 'ContestationDeadline' in the 'Closed' output datum such that deadline is pushed away
+    MutatePushedContestationDeadlineOnOutputClosedState
+  -- TODO
+  -- | -- | Change the 'ContestationDeadline' in the 'Closed' output datum such that deadline is NOT pushed away
+  --   MutateNotPushedContestationDeadlineOnOutputClosedState
+  -- | -- | Change the 'ContestationDeadline' in the 'Closed' input datum such that deadline is pushed away
+  --   MutatePushedContestationDeadlineOnInputClosedState
+  -- | -- | Change the 'ContestationDeadline' in the 'Closed' input datum such that deadline is NOT pushed away
+  --   MutateNotPushedContestationDeadlineOnInputClosedState
+  -- | -- | Change the 'ContestationPeriod' in the 'Closed' input datum such that deadline is pushed away
+  --   MutatePushedContestationPeriodOnInputClosedState
+  -- | -- | Change the 'ContestationPeriod' in the 'Closed' input datum such that deadline is NOT pushed away
+  --   MutateNotPushedContestationPeriodOnInputClosedState
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -277,22 +280,10 @@ genContestMutation
       , SomeMutation (Just "head value is not preserved") MutateValueInOutput <$> do
           newValue <- genValue
           pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-      , SomeMutation (Just "must push deadline") MutateContestationDeadlineOnOutputClosedState . ChangeOutput 0 <$> do
-          let deadline =
-                case healthyClosedState of
-                  -- We are replacing the contestationDeadline using the previous without pushing it
-                  Head.Closed{contestationDeadline} -> contestationDeadline
-                  _ -> error "not in a closed state"
-          pure $ changeHeadOutputDatum (replaceContestationDeadline deadline) headTxOut
-      , SomeMutation (Just "must push deadline") MutateContestationDeadlineOnInputClosedState . ChangeInputHeadDatum <$> do
+      , SomeMutation (Just "must push deadline") MutatePushedContestationDeadlineOnOutputClosedState . ChangeOutput 0 <$> do
           let deadline = posixFromUTCTime healthyContestationDeadline
-          randomPosixTime <- arbitrary
-          let mutatedDeadline = deadline + randomPosixTime
-          pure $ healthyClosedState & replaceContestationDeadline mutatedDeadline
-      , SomeMutation (Just "must push deadline") MutateContestationPeriodOnInputClosedState . ChangeInputHeadDatum <$> do
-          randomContestationPeriod <- arbitrary
-          let mutatedContestationPeriod = healthyOnChainContestationPeriod + randomContestationPeriod
-          pure $ healthyClosedState & replaceContestationPeriod mutatedContestationPeriod
+          -- Here we are replacing the contestationDeadline using the previous without pushing it
+          pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0

@@ -418,7 +418,10 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
 
   onChainConstestationPeriod = toChain contestationPeriod
 
-  pushedContestationDeadline = addContestationPeriod closedContestationDeadline onChainConstestationPeriod
+  newContestationDeadline =
+    if length (contester : closedContesters) == length closedParties
+      then closedContestationDeadline
+      else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
 
   headDatumAfter =
     mkTxOutDatum
@@ -426,7 +429,7 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
         { snapshotNumber = toInteger number
         , utxoHash
         , parties = closedParties
-        , contestationDeadline = pushedContestationDeadline
+        , contestationDeadline = newContestationDeadline
         , contestationPeriod = onChainConstestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = contester : closedContesters

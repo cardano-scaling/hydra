@@ -414,8 +414,9 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
         && headId' == headId
 
   mustPushDeadline =
-    traceIfFalse "must push deadline" $
-      contestationDeadlineFromDatum == addContestationPeriod contestationDeadline contestationPeriod
+    if length contesters' == length parties'
+      then traceIfFalse "must not push deadline" $ contestationDeadlineFromDatum == contestationDeadline
+      else traceIfFalse "must push deadline" $ contestationDeadlineFromDatum == addContestationPeriod contestationDeadline contestationPeriod
 
   mustUpdateContesters =
     traceIfFalse "contester not included" $
