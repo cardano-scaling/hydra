@@ -355,6 +355,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
         , utxoHash = toBuiltin utxoHashBytes
         , parties = openParties
         , contestationDeadline
+        , contestationPeriod = openContestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = []
         }
@@ -415,14 +416,18 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
 
   contester = toPlutusKeyHash (verificationKeyHash vk)
 
+  onChainConstestationPeriod = toChain contestationPeriod
+
+  pushedContestationDeadline = addContestationPeriod closedContestationDeadline onChainConstestationPeriod
+
   headDatumAfter =
     mkTxOutDatum
       Head.Closed
         { snapshotNumber = toInteger number
         , utxoHash
         , parties = closedParties
-        , contestationDeadline = closedContestationDeadline
-        , contestationPeriod = toChain contestationPeriod
+        , contestationDeadline = pushedContestationDeadline
+        , contestationPeriod = onChainConstestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = contester : closedContesters
         }
