@@ -273,6 +273,7 @@ genContestMutation
       , SomeMutation (Just "must push deadline") MutateContestationDeadlineInTheClosedState . ChangeOutput 0 <$> do
           let deadline =
                 case healthyClosedState of
+                  -- We are replacing the contestationDeadline using the previous without pushing it
                   Head.Closed{contestationDeadline} -> contestationDeadline
                   _ -> error "not in a closed state"
           pure $ changeHeadOutputDatum (replaceContestationDeadline deadline) headTxOut
