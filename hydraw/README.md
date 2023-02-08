@@ -28,8 +28,16 @@ The frontend is written in vanilla HTML/CSS/JS and is dynamically served from th
 
 All commands must be run from within `hydraw/` and assuming your Hydra API host+port is `hydra.example.io:4001` and your cardano signing key is `cardano.sk`:
 
+You can choose the network by specifying `HYDRAW_NETWORK`.
+
+This value contain either network magic number in case you want to run hydraw on one of the testnets or a string "mainnet".
+
+In case HYDRAW_NETWORK is not set we default to `Testnet (NetworkMagic 42)`.
+
+In case the magic number parsing fails we assume you want to run on Mainnet!
+
 To launch the `hydraw` bridge:
 
 ``` sh
-HYDRA_API_HOST=hydra.example.io:4001 HYDRAW_CARDANO_SIGNING_KEY=cardano.sk cabal exec hydraw
+HYDRA_API_HOST=hydra.example.io:4001 HYDRAW_CARDANO_SIGNING_KEY=cardano.sk HYDRAW_NETWORK=2 cabal exec hydraw
 ```
