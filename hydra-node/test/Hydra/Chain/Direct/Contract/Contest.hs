@@ -192,9 +192,12 @@ data ContestMutation
     MutateContesters
   | -- | See spec: 5.5. rule 6 -> value is preserved
     MutateValueInOutput
-  | -- | Should change the 'ContestationDeadline' in the 'Closed' datum for contest tx such that
-    -- deadline is pushed in an unexpected way
-    MutateContestationDeadlineInTheClosedState
+  | -- | Should change the 'ContestationDeadline' in the 'Closed' output datum for contest tx such that
+    -- deadline is not pushed away
+    MutateContestationDeadlineOnOutputClosedState
+  | -- | Should change the 'ContestationDeadline' in the 'Closed' input datum for contest tx such that
+    -- deadline is not pushed away
+    MutateContestationDeadlineOnInputClosedState
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -270,13 +273,18 @@ genContestMutation
       , SomeMutation (Just "head value is not preserved") MutateValueInOutput <$> do
           newValue <- genValue
           pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-      , SomeMutation (Just "must push deadline") MutateContestationDeadlineInTheClosedState . ChangeOutput 0 <$> do
+      , SomeMutation (Just "must push deadline") MutateContestationDeadlineOnOutputClosedState . ChangeOutput 0 <$> do
           let deadline =
                 case healthyClosedState of
                   -- We are replacing the contestationDeadline using the previous without pushing it
                   Head.Closed{contestationDeadline} -> contestationDeadline
                   _ -> error "not in a closed state"
           pure $ changeHeadOutputDatum (replaceContestationDeadline deadline) headTxOut
+      , SomeMutation (Just "must push deadline") MutateContestationDeadlineOnInputClosedState . ChangeInputHeadDatum <$> do
+          let deadline = posixFromUTCTime healthyContestationDeadline
+          positive <- arbitrary
+          let mutatedDeadline = deadline + positive
+          pure $ healthyClosedState & replaceContestationDeadline mutatedDeadline
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
