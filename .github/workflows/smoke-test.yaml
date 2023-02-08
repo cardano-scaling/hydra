@@ -27,7 +27,7 @@ jobs:
         submodules: true
 
     - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v18
+      uses: cachix/install-nix-action@v19
       with:
         extra_nix_config: |
           accept-flake-config = true
