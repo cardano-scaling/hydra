@@ -49,6 +49,7 @@ import Hydra.Chain.Direct.State (
   genContestTx,
   genFanoutTx,
   genHydraContext,
+  genHydraContextFor,
   genInitTx,
   genStInitial,
   getContestationDeadline,
@@ -141,7 +142,7 @@ spec = parallel $ do
                in isNothing (observeInit cctxB tx)
 
     prop "is not observed if wrong number of PT tokens distributed" $
-      forAll (genHydraContext maximumNumberOfParties) $ \ctx ->
+      forAll (genHydraContextFor maximumNumberOfParties) $ \ctx ->
         forAll (pickChainContext ctx) $
           \cctx ->
             forAll genTxIn $ \seedInput ->
