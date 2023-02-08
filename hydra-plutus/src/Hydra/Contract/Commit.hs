@@ -11,8 +11,7 @@ import Codec.Serialise (deserialiseOrFail, serialise)
 import Data.ByteString.Lazy (fromStrict, toStrict)
 import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import qualified Hydra.Cardano.Api as OffChain
-import Hydra.Cardano.Api.Network (Network (Testnet))
-import Hydra.Contract.Util (hasST, mustBurnST)
+import Hydra.Contract.Util (hasST, mustBurnST, networkIdToNetwork)
 import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -68,16 +67,15 @@ serializeCommit (i, o) = do
 
 -- | Decode an on-chain 'SerializedTxOut' back into an off-chain 'TxOut'.
 -- NOTE: Depends on the 'Serialise' instance for Plutus' 'Data'.
-deserializeCommit :: Commit -> Maybe (OffChain.TxIn, OffChain.TxOut CtxUTxO)
-deserializeCommit Commit{input, preSerializedOutput} =
+deserializeCommit :: OffChain.NetworkId -> Commit -> Maybe (OffChain.TxIn, OffChain.TxOut CtxUTxO)
+deserializeCommit networkId Commit{input, preSerializedOutput} =
   case deserialiseOrFail . fromStrict $ fromBuiltin preSerializedOutput of
     Left{} -> Nothing
     Right dat -> do
       txOut <- fromPlutusTxOut network <$> fromData dat
       pure (fromPlutusTxOutRef input, txOut)
  where
-  -- FIXME: not hard-code this
-  network = Testnet
+  network = networkIdToNetwork networkId
 
 -- TODO: Party is not used on-chain but is needed off-chain while it's still
 -- based on mock crypto. When we move to real crypto we could simply use

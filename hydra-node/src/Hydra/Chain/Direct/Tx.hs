@@ -784,7 +784,7 @@ observeCommitTx networkId initials tx = do
     -- TODO: We could simplify this by just using the datum. However, we would
     -- need to ensure the commit is belonging to a head / is rightful. By just
     -- looking for some known initials we achieve this (a bit complicated) now.
-    case (mCommittedTxIn, onChainCommit >>= Commit.deserializeCommit) of
+    case (mCommittedTxIn, onChainCommit >>= Commit.deserializeCommit networkId) of
       (Nothing, Nothing) -> Just mempty
       (Just i, Just (_i, o)) -> Just $ UTxO.singleton (i, o)
       (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."

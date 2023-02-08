@@ -8,6 +8,7 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.TxInfo (TxOutSource (TxOutFromOutput))
 import Cardano.Ledger.Babbage.TxInfo (txInfoOutV2)
@@ -140,7 +141,7 @@ prop_serializingCommitRoundtrip =
   -- Plutus.TxOut
   forAll ((,) <$> arbitrary <*> (arbitrary >>= genOutput)) $ \singleUTxO ->
     let serialized = Commit.serializeCommit singleUTxO
-        deserialized = serialized >>= Commit.deserializeCommit
+        deserialized = serialized >>= Commit.deserializeCommit testNetworkId
      in case deserialized of
           Just actual -> actual === singleUTxO
           Nothing ->

@@ -3,6 +3,10 @@
 module Hydra.Contract.Util where
 
 import Hydra.Prelude (Show)
+
+import Hydra.Cardano.Api (NetworkId (Mainnet, Testnet))
+import qualified Hydra.Cardano.Api.Network as Network
+import Hydra.Contract.Error (ToErrorCode (..))
 import Plutus.V1.Ledger.Value (isZero)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
@@ -14,7 +18,6 @@ import Plutus.V2.Ledger.Api (
 import qualified PlutusTx.AssocMap as Map
 import PlutusTx.Builtins (serialiseData)
 import PlutusTx.Prelude
-import Hydra.Contract.Error (ToErrorCode (..))
 
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
@@ -67,3 +70,8 @@ data UtilError
 instance ToErrorCode UtilError where
   toErrorCode = \case
     MintingOrBurningIsForbidden -> "U01"
+
+-- | Convert Cardano.Api 'NetworkId' to ledger `Network`
+networkIdToNetwork :: NetworkId -> Network.Network
+networkIdToNetwork Mainnet = Network.Mainnet
+networkIdToNetwork (Testnet _) = Network.Testnet
