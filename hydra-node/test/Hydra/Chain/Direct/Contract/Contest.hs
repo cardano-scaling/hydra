@@ -114,7 +114,7 @@ healthyClosedState =
     , utxoHash = healthyClosedUTxOHash
     , parties = healthyOnChainParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-    , contestationPeriod = fromInteger healthyContestationPeriodSeconds
+    , contestationPeriod = healthyOnChainContestationPeriod
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
     }
@@ -128,8 +128,11 @@ healthyContestationDeadline =
     (fromInteger healthyContestationPeriodSeconds)
     (slotNoToUTCTime healthySlotNo)
 
+healthyOnChainContestationPeriod :: OnChain.ContestationPeriod
+healthyOnChainContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
+
 healthyContestationPeriod :: ContestationPeriod
-healthyContestationPeriod = fromChain $ OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
+healthyContestationPeriod = fromChain healthyOnChainContestationPeriod
 
 healthyContestationPeriodSeconds :: Integer
 healthyContestationPeriodSeconds = 10
