@@ -149,9 +149,9 @@ spec = parallel $ do
               let wrongCctx =
                     ChainContext
                       { networkId = networkId cctx
-                      , -- Here we use a wrong number of cardano-keys to build the tx
+                      , -- Here we use wrong cardano-keys to build the tx
                         -- as they are used to generate the PT tokens to be minted
-                        peerVerificationKeys = List.tail $ peerVerificationKeys cctx
+                        peerVerificationKeys = ownVerificationKey cctx : List.tail (peerVerificationKeys cctx)
                       , ownVerificationKey = ownVerificationKey cctx
                       , ownParty = ownParty cctx
                       , scriptRegistry = scriptRegistry cctx
