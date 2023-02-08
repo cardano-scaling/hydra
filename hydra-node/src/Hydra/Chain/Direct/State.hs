@@ -433,7 +433,7 @@ contest ::
   PointInTime ->
   Tx
 contest ctx st confirmedSnapshot pointInTime = do
-  contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput headId
+  contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput headId (contestationPeriod ctx)
  where
   (sn, sigs) =
     case confirmedSnapshot of

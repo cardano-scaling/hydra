@@ -37,6 +37,7 @@ data State
       , snapshotNumber :: SnapshotNumber
       , utxoHash :: Hash
       , contestationDeadline :: POSIXTime
+      , contestationPeriod :: ContestationPeriod
       , headId :: CurrencySymbol
       , contesters :: [PubKeyHash]
       }

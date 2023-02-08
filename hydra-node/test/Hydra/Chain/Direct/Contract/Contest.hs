@@ -10,6 +10,7 @@ import Hydra.Prelude hiding (label)
 import Data.Maybe (fromJust)
 
 import Cardano.Api.UTxO as UTxO
+import Hydra.Chain.Direct.Contract.Close (genMutatedDeadline)
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -17,6 +18,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   addParticipationTokens,
   changeHeadOutputDatum,
   changeMintedTokens,
+  replaceContestationDeadline,
   replaceContesters,
   replaceParties,
   replacePolicyIdWith,
@@ -181,6 +183,9 @@ data ContestMutation
     MutateContesters
   | -- | See spec: 5.5. rule 6 -> value is preserved
     MutateValueInOutput
+  | -- | Should change the 'ContestationDeadline' in the 'Closed' datum for contest tx such that
+    -- deadline is pushed in an unexpected way
+    MutateContestationDeadlineInTheClosedState
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -256,6 +261,13 @@ genContestMutation
       , SomeMutation (Just "head value is not preserved") MutateValueInOutput <$> do
           newValue <- genValue
           pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
+      , SomeMutation (Just "must push deadline") MutateContestationDeadlineInTheClosedState . ChangeOutput 0 <$> do
+          -- let deadline =
+          --       case healthyClosedState of
+          --         Head.Closed{contestationDeadline} -> contestationDeadline
+          --         _ -> error "not in a closed state"
+          -- mutatedDeadline <- genMutatedDeadline `suchThat` (> deadline)
+          pure headTxOut -- changeHeadOutputDatum (replaceContestationDeadline deadline) headTxOut
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
