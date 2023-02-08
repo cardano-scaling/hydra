@@ -14,112 +14,79 @@ changes.
 
 ## [0.9.0] - 2023-03-02
 
-:dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/input-output-hk/hydra)!
-
-:warning: Delete your persistence directory!
-
-This release contains several breaking changes and you'll need to apply the
-following procedure to upgrade all the nodes running a head:
-
-1. Close the head
-2. Stop `hydra-node`
-3. Remove persistent files stored in `--persistence-dir`, in particular `server-output` and `state`
-4. Upgrade `hydra-node` version
-5. Start new `hydra-node` version
-
-Only when this procedure has been applied to all Hydra nodes can you open a new head again.
-
-### Changes to `hydra-node`
-
-- **BREAKING** Changes in the persistence format
-  [#725](https://github.com/input-output-hk/hydra/pull/725),
-  [#745](https://github.com/input-output-hk/hydra/pull/745).
+- Reduced the number of supported parties to `3`. This was caused by increased
+  size of minting policy and head validator scripts.
 
 - **BREAKING** Changes to the API:
-  + Removed `TxSeen` and `TxExpired` server outputs. Use the `TxValid` and
-    `TxInvalid` responses instead.
+  + Remove `TxSeen` and `TxExpired` server outputs. Use the `TxValid` and `TxInvalid` responses instead.
   + All participants now see `TxValid` for all valid transactions (it replaces `TxSeen`).
-  + Renamed `ReadyToCommit -> HeadIsInitializing`
-  + Added a `headId` to most server outputs. [#678](https://github.com/input-output-hk/hydra/pull/678)
-  + Added a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/input-output-hk/hydra/pull/618)
+  + Rename `ReadyToCommit -> HeadIsInitializing`
+  + Add the `HeadId` to most server outputs. [#678](https://github.com/input-output-hk/hydra/pull/678)
+  + Add a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/input-output-hk/hydra/pull/618)
 
-- **BREAKING** Addressed short-comings in `hydra-plutus` scripts
-  [#452](https://github.com/input-output-hk/hydra/pull/452) and improved their
-  performance / reduced cost
-  [#652](https://github.com/input-output-hk/hydra/pull/652),
-  [#701](https://github.com/input-output-hk/hydra/pull/701),
-  [#709](https://github.com/input-output-hk/hydra/pull/709). Roughly the cost of
-  transactions according to our
-  [benchmarks](https://hydra.family/head-protocol/benchmarks/transaction-cost/)
-  changed:
-  
-  + Init increased by 10%.
-  + Commit reduced by 50%.
-  + Collect reduced by 30%.
-  + Close reduced by 0.2-0.3₳
-  + Contest reduced by 0.1-0.2₳.
-  + Abort reduced by 0.1-0.3₳.
-  + Fanout reduced by 0.2-0.3₳.
+- **BREAKING** `hydra-cardano-api` changes:
+  + Remove `Hydra.Cardano.Api.SlotNo` module.
+  + Replace `fromConsensusPointHF` with `fromConsensusPointInMode` and
+    `toConsensusPointHF` with `toConsensusPointInMode`.
+  + Re-export new `AcquiringFailure` type from `cardano-api`.
+  + Add `fromPlutusCurrencySymbol` conversion function.
+  + Introduce new `Hydra.Cardano.Api.Pretty` module and move functions
+    `renderTx`, `renderTxWithUTxO` and `renderTxs` from `hydra-node` package to
+    this new module.
 
-- **BREAKING** Change the way contestation period and deadline are handled:
+- **BREAKING** Addressed short-comings in `hydra-plutus` scripts:
+  + Check presence of state token (ST) and that it's consistent against datum.
+  + Reduce cost of `commitTx` by using the initial script as input reference.
+  + Moved check to reimburse commits to head validator and ensure its completeness.
+  + Remove snapshot number and utxo hash from Close and Contest reedemer as they
+    were already present in Closed datum.
+  + Check no tokens are minted/burnt in v-head for close, contest, commit and collectCom tx.
+  + The v_head output must now be the first output of the transaction so that we can make the validator code simpler.
+  + Introduce check in head validator to allow contest only once per party.
+  + Check that value is preserved in v_head
+  + Introduce a function `(===)` for strict equality check between serialized `Value`.
+  + Push contestation deadline on contest.
+  + Improve on-chain checks when minting tokens and off-chain checks when
+    observing `initTx` so that we ensure we are part of the _proper_ head.
+
+- **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds
     to control the close tx validity bounds as well as determine the
-    contestation deadline. For example, with `--contestation-period` 60s, the
-    node will close the head 60s after submitting the close transaction and
-    other parties will have another 60s to contest. This means the deadline may
-    be up `2 * --contestation-period` after a close transaction.
-    [#615](https://github.com/input-output-hk/hydra/pull/615) and
-    [ADR21](https://hydra.family/head-protocol/adr/21/)
-  + If hydra-node receives a `init` transaction with _not matching_
-    `--contestation-period` then this tx is ignored which implies that all
-    parties need to agree on the same value for contestation period.
-  + Removed `contestationPeriod` from the `Init` API request payload.
-  + The deadline get's pushed by `--contestation-period` **on each** contest
-    transaction. [#716](https://github.com/input-output-hk/hydra/pull/716)
+    contestation deadline. (e.g. with `--contestation-period` 30s, the node will
+    close the head 30s after submitting the close transaction and other parties
+    will have another 30s to contest.)
+  + The deadline is up to `2 * --contestation-period` for Close tx.
+  + If hydra-node receives a `Init` tx with _not matching_ `--contestation period` then this tx is ignored which implies
+    that all parties need to agree on the same value for contestation period.
+  + API request payload to create the Init transaction does not contain the field `contestationPeriod` any more.
 
-- Change the way the internal wallet initializes its state.
-  [#621](https://github.com/input-output-hk/hydra/pull/621)
-  + The internal wallet does now always query ledger state and parameters at the
-    tip. This should fix the `AcquireFailure` issues.
+- Change the way the internal wallet initializes its state. [#621](https://github.com/input-output-hk/hydra/pull/621)
+  + The internal wallet does now always query ledger state and parameters at the tip.
+  + This should fix the `AcquireFailure` issues.
+  + Changed logs of `BeginInitialize` and `EndInitialize`.
+  + Added `SkipUpdate` constructor to the wallet logs.
 
-- Added `NoFuelUTXOFound` error next to the already existing `NotEnoughFuel`.
-  Previously the node would fail with `NotEnoughFuel` when utxo was not found.
-  Now `NotEnoughFuel` is used when there is not enough fuel and
-  `NoFuelUTXOFound` when utxo was not to be found.
+- Hydra node can start following the chain from _genesis_ by setting `--start-chain-from 0` at startup time
 
-- Added support have `hydra-node` to start following the chain from _genesis_ by
-  setting `--start-chain-from 0`.
+- Hydra node can now parse `Mainnet` network command line argument.
 
-- Added script sizes to `hydra-node --script-info` and published transaction
-  cost benchmarks.
+- Introducing `NoFuelUTXOFound` error. Previously the node would fail with
+  `NotEnoughFuel` when utxo was not found. Now `NotEnoughFuel` is used when
+  there is not enough fuel and `NoFuelUTXOFound` when utxo was not to be found.
 
 - Changes to the logs:
-  + HeadLogic `Outcome` is now being logged on every protocol step transition.
-  + Added intermediate `LastSeenSnapshot` and extended `RequestedSnapshot` seen snapshot states.
-  + Changed wallet-related logs of `BeginInitialize`, `EndInitialize` and added
-    `SkipUpdate`.
+  - HeadLogic Outcome is now being logged on every protocol step transition.
+  - Added intermediate `LastSeenSnapshot` and extended `RequestedSnapshot` seen snapshot states.
 
-### Changes to `hydra-cardano-api`
-
-- **BREAKING** Remove `Hydra.Cardano.Api.SlotNo` module.
-- **BREAKING** Replace `fromConsensusPointHF` with `fromConsensusPointInMode` and
-  `toConsensusPointHF` with `toConsensusPointInMode`.
-- Re-export new `AcquiringFailure` type from `cardano-api`.
-- Add `fromPlutusCurrencySymbol` conversion function.
-- Introduce new `Hydra.Cardano.Api.Pretty` module and move functions
-  `renderTx`, `renderTxWithUTxO` and `renderTxs` from `hydra-node` package to
-  this new module.
-
-### Other changes
-
-- `hydra-cluster` executable can be used to provide a local cardano "network"
-  with `--devnet` argument
-
-- Switched to using [nix flakes](https://nixos.wiki/wiki/Flakes) and
-  [CHaP](https://input-output-hk.github.io/cardano-haskell-packages/all-packages/)
+- Switched to using [nix flakes](https://nixos.wiki/wiki/Flakes):
+  + Allows us to use some CI services (cicero).
   + Makes configuration of binary-caches easier to discover (you get asked about adding them).
   + Will make bumping dependencies (e.g. cardano-node) easier.
   + Build commands for binaries and docker images change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
+
+- Add script sizes to `hydra-node --script-info` and published transaction cost benchmarks.
+
+- `hydra-cluster` executable can be used to provide a local cardano "network" with `--devnet` argument
 
 ## [0.8.1] - 2022-11-17
 
