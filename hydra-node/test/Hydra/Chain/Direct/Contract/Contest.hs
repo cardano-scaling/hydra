@@ -18,6 +18,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeHeadOutputDatum,
   changeMintedTokens,
   replaceContestationDeadline,
+  replaceContestationPeriod,
   replaceContesters,
   replaceParties,
   replacePolicyIdWith,
@@ -198,6 +199,9 @@ data ContestMutation
   | -- | Should change the 'ContestationDeadline' in the 'Closed' input datum for contest tx such that
     -- deadline is not pushed away
     MutateContestationDeadlineOnInputClosedState
+  | -- | Should change the 'ContestationPeriod' in the 'Closed' input datum for contest tx such that
+    -- deadline is not pushed away
+    MutateContestationPeriodOnInputClosedState
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -282,9 +286,13 @@ genContestMutation
           pure $ changeHeadOutputDatum (replaceContestationDeadline deadline) headTxOut
       , SomeMutation (Just "must push deadline") MutateContestationDeadlineOnInputClosedState . ChangeInputHeadDatum <$> do
           let deadline = posixFromUTCTime healthyContestationDeadline
-          positive <- arbitrary
-          let mutatedDeadline = deadline + positive
+          randomPosixTime <- arbitrary
+          let mutatedDeadline = deadline + randomPosixTime
           pure $ healthyClosedState & replaceContestationDeadline mutatedDeadline
+      , SomeMutation (Just "must push deadline") MutateContestationPeriodOnInputClosedState . ChangeInputHeadDatum <$> do
+          randomContestationPeriod <- arbitrary
+          let mutatedContestationPeriod = healthyOnChainContestationPeriod + randomContestationPeriod
+          pure $ healthyClosedState & replaceContestationPeriod mutatedContestationPeriod
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0

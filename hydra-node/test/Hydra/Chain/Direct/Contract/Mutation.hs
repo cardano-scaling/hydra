@@ -146,6 +146,7 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Data.ContestationPeriod
 import qualified Hydra.Data.Party as Data (Party)
 import Hydra.Ledger.Cardano (genKeyPair, genOutput, genVerificationKey, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
@@ -707,6 +708,20 @@ replaceUtxoHash utxoHash = \case
 replaceContestationDeadline :: POSIXTime -> Head.State -> Head.State
 replaceContestationDeadline contestationDeadline = \case
   Head.Closed{snapshotNumber, utxoHash, parties, headId, contesters, contestationPeriod} ->
+    Head.Closed
+      { snapshotNumber
+      , utxoHash
+      , parties
+      , contestationDeadline
+      , contestationPeriod
+      , headId
+      , contesters
+      }
+  otherState -> otherState
+
+replaceContestationPeriod :: ContestationPeriod -> Head.State -> Head.State
+replaceContestationPeriod contestationPeriod = \case
+  Head.Closed{snapshotNumber, utxoHash, parties, headId, contesters, contestationDeadline} ->
     Head.Closed
       { snapshotNumber
       , utxoHash
