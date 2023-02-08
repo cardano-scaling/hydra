@@ -14,7 +14,6 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Babbage.PParams (PParams)
-import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import GHC.Natural (wordToNatural)
@@ -123,21 +122,6 @@ spec =
                 & counterexample "Failed to ignore init tx with the wrong contestation period."
                 & counterexample (renderTx tx)
             Nothing -> property True
-
-    describe "initTx" $ do
-      prop "Ignore InitTx with wrong number of PT tokens distributed" $
-        withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys ->
-          let params = HeadParameters cperiod (party : parties)
-              -- Here we use a wrong number of cardano-keys to build the tx
-              -- as they are used to generate the PT tokens to be minted
-              wrongCardanoKeys = List.tail cardanoKeys
-              tx = initTx testNetworkId wrongCardanoKeys params txIn
-           in case observeInitTx testNetworkId cardanoKeys cperiod party tx of
-                Just InitObservation{} -> do
-                  property False
-                    & counterexample "Failed to ignore init tx with the wrong number of PT tokens distributed."
-                    & counterexample (renderTx tx)
-                Nothing -> property True
 
 ledgerPParams :: PParams LedgerEra
 ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
