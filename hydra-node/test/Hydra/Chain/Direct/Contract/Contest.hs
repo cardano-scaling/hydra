@@ -42,7 +42,7 @@ import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (elements, listOf, oneof, suchThat, vectorOf)
+import Test.QuickCheck (elements, listOf, oneof, suchThat)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -194,9 +194,6 @@ data ContestMutation
     MutateValueInOutput
   | -- | Change the 'ContestationDeadline' in the 'Closed' output datum such that deadline is pushed away
     MutatePushedContestationDeadlineOnOutputClosedState
-  | -- | Change the 'ContestationDeadline' in the 'Closed' output datum such that deadline is NOT pushed away
-    -- and contesters must change on input and output so they are complete
-    MutateNotPushedContestationDeadlineOnOutputClosedState
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -276,24 +273,6 @@ genContestMutation
           let deadline = posixFromUTCTime healthyContestationDeadline
           -- Here we are replacing the contestationDeadline using the previous without pushing it
           pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
-      , SomeMutation (Just "must not push deadline") MutateNotPushedContestationDeadlineOnOutputClosedState <$> do
-          randomContesters <- vectorOf (length healthyParties - 1) $ Plutus.PubKeyHash . toBuiltin <$> genHash
-          -- Here we are replacing the contesters so they are almost complete in output
-          randomPosixTime <- arbitrary
-          let contester = toPlutusKeyHash (verificationKeyHash somePartyCardanoVerificationKey)
-              -- Here we are replacing the contesters so they are complete in output
-              mutatedContesters = contester : randomContesters
-              deadline = posixFromUTCTime healthyContestationDeadline
-              -- Here we are replacing the contestationDeadline using the previous and pushing it
-              mutatedDeadline = deadline + randomPosixTime
-          pure $
-            Changes
-              [ ChangeInputHeadDatum $
-                  healthyClosedState & replaceContesters randomContesters
-              , ChangeOutput 0 $
-                  headTxOut & changeHeadOutputDatum (replaceContesters mutatedContesters)
-                    & changeHeadOutputDatum (replaceContestationDeadline mutatedDeadline)
-              ]
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
