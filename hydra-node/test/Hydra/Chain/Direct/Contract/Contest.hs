@@ -278,10 +278,13 @@ genContestMutation
           pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
       , SomeMutation (Just "must not push deadline") MutateNotPushedContestationDeadlineOnOutputClosedState <$> do
           randomContesters <- vectorOf (length healthyParties - 1) $ Plutus.PubKeyHash . toBuiltin <$> genHash
+          -- Here we are replacing the contesters so they are almost complete in output
           randomPosixTime <- arbitrary
           let contester = toPlutusKeyHash (verificationKeyHash somePartyCardanoVerificationKey)
+              -- Here we are replacing the contesters so they are complete in output
               mutatedContesters = contester : randomContesters
               deadline = posixFromUTCTime healthyContestationDeadline
+              -- Here we are replacing the contestationDeadline using the previous and pushing it
               mutatedDeadline = deadline + randomPosixTime
           pure $
             Changes
