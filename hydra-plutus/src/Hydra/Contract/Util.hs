@@ -8,11 +8,12 @@ import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   TokenName (..),
   TxInfo (TxInfo, txInfoMint),
-  Value (getValue), toBuiltinData,
+  Value (getValue),
+  toBuiltinData,
  )
 import qualified PlutusTx.AssocMap as Map
-import PlutusTx.Prelude
 import PlutusTx.Builtins (serialiseData)
+import PlutusTx.Prelude
 
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
@@ -21,13 +22,10 @@ hydraHeadV1 = "HydraHeadV1"
 -- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV1'
 hasST :: CurrencySymbol -> Value -> Bool
 hasST headPolicyId v =
-  isJust $
-    find
-      (\(cs, tokenMap) -> cs == headPolicyId && hasHydraToken tokenMap)
-      (Map.toList $ getValue v)
- where
-  hasHydraToken tm =
-    isJust $ find (\(tn, q) -> q == 1 && TokenName hydraHeadV1 == tn) (Map.toList tm)
+  maybe False id $ do
+    tokenMap <- Map.lookup headPolicyId $ getValue v
+    quantity <- Map.lookup (TokenName hydraHeadV1) tokenMap
+    pure $ quantity == 1
 {-# INLINEABLE hasST #-}
 
 -- | Checks if all the state token (ST) for list of parties containing specific
@@ -47,8 +45,6 @@ mustNotMintOrBurn TxInfo{txInfoMint} =
   traceIfFalse "minting or burning is forbidden" $
     isZero txInfoMint
 {-# INLINEABLE mustNotMintOrBurn #-}
-
-
 
 infix 4 ===
 
