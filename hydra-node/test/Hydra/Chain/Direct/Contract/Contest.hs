@@ -10,6 +10,8 @@ import Hydra.Prelude hiding (label)
 import Data.Maybe (fromJust)
 
 import Cardano.Api.UTxO as UTxO
+import qualified Data.List as List
+import qualified Data.List.NonEmpty as NE
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -36,13 +38,13 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
-import Hydra.Party (Party, deriveParty, partyToChain)
+import Hydra.Party (Party, deriveParty, partyToChain, vkey)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (elements, listOf, oneof, suchThat)
+import Test.QuickCheck (elements, listOf, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -273,6 +275,26 @@ genContestMutation
           let deadline = posixFromUTCTime healthyContestationDeadline
           -- Here we are replacing the contestationDeadline using the previous without pushing it
           pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
+      , SomeMutation (Just "must not push deadline") MutatePushedContestationDeadlineOnOutputClosedState <$> do
+          let deadline = posixFromUTCTime healthyContestationDeadline
+          let partiesVKeys = genForParty genVerificationKey <$> healthyParties
+          let contesters = toPlutusKeyHash . verificationKeyHash <$> partiesVKeys
+          -- Here we are replacing :
+          -- - contestationDeadline using the previous without pushing it
+          -- - alter the contesters in input so that everybody contested
+          -- - alter the contesters in output so that there is one party left to contest
+          pure $
+            Changes
+              [ ChangeOutput
+                  0
+                  ( headTxOut & do
+                      void $ changeHeadOutputDatum (replaceContestationDeadline deadline)
+                      changeHeadOutputDatum (replaceContesters contesters)
+                  )
+              , ChangeInputHeadDatum
+                  -- use tail here to remove one contestant
+                  (healthyClosedState & replaceContesters (List.tail contesters))
+              ]
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0

@@ -414,13 +414,17 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
         && headId' == headId
 
   mustPushDeadline =
-    if length contesters' == length parties'
-      then traceIfFalse "must not push deadline" $ contestationDeadlineFromDatum == contestationDeadline
-      else traceIfFalse "must push deadline" $ contestationDeadlineFromDatum == addContestationPeriod contestationDeadline contestationPeriod
+    if length allContesters == length parties'
+      then
+        traceIfFalse "must not push deadline" $
+          contestationDeadlineFromDatum == contestationDeadline
+      else
+        traceIfFalse "must push deadline" $
+          contestationDeadlineFromDatum == addContestationPeriod contestationDeadline contestationPeriod
 
   mustUpdateContesters =
     traceIfFalse "contester not included" $
-      contesters' == (contester : contesters)
+      contesters' == allContesters
 
   (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadlineFromDatum, headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
@@ -438,6 +442,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 
+  allContesters = contester : contesters
   contester =
     case txInfoSignatories txInfo of
       [signer] -> signer
