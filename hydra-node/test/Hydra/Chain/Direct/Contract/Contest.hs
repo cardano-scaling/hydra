@@ -37,7 +37,11 @@ import Hydra.Contract.Head (
     HeadValueIsNotPreserved,
     MustNotPushDeadline,
     MustPushDeadline,
-    SignerAlreadyContested
+    SignatureVerificationFailed,
+    SignerAlreadyContested,
+    SignerIsNotAParticipant,
+    TooOldSnapshot,
+    UpperBoundBeyondContestationDeadline
   ),
  )
 import qualified Hydra.Contract.HeadState as Head
@@ -230,13 +234,13 @@ genContestMutation
     , _utxo
     ) =
     oneof
-      [ SomeMutation Nothing MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+      [ SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
           mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
           pure $
             Head.Contest
               { signature = toPlutusSignatures mutatedSignature
               }
-      , SomeMutation Nothing MutateToNonNewerSnapshot <$> do
+      , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateToNonNewerSnapshot <$> do
           mutatedSnapshotNumber <- choose (0, toInteger healthyClosedSnapshotNumber)
           pure $
             Changes
@@ -249,24 +253,25 @@ genContestMutation
                           healthySignature (fromInteger mutatedSnapshotNumber)
                     }
               ]
-      , SomeMutation Nothing MutateRequiredSigner <$> do
+      , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
           newSigner <- verificationKeyHash <$> genVerificationKey
           pure $ ChangeRequiredSigners [newSigner]
-      , SomeMutation Nothing MutateContestUTxOHash . ChangeOutput 0 <$> do
+      , SomeMutation (Just $ toErrorCode TooOldSnapshot) MutateContestUTxOHash . ChangeOutput 0 <$> do
           mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
           pure $
             changeHeadOutputDatum
               (const $ healthyClosedState & replaceUtxoHash (toBuiltin mutatedUTxOHash))
               headTxOut
-      , SomeMutation Nothing MutateParties . ChangeInputHeadDatum <$> do
+      , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateParties . ChangeInputHeadDatum <$> do
           mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
           pure $
             healthyClosedState & replaceParties mutatedParties
-      , SomeMutation Nothing MutateValidityPastDeadline . ChangeValidityInterval <$> do
+      , SomeMutation (Just $ toErrorCode UpperBoundBeyondContestationDeadline) MutateValidityPastDeadline . ChangeValidityInterval <$> do
           lb <- arbitrary
           ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
           pure (lb, ub)
-      , SomeMutation Nothing MutateHeadId <$> do
+      , -- REVIEW: There is no trace for this error. Fails due to `verifyEd25519Signature`
+        SomeMutation Nothing MutateHeadId <$> do
           otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyClosedHeadTxIn))
           pure $
             Changes
