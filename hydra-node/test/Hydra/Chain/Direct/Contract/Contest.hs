@@ -272,24 +272,17 @@ genContestMutation
           pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
       , SomeMutation (Just "must push deadline") MutatePushedContestationDeadlineOnOutputClosedState . ChangeOutput 0 <$> do
           let deadline = posixFromUTCTime healthyContestationDeadline
-          -- Here we are replacing the contestationDeadline using the previous without pushing it
+          -- Here we are replacing the contestationDeadline using the previous so we are not _pushing it_ further
           pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
       , SomeMutation (Just "must not push deadline") MutatePushedContestationDeadlineOnOutputClosedState <$> do
-          let deadline = posixFromUTCTime healthyContestationDeadline
           let partiesVKeys = genForParty genVerificationKey <$> healthyParties
           let contesters = toPlutusKeyHash . verificationKeyHash <$> partiesVKeys
-          -- Here we are replacing :
-          -- - contestationDeadline using the previous without pushing it
-          -- - alter the contesters in input so that everybody contested
-          -- - alter the contesters in output so that there is one party left to contest
+          -- Here we are :
+          -- - altering the contesters in input so that everybody contested
+          -- - altering the contesters in output so that there is one party left to contest
           pure $
             Changes
-              [ ChangeOutput
-                  0
-                  ( headTxOut & do
-                      void $ changeHeadOutputDatum (replaceContestationDeadline deadline)
-                      changeHeadOutputDatum (replaceContesters contesters)
-                  )
+              [ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContesters contesters))
               , ChangeInputHeadDatum
                   -- use tail here to remove one contestant
                   (healthyClosedState & replaceContesters (List.tail contesters))
