@@ -11,7 +11,6 @@ import Data.Maybe (fromJust)
 
 import Cardano.Api.UTxO as UTxO
 import qualified Data.List as List
-import qualified Data.List.NonEmpty as NE
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -38,13 +37,13 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
-import Hydra.Party (Party, deriveParty, partyToChain, vkey)
+import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (elements, listOf, oneof, suchThat, vectorOf)
+import Test.QuickCheck (elements, listOf, oneof, suchThat)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
