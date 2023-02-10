@@ -58,12 +58,11 @@ import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (
   counterexample,
   elements,
-  forAllBlind,
   label,
   (===),
  )
 import Test.QuickCheck.Monadic (
-  PropertyM (MkPropertyM),
+  PropertyM,
   assert,
   monadicIO,
   monitor,
@@ -192,13 +191,6 @@ recordEventsHandler ctx cs getTimeHandle = do
     case cont cs of
       Nothing -> pure ()
       Just e -> atomically $ modifyTVar var (e :)
-
--- | Like 'pick' but using 'forAllBlind' under the hood.
-pickBlind :: Monad m => Gen a -> PropertyM m a
-pickBlind gen = MkPropertyM $ \k -> do
-  a <- gen
-  mp <- k a
-  pure (forAllBlind (return a) . const <$> mp)
 
 withCounterExample :: [Block] -> TVar IO ChainStateAt -> IO a -> PropertyM IO a
 withCounterExample blks headState step = do

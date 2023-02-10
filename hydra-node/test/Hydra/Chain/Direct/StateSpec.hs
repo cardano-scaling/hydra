@@ -32,6 +32,8 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.Contract.Mutation (
+  Mutation (ChangeMintingPolicy),
+  applyMutation,
   propTransactionEvaluates,
   propTransactionFailsEvaluation,
  )
@@ -99,6 +101,7 @@ import Test.Hydra.Prelude (
   genericCoverTable,
   it,
   parallel,
+  pickBlind,
   prop,
  )
 import Test.QuickCheck (
@@ -147,9 +150,9 @@ spec = parallel $ do
 
     it "proper head is observed" $
       monadicIO $ do
-        ctx <- pick (genHydraContext maximumNumberOfParties)
-        cctx <- pick $ pickChainContext ctx
-        seedInput <- pick arbitrary
+        ctx <- pickBlind (genHydraContext maximumNumberOfParties)
+        cctx <- pickBlind $ pickChainContext ctx
+        seedInput <- pickBlind arbitrary
         let tx = initialize cctx (ctxHeadParameters ctx) seedInput
         -- TODO: change the minting policy used in 'tx' and update the currency symbols of all tokens in it.
         pure $ isJust (observeInit cctx tx)

@@ -19,6 +19,7 @@ module Test.Hydra.Prelude (
   ReasonablySized (..),
   genericCoverTable,
   forAll2,
+  pickBlind,
 
   -- * HSpec re-exports
   module Test.Hspec,
@@ -47,7 +48,8 @@ import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
 import Test.Hspec.JUnit (defaultJUnitConfig, junitFormat, setJUnitConfigOutputFile)
 import Test.Hspec.MarkdownFormatter (markdownFormatter)
-import Test.QuickCheck (Property, Testable, coverTable, forAll, tabulate)
+import Test.QuickCheck (Property, Testable, coverTable, forAll, forAllBlind, tabulate)
+import Test.QuickCheck.Monadic (PropertyM (MkPropertyM))
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
@@ -215,3 +217,10 @@ forAll2 genA genB action =
   forAll genA $ \a ->
     forAll genB $ \b ->
       action (a, b)
+
+-- | Like 'pick' but using 'forAllBlind' under the hood.
+pickBlind :: Monad m => Gen a -> PropertyM m a
+pickBlind gen = MkPropertyM $ \k -> do
+  a <- gen
+  mp <- k a
+  pure (forAllBlind (return a) . const <$> mp)
