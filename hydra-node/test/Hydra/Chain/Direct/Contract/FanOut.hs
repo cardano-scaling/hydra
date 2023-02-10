@@ -75,12 +75,6 @@ healthyContestationDeadline :: UTCTime
 healthyContestationDeadline =
   slotNoToUTCTime $ healthySlotNo - 1
 
-healthyContestationPeriod :: OnChain.ContestationPeriod
-healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
-
-healthyContestationPeriodSeconds :: Integer
-healthyContestationPeriodSeconds = 10
-
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
   Head.Closed
@@ -92,6 +86,10 @@ healthyFanoutDatum =
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
     }
+ where
+  healthyContestationPeriodSeconds = 10
+
+  healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
 
 data FanoutMutation
   = MutateAddUnexpectedOutput
