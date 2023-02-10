@@ -18,6 +18,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeHeadOutputDatum,
   changeMintedTokens,
   replaceContestationDeadline,
+  replaceContestationPeriod,
   replaceContesters,
   replaceParties,
   replacePolicyIdWith,
@@ -201,6 +202,8 @@ data ContestMutation
     -- changes the starting situation so that everyone else already contested.
     -- Remember the 'healthyContestTx' is already pushing out the deadline.
     PushDeadlineAlthoughItShouldNot
+  | -- | Change the contestation period to test parameters not changed in output.
+    MutateOutputContestationPeriod
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -288,6 +291,9 @@ genContestMutation
               [ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContesters (contester : alreadyContested)))
               , ChangeInputHeadDatum (healthyClosedState & replaceContesters alreadyContested)
               ]
+      , SomeMutation (Just "changed parameters") MutateOutputContestationPeriod <$> do
+          randomCP <- arbitrary
+          pure $ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContestationPeriod randomCP))
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
