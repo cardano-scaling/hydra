@@ -144,10 +144,16 @@ spec = parallel $ do
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
     propIsValid forAllInit
+
     it "proper head is observed" $
       monadicIO $ do
-        _ctx <- pick (genHydraContext maximumNumberOfParties)
-        pure False
+        ctx <- pick (genHydraContext maximumNumberOfParties)
+        cctx <- pick $ pickChainContext ctx
+        seedInput <- pick arbitrary
+        let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+        -- TODO: change the minting policy used in 'tx' and update the currency symbols of all tokens in it.
+        pure $ isJust (observeInit cctx tx)
+
     prop "is not observed if not invited" $
       forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
         null (ctxParties ctxA `intersect` ctxParties ctxB)

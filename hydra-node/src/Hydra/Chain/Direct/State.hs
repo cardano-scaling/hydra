@@ -758,9 +758,8 @@ ctxHeadParameters ::
 ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
   HeadParameters ctxContestationPeriod (ctxParties ctx)
 
--- | Generate a `HydraContext` for a bounded arbitrary number of parties.
---
--- 'maxParties'  sets the upper bound in the number of parties in the Head.
+-- | Generate a `HydraContext` for a arbitrary number of parties, bounded by
+-- given maximum.
 genHydraContext :: Int -> Gen HydraContext
 genHydraContext maxParties = choose (1, maxParties) >>= genHydraContextFor
 
