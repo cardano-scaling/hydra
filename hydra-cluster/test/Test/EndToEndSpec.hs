@@ -365,7 +365,7 @@ spec = around showLogsOnFailure $ do
           let hydraSK = dir </> "hydra.sk"
           hydraSKey :: SigningKey HydraKey <- generate arbitrary
           void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
-          withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
+          withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--testnet-magic", "42", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
             \_ (Just nodeStdout) _ _ ->
               waitForLog 10 nodeStdout "JSON object with key NodeOptions" $ \line ->
                 line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
