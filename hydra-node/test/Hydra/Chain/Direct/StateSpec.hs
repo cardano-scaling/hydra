@@ -125,7 +125,7 @@ import Test.QuickCheck (
   (===),
   (==>),
  )
-import Test.QuickCheck.Monadic (monadic, monadicIO, monadicST, pick, stop)
+import Test.QuickCheck.Monadic (monadicIO)
 import qualified Prelude
 
 spec :: Spec
@@ -155,7 +155,12 @@ spec = parallel $ do
         seedInput <- pickBlind arbitrary
         let tx = initialize cctx (ctxHeadParameters ctx) seedInput
         -- TODO: change the minting policy used in 'tx' and update the currency symbols of all tokens in it.
-        pure $ isJust (observeInit cctx tx)
+        let mutation = ChangeMintingPolicy
+        let (tx', _) = applyMutation mutation (tx, mempty)
+        pure $
+          isNothing (observeInit cctx tx')
+            & counterexample (renderTx tx')
+            & counterexample "Should not observe transaction"
 
     prop "is not observed if not invited" $
       forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
