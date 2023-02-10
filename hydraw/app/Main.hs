@@ -3,6 +3,7 @@ module Main where
 import Hydra.Prelude
 
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, writeTQueue)
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Network (Host, readHost)
 import Hydra.Painter (Pixel (..), paintPixel, withClient)
 import Network.HTTP.Types.Header (HeaderName)
@@ -19,7 +20,6 @@ import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Handler.WebSockets as Wai
 import qualified Network.WebSockets as WS
 import Safe (readMay)
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 
 main :: IO ()
 main = do
@@ -41,14 +41,13 @@ main = do
             putStrLn $ "Listening on: tcp/" <> show port
         )
   -- try to parse magic number and if unsuccessfull default to 'Mainnet'
-  -- NOTE: if not set default network is 'Testnet' with magic 42
   parseNetwork mStr =
     case mStr of
-      Nothing -> Testnet (NetworkMagic 42)
+      Nothing -> Mainnet
       Just i ->
         case readMaybe i :: Maybe Word32 of
           Nothing -> Mainnet
-          Just m  -> Testnet (NetworkMagic m)
+          Just m -> Testnet (NetworkMagic m)
 
 websocketApp :: Host -> WS.PendingConnection -> IO ()
 websocketApp host pendingConnection = do
