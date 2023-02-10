@@ -417,16 +417,16 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     if length contesters' == length parties'
       then
         traceIfFalse "must not push deadline" $
-          contestationDeadlineFromDatum == contestationDeadline
+          contestationDeadline' == contestationDeadline
       else
         traceIfFalse "must push deadline" $
-          contestationDeadlineFromDatum == addContestationPeriod contestationDeadline contestationPeriod
+          contestationDeadline' == addContestationPeriod contestationDeadline contestationPeriod
 
   mustUpdateContesters =
     traceIfFalse "contester not included" $
       contesters' == contester : contesters
 
-  (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadlineFromDatum, headId', contesters') =
+  (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
