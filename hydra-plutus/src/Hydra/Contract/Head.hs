@@ -414,7 +414,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
         && headId' == headId
 
   mustPushDeadline =
-    if length allContesters == length parties'
+    if length contesters' == length parties'
       then
         traceIfFalse "must not push deadline" $
           contestationDeadlineFromDatum == contestationDeadline
@@ -424,7 +424,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
 
   mustUpdateContesters =
     traceIfFalse "contester not included" $
-      contesters' == allContesters
+      contesters' == contester : contesters
 
   (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadlineFromDatum, headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
@@ -442,7 +442,6 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 
-  allContesters = contester : contesters
   contester =
     case txInfoSignatories txInfo of
       [signer] -> signer

@@ -10,7 +10,6 @@ import Hydra.Prelude hiding (label)
 import Data.Maybe (fromJust)
 
 import Cardano.Api.UTxO as UTxO
-import qualified Data.List as List
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -43,7 +42,7 @@ import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (elements, listOf, oneof, suchThat)
+import Test.QuickCheck (elements, listOf, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -57,7 +56,7 @@ healthyContestTx =
  where
   tx =
     contestTx
-      somePartyCardanoVerificationKey
+      healthyContesterVerificationKey
       healthyContestSnapshot
       (healthySignature healthyContestSnapshotNumber)
       (healthySlotNo, slotNoToUTCTime healthySlotNo)
@@ -101,7 +100,7 @@ healthyContestSnapshotNumber = 4
 
 healthyContestUTxO :: UTxO
 healthyContestUTxO =
-  (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyClosedUTxO))
+  (genOneUTxOFor healthyContesterVerificationKey `suchThat` (/= healthyClosedUTxO))
     `generateWith` 42
 
 healthyContestUTxOHash :: BuiltinByteString
@@ -147,10 +146,10 @@ healthyClosedUTxOHash =
 
 healthyClosedUTxO :: UTxO
 healthyClosedUTxO =
-  genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
+  genOneUTxOFor healthyContesterVerificationKey `generateWith` 42
 
-somePartyCardanoVerificationKey :: VerificationKey PaymentKey
-somePartyCardanoVerificationKey = flip generateWith 42 $ do
+healthyContesterVerificationKey :: VerificationKey PaymentKey
+healthyContesterVerificationKey = flip generateWith 42 $ do
   genForParty genVerificationKey <$> elements healthyParties
 
 healthySigningKeys :: [SigningKey HydraKey]
@@ -194,7 +193,11 @@ data ContestMutation
   | -- | See spec: 5.5. rule 6 -> value is preserved
     MutateValueInOutput
   | -- | Change the 'ContestationDeadline' in the 'Closed' output datum such that deadline is pushed away
-    MutatePushedContestationDeadlineOnOutputClosedState
+    NotUpdateDeadlineAlthoughItShould
+  | -- | Changes the deadline although this is the last contest. Instead of
+    -- creating another healthy case this mutation also changes the starting
+    -- state so that everyone else already contested.
+    PushDeadlineAlthoughItShouldNot
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -252,7 +255,7 @@ genContestMutation
       , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
           <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
       , SomeMutation (Just "signer already contested") MutateInputContesters . ChangeInputHeadDatum <$> do
-          let contester = toPlutusKeyHash (verificationKeyHash somePartyCardanoVerificationKey)
+          let contester = toPlutusKeyHash (verificationKeyHash healthyContesterVerificationKey)
               contesterAndSomeOthers = do
                 contesters <- listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
                 pure (contester : contesters)
@@ -270,23 +273,22 @@ genContestMutation
       , SomeMutation (Just "head value is not preserved") MutateValueInOutput <$> do
           newValue <- genValue
           pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-      , SomeMutation (Just "must push deadline") MutatePushedContestationDeadlineOnOutputClosedState . ChangeOutput 0 <$> do
+      , SomeMutation (Just "must push deadline") NotUpdateDeadlineAlthoughItShould . ChangeOutput 0 <$> do
           let deadline = posixFromUTCTime healthyContestationDeadline
           -- Here we are replacing the contestationDeadline using the previous so we are not _pushing it_ further
           pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
-      , SomeMutation (Just "must not push deadline") MutatePushedContestationDeadlineOnOutputClosedState <$> do
-          let partiesVKeys = genForParty genVerificationKey <$> healthyParties
-          let contesters = toPlutusKeyHash . verificationKeyHash <$> partiesVKeys
+      , SomeMutation (Just "must not push deadline") PushDeadlineAlthoughItShouldNot <$> do
+          alreadyContested <- fmap (toPlutusKeyHash . verificationKeyHash) <$> vectorOf (length healthyParties - 1) genVerificationKey
+          let contester = toPlutusKeyHash $ verificationKeyHash healthyContesterVerificationKey
+          let mutateToHealthyCase =
+                [ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContesters (contester : alreadyContested)))
+                , ChangeInputHeadDatum (healthyClosedState & replaceContesters alreadyContested)
+                ]
+          -- let deadline = posixFromUTCTime healthyContestationDeadline
           -- Here we are :
           -- - altering the contesters in input so that everybody contested
           -- - altering the contesters in output so that there is one party left to contest
-          pure $
-            Changes
-              [ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContesters contesters))
-              , ChangeInputHeadDatum
-                  -- use tail here to remove one contestant
-                  (healthyClosedState & replaceContesters (List.tail contesters))
-              ]
+          pure $ Changes (mutateToHealthyCase <> [])
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
