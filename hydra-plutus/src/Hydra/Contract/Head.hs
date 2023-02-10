@@ -344,6 +344,8 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
 -- | The contest validator must verify that:
 --
+--   * The transaction does not mint or burn tokens.
+--
 --   * The contest snapshot number is strictly greater than the closed snapshot number.
 --
 --   * The contest snapshot is correctly signed.
@@ -354,9 +356,11 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 --
 --   * The transaction is performed before the deadline.
 --
+--   * Add signer to list of contesters.
+--
 --   * State token (ST) is present in the output
 --
---   * Add signer to list of contesters.
+--   * Push deadline if signer is not the last one to contest.
 --
 --   * No other parameters have changed.
 --
@@ -383,9 +387,9 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     && mustBeWithinContestationPeriod
     && mustUpdateContesters
     && hasST headId val
+    && mustPushDeadline
     && mustNotChangeParameters
     && mustPreserveValue
-    && mustPushDeadline
  where
   mustPreserveValue =
     traceIfFalse "head value is not preserved" $
@@ -412,6 +416,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     traceIfFalse "changed parameters" $
       parties' == parties
         && headId' == headId
+        && contestationPeriod' == contestationPeriod
 
   mustPushDeadline =
     if length contesters' == length parties'
@@ -426,7 +431,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     traceIfFalse "contester not included" $
       contesters' == contester : contesters
 
-  (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', headId', contesters') =
+  (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', contestationPeriod', headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
@@ -435,9 +440,10 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
           , utxoHash
           , parties = p
           , contestationDeadline = dl
+          , contestationPeriod = cp
           , headId = hid
           , contesters = cs
-          } -> (snapshotNumber, utxoHash, p, dl, hid, cs)
+          } -> (snapshotNumber, utxoHash, p, dl, cp, hid, cs)
       _ -> traceError "wrong state in output datum"
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
