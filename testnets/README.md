@@ -36,7 +36,7 @@ command and keep:
 
 ```sh
 hydra-node publish-scripts \
-    --network-id $(cat preview/db/protocolMagicId) \
+    --testnet-magic $(cat preview/db/protocolMagicId) \
     --node-socket "preview/node.socket" \
     --cardano-signing-key credentials/sebastian.cardano.sk
 ```
@@ -61,7 +61,7 @@ launch the `hydra-node`:
 hydra-node \
   --node-id 314 \
   --node-socket "preview/node.socket" \
-  --network-id $(cat preview/db/protocolMagicId) \
+  --testnet-magic $(cat preview/db/protocolMagicId) \
   --hydra-scripts-tx-id ${HYDRA_SCRIPTS_TX_ID} \
   --ledger-genesis "preview/genesis/shelley.json" \
   --ledger-protocol-parameters "../hydra-cluster/config/protocol-parameters.json" \
@@ -75,7 +75,7 @@ To start the `hydra-tui`:
 hydra-tui \
   --connect "0.0.0.0:4001" \
   --cardano-signing-key "credentials/sebastian.cardano.sk" \
-  --network-id $(cat preview/db/protocolMagicId) \
+  --testnet-magic $(cat preview/db/protocolMagicId) \
   --node-socket "preview/node.socket"
 ```
 

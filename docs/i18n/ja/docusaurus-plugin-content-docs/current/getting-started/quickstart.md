@@ -30,7 +30,7 @@ Usage: hydra-node ([-q|--quiet] (-n|--node-id NODE-ID) [-h|--host IP]
                     [--api-port PORT] [--monitoring-port PORT] 
                     [--hydra-signing-key FILE] [--hydra-verification-key FILE]
                     --hydra-scripts-tx-id TXID [--persistence-dir DIR] 
-                    [--network-id INTEGER] [--node-socket FILE] 
+                    [--testnet-magic INTEGER] [--node-socket FILE] 
                     [--cardano-signing-key FILE] 
                     [--cardano-verification-key FILE] 
                     [--start-chain-from SLOT.HEADER_HASH] 
@@ -74,7 +74,7 @@ Available options:
                            yourself.
   --persistence-dir DIR    The directory where the Hydra Head state is stored.Do
                            not edit these files manually!
-  --network-id INTEGER     Network identifier for a testnet to connect to. We
+  --testnet-magic INTEGER     Network identifier for a testnet to connect to. We
                            only need to provide the magic number here. For
                            example: '2' is the 'preview' network. See
                            https://book.world.dev.cardano.org/environments.html

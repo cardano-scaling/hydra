@@ -685,7 +685,7 @@ toArgs
         []
 
     argsChainConfig =
-      ["--network-id", toArgNetworkId networkId]
+      ["--testnet-magic", toArgNetworkId networkId]
         <> ["--node-socket", nodeSocket]
         <> ["--cardano-signing-key", cardanoSigningKey]
         <> ["--contestation-period", show contestationPeriod]

@@ -113,9 +113,9 @@ spec = parallel $
       setFlags ["--hydra-signing-key", "./alice.sk"]
         `shouldParse` Run defaultRunOptions{hydraSigningKey = "./alice.sk"}
 
-    it "parses --network-id option as a number" $ do
-      shouldNotParse ["--network-id", "abc"]
-      setFlags ["--network-id", "0"]
+    it "parses --testnet-magic option as a number" $ do
+      shouldNotParse ["--testnet-magic", "abc"]
+      setFlags ["--testnet-magic", "0"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
@@ -123,7 +123,7 @@ spec = parallel $
                   { networkId = Testnet (NetworkMagic 0)
                   }
             }
-      setFlags ["--network-id", "-1"] -- Word32 overflow expected
+      setFlags ["--testnet-magic", "-1"] -- Word32 overflow expected
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
@@ -131,7 +131,7 @@ spec = parallel $
                   { networkId = Testnet (NetworkMagic 4294967295)
                   }
             }
-      setFlags ["--network-id", "123"]
+      setFlags ["--testnet-magic", "123"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
@@ -140,8 +140,8 @@ spec = parallel $
                   }
             }
 
-    it "parses --network-id string option mainnet" $ do
-      setFlags ["--network-id", "mainnet"]
+    it "parses --testnet-magic string option mainnet" $ do
+      setFlags ["--testnet-magic", "mainnet"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
@@ -149,7 +149,7 @@ spec = parallel $
                   { networkId = Mainnet
                   }
             }
-      setFlags ["--network-id", "Mainnet"]
+      setFlags ["--testnet-magic", "Mainnet"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
@@ -157,7 +157,7 @@ spec = parallel $
                   { networkId = Mainnet
                   }
             }
-      setFlags ["--network-id", "m"]
+      setFlags ["--testnet-magic", "m"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
@@ -286,14 +286,14 @@ spec = parallel $
           mconcat
             [ ["publish-scripts"]
             , ["--node-socket", "foo"]
-            , ["--network-id", "42"]
+            , ["--testnet-magic", "42"]
             ]
 
       xit "does not parse with some missing option (2)" $
         shouldNotParse $
           mconcat
             [ ["publish-scripts"]
-            , ["--network-id", "42"]
+            , ["--testnet-magic", "42"]
             , ["--cardano-signing-key", "foo"]
             ]
 
@@ -309,7 +309,7 @@ spec = parallel $
         mconcat
           [ ["publish-scripts"]
           , ["--node-socket", "foo"]
-          , ["--network-id", "42"]
+          , ["--testnet-magic", "42"]
           , ["--cardano-signing-key", "bar"]
           ]
           `shouldParse` Publish

@@ -52,7 +52,7 @@ services:
       , "--cardano-signing-key", "/data/cardano-key.sk"
       , "--ledger-genesis", "/data/genesis-shelley.json"
       , "--ledger-protocol-parameters", "/data/protocol-parameters.json"
-      , "--network-id", "${NETWORK_MAGIC}"
+      , "--testnet-magic", "${NETWORK_MAGIC}"
       , "--node-socket", "/devnet/node.socket"
       # hardcoded peers
       ## Arnaud
@@ -82,7 +82,7 @@ services:
         "--"
       , "--connect", "hydra-node:4001"
       , "--node-socket", "/devnet/node.socket"
-      , "--network-id", "${NETWORK_MAGIC}"
+      , "--testnet-magic", "${NETWORK_MAGIC}"
       , "--cardano-signing-key", "/data/cardano-key.sk"
       ]
     volumes:
