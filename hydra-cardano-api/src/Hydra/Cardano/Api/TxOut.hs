@@ -15,7 +15,6 @@ import qualified Cardano.Ledger.Credential as Ledger
 import qualified Data.List as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
 import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
-import Hydra.Cardano.Api.Network (Network)
 import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInlineDatums, inlineDatumsSupportedInEra)
 import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupportedInEra)
@@ -115,7 +114,7 @@ toLedgerTxOut =
 -- Plutus addresses are stripped off it.
 fromPlutusTxOut ::
   (HasMultiAsset era, HasScriptData era, HasInlineDatums era, IsShelleyBasedEra era) =>
-  Network ->
+  NetworkId ->
   Plutus.TxOut ->
   TxOut CtxUTxO era
 fromPlutusTxOut network out =

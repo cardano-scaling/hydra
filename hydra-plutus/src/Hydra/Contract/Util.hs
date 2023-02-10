@@ -3,8 +3,6 @@
 
 module Hydra.Contract.Util where
 
-import Hydra.Cardano.Api (NetworkId (Mainnet, Testnet))
-import qualified Hydra.Cardano.Api.Network as Network
 import Plutus.V1.Ledger.Value (isZero)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,

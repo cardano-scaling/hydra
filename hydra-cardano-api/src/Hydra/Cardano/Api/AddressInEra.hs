@@ -2,6 +2,7 @@
 
 module Hydra.Cardano.Api.AddressInEra where
 
+import qualified Hydra.Cardano.Api.Network as Network
 import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import Hydra.Cardano.Api.Prelude
 
@@ -11,7 +12,6 @@ import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Hashes as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
-import Hydra.Cardano.Api.Network (Network)
 import qualified Plutus.V1.Ledger.Address as Plutus
 import Plutus.V2.Ledger.Api (
   Address (..),
@@ -76,10 +76,10 @@ toLedgerAddr = \case
     Ledger.Addr ntwrk creds stake
 
 -- | Convert a plutus 'Address' to an api 'AddressInEra'.
--- NOTE: Requires the 'Network' discriminator (Testnet or Mainnet) because
+-- NOTE: Requires the 'NetworkId' discriminator (Testnet or Mainnet) because
 -- Plutus addresses are stripped off it.
-fromPlutusAddress :: IsShelleyBasedEra era => Network -> Plutus.Address -> AddressInEra era
-fromPlutusAddress network plutusAddress =
+fromPlutusAddress :: IsShelleyBasedEra era => NetworkId -> Plutus.Address -> AddressInEra era
+fromPlutusAddress networkId plutusAddress =
   fromLedgerAddr $
     case (addressCredential, addressStakingCredential) of
       (cred, Just (StakingHash stakeCred)) ->
@@ -98,5 +98,10 @@ fromPlutusAddress network plutusAddress =
       Ledger.KeyHashObj . Ledger.KeyHash . unsafeHashFromBytes $ fromBuiltin h
     ScriptCredential (ValidatorHash h) ->
       Ledger.ScriptHashObj . Ledger.ScriptHash . unsafeHashFromBytes $ fromBuiltin h
+
+  network = networkIdToNetwork networkId
+
+  networkIdToNetwork Mainnet = Network.Mainnet
+  networkIdToNetwork (Testnet _) = Network.Testnet
 
   Plutus.Address{addressCredential, addressStakingCredential} = plutusAddress
