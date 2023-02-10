@@ -50,6 +50,8 @@ import Test.QuickCheck.Instances ()
 -- ContestTx
 --
 
+-- | Healthy contest tx where the contester is the first one to contest and
+-- correctly pushing out the deadline by the contestation period.
 healthyContestTx :: (Tx, UTxO)
 healthyContestTx =
   (tx, lookupUTxO)
@@ -194,9 +196,10 @@ data ContestMutation
     MutateValueInOutput
   | -- | Change the 'ContestationDeadline' in the 'Closed' output datum such that deadline is pushed away
     NotUpdateDeadlineAlthoughItShould
-  | -- | Changes the deadline although this is the last contest. Instead of
-    -- creating another healthy case this mutation also changes the starting
-    -- state so that everyone else already contested.
+  | -- | Pushes the deadline although this is the last contest. Instead of
+    -- creating another healthy case and mutate that one, this mutation just
+    -- changes the starting situation so that everyone else already contested.
+    -- Remember the 'healthyContestTx' is already pushing out the deadline.
     PushDeadlineAlthoughItShouldNot
   deriving (Generic, Show, Enum, Bounded)
 
@@ -278,17 +281,13 @@ genContestMutation
           -- Here we are replacing the contestationDeadline using the previous so we are not _pushing it_ further
           pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
       , SomeMutation (Just "must not push deadline") PushDeadlineAlthoughItShouldNot <$> do
-          alreadyContested <- fmap (toPlutusKeyHash . verificationKeyHash) <$> vectorOf (length healthyParties - 1) genVerificationKey
+          alreadyContested <- vectorOf (length healthyParties - 1) $ Plutus.PubKeyHash . toBuiltin <$> genHash
           let contester = toPlutusKeyHash $ verificationKeyHash healthyContesterVerificationKey
-          let mutateToHealthyCase =
-                [ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContesters (contester : alreadyContested)))
-                , ChangeInputHeadDatum (healthyClosedState & replaceContesters alreadyContested)
-                ]
-          -- let deadline = posixFromUTCTime healthyContestationDeadline
-          -- Here we are :
-          -- - altering the contesters in input so that everybody contested
-          -- - altering the contesters in output so that there is one party left to contest
-          pure $ Changes (mutateToHealthyCase <> [])
+          pure $
+            Changes
+              [ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContesters (contester : alreadyContested)))
+              , ChangeInputHeadDatum (healthyClosedState & replaceContesters alreadyContested)
+              ]
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
