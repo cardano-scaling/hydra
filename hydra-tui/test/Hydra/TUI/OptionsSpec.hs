@@ -5,8 +5,8 @@ import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Network (Host (Host))
+import Hydra.Options (networkIdParser)
 import Hydra.TUI.Options (
-  parseCardanoNetworkId,
   parseCardanoNodeSocket,
   parseCardanoSigningKey,
   parseNodeHost,
@@ -24,7 +24,7 @@ spec = parallel $ do
   it "parses --connect option" $ do
     shouldParseWith parseNodeHost ["--connect", "127.0.0.1:4002"] (Host "127.0.0.1" 4002)
   it "parses --network-id option" $ do
-    shouldParseWith parseCardanoNetworkId ["--network-id", "123"] (Testnet $ NetworkMagic 123)
+    shouldParseWith networkIdParser ["--network-id", "123"] (Testnet $ NetworkMagic 123)
   it "parses --cardano-signing-key option" $ do
     shouldParseWith parseCardanoSigningKey ["--cardano-signing-key", "foo.sk"] "foo.sk"
   it "parses --node-socket option" $ do
