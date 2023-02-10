@@ -9,9 +9,10 @@ import PlutusTx.Prelude
 
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Data.ByteString.Lazy (fromStrict, toStrict)
-import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
+import Hydra.Cardano.Api (CtxUTxO, NetworkId (..), fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import qualified Hydra.Cardano.Api as OffChain
-import Hydra.Contract.Util (hasST, mustBurnST, networkIdToNetwork)
+import qualified Hydra.Cardano.Api.Network as Network
+import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -76,6 +77,9 @@ deserializeCommit networkId Commit{input, preSerializedOutput} =
       pure (fromPlutusTxOutRef input, txOut)
  where
   network = networkIdToNetwork networkId
+
+  networkIdToNetwork Mainnet = Network.Mainnet
+  networkIdToNetwork (Testnet _) = Network.Testnet
 
 -- TODO: Party is not used on-chain but is needed off-chain while it's still
 -- based on mock crypto. When we move to real crypto we could simply use

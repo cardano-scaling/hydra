@@ -1,12 +1,10 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
 module Hydra.Contract.Util where
 
-import Hydra.Prelude (Show)
-
 import Hydra.Cardano.Api (NetworkId (Mainnet, Testnet))
 import qualified Hydra.Cardano.Api.Network as Network
-import Hydra.Contract.Error (ToErrorCode (..))
 import Plutus.V1.Ledger.Value (isZero)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
@@ -26,7 +24,7 @@ hydraHeadV1 = "HydraHeadV1"
 -- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV1'
 hasST :: CurrencySymbol -> Value -> Bool
 hasST headPolicyId v =
-  fromMaybe False $ do
+  maybe False id $ do
     tokenMap <- Map.lookup headPolicyId $ getValue v
     quantity <- Map.lookup (TokenName hydraHeadV1) tokenMap
     pure $ quantity == 1
@@ -46,7 +44,7 @@ mustBurnST val headCurrencySymbol =
 
 mustNotMintOrBurn :: TxInfo -> Bool
 mustNotMintOrBurn TxInfo{txInfoMint} =
-  traceIfFalse "U01" $
+  traceIfFalse "minting or burning is forbidden" $
     isZero txInfoMint
 {-# INLINEABLE mustNotMintOrBurn #-}
 
@@ -60,18 +58,3 @@ infix 4 ===
 (===) val val' =
   serialiseData (toBuiltinData val) == serialiseData (toBuiltinData val')
 {-# INLINEABLE (===) #-}
-
--- * Errors
-
-data UtilError
-  = MintingOrBurningIsForbidden
-  deriving (Show)
-
-instance ToErrorCode UtilError where
-  toErrorCode = \case
-    MintingOrBurningIsForbidden -> "U01"
-
--- | Convert Cardano.Api 'NetworkId' to ledger `Network`
-networkIdToNetwork :: NetworkId -> Network.Network
-networkIdToNetwork Mainnet = Network.Mainnet
-networkIdToNetwork (Testnet _) = Network.Testnet
