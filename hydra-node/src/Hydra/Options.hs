@@ -46,6 +46,7 @@ import Options.Applicative (
   eitherReader,
   execParserPure,
   flag,
+  flag',
   footer,
   fullDesc,
   handleParseResult,
@@ -310,34 +311,25 @@ chainConfigParser =
     <*> contestationPeriodParser
 
 networkIdParser :: Parser NetworkId
-networkIdParser =
-  option
-    (parseTestnet <|> parseMainnet)
-    ( long "network-id"
-        <> showDefault
-        <> value (Testnet (NetworkMagic 42))
-        <> completer (listCompleter ["1", "2", "42", "mainnet", "Mainnet", "m"])
-        <> help
-          "Either Mainnet network or a magic number identifying the testnet to connect to. We only need to \
-          \provide the magic number here. For example: '2' is the 'preview' \
-          \network. See https://book.world.dev.cardano.org/environments.html for available networks."
-    )
+networkIdParser = pMainnet <|> fmap Testnet pTestnetMagic
  where
-  parseTestnet = eitherReader go
-   where
-    go :: String -> Either String NetworkId
-    go s =
-      case readMaybe s :: Maybe Word32 of
-        Nothing -> Left "Could not parse Testnet network magic"
-        Just i -> pure $ Testnet (NetworkMagic i)
+  pMainnet :: Parser NetworkId
+  pMainnet =
+    flag'
+      Mainnet
+      ( long "mainnet"
+          <> help "Use the mainnet magic id."
+      )
 
-  parseMainnet = eitherReader go
-   where
-    go :: String -> Either String NetworkId
-    go "Mainnet" = pure Mainnet
-    go "mainnet" = pure Mainnet
-    go "m" = pure Mainnet
-    go _ = Left "Expected TEXT value (Mainnet, mainnet or just m)"
+  pTestnetMagic :: Parser NetworkMagic
+  pTestnetMagic =
+    NetworkMagic
+      <$> option
+        auto
+        ( long "testnet-magic"
+            <> metavar "NATURAL"
+            <> help "Specify a testnet magic id."
+        )
 
 nodeSocketParser :: Parser FilePath
 nodeSocketParser =
