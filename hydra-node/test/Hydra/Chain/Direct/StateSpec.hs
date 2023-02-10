@@ -91,6 +91,16 @@ import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
+import Test.Hydra.Prelude (
+  Spec,
+  SpecWith,
+  describe,
+  forAll2,
+  genericCoverTable,
+  it,
+  parallel,
+  prop,
+ )
 import Test.QuickCheck (
   Property,
   Testable (property),
@@ -112,7 +122,7 @@ import Test.QuickCheck (
   (===),
   (==>),
  )
-import Test.QuickCheck.Monadic (monadicST, pick)
+import Test.QuickCheck.Monadic (monadic, monadicIO, monadicST, pick, stop)
 import qualified Prelude
 
 spec :: Spec
@@ -134,7 +144,10 @@ spec = parallel $ do
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
     propIsValid forAllInit
-
+    it "proper head is observed" $
+      monadicIO $ do
+        _ctx <- pick (genHydraContext maximumNumberOfParties)
+        pure False
     prop "is not observed if not invited" $
       forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
         null (ctxParties ctxA `intersect` ctxParties ctxB)
