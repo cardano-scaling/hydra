@@ -578,8 +578,11 @@ data InitObservation = InitObservation
   }
   deriving (Show, Eq)
 
--- XXX(SN): We should log decisions why a tx is not an initTx etc. instead of
--- only returning a Maybe, i.e. 'Either Reason (OnChainTx tx, OnChainHeadState)'
+data NotAnInitReason
+  = NotAHeadPolicy
+  | Other
+  deriving (Show, Eq)
+
 observeInitTx ::
   NetworkId ->
   [VerificationKey PaymentKey] ->
@@ -587,20 +590,23 @@ observeInitTx ::
   ContestationPeriod ->
   Party ->
   Tx ->
-  Maybe InitObservation
+  Either NotAnInitReason InitObservation
 observeInitTx networkId cardanoKeys expectedCP party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
-  (ix, headOut, headData, Head.Initial cp ps _headPolicyId) <- findFirst headOutput indexedOutputs
-  parties <- mapM partyFromChain ps
+  (ix, headOut, headData, headState) <- maybeOther $ findFirst headOutput indexedOutputs
+  (cp, ps) <- case headState of
+    (Head.Initial cp ps _headPolicyId) -> pure (cp, ps)
+    _ -> Left Other
+  parties <- maybeOther $ mapM partyFromChain ps
   let contestationPeriod = fromChain cp
-  guard $ expectedCP == contestationPeriod
-  guard $ party `elem` parties
-  (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
+  maybeOther $ guard $ expectedCP == contestationPeriod
+  maybeOther $ guard $ party `elem` parties
+  (headTokenPolicyId, headAssetName) <- maybeOther $ findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
   let actualNames = assetNames headAssetName
-  guard $ sort expectedNames == sort actualNames
-  headTokenScript <- findScriptMinting tx headTokenPolicyId
+  maybeOther $ guard $ sort expectedNames == sort actualNames
+  headTokenScript <- maybeOther $ findScriptMinting tx headTokenPolicyId
   pure
     InitObservation
       { threadOutput =
@@ -621,6 +627,10 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
       , parties
       }
  where
+  maybeOther = \case
+    Nothing -> Left Other
+    Just x -> Right x
+
   headOutput = \case
     (ix, out@(TxOut _ _ (TxOutDatumInTx d) _)) ->
       (ix,out,toLedgerData d,) <$> fromData (toPlutusData d)
