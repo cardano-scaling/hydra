@@ -9,6 +9,8 @@ import Test.Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
+import Control.Concurrent.STM (newTVarIO, readTVarIO)
+import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
@@ -82,6 +84,7 @@ import System.FilePath ((</>))
 import System.IO (hGetLine)
 import System.IO.Error (isEOFError)
 import System.Process (CreateProcess (..), StdStream (..), proc, readCreateProcess, withCreateProcess)
+import System.Timeout (timeout)
 import Test.QuickCheck (generate)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
@@ -358,43 +361,41 @@ spec = around showLogsOnFailure $ do
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
 
       it "logs its command line arguments" $ \_ -> do
-        failAfter 10 $
-          withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
-            let hydraSK = dir </> "hydra.sk"
-            hydraSKey :: SigningKey HydraKey <- generate arbitrary
-            void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
-            withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
-              \_ (Just nodeOutput) _ _ ->
-                assertALogMatches
-                  nodeOutput
-                  100
-                  (\line -> line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions"))
-                  "JSON object with key NodeOptions"
+        withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
+          let hydraSK = dir </> "hydra.sk"
+          hydraSKey :: SigningKey HydraKey <- generate arbitrary
+          void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
+          withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
+            \_ (Just nodeStdout) _ _ ->
+              waitForLog 10 nodeStdout "JSON object with key NodeOptions" $ \line ->
+                line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
 
-assertALogMatches :: Handle -> Int -> (String -> Bool) -> String -> IO ()
-assertALogMatches nodeOutput nbLines predicate failureMessage =
-  go nbLines []
+waitForLog :: NominalDiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
+waitForLog delay nodeOutput failureMessage predicate = do
+  seenLogs <- newTVarIO []
+  timeout (truncate delay * 1_000_000) (go seenLogs) >>= \case
+    Just () -> pure ()
+    Nothing -> failReason seenLogs $ "within " <> show delay
  where
-  go :: Int -> [String] -> IO ()
-  go 0 messages =
-    fail messages
-  go n messages = do
-    out <- tryJust (guard . isEOFError) $ hGetLine nodeOutput
-    case out of
-      Left _eofError -> fail messages
-      Right out' ->
-        if predicate out'
-          then return ()
-          else go (n - 1) $ out' : messages
-  fail :: [String] -> IO ()
-  fail messages =
-    failure $
-      "No log message matching the predicate found in the "
-        <> show nbLines
-        <> " first lines of logs: "
-        <> failureMessage
-        <> "\nCaptured logs:\n"
-        <> show messages
+  go seenLogs = do
+    tryJust (guard . isEOFError) (fromString <$> hGetLine nodeOutput) >>= \case
+      Left _ ->
+        failReason seenLogs "before EOF"
+      Right log -> do
+        atomically (modifyTVar' seenLogs (log :))
+        if predicate log
+          then pure ()
+          else go seenLogs
+
+  failReason seenLogs reason = do
+    logs <- readTVarIO seenLogs
+    failure . toString $
+      unlines $
+        [ "waitForLog did not match a log line " <> reason
+        , "looking for: " <> failureMessage
+        , "seen logs:"
+        ]
+          <> logs
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
