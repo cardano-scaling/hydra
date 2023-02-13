@@ -136,6 +136,7 @@ import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
+import qualified Cardano.Ledger.Mary.Value as Ledger
 import Cardano.Ledger.Serialization (mkSized)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
@@ -417,8 +418,9 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     (Tx body' wits, utxo)
    where
     body' = ShelleyTxBody ledgerBody scripts' scriptData mAuxData scriptValidity
-    scripts' = [toLedgerScript pScript]
-    ShelleyTxBody ledgerBody _scripts scriptData mAuxData scriptValidity = body
+    firstMintingPolicy = Set.elemAt 0 $ Ledger.policies $ Ledger.mint ledgerBody
+    scripts' = scripts <> [toLedgerScript pScript]
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
  where
