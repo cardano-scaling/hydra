@@ -169,6 +169,9 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Instances ()
 
+-- TODO: re-export or rename toLedgerScriptHash
+import Hydra.Cardano.Api.Prelude (toShelleyScriptHash)
+
 -- * Properties
 
 -- | A 'Property' checking a mutation is not validated.
@@ -413,13 +416,26 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
   ChangeValidityUpperBound bound ->
     changeValidityInterval Nothing (Just bound)
   ChangeMintingPolicy pScript ->
-    -- TODO: implement this to update the included script and update the
-    -- currency symbols of all tokens in it
     (Tx body' wits, utxo)
    where
-    body' = ShelleyTxBody ledgerBody scripts' scriptData mAuxData scriptValidity
+    body' = ShelleyTxBody ledgerBody' scripts' scriptData mAuxData scriptValidity
+
+    ledgerBody' = ledgerBody{Ledger.mint = patchedMintValue}
+
+    ourMintingPolicy = Ledger.PolicyID . toShelleyScriptHash $ hashScript $ PlutusScript pScript
+
+    Ledger.Value adas policies = Ledger.mint ledgerBody
+
+    patchedMintValue = Ledger.Value adas (Map.fromList $ fmap replacePolicy $ Map.toList policies)
+
+    replacePolicy (pid, tokens)
+      | pid == firstMintingPolicy = (ourMintingPolicy, tokens)
+      | otherwise = (pid, tokens)
+
     firstMintingPolicy = Set.elemAt 0 $ Ledger.policies $ Ledger.mint ledgerBody
+
     scripts' = scripts <> [toLedgerScript pScript]
+
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
