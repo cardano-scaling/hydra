@@ -16,12 +16,15 @@ import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   Tx,
   UTxO,
+  hashScript,
   renderUTxO,
   txInputSet,
   txOutValue,
   txOuts',
   valueSize,
   pattern ByronAddressInEra,
+  pattern PlutusScript,
+  pattern PlutusScriptSerialised,
   pattern ReferenceScriptNone,
   pattern TxOut,
   pattern TxOutDatumNone,
@@ -90,6 +93,7 @@ import Hydra.Ledger.Cardano.Evaluate (
 import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 import Hydra.Options (maximumNumberOfParties)
 import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
+import qualified Plutus.V1.Ledger.Examples as Plutus
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
@@ -125,7 +129,7 @@ import Test.QuickCheck (
   (===),
   (==>),
  )
-import Test.QuickCheck.Monadic (monadicIO)
+import Test.QuickCheck.Monadic (assert, monadicIO)
 import qualified Prelude
 
 spec :: Spec
@@ -148,17 +152,19 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllInit
     propIsValid forAllInit
 
-    it "proper head is observed" $
+    it "only proper head is observed" $
       monadicIO $ do
         ctx <- pickBlind (genHydraContext maximumNumberOfParties)
         cctx <- pickBlind $ pickChainContext ctx
         seedInput <- pickBlind arbitrary
         let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-        -- TODO: change the minting policy used in 'tx' and update the currency symbols of all tokens in it.
-        let mutation = ChangeMintingPolicy
+        assert $ isJust (observeInit cctx tx)
+        let alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
+        let mutation = ChangeMintingPolicy alwaysSucceedsV2
         let (tx', _) = applyMutation mutation (tx, mempty)
         pure $
           isNothing (observeInit cctx tx')
+            & counterexample ("new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2))
             & counterexample (renderTx tx')
             & counterexample "Should not observe transaction"
 
