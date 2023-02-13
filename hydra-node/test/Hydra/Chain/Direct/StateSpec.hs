@@ -78,7 +78,7 @@ import Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters))
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInitReason (..))
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genOutput,
@@ -164,7 +164,7 @@ spec = parallel $ do
         txOut <- pickBlind genTxOutAdaOnly
 
         let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-        assert $ isJust (observeInit cctx tx)
+        assert $ isRight (observeInit cctx tx)
 
         let alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
         let mutation = ChangeMintingPolicy alwaysSucceedsV2
@@ -178,7 +178,7 @@ spec = parallel $ do
               | otherwise -> traceShow ok False
 
         pure $
-          isNothing (observeInit cctx tx')
+          observeInit cctx tx' === Left NotAHeadPolicy
             & counterexample ("new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2))
             & counterexample (renderTx tx')
             & counterexample "Should not observe transaction"
@@ -190,7 +190,7 @@ spec = parallel $ do
           $ \(cctxA, cctxB) ->
             forAll genTxIn $ \seedInput ->
               let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
-               in isNothing (observeInit cctxB tx)
+               in isLeft (observeInit cctxB tx)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit

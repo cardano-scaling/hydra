@@ -42,9 +42,9 @@ import Hydra.Chain.Direct.State (
   genHydraContext,
   initialize,
   observeCommit,
-  observeInit,
   observeSomeTx,
   unsafeCommit,
+  unsafeObserveInit,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
@@ -299,7 +299,7 @@ genSequenceOfObservableBlocks = do
     Tx ->
     StateT [Block] Gen InitialState
   stepCommit ctx initTx = do
-    let (_, stInitial) = fromJust $ observeInit ctx initTx
+    let stInitial = unsafeObserveInit ctx initTx
     utxo <- lift genCommit
     let commitTx = unsafeCommit ctx stInitial utxo
     putNextBlock commitTx
