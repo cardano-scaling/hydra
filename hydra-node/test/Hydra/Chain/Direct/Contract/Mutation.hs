@@ -411,10 +411,14 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     changeValidityInterval (Just bound) Nothing
   ChangeValidityUpperBound bound ->
     changeValidityInterval Nothing (Just bound)
-  ChangeMintingPolicy _ ->
+  ChangeMintingPolicy pScript ->
     -- TODO: implement this to update the included script and update the
     -- currency symbols of all tokens in it
-    (tx, utxo)
+    (Tx body' wits, utxo)
+   where
+    body' = ShelleyTxBody ledgerBody scripts' scriptData mAuxData scriptValidity
+    scripts' = [toLedgerScript pScript]
+    ShelleyTxBody ledgerBody _scripts scriptData mAuxData scriptValidity = body
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
  where
