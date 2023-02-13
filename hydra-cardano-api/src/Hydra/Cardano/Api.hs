@@ -97,7 +97,8 @@ import Cardano.Api.UTxO (
 import Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,
-  StandardCrypto, Map,
+  Map,
+  StandardCrypto,
  )
 
 import Hydra.Cardano.Api.Address ()
@@ -146,6 +147,7 @@ import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.Tx as Ledger hiding (TxBody)
 import Data.ByteString.Short (ShortByteString)
+import Prelude
 
 -- ** AddressInEra
 

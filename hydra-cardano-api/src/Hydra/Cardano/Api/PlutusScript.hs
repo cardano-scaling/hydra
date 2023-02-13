@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hydra.Cardano.Api.PlutusScript where
 
 import Hydra.Cardano.Api.Prelude
@@ -8,7 +9,6 @@ import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Codec.Serialise (serialise)
 import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import qualified Plutus.V2.Ledger.Api as Plutus
-import Data.ByteString.Short (toShort)
 
 -- * Type Conversions
 

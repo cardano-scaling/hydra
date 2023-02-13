@@ -1,6 +1,11 @@
+-- | Pretty printing transactions and utxo's
 module Hydra.Cardano.Api.Pretty where
 
-import Cardano.Binary (decodeAnnotator, serialize, serialize', unsafeDeserialize')
+import qualified Hydra.Cardano.Api as Api
+import Hydra.Cardano.Api.Prelude
+
+import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Binary (serialize)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
@@ -9,18 +14,20 @@ import qualified Cardano.Ledger.Mary.Value as Ledger
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
+import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
-import Hydra.Cardano.Api.Prelude
+import Hydra.Cardano.Api.ScriptData (fromLedgerData)
+import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 
 -- | Obtain a human-readable pretty text representation of a transaction.
-renderTx :: IsString str => Tx -> str
+renderTx :: IsString str => Api.Tx -> str
 renderTx = renderTxWithUTxO mempty
 
-renderTxs :: IsString str => [Tx] -> str
+renderTxs :: IsString str => [Api.Tx] -> str
 renderTxs xs = fromString $ toString $ intercalate "\n\n" (renderTx <$> xs)
 
 -- | Like 'renderTx', but uses the given UTxO to resolve inputs.
-renderTxWithUTxO :: IsString str => UTxO -> Tx -> str
+renderTxWithUTxO :: IsString str => UTxO -> Api.Tx -> str
 renderTxWithUTxO utxo (Tx body _wits) =
   fromString $
     toString $
@@ -45,7 +52,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
           <> [""]
           <> requiredSignersLines
  where
-  ShelleyTxBody lbody scripts scriptsData _auxData _validity = body
+  Api.ShelleyTxBody lbody scripts scriptsData _auxData _validity = body
   outs = Ledger.outputs' lbody
   TxBody content = body
 
@@ -59,17 +66,17 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   referenceInputs =
     case txInsReference content of
-      TxInsReferenceNone -> []
-      TxInsReference refInputs -> refInputs
+      Api.TxInsReferenceNone -> []
+      Api.TxInsReference refInputs -> refInputs
 
   prettyTxIn i =
     case UTxO.resolve i utxo of
       Nothing -> renderTxIn i
       Just o ->
         renderTxIn i
-          <> ("\n      " <> prettyAddr (txOutAddress o))
-          <> ("\n      " <> prettyValue 1 (txOutValue o))
-          <> ("\n      " <> prettyDatumUtxo (txOutDatum o))
+          <> ("\n      " <> prettyAddr (Api.txOutAddress o))
+          <> ("\n      " <> prettyValue 1 (Api.txOutValue o))
+          <> ("\n      " <> prettyDatumUtxo (Api.txOutDatum o))
 
   outputLines =
     [ "== OUTPUTS (" <> show (length (txOuts content)) <> ")"
@@ -79,14 +86,14 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   prettyOut o =
     mconcat
-      [ prettyAddr (txOutAddress o)
-      , "\n      " <> prettyValue 1 (txOutValue o)
-      , "\n      " <> prettyDatumCtx (txOutDatum o)
+      [ prettyAddr (Api.txOutAddress o)
+      , "\n      " <> prettyValue 1 (Api.txOutValue o)
+      , "\n      " <> prettyDatumCtx (Api.txOutDatum o)
       ]
 
   prettyAddr = \case
-    ShelleyAddressInEra addr -> show addr
-    ByronAddressInEra addr -> show addr
+    Api.ShelleyAddressInEra addr -> show addr
+    Api.ByronAddressInEra addr -> show addr
 
   totalNumberOfAssets =
     sum $
@@ -101,8 +108,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   mintLines =
     [ "== MINT/BURN\n" <> case txMintValue content of
-        TxMintValueNone -> "[]"
-        TxMintValue val _ -> prettyValue 0 val
+        Api.TxMintValueNone -> "[]"
+        Api.TxMintValue val _ -> prettyValue 0 val
     ]
 
   prettyValue n =
@@ -110,24 +117,24 @@ renderTxWithUTxO utxo (Tx body _wits) =
    where
     indent = "\n  " <> T.replicate n "    "
 
-  prettyDatumUtxo :: TxOutDatum CtxUTxO -> Text
+  prettyDatumUtxo :: Api.TxOutDatum CtxUTxO -> Text
   prettyDatumUtxo = \case
     TxOutDatumNone ->
       "TxOutDatumNone"
-    TxOutDatumHash h ->
+    Api.TxOutDatumHash h ->
       "TxOutDatumHash " <> show h
-    TxOutDatumInline scriptData ->
+    Api.TxOutDatumInline scriptData ->
       "TxOutDatumInline " <> prettyScriptData scriptData
     _ -> error "absurd"
 
   prettyDatumCtx = \case
-    TxOutDatumNone ->
+    Api.TxOutDatumNone ->
       "TxOutDatumNone"
-    TxOutDatumHash h ->
+    Api.TxOutDatumHash h ->
       "TxOutDatumHash " <> show h
-    TxOutDatumInTx scriptData ->
+    Api.TxOutDatumInTx scriptData ->
       "TxOutDatumInTx " <> prettyScriptData scriptData
-    TxOutDatumInline scriptData ->
+    Api.TxOutDatumInline scriptData ->
       "TxOutDatumInline " <> prettyScriptData scriptData
 
   scriptLines =
@@ -138,15 +145,15 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   totalScriptSize = sum $ BL.length . serialize <$> scripts
 
-  prettyScript (fromLedgerScript -> script) =
+  prettyScript (Api.fromLedgerScript -> script) =
     "Script (" <> scriptHash <> ")"
    where
     scriptHash =
-      show (Ledger.hashScript @(ShelleyLedgerEra Era) (toLedgerScript script))
+      show (Ledger.hashScript @(ShelleyLedgerEra Era) (Api.toLedgerScript @PlutusScriptV2 script))
 
   datumLines = case scriptsData of
-    TxBodyNoScriptData -> []
-    (TxBodyScriptData (Ledger.TxDats dats) _) ->
+    Api.TxBodyNoScriptData -> []
+    (Api.TxBodyScriptData (Ledger.TxDats dats) _) ->
       "== DATUMS (" <> show (length dats) <> ")" :
       (("- " <>) . showDatumAndHash <$> Map.toList dats)
 
@@ -161,8 +168,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
     decodeUtf8 . Aeson.encode . scriptDataToJson ScriptDataJsonNoSchema
 
   redeemerLines = case scriptsData of
-    TxBodyNoScriptData -> []
-    (TxBodyScriptData _ re) ->
+    Api.TxBodyNoScriptData -> []
+    (Api.TxBodyScriptData _ re) ->
       let rdmrs = Map.toList $ Ledger.unRedeemers re
        in "== REDEEMERS (" <> show (length rdmrs) <> ")" :
           (("- " <>) . prettyRedeemer <$> rdmrs)
@@ -179,21 +186,5 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   requiredSignersLines =
     "== REQUIRED SIGNERS" : case txExtraKeyWits content of
-      TxExtraKeyWitnessesNone -> ["[]"]
-      TxExtraKeyWitnesses xs -> ("- " <>) . show <$> xs
-
-deriving newtype instance ToJSON UTxO
-
-deriving newtype instance FromJSON UTxO
-
-instance ToCBOR UTxO where
-  toCBOR = toCBOR . toLedgerUTxO
-  encodedSizeExpr sz _ = encodedSizeExpr sz (Proxy @(Ledger.UTxO LedgerEra))
-
-instance FromCBOR UTxO where
-  fromCBOR = fromLedgerUTxO <$> fromCBOR
-  label _ = label (Proxy @(Ledger.UTxO LedgerEra))
-
-instance Arbitrary UTxO where
-  shrink = shrinkUTxO
-  arbitrary = genUTxOAlonzo
+      Api.TxExtraKeyWitnessesNone -> ["[]"]
+      Api.TxExtraKeyWitnesses xs -> ("- " <>) . show <$> xs

@@ -12,6 +12,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Babbage.TxInfo as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
+import qualified Data.List as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
 import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
 import Hydra.Cardano.Api.Network (Network)
@@ -21,7 +22,6 @@ import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupp
 import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
 import Plutus.V2.Ledger.Api (OutputDatum (..), fromBuiltin)
 import qualified Plutus.V2.Ledger.Api as Plutus
-import qualified Data.List as List
 
 -- * Extras
 

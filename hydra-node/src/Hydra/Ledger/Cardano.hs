@@ -14,17 +14,11 @@ import Hydra.Cardano.Api hiding (initialLedgerState)
 import Hydra.Ledger.Cardano.Builder
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Binary (decodeAnnotator, serialize, serialize', unsafeDeserialize')
+import Cardano.Binary (decodeAnnotator, serialize', unsafeDeserialize')
 import qualified Cardano.Crypto.DSIGN as CC
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
-import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
-import qualified Cardano.Ledger.Era as Ledger
-import qualified Cardano.Ledger.Mary.Value as Ledger
-import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
@@ -35,19 +29,14 @@ import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
 import Control.Arrow (left)
 import Control.Monad (foldM)
-import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BL
 import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
-import qualified Data.Text as T
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
-import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
 import Plutus.V2.Ledger.Api (fromBuiltin)
@@ -377,3 +366,19 @@ instance Arbitrary (VerificationKey PaymentKey) where
 instance Arbitrary (Hash PaymentKey) where
   arbitrary = do
     unsafePaymentKeyHashFromBytes . BS.pack <$> vectorOf 28 arbitrary
+
+deriving newtype instance ToJSON UTxO
+
+deriving newtype instance FromJSON UTxO
+
+instance ToCBOR UTxO where
+  toCBOR = toCBOR . toLedgerUTxO
+  encodedSizeExpr sz _ = encodedSizeExpr sz (Proxy @(Ledger.UTxO LedgerEra))
+
+instance FromCBOR UTxO where
+  fromCBOR = fromLedgerUTxO <$> fromCBOR
+  label _ = label (Proxy @(Ledger.UTxO LedgerEra))
+
+instance Arbitrary UTxO where
+  shrink = shrinkUTxO
+  arbitrary = genUTxOAlonzo
