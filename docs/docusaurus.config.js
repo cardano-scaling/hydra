@@ -206,10 +206,6 @@ const config = {
                 label: "Testing Strategy",
                 to: "https://github.com/input-output-hk/hydra/wiki/Testing-Strategy",
               },
-              {
-                label: "Profiling",
-                to: "/profiling",
-              },
             ],
           },
           {

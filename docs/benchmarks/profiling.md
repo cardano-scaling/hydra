@@ -1,3 +1,7 @@
+---
+sidebar_position: 10
+---
+
 # Profiling Hydra scripts
 
 This is a quick tutorial how to profile Hydra scripts and is intended for
