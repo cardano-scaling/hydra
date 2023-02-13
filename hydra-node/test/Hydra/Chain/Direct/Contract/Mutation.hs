@@ -293,7 +293,8 @@ data Mutation
     ChangeValidityInterval (TxValidityLowerBound, TxValidityUpperBound)
   | ChangeValidityLowerBound TxValidityLowerBound
   | ChangeValidityUpperBound TxValidityUpperBound
-  | -- | Change the included minting policy and update any minted/burned values
+  | -- | Change the included minting policy (the first 'Mint' redeemer
+    -- encountered) and update any minted/burned values of this policy.
     ChangeMintingPolicy PlutusScript
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
