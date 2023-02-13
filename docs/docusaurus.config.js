@@ -87,6 +87,7 @@ const config = {
         routeBasePath: "/",
         editUrl,
         editLocalizedFiles: true,
+        sidebarPath: false
       }),
     ],
     [
@@ -268,6 +269,7 @@ const config = {
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
+        additionalLanguages: ['haskell'],
       },
       algolia: {
         appId: "YZTAF8IOVB",
