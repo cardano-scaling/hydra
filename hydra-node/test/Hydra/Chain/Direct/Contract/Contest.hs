@@ -292,7 +292,7 @@ genContestMutation
               , ChangeInputHeadDatum (healthyClosedState & replaceContesters alreadyContested)
               ]
       , SomeMutation (Just "changed parameters") MutateOutputContestationPeriod <$> do
-          randomCP <- arbitrary
+          randomCP <- arbitrary `suchThat` (/= healthyOnChainContestationPeriod)
           pure $ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContestationPeriod randomCP))
       ]
    where
