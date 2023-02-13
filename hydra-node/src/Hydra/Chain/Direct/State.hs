@@ -12,6 +12,7 @@ module Hydra.Chain.Direct.State where
 import Hydra.Prelude hiding (init)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Prelude (hush)
 import Data.List ((\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -67,6 +68,7 @@ import Hydra.Chain.Direct.Tx (
   FanoutObservation (FanoutObservation),
   InitObservation (..),
   InitialThreadOutput (..),
+  NotAnInitReason,
   OpenThreadOutput (..),
   UTxOHash (UTxOHash),
   UTxOWithScript,
@@ -470,7 +472,7 @@ fanout st utxo deadlineSlotNo = do
 observeSomeTx :: ChainContext -> ChainState -> Tx -> Maybe (OnChainTx Tx, ChainState)
 observeSomeTx ctx cst tx = case cst of
   Idle ->
-    second Initial <$> observeInit ctx tx
+    second Initial <$> hush (observeInit ctx tx)
   Initial st ->
     second Initial <$> observeCommit ctx st tx
       <|> (,Idle) <$> observeAbort st tx
@@ -486,7 +488,7 @@ observeSomeTx ctx cst tx = case cst of
 observeInit ::
   ChainContext ->
   Tx ->
-  Maybe (OnChainTx Tx, InitialState)
+  Either NotAnInitReason (OnChainTx Tx, InitialState)
 observeInit ctx tx = do
   observation <-
     observeInitTx

@@ -69,7 +69,7 @@ spec =
               let params = HeadParameters cperiod (party : parties)
                   tx = initTx testNetworkId cardanoKeys params txIn
                in case observeInitTx testNetworkId cardanoKeys cperiod party tx of
-                    Just InitObservation{initials, threadOutput} -> do
+                    Right InitObservation{initials, threadOutput} -> do
                       let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
                           initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
                           lookupUTxO =
@@ -117,11 +117,11 @@ spec =
               wrongCPeriod = UnsafeContestationPeriod $ cp + wordToNatural i
               tx = initTx testNetworkId cardanoKeys params txIn
           pure $ case observeInitTx testNetworkId cardanoKeys wrongCPeriod party tx of
-            Just InitObservation{} -> do
+            Right InitObservation{} -> do
               property False
                 & counterexample "Failed to ignore init tx with the wrong contestation period."
                 & counterexample (renderTx tx)
-            Nothing -> property True
+            Left _ -> property True
 
 ledgerPParams :: PParams LedgerEra
 ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
