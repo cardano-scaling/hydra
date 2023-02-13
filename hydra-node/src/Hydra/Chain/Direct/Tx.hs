@@ -594,6 +594,11 @@ observeInitTx ::
 observeInitTx networkId cardanoKeys expectedCP party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
+  -- TODO: find the head output the right way (using address)
+  -- TODO: check the datum contains out-ref
+  -- TODO: compute the theoretical headId gievn the out-ref and check it's consistent
+  -- with the head Id in the datum
+  -- TODO: check there's a ST at this output with the right headId
   (ix, headOut, headData, headState) <- maybeOther $ findFirst headOutput indexedOutputs
   (cp, ps) <- case headState of
     (Head.Initial cp ps _headPolicyId) -> pure (cp, ps)
@@ -601,6 +606,8 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
   parties <- maybeOther $ mapM partyFromChain ps
   let contestationPeriod = fromChain cp
   maybeOther $ guard $ expectedCP == contestationPeriod
+  -- TODO: check all the hydra keys are present in the datum and match what we expect
+  -- (need to pass those Hydra keys to the function)
   maybeOther $ guard $ party `elem` parties
   (headTokenPolicyId, headAssetName) <- maybeOther $ findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
