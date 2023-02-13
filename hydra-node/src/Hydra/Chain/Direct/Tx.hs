@@ -355,6 +355,7 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
         , utxoHash = toBuiltin utxoHashBytes
         , parties = openParties
         , contestationDeadline
+        , contestationPeriod = openContestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = []
         }
@@ -391,8 +392,9 @@ contestTx ::
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
   HeadId ->
+  ContestationPeriod ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline, closedContesters} headId =
+contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline, closedContesters} headId contestationPeriod =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -414,13 +416,21 @@ contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThr
 
   contester = toPlutusKeyHash (verificationKeyHash vk)
 
+  onChainConstestationPeriod = toChain contestationPeriod
+
+  newContestationDeadline =
+    if length (contester : closedContesters) == length closedParties
+      then closedContestationDeadline
+      else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
+
   headDatumAfter =
     mkTxOutDatum
       Head.Closed
         { snapshotNumber = toInteger number
         , utxoHash
         , parties = closedParties
-        , contestationDeadline = closedContestationDeadline
+        , contestationDeadline = newContestationDeadline
+        , contestationPeriod = onChainConstestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = contester : closedContesters
         }

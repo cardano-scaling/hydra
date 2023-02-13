@@ -15,6 +15,7 @@ import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
+import qualified Hydra.Data.ContestationPeriod as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (
   adaOnly,
@@ -81,9 +82,14 @@ healthyFanoutDatum =
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyFanoutUTxO
     , parties = partyToChain <$> arbitrary `generateWith` 42
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+    , contestationPeriod = healthyContestationPeriod
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
     }
+ where
+  healthyContestationPeriodSeconds = 10
+
+  healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
 
 data FanoutMutation
   = MutateAddUnexpectedOutput

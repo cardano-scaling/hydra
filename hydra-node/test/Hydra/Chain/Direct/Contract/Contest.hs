@@ -17,6 +17,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
   addParticipationTokens,
   changeHeadOutputDatum,
   changeMintedTokens,
+  replaceContestationDeadline,
+  replaceContestationPeriod,
   replaceContesters,
   replaceParties,
   replacePolicyIdWith,
@@ -25,10 +27,12 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
+import Hydra.ContestationPeriod (ContestationPeriod, fromChain)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
+import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
@@ -39,7 +43,7 @@ import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (elements, listOf, oneof, suchThat)
+import Test.QuickCheck (elements, listOf, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -47,18 +51,21 @@ import Test.QuickCheck.Instances ()
 -- ContestTx
 --
 
+-- | Healthy contest tx where the contester is the first one to contest and
+-- correctly pushing out the deadline by the contestation period.
 healthyContestTx :: (Tx, UTxO)
 healthyContestTx =
   (tx, lookupUTxO)
  where
   tx =
     contestTx
-      somePartyCardanoVerificationKey
+      healthyContesterVerificationKey
       healthyContestSnapshot
       (healthySignature healthyContestSnapshotNumber)
       (healthySlotNo, slotNoToUTCTime healthySlotNo)
       closedThreadOutput
       (mkHeadId testPolicyId)
+      healthyContestationPeriod
 
   headDatum = fromPlutusData $ toData healthyClosedState
 
@@ -96,7 +103,7 @@ healthyContestSnapshotNumber = 4
 
 healthyContestUTxO :: UTxO
 healthyContestUTxO =
-  (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyClosedUTxO))
+  (genOneUTxOFor healthyContesterVerificationKey `suchThat` (/= healthyClosedUTxO))
     `generateWith` 42
 
 healthyContestUTxOHash :: BuiltinByteString
@@ -110,6 +117,7 @@ healthyClosedState =
     , utxoHash = healthyClosedUTxOHash
     , parties = healthyOnChainParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+    , contestationPeriod = healthyOnChainContestationPeriod
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
     }
@@ -123,6 +131,12 @@ healthyContestationDeadline =
     (fromInteger healthyContestationPeriodSeconds)
     (slotNoToUTCTime healthySlotNo)
 
+healthyOnChainContestationPeriod :: OnChain.ContestationPeriod
+healthyOnChainContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
+
+healthyContestationPeriod :: ContestationPeriod
+healthyContestationPeriod = fromChain healthyOnChainContestationPeriod
+
 healthyContestationPeriodSeconds :: Integer
 healthyContestationPeriodSeconds = 10
 
@@ -135,10 +149,10 @@ healthyClosedUTxOHash =
 
 healthyClosedUTxO :: UTxO
 healthyClosedUTxO =
-  genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
+  genOneUTxOFor healthyContesterVerificationKey `generateWith` 42
 
-somePartyCardanoVerificationKey :: VerificationKey PaymentKey
-somePartyCardanoVerificationKey = flip generateWith 42 $ do
+healthyContesterVerificationKey :: VerificationKey PaymentKey
+healthyContesterVerificationKey = flip generateWith 42 $ do
   genForParty genVerificationKey <$> elements healthyParties
 
 healthySigningKeys :: [SigningKey HydraKey]
@@ -181,6 +195,15 @@ data ContestMutation
     MutateContesters
   | -- | See spec: 5.5. rule 6 -> value is preserved
     MutateValueInOutput
+  | -- | Change the 'ContestationDeadline' in the 'Closed' output datum such that deadline is pushed away
+    NotUpdateDeadlineAlthoughItShould
+  | -- | Pushes the deadline although this is the last contest. Instead of
+    -- creating another healthy case and mutate that one, this mutation just
+    -- changes the starting situation so that everyone else already contested.
+    -- Remember the 'healthyContestTx' is already pushing out the deadline.
+    PushDeadlineAlthoughItShouldNot
+  | -- | Change the contestation period to test parameters not changed in output.
+    MutateOutputContestationPeriod
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -238,7 +261,7 @@ genContestMutation
       , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
           <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
       , SomeMutation (Just "signer already contested") MutateInputContesters . ChangeInputHeadDatum <$> do
-          let contester = toPlutusKeyHash (verificationKeyHash somePartyCardanoVerificationKey)
+          let contester = toPlutusKeyHash (verificationKeyHash healthyContesterVerificationKey)
               contesterAndSomeOthers = do
                 contesters <- listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
                 pure (contester : contesters)
@@ -256,6 +279,21 @@ genContestMutation
       , SomeMutation (Just "head value is not preserved") MutateValueInOutput <$> do
           newValue <- genValue
           pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
+      , SomeMutation (Just "must push deadline") NotUpdateDeadlineAlthoughItShould . ChangeOutput 0 <$> do
+          let deadline = posixFromUTCTime healthyContestationDeadline
+          -- Here we are replacing the contestationDeadline using the previous so we are not _pushing it_ further
+          pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
+      , SomeMutation (Just "must not push deadline") PushDeadlineAlthoughItShouldNot <$> do
+          alreadyContested <- vectorOf (length healthyParties - 1) $ Plutus.PubKeyHash . toBuiltin <$> genHash
+          let contester = toPlutusKeyHash $ verificationKeyHash healthyContesterVerificationKey
+          pure $
+            Changes
+              [ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContesters (contester : alreadyContested)))
+              , ChangeInputHeadDatum (healthyClosedState & replaceContesters alreadyContested)
+              ]
+      , SomeMutation (Just "changed parameters") MutateOutputContestationPeriod <$> do
+          randomCP <- arbitrary `suchThat` (/= healthyOnChainContestationPeriod)
+          pure $ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContestationPeriod randomCP))
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0

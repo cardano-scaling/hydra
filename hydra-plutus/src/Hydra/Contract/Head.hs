@@ -81,8 +81,8 @@ headValidator oldState input ctx =
       checkAbort ctx headId parties
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{signature}) ->
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, headId, contesters}, Contest{signature}) ->
-      checkContest ctx contestationDeadline parties closedSnapshotNumber signature contesters headId
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters}, Contest{signature}) ->
+      checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber signature contesters headId
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
     _ ->
@@ -344,6 +344,8 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
 -- | The contest validator must verify that:
 --
+--   * The transaction does not mint or burn tokens.
+--
 --   * The contest snapshot number is strictly greater than the closed snapshot number.
 --
 --   * The contest snapshot is correctly signed.
@@ -354,9 +356,11 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 --
 --   * The transaction is performed before the deadline.
 --
+--   * Add signer to list of contesters.
+--
 --   * State token (ST) is present in the output
 --
---   * Add signer to list of contesters.
+--   * Push deadline if signer is not the last one to contest.
 --
 --   * No other parameters have changed.
 --
@@ -364,6 +368,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 checkContest ::
   ScriptContext ->
   POSIXTime ->
+  ContestationPeriod ->
   [Party] ->
   -- | Snapshot number of the closed state.
   SnapshotNumber ->
@@ -373,7 +378,7 @@ checkContest ::
   -- | Head id
   CurrencySymbol ->
   Bool
-checkContest ctx contestationDeadline parties closedSnapshotNumber sig contesters headId =
+checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber sig contesters headId =
   mustNotMintOrBurn txInfo
     && mustBeNewer
     && mustBeMultiSigned
@@ -382,6 +387,7 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
     && mustBeWithinContestationPeriod
     && mustUpdateContesters
     && hasST headId val
+    && mustPushDeadline
     && mustNotChangeParameters
     && mustPreserveValue
  where
@@ -409,14 +415,23 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
   mustNotChangeParameters =
     traceIfFalse "changed parameters" $
       parties' == parties
-        && contestationDeadline' == contestationDeadline
         && headId' == headId
+        && contestationPeriod' == contestationPeriod
+
+  mustPushDeadline =
+    if length contesters' == length parties'
+      then
+        traceIfFalse "must not push deadline" $
+          contestationDeadline' == contestationDeadline
+      else
+        traceIfFalse "must push deadline" $
+          contestationDeadline' == addContestationPeriod contestationDeadline contestationPeriod
 
   mustUpdateContesters =
     traceIfFalse "contester not included" $
-      contesters' == (contester : contesters)
+      contesters' == contester : contesters
 
-  (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', headId', contesters') =
+  (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', contestationPeriod', headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
@@ -425,9 +440,10 @@ checkContest ctx contestationDeadline parties closedSnapshotNumber sig contester
           , utxoHash
           , parties = p
           , contestationDeadline = dl
+          , contestationPeriod = cp
           , headId = hid
           , contesters = cs
-          } -> (snapshotNumber, utxoHash, p, dl, hid, cs)
+          } -> (snapshotNumber, utxoHash, p, dl, cp, hid, cs)
       _ -> traceError "wrong state in output datum"
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
