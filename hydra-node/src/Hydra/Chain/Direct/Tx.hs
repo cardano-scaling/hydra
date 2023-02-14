@@ -606,6 +606,7 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
   (headId, cp, ps) <- case headState of
     (Head.Initial cp ps cid) -> pure (fromPlutusCurrencySymbol cid, cp, ps)
     _ -> Left NotAHeadDatum
+
   let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
   unless (stQuantity == 1) $
     Left NoSTFound

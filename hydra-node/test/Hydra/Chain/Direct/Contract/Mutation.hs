@@ -170,7 +170,8 @@ import Test.QuickCheck (
 import Test.QuickCheck.Instances ()
 
 -- TODO: re-export or rename toLedgerScriptHash
-import Hydra.Cardano.Api.Prelude (toShelleyScriptHash)
+-- TODO: re-export or rename toLedgerScriptHash
+import Hydra.Cardano.Api.Prelude (fromShelleyScriptHash, toShelleyScriptHash)
 
 -- * Properties
 
@@ -297,8 +298,8 @@ data Mutation
     ChangeValidityInterval (TxValidityLowerBound, TxValidityUpperBound)
   | ChangeValidityLowerBound TxValidityLowerBound
   | ChangeValidityUpperBound TxValidityUpperBound
-  | -- | Change the included minting policy (the first 'Mint' redeemer
-    -- encountered) and update any minted/burned values of this policy.
+  | -- | Change the included minting policy (the first minted policy) and update
+    -- minted/burned and output values of this policy.
     ChangeMintingPolicy PlutusScript
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
@@ -416,17 +417,34 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
   ChangeValidityUpperBound bound ->
     changeValidityInterval Nothing (Just bound)
   ChangeMintingPolicy pScript ->
-    (Tx body' wits, utxo)
+    ( Tx body' wits & alterTxOuts (map replacePolicyInTxOut)
+    , utxo
+    )
    where
+    replacePolicyInTxOut = modifyTxOutValue replacePolicyInTxOutValue
+
+    replacePolicyInTxOutValue =
+      valueFromList . map replaceAssetId . valueToList
+
+    replaceAssetId (aid, q) = case aid of
+      AssetId pid an
+        | pid == (fromLedgerPolicyID firstMintingPolicy) -> (AssetId ourMintingPolicy' an, q)
+      _ -> (aid, q)
+
+    ourMintingPolicy' = scriptPolicyId $ PlutusScript pScript
+
+    fromLedgerPolicyID (Ledger.PolicyID sh) = PolicyId $ fromShelleyScriptHash sh
+
     body' = ShelleyTxBody ledgerBody' scripts' scriptData mAuxData scriptValidity
 
-    ledgerBody' = ledgerBody{Ledger.mint = patchedMintValue}
+    ledgerBody' = ledgerBody{Ledger.mint = replacePolicyInValue mint}
 
     ourMintingPolicy = Ledger.PolicyID . toShelleyScriptHash $ hashScript $ PlutusScript pScript
 
-    Ledger.Value adas policies = Ledger.mint ledgerBody
+    mint = Ledger.mint ledgerBody
 
-    patchedMintValue = Ledger.Value adas (Map.fromList $ fmap replacePolicy $ Map.toList policies)
+    replacePolicyInValue (Ledger.Value c policies) =
+      Ledger.Value c (Map.fromList $ fmap replacePolicy $ Map.toList policies)
 
     replacePolicy (pid, tokens)
       | pid == firstMintingPolicy = (ourMintingPolicy, tokens)
@@ -434,6 +452,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 
     firstMintingPolicy = Set.elemAt 0 $ Ledger.policies $ Ledger.mint ledgerBody
 
+    -- XXX: Does not replace the script, but just append it
     scripts' = scripts <> [toLedgerScript pScript]
 
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
