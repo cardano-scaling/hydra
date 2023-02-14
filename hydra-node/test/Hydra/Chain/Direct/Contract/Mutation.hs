@@ -136,6 +136,7 @@ import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
+import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger
 import Cardano.Ledger.Serialization (mkSized)
 import qualified Data.Map as Map
@@ -145,7 +146,7 @@ import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Fixture (testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
+import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, findFirst)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.ContestationPeriod
@@ -168,10 +169,6 @@ import Test.QuickCheck (
   suchThat,
  )
 import Test.QuickCheck.Instances ()
-
--- TODO: re-export or rename toLedgerScriptHash
--- TODO: re-export or rename toLedgerScriptHash
-import Hydra.Cardano.Api.Prelude (fromShelleyScriptHash, toShelleyScriptHash)
 
 -- * Properties
 
@@ -417,43 +414,32 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
   ChangeValidityUpperBound bound ->
     changeValidityInterval Nothing (Just bound)
   ChangeMintingPolicy pScript ->
-    ( Tx body' wits & alterTxOuts (map replacePolicyInTxOut)
+    ( Tx body' wits & alterTxOuts (map $ replacePolicyIdWith selectedPid mutatedPid)
     , utxo
     )
    where
-    replacePolicyInTxOut = modifyTxOutValue replacePolicyInTxOutValue
-
-    replacePolicyInTxOutValue =
-      valueFromList . map replaceAssetId . valueToList
-
-    replaceAssetId (aid, q) = case aid of
-      AssetId pid an
-        | pid == (fromLedgerPolicyID firstMintingPolicy) -> (AssetId ourMintingPolicy' an, q)
-      _ -> (aid, q)
-
-    ourMintingPolicy' = scriptPolicyId $ PlutusScript pScript
-
-    fromLedgerPolicyID (Ledger.PolicyID sh) = PolicyId $ fromShelleyScriptHash sh
+    mutatedPid = scriptPolicyId $ PlutusScript pScript
 
     body' = ShelleyTxBody ledgerBody' scripts' scriptData mAuxData scriptValidity
 
-    ledgerBody' = ledgerBody{Ledger.mint = replacePolicyInValue mint}
-
-    ourMintingPolicy = Ledger.PolicyID . toShelleyScriptHash $ hashScript $ PlutusScript pScript
-
-    mint = Ledger.mint ledgerBody
-
-    replacePolicyInValue (Ledger.Value c policies) =
-      Ledger.Value c (Map.fromList $ fmap replacePolicy $ Map.toList policies)
-
-    replacePolicy (pid, tokens)
-      | pid == firstMintingPolicy = (ourMintingPolicy, tokens)
-      | otherwise = (pid, tokens)
-
-    firstMintingPolicy = Set.elemAt 0 $ Ledger.policies $ Ledger.mint ledgerBody
+    ledgerBody' =
+      ledgerBody
+        { Ledger.mint =
+            toLedgerValue $ replacePolicyInValue selectedPid mutatedPid mint
+        }
 
     -- XXX: Does not replace the script, but just append it
     scripts' = scripts <> [toLedgerScript pScript]
+    selectedPid =
+      fromMaybe (error "cannot mutate non minting transaction")
+        . findFirst
+          ( \case
+              (AssetId pid _, _) -> Just pid
+              (AdaAssetId, _) -> Nothing
+          )
+        $ valueToList mint
+
+    mint = fromLedgerValue $ Ledger.mint ledgerBody
 
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   Changes mutations ->
@@ -693,15 +679,20 @@ addPTWithQuantity tx quantity =
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
 
--- | Replace original policy id with the arbitrary one
+-- | Replace first given 'PolicyId' with the second argument in the whole 'TxOut' value.
 replacePolicyIdWith :: PolicyId -> PolicyId -> TxOut a -> TxOut a
-replacePolicyIdWith originalPolicyId otherPolicyId output =
-  let value = txOutValue output
-      newValue = valueFromList $ swapPolicyId <$> valueToList value
-      swapPolicyId = \case
-        (AssetId policyId t, q) | policyId == originalPolicyId -> (AssetId otherPolicyId t, q)
-        v -> v
-   in output{txOutValue = newValue}
+replacePolicyIdWith original replacement =
+  modifyTxOutValue (replacePolicyInValue original replacement)
+
+-- | Replace first given 'PolicyId' with the second argument in the whole 'Value'.
+replacePolicyInValue :: PolicyId -> PolicyId -> Value -> Value
+replacePolicyInValue original replacement =
+  valueFromList . map replaceAssetId . valueToList
+ where
+  replaceAssetId (aid, q) = case aid of
+    AssetId pid an
+      | pid == original -> (AssetId replacement an, q)
+    _ -> (aid, q)
 
 replaceSnapshotNumber :: Head.SnapshotNumber -> Head.State -> Head.State
 replaceSnapshotNumber snapshotNumber = \case
