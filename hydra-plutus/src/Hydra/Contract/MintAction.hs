@@ -6,6 +6,8 @@ module Hydra.Contract.MintAction where
 
 import qualified PlutusTx
 
+-- TODO: remove this and use BuiltinBytestring or () to signal that we don't
+-- need a redeemer
 data MintAction = Mint | Burn
 
 PlutusTx.unstableMakeIsData ''MintAction

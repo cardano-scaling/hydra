@@ -25,7 +25,6 @@ import Plutus.V2.Ledger.Api (
   ScriptContext (ScriptContext, scriptContextTxInfo),
   TxInInfo (..),
   TxInfo (..),
-  TxOut (..),
   TxOutRef,
   ValidatorHash,
   Value (getValue),
@@ -46,7 +45,7 @@ validate ::
 validate initialValidator headValidator seedInput action context =
   case action of
     Mint -> validateTokensMinting initialValidator headValidator seedInput context
-    Burn -> validateTokensBurning context
+    Burn -> True
 {-# INLINEABLE validate #-}
 
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
@@ -88,38 +87,6 @@ validateTokensMinting initialValidator headValidator seedInput context =
       _ -> traceError "expected single head output"
 
   seedInputIsConsumed = seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
-
--- TODO: does this even make sense to check? Shouldn't we check that we are
--- doing an abort of fanout (terminal transitions) of the v_head? Or is this
--- even 'const True' as one need to be able to spend tokens to burn them. If we
--- only distribute them to v_initial on minting, that should be fine?
-validateTokensBurning :: ScriptContext -> Bool
-validateTokensBurning context =
-  traceIfFalse "burnt wrong" checkAllPTsAreBurnt
- where
-  -- we do not check the actual token names but only that all tokens pertaining
-  -- to the currency scripts are burnt. This should work whether we are burning
-  -- in Abort or FanOut transaction
-  checkAllPTsAreBurnt =
-    traceIfFalse "inconsistent quantity of head tokens burnt" $
-      consumedHeadTokens == burnHeadTokens
-
-  currency = ownCurrencySymbol context
-
-  ScriptContext{scriptContextTxInfo = txInfo} = context
-
-  minted = getValue $ txInfoMint txInfo
-
-  consumedHeadTokens =
-    foldr (\x acc -> acc + countOurTokens (txOutValue $ txInInfoResolved x)) 0 $ txInfoInputs txInfo
-
-  countOurTokens v =
-    maybe 0 sum (Map.lookup currency $ getValue v)
-
-  burnHeadTokens =
-    case Map.lookup currency minted of
-      Nothing -> 0
-      Just tokenMap -> negate $ sum tokenMap
 
 participationTokensAreDistributed :: CurrencySymbol -> ValidatorHash -> TxInfo -> Integer -> Bool
 participationTokensAreDistributed currency initialValidator txInfo nParties =
