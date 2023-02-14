@@ -611,7 +611,9 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
   unless (stQuantity == 1) $
     Left NoSTFound
 
-  -- TODO: compute the headId in the datum is consistent with the monting
+  -- TODO: compute the headId in the datum is consistent with the minting
+  unless (headId == HeadTokens.headPolicyId undefined) $
+    Left NotAHeadPolicy
   -- policy, parameterized by the out-ref from the datum
 
   -- Additional off-chain checks
