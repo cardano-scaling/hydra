@@ -600,14 +600,14 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
     maybeLeft NoHeadOutput $
       findFirst headOutput indexedOutputs
 
+  -- TODO: add out-ref to datum
+  (headId, cp, ps) <- case headState of
+    (Head.Initial cp ps cid) -> pure (fromPlutusCurrencySymbol cid, cp, ps)
+    _ -> Left Other
+
   -- TODO: check there's an ST of matching headId from datum
-  -- TODO: check the datum contains out-ref
   -- TODO: compute the headId in the datum is consistent with the monting
   -- policy, parameterized by the out-ref from the datum
-
-  (cp, ps) <- case headState of
-    (Head.Initial cp ps _headPolicyId) -> pure (cp, ps)
-    _ -> Left Other
 
   -- Additional off-chain checks
   parties <- maybeOther $ mapM partyFromChain ps
