@@ -581,6 +581,8 @@ data InitObservation = InitObservation
 data NotAnInitReason
   = NotAHeadPolicy
   | NoHeadOutput
+  | NotAHeadDatum
+  | NoSTFound
   | Other
   deriving (Show, Eq)
 
@@ -603,9 +605,11 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
   -- TODO: add out-ref to datum
   (headId, cp, ps) <- case headState of
     (Head.Initial cp ps cid) -> pure (fromPlutusCurrencySymbol cid, cp, ps)
-    _ -> Left Other
+    _ -> Left NotAHeadDatum
+  let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
+  unless (stQuantity == 1) $
+    Left NoSTFound
 
-  -- TODO: check there's an ST of matching headId from datum
   -- TODO: compute the headId in the datum is consistent with the monting
   -- policy, parameterized by the out-ref from the datum
 
