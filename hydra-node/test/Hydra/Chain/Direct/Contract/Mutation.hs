@@ -428,8 +428,6 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
             toLedgerValue $ replacePolicyInValue selectedPid mutatedPid mint
         }
 
-    -- XXX: Does not replace the script, but just append it
-    scripts' = scripts <> [toLedgerScript pScript]
     selectedPid =
       fromMaybe (error "cannot mutate non minting transaction")
         . findFirst
@@ -440,6 +438,15 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         $ valueToList mint
 
     mint = fromLedgerValue $ Ledger.mint ledgerBody
+
+    scripts' =
+      map
+        ( \s ->
+            if Ledger.PolicyID (Ledger.hashScript @LedgerEra s) == toLedgerPolicyID selectedPid
+              then toLedgerScript pScript
+              else s
+        )
+        scripts
 
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   Changes mutations ->
