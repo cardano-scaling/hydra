@@ -20,6 +20,7 @@ changes.
   + Replace `fromConsensusPointHF` with `fromConsensusPointInMode` and
     `toConsensusPointHF` with `toConsensusPointInMode`.
   + Re-export new `AcquiringFailure` type from `cardano-api`.
+  + Add `fromPlutusCurrencySymbol` conversion function.
 
   + Introduce new `Hydra.Cardano.Api.Pretty` module and move functions
     `renderTx`, `renderTxWithUTxO` and `renderTxs` from `hydra-node` package to
