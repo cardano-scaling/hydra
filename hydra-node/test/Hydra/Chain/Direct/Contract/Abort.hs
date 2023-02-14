@@ -71,7 +71,7 @@ healthyAbortTx =
 
   headTokenScript = mkHeadTokenScript testSeedInput
 
-  headOutput = mkHeadOutputInitial testNetworkId testPolicyId healthyHeadParameters
+  headOutput = mkHeadOutputInitial testNetworkId testSeedInput testPolicyId healthyHeadParameters
 
   headDatum = unsafeGetDatum headOutput
 
@@ -148,7 +148,12 @@ genAbortMutation (tx, _utxo) =
     [ SomeMutation Nothing MutateParties . ChangeInputHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
-        pure $ Head.Initial c (partyToChain <$> moreParties) (toPlutusCurrencySymbol $ headPolicyId testSeedInput)
+        pure $
+          Head.Initial
+            c
+            (partyToChain <$> moreParties)
+            (toPlutusCurrencySymbol $ headPolicyId testSeedInput)
+            (toPlutusTxOutRef testSeedInput)
     , SomeMutation Nothing DropOneCommitOutput
         . RemoveOutput
         <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
@@ -159,11 +164,14 @@ genAbortMutation (tx, _utxo) =
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation Nothing MutateHeadId <$> do
-        illedHeadResolvedInput <-
-          mkHeadOutputInitial testNetworkId
-            <$> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
-            <*> pure healthyHeadParameters
-        return $ ChangeInput healthyHeadInput (toUTxOContext illedHeadResolvedInput) (Just $ toScriptData Head.Abort)
+        mutatedSeed <- arbitrary `suchThat` (/= testSeedInput)
+        let mutatedInput =
+              mkHeadOutputInitial
+                testNetworkId
+                mutatedSeed
+                (headPolicyId mutatedSeed)
+                healthyHeadParameters
+        return $ ChangeInput healthyHeadInput (toUTxOContext mutatedInput) (Just $ toScriptData Head.Abort)
     , SomeMutation Nothing UseInputFromOtherHead <$> do
         (input, output, _) <- elements healthyInitials
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))

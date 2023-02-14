@@ -14,7 +14,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
-import Plutus.Extras (scriptValidatorHash, wrapMintingPolicy)
+import Plutus.Extras (wrapMintingPolicy)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   Datum (getDatum),
@@ -143,18 +143,17 @@ mintingPolicy txOutRef =
       `PlutusTx.applyCode` PlutusTx.liftCode Head.validatorHash
       `PlutusTx.applyCode` PlutusTx.liftCode txOutRef
 
-validatorScript :: TxOutRef -> Script
-validatorScript = getMintingPolicy . mintingPolicy
-
-validatorHash :: TxOutRef -> ValidatorHash
-validatorHash = scriptValidatorHash . validatorScript
+mintingPolicyScript :: TxOutRef -> Script
+mintingPolicyScript = getMintingPolicy . mintingPolicy
 
 -- * Create PolicyId
 
+-- | Resolve the head policy id (a.k.a headId) given a seed 'TxIn'.
 headPolicyId :: TxIn -> PolicyId
 headPolicyId =
   scriptPolicyId . PlutusScript . mkHeadTokenScript
 
+-- | Get the applied head minting policy script given a seed 'TxIn'.
 mkHeadTokenScript :: TxIn -> Api.PlutusScript
 mkHeadTokenScript =
-  fromPlutusScript @PlutusScriptV2 . validatorScript . toPlutusTxOutRef
+  fromPlutusScript @PlutusScriptV2 . mintingPolicyScript . toPlutusTxOutRef

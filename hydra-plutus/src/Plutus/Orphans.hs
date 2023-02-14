@@ -8,11 +8,14 @@ import Hydra.Prelude
 
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   POSIXTime (..),
   TokenName,
+  TxId (..),
+  TxOutRef (TxOutRef),
   UpperBound (..),
   Value,
   fromBuiltin,
@@ -23,6 +26,7 @@ import Plutus.V2.Ledger.Api (
 import qualified Plutus.V2.Ledger.Api as Plutus
 import qualified PlutusTx.AssocMap as AssocMap
 import PlutusTx.Prelude (BuiltinByteString)
+import Test.QuickCheck (choose, vectorOf)
 import Test.QuickCheck.Instances.ByteString ()
 
 instance Arbitrary BuiltinByteString where
@@ -75,3 +79,9 @@ instance FromJSON Plutus.PubKeyHash where
 
 instance Arbitrary Plutus.PubKeyHash where
   arbitrary = genericArbitrary
+
+instance Arbitrary TxOutRef where
+  arbitrary = do
+    txId <- TxId . toBuiltin . BS.pack <$> vectorOf 32 arbitrary
+    txIx <- choose (0, 99)
+    pure $ TxOutRef txId txIx

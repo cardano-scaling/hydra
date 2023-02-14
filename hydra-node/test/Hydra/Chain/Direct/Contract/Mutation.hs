@@ -717,11 +717,12 @@ replaceSnapshotNumber snapshotNumber = \case
 
 replaceParties :: [Data.Party] -> Head.State -> Head.State
 replaceParties parties = \case
-  Head.Initial{contestationPeriod, headId} ->
+  Head.Initial{contestationPeriod, headId, seed} ->
     Head.Initial
       { Head.contestationPeriod = contestationPeriod
       , Head.parties = parties
       , Head.headId = headId
+      , Head.seed = seed
       }
   Head.Open{contestationPeriod, utxoHash, headId} ->
     Head.Open
@@ -793,11 +794,12 @@ replaceContestationPeriod contestationPeriod = \case
 
 replaceHeadId :: CurrencySymbol -> Head.State -> Head.State
 replaceHeadId headId = \case
-  Head.Initial{contestationPeriod, parties} ->
+  Head.Initial{contestationPeriod, parties, seed} ->
     Head.Initial
       { Head.contestationPeriod = contestationPeriod
       , Head.parties = parties
       , Head.headId = headId
+      , Head.seed = seed
       }
   Head.Open{contestationPeriod, utxoHash, parties} ->
     Head.Open

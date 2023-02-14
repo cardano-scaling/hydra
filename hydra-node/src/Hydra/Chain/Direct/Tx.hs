@@ -110,17 +110,17 @@ initTx ::
   HeadParameters ->
   TxIn ->
   Tx
-initTx networkId cardanoKeys parameters seed =
+initTx networkId cardanoKeys parameters seedTxIn =
   unsafeBuildTransaction $
     emptyTxBody
-      & addVkInputs [seed]
+      & addVkInputs [seedTxIn]
       & addOutputs
-        ( mkHeadOutputInitial networkId policyId parameters :
+        ( mkHeadOutputInitial networkId seedTxIn policyId parameters :
           map (mkInitialOutput networkId policyId) cardanoKeys
         )
-      & mintTokens (HeadTokens.mkHeadTokenScript seed) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
+      & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
  where
-  policyId = HeadTokens.headPolicyId seed
+  policyId = HeadTokens.headPolicyId seedTxIn
   participationTokens =
     [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
 
@@ -134,16 +134,19 @@ mkHeadOutput networkId tokenPolicyId datum =
  where
   headScript = fromPlutusScript Head.validatorScript
 
-mkHeadOutputInitial :: NetworkId -> PolicyId -> HeadParameters -> TxOut CtxTx
-mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, parties} =
+-- TODO: check wether we can remove 'PolicyId'
+mkHeadOutputInitial :: NetworkId -> TxIn -> PolicyId -> HeadParameters -> TxOut CtxTx
+mkHeadOutputInitial networkId seedTxIn tokenPolicyId HeadParameters{contestationPeriod, parties} =
   mkHeadOutput networkId tokenPolicyId headDatum
  where
   headDatum =
     mkTxOutDatum $
       Head.Initial
-        (toChain contestationPeriod)
-        (map partyToChain parties)
-        (toPlutusCurrencySymbol tokenPolicyId)
+        { contestationPeriod = toChain contestationPeriod
+        , parties = map partyToChain parties
+        , headId = toPlutusCurrencySymbol tokenPolicyId
+        , seed = toPlutusTxOutRef seedTxIn
+        }
 
 mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
 mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
@@ -602,19 +605,16 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
     maybeLeft NoHeadOutput $
       findFirst headOutput indexedOutputs
 
-  -- TODO: add out-ref to datum
-  (headId, cp, ps) <- case headState of
-    (Head.Initial cp ps cid) -> pure (fromPlutusCurrencySymbol cid, cp, ps)
+  (headId, cp, ps, seedTxIn) <- case headState of
+    (Head.Initial cp ps cid outRef) -> pure (fromPlutusCurrencySymbol cid, cp, ps, fromPlutusTxOutRef outRef)
     _ -> Left NotAHeadDatum
 
   let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
   unless (stQuantity == 1) $
     Left NoSTFound
 
-  -- TODO: compute the headId in the datum is consistent with the minting
-  unless (headId == HeadTokens.headPolicyId undefined) $
+  unless (headId == HeadTokens.headPolicyId seedTxIn) $
     Left NotAHeadPolicy
-  -- policy, parameterized by the out-ref from the datum
 
   -- Additional off-chain checks
   parties <- maybeOther $ mapM partyFromChain ps
