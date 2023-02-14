@@ -580,6 +580,7 @@ data InitObservation = InitObservation
 
 data NotAnInitReason
   = NotAHeadPolicy
+  | NoHeadOutput
   | Other
   deriving (Show, Eq)
 
@@ -592,17 +593,23 @@ observeInitTx ::
   Tx ->
   Either NotAnInitReason InitObservation
 observeInitTx networkId cardanoKeys expectedCP party tx = do
-  -- FIXME: This is affected by "same structure datum attacks", we should be
-  -- using the Head script address instead.
-  -- TODO: find the head output the right way (using address)
+  -- Check whether we have a proper head
+
+  -- XXX: Lots of redundant information here
+  (ix, headOut, headData, headState) <-
+    maybeLeft NoHeadOutput $
+      findFirst headOutput indexedOutputs
+
+  -- TODO: check there's an ST of matching headId from datum
   -- TODO: check the datum contains out-ref
-  -- TODO: compute the theoretical headId gievn the out-ref and check it's consistent
-  -- with the head Id in the datum
-  -- TODO: check there's a ST at this output with the right headId
-  (ix, headOut, headData, headState) <- maybeOther $ findFirst headOutput indexedOutputs
+  -- TODO: compute the headId in the datum is consistent with the monting
+  -- policy, parameterized by the out-ref from the datum
+
   (cp, ps) <- case headState of
     (Head.Initial cp ps _headPolicyId) -> pure (cp, ps)
     _ -> Left Other
+
+  -- Additional off-chain checks
   parties <- maybeOther $ mapM partyFromChain ps
   let contestationPeriod = fromChain cp
   maybeOther $ guard $ expectedCP == contestationPeriod
@@ -621,7 +628,7 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
             { initialThreadUTxO =
                 ( mkTxIn tx ix
                 , toCtxUTxOTxOut headOut
-                , fromLedgerData headData
+                , headData
                 )
             , initialParties = ps
             , initialContestationPeriod = cp
@@ -634,14 +641,21 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
       , parties
       }
  where
+  maybeLeft e = maybe (Left e) Right
+
   maybeOther = \case
     Nothing -> Left Other
     Just x -> Right x
 
   headOutput = \case
-    (ix, out@(TxOut _ _ (TxOutDatumInTx d) _)) ->
-      (ix,out,toLedgerData d,) <$> fromData (toPlutusData d)
+    (ix, out@(TxOut addr _ (TxOutDatumInTx d) _)) -> do
+      guard $ addr == headAddress
+      (ix,out,d,) <$> fromData (toPlutusData d)
     _ -> Nothing
+
+  headAddress =
+    mkScriptAddress @PlutusScriptV2 networkId $
+      fromPlutusScript Head.validatorScript
 
   indexedOutputs = zip [0 ..] (txOuts' tx)
 
