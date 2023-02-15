@@ -220,8 +220,8 @@ spec = parallel $ do
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
-  numParties <- pick $ choose (1, 20)
-  ctx@HydraContext{ctxContestationPeriod} <- pick $ genHydraContext numParties
+  let maxParties = 20
+  ctx@HydraContext{ctxContestationPeriod} <- pick $ genHydraContext maxParties
   cctx <- pick $ pickChainContext ctx
   -- Init
   txInit <- pick $ genInitTx ctx
