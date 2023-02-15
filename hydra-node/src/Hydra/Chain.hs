@@ -5,13 +5,9 @@
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Specifies the /Head-Chain Interaction/ part of the protocol
---
--- Incoming and outgoing on-chain transactions are modelled respectively as `OnChainTx`
--- and `PostChainTx` which are data type that abstracts away the details of the structure
--- of the transaction.
 module Hydra.Chain (
   module API,
+  OnChainTx (..),
   Chain (..),
   ChainEvent (..),
   ChainCallback,
@@ -21,8 +17,34 @@ module Hydra.Chain (
 import Hydra.Prelude
 
 import Hydra.API.Chain as API
+import Hydra.API.ContestationPeriod (ContestationPeriod)
 import Hydra.API.Ledger (IsTx, TxIdType, UTxOType)
+import Hydra.API.Party (Party)
+import Hydra.API.Snapshot (SnapshotNumber)
 import Test.QuickCheck.Instances.Time ()
+
+-- | Describes transactions as seen on chain. Holds as minimal information as
+-- possible to simplify observing the chain.
+data OnChainTx tx
+  = OnInitTx {headId :: HeadId, contestationPeriod :: ContestationPeriod, parties :: [Party]}
+  | OnCommitTx {party :: Party, committed :: UTxOType tx}
+  | OnAbortTx
+  | OnCollectComTx
+  | OnCloseTx
+      { snapshotNumber :: SnapshotNumber
+      , contestationDeadline :: UTCTime
+      }
+  | OnContestTx {snapshotNumber :: SnapshotNumber}
+  | OnFanoutTx
+  deriving (Generic)
+
+deriving instance IsTx tx => Eq (OnChainTx tx)
+deriving instance IsTx tx => Show (OnChainTx tx)
+deriving instance IsTx tx => ToJSON (OnChainTx tx)
+deriving instance IsTx tx => FromJSON (OnChainTx tx)
+
+instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) where
+  arbitrary = genericArbitrary
 
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain

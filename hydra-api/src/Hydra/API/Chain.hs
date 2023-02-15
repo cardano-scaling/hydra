@@ -5,11 +5,11 @@
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Specifies the /Head-Chain Interaction/ part of the protocol
+-- | Specifies visible parts of the /Head-Chain Interaction/ part of the protocol
 --
--- Incoming and outgoing on-chain transactions are modelled respectively as `OnChainTx`
--- and `PostChainTx` which are data type that abstracts away the details of the structure
--- of the transaction.
+-- Outgoing transactions for the Head Lifecycle on L1 are represented as
+-- `PostChainTx` values abstract away the details of the structure of the
+-- transaction.
 module Hydra.API.Chain where
 
 import Cardano.Crypto.Util (SignableRepresentation)
@@ -25,7 +25,7 @@ import Generic.Random (genericArbitrary, uniform)
 import Hydra.API.ContestationPeriod (ContestationPeriod)
 import Hydra.API.Ledger (IsTx, UTxOType)
 import Hydra.API.Party (Party)
-import Hydra.API.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber)
+import Hydra.API.Snapshot (ConfirmedSnapshot, Snapshot)
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
@@ -89,29 +89,6 @@ instance HasTypeProxy HeadId where
 
 instance Arbitrary HeadId where
   arbitrary = HeadId . BS.pack <$> vectorOf 16 arbitrary
-
--- | Describes transactions as seen on chain. Holds as minimal information as
--- possible to simplify observing the chain.
-data OnChainTx tx
-  = OnInitTx {headId :: HeadId, contestationPeriod :: ContestationPeriod, parties :: [Party]}
-  | OnCommitTx {party :: Party, committed :: UTxOType tx}
-  | OnAbortTx
-  | OnCollectComTx
-  | OnCloseTx
-      { snapshotNumber :: SnapshotNumber
-      , contestationDeadline :: UTCTime
-      }
-  | OnContestTx {snapshotNumber :: SnapshotNumber}
-  | OnFanoutTx
-  deriving (Generic)
-
-deriving instance IsTx tx => Eq (OnChainTx tx)
-deriving instance IsTx tx => Show (OnChainTx tx)
-deriving instance IsTx tx => ToJSON (OnChainTx tx)
-deriving instance IsTx tx => FromJSON (OnChainTx tx)
-
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) where
-  arbitrary = genericArbitrary uniform
 
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
