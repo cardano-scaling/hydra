@@ -103,6 +103,7 @@ import Test.QuickCheck (
   classify,
   conjoin,
   counterexample,
+  cover,
   discard,
   forAll,
   forAllBlind,
@@ -116,7 +117,7 @@ import Test.QuickCheck (
   (===),
   (==>),
  )
-import Test.QuickCheck.Monadic (PropertyM, monadicST, pick)
+import Test.QuickCheck.Monadic (monadicST, pick)
 import qualified Prelude
 
 spec :: Spec
@@ -244,7 +245,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   let collectFails =
         propTransactionFailsEvaluation (txCollect, getKnownUTxO stInitial)
           & counterexample "collect passed, but others failed?"
-          & label "Collect failed"
+          & cover 10 True "collect failed already"
   let collectCloseAndFanoutPass =
         conjoin
           [ propTransactionEvaluates (txCollect, getKnownUTxO stInitial)
@@ -254,11 +255,10 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
           , propTransactionEvaluates (txFanout, getKnownUTxO stClosed)
               & counterexample "fanout failed"
           ]
-          & label "Collect, close and fanout pass"
+          & cover 10 True "collect, close and fanout passed"
   pure $
-    (collectFails .||. collectCloseAndFanoutPass)
-      & label ("UTxO size (bytes): " <> show (LBS.length $ serialize initialUTxO))
-      & label ("Number of parties: " <> show numParties)
+    checkCoverage
+      (collectFails .||. collectCloseAndFanoutPass)
 
 --
 -- Generic Properties
@@ -480,7 +480,7 @@ genByronCommit = do
 
 -- * Helpers
 
-mfail :: Monad m => Maybe a -> PropertyM m a
+mfail :: MonadFail m => Maybe a -> m a
 mfail = \case
-  Nothing -> fail "Nothing in PropertyM"
+  Nothing -> fail "encountered Nothing"
   Just a -> pure a
