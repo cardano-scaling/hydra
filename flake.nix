@@ -4,8 +4,6 @@
     haskellNix.url = "github:input-output-hk/haskell.nix";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     flake-utils.url = "github:numtide/flake-utils";
-    std.follows = "tullia/std";
-    tullia.url = github:input-output-hk/tullia;
     CHaP = {
       url = "github:input-output-hk/cardano-haskell-packages?ref=repo";
       flake = false;
@@ -14,66 +12,46 @@
 
   outputs =
     { self
-    , std
-    , tullia
     , flake-utils
     , nixpkgs
     , ...
     } @ inputs:
-    std.growOn
-      {
-        inherit inputs;
-        cellsFrom = ./nix;
-        cellBlocks = [
-          (std.functions "library")
-          (std.functions "hydraJobs")
-          (tullia.tasks "pipelines")
-          (std.functions "actions")
-        ];
-      }
-      (
-        tullia.fromStd {
-          actions = std.harvest self [ "cloud" "actions" ];
-          tasks = std.harvest self [ "automation" "pipelines" ];
-        }
-      )
-      (flake-utils.lib.eachSystem [
-        "x86_64-linux"
-        "x86_64-darwin"
-        "aarch64-darwin"
-      ]
-        (system:
-        let
-          pkgs = import inputs.nixpkgs { inherit system; };
-          hydraProject = import ./nix/hydra/project.nix {
-            inherit (inputs) haskellNix iohk-nix CHaP;
-            inherit system nixpkgs;
-          };
-          hydraPackages = import ./nix/hydra/packages.nix {
-            inherit hydraProject system;
-          };
-          hydraImages = import ./nix/hydra/docker.nix {
-            inherit hydraPackages system nixpkgs;
-          };
-        in
-        rec {
-          packages = hydraPackages // {
-            docker = hydraImages;
-          };
+    flake-utils.lib.eachSystem [
+      "x86_64-linux"
+      "x86_64-darwin"
+      "aarch64-darwin"
+    ]
+      (system:
+      let
+        pkgs = import inputs.nixpkgs { inherit system; };
+        hydraProject = import ./nix/hydra/project.nix {
+          inherit (inputs) haskellNix iohk-nix CHaP;
+          inherit system nixpkgs;
+        };
+        hydraPackages = import ./nix/hydra/packages.nix {
+          inherit hydraProject system;
+        };
+        hydraImages = import ./nix/hydra/docker.nix {
+          inherit hydraPackages system nixpkgs;
+        };
+      in
+      rec {
+        packages = hydraPackages // {
+          docker = hydraImages;
+        };
 
-          devShells = (import ./nix/hydra/shell.nix {
+        devShells = (import ./nix/hydra/shell.nix {
+          inherit hydraProject system;
+        }) // {
+          ci = (import ./nix/hydra/shell.nix {
             inherit hydraProject system;
-          }) // {
-            ci = (import ./nix/hydra/shell.nix {
-              inherit hydraProject system;
-              withoutDevTools = true;
-            }).default;
-          };
+            withoutDevTools = true;
+          }).default;
+        };
 
-          # Build all derivations in CI for caching
-          hydraJobs = { inherit packages devShells; };
-        })
-      );
+        # Build all derivations in CI for caching
+        hydraJobs = { inherit packages devShells; };
+      });
 
   nixConfig = {
     extra-substituters = [
