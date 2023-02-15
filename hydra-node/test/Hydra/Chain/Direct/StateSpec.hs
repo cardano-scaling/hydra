@@ -6,6 +6,7 @@
 module Hydra.Chain.Direct.StateSpec where
 
 import Hydra.Prelude hiding (label)
+import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
@@ -28,8 +29,10 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (
+  OnChainTx (..),
   PostTxError (..),
  )
+import Hydra.Chain.Direct.Contract.Mutation (propTransactionValidates)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState,
@@ -37,15 +40,19 @@ import Hydra.Chain.Direct.State (
   HydraContext (..),
   InitialState (..),
   abort,
+  close,
   closedThreadOutput,
+  collect,
   commit,
   ctxHeadParameters,
   ctxParties,
+  fanout,
   genChainStateWithTx,
   genCloseTx,
   genCollectComTx,
   genCommit,
   genCommits,
+  genCommits',
   genContestTx,
   genFanoutTx,
   genHydraContext,
@@ -55,6 +62,8 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialize,
   observeAbort,
+  observeClose,
+  observeCollect,
   observeCommit,
   observeInit,
   observeSomeTx,
@@ -67,27 +76,22 @@ import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
+  genUTxOAdaOnlyOfSize,
   genValue,
  )
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx',
+  genValidityBoundsFromContestationPeriod,
   maxTxExecutionUnits,
   maxTxSize,
   renderEvaluationReportFailures,
  )
+import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 import Hydra.Options (maximumNumberOfParties)
+import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
-import Test.Hydra.Prelude (
-  Spec,
-  SpecWith,
-  describe,
-  forAll2,
-  genericCoverTable,
-  parallel,
-  prop,
- )
 import Test.QuickCheck (
   Property,
   Testable (property),
@@ -107,6 +111,7 @@ import Test.QuickCheck (
   (===),
   (==>),
  )
+import Test.QuickCheck.Monadic (PropertyM, monadicST, pick)
 import qualified Prelude
 
 spec :: Spec
@@ -200,6 +205,47 @@ spec = parallel $ do
   describe "fanout" $ do
     propBelowSizeLimit maxTxSize forAllFanout
     propIsValid forAllFanout
+
+  describe "acceptance" $ do
+    it "can close & fanout every collected head" $ do
+      prop_canCloseFanoutEveryCollect
+
+-- * Properties
+
+prop_canCloseFanoutEveryCollect :: Property
+prop_canCloseFanoutEveryCollect = monadicST $ do
+  -- TODO: generate cases "at the limit"?
+  let numParties = 8
+  ctx@HydraContext{ctxContestationPeriod} <- pick $ genHydraContext numParties
+  cctx <- pick $ pickChainContext ctx
+  -- Init
+  txInit <- pick $ genInitTx ctx
+  -- Commits
+  commits <- pick $ genCommits' (genUTxOAdaOnlyOfSize 1) ctx txInit
+  let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
+  -- Collect
+  let initialUTxO = fold committed
+  let txCollect = collect cctx stInitial
+  stOpen <- mfail $ snd <$> observeCollect stInitial txCollect
+  -- Close
+  (closeLower, closeUpper) <- pick $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
+  let txClose = close cctx stOpen InitialSnapshot{initialUTxO} closeLower closeUpper
+  (deadline, stClosed) <- case observeClose stOpen txClose of
+    Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
+    _ -> fail "not observed close"
+  -- Fanout
+  let txFanout = fanout stClosed initialUTxO (Fixture.slotNoFromUTCTime deadline)
+  pure $
+    conjoin
+      [ propTransactionValidates (txCollect, getKnownUTxO stInitial)
+          & counterexample "collect failed"
+      , propTransactionValidates (txClose, getKnownUTxO stOpen)
+          & counterexample "close failed"
+      , propTransactionValidates (txFanout, getKnownUTxO stClosed)
+          & counterexample "fanout failed"
+      ]
+      & label ("UTxO size (bytes): " <> show (LBS.length $ serialize initialUTxO))
+      & label ("Number of parties: " <> show numParties)
 
 --
 -- Generic Properties
@@ -418,3 +464,10 @@ genByronCommit = do
   addr <- ByronAddressInEra <$> arbitrary
   value <- genValue
   pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone ReferenceScriptNone)
+
+-- * Helpers
+
+mfail :: Monad m => Maybe a -> PropertyM m a
+mfail = \case
+  Nothing -> fail "Nothing in PropertyM"
+  Just a -> pure a
