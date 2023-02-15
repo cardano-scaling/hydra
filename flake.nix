@@ -70,6 +70,8 @@
             }).default;
           };
 
+          # Build all derivations in CI for caching
+          hydraJobs = { inherit packages devShells; };
         })
       );
 
