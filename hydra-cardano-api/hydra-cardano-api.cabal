@@ -112,6 +112,7 @@ library
     Hydra.Cardano.Api.Value
     Hydra.Cardano.Api.VerificationKey
     Hydra.Cardano.Api.Witness
+    Hydra.Cardano.Builder
 
   -- NOTE: Constraints to make cardano-api 1.35.4 compile, most of these should
   -- be further upstream

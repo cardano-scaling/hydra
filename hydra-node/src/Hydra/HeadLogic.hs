@@ -20,10 +20,7 @@ import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import GHC.Records (getField)
-import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Chain (
-  ChainEvent (..),
+import Hydra.API.Chain (
   ChainSlot,
   ChainStateType,
   HeadId,
@@ -33,9 +30,10 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError,
  )
-import Hydra.ContestationPeriod
-import Hydra.Crypto (HydraKey, Signature, SigningKey, aggregateInOrder, sign, verify)
-import Hydra.Ledger (
+import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.API.ContestationPeriod (ContestationPeriod)
+import Hydra.API.Crypto (HydraKey, Signature, SigningKey, sign, verify)
+import Hydra.API.Ledger (
   IsTx,
   Ledger,
   UTxOType,
@@ -44,9 +42,13 @@ import Hydra.Ledger (
   applyTransactions,
   canApply,
  )
+import Hydra.API.Party (Party (vkey))
+import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.API.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (UnsafeSnapshotNumber))
+import Hydra.Chain (ChainEvent (..))
+import Hydra.Crypto (aggregateInOrder)
 import Hydra.Network.Message (Message (..))
-import Hydra.Party (Party (vkey))
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (UnsafeSnapshotNumber), getSnapshot)
+import Hydra.Snapshot (getSnapshot)
 
 -- * Types
 

@@ -21,6 +21,7 @@ import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServ
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
+import Hydra.Snapshot ()
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)

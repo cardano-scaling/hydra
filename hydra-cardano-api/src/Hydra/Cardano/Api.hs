@@ -97,7 +97,8 @@ import Cardano.Api.UTxO (
 import Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,
-  StandardCrypto, Map,
+  Map,
+  StandardCrypto,
  )
 
 import Hydra.Cardano.Api.Address ()
@@ -145,6 +146,7 @@ import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.Tx as Ledger hiding (TxBody)
+import Control.Monad ((<=<))
 import Data.ByteString.Short (ShortByteString)
 
 -- ** AddressInEra
@@ -702,3 +704,13 @@ pattern ScriptWitness scriptWitnessInCtx scriptWitness <-
   Cardano.Api.ScriptWitness scriptWitnessInCtx scriptWitness
   where
     ScriptWitness = Cardano.Api.ScriptWitness
+
+-- | Read some data wrapped in a `TextEnvelope` from a file.
+-- Throws an `
+readFileTextEnvelopeThrow ::
+  HasTextEnvelope a =>
+  AsType a ->
+  FilePath ->
+  IO a
+readFileTextEnvelopeThrow asType =
+  either (fail . show) pure <=< readFileTextEnvelope asType

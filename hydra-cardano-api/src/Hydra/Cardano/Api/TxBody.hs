@@ -13,11 +13,11 @@ import qualified Cardano.Ledger.Alonzo.Tx as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Hashes as Ledger
+import Data.List (find)
 import qualified Data.Map as Map
 import Data.Maybe.Strict (strictMaybeToMaybe)
 import GHC.Records (HasField (..))
 import qualified Plutus.V1.Ledger.Api as Plutus
-import Data.List (find)
 
 -- | Find and deserialise from 'ScriptData', a redeemer from the transaction
 -- associated to the given input.

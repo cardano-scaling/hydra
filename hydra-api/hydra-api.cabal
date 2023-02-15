@@ -1,14 +1,11 @@
-cabal-version: 2.2
-name:          hydra-tui
+cabal-version: 3.0
+name:          hydra-api
 version:       0.9.0
-synopsis:      TUI for managing a Hydra node
-description:   TUI for managing a Hydra node
+synopsis:      The Hydra Haskell API
 author:        IOG
-copyright:     2022 IOG
+copyright:     2023 IOG
 license:       Apache-2.0
-license-files:
-  LICENSE
-  NOTICE
+data-files:    json-schemas/api.yaml
 
 source-repository head
   type:     git
@@ -72,74 +69,56 @@ library
   import:          project-config
   hs-source-dirs:  src
   exposed-modules:
-    Hydra.Client
-    Hydra.TUI
-    Hydra.TUI.Options
+    Hydra.API.Chain
+    Hydra.API.ClientInput
+    Hydra.API.ContestationPeriod
+    Hydra.API.Crypto
+    Hydra.API.Ledger
+    Hydra.API.Network
+    Hydra.API.Party
+    Hydra.API.ServerOutput
+    Hydra.API.Snapshot
 
-  other-modules:   Paths_hydra_tui
   build-depends:
     , aeson
-    , async
+    , array
     , base
-    , brick
+    , base16-bytestring
+    , bech32
+    , bech32-th
+    , bytestring
+    , cardano-binary
     , cardano-crypto-class
-    , cardano-ledger-alonzo
-    , cardano-ledger-core
-    , cardano-ledger-shelley
-    , cardano-ledger-shelley-ma
+    , cborg
     , containers
-    , hydra-api
+    , contra-tracer
+    , data-default
+    , directory
+    , filepath
+    , formatting
+    , generic-random
+    , gitrev
+    , hedgehog-quickcheck
     , hydra-cardano-api
-    , hydra-node
-    , hydra-prelude
     , io-classes
-    , microlens
-    , microlens-th
+    , iproute
+    , memory
+    , network
     , optparse-applicative
+    , prometheus
     , QuickCheck
+    , quickcheck-instances
+    , req
+    , serialise
+    , small-steps
+    , stm
+    , strict-containers
     , text
     , time
-    , vty
+    , transformers
+    , typed-protocols        ==0.1.0.0
+    , typed-protocols-cborg  ==0.1.0.0
+    , unliftio
     , websockets
 
-executable hydra-tui
-  import:         project-config
-  hs-source-dirs: exe
-  main-is:        Main.hs
-  build-depends:
-    , base
-    , hydra-prelude
-    , hydra-tui
-    , optparse-applicative
-
-  ghc-options:    -threaded -rtsopts
-
-test-suite tests
-  import:             project-config
-  hs-source-dirs:     test
-  other-modules:
-    Hydra.TUI.OptionsSpec
-    Hydra.TUISpec
-    Spec
-
-  main-is:            Main.hs
-  type:               exitcode-stdio-1.0
-  build-depends:
-    , base
-    , blaze-builder
-    , bytestring
-    , hspec
-    , hydra-cardano-api
-    , hydra-cluster
-    , hydra-node
-    , hydra-prelude
-    , hydra-test-utils
-    , hydra-tui
-    , io-classes
-    , optparse-applicative
-    , temporary
-    , unix
-    , vty
-
-  build-tool-depends: hspec-discover:hspec-discover, hydra-node:hydra-node
-  ghc-options:        -threaded -rtsopts
+  ghc-options:     -haddock

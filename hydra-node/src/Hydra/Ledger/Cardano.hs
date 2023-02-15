@@ -3,7 +3,7 @@
 
 module Hydra.Ledger.Cardano (
   module Hydra.Ledger.Cardano,
-  module Hydra.Ledger.Cardano.Builder,
+  module Hydra.Cardano.Builder,
   Ledger.ShelleyGenesis (..),
   Tx,
 ) where
@@ -11,7 +11,7 @@ module Hydra.Ledger.Cardano (
 import Hydra.Prelude
 
 import Hydra.Cardano.Api hiding (initialLedgerState)
-import Hydra.Ledger.Cardano.Builder
+import Hydra.Cardano.Builder
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeAnnotator, serialize, serialize', unsafeDeserialize')

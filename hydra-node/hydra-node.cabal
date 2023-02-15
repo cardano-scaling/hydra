@@ -73,9 +73,7 @@ library
   import:          project-config
   hs-source-dirs:  src
   exposed-modules:
-    Hydra.API.ClientInput
     Hydra.API.Server
-    Hydra.API.ServerOutput
     Hydra.Chain
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
@@ -91,7 +89,6 @@ library
     Hydra.HeadLogic
     Hydra.Ledger
     Hydra.Ledger.Cardano
-    Hydra.Ledger.Cardano.Builder
     Hydra.Ledger.Cardano.Configuration
     Hydra.Ledger.Cardano.Evaluate
     Hydra.Ledger.Cardano.Json
@@ -147,6 +144,7 @@ library
     , formatting
     , gitrev
     , hedgehog-quickcheck
+    , hydra-api
     , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
@@ -331,6 +329,7 @@ test-suite tests
     , hspec-core
     , hspec-golden-aeson
     , HUnit
+    , hydra-api
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
@@ -366,5 +365,5 @@ test-suite tests
     , websockets
     , yaml
 
-  build-tool-depends: hspec-discover:hspec-discover -any
+  build-tool-depends: hspec-discover:hspec-discover
   ghc-options:        -threaded -rtsopts

@@ -1,10 +1,11 @@
 -- | A concise interface for building transactions, built on top of the
 -- cardano-api.
-module Hydra.Ledger.Cardano.Builder where
+module Hydra.Cardano.Builder where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude
 
+import Control.Exception (Exception, throw)
+import Data.Bifunctor (first, second)
 import Data.Default (def)
 import qualified Data.Map as Map
 
@@ -21,10 +22,10 @@ type TxBuilder = TxBodyContent BuildTx
 --
 -- We use the builder only internally for on-chain transaction crafted in the
 -- context of Hydra.
-unsafeBuildTransaction :: HasCallStack => TxBuilder -> Tx
+unsafeBuildTransaction :: TxBuilder -> Tx
 unsafeBuildTransaction builder =
   either
-    (\txBodyError -> bug $ InvalidTransactionException{txBodyError, builder})
+    (\txBodyError -> throw $ InvalidTransactionException{txBodyError, builder})
     (`Tx` mempty)
     . makeTransactionBody
     $ builder

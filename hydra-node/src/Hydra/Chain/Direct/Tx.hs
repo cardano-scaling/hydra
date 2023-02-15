@@ -17,6 +17,18 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
+import Hydra.Cardano.Builder (
+  addExtraRequiredSigners,
+  addInputs,
+  addOutputs,
+  addVkInputs,
+  burnTokens,
+  emptyTxBody,
+  mintTokens,
+  setValidityLowerBound,
+  setValidityUpperBound,
+  unsafeBuildTransaction,
+ )
 import Hydra.Chain (HeadId (..), HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -34,18 +46,6 @@ import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (addReferenceInputs)
-import Hydra.Ledger.Cardano.Builder (
-  addExtraRequiredSigners,
-  addInputs,
-  addOutputs,
-  addVkInputs,
-  burnTokens,
-  emptyTxBody,
-  mintTokens,
-  setValidityLowerBound,
-  setValidityUpperBound,
-  unsafeBuildTransaction,
- )
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import Plutus.Orphans ()

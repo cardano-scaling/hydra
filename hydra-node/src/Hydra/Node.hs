@@ -37,9 +37,8 @@ import Control.Monad.Class.MonadSTM (
   writeTQueue,
  )
 import Hydra.API.Server (Server, sendOutput)
-import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
+import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), readFileTextEnvelopeThrow)
 import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (..), ChainStateType, IsChainState, PostTxError)
-import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
   Effect (..),

@@ -6,12 +6,17 @@ import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import Hydra.API.ClientInput (ClientInput (GetUTxO, NewTx))
+import Hydra.API.Network (Host (..))
 import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse))
 import Hydra.Cardano.Api
+import Hydra.Cardano.Builder (emptyTxBody)
+
+-- provides the IsChainState instance
 import Hydra.Chain.Direct.State ()
-import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.Ledger.Cardano (emptyTxBody)
-import Hydra.Network (Host (..))
+
+-- provides the IsTx instance
+import Hydra.Ledger.Cardano ()
+
 import Hydra.Prelude
 import Network.WebSockets (
   Connection,

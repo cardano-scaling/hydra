@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.API.Server (
   Server (..),
@@ -17,12 +18,12 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
+import Hydra.API.Chain (IsChainState)
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.Party (Party)
 import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..))
-import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
-import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.WebSockets (
   acceptRequest,

@@ -6,7 +6,7 @@ import Hydra.Cardano.Api (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
  )
-import Hydra.Network (Host (Host))
+import Hydra.API.Network (Host (Host))
 import Options.Applicative (
   Parser,
   auto,

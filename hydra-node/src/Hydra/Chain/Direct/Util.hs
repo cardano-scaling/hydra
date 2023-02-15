@@ -129,14 +129,6 @@ readKeyPair keyPath = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) keyPath
   pure (getVerificationKey sk, sk)
 
-readFileTextEnvelopeThrow ::
-  HasTextEnvelope a =>
-  AsType a ->
-  FilePath ->
-  IO a
-readFileTextEnvelopeThrow asType =
-  either (fail . show) pure <=< readFileTextEnvelope asType
-
 readVerificationKey :: FilePath -> IO (Shelley.VerificationKey PaymentKey)
 readVerificationKey = readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey)
 

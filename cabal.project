@@ -21,6 +21,7 @@ index-state:
   , cardano-haskell-packages 2022-11-11T00:00:00Z
 
 packages:
+  hydra-api
   hydra-cluster
   hydra-node
   hydra-plutus
@@ -37,6 +38,9 @@ package *
   ghc-options: -j8
 
 tests: False
+
+package hydra-api
+  tests: True
 
 package hydra-cluster
   tests: True

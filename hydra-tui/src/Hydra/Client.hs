@@ -9,14 +9,14 @@ import Control.Exception (Handler (Handler), IOException, catches)
 import Control.Monad.Class.MonadSTM (newTBQueueIO, readTBQueue, writeTBQueue)
 import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.Network (Host (Host, hostname, port))
 import Hydra.API.ServerOutput (ServerOutput)
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey, AsSigningKey),
   PaymentKey,
   SigningKey,
+  readFileTextEnvelopeThrow
  )
-import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.Network (Host (Host, hostname, port))
 import Hydra.TUI.Options (Options (..))
 import Network.WebSockets (ConnectionException, receiveData, runClient, sendBinaryData)
 

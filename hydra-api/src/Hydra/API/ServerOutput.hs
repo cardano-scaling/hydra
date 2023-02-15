@@ -2,16 +2,25 @@
 
 module Hydra.API.ServerOutput where
 
-import Data.Aeson (Value (..), withObject, (.:))
+import Prelude hiding (seq)
+
+import Cardano.Crypto.Util (SignableRepresentation)
+import Control.Monad.Class.MonadTime (UTCTime)
+import Data.Aeson (FromJSON (..), ToJSON (..), Value (..), withObject, (.:))
 import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Set (Set)
+import Data.Text (Text)
+import GHC.Generics (Generic)
+import Generic.Random (genericArbitrary, uniform)
+import Hydra.API.Chain (ChainStateType, HeadId, IsChainState, PostChainTx, PostTxError)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx, PostTxError)
-import Hydra.Crypto (MultiSignature)
-import Hydra.Ledger (IsTx, UTxOType, ValidationError)
-import Hydra.Network (NodeId)
-import Hydra.Party (Party)
-import Hydra.Prelude hiding (seq)
-import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Hydra.API.Crypto (MultiSignature)
+import Hydra.API.Ledger (IsTx, UTxOType, ValidationError)
+import Hydra.API.Network (NodeId)
+import Hydra.API.Party (Party)
+import Hydra.API.Snapshot (Snapshot, SnapshotNumber)
+import Numeric.Natural (Natural)
+import Test.QuickCheck (Arbitrary (..))
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -22,7 +31,7 @@ data TimedServerOutput tx = TimedServerOutput
   deriving stock (Eq, Show, Generic)
 
 instance Arbitrary (ServerOutput tx) => Arbitrary (TimedServerOutput tx) where
-  arbitrary = genericArbitrary
+  arbitrary = genericArbitrary uniform
 
 instance (ToJSON tx, IsChainState tx) => ToJSON (TimedServerOutput tx) where
   toJSON TimedServerOutput{output, seq, time} =
@@ -85,10 +94,11 @@ deriving instance (IsTx tx, IsChainState tx) => FromJSON (ServerOutput tx)
 instance
   ( IsTx tx
   , Arbitrary (ChainStateType tx)
+  , SignableRepresentation (Snapshot tx)
   ) =>
   Arbitrary (ServerOutput tx)
   where
-  arbitrary = genericArbitrary
+  arbitrary = genericArbitrary uniform
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
   shrink = \case
