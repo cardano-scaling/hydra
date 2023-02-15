@@ -32,7 +32,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostTxError (..),
  )
-import Hydra.Chain.Direct.Contract.Mutation (propTransactionValidates)
+import Hydra.Chain.Direct.Contract.Mutation (propTransactionEvaluates, propTransactionFailsEvaluation, propTransactionFailsPhase2)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState,
@@ -267,7 +267,7 @@ propBelowSizeLimit txSizeLimit forAllTx =
  where
   showKB nb = show (nb `div` 1024) <> "kB"
 
--- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionValidates?
+-- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionEvaluates?
 propIsValid ::
   ((UTxO -> Tx -> Property) -> Property) ->
   SpecWith ()
