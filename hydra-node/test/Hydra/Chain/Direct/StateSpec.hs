@@ -280,23 +280,12 @@ propBelowSizeLimit txSizeLimit forAllTx =
  where
   showKB nb = show (nb `div` 1024) <> "kB"
 
--- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionEvaluates?
 propIsValid ::
   ((UTxO -> Tx -> Property) -> Property) ->
   SpecWith ()
 propIsValid forAllTx =
   prop "validates within maxTxExecutionUnits" $
-    forAllTx $ \utxo tx -> do
-      case evaluateTx' maxTxExecutionUnits tx utxo of
-        Left validityError ->
-          property False
-            & counterexample ("Tx: " <> renderTxWithUTxO utxo tx)
-            & counterexample ("Evaluation failed: " <> show validityError)
-        Right evaluationReport ->
-          all isRight (Map.elems evaluationReport)
-            & counterexample ("Tx: " <> renderTxWithUTxO utxo tx)
-            & counterexample (toString $ "Failures: " <> renderEvaluationReportFailures evaluationReport)
-            & counterexample "Phase-2 validation failed"
+    forAllTx $ \utxo tx -> propTransactionEvaluates (tx, utxo)
 
 --
 -- QuickCheck Extras
