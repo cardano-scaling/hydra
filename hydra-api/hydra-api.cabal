@@ -5,7 +5,6 @@ synopsis:      The Hydra Haskell API
 author:        IOG
 copyright:     2023 IOG
 license:       Apache-2.0
-data-files:    json-schemas/api.yaml
 
 source-repository head
   type:     git
@@ -115,8 +114,8 @@ library
     , text
     , time
     , transformers
-    , typed-protocols        >= 0.1 && < 0.2
-    , typed-protocols-cborg  >= 0.1 && < 0.2
+    , typed-protocols        ^>=0.1
+    , typed-protocols-cborg  ^>=0.1
     , unliftio
     , websockets
 
