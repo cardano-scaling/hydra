@@ -79,44 +79,21 @@ library
 
   build-depends:
     , aeson
-    , array
     , base
     , base16-bytestring
-    , bech32
-    , bech32-th
     , bytestring
     , cardano-binary
     , cardano-crypto-class
-    , cborg
     , containers
-    , contra-tracer
-    , data-default
-    , directory
-    , filepath
-    , formatting
     , generic-random
-    , gitrev
-    , hedgehog-quickcheck
     , hydra-cardano-api
     , io-classes
     , iproute
-    , memory
     , network
-    , optparse-applicative
-    , prometheus
     , QuickCheck
     , quickcheck-instances
-    , req
     , serialise
-    , small-steps
-    , stm
-    , strict-containers
     , text
     , time
-    , transformers
-    , typed-protocols        ^>=0.1
-    , typed-protocols-cborg  ^>=0.1
-    , unliftio
-    , websockets
 
   ghc-options:     -haddock
