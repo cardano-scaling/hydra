@@ -1,5 +1,9 @@
 <!-- Describe your change here -->
 
-To check before merging:
-* [ ] CHANGELOG is up to date
-* [ ] Up to date with master
+---
+
+<!-- Tick off or strike-through / remove if not applicable -->
+* [ ] CHANGELOG updated
+* [ ] Documentation updated
+* [ ] Added and/or updated haddocks
+* [ ] No new TODOs introduced or explained herafter
