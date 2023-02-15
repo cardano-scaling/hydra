@@ -32,7 +32,10 @@ import Hydra.Chain (
   OnChainTx (..),
   PostTxError (..),
  )
-import Hydra.Chain.Direct.Contract.Mutation (propTransactionEvaluates, propTransactionFailsEvaluation, propTransactionFailsPhase2)
+import Hydra.Chain.Direct.Contract.Mutation (
+  propTransactionEvaluates,
+  propTransactionFailsEvaluation,
+ )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState,
@@ -96,6 +99,7 @@ import Test.QuickCheck (
   Property,
   Testable (property),
   checkCoverage,
+  choose,
   classify,
   conjoin,
   counterexample,
@@ -107,6 +111,7 @@ import Test.QuickCheck (
   sized,
   sublistOf,
   tabulate,
+  (.||.),
   (=/=),
   (===),
   (==>),
@@ -214,8 +219,7 @@ spec = parallel $ do
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
-  -- TODO: generate cases "at the limit"?
-  let numParties = 8
+  numParties <- pick $ choose (1, 20)
   ctx@HydraContext{ctxContestationPeriod} <- pick $ genHydraContext numParties
   cctx <- pick $ pickChainContext ctx
   -- Init
@@ -235,15 +239,24 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
     _ -> fail "not observed close"
   -- Fanout
   let txFanout = fanout stClosed initialUTxO (Fixture.slotNoFromUTCTime deadline)
+
+  -- Properties
+  let collectFails =
+        propTransactionFailsEvaluation (txCollect, getKnownUTxO stInitial)
+          & counterexample "collect passed, but others failed?"
+          & label "Collect failed"
+  let collectCloseAndFanoutPass =
+        conjoin
+          [ propTransactionEvaluates (txCollect, getKnownUTxO stInitial)
+              & counterexample "collect failed"
+          , propTransactionEvaluates (txClose, getKnownUTxO stOpen)
+              & counterexample "close failed"
+          , propTransactionEvaluates (txFanout, getKnownUTxO stClosed)
+              & counterexample "fanout failed"
+          ]
+          & label "Collect, close and fanout pass"
   pure $
-    conjoin
-      [ propTransactionValidates (txCollect, getKnownUTxO stInitial)
-          & counterexample "collect failed"
-      , propTransactionValidates (txClose, getKnownUTxO stOpen)
-          & counterexample "close failed"
-      , propTransactionValidates (txFanout, getKnownUTxO stClosed)
-          & counterexample "fanout failed"
-      ]
+    (collectFails .||. collectCloseAndFanoutPass)
       & label ("UTxO size (bytes): " <> show (LBS.length $ serialize initialUTxO))
       & label ("Number of parties: " <> show numParties)
 
