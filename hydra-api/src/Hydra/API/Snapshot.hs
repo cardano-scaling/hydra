@@ -3,8 +3,6 @@
 
 module Hydra.API.Snapshot where
 
-import Prelude
-
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Crypto.Util (SignableRepresentation)
 import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))

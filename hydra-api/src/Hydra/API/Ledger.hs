@@ -2,8 +2,6 @@
 
 module Hydra.API.Ledger where
 
-import Prelude
-
 import Cardano.Binary (FromCBOR, ToCBOR)
 import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.ByteString (ByteString)

@@ -1,7 +1,5 @@
 module Hydra.API.ContestationPeriod where
 
-import Prelude
-
 import Control.Monad.Class.MonadTime (NominalDiffTime)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Time (secondsToNominalDiffTime)

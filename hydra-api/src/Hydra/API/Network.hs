@@ -2,8 +2,6 @@
 
 module Hydra.API.Network where
 
-import Prelude
-
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
 import Data.IP (toIPv4w)

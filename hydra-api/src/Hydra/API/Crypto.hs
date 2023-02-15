@@ -1,7 +1,5 @@
 module Hydra.API.Crypto where
 
-import Prelude
-
 import Cardano.Binary (FromCBOR, ToCBOR)
 import Cardano.Crypto.DSIGN (
   ContextDSIGN,

@@ -12,8 +12,6 @@
 -- of the transaction.
 module Hydra.API.Chain where
 
-import Prelude
-
 import Cardano.Crypto.Util (SignableRepresentation)
 import Control.Exception (Exception)
 import Control.Monad.Class.MonadTime (UTCTime)

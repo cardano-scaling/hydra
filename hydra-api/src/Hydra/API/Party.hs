@@ -1,8 +1,6 @@
 -- | A `Party` uniquely identifies a participant in a Hydra Head protocol.
 module Hydra.API.Party where
 
-import Prelude
-
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Data.Aeson (FromJSON, ToJSON, ToJSONKey)
 import Data.Aeson.Types (FromJSONKey)

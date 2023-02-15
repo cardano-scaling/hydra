@@ -2,8 +2,6 @@
 
 module Hydra.API.ClientInput where
 
-import Prelude
-
 import Data.Aeson (FromJSON (..), ToJSON (..))
 import GHC.Generics (Generic)
 import Generic.Random (genericArbitrary, uniform)
