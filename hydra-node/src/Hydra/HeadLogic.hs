@@ -475,32 +475,32 @@ onInitialChainAbortTx newChainState committed headId =
 --
 -- __Transition__: 'InitialState' → 'OpenState'
 onInitialChainCollectTx ::
-  (Foldable t, Monoid (UTxOType tx)) =>
-  -- | Current head state; recorded as previous recoverable state
-  HeadState tx ->
+  (Monoid (UTxOType tx)) =>
+  InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
-  HeadParameters ->
-  t (UTxOType tx) ->
-  HeadId ->
   Outcome tx
-onInitialChainCollectTx headState newChainState parameters committed headId =
-  -- TODO: We would want to check whether this even matches our local state.
-  -- For example, we do expect `null remainingParties` but what happens if
-  -- it's untrue?
-  let u0 = fold committed
-      initialSnapshot = InitialSnapshot u0
-   in NewState
-        ( OpenState
-            { parameters
-            , coordinatedHeadState =
-                CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
-            , previousRecoverableState = headState
-            , chainState = newChainState
-            , headId
-            }
-        )
-        [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
+onInitialChainCollectTx st newChainState =
+  NewState
+    ( OpenState
+        { parameters
+        , coordinatedHeadState =
+            CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
+        , previousRecoverableState = Initial st
+        , chainState = newChainState
+        , headId
+        }
+    )
+    [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
+ where
+  u0 = fold committed
+
+  initialSnapshot = InitialSnapshot u0
+
+  -- TODO: Do we want to check whether this even matches our local state? For
+  -- example, we do expect `null remainingParties` but what happens if it's
+  -- untrue?
+  InitialState{parameters, committed, headId} = st
 
 -- ** Off-chain protocol
 
@@ -944,18 +944,16 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
   -- Initial
   (Initial idleState, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit env idleState clientInput
-  ( Initial initialState
-    , OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}
-    ) ->
-      onInitialChainCommitTx env initialState newChainState pt utxo
-  (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
-    OnlyEffects [ClientEffect $ GetUTxOResponse headId (mconcat $ Map.elems committed)]
+  (Initial initialState, OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}) ->
+    onInitialChainCommitTx env initialState newChainState pt utxo
   (Initial initialState, ClientEvent Abort) ->
     onInitialClientAbort initialState
-  (Initial InitialState{parameters, committed, headId}, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState}) ->
-    onInitialChainCollectTx st newChainState parameters committed headId
+  (Initial initialState, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState}) ->
+    onInitialChainCollectTx initialState newChainState
   (Initial InitialState{headId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
     onInitialChainAbortTx newChainState committed headId
+  (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
+    OnlyEffects [ClientEffect . GetUTxOResponse headId $ fold committed]
   -- Open
   (OpenState{chainState, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     onOpenClientClose chainState confirmedSnapshot
