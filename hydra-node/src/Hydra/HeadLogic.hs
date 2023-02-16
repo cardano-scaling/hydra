@@ -397,45 +397,48 @@ onInitialClientCommit env st clientInput =
 -- __Transition__: 'InitialState' → 'InitialState'
 onInitialChainCommitTx ::
   Monoid (UTxOType tx) =>
-  -- | Current head state; recorded as previous recoverable state
-  HeadState tx ->
+  Environment ->
+  InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
-  -- | Us
-  Party ->
-  HeadParameters ->
-  PendingCommits ->
-  Committed tx ->
   -- | Comitting party
   Party ->
   -- | Committed UTxO
   UTxOType tx ->
-  HeadId ->
   Outcome tx
-onInitialChainCommitTx headState newChainState party parameters pendingCommits committed pt utxo headId =
-  NewState newHeadState $
-    [ClientEffect $ Committed headId pt utxo]
-      <> [ OnChainEffect
-          { chainState = newChainState
-          , postChainTx = CollectComTx collectedUTxO
-          }
-         | canCollectCom
-         ]
+onInitialChainCommitTx env st newChainState pt utxo =
+  NewState newState $
+    notifyClient :
+      [postCollectCom | canCollectCom]
  where
-  newHeadState =
+  newState =
     Initial
       InitialState
         { parameters
         , pendingCommits = remainingParties
         , committed = newCommitted
-        , previousRecoverableState = headState
+        , previousRecoverableState = Initial st
         , chainState = newChainState
         , headId
         }
-  remainingParties = Set.delete pt pendingCommits
+
   newCommitted = Map.insert pt utxo committed
-  canCollectCom = null remainingParties && pt == party
-  collectedUTxO = mconcat $ Map.elems newCommitted
+
+  notifyClient = ClientEffect $ Committed headId pt utxo
+
+  postCollectCom =
+    OnChainEffect
+      { chainState = newChainState
+      , postChainTx = CollectComTx $ fold newCommitted
+      }
+
+  canCollectCom = null remainingParties && pt == us
+
+  remainingParties = Set.delete pt pendingCommits
+
+  InitialState{parameters, pendingCommits, committed, headId} = st
+
+  Environment{party = us} = env
 
 -- | Client request to abort the head. This leads to an abort transaction on
 -- chain, reimbursing already committed UTxOs.
@@ -940,10 +943,10 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
     onIdleChainInitTx idleState newChainState parties contestationPeriod headId
   (Initial idleState, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit env idleState clientInput
-  ( Initial InitialState{parameters, pendingCommits, committed, headId}
+  ( Initial initialState
     , OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}
     ) ->
-      onInitialChainCommitTx st newChainState party parameters pendingCommits committed pt utxo headId
+      onInitialChainCommitTx env initialState newChainState pt utxo
   (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect $ GetUTxOResponse headId (mconcat $ Map.elems committed)]
   (Initial InitialState{chainState, committed}, ClientEvent Abort) ->
