@@ -772,59 +772,50 @@ onOpenClientClose st =
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
-  HeadParameters ->
-  -- | Current head state; recorded as previous recoverable state
-  HeadState tx ->
-  -- | New chain state
+  OpenState tx ->
+  -- | New chain state.
   ChainStateType tx ->
-  -- | The offchain coordinated head state
-  CoordinatedHeadState tx ->
+  -- | Closed snapshot number.
   SnapshotNumber ->
+  -- | Contestation deadline.
   UTCTime ->
-  HeadId ->
   Outcome tx
-onOpenChainCloseTx
-  parameters
-  headState
-  newChainState
-  coordinatedHeadState
-  closedSnapshotNumber
-  contestationDeadline
-  headId =
-    -- TODO(2): In principle here, we want to:
-    --
-    --   a) Warn the user about a close tx outside of an open state
-    --   b) Move to close state, using information from the close tx
-    NewState closedState $
-      ClientEffect headIsClosed :
-        [ OnChainEffect
-          { -- XXX: Field access on sum-type.
-            chainState = getField @"chainState" headState
-          , postChainTx = ContestTx{confirmedSnapshot}
-          }
-        | onChainEffectCondition
-        ]
-   where
-    CoordinatedHeadState{confirmedSnapshot} =
-      coordinatedHeadState
-    closedState =
-      ClosedState
-        { parameters
-        , confirmedSnapshot
-        , contestationDeadline
-        , readyToFanoutSent = False
-        , previousRecoverableState = headState
-        , chainState = newChainState
-        , headId
+onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
+  NewState closedState $
+    notifyClient :
+      [ OnChainEffect
+        { -- REVIEW: Was using "old" chainState before
+          chainState = newChainState
+        , postChainTx = ContestTx{confirmedSnapshot}
         }
-    headIsClosed =
+      | doContest
+      ]
+ where
+  doContest =
+    number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
+
+  closedState =
+    ClosedState
+      { parameters
+      , confirmedSnapshot
+      , contestationDeadline
+      , readyToFanoutSent = False
+      , previousRecoverableState = Open openState
+      , chainState = newChainState
+      , headId
+      }
+
+  notifyClient =
+    ClientEffect $
       HeadIsClosed
         { headId
         , snapshotNumber = closedSnapshotNumber
         , contestationDeadline
         }
-    onChainEffectCondition =
-      number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
+
+  CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+
+  OpenState{parameters, headId, coordinatedHeadState} = openState
 
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
@@ -954,10 +945,10 @@ update env ledger st ev = case (st, ev) of
     onOpenNetworkReqSn env ledger openState otherParty sn txs ev
   (Open openState, NetworkEvent _ (AckSn otherParty snapshotSignature sn)) ->
     onOpenNetworkAckSn openState otherParty snapshotSignature sn
-  ( Open OpenState{parameters, coordinatedHeadState, headId}
+  ( Open openState
     , OnChainEvent Observation{observedTx = OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     ) ->
-      onOpenChainCloseTx parameters st newChainState coordinatedHeadState closedSnapshotNumber contestationDeadline headId
+      onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect . GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   -- Closed
