@@ -34,11 +34,14 @@
         hydraImages = import ./nix/hydra/docker.nix {
           inherit hydraPackages system nixpkgs;
         };
+        prefixAttrs = s: attrs:
+          with pkgs.lib.attrsets;
+          mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
       in
       rec {
-        packages = hydraPackages // {
-          docker = hydraImages;
-        };
+        packages =
+          hydraPackages //
+          prefixAttrs "docker-" hydraImages;
 
         devShells = (import ./nix/hydra/shell.nix {
           inherit hydraProject system;
