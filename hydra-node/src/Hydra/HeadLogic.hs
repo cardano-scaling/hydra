@@ -861,22 +861,20 @@ onClosedChainContestTx closedState snapshotNumber
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedClientFanout ::
-  -- | Current chain state
-  ChainStateType tx ->
-  ConfirmedSnapshot tx ->
-  UTCTime ->
+  ClosedState tx ->
   Outcome tx
-onClosedClientFanout chainState confirmedSnapshot contestationDeadline =
+onClosedClientFanout closedState =
   OnlyEffects
     [ OnChainEffect
         { chainState
         , postChainTx =
-            FanoutTx
-              { utxo = getField @"utxo" $ getSnapshot confirmedSnapshot
-              , contestationDeadline
-              }
+            FanoutTx{utxo, contestationDeadline}
         }
     ]
+ where
+  Snapshot{utxo} = getSnapshot confirmedSnapshot
+
+  ClosedState{chainState, confirmedSnapshot, contestationDeadline} = closedState
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.
@@ -974,8 +972,8 @@ update env ledger st ev = case (st, ev) of
       NewState
         (Closed cst{readyToFanoutSent = True})
         [ClientEffect $ ReadyToFanout headId]
-  (Closed ClosedState{chainState, confirmedSnapshot, contestationDeadline}, ClientEvent Fanout) ->
-    onClosedClientFanout chainState confirmedSnapshot contestationDeadline
+  (Closed closedState, ClientEvent Fanout) ->
+    onClosedClientFanout closedState
   (Closed ClosedState{confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
     onClosedChainFanoutTx newChainState confirmedSnapshot headId
   -- General
