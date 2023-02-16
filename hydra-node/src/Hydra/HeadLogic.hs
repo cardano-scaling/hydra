@@ -791,12 +791,14 @@ onOpenNetworkAckSn
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientClose ::
-  -- | Current chain state
-  ChainStateType tx ->
-  ConfirmedSnapshot tx ->
+  OpenState tx ->
   Outcome tx
-onOpenClientClose chainState confirmedSnapshot =
+onOpenClientClose st =
   OnlyEffects [OnChainEffect{chainState, postChainTx = CloseTx confirmedSnapshot}]
+ where
+  CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+
+  OpenState{chainState, coordinatedHeadState} = st
 
 -- | Observe a close transaction. If the closed snapshot number is smaller than
 -- our last confirmed, we post a contest transaction. Also, we do schedule a
@@ -973,10 +975,8 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
   (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect . GetUTxOResponse headId $ fold committed]
   -- Open
-  (Open OpenState{chainState, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
-    onOpenClientClose chainState confirmedSnapshot
-  (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
-    OnlyEffects [ClientEffect . GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+  (Open openState, ClientEvent Close) ->
+    onOpenClientClose openState
   ( Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}, headId}
     , ClientEvent (NewTx tx)
     ) ->
@@ -1018,6 +1018,9 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
     , OnChainEvent Observation{observedTx = OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     ) ->
       onOpenChainCloseTx parameters st newChainState coordinatedHeadState closedSnapshotNumber contestationDeadline headId
+  (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
+    OnlyEffects [ClientEffect . GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+  -- Closed
   (ClosedState{chainState, confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
     onClosedChainContestTx chainState confirmedSnapshot snapshotNumber headId
   (cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime))
@@ -1031,6 +1034,7 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
     onClosedClientFanout chainState confirmedSnapshot contestationDeadline
   (ClosedState{confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
     onClosedChainFanoutTx newChainState confirmedSnapshot headId
+  -- General
   (currentState, OnChainEvent (Rollback slot)) ->
     onCurrentChainRollback currentState slot
   (_, OnChainEvent Tick{}) ->
