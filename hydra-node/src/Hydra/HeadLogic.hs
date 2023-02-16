@@ -129,13 +129,7 @@ instance
 data HeadState tx
   = Idle (IdleState tx)
   | Initial (InitialState tx)
-  | OpenState
-      { parameters :: HeadParameters
-      , coordinatedHeadState :: CoordinatedHeadState tx
-      , previousRecoverableState :: HeadState tx
-      , chainState :: ChainStateType tx
-      , headId :: HeadId
-      }
+  | Open (OpenState tx)
   | ClosedState
       { parameters :: HeadParameters
       , confirmedSnapshot :: ConfirmedSnapshot tx
@@ -162,7 +156,7 @@ getChainState :: HeadState tx -> ChainStateType tx
 getChainState = \case
   Idle IdleState{chainState} -> chainState
   Initial InitialState{chainState} -> chainState
-  OpenState{chainState} -> chainState
+  Open OpenState{chainState} -> chainState
   ClosedState{chainState} -> chainState
 
 -- | Update the chain state in any 'HeadState'.
@@ -170,7 +164,7 @@ setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
 setChainState chainState = \case
   Idle st -> Idle st{chainState}
   Initial st -> Initial st{chainState}
-  st@OpenState{} -> st{chainState}
+  Open st -> Open st{chainState}
   st@ClosedState{} -> st{chainState}
 
 -- ** Idle
@@ -214,6 +208,25 @@ type Committed tx = Map Party (UTxOType tx)
 
 -- ** Open
 
+-- | An 'Open' head with a 'CoordinatedHeadState' tracking off-chain
+-- transactions.
+data OpenState tx = OpenState
+  { parameters :: HeadParameters
+  , coordinatedHeadState :: CoordinatedHeadState tx
+  , previousRecoverableState :: HeadState tx
+  , chainState :: ChainStateType tx
+  , headId :: HeadId
+  }
+  deriving (Generic)
+
+deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (OpenState tx)
+deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (OpenState tx)
+deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (OpenState tx)
+deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (OpenState tx)
+
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) where
+  arbitrary = genericArbitrary
+
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
   { -- | The latest UTxO of the "seen ledger".
@@ -227,13 +240,13 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   }
   deriving stock (Generic)
 
-instance IsTx tx => Arbitrary (CoordinatedHeadState tx) where
-  arbitrary = genericArbitrary
-
 deriving instance IsTx tx => Eq (CoordinatedHeadState tx)
 deriving instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving instance IsTx tx => FromJSON (CoordinatedHeadState tx)
+
+instance IsTx tx => Arbitrary (CoordinatedHeadState tx) where
+  arbitrary = genericArbitrary
 
 -- | Data structure to help in tracking whether we are currently collecting
 -- signatures for a snapshot.
@@ -482,14 +495,15 @@ onInitialChainCollectTx ::
   Outcome tx
 onInitialChainCollectTx st newChainState =
   NewState
-    ( OpenState
-        { parameters
-        , coordinatedHeadState =
-            CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
-        , previousRecoverableState = Initial st
-        , chainState = newChainState
-        , headId
-        }
+    ( Open
+        OpenState
+          { parameters
+          , coordinatedHeadState =
+              CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
+          , previousRecoverableState = Initial st
+          , chainState = newChainState
+          , headId
+          }
     )
     [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
  where
@@ -557,21 +571,22 @@ onOpenNetworkReqTx ledger parameters previousRecoverableState chainState headSta
     Right utxo' ->
       let newSeenTxs = seenTxs <> [tx]
        in NewState
-            ( OpenState
-                { parameters
-                , coordinatedHeadState =
-                    headState
-                      { seenTxs = newSeenTxs
-                      , -- FIXME: This is never reset otherwise. For example if
-                        -- some other party was not up for some txs, but is up
-                        -- again later and we would not agree with them on the
-                        -- seen ledger.
-                        seenUTxO = utxo'
-                      }
-                , previousRecoverableState
-                , chainState
-                , headId
-                }
+            ( Open
+                OpenState
+                  { parameters
+                  , coordinatedHeadState =
+                      headState
+                        { seenTxs = newSeenTxs
+                        , -- FIXME: This is never reset otherwise. For example if
+                          -- some other party was not up for some txs, but is up
+                          -- again later and we would not agree with them on the
+                          -- seen ledger.
+                          seenUTxO = utxo'
+                        }
+                  , previousRecoverableState
+                  , chainState
+                  , headId
+                  }
             )
             [ClientEffect $ TxSeen headId tx]
 
@@ -647,13 +662,14 @@ onOpenNetworkReqSn
           let nextSnapshot = Snapshot sn u txs
               snapshotSignature = sign signingKey nextSnapshot
            in NewState
-                ( OpenState
-                    { parameters
-                    , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
-                    , previousRecoverableState
-                    , chainState
-                    , headId
-                    }
+                ( Open
+                    OpenState
+                      { parameters
+                      , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
+                      , previousRecoverableState
+                      , chainState
+                      , headId
+                      }
                 )
                 [NetworkEffect $ AckSn party snapshotSignature sn]
     | sn > (number . getSnapshot) confirmedSnapshot
@@ -733,36 +749,38 @@ onOpenNetworkAckSn
            in if allMembersHaveSigned
                 then
                   NewState
-                    ( OpenState
-                        { parameters
-                        , coordinatedHeadState =
-                            headState
-                              { confirmedSnapshot =
-                                  ConfirmedSnapshot
-                                    { snapshot
-                                    , signatures = multisig
-                                    }
-                              , seenSnapshot = NoSeenSnapshot
-                              , seenTxs = seenTxs \\ confirmed snapshot
-                              }
-                        , previousRecoverableState
-                        , chainState
-                        , headId
-                        }
+                    ( Open
+                        OpenState
+                          { parameters
+                          , coordinatedHeadState =
+                              headState
+                                { confirmedSnapshot =
+                                    ConfirmedSnapshot
+                                      { snapshot
+                                      , signatures = multisig
+                                      }
+                                , seenSnapshot = NoSeenSnapshot
+                                , seenTxs = seenTxs \\ confirmed snapshot
+                                }
+                          , previousRecoverableState
+                          , chainState
+                          , headId
+                          }
                     )
                     [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
                 else
                   NewState
-                    ( OpenState
-                        { parameters
-                        , coordinatedHeadState =
-                            headState
-                              { seenSnapshot = SeenSnapshot snapshot sigs'
-                              }
-                        , previousRecoverableState
-                        , chainState
-                        , headId
-                        }
+                    ( Open
+                        OpenState
+                          { parameters
+                          , coordinatedHeadState =
+                              headState
+                                { seenSnapshot = SeenSnapshot snapshot sigs'
+                                }
+                          , previousRecoverableState
+                          , chainState
+                          , headId
+                          }
                     )
                     []
 
@@ -921,7 +939,7 @@ onCurrentChainRollback currentState slot =
         Idle{} -> hs
         Initial InitialState{previousRecoverableState} ->
           rollback rollbackSlot previousRecoverableState
-        OpenState{previousRecoverableState} ->
+        Open OpenState{previousRecoverableState} ->
           rollback rollbackSlot previousRecoverableState
         ClosedState{previousRecoverableState} ->
           rollback rollbackSlot previousRecoverableState
@@ -955,46 +973,48 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
   (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect . GetUTxOResponse headId $ fold committed]
   -- Open
-  (OpenState{chainState, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
+  (Open OpenState{chainState, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     onOpenClientClose chainState confirmedSnapshot
-  (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
+  (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect . GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
-  ( OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}, headId}
+  ( Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}, headId}
     , ClientEvent (NewTx tx)
     ) ->
       onOpenClientNewTx ledger party utxo tx headId
-  (OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId}, NetworkEvent ttl (ReqTx _ tx))
+  (Open OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId}, NetworkEvent ttl (ReqTx _ tx))
     | ttl == 0 ->
       OnlyEffects [ClientEffect $ TxExpired headId tx]
     | otherwise ->
       -- XXX: This is decomposing 'OpenState', only to re-compose it inside this
       -- function. Create a dedicated OpenState type!
       onOpenNetworkReqTx ledger parameters previousRecoverableState chainState coordinatedHeadState tx headId
-  ( OpenState
-      { parameters
-      , coordinatedHeadState = s@CoordinatedHeadState{}
-      , previousRecoverableState
-      , chainState
-      , headId
-      }
+  ( Open
+      OpenState
+        { parameters
+        , coordinatedHeadState = s@CoordinatedHeadState{}
+        , previousRecoverableState
+        , chainState
+        , headId
+        }
     , evt@(NetworkEvent _ (ReqSn otherParty sn txs))
     ) ->
       -- XXX: This is decomposing 'OpenState', only to re-compose it inside this
       -- function. Create a dedicated OpenState type!
       onOpenNetworkReqSn ledger party signingKey previousRecoverableState chainState parameters s otherParty sn txs st evt headId
-  ( OpenState
-      { parameters = parameters@HeadParameters{parties}
-      , coordinatedHeadState = headState@CoordinatedHeadState{}
-      , previousRecoverableState
-      , chainState
-      , headId
-      }
+  ( Open
+      OpenState
+        { parameters = parameters@HeadParameters{parties}
+        , coordinatedHeadState = headState@CoordinatedHeadState{}
+        , previousRecoverableState
+        , chainState
+        , headId
+        }
     , NetworkEvent _ (AckSn otherParty snapshotSignature sn)
     ) ->
       -- XXX: This is decomposing 'OpenState', only to re-compose it inside this
       -- function. Create a dedicated OpenState type!
       onOpenNetworkAckSn parties otherParty parameters previousRecoverableState chainState snapshotSignature headState sn headId
-  ( OpenState{parameters, coordinatedHeadState, headId}
+  ( Open OpenState{parameters, coordinatedHeadState, headId}
     , OnChainEvent Observation{observedTx = OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     ) ->
       onOpenChainCloseTx parameters st newChainState coordinatedHeadState closedSnapshotNumber contestationDeadline headId
@@ -1065,16 +1085,17 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 -- 'onOpenNetworkReqTx' and 'onOpenNetworkAckSn'?
 emitSnapshot :: IsTx tx => Environment -> [Effect tx] -> HeadState tx -> (HeadState tx, [Effect tx])
 emitSnapshot env@Environment{party} effects = \case
-  st@OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId} ->
+  st@(Open OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId}) ->
     case newSn env parameters coordinatedHeadState of
       ShouldSnapshot sn txs ->
-        ( OpenState
-            { parameters
-            , coordinatedHeadState = coordinatedHeadState{seenSnapshot = RequestedSnapshot}
-            , previousRecoverableState
-            , chainState
-            , headId
-            }
+        ( Open
+            OpenState
+              { parameters
+              , coordinatedHeadState = coordinatedHeadState{seenSnapshot = RequestedSnapshot}
+              , previousRecoverableState
+              , chainState
+              , headId
+              }
         , NetworkEffect (ReqSn party sn txs) : effects
         )
       _ -> (st, effects)

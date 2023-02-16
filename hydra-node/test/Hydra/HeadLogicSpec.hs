@@ -31,6 +31,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   InitialState (..),
   LogicError (..),
+  OpenState (..),
   Outcome (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   WaitReason (..),
@@ -375,13 +376,14 @@ inOpenState' ::
   CoordinatedHeadState SimpleTx ->
   HeadState SimpleTx
 inOpenState' parties coordinatedHeadState =
-  OpenState
-    { parameters
-    , coordinatedHeadState
-    , previousRecoverableState
-    , chainState = SimpleChainState{slot = ChainSlot 0}
-    , headId = testHeadId
-    }
+  Open
+    OpenState
+      { parameters
+      , coordinatedHeadState
+      , previousRecoverableState
+      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , headId = testHeadId
+      }
  where
   parameters = HeadParameters cperiod parties
 
@@ -425,7 +427,7 @@ inClosedState' parties confirmedSnapshot =
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
-  OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
     Just (getSnapshot confirmedSnapshot)
   _ ->
     Nothing
