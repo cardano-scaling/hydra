@@ -128,14 +128,7 @@ instance
 -- certain grace period to minimize the risk.
 data HeadState tx
   = Idle (IdleState tx)
-  | InitialState
-      { parameters :: HeadParameters
-      , pendingCommits :: PendingCommits
-      , committed :: Committed tx
-      , previousRecoverableState :: HeadState tx
-      , chainState :: ChainStateType tx
-      , headId :: HeadId
-      }
+  | Initial (InitialState tx)
   | OpenState
       { parameters :: HeadParameters
       , coordinatedHeadState :: CoordinatedHeadState tx
@@ -168,15 +161,15 @@ deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState
 getChainState :: HeadState tx -> ChainStateType tx
 getChainState = \case
   Idle IdleState{chainState} -> chainState
-  InitialState{chainState} -> chainState
+  Initial InitialState{chainState} -> chainState
   OpenState{chainState} -> chainState
   ClosedState{chainState} -> chainState
 
 -- | Update the chain state in any 'HeadState'.
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
 setChainState chainState = \case
-  Idle IdleState{} -> Idle IdleState{chainState}
-  st@InitialState{} -> st{chainState}
+  Idle st -> Idle st{chainState}
+  Initial st -> Initial st{chainState}
   st@OpenState{} -> st{chainState}
   st@ClosedState{} -> st{chainState}
 
@@ -194,7 +187,32 @@ deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (IdleState t
 instance (Arbitrary (ChainStateType tx)) => Arbitrary (IdleState tx) where
   arbitrary = genericArbitrary
 
+-- ** Initial
+
+-- | An 'Initial' head which already has an identity and is collecting commits.
+data InitialState tx = InitialState
+  { parameters :: HeadParameters
+  , pendingCommits :: PendingCommits
+  , committed :: Committed tx
+  , previousRecoverableState :: HeadState tx
+  , chainState :: ChainStateType tx
+  , headId :: HeadId
+  }
+  deriving (Generic)
+
+deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (InitialState tx)
+deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (InitialState tx)
+deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (InitialState tx)
+deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (InitialState tx)
+
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx) where
+  arbitrary = genericArbitrary
+
+type PendingCommits = Set Party
+
 type Committed tx = Map Party (UTxOType tx)
+
+-- ** Open
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
@@ -236,7 +254,6 @@ deriving instance IsTx tx => Show (SeenSnapshot tx)
 deriving instance IsTx tx => ToJSON (SeenSnapshot tx)
 deriving instance IsTx tx => FromJSON (SeenSnapshot tx)
 
-type PendingCommits = Set Party
 
 type TTL = Natural
 
@@ -337,14 +354,15 @@ onIdleChainInitTx ::
   Outcome tx
 onIdleChainInitTx idleState newChainState parties contestationPeriod headId =
   NewState
-    ( InitialState
-        { parameters = HeadParameters{contestationPeriod, parties}
-        , pendingCommits = Set.fromList parties
-        , committed = mempty
-        , previousRecoverableState = Idle idleState
-        , chainState = newChainState
-        , headId
-        }
+    ( Initial
+        InitialState
+          { parameters = HeadParameters{contestationPeriod, parties}
+          , pendingCommits = Set.fromList parties
+          , committed = mempty
+          , previousRecoverableState = Idle idleState
+          , chainState = newChainState
+          , headId
+          }
     )
     [ClientEffect $ HeadIsInitializing headId (fromList parties)]
 
@@ -403,14 +421,15 @@ onInitialChainCommitTx headState newChainState party parameters pendingCommits c
          ]
  where
   newHeadState =
-    InitialState
-      { parameters
-      , pendingCommits = remainingParties
-      , committed = newCommitted
-      , previousRecoverableState = headState
-      , chainState = newChainState
-      , headId
-      }
+    Initial
+      InitialState
+        { parameters
+        , pendingCommits = remainingParties
+        , committed = newCommitted
+        , previousRecoverableState = headState
+        , chainState = newChainState
+        , headId
+        }
   remainingParties = Set.delete pt pendingCommits
   newCommitted = Map.insert pt utxo committed
   canCollectCom = null remainingParties && pt == party
@@ -895,7 +914,7 @@ onCurrentChainRollback currentState slot =
     | otherwise =
       case hs of
         Idle{} -> hs
-        InitialState{previousRecoverableState} ->
+        Initial InitialState{previousRecoverableState} ->
           rollback rollbackSlot previousRecoverableState
         OpenState{previousRecoverableState} ->
           rollback rollbackSlot previousRecoverableState
@@ -917,24 +936,24 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
     onIdleClientInit env idleState
   (Idle idleState, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
     onIdleChainInitTx idleState newChainState parties contestationPeriod headId
-  (InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
+  (Initial InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit chainState party pendingCommits clientInput
-  ( InitialState{parameters, pendingCommits, committed, headId}
+  ( Initial InitialState{parameters, pendingCommits, committed, headId}
     , OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}
     ) ->
       onInitialChainCommitTx st newChainState party parameters pendingCommits committed pt utxo headId
-  (InitialState{committed, headId}, ClientEvent GetUTxO) ->
+  (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect $ GetUTxOResponse headId (mconcat $ Map.elems committed)]
-  (InitialState{chainState, committed}, ClientEvent Abort) ->
+  (Initial InitialState{chainState, committed}, ClientEvent Abort) ->
     onInitialClientAbort chainState committed
   (_, OnChainEvent Observation{observedTx = OnCommitTx{}}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting (initial) state, if we do,
     --       there's an issue our logic or onChain layer.
     OnlyEffects []
-  (InitialState{parameters, committed, headId}, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState}) ->
+  (Initial InitialState{parameters, committed, headId}, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState}) ->
     onInitialChainCollectTx st newChainState parameters committed headId
-  (InitialState{headId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
+  (Initial InitialState{headId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
     onInitialChainAbortTx newChainState committed headId
   (OpenState{chainState, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     onOpenClientClose chainState confirmedSnapshot

@@ -29,6 +29,7 @@ import Hydra.HeadLogic (
   Event (..),
   HeadState (..),
   IdleState (..),
+  InitialState (..),
   LogicError (..),
   Outcome (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
@@ -344,14 +345,15 @@ isAckSn = \case
 
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
-  InitialState
-    { parameters
-    , pendingCommits = Set.fromList parties
-    , committed = mempty
-    , previousRecoverableState = Idle idleState
-    , chainState = SimpleChainState{slot = ChainSlot 0}
-    , headId = testHeadId
-    }
+  Initial
+    InitialState
+      { parameters
+      , pendingCommits = Set.fromList parties
+      , committed = mempty
+      , previousRecoverableState = Idle idleState
+      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , headId = testHeadId
+      }
  where
   parameters = HeadParameters cperiod parties
 
@@ -384,14 +386,15 @@ inOpenState' parties coordinatedHeadState =
   parameters = HeadParameters cperiod parties
 
   previousRecoverableState =
-    InitialState
-      { parameters
-      , pendingCommits = mempty
-      , committed = mempty
-      , previousRecoverableState = Idle idleState
-      , chainState = SimpleChainState{slot = ChainSlot 0}
-      , headId = testHeadId
-      }
+    Initial
+      InitialState
+        { parameters
+        , pendingCommits = mempty
+        , committed = mempty
+        , previousRecoverableState = Idle idleState
+        , chainState = SimpleChainState{slot = ChainSlot 0}
+        , headId = testHeadId
+        }
 
   idleState =
     IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
