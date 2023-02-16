@@ -952,11 +952,6 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
     OnlyEffects [ClientEffect $ GetUTxOResponse headId (mconcat $ Map.elems committed)]
   (Initial initialState, ClientEvent Abort) ->
     onInitialClientAbort initialState
-  (_, OnChainEvent Observation{observedTx = OnCommitTx{}}) ->
-    -- TODO: This should warn the user / client that something went _terribly_ wrong
-    --       We shouldn't see any commit outside of the collecting (initial) state, if we do,
-    --       there's an issue our logic or onChain layer.
-    OnlyEffects []
   (Initial InitialState{parameters, committed, headId}, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState}) ->
     onInitialChainCollectTx st newChainState parameters committed headId
   (Initial InitialState{headId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
