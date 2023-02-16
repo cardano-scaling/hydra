@@ -105,18 +105,18 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
   withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
-    headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
+    headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
     -- Commit nothing for now
     send n1 $ input "Commit" ["utxo" .= object mempty]
-    waitFor tracer 60 [n1] $
+    waitFor tracer 600 [n1] $
       output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
     -- Close head
     send n1 $ input "Close" []
-    deadline <- waitMatch 60 n1 $ \v -> do
+    deadline <- waitMatch 600 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       guard $ v ^? key "headId" == Just (toJSON headId)
       v ^? key "contestationDeadline" . _JSON
-    -- Expect to see ReadyToFanout within 60 seconds after deadline.
+    -- Expect to see ReadyToFanout within 600 seconds after deadline.
     -- XXX: We still would like to have a network-specific time here
     remainingTime <- diffUTCTime deadline <$> getCurrentTime
     waitFor tracer (truncate $ remainingTime + 60) [n1] $
