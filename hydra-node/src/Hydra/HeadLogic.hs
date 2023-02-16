@@ -446,12 +446,12 @@ onInitialChainCommitTx env st newChainState pt utxo =
 -- __Transition__: 'InitialState' → 'InitialState'
 onInitialClientAbort ::
   Monoid (UTxOType tx) =>
-  -- | Current chain state
-  ChainStateType tx ->
-  Committed tx ->
+  InitialState tx ->
   Outcome tx
-onInitialClientAbort chainState committed =
-  OnlyEffects [OnChainEffect{chainState, postChainTx = AbortTx (mconcat $ Map.elems committed)}]
+onInitialClientAbort st =
+  OnlyEffects [OnChainEffect{chainState, postChainTx = AbortTx{utxo = fold committed}}]
+ where
+  InitialState{chainState, committed} = st
 
 -- | Observe an abort transaction by switching the state and notifying clients
 -- about it.
@@ -941,6 +941,7 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
     onIdleClientInit env idleState
   (Idle idleState, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
     onIdleChainInitTx idleState newChainState parties contestationPeriod headId
+  -- Initial
   (Initial idleState, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit env idleState clientInput
   ( Initial initialState
@@ -949,8 +950,8 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
       onInitialChainCommitTx env initialState newChainState pt utxo
   (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect $ GetUTxOResponse headId (mconcat $ Map.elems committed)]
-  (Initial InitialState{chainState, committed}, ClientEvent Abort) ->
-    onInitialClientAbort chainState committed
+  (Initial initialState, ClientEvent Abort) ->
+    onInitialClientAbort initialState
   (_, OnChainEvent Observation{observedTx = OnCommitTx{}}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting (initial) state, if we do,
@@ -960,6 +961,7 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
     onInitialChainCollectTx st newChainState parameters committed headId
   (Initial InitialState{headId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
     onInitialChainAbortTx newChainState committed headId
+  -- Open
   (OpenState{chainState, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, ClientEvent Close) ->
     onOpenClientClose chainState confirmedSnapshot
   (OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
