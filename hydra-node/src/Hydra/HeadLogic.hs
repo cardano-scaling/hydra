@@ -610,78 +610,65 @@ onOpenNetworkReqTx ledger st tx =
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqSn ::
   IsTx tx =>
+  Environment ->
   Ledger tx ->
+  OpenState tx ->
+  -- | Party which sent the ReqSn.
   Party ->
-  SigningKey HydraKey ->
-  -- | Previous recoverable state (to re-create OpenState)
-  HeadState tx ->
-  -- | Current chain state (to re-create OpenState)
-  ChainStateType tx ->
-  HeadParameters ->
-  -- | The offchain coordinated head state
-  CoordinatedHeadState tx ->
-  Party ->
+  -- | Requested snapshot number.
   SnapshotNumber ->
+  -- | List of transactions to snapshot.
   [tx] ->
-  HeadState tx ->
+  -- TODO: get rid of this (how to handle 'require' from spec?)
   Event tx ->
-  HeadId ->
   Outcome tx
-onOpenNetworkReqSn
-  ledger
-  party
-  signingKey
-  previousRecoverableState
-  chainState
-  parameters
-  s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}
-  otherParty
-  sn
-  txs
-  st
-  ev
-  headId
-    | (number . getSnapshot) confirmedSnapshot + 1 == sn
-        && isLeader parameters otherParty sn
-        && not (snapshotPending seenSnapshot) =
-      -- TODO: Also we might be robust against multiple ReqSn for otherwise
-      -- valid request, which is currently leading to 'Error'
-      -- TODO: Verify the request is signed by (?) / comes from the leader
-      -- (Can we prove a message comes from a given peer, without signature?)
-      case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
-        Left (_, err) ->
-          -- FIXME: this will not happen, as we are always comparing against the
-          -- confirmed snapshot utxo?
-          Wait $ WaitOnNotApplicableTx err
-        Right u ->
-          let nextSnapshot = Snapshot sn u txs
-              snapshotSignature = sign signingKey nextSnapshot
-           in NewState
-                ( Open
-                    OpenState
-                      { parameters
-                      , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
-                      , previousRecoverableState
-                      , chainState
-                      , headId
-                      }
-                )
-                [NetworkEffect $ AckSn party snapshotSignature sn]
-    | sn > (number . getSnapshot) confirmedSnapshot
-        && isLeader parameters otherParty sn =
-      -- TODO: How to handle ReqSN with sn > confirmed + 1
-      -- This code feels contrived
-      case seenSnapshot of
-        SeenSnapshot{snapshot}
-          | number snapshot == sn -> Error (InvalidEvent ev st)
-          | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
-        _ -> Wait WaitOnSeenSnapshot
-    | otherwise = Error $ InvalidEvent ev st
-   where
-    snapshotPending :: SeenSnapshot tx -> Bool
-    snapshotPending = \case
-      SeenSnapshot{} -> True
-      _ -> False
+onOpenNetworkReqSn env ledger st otherParty sn txs ev
+  | (number . getSnapshot) confirmedSnapshot + 1 == sn
+      && isLeader parameters otherParty sn
+      && not (snapshotPending seenSnapshot) =
+    -- TODO: Also we might be robust against multiple ReqSn for otherwise
+    -- valid request, which is currently leading to 'Error'
+    -- TODO: Verify the request is signed by (?) / comes from the leader
+    -- (Can we prove a message comes from a given peer, without signature?)
+    case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
+      Left (_, err) ->
+        -- FIXME: this will not happen, as we are always comparing against the
+        -- confirmed snapshot utxo?
+        Wait $ WaitOnNotApplicableTx err
+      Right u ->
+        let nextSnapshot = Snapshot sn u txs
+            snapshotSignature = sign signingKey nextSnapshot
+         in NewState
+              ( Open
+                  st
+                    { coordinatedHeadState =
+                        coordinatedHeadState
+                          { seenSnapshot = SeenSnapshot nextSnapshot mempty
+                          }
+                    }
+              )
+              [NetworkEffect $ AckSn party snapshotSignature sn]
+  | sn > (number . getSnapshot) confirmedSnapshot
+      && isLeader parameters otherParty sn =
+    -- TODO: How to handle ReqSN with sn > confirmed + 1
+    -- This code feels contrived
+    case seenSnapshot of
+      SeenSnapshot{snapshot}
+        | number snapshot == sn -> Error (InvalidEvent ev (Open st))
+        | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
+      _ -> Wait WaitOnSeenSnapshot
+  | otherwise = Error $ InvalidEvent ev (Open st)
+ where
+  snapshotPending :: SeenSnapshot tx -> Bool
+  snapshotPending = \case
+    SeenSnapshot{} -> True
+    _ -> False
+
+  CoordinatedHeadState{confirmedSnapshot, seenSnapshot} = coordinatedHeadState
+
+  OpenState{parameters, coordinatedHeadState} = st
+
+  Environment{party, signingKey} = env
 
 -- | Receive network message about a snapshot acknowledgement ('AckSn') from a
 -- peer. We do distinguish two cases:
@@ -951,7 +938,7 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
+update env ledger st ev = case (st, ev) of
   (Idle idleState, ClientEvent Init) ->
     onIdleClientInit env idleState
   (Idle idleState, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
@@ -979,19 +966,8 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
       OnlyEffects [ClientEffect $ TxExpired headId tx]
     | otherwise ->
       onOpenNetworkReqTx ledger openState tx
-  ( Open
-      OpenState
-        { parameters
-        , coordinatedHeadState = s@CoordinatedHeadState{}
-        , previousRecoverableState
-        , chainState
-        , headId
-        }
-    , evt@(NetworkEvent _ (ReqSn otherParty sn txs))
-    ) ->
-      -- XXX: This is decomposing 'OpenState', only to re-compose it inside this
-      -- function. Create a dedicated OpenState type!
-      onOpenNetworkReqSn ledger party signingKey previousRecoverableState chainState parameters s otherParty sn txs st evt headId
+  (Open openState, NetworkEvent _ (ReqSn otherParty sn txs)) ->
+    onOpenNetworkReqSn env ledger openState otherParty sn txs ev
   ( Open
       OpenState
         { parameters = parameters@HeadParameters{parties}
