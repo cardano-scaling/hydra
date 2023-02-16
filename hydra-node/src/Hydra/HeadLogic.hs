@@ -46,6 +46,7 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (UnsafeSnapshotNumber), getSnapshot)
+import Test.QuickCheck (oneof)
 
 -- * Types
 
@@ -177,9 +178,9 @@ data InitialState tx = InitialState
   { parameters :: HeadParameters
   , pendingCommits :: PendingCommits
   , committed :: Committed tx
-  , previousRecoverableState :: HeadState tx
   , chainState :: ChainStateType tx
   , headId :: HeadId
+  , previousRecoverableState :: HeadState tx
   }
   deriving (Generic)
 
@@ -189,7 +190,17 @@ deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (InitialState 
 deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (InitialState tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx) where
-  arbitrary = genericArbitrary
+  arbitrary = do
+    InitialState
+      <$> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+      <*> oneof
+        [ Idle <$> arbitrary
+        , Initial <$> arbitrary
+        ]
 
 type PendingCommits = Set Party
 
@@ -202,9 +213,9 @@ type Committed tx = Map Party (UTxOType tx)
 data OpenState tx = OpenState
   { parameters :: HeadParameters
   , coordinatedHeadState :: CoordinatedHeadState tx
-  , previousRecoverableState :: HeadState tx
   , chainState :: ChainStateType tx
   , headId :: HeadId
+  , previousRecoverableState :: HeadState tx
   }
   deriving (Generic)
 
@@ -214,7 +225,13 @@ deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (OpenState tx)
 deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (OpenState tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) where
-  arbitrary = genericArbitrary
+  arbitrary =
+    OpenState
+      <$> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+      <*> (Initial <$> arbitrary)
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
@@ -263,13 +280,13 @@ deriving instance IsTx tx => FromJSON (SeenSnapshot tx)
 data ClosedState tx = ClosedState
   { parameters :: HeadParameters
   , confirmedSnapshot :: ConfirmedSnapshot tx
-  , previousRecoverableState :: HeadState tx
   , contestationDeadline :: UTCTime
   , -- | Tracks whether we have informed clients already about being
     -- 'ReadyToFanout'.
     readyToFanoutSent :: Bool
   , chainState :: ChainStateType tx
   , headId :: HeadId
+  , previousRecoverableState :: HeadState tx
   }
   deriving (Generic)
 
@@ -279,7 +296,18 @@ deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState t
 deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where
-  arbitrary = genericArbitrary
+  arbitrary =
+    ClosedState
+      <$> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+      <*> oneof
+        [ Open <$> arbitrary
+        , Closed <$> arbitrary
+        ]
 
 -- ** Other types
 
