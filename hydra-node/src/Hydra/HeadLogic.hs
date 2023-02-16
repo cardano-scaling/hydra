@@ -524,27 +524,28 @@ onInitialChainCollectTx st newChainState =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientNewTx ::
+  Environment ->
   Ledger tx ->
-  -- | Us
-  Party ->
-  -- | UTxO from the last confirmed snapshot, a.k.a the confirmed ledger state.
-  UTxOType tx ->
+  OpenState tx ->
   -- | The transaction to be submitted to the head.
   tx ->
-  HeadId ->
   Outcome tx
-onOpenClientNewTx ledger party utxo tx headId =
-  OnlyEffects effects
- where
-  effects =
+onOpenClientNewTx env ledger st tx =
+  OnlyEffects $
     case canApply ledger utxo tx of
       Valid ->
         [ ClientEffect $ TxValid headId tx
         , NetworkEffect $ ReqTx party tx
         ]
-      Invalid err ->
-        [ ClientEffect $ TxInvalid{headId, utxo = utxo, transaction = tx, validationError = err}
+      Invalid validationError ->
+        [ ClientEffect $ TxInvalid{headId, utxo, transaction = tx, validationError}
         ]
+ where
+  Snapshot{utxo} = getSnapshot confirmedSnapshot
+
+  OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId} = st
+
+  Environment{party} = env
 
 -- | Receive network message about a new transaction request ('ReqTx') from a
 -- peer. We apply this transaction to the seen utxo (ledger state), resulting in
@@ -977,10 +978,8 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
   -- Open
   (Open openState, ClientEvent Close) ->
     onOpenClientClose openState
-  ( Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}, headId}
-    , ClientEvent (NewTx tx)
-    ) ->
-      onOpenClientNewTx ledger party utxo tx headId
+  (Open openState, ClientEvent (NewTx tx)) ->
+    onOpenClientNewTx env ledger openState tx
   (Open OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId}, NetworkEvent ttl (ReqTx _ tx))
     | ttl == 0 ->
       OnlyEffects [ClientEffect $ TxExpired headId tx]
