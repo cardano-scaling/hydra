@@ -47,9 +47,9 @@ jobs:
     - name: 🚬 Run hydra-cluster smoke test
       run: |
         if [ -n "${{inputs.hydra-scripts-tx-id}}" ]; then
-          nix develop .#exes --command bash -c "hydra-cluster --${{inputs.network}} --hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}} --state-directory state-${{inputs.network}}"
+          nix develop ".?submodules=1#exes" --command bash -c "hydra-cluster --${{inputs.network}} --hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}} --state-directory state-${{inputs.network}}"
         else
-          nix develop .#exes --command bash -c "hydra-cluster --${{inputs.network}} --publish-hydra-scripts --state-directory state-${{inputs.network}}"
+          nix develop ".?submodules=1#exes" --command bash -c "hydra-cluster --${{inputs.network}} --publish-hydra-scripts --state-directory state-${{inputs.network}}"
         fi
 
     - name: 💾 Upload logs

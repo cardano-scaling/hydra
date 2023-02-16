@@ -17,7 +17,7 @@ must be in scope. You could use a special nix shell containing
 `hydra-node` and `hydra-cluster` executables:
 
 ```sh
-nix develop .#exes
+nix develop .?submodules=1#exes
 ```
 
 Or use an alias:
