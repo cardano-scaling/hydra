@@ -12,7 +12,6 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect)
-import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   Tx,
@@ -27,7 +26,7 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
+import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain (
   OnChainTx (..),
   PostTxError (..),
@@ -83,11 +82,8 @@ import Hydra.Ledger.Cardano (
   genValue,
  )
 import Hydra.Ledger.Cardano.Evaluate (
-  evaluateTx',
   genValidityBoundsFromContestationPeriod,
-  maxTxExecutionUnits,
   maxTxSize,
-  renderEvaluationReportFailures,
  )
 import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 import Hydra.Options (maximumNumberOfParties)
@@ -99,7 +95,6 @@ import Test.QuickCheck (
   Property,
   Testable (property),
   checkCoverage,
-  choose,
   classify,
   conjoin,
   counterexample,
