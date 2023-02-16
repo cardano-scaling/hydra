@@ -372,13 +372,11 @@ onIdleChainInitTx idleState newChainState parties contestationPeriod headId =
 --
 -- __Transition__: 'InitialState' → 'InitialState'
 onInitialClientCommit ::
-  -- | Current chain state
-  ChainStateType tx ->
-  Party ->
-  PendingCommits ->
+  Environment ->
+  InitialState tx ->
   ClientInput tx ->
   Outcome tx
-onInitialClientCommit chainState party pendingCommits clientInput =
+onInitialClientCommit env st clientInput =
   case clientInput of
     (Commit utxo)
       -- REVIEW: Is 'canCommit' something we want to handle here or have the OCV
@@ -387,6 +385,10 @@ onInitialClientCommit chainState party pendingCommits clientInput =
     _ -> OnlyEffects [ClientEffect $ CommandFailed clientInput]
  where
   canCommit = party `Set.member` pendingCommits
+
+  InitialState{pendingCommits, chainState} = st
+
+  Environment{party} = env
 
 -- | Observe a commit transaction and record the committed UTxO in the state.
 -- Also, if this is the last commit to be observed, post a collect-com
@@ -936,8 +938,8 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
     onIdleClientInit env idleState
   (Idle idleState, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
     onIdleChainInitTx idleState newChainState parties contestationPeriod headId
-  (Initial InitialState{chainState, pendingCommits}, ClientEvent clientInput@(Commit _)) ->
-    onInitialClientCommit chainState party pendingCommits clientInput
+  (Initial idleState, ClientEvent clientInput@(Commit _)) ->
+    onInitialClientCommit env idleState clientInput
   ( Initial InitialState{parameters, pendingCommits, committed, headId}
     , OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}
     ) ->
