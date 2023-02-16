@@ -881,16 +881,19 @@ onClosedClientFanout closedState =
 --
 -- __Transition__: 'ClosedState' → 'IdleState'
 onClosedChainFanoutTx ::
+  ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->
-  ConfirmedSnapshot tx ->
-  HeadId ->
   Outcome tx
-onClosedChainFanoutTx newChainState confirmedSnapshot headId =
+onClosedChainFanoutTx closedState newChainState =
   NewState
     (Idle IdleState{chainState = newChainState})
-    [ ClientEffect $ HeadIsFinalized{headId, utxo = getField @"utxo" $ getSnapshot confirmedSnapshot}
+    [ ClientEffect $ HeadIsFinalized{headId, utxo}
     ]
+ where
+  Snapshot{utxo} = getSnapshot confirmedSnapshot
+
+  ClosedState{confirmedSnapshot, headId} = closedState
 
 -- | Observe a chain rollback and transition to corresponding previous
 -- recoverable state.
@@ -974,8 +977,8 @@ update env ledger st ev = case (st, ev) of
         [ClientEffect $ ReadyToFanout headId]
   (Closed closedState, ClientEvent Fanout) ->
     onClosedClientFanout closedState
-  (Closed ClosedState{confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
-    onClosedChainFanoutTx newChainState confirmedSnapshot headId
+  (Closed closedState, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
+    onClosedChainFanoutTx closedState newChainState
   -- General
   (currentState, OnChainEvent (Rollback slot)) ->
     onCurrentChainRollback currentState slot
