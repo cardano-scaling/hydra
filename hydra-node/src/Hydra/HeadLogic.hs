@@ -838,13 +838,10 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedChainContestTx ::
-  -- | Current chain state
-  ChainStateType tx ->
-  ConfirmedSnapshot tx ->
+  ClosedState tx ->
   SnapshotNumber ->
-  HeadId ->
   Outcome tx
-onClosedChainContestTx chainState confirmedSnapshot snapshotNumber headId
+onClosedChainContestTx closedState snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
     OnlyEffects
       [ ClientEffect HeadIsContested{snapshotNumber, headId}
@@ -856,6 +853,8 @@ onClosedChainContestTx chainState confirmedSnapshot snapshotNumber headId
     OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
   | otherwise =
     OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
+ where
+  ClosedState{chainState, confirmedSnapshot, headId} = closedState
 
 -- | Client request to fanout leads to a fanout transaction on chain using the
 -- latest confirmed snapshot from 'ClosedState'.
@@ -968,8 +967,8 @@ update env ledger st ev = case (st, ev) of
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect . GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   -- Closed
-  (Closed ClosedState{chainState, confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
-    onClosedChainContestTx chainState confirmedSnapshot snapshotNumber headId
+  (Closed closedState, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
+    onClosedChainContestTx closedState snapshotNumber
   (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime))
     | chainTime > contestationDeadline && not readyToFanoutSent ->
       NewState
