@@ -693,78 +693,62 @@ onOpenNetworkReqSn env ledger st otherParty sn txs ev
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkAckSn ::
   IsTx tx =>
-  [Party] ->
+  OpenState tx ->
+  -- | Party which sent the AckSn.
   Party ->
-  HeadParameters ->
-  -- | Previous recoverable state (to re-create OpenState)
-  HeadState tx ->
-  -- | Current chain state (to re-create OpenState)
-  ChainStateType tx ->
+  -- | Signature from other party.
   Signature (Snapshot tx) ->
-  -- | The offchain coordinated head state
-  CoordinatedHeadState tx ->
+  -- | Snapshot number of this AckSn.
   SnapshotNumber ->
-  HeadId ->
   Outcome tx
-onOpenNetworkAckSn
-  parties
-  otherParty
-  parameters
-  previousRecoverableState
-  chainState
-  snapshotSignature
-  headState@CoordinatedHeadState{seenSnapshot, seenTxs}
-  sn
-  headId =
-    case seenSnapshot of
-      NoSeenSnapshot -> Wait WaitOnSeenSnapshot
-      RequestedSnapshot -> Wait WaitOnSeenSnapshot
-      SeenSnapshot snapshot sigs
-        | number snapshot /= sn -> Wait $ WaitOnSnapshotNumber (number snapshot)
-        | otherwise ->
-          let sigs'
-                -- TODO: Must check whether we know the 'otherParty' signing the snapshot
-                | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
-                | otherwise = sigs
-              multisig = aggregateInOrder sigs' parties
-              allMembersHaveSigned = Map.keysSet sigs' == Set.fromList parties
-           in if allMembersHaveSigned
-                then
-                  NewState
-                    ( Open
-                        OpenState
-                          { parameters
-                          , coordinatedHeadState =
-                              headState
-                                { confirmedSnapshot =
-                                    ConfirmedSnapshot
-                                      { snapshot
-                                      , signatures = multisig
-                                      }
-                                , seenSnapshot = NoSeenSnapshot
-                                , seenTxs = seenTxs \\ confirmed snapshot
-                                }
-                          , previousRecoverableState
-                          , chainState
-                          , headId
-                          }
-                    )
-                    [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-                else
-                  NewState
-                    ( Open
-                        OpenState
-                          { parameters
-                          , coordinatedHeadState =
-                              headState
-                                { seenSnapshot = SeenSnapshot snapshot sigs'
-                                }
-                          , previousRecoverableState
-                          , chainState
-                          , headId
-                          }
-                    )
-                    []
+onOpenNetworkAckSn openState otherParty snapshotSignature sn =
+  case seenSnapshot of
+    NoSeenSnapshot -> Wait WaitOnSeenSnapshot
+    RequestedSnapshot -> Wait WaitOnSeenSnapshot
+    SeenSnapshot snapshot sigs
+      | number snapshot /= sn -> Wait $ WaitOnSnapshotNumber (number snapshot)
+      | otherwise ->
+        let sigs'
+              -- TODO: Must check whether we know the 'otherParty' signing the snapshot
+              | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
+              | otherwise = sigs
+            multisig = aggregateInOrder sigs' parties
+            allMembersHaveSigned = Map.keysSet sigs' == Set.fromList parties
+         in if allMembersHaveSigned
+              then
+                NewState
+                  ( onlyUpdateCoordinatedHeadState $
+                      coordinatedHeadState
+                        { confirmedSnapshot =
+                            ConfirmedSnapshot
+                              { snapshot
+                              , signatures = multisig
+                              }
+                        , seenSnapshot = NoSeenSnapshot
+                        , seenTxs = seenTxs \\ confirmed snapshot
+                        }
+                  )
+                  [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+              else
+                NewState
+                  ( onlyUpdateCoordinatedHeadState $
+                      coordinatedHeadState
+                        { seenSnapshot = SeenSnapshot snapshot sigs'
+                        }
+                  )
+                  []
+ where
+  -- XXX: Data structures become unwieldy -> helper functions or lenses
+  onlyUpdateCoordinatedHeadState chs' =
+    Open openState{coordinatedHeadState = chs'}
+
+  CoordinatedHeadState{seenSnapshot, seenTxs} = coordinatedHeadState
+
+  OpenState
+    { parameters = HeadParameters{parties}
+    , coordinatedHeadState
+    , headId
+    } = openState
 
 -- ** Closing the Head
 
@@ -968,19 +952,8 @@ update env ledger st ev = case (st, ev) of
       onOpenNetworkReqTx ledger openState tx
   (Open openState, NetworkEvent _ (ReqSn otherParty sn txs)) ->
     onOpenNetworkReqSn env ledger openState otherParty sn txs ev
-  ( Open
-      OpenState
-        { parameters = parameters@HeadParameters{parties}
-        , coordinatedHeadState = headState@CoordinatedHeadState{}
-        , previousRecoverableState
-        , chainState
-        , headId
-        }
-    , NetworkEvent _ (AckSn otherParty snapshotSignature sn)
-    ) ->
-      -- XXX: This is decomposing 'OpenState', only to re-compose it inside this
-      -- function. Create a dedicated OpenState type!
-      onOpenNetworkAckSn parties otherParty parameters previousRecoverableState chainState snapshotSignature headState sn headId
+  (Open openState, NetworkEvent _ (AckSn otherParty snapshotSignature sn)) ->
+    onOpenNetworkAckSn openState otherParty snapshotSignature sn
   ( Open OpenState{parameters, coordinatedHeadState, headId}
     , OnChainEvent Observation{observedTx = OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     ) ->
