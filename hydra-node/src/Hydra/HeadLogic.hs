@@ -37,7 +37,7 @@ import Hydra.ContestationPeriod
 import Hydra.Crypto (HydraKey, Signature, SigningKey, aggregateInOrder, sign, verify)
 import Hydra.Ledger (
   IsTx,
-  Ledger,
+  Ledger (..),
   UTxOType,
   ValidationError,
   ValidationResult (Invalid, Valid),
@@ -555,41 +555,35 @@ onOpenClientNewTx env ledger st tx =
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
   Ledger tx ->
-  HeadParameters ->
-  -- | Previous recoverable state (to re-create OpenState)
-  HeadState tx ->
-  -- | Current chain state (to re-create OpenState)
-  ChainStateType tx ->
-  -- | The offchain coordinated head state
-  CoordinatedHeadState tx ->
+  OpenState tx ->
   -- | The transaction to be submitted to the head.
   tx ->
-  HeadId ->
   Outcome tx
-onOpenNetworkReqTx ledger parameters previousRecoverableState chainState headState@CoordinatedHeadState{seenTxs, seenUTxO} tx headId =
-  case applyTransactions ledger seenUTxO [tx] of
-    Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
+onOpenNetworkReqTx ledger st tx =
+  case applyTransactions seenUTxO [tx] of
+    Left (_, err) -> Wait $ WaitOnNotApplicableTx err
     Right utxo' ->
-      let newSeenTxs = seenTxs <> [tx]
-       in NewState
-            ( Open
-                OpenState
-                  { parameters
-                  , coordinatedHeadState =
-                      headState
-                        { seenTxs = newSeenTxs
-                        , -- FIXME: This is never reset otherwise. For example if
-                          -- some other party was not up for some txs, but is up
-                          -- again later and we would not agree with them on the
-                          -- seen ledger.
-                          seenUTxO = utxo'
-                        }
-                  , previousRecoverableState
-                  , chainState
-                  , headId
-                  }
-            )
-            [ClientEffect $ TxSeen headId tx]
+      NewState
+        ( Open
+            st
+              { coordinatedHeadState =
+                  coordinatedHeadState
+                    { seenTxs = seenTxs <> [tx]
+                    , -- FIXME: This is never reset otherwise. For example if
+                      -- some other party was not up for some txs, but is up
+                      -- again later and we would not agree with them on the
+                      -- seen ledger.
+                      seenUTxO = utxo'
+                    }
+              }
+        )
+        [ClientEffect $ TxSeen headId tx]
+ where
+  Ledger{applyTransactions} = ledger
+
+  CoordinatedHeadState{seenTxs, seenUTxO} = coordinatedHeadState
+
+  OpenState{coordinatedHeadState, headId} = st
 
 -- | Receive network message about a snapshot request ('ReqSn') from a peer. We
 -- do distinguish two cases:
@@ -980,13 +974,11 @@ update env@Environment{party, signingKey} ledger st ev = case (st, ev) of
     onOpenClientClose openState
   (Open openState, ClientEvent (NewTx tx)) ->
     onOpenClientNewTx env ledger openState tx
-  (Open OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId}, NetworkEvent ttl (ReqTx _ tx))
+  (Open openState@OpenState{headId}, NetworkEvent ttl (ReqTx _ tx))
     | ttl == 0 ->
       OnlyEffects [ClientEffect $ TxExpired headId tx]
     | otherwise ->
-      -- XXX: This is decomposing 'OpenState', only to re-compose it inside this
-      -- function. Create a dedicated OpenState type!
-      onOpenNetworkReqTx ledger parameters previousRecoverableState chainState coordinatedHeadState tx headId
+      onOpenNetworkReqTx ledger openState tx
   ( Open
       OpenState
         { parameters
