@@ -1,7 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-incomplete-record-updates #-}
 
 -- | Implements the Head Protocol's /state machine/ as a /pure function/.
 --
@@ -130,17 +129,7 @@ data HeadState tx
   = Idle (IdleState tx)
   | Initial (InitialState tx)
   | Open (OpenState tx)
-  | ClosedState
-      { parameters :: HeadParameters
-      , confirmedSnapshot :: ConfirmedSnapshot tx
-      , previousRecoverableState :: HeadState tx
-      , contestationDeadline :: UTCTime
-      , -- | Tracks whether we have informed clients already about being
-        -- 'ReadyToFanout'.
-        readyToFanoutSent :: Bool
-      , chainState :: ChainStateType tx
-      , headId :: HeadId
-      }
+  | Closed (ClosedState tx)
   deriving stock (Generic)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
@@ -157,7 +146,7 @@ getChainState = \case
   Idle IdleState{chainState} -> chainState
   Initial InitialState{chainState} -> chainState
   Open OpenState{chainState} -> chainState
-  ClosedState{chainState} -> chainState
+  Closed ClosedState{chainState} -> chainState
 
 -- | Update the chain state in any 'HeadState'.
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
@@ -165,7 +154,7 @@ setChainState chainState = \case
   Idle st -> Idle st{chainState}
   Initial st -> Initial st{chainState}
   Open st -> Open st{chainState}
-  st@ClosedState{} -> st{chainState}
+  Closed st -> Closed st{chainState}
 
 -- ** Idle
 
@@ -267,6 +256,32 @@ deriving instance IsTx tx => Show (SeenSnapshot tx)
 deriving instance IsTx tx => ToJSON (SeenSnapshot tx)
 deriving instance IsTx tx => FromJSON (SeenSnapshot tx)
 
+-- ** Closed
+
+-- | An 'Closed' head with an current candidate 'ConfirmedSnapshot', which may
+-- be contested before the 'contestationDeadline'.
+data ClosedState tx = ClosedState
+  { parameters :: HeadParameters
+  , confirmedSnapshot :: ConfirmedSnapshot tx
+  , previousRecoverableState :: HeadState tx
+  , contestationDeadline :: UTCTime
+  , -- | Tracks whether we have informed clients already about being
+    -- 'ReadyToFanout'.
+    readyToFanoutSent :: Bool
+  , chainState :: ChainStateType tx
+  , headId :: HeadId
+  }
+  deriving (Generic)
+
+deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ClosedState tx)
+deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState tx)
+deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
+deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
+
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where
+  arbitrary = genericArbitrary
+
+-- ** Other types
 
 type TTL = Natural
 
@@ -795,15 +810,16 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
     number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
 
   closedState =
-    ClosedState
-      { parameters
-      , confirmedSnapshot
-      , contestationDeadline
-      , readyToFanoutSent = False
-      , previousRecoverableState = Open openState
-      , chainState = newChainState
-      , headId
-      }
+    Closed
+      ClosedState
+        { parameters
+        , confirmedSnapshot
+        , contestationDeadline
+        , readyToFanoutSent = False
+        , previousRecoverableState = Open openState
+        , chainState = newChainState
+        , headId
+        }
 
   notifyClient =
     ClientEffect $
@@ -900,7 +916,7 @@ onCurrentChainRollback currentState slot =
           rollback rollbackSlot previousRecoverableState
         Open OpenState{previousRecoverableState} ->
           rollback rollbackSlot previousRecoverableState
-        ClosedState{previousRecoverableState} ->
+        Closed ClosedState{previousRecoverableState} ->
           rollback rollbackSlot previousRecoverableState
 
 -- | The "pure core" of the Hydra node, which handles the 'Event' against a
@@ -952,18 +968,16 @@ update env ledger st ev = case (st, ev) of
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect . GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   -- Closed
-  (ClosedState{chainState, confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
+  (Closed ClosedState{chainState, confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
     onClosedChainContestTx chainState confirmedSnapshot snapshotNumber headId
-  (cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime))
+  (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime))
     | chainTime > contestationDeadline && not readyToFanoutSent ->
       NewState
-        -- XXX: Requires -Wno-incomplete-record-updates. Should refactor
-        -- 'HeadState' to hold individual 'ClosedState' etc. types
-        (cst{readyToFanoutSent = True})
+        (Closed cst{readyToFanoutSent = True})
         [ClientEffect $ ReadyToFanout headId]
-  (ClosedState{chainState, confirmedSnapshot, contestationDeadline}, ClientEvent Fanout) ->
+  (Closed ClosedState{chainState, confirmedSnapshot, contestationDeadline}, ClientEvent Fanout) ->
     onClosedClientFanout chainState confirmedSnapshot contestationDeadline
-  (ClosedState{confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
+  (Closed ClosedState{confirmedSnapshot, headId}, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
     onClosedChainFanoutTx newChainState confirmedSnapshot headId
   -- General
   (currentState, OnChainEvent (Rollback slot)) ->

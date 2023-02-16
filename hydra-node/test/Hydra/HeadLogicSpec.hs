@@ -23,6 +23,7 @@ import Hydra.Chain (
  )
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
+  ClosedState (..),
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
@@ -278,7 +279,7 @@ spec = do
             s1 = update bobEnv ledger s0 closeTxEvent
         s1 `hasEffect` contestTxEffect
         s1 `shouldSatisfy` \case
-          NewState ClosedState{} _ -> True
+          NewState (Closed ClosedState{}) _ -> True
           _ -> False
 
       it "re-contests when detecting contest with old snapshot" $ do
@@ -409,15 +410,16 @@ inClosedState parties = inClosedState' parties snapshot0
 
 inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> HeadState SimpleTx
 inClosedState' parties confirmedSnapshot =
-  ClosedState
-    { parameters
-    , previousRecoverableState
-    , confirmedSnapshot
-    , contestationDeadline
-    , readyToFanoutSent = False
-    , chainState = SimpleChainState{slot = ChainSlot 0}
-    , headId = testHeadId
-    }
+  Closed
+    ClosedState
+      { parameters
+      , previousRecoverableState
+      , confirmedSnapshot
+      , contestationDeadline
+      , readyToFanoutSent = False
+      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , headId = testHeadId
+      }
  where
   parameters = HeadParameters cperiod parties
 
