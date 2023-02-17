@@ -160,14 +160,15 @@ genAbortMutation (tx, utxo) =
         <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
     , SomeMutation Nothing MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
     , SomeMutation Nothing BurnOneTokenMore <$> addPTWithQuantity tx (-1)
-    , SomeMutation Nothing DropCollectedInput <$> do
-        -- TODO: This would actually not be possible alone as the ledger rejects
-        -- it. Either fix the framework or simulate the forced change of also
-        -- not burn all tokens.
+    , SomeMutation (Just "burnt token number mismatch") DropCollectedInput <$> do
         let resolvedInputs = txIns' tx & mapMaybe (\input -> (input,) <$> UTxO.resolve input utxo)
-            commitInputs = filter (not . isHeadOutput . snd) resolvedInputs
-        (toDrop, _) <- elements commitInputs
-        pure $ RemoveInput toDrop
+            abortableInputs = filter (not . isHeadOutput . snd) resolvedInputs
+        (toDropTxIn, toDropTxOut) <- elements abortableInputs
+        pure $
+          Changes
+            [ RemoveInput toDropTxIn
+            , ChangeMintedValue $ removePTFromMintedValue toDropTxOut tx
+            ]
     , SomeMutation (Just "signer is not a participant") MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
