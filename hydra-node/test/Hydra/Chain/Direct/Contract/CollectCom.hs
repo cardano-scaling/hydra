@@ -109,8 +109,7 @@ healthyCollectComInitialDatum =
     { contestationPeriod = healthyContestationPeriod
     , parties = healthyOnChainParties
     , headId = toPlutusCurrencySymbol testPolicyId
-    , -- TODO: use some seed 'txOutRef' here
-      seed = undefined
+    , seed = toPlutusTxOutRef testSeedInput
     }
 
 healthyOnChainParties :: [OnChain.Party]
