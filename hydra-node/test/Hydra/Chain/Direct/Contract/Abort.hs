@@ -128,17 +128,25 @@ propHasCommit (_, utxo) =
     txOutAddress txOut == addr
 
 data AbortMutation
-  = MutateParties
-  | DropOneCommitOutput
-  | BurnOneTokenMore
+  = -- | Add one more party to the hydra keys. This is essentialy the same as
+    -- not collecting all inputs.
+    MutateParties
+  | -- | Not collect one committed UTxO by removing the input and not burn the
+    -- corresponding PT.
+    DropCollectedInput
+  | -- | Not reimburse one of the parties.
+    DropOneCommitOutput
+  | -- | Burning one PT more. This should be an impossible situation, but it is
+    -- tested nontheless.
+    BurnOneTokenMore
   | -- | Meant to test that the minting policy is burning all PTs present in tx
     MutateThreadTokenQuantity
-  | DropCollectedInput
-  | MutateRequiredSigner
-  | -- | Simply change the currency symbol of the ST.
-    MutateHeadId
-  | -- Spend some abortable output from a different Head
-    -- e.g. replace a commit by another commit from a different Head.
+  | -- | Check an arbitrary key cannot authenticate abort.
+    MutateRequiredSigner
+  | -- | Use a different head output to abort.
+    MutateUseDifferentHeadToAbort
+  | -- | Spend some abortable output from a different Head e.g. replace a commit
+    -- by another commit from a different Head.
     UseInputFromOtherHead
   | ReorderCommitOutputs
   deriving (Generic, Show, Enum, Bounded)
@@ -146,7 +154,7 @@ data AbortMutation
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
 genAbortMutation (tx, utxo) =
   oneof
-    [ SomeMutation Nothing MutateParties . ChangeInputHeadDatum <$> do
+    [ SomeMutation (Just "burnt token number mismatch") MutateParties . ChangeInputHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
         pure $
@@ -155,11 +163,6 @@ genAbortMutation (tx, utxo) =
             (partyToChain <$> moreParties)
             (toPlutusCurrencySymbol $ headPolicyId testSeedInput)
             (toPlutusTxOutRef testSeedInput)
-    , SomeMutation Nothing DropOneCommitOutput
-        . RemoveOutput
-        <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
-    , SomeMutation Nothing MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
-    , SomeMutation Nothing BurnOneTokenMore <$> addPTWithQuantity tx (-1)
     , SomeMutation (Just "burnt token number mismatch") DropCollectedInput <$> do
         let resolvedInputs = txIns' tx & mapMaybe (\input -> (input,) <$> UTxO.resolve input utxo)
             abortableInputs = filter (not . isHeadOutput . snd) resolvedInputs
@@ -169,10 +172,13 @@ genAbortMutation (tx, utxo) =
             [ RemoveInput toDropTxIn
             , ChangeMintedValue $ removePTFromMintedValue toDropTxOut tx
             ]
+    , SomeMutation (Just "reimbursed outputs dont match") DropOneCommitOutput . RemoveOutput <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
+    , SomeMutation (Just "burnt token number mismatch") MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
+    , SomeMutation (Just "burnt token number mismatch") BurnOneTokenMore <$> addPTWithQuantity tx (-1)
     , SomeMutation (Just "signer is not a participant") MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation Nothing MutateHeadId <$> do
+    , SomeMutation Nothing MutateUseDifferentHeadToAbort <$> do
         mutatedSeed <- arbitrary `suchThat` (/= testSeedInput)
         let mutatedInput =
               mkHeadOutputInitial
