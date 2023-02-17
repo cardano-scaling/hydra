@@ -15,7 +15,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeMintedValueQuantityFrom,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Chain.Direct.Tx (hydraHeadV1AssetName, initTx)
+import Hydra.Chain.Direct.Tx (initTx)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Party (Party)
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
@@ -75,45 +75,17 @@ data ObserveInitMutation
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genInitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation Nothing MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
-    , SomeMutation Nothing MutateAddAnotherPT <$> addPTWithQuantity tx 1
-    , SomeMutation Nothing MutateInitialOutputValue <$> do
+    [ SomeMutation (Just "minted tokens do not match parties") MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
+    , SomeMutation (Just "minted tokens do not match parties") MutateAddAnotherPT <$> addPTWithQuantity tx 1
+    , SomeMutation (Just "no PT distributed") MutateInitialOutputValue <$> do
         let outs = txOuts' tx
         (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation Nothing MutateDropInitialOutput <$> do
+    , -- TODO: what kind of error is expected in this case?
+      SomeMutation Nothing MutateDropInitialOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
-    , SomeMutation Nothing MutateDropSeedInput <$> do
+    , SomeMutation (Just "seed not consumed") MutateDropSeedInput <$> do
         pure $ RemoveInput healthySeedInput
     ]
-
--- REVIEW: This is odd and should not be needed? If we can remove this, then we
--- could simplify the machinery and drop propMutationOffChain
-
--- These are mutations we expect to be valid from an on-chain standpoint, yet
--- invalid for the off-chain observation. There's mainly only the `init`
--- transaction which is in this situation, because the on-chain parameters are
--- specified during the init and there's no way to check, on-chain, that they
--- correspond to what a node expects in terms of configuration.
-genObserveInitMutation :: (Tx, UTxO) -> Gen SomeMutation
-genObserveInitMutation (tx, _utxo) =
-  oneof
-    [ SomeMutation Nothing MutateSomePT <$> do
-        let minted = txMintAssets tx
-        vk' <- genVerificationKey `suchThat` (`notElem` healthyCardanoKeys)
-        let minted' = swapTokenName (verificationKeyHash vk') minted
-        pure $ ChangeMintedValue (valueFromList minted')
-    ]
- where
-  swapTokenName :: Hash PaymentKey -> [(AssetId, Quantity)] -> [(AssetId, Quantity)]
-  swapTokenName vkh = \case
-    [] ->
-      []
-    x@(AdaAssetId, _) : xs ->
-      x : swapTokenName vkh xs
-    x@(AssetId pid assetName, q) : xs ->
-      if assetName == hydraHeadV1AssetName
-        then x : swapTokenName vkh xs
-        else (AssetId pid (AssetName $ serialiseToRawBytes vkh), q) : xs

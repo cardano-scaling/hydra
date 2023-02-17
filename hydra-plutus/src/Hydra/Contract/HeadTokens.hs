@@ -14,6 +14,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
+import Hydra.Contract.Util (hydraHeadV1)
 import Plutus.Extras (wrapMintingPolicy)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
@@ -23,6 +24,7 @@ import Plutus.V2.Ledger.Api (
   OutputDatum (..),
   Script,
   ScriptContext (ScriptContext, scriptContextTxInfo),
+  TokenName (TokenName),
   TxInInfo (..),
   TxInfo (..),
   TxOutRef,
@@ -50,23 +52,38 @@ validate initialValidator headValidator seedInput action context =
 
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
 validateTokensMinting initialValidator headValidator seedInput context =
-  traceIfFalse "minted wrong" $
-    participationTokensAreDistributed currency initialValidator txInfo nParties
-      && checkQuantities
-      && assetNamesInPolicy == nParties + 1
-      && seedInputIsConsumed
+  seedInputIsConsumed
+    && singleSTIsPaidToTheHead
+    && mintedPTsMatchParties
  where
-  currency = ownCurrencySymbol context
+  singleSTIsPaidToTheHead =
+    traceIfFalse "minted wrong" $
+      case scriptOutputsAt headValidator txInfo of
+        [out] -> headOutputHasST out
+        _outputs -> False
+
+  headOutputHasST (_, val) =
+    case Map.lookup currency (getValue val) of
+      Nothing -> False
+      Just tokenMap ->
+        Map.lookup (TokenName hydraHeadV1) tokenMap == Just 1
+
+  mintedPTsMatchParties =
+    participationTokensAreDistributed currency initialValidator txInfo nParties
+      && traceIfFalse "minted tokens do not match parties" (mintedTokenCount == nParties + 1)
 
   minted = getValue $ txInfoMint txInfo
 
-  (checkQuantities, assetNamesInPolicy) = case Map.lookup currency minted of
-    Nothing -> (False, 0)
-    Just tokenMap ->
-      foldr
-        (\q (assertion, n) -> (assertion && q == 1, n + 1))
-        (True, 0)
-        tokenMap
+  mintedTokens = fromMaybe Map.empty $ Map.lookup currency minted
+
+  mintedTokenCount =
+    foldr
+      ( \tokenVal def -> def + tokenVal
+      )
+      0
+      mintedTokens
+
+  currency = ownCurrencySymbol context
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
@@ -86,7 +103,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
                   Just _ -> traceError "unexpected State in datum"
       _ -> traceError "expected single head output"
 
-  seedInputIsConsumed = seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
+  seedInputIsConsumed = traceIfFalse "seed not consumed" $ seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
 -- | Checks that 'txInfoMint' field only contains negative token quantities or it is empty.
 validateTokensBurning :: ScriptContext -> Bool
@@ -104,6 +121,7 @@ validateTokensBurning context =
       Nothing -> True
       Just tokenMap -> and $ map ((< 0) . snd) (Map.toList tokenMap)
 
+-- | Checks that outputs from v_initial contain the right quantity of PTs
 participationTokensAreDistributed :: CurrencySymbol -> ValidatorHash -> TxInfo -> Integer -> Bool
 participationTokensAreDistributed currency initialValidator txInfo nParties =
   case scriptOutputsAt initialValidator txInfo of
