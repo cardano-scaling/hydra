@@ -32,6 +32,10 @@ packages:
   plutus-merkle-tree
   hydraw
 
+-- Compile more things in parallel
+package *
+  ghc-options: -j8
+
 tests: False
 
 package hydra-cluster
