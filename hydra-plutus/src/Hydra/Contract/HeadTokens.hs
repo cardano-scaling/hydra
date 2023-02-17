@@ -45,7 +45,7 @@ validate ::
 validate initialValidator headValidator seedInput action context =
   case action of
     Mint -> validateTokensMinting initialValidator headValidator seedInput context
-    Burn -> True -- FIXME: this will allow minting with this redeemer
+    Burn -> validateTokensBurning context
 {-# INLINEABLE validate #-}
 
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
@@ -87,6 +87,22 @@ validateTokensMinting initialValidator headValidator seedInput context =
       _ -> traceError "expected single head output"
 
   seedInputIsConsumed = seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
+
+-- | Checks that 'txInfoMint' field only contains negative token quantities or it is empty.
+validateTokensBurning :: ScriptContext -> Bool
+validateTokensBurning context =
+  traceIfFalse "minting not allowed" burnHeadTokens
+ where
+  currency = ownCurrencySymbol context
+
+  ScriptContext{scriptContextTxInfo = txInfo} = context
+
+  minted = getValue $ txInfoMint txInfo
+
+  burnHeadTokens =
+    case Map.lookup currency minted of
+      Nothing -> True
+      Just tokenMap -> and $ map ((< 0) . snd) (Map.toList tokenMap)
 
 participationTokensAreDistributed :: CurrencySymbol -> ValidatorHash -> TxInfo -> Integer -> Bool
 participationTokensAreDistributed currency initialValidator txInfo nParties =

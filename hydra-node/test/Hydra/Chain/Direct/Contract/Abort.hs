@@ -209,7 +209,7 @@ genAbortMutation (tx, utxo) =
         outputs' <- shuffle outputs `suchThat` (/= outputs)
         let reorderedOutputs = uncurry ChangeOutput <$> zip [0 ..] outputs'
         pure $ Changes reorderedOutputs
-    , SomeMutation (Just "minting wrong") MintOnAbort <$> do
+    , SomeMutation (Just "minting not allowed") MintOnAbort <$> do
         mintAPT <- addPTWithQuantity tx 1
         -- We need to also remove one party to make sure the vHead validator
         -- still things it's the right number of tokens getting burned.
