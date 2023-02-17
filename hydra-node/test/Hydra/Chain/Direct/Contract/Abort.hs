@@ -9,6 +9,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
@@ -151,6 +152,8 @@ data AbortMutation
     UseInputFromOtherHead
   | -- | Re-ordering outputs would not be a big deal, but it is still prevented.
     ReorderCommitOutputs
+  | -- | Only burning should be allowed in abort (by the minting policy).
+    MintOnAbort
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -206,6 +209,20 @@ genAbortMutation (tx, utxo) =
         outputs' <- shuffle outputs `suchThat` (/= outputs)
         let reorderedOutputs = uncurry ChangeOutput <$> zip [0 ..] outputs'
         pure $ Changes reorderedOutputs
+    , SomeMutation (Just "minting wrong") MintOnAbort <$> do
+        mintAPT <- addPTWithQuantity tx 1
+        -- We need to also remove one party to make sure the vHead validator
+        -- still things it's the right number of tokens getting burned.
+        let onePartyLess = List.tail $ healthyParties
+        let removeOneParty =
+              ChangeInputHeadDatum $
+                Head.Initial
+                  { Head.contestationPeriod = toChain $ contestationPeriod healthyHeadParameters
+                  , Head.parties = map partyToChain onePartyLess
+                  , Head.headId = toPlutusCurrencySymbol $ headPolicyId testSeedInput
+                  , Head.seed = toPlutusTxOutRef testSeedInput
+                  }
+        pure $ Changes [mintAPT, removeOneParty]
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value

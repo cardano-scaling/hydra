@@ -45,7 +45,7 @@ validate ::
 validate initialValidator headValidator seedInput action context =
   case action of
     Mint -> validateTokensMinting initialValidator headValidator seedInput context
-    Burn -> True
+    Burn -> True -- FIXME: this will allow minting with this redeemer
 {-# INLINEABLE validate #-}
 
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
