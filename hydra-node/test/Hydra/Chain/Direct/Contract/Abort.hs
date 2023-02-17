@@ -149,7 +149,8 @@ data AbortMutation
   | -- | Spend some abortable output from a different Head e.g. replace a commit
     -- by another commit from a different Head.
     UseInputFromOtherHead
-  | ReorderCommitOutputs
+  | -- | Re-ordering outputs would not be a big deal, but it is still prevented.
+    ReorderCommitOutputs
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -189,12 +190,15 @@ genAbortMutation (tx, utxo) =
               , Head.headId = toPlutusCurrencySymbol $ headPolicyId mutatedSeed
               , Head.seed = toPlutusTxOutRef mutatedSeed
               }
-    , SomeMutation Nothing UseInputFromOtherHead <$> do
+    , SomeMutation (Just "burnt token number mismatch") UseInputFromOtherHead <$> do
         (input, output, _) <- elements healthyInitials
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
         pure $
           Changes
-            [ ChangeInput input (replacePolicyIdWith testPolicyId otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
+            [ -- XXX: This is changing the PT of the initial, but not the
+              -- datum; it's an impossible situation as the minting policy would
+              -- not allow non-matching datum & PT
+              ChangeInput input (replacePolicyIdWith testPolicyId otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
             , ChangeMintedValue (removePTFromMintedValue output tx)
             ]
     , SomeMutation (Just "reimbursed outputs dont match") ReorderCommitOutputs <$> do
