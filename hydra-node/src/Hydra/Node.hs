@@ -48,7 +48,6 @@ import Hydra.HeadLogic (
   HeadState (..),
   Outcome (..),
   defaultTTL,
-  emitSnapshot,
   getChainState,
   setChainState,
  )
@@ -168,9 +167,7 @@ processNextEvent HydraNode{nodeState, ledger, env} e =
   modifyHeadState $ \s ->
     case Logic.update env ledger s e of
       OnlyEffects effects -> (OnlyEffects effects, s)
-      NewState s' effects ->
-        let (s'', effects') = emitSnapshot env effects s'
-         in (NewState s'' effects', s'')
+      NewState s' effects -> (NewState s' effects, s')
       Error err -> (Error err, s)
       Wait reason -> (Wait reason, s)
  where

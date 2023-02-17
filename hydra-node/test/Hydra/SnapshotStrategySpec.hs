@@ -13,6 +13,7 @@ import Hydra.HeadLogic (
   Effect (..),
   Environment (..),
   NoSnapshotReason (..),
+  Outcome (..),
   SeenSnapshot (..),
   SnapshotOutcome (..),
   emitSnapshot,
@@ -111,8 +112,8 @@ spec = do
                 inOpenState' threeParties $
                   coordinatedState{seenSnapshot = RequestedSnapshot}
 
-          emitSnapshot (envFor aliceSk) [] st
-            `shouldBe` (st', [NetworkEffect $ ReqSn alice 1 [tx]])
+          emitSnapshot (envFor aliceSk) (NewState st [])
+            `shouldBe` NewState st' [NetworkEffect $ ReqSn alice 1 [tx]]
 
 prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshot sn =
