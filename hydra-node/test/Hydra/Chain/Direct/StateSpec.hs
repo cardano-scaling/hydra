@@ -186,10 +186,10 @@ spec = parallel $ do
         -- We expected mutated transaction to still be valid, but not observed.
         assert $
           case evaluateTx tx' utxo' of
-            Left e -> traceShow e False
+            Left _ -> False
             Right ok
               | all isRight ok -> True
-              | otherwise -> traceShow ok False
+              | otherwise -> False
 
         pure $
           observeInit cctx tx' === Left NotAHeadPolicy
