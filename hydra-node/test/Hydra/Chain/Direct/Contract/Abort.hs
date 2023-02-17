@@ -29,6 +29,7 @@ import Hydra.Chain.Direct.Tx (
   mkHeadOutputInitial,
  )
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
+import Hydra.ContestationPeriod (toChain)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
@@ -178,15 +179,16 @@ genAbortMutation (tx, utxo) =
     , SomeMutation (Just "signer is not a participant") MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation Nothing MutateUseDifferentHeadToAbort <$> do
+    , SomeMutation (Just "burnt token number mismatch") MutateUseDifferentHeadToAbort <$> do
         mutatedSeed <- arbitrary `suchThat` (/= testSeedInput)
-        let mutatedInput =
-              mkHeadOutputInitial
-                testNetworkId
-                mutatedSeed
-                (headPolicyId mutatedSeed)
-                healthyHeadParameters
-        return $ ChangeInput healthyHeadInput (toUTxOContext mutatedInput) (Just $ toScriptData Head.Abort)
+        pure $
+          ChangeInputHeadDatum
+            Head.Initial
+              { Head.contestationPeriod = toChain $ contestationPeriod healthyHeadParameters
+              , Head.parties = map partyToChain (parties healthyHeadParameters)
+              , Head.headId = toPlutusCurrencySymbol $ headPolicyId mutatedSeed
+              , Head.seed = toPlutusTxOutRef mutatedSeed
+              }
     , SomeMutation Nothing UseInputFromOtherHead <$> do
         (input, output, _) <- elements healthyInitials
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))

@@ -283,6 +283,8 @@ data Mutation
     -- This expects 'Nothing' if the new input is not locked by any script, and
     -- it expects 'Just' with some potentially new redeemer if locked by a
     -- script.
+    --
+    -- XXX: This is likely incomplete as it can not add the datum for given txout.
     ChangeInput TxIn (TxOut CtxUTxO) (Maybe ScriptData)
   | -- | Change the transaction's output at given index to something else.
     ChangeOutput Word (TxOut CtxTx)
