@@ -159,7 +159,12 @@ genAbortMutation (tx, _utxo) =
         <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
     , SomeMutation Nothing MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
     , SomeMutation Nothing BurnOneTokenMore <$> addPTWithQuantity tx (-1)
-    , SomeMutation Nothing DropCollectedInput . RemoveInput <$> elements (txIns' tx)
+    , SomeMutation Nothing DropCollectedInput . RemoveInput <$> do
+        -- TODO: This would actually not be possible alone as the ledger rejects
+        -- it. Either fix the framework or simulate the forced change of also
+        -- not burn all tokens.
+        -- TODO: remove any of the non-head inputs
+        elements (txIns' tx)
     , SomeMutation (Just "signer is not a participant") MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
