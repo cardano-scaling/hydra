@@ -69,6 +69,10 @@ changes.
 
 -  `hydra-cluster` executable can be used to provide a local cardano "network" with `--devnet` argument
 
+- Introduce new `Hydra.Cardano.Api.Pretty` module in `hydra-cardano-api` and
+  move functions `renderTx`, `renderTxWithUTxO` and `renderTxs` from
+  `hydra-node` package to this new module.
+
 ## [0.8.1] - 2022-11-17
 
 - **BREAKING** Implemented [ADR18](https://hydra.family/head-protocol/adr/18) to keep only a single state:
