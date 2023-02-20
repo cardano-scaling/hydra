@@ -82,8 +82,7 @@ genInitMutation (tx, _utxo) =
         (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , -- TODO: what kind of error is expected in this case?
-      SomeMutation Nothing MutateDropInitialOutput <$> do
+    , SomeMutation (Just "outputs do not match parties") MutateDropInitialOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
     , SomeMutation (Just "seed not consumed") MutateDropSeedInput <$> do
