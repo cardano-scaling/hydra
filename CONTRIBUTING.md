@@ -72,6 +72,18 @@ trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
 experimental-features = nix-command flakes
 ```
 
+<details>
+<summary>For Mac OS X users</summary>
+
+Daemon mode is the recommended way to install and run nix on Mac OS. Therefore, you might want to add yourself as a _trusted user_ in order to ensure flake's substituters will be picked up:
+
+```
+build-users-group = nixbld
+trusted-users = root pascal
+```
+
+</details>
+
 From there you can:
 
 - Build & run the `hydra-node`: `cabal build hydra-node && cabal exec hydra-node -- --version`
@@ -81,7 +93,7 @@ From there you can:
 - Run `hoogle` for symbol & documentation lookup
 - Build the `hydra-node` using nix: `nix build .#hydra-node`
 - Build a statically linked `hydra-node` using nix: `nix build .#hydra-node-static`
-- Build the `hydra-node` docker image: `nix build .#docker.hydra-node`
+- Build the `hydra-node` docker image: `nix build .#docker-hydra-node`
 
 Also, some of us use [direnv](https://direnv.net/) and
 [nix-direnv](https://github.com/nix-community/nix-direnv) to automatically
