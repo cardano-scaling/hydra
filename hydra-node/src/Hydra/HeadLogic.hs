@@ -668,47 +668,63 @@ onOpenNetworkReqSn ::
   -- TODO: get rid of this (how to handle 'require' from spec?)
   Event tx ->
   Outcome tx
-onOpenNetworkReqSn env ledger st otherParty sn txs ev
-  | (number . getSnapshot) confirmedSnapshot + 1 == sn
-      && isLeader parameters otherParty sn
-      && not (snapshotPending seenSnapshot) =
-    -- TODO: Also we might be robust against multiple ReqSn for otherwise
-    -- valid request, which is currently leading to 'Error'
-    -- TODO: Verify the request is signed by (?) / comes from the leader
-    -- (Can we prove a message comes from a given peer, without signature?)
-    case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
-      Left (_, err) ->
-        -- FIXME: this will not happen, as we are always comparing against the
-        -- confirmed snapshot utxo?
-        Wait $ WaitOnNotApplicableTx err
-      Right u ->
-        let nextSnapshot = Snapshot sn u txs
-            snapshotSignature = sign signingKey nextSnapshot
-         in NewState
-              ( Open
-                  st
-                    { coordinatedHeadState =
-                        coordinatedHeadState
-                          { seenSnapshot = SeenSnapshot nextSnapshot mempty
-                          }
-                    }
-              )
-              [NetworkEffect $ AckSn party snapshotSignature sn]
-  | sn > (number . getSnapshot) confirmedSnapshot
-      && isLeader parameters otherParty sn =
-    -- TODO: How to handle ReqSN with sn > confirmed + 1
-    -- This code feels contrived
-    case seenSnapshot of
-      SeenSnapshot{snapshot}
-        | number snapshot == sn -> Error (InvalidEvent ev (Open st))
-        | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
-      _ -> Wait WaitOnSeenSnapshot
-  | otherwise = Error $ InvalidEvent ev (Open st)
+onOpenNetworkReqSn env ledger st otherParty sn txs ev =
+  requireValidReqSn $
+    waitNoSnapshotInFlight $
+      -- TODO: Also we might be robust against multiple ReqSn for otherwise
+      -- valid request, which is currently leading to 'Error'
+      -- TODO: Verify the request is signed by (?) / comes from the leader
+      -- (Can we prove a message comes from a given peer, without signature?)
+
+      -- Spec: wait U̅ ◦ T ̸= ⊥ combined with Û ← Ū̅ ◦ T
+      case applyTransactions ledger confirmedUTxO txs of
+        Left (_, err) ->
+          -- FIXME: this will not happen, as we are always comparing against the
+          -- confirmed snapshot utxo in NewTx?
+          Wait $ WaitOnNotApplicableTx err
+        Right u -> do
+          -- NOTE: confSn == seenSn == sn here
+          let nextSnapshot = Snapshot (confSn + 1) u txs
+          let snapshotSignature = sign signingKey nextSnapshot
+          NewState
+            ( Open
+                st
+                  { coordinatedHeadState =
+                      coordinatedHeadState
+                        { seenSnapshot = SeenSnapshot nextSnapshot mempty
+                        }
+                  }
+            )
+            [NetworkEffect $ AckSn party snapshotSignature sn]
  where
-  snapshotPending :: SeenSnapshot tx -> Bool
-  snapshotPending = \case
-    SeenSnapshot{} -> True
-    _ -> False
+  requireValidReqSn cont
+    -- TODO: Spec: require s = ŝ + 1 and leader(s) = j
+    | sn > seenSn && isLeader parameters otherParty sn = cont
+    | otherwise =
+      -- TODO: require-specific error instead
+      Error $ InvalidEvent ev (Open st)
+
+  waitNoSnapshotInFlight cont =
+    -- TODO: Spec: wait s̅ = ŝ
+    case seenSnapshot of
+      SeenSnapshot{snapshot = Snapshot{number}}
+        | number == sn -> Error $ InvalidEvent ev (Open st)
+        | otherwise -> Wait $ WaitOnSnapshotNumber seenSn
+      _
+        | sn > confSn + 1 -> Wait WaitOnSeenSnapshot
+        | otherwise -> cont
+
+  confSn = case confirmedSnapshot of
+    InitialSnapshot{} -> 0
+    ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+
+  seenSn = case seenSnapshot of
+    SeenSnapshot{snapshot = Snapshot{number}} -> number
+    _ -> 0
+
+  confirmedUTxO = case confirmedSnapshot of
+    InitialSnapshot{initialUTxO} -> initialUTxO
+    ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot} = coordinatedHeadState
 
