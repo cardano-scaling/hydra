@@ -11,7 +11,7 @@ import Test.Hydra.Prelude
 import Cardano.Crypto.DSIGN.Ed25519 (SigDSIGN (SigEd25519DSIGN))
 import qualified Data.ByteString.Char8 as Char8
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.QuickCheck (counterexample, forAll, shuffle, (=/=), (==>))
+import Test.QuickCheck (counterexample, forAll, shuffle, withMaxSuccess, (=/=), (==>))
 import Test.QuickCheck.Instances.UnorderedContainers ()
 
 spec :: Spec
@@ -33,6 +33,15 @@ specSigningKey =
     prop "can be generated" $ \(seedA, seedB) -> do
       seedA /= seedB
         ==> generateSigningKey seedA =/= generateSigningKey seedB
+    propCollisionResistant "arbitrary @(SigningKey HydraKey)" (arbitrary @(SigningKey HydraKey))
+
+propCollisionResistant :: (Show a, Eq a) => String -> Gen a -> Spec
+propCollisionResistant name gen =
+  prop (name <> " is reasonably collision resistant") $
+    withMaxSuccess 100_000 $
+      forAll gen $ \a ->
+        forAll gen $ \b ->
+          a /= b
 
 specVerificationKey :: Spec
 specVerificationKey =
