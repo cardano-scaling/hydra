@@ -37,7 +37,6 @@ import Hydra.Chain.Direct.State (
   HydraContext,
   InitialState (..),
   ctxHeadParameters,
-  ctxParties,
   deriveChainContexts,
   genChainStateWithTx,
   genCommit,
@@ -97,7 +96,8 @@ spec = do
       chainContext <- pickBlind arbitrary
       chainState <- pickBlind arbitrary
       hydraCtx <- pickBlind $ genHydraContext (length $ peerVerificationKeys chainContext)
-      (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle) (ctxParties hydraCtx)
+      let otherParties = pickOtherParties hydraCtx chainContext
+      (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle) otherParties
 
       run $ onRollForward handler blk
 
@@ -118,7 +118,8 @@ spec = do
       chainContext <- pickBlind arbitrary
       hydraCtx <- pickBlind $ genHydraContext (length $ peerVerificationKeys chainContext)
       let chainSyncCallback = \_cont -> failure "Unexpected callback"
-          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext (ctxParties hydraCtx)
+          otherParties = pickOtherParties hydraCtx chainContext
+          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext otherParties
 
       run $
         onRollForward handler blk
@@ -128,7 +129,7 @@ spec = do
     -- Generate a state and related transaction and a block containing it
     (hydraCtx, ctx, st, tx, transition) <- pick genChainStateWithTx
     let chainState = ChainStateAt{chainState = st, recordedAt = Nothing}
-    let otherParties = ctxParties hydraCtx
+    let otherParties = pickOtherParties hydraCtx ctx
     blk <- pickBlind $ genBlockAt 1 [tx]
     monitor (label $ show transition)
 
@@ -170,13 +171,15 @@ spec = do
             Just Tick{} -> pure ()
             Just (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
             Just Observation{newChainState} -> atomically $ writeTVar stateVar newChainState
-    let handler =
+
+    let otherParties = pickOtherParties hydraContext chainContext
+        handler =
           chainSyncHandler
             nullTracer
             callback
             (pure timeHandle)
             chainContext
-            (ctxParties hydraContext)
+            otherParties
     -- Simulate some chain following
     run $ mapM_ (onRollForward handler) blocks
     -- Inject the rollback to somewhere between any of the previous state
