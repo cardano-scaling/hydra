@@ -18,6 +18,7 @@ import Hydra.Prelude
 import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
+import qualified Data.Text as Text
 import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
@@ -324,6 +325,7 @@ data LogicError tx
   | InvalidState (HeadState tx)
   | InvalidSnapshot {expected :: SnapshotNumber, actual :: SnapshotNumber}
   | LedgerError ValidationError
+  | RequireFailed Text
   deriving stock (Generic)
 
 instance (Typeable tx, Show (Event tx), Show (HeadState tx)) => Exception (LogicError tx)
@@ -703,8 +705,12 @@ onOpenNetworkReqSn env ledger st otherParty sn txs ev =
     -- TODO: Spec: require s = ŝ + 1 and leader(s) = j
     | sn > seenSn && isLeader parameters otherParty sn = cont
     | otherwise =
-      -- TODO: require-specific error instead
-      Error $ InvalidEvent ev (Open st)
+      Error . RequireFailed $
+        Text.intercalate "," $
+          [ "requireValidReqSn: " <> show sn
+          , show seenSn
+          , show $ isLeader parameters otherParty sn
+          ]
 
   waitNoSnapshotInFlight cont =
     -- TODO: Spec: wait s̅ = ŝ

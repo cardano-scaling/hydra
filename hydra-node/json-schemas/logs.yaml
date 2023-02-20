@@ -577,6 +577,17 @@ definitions:
             enum: ["LedgerError"]
           contents:
             $ref: "#/definitions/ValidationError"
+      - title: RequireFailed
+        additionalProperties: false
+        required:
+          - tag
+          - contents
+        properties:
+          tag:
+            type: string
+            enum: ["RequireFailed"]
+          contents:
+            type: string
 
   ValidationError:
     type: object

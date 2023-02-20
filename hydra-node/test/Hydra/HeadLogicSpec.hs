@@ -161,7 +161,9 @@ spec = do
         let event = NetworkEvent defaultTTL $ ReqSn notTheLeader 1 []
             notTheLeader = bob
             st = inOpenState threeParties ledger
-        update bobEnv ledger st event `shouldBe` Error (InvalidEvent event st)
+        update bobEnv ledger st event `shouldSatisfy` \case
+          Error RequireFailed{} -> True
+          _ -> False
 
       -- TODO(SN): maybe this and the next are a property! at least DRY
       -- NOTE(AB): we should cover variations of snapshot numbers and state of snapshot
@@ -178,7 +180,9 @@ spec = do
                   , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = NoSeenSnapshot
                   }
-        update bobEnv ledger st event `shouldBe` Error (InvalidEvent event st)
+        update bobEnv ledger st event `shouldSatisfy` \case
+          Error RequireFailed{} -> True
+          _ -> False
 
       it "rejects too-old snapshots when collecting signatures" $ do
         let event = NetworkEvent defaultTTL $ ReqSn theLeader 2 []
@@ -192,7 +196,9 @@ spec = do
                   , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = SeenSnapshot (Snapshot 3 mempty []) mempty
                   }
-        update bobEnv ledger st event `shouldBe` Error (InvalidEvent event st)
+        update bobEnv ledger st event `shouldSatisfy` \case
+          Error RequireFailed{} -> True
+          _ -> False
 
       it "wait given too new snapshots from the leader" $ do
         let event = NetworkEvent defaultTTL $ ReqSn theLeader 3 []
@@ -208,7 +214,9 @@ spec = do
             secondReqSn = NetworkEvent defaultTTL $ ReqSn theLeader nextSN [aValidTx 51]
 
         s1 <- assertNewState $ update bobEnv ledger s0 firstReqSn
-        update bobEnv ledger s1 secondReqSn `shouldBe` Error (InvalidEvent secondReqSn s1)
+        update bobEnv ledger s1 secondReqSn `shouldSatisfy` \case
+          Error RequireFailed{} -> True
+          _ -> False
 
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties
