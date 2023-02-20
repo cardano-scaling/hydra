@@ -749,43 +749,50 @@ onOpenNetworkAckSn ::
   SnapshotNumber ->
   Outcome tx
 onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
-  case seenSnapshot of
-    NoSeenSnapshot -> Wait WaitOnSeenSnapshot
-    RequestedSnapshot -> Wait WaitOnSeenSnapshot
-    SeenSnapshot snapshot sigs
-      | number snapshot /= sn -> Wait $ WaitOnSnapshotNumber (number snapshot)
-      | otherwise ->
-        let sigs'
-              -- TODO: Must check whether we know the 'otherParty' signing the snapshot
-              | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
-              | otherwise = sigs
-            multisig = aggregateInOrder sigs' parties
-            allMembersHaveSigned = Map.keysSet sigs' == Set.fromList parties
-         in if allMembersHaveSigned
-              then
-                NewState
-                  ( onlyUpdateCoordinatedHeadState $
-                      coordinatedHeadState
-                        { confirmedSnapshot =
-                            ConfirmedSnapshot
-                              { snapshot
-                              , signatures = multisig
-                              }
-                        , seenSnapshot = NoSeenSnapshot
-                        , seenTxs = seenTxs \\ confirmed snapshot
-                        }
-                  )
-                  [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-                  & emitSnapshot env
-              else
-                NewState
-                  ( onlyUpdateCoordinatedHeadState $
-                      coordinatedHeadState
-                        { seenSnapshot = SeenSnapshot snapshot sigs'
-                        }
-                  )
-                  []
+  waitOnSeenSnapshot $ \snapshot sigs -> do
+    let sigs'
+          -- TODO: Must check whether we know the 'otherParty' signing the snapshot
+          | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
+          | otherwise = sigs
+    ifAllMembersHaveSigned snapshot sigs' $ do
+      let multisig = aggregateInOrder sigs' parties
+      NewState
+        ( onlyUpdateCoordinatedHeadState $
+            coordinatedHeadState
+              { confirmedSnapshot =
+                  ConfirmedSnapshot
+                    { snapshot
+                    , signatures = multisig
+                    }
+              , seenSnapshot = NoSeenSnapshot
+              , -- TODO: prune in ReqSn
+                seenTxs = seenTxs \\ confirmed snapshot
+              }
+        )
+        [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+        & emitSnapshot env
  where
+  waitOnSeenSnapshot cont =
+    -- TODO: Spec: require sn ∈ {seenSn, seenSn + 1}
+    case seenSnapshot of
+      NoSeenSnapshot -> Wait WaitOnSeenSnapshot
+      RequestedSnapshot -> Wait WaitOnSeenSnapshot
+      SeenSnapshot snapshot sigs
+        | number snapshot /= sn -> Wait $ WaitOnSnapshotNumber (number snapshot)
+        | otherwise -> cont snapshot sigs
+
+  ifAllMembersHaveSigned snapshot sigs' cont =
+    if Map.keysSet sigs' == Set.fromList parties
+      then cont
+      else
+        NewState
+          ( onlyUpdateCoordinatedHeadState $
+              coordinatedHeadState
+                { seenSnapshot = SeenSnapshot snapshot sigs'
+                }
+          )
+          []
+
   -- XXX: Data structures become unwieldy -> helper functions or lenses
   onlyUpdateCoordinatedHeadState chs' =
     Open openState{coordinatedHeadState = chs'}
