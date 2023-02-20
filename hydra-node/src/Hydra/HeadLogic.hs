@@ -685,10 +685,8 @@ onOpenNetworkReqSn ::
   SnapshotNumber ->
   -- | List of transactions to snapshot.
   [tx] ->
-  -- TODO: get rid of this (how to handle 'require' from spec?)
-  Event tx ->
   Outcome tx
-onOpenNetworkReqSn env ledger st otherParty sn txs ev =
+onOpenNetworkReqSn env ledger st otherParty sn txs =
   -- TODO: Verify the request is signed by (?) / comes from the leader
   -- (Can we prove a message comes from a given peer, without signature?)
 
@@ -1024,7 +1022,7 @@ update env ledger st ev = case (st, ev) of
     | otherwise ->
       onOpenNetworkReqTx env ledger openState tx
   (Open openState, NetworkEvent _ (ReqSn otherParty sn txs)) ->
-    onOpenNetworkReqSn env ledger openState otherParty sn txs ev
+    onOpenNetworkReqSn env ledger openState otherParty sn txs
   (Open openState, NetworkEvent _ (AckSn otherParty snapshotSignature sn)) ->
     onOpenNetworkAckSn env openState otherParty snapshotSignature sn
   ( Open openState
