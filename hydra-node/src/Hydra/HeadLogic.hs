@@ -710,13 +710,15 @@ onOpenNetworkReqSn env ledger st otherParty sn txs =
           )
           [NetworkEffect $ AckSn party snapshotSignature sn]
  where
-  requireReqSn cont
-    | sn == seenSn + 1 && isLeader parameters otherParty sn = cont
-    | otherwise = Error $ RequireFailed "requireReqSn"
+  requireReqSn continue =
+    if sn == seenSn + 1 && isLeader parameters otherParty sn
+      then continue
+      else Error $ RequireFailed "requireReqSn"
 
-  waitNoSnapshotInFlight cont
-    | confSn == seenSn = cont
-    | otherwise = Wait $ WaitOnSnapshotNumber seenSn
+  waitNoSnapshotInFlight continue =
+    if confSn == seenSn
+      then continue
+      else Wait $ WaitOnSnapshotNumber seenSn
 
   waitApplyTxs cont =
     case applyTransactions ledger confirmedUTxO txs of
@@ -803,14 +805,15 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
-  requireAckSn sigs cont
-    | sn `elem` [seenSn, seenSn + 1] && not (Map.member otherParty sigs) = cont
-    | otherwise = Error $ RequireFailed "requireReqSn"
+  requireAckSn sigs continue =
+    if sn `elem` [seenSn, seenSn + 1] && not (Map.member otherParty sigs)
+      then continue
+      else Error $ RequireFailed "requireReqSn"
 
-  waitOnSeenSnapshot cont =
+  waitOnSeenSnapshot continue =
     case seenSnapshot of
       SeenSnapshot snapshot sigs
-        | seenSn == sn -> cont snapshot sigs
+        | seenSn == sn -> continue snapshot sigs
       _ -> Wait WaitOnSeenSnapshot
 
   ifAllMembersHaveSigned snapshot sigs' cont =
