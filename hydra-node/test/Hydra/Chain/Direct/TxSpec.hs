@@ -68,7 +68,7 @@ spec =
             forAll genScriptRegistry $ \scriptRegistry ->
               let params = HeadParameters cperiod (party : parties)
                   tx = initTx testNetworkId cardanoKeys params txIn
-               in case observeInitTx testNetworkId cardanoKeys cperiod party tx of
+               in case observeInitTx testNetworkId cardanoKeys cperiod party parties tx of
                     Right InitObservation{initials, threadOutput} -> do
                       let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
                           initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
@@ -103,10 +103,11 @@ spec =
                                         & counterexample ("Fee: " <> show fee)
                                         & counterexample ("Tx: " <> show txAbortWithFees)
                                         & counterexample ("Input utxo: " <> show (walletUTxO <> lookupUTxO))
-                    _ ->
+                    Left e ->
                       property False
                         & counterexample "Failed to construct and observe init tx."
                         & counterexample (renderTx tx)
+                        & counterexample (show e)
 
       prop "Ignore InitTx with wrong contestation period" $
         withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys -> do
@@ -116,7 +117,7 @@ spec =
               -- construct different/wrong CP
               wrongCPeriod = UnsafeContestationPeriod $ cp + wordToNatural i
               tx = initTx testNetworkId cardanoKeys params txIn
-          pure $ case observeInitTx testNetworkId cardanoKeys wrongCPeriod party tx of
+          pure $ case observeInitTx testNetworkId cardanoKeys wrongCPeriod party parties tx of
             Right InitObservation{} -> do
               property False
                 & counterexample "Failed to ignore init tx with the wrong contestation period."

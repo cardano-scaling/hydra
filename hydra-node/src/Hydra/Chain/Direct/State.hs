@@ -469,10 +469,10 @@ fanout st utxo deadlineSlotNo = do
 -- | Observe a transition without knowing the starting or ending state. This
 -- function should try to observe all relevant transitions given some
 -- 'ChainState'.
-observeSomeTx :: ChainContext -> ChainState -> Tx -> Maybe (OnChainTx Tx, ChainState)
-observeSomeTx ctx cst tx = case cst of
+observeSomeTx :: ChainContext -> ChainState -> Tx -> [Party] -> Maybe (OnChainTx Tx, ChainState)
+observeSomeTx ctx cst tx otherParties = case cst of
   Idle ->
-    second Initial <$> hush (observeInit ctx tx)
+    second Initial <$> hush (observeInit ctx tx otherParties)
   Initial st ->
     second Initial <$> observeCommit ctx st tx
       <|> (,Idle) <$> observeAbort st tx
@@ -488,14 +488,16 @@ observeSomeTx ctx cst tx = case cst of
 observeInit ::
   ChainContext ->
   Tx ->
+  [Party] ->
   Either NotAnInitReason (OnChainTx Tx, InitialState)
-observeInit ctx tx = do
+observeInit ctx tx otherParties = do
   observation <-
     observeInitTx
       networkId
       (allVerificationKeys ctx)
       (Hydra.Chain.Direct.State.contestationPeriod ctx)
       ownParty
+      otherParties
       tx
   pure (toEvent observation, toState observation)
  where
@@ -681,7 +683,7 @@ genChainState =
 
 -- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
 -- transaction that results in a transition away from it.
-genChainStateWithTx :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+genChainStateWithTx :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
 genChainStateWithTx =
   oneof
     [ genInitWithState
@@ -692,45 +694,45 @@ genChainStateWithTx =
     , genFanoutWithState
     ]
  where
-  genInitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genInitWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
   genInitWithState = do
     ctx <- genHydraContext maxGenParties
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
     let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-    pure (cctx, Idle, tx, Init)
+    pure (ctx, cctx, Idle, tx, Init)
 
-  genCommitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genCommitWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
   genCommitWithState = do
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
     utxo <- genCommit
     let tx = unsafeCommit cctx stInitial utxo
-    pure (cctx, Initial stInitial, tx, Commit)
+    pure (ctx, cctx, Initial stInitial, tx, Commit)
 
-  genCollectWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genCollectWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
   genCollectWithState = do
-    (ctx, _, st, tx) <- genCollectComTx
-    pure (ctx, Initial st, tx, Collect)
+    (hydraCtx, ctx, _, st, tx) <- genCollectComTx
+    pure (hydraCtx, ctx, Initial st, tx, Collect)
 
-  genCloseWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genCloseWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
   genCloseWithState = do
-    (ctx, st, tx, _) <- genCloseTx maxGenParties
-    pure (ctx, Open st, tx, Close)
+    (hydraCtx, ctx, st, tx, _) <- genCloseTx maxGenParties
+    pure (hydraCtx, ctx, Open st, tx, Close)
 
-  genContestWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genContestWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
   genContestWithState = do
     (hctx, _, st, tx) <- genContestTx
     ctx <- pickChainContext hctx
-    pure (ctx, Closed st, tx, Contest)
+    pure (hctx, ctx, Closed st, tx, Contest)
 
-  genFanoutWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genFanoutWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
   genFanoutWithState = do
     Positive numParties <- arbitrary
     Positive numOutputs <- arbitrary
     (hctx, st, tx) <- genFanoutTx numParties numOutputs
     ctx <- pickChainContext hctx
-    pure (ctx, Closed st, tx, Fanout)
+    pure (hctx, ctx, Closed st, tx, Fanout)
 
 -- ** Warning zone
 
@@ -818,7 +820,7 @@ genStInitial ctx = do
   seedInput <- genTxIn
   cctx <- pickChainContext ctx
   let txInit = initialize cctx (ctxHeadParameters ctx) seedInput
-  let initState = unsafeObserveInit cctx txInit
+  let initState = unsafeObserveInit cctx txInit (ctxParties ctx)
   pure (cctx, initState)
 
 genInitTx ::
@@ -843,7 +845,8 @@ genCommits' ::
 genCommits' genUTxOToCommit ctx txInit = do
   allChainContexts <- deriveChainContexts ctx
   forM allChainContexts $ \cctx -> do
-    let (_, stInitial) = case observeInit cctx txInit of
+    let otherParties = pickOtherParties ctx cctx
+    let (_, stInitial) = case observeInit cctx txInit otherParties of
           Left err -> error $ "Did not observe an init tx: " <> show err
           Right st -> st
     unsafeCommit cctx stInitial <$> genUTxOToCommit
@@ -855,16 +858,18 @@ genCommit =
     , (10, genVerificationKey >>= genOneUTxOFor)
     ]
 
-genCollectComTx :: Gen (ChainContext, [UTxO], InitialState, Tx)
+genCollectComTx :: Gen (HydraContext, ChainContext, [UTxO], InitialState, Tx)
 genCollectComTx = do
   ctx <- genHydraContextFor maximumNumberOfParties
   txInit <- genInitTx ctx
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
-  let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
-  pure (cctx, committedUTxO, stInitialized, collect cctx stInitialized)
+  let otherParties = pickOtherParties ctx cctx
+  let (committedUTxO, stInitialized) =
+        unsafeObserveInitAndCommits cctx txInit commits otherParties
+  pure (ctx, cctx, committedUTxO, stInitialized, collect cctx stInitialized)
 
-genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
+genCloseTx :: Int -> Gen (HydraContext, ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen) <- genStOpen ctx
@@ -872,7 +877,7 @@ genCloseTx numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  pure (cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
+  pure (ctx, cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
@@ -909,7 +914,9 @@ genStOpen ctx = do
   txInit <- genInitTx ctx
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
-  let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
+  let otherParties = pickOtherParties ctx cctx
+  let (committed, stInitial) =
+        unsafeObserveInitAndCommits cctx txInit commits otherParties
   let txCollect = collect cctx stInitial
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
 
@@ -954,9 +961,10 @@ unsafeObserveInit ::
   HasCallStack =>
   ChainContext ->
   Tx ->
+  [Party] ->
   InitialState
-unsafeObserveInit cctx txInit =
-  case observeInit cctx txInit of
+unsafeObserveInit cctx txInit otherParties =
+  case observeInit cctx txInit otherParties of
     Left err -> error $ "Did not observe an init tx: " <> show err
     Right st -> snd st
 
@@ -965,11 +973,12 @@ unsafeObserveInitAndCommits ::
   ChainContext ->
   Tx ->
   [Tx] ->
+  [Party] ->
   ([UTxO], InitialState)
-unsafeObserveInitAndCommits ctx txInit commits =
+unsafeObserveInitAndCommits ctx txInit commits otherParties =
   (utxo, stInitial')
  where
-  stInitial = unsafeObserveInit ctx txInit
+  stInitial = unsafeObserveInit ctx txInit otherParties
 
   (utxo, stInitial') = flip runState stInitial $ do
     forM commits $ \txCommit -> do
@@ -979,3 +988,14 @@ unsafeObserveInitAndCommits ctx txInit commits =
       pure $ case event of
         OnCommitTx{committed} -> committed
         _ -> mempty
+
+pickOtherParties :: HydraContext -> ChainContext -> [Party]
+pickOtherParties hydraCtx ctx =
+  let allParties = ctxParties hydraCtx
+      us = ownParty ctx
+      otherParties =
+        if allParties == [us] then allParties else filter (/= us) allParties
+   in traceShow allParties $
+        traceShow (ownParty ctx) $
+          traceShow otherParties $
+            otherParties

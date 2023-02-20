@@ -586,6 +586,9 @@ data NotAnInitReason
   | NoHeadOutput
   | NotAHeadDatum
   | NoSTFound
+  | PartiesMissmatch
+  | OwnPartyMissing
+  | CPMissmatch
   | Other
   deriving (Show, Eq)
 
@@ -595,9 +598,10 @@ observeInitTx ::
   -- | Our node's contestation period
   ContestationPeriod ->
   Party ->
+  [Party] ->
   Tx ->
   Either NotAnInitReason InitObservation
-observeInitTx networkId cardanoKeys expectedCP party tx = do
+observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
   -- Check whether we have a proper head
 
   -- XXX: Lots of redundant information here
@@ -619,10 +623,15 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
   -- Additional off-chain checks
   parties <- maybeOther $ mapM partyFromChain ps
   let contestationPeriod = fromChain cp
-  maybeOther $ guard $ expectedCP == contestationPeriod
-  -- TODO: check all the hydra keys are present in the datum and match what we expect
-  -- (need to pass those Hydra keys to the function)
-  maybeOther $ guard $ party `elem` parties
+  -- check that configured CP is present in the datum
+  unless (expectedCP == contestationPeriod) $
+    Left CPMissmatch
+  -- check that our party is present in the datum
+  unless (party `elem` parties) $
+    Left OwnPartyMissing
+  -- check that configured parties are matched in the datum
+  unless (parties == party : otherParties) $
+    Left PartiesMissmatch
   (headTokenPolicyId, headAssetName) <- maybeOther $ findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
   let actualNames = assetNames headAssetName

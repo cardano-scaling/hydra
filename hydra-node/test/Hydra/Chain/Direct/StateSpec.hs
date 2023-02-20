@@ -81,6 +81,7 @@ import Hydra.Chain.Direct.State (
   observeInit,
   observeSomeTx,
   pickChainContext,
+  pickOtherParties,
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
@@ -153,10 +154,11 @@ spec = parallel $ do
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $
       checkCoverage $
-        forAll genChainStateWithTx $ \(ctx, st, tx, transition) ->
-          genericCoverTable [transition] $
-            isJust (observeSomeTx ctx st tx)
-              & counterexample "observeSomeTx returned Nothing"
+        forAll genChainStateWithTx $ \(hydraCtx, ctx, st, tx, transition) ->
+          let otherParties = pickOtherParties hydraCtx ctx
+           in genericCoverTable [transition] $
+                isJust (observeSomeTx ctx st tx otherParties)
+                  & counterexample "observeSomeTx returned Nothing"
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
@@ -170,7 +172,8 @@ spec = parallel $ do
         seedTxOut <- pickBlind genTxOutAdaOnly
 
         let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-        assert $ isRight (observeInit cctx tx)
+        let otherParties = pickOtherParties ctx cctx
+        assert $ isRight (observeInit cctx tx otherParties)
         -- We do replace the minting policy and datum of a head output to
         -- simulate a faked init transaction.
         let alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
@@ -192,7 +195,7 @@ spec = parallel $ do
               | otherwise -> False
 
         pure $
-          observeInit cctx tx' === Left NotAHeadPolicy
+          observeInit cctx tx' otherParties === Left NotAHeadPolicy
             & counterexample ("new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2))
             & counterexample (renderTx tx')
             & counterexample "Should not observe transaction"
@@ -204,7 +207,8 @@ spec = parallel $ do
           $ \(cctxA, cctxB) ->
             forAll genTxIn $ \seedInput ->
               let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
-               in isLeft (observeInit cctxB tx)
+                  otherParties = pickOtherParties ctxB cctxB
+               in isLeft (observeInit cctxB tx otherParties)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
@@ -416,7 +420,8 @@ forAllAbort action = do
     forAll (pickChainContext ctx) $ \cctx ->
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
-          let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+          let otherParties = pickOtherParties ctx cctx
+              (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits otherParties
               utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
            in action utxo (abort (fold committed) cctx stInitialized)
                 & classify
@@ -434,7 +439,7 @@ forAllCollectCom ::
   (UTxO -> Tx -> property) ->
   Property
 forAllCollectCom action =
-  forAllBlind genCollectComTx $ \(ctx, committedUTxO, stInitialized, tx) ->
+  forAllBlind genCollectComTx $ \(_hctx, ctx, committedUTxO, stInitialized, tx) ->
     let utxo = getKnownUTxO stInitialized <> getKnownUTxO ctx
      in action utxo tx
           & counterexample ("Committed UTxO: " <> show committedUTxO)
@@ -445,7 +450,7 @@ forAllClose ::
   Property
 forAllClose action = do
   -- FIXME: we should not hardcode number of parties but generate it within bounds
-  forAll (genCloseTx maximumNumberOfParties) $ \(ctx, st, tx, sn) ->
+  forAll (genCloseTx maximumNumberOfParties) $ \(_hctx, ctx, st, tx, sn) ->
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
      in action utxo tx
           & label (Prelude.head . Prelude.words . show $ sn)

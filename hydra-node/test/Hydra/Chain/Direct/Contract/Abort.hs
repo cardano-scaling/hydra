@@ -212,7 +212,7 @@ genAbortMutation (tx, utxo) =
     , SomeMutation (Just "minting not allowed") MintOnAbort <$> do
         mintAPT <- addPTWithQuantity tx 1
         -- We need to also remove one party to make sure the vHead validator
-        -- still things it's the right number of tokens getting burned.
+        -- still thinks it's the right number of tokens getting burned.
         let onePartyLess = List.tail $ healthyParties
         let removeOneParty =
               ChangeInputHeadDatum $

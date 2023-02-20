@@ -25,6 +25,7 @@ import Hydra.Chain.Direct.State (
   contest,
   ctxHeadParameters,
   ctxHydraSigningKeys,
+  ctxParties,
   fanout,
   genCloseTx,
   genCommits,
@@ -39,6 +40,7 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeClose,
   pickChainContext,
+  pickOtherParties,
   unsafeObserveInitAndCommits,
  )
 import Hydra.Ledger.Cardano (
@@ -125,7 +127,8 @@ computeCollectComCost =
     cctx <- pickChainContext ctx
     initTx <- genInitTx ctx
     commits <- genCommits' (genUTxOAdaOnlyOfSize 1) ctx initTx
-    let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+    let allParties = ctxParties ctx
+    let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits allParties
     pure (fold committedUTxOs, collect cctx stInitialized, getKnownUTxO stInitialized)
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
@@ -186,7 +189,9 @@ computeAbortCost =
     initTx <- genInitTx ctx
     commits <- sublistOf =<< genCommits ctx initTx
     cctx <- pickChainContext ctx
-    let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+    let otherParties = pickOtherParties ctx cctx
+    let (committed, stInitialized) =
+          unsafeObserveInitAndCommits cctx initTx commits otherParties
     pure (abort (fold committed) cctx stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
 computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]

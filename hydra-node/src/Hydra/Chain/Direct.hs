@@ -210,8 +210,9 @@ withDirectChain ::
   -- | Last known point on chain as loaded from persistence.
   Maybe ChainPoint ->
   TinyWallet IO ->
+  [Party] ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx persistedPoint wallet callback action = do
+withDirectChain tracer config ctx persistedPoint wallet otherParties callback action = do
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
@@ -229,7 +230,7 @@ withDirectChain tracer config ctx persistedPoint wallet callback action = do
   res <-
     race
       ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback getTimeHandle ctx
+          let handler = chainSyncHandler tracer callback getTimeHandle ctx otherParties
           let intersection = toConsensusPointInMode CardanoMode chainPoint
           let client = ouroborosApplication tracer intersection queue handler wallet
           withIOManager $ \iocp ->

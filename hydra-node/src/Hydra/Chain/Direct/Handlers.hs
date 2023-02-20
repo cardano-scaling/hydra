@@ -64,6 +64,7 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Network.Block (Point (..), blockPoint)
@@ -190,9 +191,11 @@ chainSyncHandler ::
   GetTimeHandle m ->
   -- | Contextual information about our chain connection.
   ChainContext ->
+  -- | Other parties hydra keys
+  [Party] ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx =
+chainSyncHandler tracer callback getTimeHandle ctx otherParties =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -226,7 +229,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
 
     forM_ receivedTxs $ \tx ->
       callback $ \ChainStateAt{chainState = cs} ->
-        case observeSomeTx ctx cs tx of
+        case observeSomeTx ctx cs tx otherParties of
           Nothing -> Nothing
           Just (observedTx, cs') ->
             Just $

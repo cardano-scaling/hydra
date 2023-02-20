@@ -57,7 +57,7 @@ main = do
  where
   run opts = do
     let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
-    env@Environment{party} <- initEnvironment opts
+    env@Environment{party, otherParties} <- initEnvironment opts
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
         traceWith tracer (NodeOptions opts)
@@ -77,7 +77,7 @@ main = do
         ctx <- loadChainContext chainConfig party hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
         let ChainStateAt{recordedAt} = getChainState hs
-        withDirectChain (contramap DirectChain tracer) chainConfig ctx recordedAt wallet (chainCallback nodeState eq) $ \chain -> do
+        withDirectChain (contramap DirectChain tracer) chainConfig ctx recordedAt wallet otherParties (chainCallback nodeState eq) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
