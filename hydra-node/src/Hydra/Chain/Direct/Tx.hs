@@ -630,7 +630,7 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
   unless (party `elem` parties) $
     Left OwnPartyMissing
   -- check that configured parties are matched in the datum
-  unless (parties == party : otherParties) $
+  unless (length parties == length (party : otherParties)) $
     Left PartiesMismatch
   (headTokenPolicyId, headAssetName) <- maybeOther $ findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys

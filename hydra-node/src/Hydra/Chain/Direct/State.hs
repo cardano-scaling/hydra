@@ -994,8 +994,7 @@ pickOtherParties hydraCtx ctx =
   let allParties = ctxParties hydraCtx
       us = ownParty ctx
       otherParties =
-        if allParties == [us] then allParties else filter (/= us) allParties
-   in traceShow allParties $
-        traceShow (ownParty ctx) $
-          traceShow otherParties $
-            otherParties
+        if allParties == [us]
+          then []
+          else filter (/= us) allParties
+   in otherParties
