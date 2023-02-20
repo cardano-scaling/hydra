@@ -235,13 +235,14 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
-  { -- | The latest UTxO of the "seen ledger".
+  { -- | The latest UTxO resulting from applying 'seenTxs' to
+    -- 'confirmedSnapshot'. Spec: L̂
     seenUTxO :: UTxOType tx
-  , -- | List of seen transactions.
+  , -- | List of seen transactions. Spec: T̂
     seenTxs :: [tx]
-  , -- | The latest confirmed snapshot, representing the "confirmed ledger".
+  , -- | The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
     confirmedSnapshot :: ConfirmedSnapshot tx
-  , -- | Whether we are currently collecting signatures for a snapshot.
+  , -- | Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
     seenSnapshot :: SeenSnapshot tx
   }
   deriving stock (Generic)
@@ -605,6 +606,7 @@ onOpenNetworkReqTx ::
   tx ->
   Outcome tx
 onOpenNetworkReqTx env ledger st tx =
+  -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
   case applyTransactions seenUTxO [tx] of
     Left (_, err) -> Wait $ WaitOnNotApplicableTx err
     Right utxo' ->
