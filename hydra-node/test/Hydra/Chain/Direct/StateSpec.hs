@@ -87,6 +87,7 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInitReason (..))
 import Hydra.ContestationPeriod (toNominalDiffTime)
+import Hydra.HeadLogic (Environment (otherParties))
 import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
@@ -157,8 +158,9 @@ spec = parallel $ do
         forAll genChainStateWithTx $ \(hydraCtx, ctx, st, tx, transition) ->
           let otherParties = pickOtherParties hydraCtx ctx
            in genericCoverTable [transition] $
-                isJust (observeSomeTx ctx st tx otherParties)
-                  & counterexample "observeSomeTx returned Nothing"
+                traceShow ("spec: " <> show otherParties) $
+                  isJust (observeSomeTx ctx st tx otherParties)
+                    & counterexample "observeSomeTx returned Nothing"
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit

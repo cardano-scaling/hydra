@@ -472,7 +472,7 @@ fanout st utxo deadlineSlotNo = do
 observeSomeTx :: ChainContext -> ChainState -> Tx -> [Party] -> Maybe (OnChainTx Tx, ChainState)
 observeSomeTx ctx cst tx otherParties = case cst of
   Idle ->
-    second Initial <$> hush (observeInit ctx tx otherParties)
+    second Initial <$> hush (traceShow ("observeSomeTx: " <> show otherParties) $ observeInit ctx tx otherParties)
   Initial st ->
     second Initial <$> observeCommit ctx st tx
       <|> (,Idle) <$> observeAbort st tx
@@ -490,7 +490,7 @@ observeInit ::
   Tx ->
   [Party] ->
   Either NotAnInitReason (OnChainTx Tx, InitialState)
-observeInit ctx tx otherParties = do
+observeInit ctx tx otherParties = traceShow ("observeInit: " <> show otherParties) $ do
   observation <-
     observeInitTx
       networkId
@@ -993,8 +993,8 @@ pickOtherParties :: HydraContext -> ChainContext -> [Party]
 pickOtherParties hydraCtx ctx =
   let allParties = ctxParties hydraCtx
       us = ownParty ctx
-      otherParties =
-        if allParties == [us]
-          then []
-          else filter (/= us) allParties
-   in otherParties
+      otherParties = filter (/= us) allParties
+   in traceShow allParties $
+        traceShow (ownParty ctx) $
+          traceShow otherParties $
+            otherParties

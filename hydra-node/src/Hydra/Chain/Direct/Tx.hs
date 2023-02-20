@@ -17,6 +17,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Hydra.Chain (HeadId (..), HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -630,8 +631,13 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
   unless (party `elem` parties) $
     Left OwnPartyMissing
   -- check that configured parties are matched in the datum
-  unless (length parties == length (party : otherParties)) $
+  unless (containsSameElements parties (party : otherParties)) $
     Left PartiesMismatch
+  unless (sameLength parties (party : otherParties)) $
+    traceShow parties $
+      traceShow party $
+        traceShow ("otherParties: " <> show otherParties) $
+          Left CPMismatch
   (headTokenPolicyId, headAssetName) <- maybeOther $ findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
   let actualNames = assetNames headAssetName
@@ -657,6 +663,13 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
       , parties
       }
  where
+  containsSameElements a b = Set.fromList a == Set.fromList b
+  sameLength a b = length a == length b
+  --        [1, 2, 3] ==        [1, 2, 2, 3]
+  -- length [1, 2, 3] != length [1, 2, 2, 3]
+  --
+  --        [1, 2, 4] !=        [1, 2, 3]
+  -- length [1, 2, 4] == length [1, 2, 3]
   maybeLeft e = maybe (Left e) Right
 
   maybeOther = \case
