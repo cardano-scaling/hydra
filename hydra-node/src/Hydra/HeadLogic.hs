@@ -18,7 +18,6 @@ import Hydra.Prelude
 import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import qualified Data.Text as Text
 import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
@@ -776,38 +775,43 @@ onOpenNetworkAckSn ::
   SnapshotNumber ->
   Outcome tx
 onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
+  -- Spec: wait ŝ = s
   waitOnSeenSnapshot $ \snapshot sigs -> do
-    let sigs'
-          -- TODO: Must check whether we know the 'otherParty' signing the snapshot
-          | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
-          | otherwise = sigs
-    ifAllMembersHaveSigned snapshot sigs' $ do
-      let multisig = aggregateInOrder sigs' parties
-      NewState
-        ( onlyUpdateCoordinatedHeadState $
-            coordinatedHeadState
-              { confirmedSnapshot =
-                  ConfirmedSnapshot
-                    { snapshot
-                    , signatures = multisig
-                    }
-              , seenSnapshot = LastSeenSnapshot (number snapshot)
-              , -- TODO: prune in ReqSn
-                seenTxs = seenTxs \\ confirmed snapshot
-              }
-        )
-        [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-        & emitSnapshot env
+    -- Spec: require s ∈ {ŝ, ŝ + 1} ∧ (j,σⱼ) ∉ ̂Σ
+    requireAckSn sigs $ do
+      let sigs'
+            -- TODO: Must check whether we know the 'otherParty' signing the snapshot
+            | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
+            | otherwise = sigs
+      ifAllMembersHaveSigned snapshot sigs' $ do
+        let multisig = aggregateInOrder sigs' parties
+        NewState
+          ( onlyUpdateCoordinatedHeadState $
+              coordinatedHeadState
+                { confirmedSnapshot =
+                    ConfirmedSnapshot
+                      { snapshot
+                      , signatures = multisig
+                      }
+                , seenSnapshot = LastSeenSnapshot (number snapshot)
+                , -- TODO: prune in ReqSn
+                  seenTxs = seenTxs \\ confirmed snapshot
+                }
+          )
+          [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+          & emitSnapshot env
  where
+  seenSn = seenSnapshotNumber seenSnapshot
+
+  requireAckSn sigs cont
+    | sn `elem` [seenSn, seenSn + 1] && not (Map.member otherParty sigs) = cont
+    | otherwise = Error $ RequireFailed "requireReqSn"
+
   waitOnSeenSnapshot cont =
-    -- TODO: Spec: require sn ∈ {seenSn, seenSn + 1}
     case seenSnapshot of
-      NoSeenSnapshot -> Wait WaitOnSeenSnapshot
-      LastSeenSnapshot _ -> Wait WaitOnSeenSnapshot
-      RequestedSnapshot _ _ -> Wait WaitOnSeenSnapshot
       SeenSnapshot snapshot sigs
-        | number snapshot /= sn -> Wait $ WaitOnSnapshotNumber (number snapshot)
-        | otherwise -> cont snapshot sigs
+        | seenSn == sn -> cont snapshot sigs
+      _ -> Wait WaitOnSeenSnapshot
 
   ifAllMembersHaveSigned snapshot sigs' cont =
     if Map.keysSet sigs' == Set.fromList parties
