@@ -50,6 +50,16 @@ validate initialValidator headValidator seedInput action context =
     Burn -> validateTokensBurning context
 {-# INLINEABLE validate #-}
 
+-- | When minting head tokens we want to make sure that:
+--
+-- * There is single state token that is paid into v_head, which ensures
+-- continuity. ('singleSTIsPaidToTheHead')
+--
+-- * The number of minted PTs == number of participants (+1 for the ST) evident
+-- from the datum. ('mintedPTsMatchParties')
+--
+-- * Ensure out-ref and the headId are in the datum of the first output of the
+-- transaction which mints tokens. ('seedInputIsConsumed')
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
 validateTokensMinting initialValidator headValidator seedInput context =
   seedInputIsConsumed
@@ -57,6 +67,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
     && mintedPTsMatchParties
  where
   singleSTIsPaidToTheHead =
+    -- we expect a single head output containing ST token
     traceIfFalse "minted wrong" $
       case scriptOutputsAt headValidator txInfo of
         [out] -> headOutputHasST out
@@ -70,6 +81,8 @@ validateTokensMinting initialValidator headValidator seedInput context =
 
   mintedPTsMatchParties =
     participationTokensAreDistributed currency initialValidator txInfo nParties
+      -- here we are doing 'nParties' + 1 to account for the ST token too since
+      -- it has the same policy id as PTs.
       && traceIfFalse "minted tokens do not match parties" (mintedTokenCount == nParties + 1)
 
   minted = getValue $ txInfoMint txInfo
@@ -103,9 +116,17 @@ validateTokensMinting initialValidator headValidator seedInput context =
                   Just _ -> traceError "unexpected State in datum"
       _ -> traceError "expected single head output"
 
-  seedInputIsConsumed = traceIfFalse "seed not consumed" $ seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
+  seedInputIsConsumed =
+    traceIfFalse "seed not consumed" $
+      seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
--- | Checks that 'txInfoMint' field only contains negative token quantities or it is empty.
+-- | Token burning check should:
+-- * Not restrict burning on the mu_head at all.
+--
+-- It is ensured by the v_head validator, when tokens of a specific headId may
+-- be burned.
+--
+-- 'validateTokensBurning' just makes sure all tokens have negative quantity.
 validateTokensBurning :: ScriptContext -> Bool
 validateTokensBurning context =
   traceIfFalse "minting not allowed" burnHeadTokens
@@ -118,7 +139,7 @@ validateTokensBurning context =
 
   burnHeadTokens =
     case Map.lookup currency minted of
-      Nothing -> True
+      Nothing -> False
       Just tokenMap -> and $ map ((< 0) . snd) (Map.toList tokenMap)
 
 -- | Checks that outputs from v_initial contain the right quantity of PTs
