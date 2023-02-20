@@ -586,9 +586,9 @@ data NotAnInitReason
   | NoHeadOutput
   | NotAHeadDatum
   | NoSTFound
-  | PartiesMissmatch
+  | PartiesMismatch
   | OwnPartyMissing
-  | CPMissmatch
+  | CPMismatch
   | Other
   deriving (Show, Eq)
 
@@ -625,13 +625,13 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
   let contestationPeriod = fromChain cp
   -- check that configured CP is present in the datum
   unless (expectedCP == contestationPeriod) $
-    Left CPMissmatch
+    Left CPMismatch
   -- check that our party is present in the datum
   unless (party `elem` parties) $
     Left OwnPartyMissing
   -- check that configured parties are matched in the datum
   unless (parties == party : otherParties) $
-    Left PartiesMissmatch
+    Left PartiesMismatch
   (headTokenPolicyId, headAssetName) <- maybeOther $ findHeadAssetId headOut
   let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
   let actualNames = assetNames headAssetName
