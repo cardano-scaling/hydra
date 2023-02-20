@@ -689,11 +689,12 @@ onOpenNetworkReqSn ::
   Event tx ->
   Outcome tx
 onOpenNetworkReqSn env ledger st otherParty sn txs ev =
-  -- TODO: Also we might be robust against multiple ReqSn for otherwise
-  -- valid request, which is currently leading to 'Error'
   -- TODO: Verify the request is signed by (?) / comes from the leader
   -- (Can we prove a message comes from a given peer, without signature?)
-  requireValidReqSn $
+
+  -- Spec: require s = ŝ + 1 and leader(s) = j
+  requireReqSn $
+    -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
       -- Spec: wait U̅ ◦ T ̸= ⊥ combined with Û ← Ū̅ ◦ T
       case applyTransactions ledger confirmedUTxO txs of
@@ -716,26 +717,13 @@ onOpenNetworkReqSn env ledger st otherParty sn txs ev =
             )
             [NetworkEffect $ AckSn party snapshotSignature sn]
  where
-  requireValidReqSn cont
-    -- TODO: Spec: require s = ŝ + 1 and leader(s) = j
-    | sn > seenSn && isLeader parameters otherParty sn = cont
-    | otherwise =
-      Error . RequireFailed $
-        Text.intercalate "," $
-          [ "requireValidReqSn: " <> show sn
-          , show seenSn
-          , show $ isLeader parameters otherParty sn
-          ]
+  requireReqSn cont
+    | sn == seenSn + 1 && isLeader parameters otherParty sn = cont
+    | otherwise = Error $ RequireFailed "requireReqSn"
 
-  waitNoSnapshotInFlight cont =
-    -- TODO: Spec: wait s̅ = ŝ
-    case seenSnapshot of
-      SeenSnapshot{snapshot = Snapshot{number}}
-        | number == sn -> Error $ InvalidEvent ev (Open st)
-        | otherwise -> Wait $ WaitOnSnapshotNumber seenSn
-      _
-        | sn > confSn + 1 -> Wait WaitOnSeenSnapshot
-        | otherwise -> cont
+  waitNoSnapshotInFlight cont
+    | confSn == seenSn = cont
+    | otherwise = Wait $ WaitOnSnapshotNumber seenSn
 
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0

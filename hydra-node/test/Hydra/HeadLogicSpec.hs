@@ -135,11 +135,14 @@ spec = do
             event = NetworkEvent defaultTTL $ AckSn alice (sign aliceSk snapshot) 1
         update bobEnv ledger (inOpenState threeParties ledger) event `shouldBe` Wait WaitOnSeenSnapshot
 
-      -- TODO: write a property test for various future snapshots
-      it "waits if we receive a future snapshot" $ do
+      -- TODO: Write property tests for various future / old snapshot behavior.
+      -- That way we could cover variations of snapshot numbers and state of
+      -- snapshot collection.
+
+      it "rejects if we receive a too far future snapshot" $ do
         let event = NetworkEvent defaultTTL $ ReqSn bob 2 []
             st = inOpenState threeParties ledger
-        update bobEnv ledger st event `shouldBe` Wait WaitOnSeenSnapshot
+        update bobEnv ledger st event `shouldBe` Error (RequireFailed "requireReqSn")
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
         let s0 = inOpenState threeParties ledger
@@ -165,9 +168,6 @@ spec = do
           Error RequireFailed{} -> True
           _ -> False
 
-      -- TODO(SN): maybe this and the next are a property! at least DRY
-      -- NOTE(AB): we should cover variations of snapshot numbers and state of snapshot
-      -- collection
       it "rejects too-old snapshots" $ do
         let event = NetworkEvent defaultTTL $ ReqSn theLeader 2 []
             theLeader = alice
@@ -180,9 +180,7 @@ spec = do
                   , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = NoSeenSnapshot
                   }
-        update bobEnv ledger st event `shouldSatisfy` \case
-          Error RequireFailed{} -> True
-          _ -> False
+        update bobEnv ledger st event `shouldBe` Error (RequireFailed "requireReqSn")
 
       it "rejects too-old snapshots when collecting signatures" $ do
         let event = NetworkEvent defaultTTL $ ReqSn theLeader 2 []
@@ -196,15 +194,13 @@ spec = do
                   , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = SeenSnapshot (Snapshot 3 mempty []) mempty
                   }
-        update bobEnv ledger st event `shouldSatisfy` \case
-          Error RequireFailed{} -> True
-          _ -> False
+        update bobEnv ledger st event `shouldBe` Error (RequireFailed "requireReqSn")
 
-      it "wait given too new snapshots from the leader" $ do
+      it "rejects too-new snapshots from the leader" $ do
         let event = NetworkEvent defaultTTL $ ReqSn theLeader 3 []
             theLeader = carol
             st = inOpenState threeParties ledger
-        update bobEnv ledger st event `shouldBe` Wait WaitOnSeenSnapshot
+        update bobEnv ledger st event `shouldBe` Error (RequireFailed "requireReqSn")
 
       it "rejects overlapping snapshot requests from the leader" $ do
         let s0 = inOpenState threeParties ledger
