@@ -1098,9 +1098,10 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
   if
       | not (isLeader parameters party nextSn) ->
         ShouldNotSnapshot $ NotLeader nextSn
-      | -- REVIEW: This is slightly different than in the spec. Also, if we use
-        -- seenSn /= confirmedSn here, the model tests would not pass ->
-        -- incomplete spec?
+      | -- NOTE: This is different than in the spec. If we use seenSn /=
+        -- confirmedSn here, we implicitly require confirmedSn <= seenSn. Which
+        -- may be an acceptable invariant, but we have property tests which are
+        -- more strict right now. Anyhow, we can be more expressive.
         snapshotInFlight ->
         ShouldNotSnapshot $ SnapshotInFlight nextSn
       | null seenTxs ->
