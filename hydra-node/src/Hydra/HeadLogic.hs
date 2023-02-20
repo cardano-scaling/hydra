@@ -695,25 +695,21 @@ onOpenNetworkReqSn env ledger st otherParty sn txs =
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
       -- Spec: wait U̅ ◦ T ̸= ⊥ combined with Û ← Ū̅ ◦ T
-      case applyTransactions ledger confirmedUTxO txs of
-        Left (_, err) ->
-          -- FIXME: this will not happen, as we are always comparing against the
-          -- confirmed snapshot utxo in NewTx?
-          Wait $ WaitOnNotApplicableTx err
-        Right u -> do
-          -- NOTE: confSn == seenSn == sn here
-          let nextSnapshot = Snapshot (confSn + 1) u txs
-          let snapshotSignature = sign signingKey nextSnapshot
-          NewState
-            ( Open
-                st
-                  { coordinatedHeadState =
-                      coordinatedHeadState
-                        { seenSnapshot = SeenSnapshot nextSnapshot mempty
-                        }
-                  }
-            )
-            [NetworkEffect $ AckSn party snapshotSignature sn]
+      waitApplyTxs $ \u -> do
+        -- NOTE: confSn == seenSn == sn here
+        let nextSnapshot = Snapshot (confSn + 1) u txs
+        -- Spec: σᵢ
+        let snapshotSignature = sign signingKey nextSnapshot
+        NewState
+          ( Open
+              st
+                { coordinatedHeadState =
+                    coordinatedHeadState
+                      { seenSnapshot = SeenSnapshot nextSnapshot mempty
+                      }
+                }
+          )
+          [NetworkEffect $ AckSn party snapshotSignature sn]
  where
   requireReqSn cont
     | sn == seenSn + 1 && isLeader parameters otherParty sn = cont
@@ -722,6 +718,14 @@ onOpenNetworkReqSn env ledger st otherParty sn txs =
   waitNoSnapshotInFlight cont
     | confSn == seenSn = cont
     | otherwise = Wait $ WaitOnSnapshotNumber seenSn
+
+  waitApplyTxs cont =
+    case applyTransactions ledger confirmedUTxO txs of
+      Left (_, err) ->
+        -- FIXME: this will not happen, as we are always comparing against the
+        -- confirmed snapshot utxo in NewTx?
+        Wait $ WaitOnNotApplicableTx err
+      Right u -> cont u
 
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
