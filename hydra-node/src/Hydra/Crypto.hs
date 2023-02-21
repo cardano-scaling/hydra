@@ -62,7 +62,7 @@ import Hydra.Cardano.Api (
  )
 import qualified Hydra.Contract.HeadState as OnChain
 import qualified Plutus.V2.Ledger.Api as Plutus
-import Test.QuickCheck (suchThat)
+import Test.QuickCheck (vectorOf)
 import Test.QuickCheck.Instances.ByteString ()
 import Text.Show (Show (..))
 
@@ -127,7 +127,7 @@ instance Key HydraKey where
     HydraKeyHash . castHash $ hashVerKeyDSIGN vk
 
 instance Arbitrary (SigningKey HydraKey) where
-  arbitrary = generateSigningKey <$> ((arbitrary :: Gen ByteString) `suchThat` ((> 1) . BS.length))
+  arbitrary = generateSigningKey <$> fmap BS.pack (vectorOf 32 (arbitrary :: Gen Word8))
 
 instance SerialiseAsRawBytes (SigningKey HydraKey) where
   serialiseToRawBytes (HydraSigningKey sk) =
@@ -178,6 +178,10 @@ instance HasTextEnvelope (VerificationKey HydraKey) where
 
 -- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
 -- not random and insecure, so don't use this in production code!
+--
+-- REVIEW: Do we even need this function? If we can get away with not having to
+-- generate keys for the same input 'ByteString' we should remove it and rely on
+-- the Arbitrary instance for 'SigningKey HydraKey'
 generateSigningKey :: ByteString -> SigningKey HydraKey
 generateSigningKey seed =
   HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes hashOfSeed

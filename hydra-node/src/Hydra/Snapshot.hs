@@ -8,12 +8,13 @@ import Hydra.Prelude
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.=))
+import qualified Data.ByteString as BS
 import Hydra.Cardano.Api (SigningKey)
 import qualified Hydra.Contract.HeadState as Onchain
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, generateSigningKey, sign)
 import Hydra.Ledger (IsTx (..))
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
-import Test.QuickCheck (frequency, suchThat)
+import Test.QuickCheck (frequency, listOf1, suchThat, vectorOf)
 import Test.QuickCheck.Instances.Natural ()
 
 newtype SnapshotNumber
@@ -110,7 +111,7 @@ isInitialSnapshot = \case
 
 instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
-    ks <- fmap generateSigningKey <$> arbitrary
+    ks <- listOf1 (generateSigningKey <$> fmap BS.pack (vectorOf 32 (arbitrary :: Gen Word8)))
     utxo <- arbitrary
     genConfirmedSnapshot 0 utxo ks
 
