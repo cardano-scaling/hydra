@@ -127,7 +127,7 @@ instance Key HydraKey where
     HydraKeyHash . castHash $ hashVerKeyDSIGN vk
 
 instance Arbitrary (SigningKey HydraKey) where
-  arbitrary = generateSigningKey <$> ((arbitrary :: Gen ByteString) `suchThat` (\u -> BS.length u > 1))
+  arbitrary = generateSigningKey <$> ((arbitrary :: Gen ByteString) `suchThat` ((> 1) . BS.length))
 
 instance SerialiseAsRawBytes (SigningKey HydraKey) where
   serialiseToRawBytes (HydraSigningKey sk) =
