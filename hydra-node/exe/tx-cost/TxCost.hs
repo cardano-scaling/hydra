@@ -138,7 +138,7 @@ computeCloseCost = do
   pure $ interesting <> limit
  where
   compute numParties = do
-    (_, st, tx, _sn) <- generate $ genCloseTx numParties
+    (_, _, st, tx, _sn) <- generate $ genCloseTx numParties
     let utxo = getKnownUTxO st
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
