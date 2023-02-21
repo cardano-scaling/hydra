@@ -140,6 +140,7 @@ import Cardano.Ledger.Serialization (mkSized)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Fixture (testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
@@ -148,7 +149,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.ContestationPeriod
 import qualified Hydra.Data.Party as Data (Party)
-import Hydra.Ledger.Cardano (genKeyPair, genOutput, genVerificationKey, renderTxWithUTxO)
+import Hydra.Ledger.Cardano (genKeyPair, genOutput, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (label)

@@ -21,6 +21,11 @@ changes.
     `toConsensusPointHF` with `toConsensusPointInMode`.
   + Re-export new `AcquiringFailure` type from `cardano-api`.
 
+  + Introduce new `Hydra.Cardano.Api.Pretty` module and move functions
+    `renderTx`, `renderTxWithUTxO` and `renderTxs` from `hydra-node` package to
+    this new module.
+
+
 - **BREAKING** Addressed short-comings in `hydra-plutus` scripts:
   + Check presence of state token (ST) and that it's consistent against datum.
   + Reduce cost of `commitTx` by using the initial script as input reference.

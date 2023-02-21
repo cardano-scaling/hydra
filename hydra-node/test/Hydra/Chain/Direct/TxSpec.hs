@@ -17,6 +17,7 @@ import Cardano.Ledger.Babbage.PParams (PParams)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import GHC.Natural (wordToNatural)
+import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Fixture (
@@ -38,7 +39,6 @@ import Hydra.Ledger.Cardano (
   adaOnly,
   genOneUTxOFor,
   genVerificationKey,
-  renderTx,
  )
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
 import Hydra.Party (Party)

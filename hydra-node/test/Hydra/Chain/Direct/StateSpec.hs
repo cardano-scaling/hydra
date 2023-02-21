@@ -26,6 +26,7 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
+import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (
   PostTxError (..),
  )
@@ -67,8 +68,6 @@ import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
   genValue,
-  renderTx,
-  renderTxWithUTxO,
  )
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx',

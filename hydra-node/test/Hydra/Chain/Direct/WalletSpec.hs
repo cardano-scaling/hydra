@@ -28,6 +28,7 @@ import qualified Data.Set as Set
 import Hydra.Cardano.Api (ChainPoint (ChainPoint), Era, Hash (HeaderHash), LedgerEra, PaymentCredential (PaymentCredentialByKey), PaymentKey, ShelleyLedgerEra, SlotNo, StandardCrypto, VerificationKey, fromLedgerTx, shelleyBasedEra, toLedgerPParams, toLedgerTxIn, toLedgerUTxO, verificationKeyHash)
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
+import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Util (markerDatum)
@@ -42,7 +43,7 @@ import Hydra.Chain.Direct.Wallet (
   coverFee_,
   newTinyWallet,
  )
-import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genTxIn, renderTx)
+import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genTxIn)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
