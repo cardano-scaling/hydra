@@ -89,12 +89,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
 
   mintedTokens = fromMaybe Map.empty $ Map.lookup currency minted
 
-  mintedTokenCount =
-    foldr
-      ( \tokenVal def -> def + tokenVal
-      )
-      0
-      mintedTokens
+  mintedTokenCount = sum mintedTokens
 
   currency = ownCurrencySymbol context
 
@@ -140,14 +135,14 @@ validateTokensBurning context =
   burnHeadTokens =
     case Map.lookup currency minted of
       Nothing -> False
-      Just tokenMap -> and $ map ((< 0) . snd) (Map.toList tokenMap)
+      Just tokenMap -> all ((< 0) . snd) (Map.toList tokenMap)
 
 -- | Checks that outputs from v_initial contain the right quantity of PTs
 participationTokensAreDistributed :: CurrencySymbol -> ValidatorHash -> TxInfo -> Integer -> Bool
 participationTokensAreDistributed currency initialValidator txInfo nParties =
   case scriptOutputsAt initialValidator txInfo of
     [] -> traceIfFalse "no initial outputs for parties" $ nParties == (0 :: Integer)
-    outs -> traceIfFalse "outputs do not match parties" (nParties == length outs) && all hasParticipationToken outs
+    outs -> traceIfFalse "outputs do not match parties" $ nParties == length outs && all hasParticipationToken outs
  where
   hasParticipationToken :: (OutputDatum, Value) -> Bool
   hasParticipationToken (_, val) =

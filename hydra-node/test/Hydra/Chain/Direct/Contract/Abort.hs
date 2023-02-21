@@ -213,7 +213,7 @@ genAbortMutation (tx, utxo) =
         mintAPT <- addPTWithQuantity tx 1
         -- We need to also remove one party to make sure the vHead validator
         -- still thinks it's the right number of tokens getting burned.
-        let onePartyLess = List.tail $ healthyParties
+        let onePartyLess = List.tail healthyParties
         let removeOneParty =
               ChangeInputHeadDatum $
                 Head.Initial

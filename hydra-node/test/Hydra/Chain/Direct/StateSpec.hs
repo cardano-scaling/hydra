@@ -87,7 +87,6 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInitReason (..))
 import Hydra.ContestationPeriod (toNominalDiffTime)
-import Hydra.HeadLogic (Environment (otherParties))
 import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
