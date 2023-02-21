@@ -4,6 +4,7 @@
 module Test.Util where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude hiding (shouldBe)
 
 import Control.Monad.Class.MonadSay (say)
 import Control.Monad.IOSim (
@@ -22,7 +23,7 @@ import Data.List (isInfixOf)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node (HydraNodeLog)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot), HUnitFailure (HUnitFailure))
-import Test.Hydra.Prelude (failure, location)
+import Test.QuickCheck (forAll, withMaxSuccess)
 
 -- | Run given 'action' in 'IOSim' and rethrow any exceptions.
 shouldRunInSim ::
@@ -96,3 +97,13 @@ traceInIOSim = Tracer traceM
 -- @@
 traceDebug :: (Applicative m, ToJSON a) => Tracer m a
 traceDebug = Tracer (\a -> trace (decodeUtf8 $ encode a) $ pure ())
+
+-- | This creates an hspec test case about a property which ensures the given generator
+-- does not produce equals values within a reasonable number of generated values.
+propCollisionResistant :: (Show a, Eq a) => String -> Gen a -> Spec
+propCollisionResistant name gen =
+  prop (name <> " is reasonably collision resistant") $
+    withMaxSuccess 100_000 $
+      forAll gen $ \a ->
+        forAll gen $ \b ->
+          a /= b
