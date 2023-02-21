@@ -127,7 +127,7 @@ instance Key HydraKey where
     HydraKeyHash . castHash $ hashVerKeyDSIGN vk
 
 instance Arbitrary (SigningKey HydraKey) where
-  arbitrary = generateSigningKey <$> fmap BS.pack (vectorOf 32 (arbitrary :: Gen Word8))
+  arbitrary = generateSigningKey . BS.pack <$> vectorOf 32 arbitrary
 
 instance SerialiseAsRawBytes (SigningKey HydraKey) where
   serialiseToRawBytes (HydraSigningKey sk) =
@@ -178,7 +178,6 @@ instance HasTextEnvelope (VerificationKey HydraKey) where
 
 -- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
 -- not random and insecure, so don't use this in production code!
---
 generateSigningKey :: ByteString -> SigningKey HydraKey
 generateSigningKey seed =
   HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes hashOfSeed
