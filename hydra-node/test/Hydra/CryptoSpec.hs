@@ -13,6 +13,7 @@ import qualified Data.ByteString.Char8 as Char8
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (counterexample, forAll, shuffle, (=/=), (==>))
 import Test.QuickCheck.Instances.UnorderedContainers ()
+import Test.Util (propCollisionResistant)
 
 spec :: Spec
 spec = do
@@ -33,6 +34,7 @@ specSigningKey =
     prop "can be generated" $ \(seedA, seedB) -> do
       seedA /= seedB
         ==> generateSigningKey seedA =/= generateSigningKey seedB
+    propCollisionResistant "arbitrary @(SigningKey HydraKey)" (arbitrary @(SigningKey HydraKey))
 
 specVerificationKey :: Spec
 specVerificationKey =

@@ -87,7 +87,7 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.Crypto (HydraKey, generateSigningKey)
+import Hydra.Crypto (HydraKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey)
@@ -768,7 +768,7 @@ genHydraContext maxParties = choose (1, maxParties) >>= genHydraContextFor
 genHydraContextFor :: Int -> Gen HydraContext
 genHydraContextFor n = do
   ctxVerificationKeys <- replicateM n genVerificationKey
-  ctxHydraSigningKeys <- fmap generateSigningKey <$> vector n
+  ctxHydraSigningKeys <- vector n
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
   ctxContestationPeriod <- arbitrary
   pure $

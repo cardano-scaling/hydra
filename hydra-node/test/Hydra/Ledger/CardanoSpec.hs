@@ -28,7 +28,8 @@ import Hydra.Ledger.Cardano (
 import Hydra.Ledger.Cardano.Evaluate (slotNoFromUTCTime, slotNoToUTCTime)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Property, counterexample, forAll, forAllBlind, property, sized, vectorOf, withMaxSuccess, (.&&.), (===))
+import Test.QuickCheck (Property, counterexample, forAll, forAllBlind, property, sized, vectorOf, (.&&.), (===))
+import Test.Util (propCollisionResistant)
 
 spec :: Spec
 spec =
@@ -131,14 +132,6 @@ appliesValidTransactionFromJSON =
           & counterexample ("Result: " <> show result)
           & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
           & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
-
-propCollisionResistant :: (Show a, Eq a) => String -> Gen a -> Spec
-propCollisionResistant name gen =
-  prop (name <> " is reasonably collision resistant") $
-    withMaxSuccess 100_000 $
-      forAll gen $ \a ->
-        forAll gen $ \b ->
-          a /= b
 
 propDoesNotCollapse :: (Show (t a), Foldable t, Monoid (t a)) => String -> Gen (t a) -> Spec
 propDoesNotCollapse name gen =

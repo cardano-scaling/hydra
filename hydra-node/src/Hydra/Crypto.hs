@@ -47,6 +47,7 @@ import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
@@ -61,6 +62,7 @@ import Hydra.Cardano.Api (
  )
 import qualified Hydra.Contract.HeadState as OnChain
 import qualified Plutus.V2.Ledger.Api as Plutus
+import Test.QuickCheck (vectorOf)
 import Test.QuickCheck.Instances.ByteString ()
 import Text.Show (Show (..))
 
@@ -125,7 +127,7 @@ instance Key HydraKey where
     HydraKeyHash . castHash $ hashVerKeyDSIGN vk
 
 instance Arbitrary (SigningKey HydraKey) where
-  arbitrary = generateSigningKey <$> arbitrary
+  arbitrary = generateSigningKey . BS.pack <$> vectorOf 32 arbitrary
 
 instance SerialiseAsRawBytes (SigningKey HydraKey) where
   serialiseToRawBytes (HydraSigningKey sk) =
@@ -140,7 +142,7 @@ instance HasTextEnvelope (SigningKey HydraKey) where
       <> fromString (algorithmNameDSIGN (Proxy :: Proxy Ed25519DSIGN))
 
 instance Arbitrary (VerificationKey HydraKey) where
-  arbitrary = getVerificationKey . generateSigningKey <$> arbitrary
+  arbitrary = getVerificationKey <$> arbitrary
 
 instance SerialiseAsRawBytes (VerificationKey HydraKey) where
   serialiseToRawBytes (HydraVerificationKey vk) =

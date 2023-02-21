@@ -10,7 +10,7 @@ import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Cardano.Api (SigningKey)
 import qualified Hydra.Contract.HeadState as Onchain
-import Hydra.Crypto (HydraKey, MultiSignature, aggregate, generateSigningKey, sign)
+import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Ledger (IsTx (..))
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
@@ -110,7 +110,7 @@ isInitialSnapshot = \case
 
 instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
-    ks <- fmap generateSigningKey <$> arbitrary
+    ks <- arbitrary
     utxo <- arbitrary
     genConfirmedSnapshot 0 utxo ks
 
