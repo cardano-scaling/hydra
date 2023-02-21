@@ -56,7 +56,8 @@ jobs:
           --label org.opencontainers.image.created=$(date -Is) \
           --label org.opencontainers.image.revision=${{github.sha}} \
           --label org.opencontainers.image.version=unstable \
-          --tag ${IMAGE_NAME}:unstable -
+          --tag ${IMAGE_NAME}:unstable
+          --tag "${IMAGE_NAME}:$GITHUB_SHA" -
         # Also tag with semver if we are building a tag
         building_tag=${{github.ref_type == 'tag'}}
         [[ ${building_tag} = true ]] && \
