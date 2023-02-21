@@ -11,7 +11,9 @@ import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Data.Map as Map
+import Data.String (IsString (..))
 import qualified Data.Text as Text
+import Data.Foldable (toList)
 
 -- | Get a human-readable pretty text representation of a UTxO.
 renderUTxO :: IsString str => UTxO -> str

@@ -14,43 +14,44 @@ import qualified Cardano.Ledger.Mary.Value as Ledger
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
+import Data.Foldable (foldl', toList)
+import Data.Function (on)
+import Data.List (intercalate, sort, sortBy)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import Hydra.Cardano.Api.ScriptData (fromLedgerData)
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 
 -- | Obtain a human-readable pretty text representation of a transaction.
-renderTx :: IsString str => Api.Tx -> str
+renderTx :: Api.Tx -> String
 renderTx = renderTxWithUTxO mempty
 
-renderTxs :: IsString str => [Api.Tx] -> str
-renderTxs xs = fromString $ toString $ intercalate "\n\n" (renderTx <$> xs)
+renderTxs :: [Api.Tx] -> String
+renderTxs xs = intercalate "\n\n" (renderTx <$> xs)
 
 -- | Like 'renderTx', but uses the given UTxO to resolve inputs.
-renderTxWithUTxO :: IsString str => UTxO -> Api.Tx -> str
+renderTxWithUTxO :: UTxO -> Api.Tx -> String
 renderTxWithUTxO utxo (Tx body _wits) =
-  fromString $
-    toString $
-      unlines $
-        [show (getTxId body)]
-          <> [""]
-          <> inputLines
-          <> [""]
-          <> referenceInputLines
-          <> [""]
-          <> outputLines
-          <> [""]
-          <> validityLines
-          <> [""]
-          <> mintLines
-          <> [""]
-          <> scriptLines
-          <> [""]
-          <> datumLines
-          <> [""]
-          <> redeemerLines
-          <> [""]
-          <> requiredSignersLines
+  unlines $
+    [show (getTxId body)]
+      <> [""]
+      <> inputLines
+      <> [""]
+      <> referenceInputLines
+      <> [""]
+      <> outputLines
+      <> [""]
+      <> validityLines
+      <> [""]
+      <> mintLines
+      <> [""]
+      <> scriptLines
+      <> [""]
+      <> datumLines
+      <> [""]
+      <> redeemerLines
+      <> [""]
+      <> requiredSignersLines
  where
   Api.ShelleyTxBody lbody scripts scriptsData _auxData _validity = body
   outs = Ledger.outputs' lbody
@@ -71,9 +72,9 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   prettyTxIn i =
     case UTxO.resolve i utxo of
-      Nothing -> renderTxIn i
+      Nothing -> T.unpack $ renderTxIn i
       Just o ->
-        renderTxIn i
+        T.unpack (renderTxIn i)
           <> ("\n      " <> prettyAddr (Api.txOutAddress o))
           <> ("\n      " <> prettyValue 1 (Api.txOutValue o))
           <> ("\n      " <> prettyDatumUtxo (Api.txOutDatum o))
@@ -113,11 +114,10 @@ renderTxWithUTxO utxo (Tx body _wits) =
     ]
 
   prettyValue n =
-    T.replace " + " indent . renderValue
+    T.unpack . T.replace " + " indent . renderValue
    where
     indent = "\n  " <> T.replicate n "    "
 
-  prettyDatumUtxo :: Api.TxOutDatum CtxUTxO -> Text
   prettyDatumUtxo = \case
     TxOutDatumNone ->
       "TxOutDatumNone"
@@ -165,7 +165,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
       ]
 
   prettyScriptData =
-    decodeUtf8 . Aeson.encode . scriptDataToJson ScriptDataJsonNoSchema
+    T.unpack . decodeUtf8 . BL.toStrict . Aeson.encode . scriptDataToJson ScriptDataJsonNoSchema
 
   redeemerLines = case scriptsData of
     Api.TxBodyNoScriptData -> []

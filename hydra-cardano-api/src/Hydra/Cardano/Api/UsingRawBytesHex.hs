@@ -3,15 +3,15 @@
 -- With some minor modifications of also using encodeUtf8 in 'IsString' instance.
 module Hydra.Cardano.Api.UsingRawBytesHex where
 
-import Hydra.Cardano.Api.Prelude hiding (Show, error, show)
+import Hydra.Cardano.Api.Prelude
 
 import Data.Aeson (FromJSONKey, ToJSONKey)
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString.Base16 as Base16
+import Data.String (IsString (..))
 import qualified Data.Text as Text
 import Data.Typeable (tyConName, typeRep, typeRepTyCon)
-import Prelude (Show, error, show)
 
 -- | For use with @deriving via@, to provide instances for any\/all of 'Show',
 -- 'IsString', 'ToJSON', 'FromJSON', 'ToJSONKey', FromJSONKey' using a hex

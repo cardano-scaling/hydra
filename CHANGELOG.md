@@ -21,6 +21,11 @@ changes.
     `toConsensusPointHF` with `toConsensusPointInMode`.
   + Re-export new `AcquiringFailure` type from `cardano-api`.
 
+  + Introduce new `Hydra.Cardano.Api.Pretty` module and move functions
+    `renderTx`, `renderTxWithUTxO` and `renderTxs` from `hydra-node` package to
+    this new module.
+
+
 - **BREAKING** Addressed short-comings in `hydra-plutus` scripts:
   + Check presence of state token (ST) and that it's consistent against datum.
   + Reduce cost of `commitTx` by using the initial script as input reference.
@@ -68,10 +73,6 @@ changes.
 - Add script sizes to `hydra-node --script-info` and published transaction cost benchmarks.
 
 -  `hydra-cluster` executable can be used to provide a local cardano "network" with `--devnet` argument
-
-- Introduce new `Hydra.Cardano.Api.Pretty` module in `hydra-cardano-api` and
-  move functions `renderTx`, `renderTxWithUTxO` and `renderTxs` from
-  `hydra-node` package to this new module.
 
 ## [0.8.1] - 2022-11-17
 

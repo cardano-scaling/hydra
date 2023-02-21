@@ -17,6 +17,7 @@ import qualified Data.Map as Map
 import Data.Maybe.Strict (strictMaybeToMaybe)
 import GHC.Records (HasField (..))
 import qualified Plutus.V1.Ledger.Api as Plutus
+import Data.List (find)
 
 -- | Find and deserialise from 'ScriptData', a redeemer from the transaction
 -- associated to the given input.
