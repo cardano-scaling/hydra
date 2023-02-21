@@ -589,98 +589,135 @@ definitions:
 
   HeadState:
     oneOf:
-      - title: "IdleState"
+      - title: "Idle"
         additionalProperties: false
         required:
           - tag
-          - chainState
+          - contents
         properties:
           tag:
             type: string
-            enum: ["IdleState"]
-          chainState:
-            $ref: "api.yaml#/components/schemas/ChainState"
-      - title: "InitialState"
+            enum: ["Idle"]
+          contents:
+            $ref: "#/definitions/IdleState"
+      - title: "Initial"
         additionalProperties: false
         required:
           - tag
-          - pendingCommits
-          - committed
-          - previousRecoverableState
-          - chainState
-          - headId
+          - contents
         properties:
           tag:
             type: string
-            enum: ["InitialState"]
-          parameters:
-            $ref: "api.yaml#/components/schemas/HeadParameters"
-          pendingCommits:
-            type: array
-            items:
-              $ref: "api.yaml#/components/schemas/Party"
-          committed:
-            type: array
-            items:
-              $ref: "api.yaml#/components/schemas/Party"
-          previousRecoverableState:
-            $ref: "#/definitions/HeadState"
-          chainState:
-            $ref: "api.yaml#/components/schemas/ChainState"
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-      - title: "OpenState"
+            enum: ["Initial"]
+          contents:
+            $ref: "#/definitions/InitialState"
+      - title: "Open"
         additionalProperties: false
         required:
           - tag
-          - parameters
-          - coordinatedHeadState
-          - previousRecoverableState
-          - chainState
-          - headId
+          - contents
         properties:
           tag:
             type: string
-            enum: ["OpenState"]
-          parameters:
-            $ref: "api.yaml#/components/schemas/HeadParameters"
-          coordinatedHeadState:
-            $ref: "#/definitions/CoordinatedHeadState"
-          previousRecoverableState:
-            $ref: "#/definitions/HeadState"
-          chainState:
-            $ref: "api.yaml#/components/schemas/ChainState"
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-      - title: "ClosedState"
+            enum: ["Open"]
+          contents:
+            $ref: "#/definitions/OpenState"
+      - title: "Closed"
         additionalProperties: false
         required:
           - tag
-          - parameters
-          - previousRecoverableState
-          - confirmedSnapshot
-          - contestationDeadline
-          - readyToFanoutSent
-          - chainState
-          - headId
+          - contents
         properties:
           tag:
             type: string
-            enum: ["ClosedState"]
-          parameters:
-            $ref: "api.yaml#/components/schemas/HeadParameters"
-          previousRecoverableState:
-            $ref: "#/definitions/HeadState"
-          confirmedSnapshot:
-            $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
-          contestationDeadline:
-            $ref: "api.yaml#/components/schemas/UTCTime"
-          readyToFanoutSent:
-            type: boolean
-          chainState:
-            $ref: "api.yaml#/components/schemas/ChainState"
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
+            enum: ["Closed"]
+          contents:
+            $ref: "#/definitions/ClosedState"
+
+  IdleState:
+    type: object
+    additionalProperties: false
+    required:
+      - chainState
+    properties:
+      chainState:
+        $ref: "api.yaml#/components/schemas/ChainState"
+
+  InitialState:
+    type: object
+    additionalProperties: false
+    required:
+      - parameters
+      - pendingCommits
+      - committed
+      - previousRecoverableState
+      - chainState
+      - headId
+    properties:
+      parameters:
+        $ref: "api.yaml#/components/schemas/HeadParameters"
+      pendingCommits:
+        type: array
+        items:
+          $ref: "api.yaml#/components/schemas/Party"
+      committed:
+        type: array
+        items:
+          $ref: "api.yaml#/components/schemas/Party"
+      previousRecoverableState:
+        $ref: "#/definitions/HeadState"
+      chainState:
+        $ref: "api.yaml#/components/schemas/ChainState"
+      headId:
+        $ref: "api.yaml#/components/schemas/HeadId"
+
+  OpenState:
+    type: object
+    additionalProperties: false
+    required:
+      - parameters
+      - coordinatedHeadState
+      - previousRecoverableState
+      - chainState
+      - headId
+    properties:
+      parameters:
+        $ref: "api.yaml#/components/schemas/HeadParameters"
+      coordinatedHeadState:
+        $ref: "#/definitions/CoordinatedHeadState"
+      previousRecoverableState:
+        $ref: "#/definitions/HeadState"
+      chainState:
+        $ref: "api.yaml#/components/schemas/ChainState"
+      headId:
+        $ref: "api.yaml#/components/schemas/HeadId"
+
+  ClosedState:
+    type: object
+    additionalProperties: false
+    required:
+      - parameters
+      - previousRecoverableState
+      - confirmedSnapshot
+      - contestationDeadline
+      - readyToFanoutSent
+      - chainState
+      - headId
+    properties:
+      parameters:
+        $ref: "api.yaml#/components/schemas/HeadParameters"
+      previousRecoverableState:
+        $ref: "#/definitions/HeadState"
+      confirmedSnapshot:
+        $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+      contestationDeadline:
+        $ref: "api.yaml#/components/schemas/UTCTime"
+      readyToFanoutSent:
+        type: boolean
+      chainState:
+        $ref: "api.yaml#/components/schemas/ChainState"
+      headId:
+        $ref: "api.yaml#/components/schemas/HeadId"
 
   CoordinatedHeadState:
     type: object
