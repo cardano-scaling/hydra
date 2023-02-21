@@ -179,9 +179,6 @@ instance HasTextEnvelope (VerificationKey HydraKey) where
 -- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
 -- not random and insecure, so don't use this in production code!
 --
--- REVIEW: Do we even need this function? If we can get away with not having to
--- generate keys for the same input 'ByteString' we should remove it and rely on
--- the Arbitrary instance for 'SigningKey HydraKey'
 generateSigningKey :: ByteString -> SigningKey HydraKey
 generateSigningKey seed =
   HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes hashOfSeed
