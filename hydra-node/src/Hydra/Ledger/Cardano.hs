@@ -44,6 +44,7 @@ import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 import Test.QuickCheck (
   choose,
   getSize,
+  listOf,
   scale,
   shrinkList,
   shrinkMapBy,
@@ -217,6 +218,14 @@ generateOneTransfer networkId (utxo, (_, sender), txs) _ = do
     _ ->
       error "Couldn't generate transaction sequence: need exactly one UTXO."
 
+-- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
+genTxIn :: Gen TxIn
+genTxIn =
+  fmap fromLedgerTxIn . Ledger.TxIn
+    -- NOTE: [88, 32] is a CBOR prefix for a bytestring of 32 bytes.
+    <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
+    <*> fmap Ledger.TxIx (choose (0, 99))
+
 -- TODO: Enable arbitrary datum in generators
 -- TODO: This should better be called 'genOutputFor'
 genOutput ::
@@ -234,14 +243,6 @@ genTxOutAdaOnly = do
   value <- lovelaceToValue . Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
   pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone ReferenceScriptNone
 
--- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
-genTxIn :: Gen TxIn
-genTxIn =
-  fmap fromLedgerTxIn . Ledger.TxIn
-    -- NOTE: [88, 32] is a CBOR prefix for a bytestring of 32 bytes.
-    <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
-    <*> fmap Ledger.TxIx (choose (0, 99))
-
 -- | Generate a fixed size UTxO with ada-only outputs.
 genUTxOAdaOnlyOfSize :: Int -> Gen UTxO
 genUTxOAdaOnlyOfSize numUTxO =
@@ -249,12 +250,11 @@ genUTxOAdaOnlyOfSize numUTxO =
  where
   gen = (,) <$> arbitrary <*> genTxOutAdaOnly
 
--- | Generate 'Alonzo' era 'UTxO', which may contain arbitrary assets in
--- 'TxOut's addressed to public keys *and* scripts.
--- NOTE: This is not reducing size when generating assets in 'TxOut's, so will
--- end up regularly with 300+ assets with generator size 30.
--- NOTE: The Arbitrary TxIn instance from the ledger is producing colliding
--- values, so we replace them.
+-- | Generate 'Babbage' era 'UTxO', which may contain arbitrary assets in
+-- 'TxOut's addressed to public keys *and* scripts. NOTE: This is not reducing
+-- size when generating assets in 'TxOut's, so will end up regularly with 300+
+-- assets with generator size 30. NOTE: The Arbitrary TxIn instance from the
+-- ledger is producing colliding values, so we replace them.
 genUTxOAlonzo :: Gen UTxO
 genUTxOAlonzo = do
   utxoMap <- Map.toList . Ledger.unUTxO <$> arbitrary
@@ -271,9 +271,11 @@ genUTxOSized numUTxO =
   gen = (,) <$> arbitrary <*> genTxOut
 
 -- | Generate a 'Babbage' era 'TxOut', which may contain arbitrary assets
--- addressed to public keys and scripts, as well as reference scripts. NOTE:
--- This generator does not produce byron addresses as most of the cardano
--- ecosystem dropped support for that (including plutus).
+-- addressed to public keys and scripts, as well as reference scripts.
+--
+-- NOTE: This generator does not produce byron addresses as most of the cardano
+-- ecosystem dropped support for that (including plutus). Also no stake pointers
+-- are generated (replaced with `StakeRefNull`).
 genTxOut :: Gen (TxOut ctx)
 genTxOut =
   (tweakAddress . fromLedgerTxOut <$> arbitrary)
@@ -329,36 +331,13 @@ adaOnly = \case
   TxOut addr value datum refScript ->
     TxOut addr (lovelaceToValue $ selectLovelace value) datum refScript
 
--- | Generate "simplified" UTXO, ie. without some of the complexities required for
--- backward-compatibility and obscure features.
+-- | Generate "simplified" UTXO, ie. without some of the complexities required
+-- for backward-compatibility and obscure features.
 genUTxOWithSimplifiedAddresses :: Gen UTxO
-genUTxOWithSimplifiedAddresses = simplifyUTxO <$> arbitrary
-
--- | Rewrite given UTXO to remove some corner cases.
---
--- * Remove Byron addresses. Those are unnecessarily complicated and deprecated so they should
---   not be used either on- or off-chain
--- * Replace stake pointers with `StakeRefNull`. Stake pointers is an obscure feature of Cardano
---   addresses that's very rarely used in practice.
-simplifyUTxO :: UTxO -> UTxO
-simplifyUTxO = UTxO . Map.fromList . map tweakAddress . filter notByronAddress . UTxO.pairs
+genUTxOWithSimplifiedAddresses =
+  UTxO.fromPairs <$> listOf genEntry
  where
-  notByronAddress (_, TxOut addr _ _ _) = case addr of
-    ByronAddressInEra{} -> False
-    _ -> True
-  -- NOTE:
-  -- - we discard pointers because there encoding sucks and they are unused.
-  --   Ledger team plans to remove them in future versions anyway.
-  --
-  -- - We fix all network id to testnet.
-  tweakAddress out@(txin, TxOut addr val dat refScript) = case addr of
-    ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
-      case sr of
-        Ledger.StakeRefPtr _ ->
-          (txin, TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat refScript)
-        _ ->
-          (txin, TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre sr)) val dat refScript)
-    _ -> out
+  genEntry = (,) <$> genTxIn <*> genTxOut
 
 shrinkUTxO :: UTxO -> [UTxO]
 shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.pairs (shrinkList shrinkOne)
