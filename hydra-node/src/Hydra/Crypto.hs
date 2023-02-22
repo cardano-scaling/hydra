@@ -248,13 +248,14 @@ newtype MultiSignature a = HydraMultiSignature {multiSignature :: [Signature a]}
   deriving newtype (Semigroup, Monoid)
   deriving anyclass (ToJSON, FromJSON)
 
+instance (Arbitrary a, SignableRepresentation a) => Arbitrary (MultiSignature a) where
+  arbitrary = HydraMultiSignature <$> arbitrary
+
 -- | Combine multiple signatures of 'a' into a 'MultiSignature a'.
 aggregate :: [Signature a] -> MultiSignature a
 aggregate = HydraMultiSignature
 
-instance (Arbitrary a, SignableRepresentation a) => Arbitrary (MultiSignature a) where
-  arbitrary = HydraMultiSignature <$> arbitrary
-
+-- | Like aggregate, but use order of given list of keys instead.
 -- FIXME(AB): This function exists solely because the order of signatures
 -- matters on-chain, and it should match the order of parties as declared in the
 -- initTx. This should disappear once we use a proper multisignature scheme
@@ -265,6 +266,17 @@ aggregateInOrder signatures = HydraMultiSignature . foldr appendSignature []
     case Map.lookup k signatures of
       Nothing -> sigs
       Just sig -> sig : sigs
+
+-- | Verify a given 'MultiSignature a' and value 'a' provided a list of
+-- 'VerificationKey'. Note that order of keys is relevant.
+verifyMultiSignature ::
+  SignableRepresentation a =>
+  [VerificationKey HydraKey] ->
+  MultiSignature a ->
+  a ->
+  Bool
+verifyMultiSignature vks HydraMultiSignature{multiSignature} a =
+  all (\(vk, sig) -> verify vk sig a) $ zip vks multiSignature
 
 toPlutusSignatures :: MultiSignature a -> [OnChain.Signature]
 toPlutusSignatures (HydraMultiSignature sigs) =

@@ -49,9 +49,11 @@ specSignature =
   describe "Signature" $ do
     it "show includes escaped hex" $
       show (HydraSignature (SigEd25519DSIGN "aaa")) `shouldEndWith` "616161\""
+
     prop "can sign arbitrary messages" $ \sk (msgA :: ByteString) (msgB :: ByteString) ->
       msgA /= msgB
         ==> sign sk msgA =/= sign sk msgB
+
     prop "sign/verify roundtrip" $ \sk (msg :: ByteString) ->
       let sig = sign sk msg
        in verify (getVerificationKey sk) sig msg
@@ -65,3 +67,9 @@ specMultiSignature =
        in forAll (shuffle sigs) $ \shuffled ->
             length sigs > 1 && sigs /= shuffled
               ==> aggregate sigs =/= aggregate shuffled
+
+    prop "aggregate/verifyMultiSignature roundtrip" $ \sks (msg :: ByteString) ->
+      let sigs = map (\sk -> sign sk msg) sks
+          msig = aggregate sigs
+          vks = getVerificationKey <$> sks
+       in verifyMultiSignature vks msig msg
