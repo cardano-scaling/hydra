@@ -33,7 +33,14 @@ import Hydra.Chain (
   PostTxError,
  )
 import Hydra.ContestationPeriod
-import Hydra.Crypto (HydraKey, Signature, SigningKey, aggregateInOrder, sign, verify)
+import Hydra.Crypto (
+  HydraKey,
+  Signature,
+  SigningKey,
+  aggregateInOrder,
+  sign,
+  verifyMultiSignature,
+ )
 import Hydra.Ledger (
   IsTx,
   Ledger (..),
@@ -770,32 +777,31 @@ onOpenNetworkAckSn ::
   SnapshotNumber ->
   Outcome tx
 onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
+  -- TODO: verify authenticity of message and whether otherParty is part of the head
   -- Spec: require s ∈ {ŝ, ŝ + 1}
   requireValidAckSn $ do
     -- Spec: wait ŝ = s
     waitOnSeenSnapshot $ \snapshot sigs -> do
       -- Spec: (j,.) ∉ ̂Σ
       requireNotSignedYet sigs $ do
-        let sigs'
-              -- TODO: Must check whether we know the 'otherParty' signing the snapshot
-              | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
-              | otherwise = sigs
+        let sigs' = Map.insert otherParty snapshotSignature sigs
         ifAllMembersHaveSigned snapshot sigs' $ do
-          -- TODO: verify the aggregated multisig, only the individuals, or both?
+          -- Spec: σ̃ ← MS-ASig(k_H, ̂Σ̂)
           let multisig = aggregateInOrder sigs' parties
-          NewState
-            ( onlyUpdateCoordinatedHeadState $
-                coordinatedHeadState
-                  { confirmedSnapshot =
-                      ConfirmedSnapshot
-                        { snapshot
-                        , signatures = multisig
-                        }
-                  , seenSnapshot = LastSeenSnapshot (number snapshot)
-                  }
-            )
-            [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-            & emitSnapshot env
+          requireVerifiedMultisignature multisig snapshot $ do
+            NewState
+              ( onlyUpdateCoordinatedHeadState $
+                  coordinatedHeadState
+                    { confirmedSnapshot =
+                        ConfirmedSnapshot
+                          { snapshot
+                          , signatures = multisig
+                          }
+                    , seenSnapshot = LastSeenSnapshot (number snapshot)
+                    }
+              )
+              [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+              & emitSnapshot env
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -826,6 +832,11 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
                 }
           )
           []
+
+  requireVerifiedMultisignature multisig msg cont =
+    if verifyMultiSignature (vkey <$> parties) multisig msg
+      then cont
+      else Error $ RequireFailed "requireVerifiedMultisignature"
 
   -- XXX: Data structures become unwieldy -> helper functions or lenses
   onlyUpdateCoordinatedHeadState chs' =
