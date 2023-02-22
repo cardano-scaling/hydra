@@ -44,7 +44,7 @@
 --   forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
 --     (tx, utxo)
 --       & applyMutation mutation
---       & propTransactionDoesNotValidate
+--       & propTransactionFailsPhase2
 -- @
 --
 -- To this basic property definition we add a `checkCoverage` that ensures the set of generated mutations
@@ -182,13 +182,13 @@ propMutation (tx, utxo) genMutation =
   forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation, expectedError} ->
     (tx, utxo)
       & applyMutation mutation
-      & propTransactionDoesNotValidate expectedError
+      & propTransactionFailsPhase2 expectedError
       & genericCoverTable [label]
       & checkCoverage
 
--- | A 'Property' checking some (transaction, UTxO) pair is invalid.
-propTransactionDoesNotValidate :: Maybe Text -> (Tx, UTxO) -> Property
-propTransactionDoesNotValidate mExpectedError (tx, lookupUTxO) =
+-- | Expect a phase-2 evaluation failure of given 'Tx' and 'UTxO'.
+propTransactionFailsPhase2 :: Maybe Text -> (Tx, UTxO) -> Property
+propTransactionFailsPhase2 mExpectedError (tx, lookupUTxO) =
   let result = evaluateTx tx lookupUTxO
    in case result of
         Left basicFailure ->
@@ -213,9 +213,9 @@ propTransactionDoesNotValidate mExpectedError (tx, lookupUTxO) =
     ScriptErrorEvaluationFailed _ errList -> errMsg `elem` errList
     _otherScriptExecutionError -> False
 
--- | A 'Property' checking some (transaction, UTxO) pair is valid.
-propTransactionValidates :: (Tx, UTxO) -> Property
-propTransactionValidates (tx, lookupUTxO) =
+-- | Expect a given 'Tx' and 'UTxO' to pass evaluation.
+propTransactionEvaluates :: (Tx, UTxO) -> Property
+propTransactionEvaluates (tx, lookupUTxO) =
   let result = evaluateTx tx lookupUTxO
    in case result of
         Left basicFailure ->
@@ -227,6 +227,17 @@ propTransactionValidates (tx, lookupUTxO) =
             & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Redeemer report: " <> show redeemerReport)
             & counterexample "Phase-2 validation failed"
+
+-- | Expect a given 'Tx' and 'UTxO' to fail phase 1 or phase 2 evaluation.
+propTransactionFailsEvaluation :: (Tx, UTxO) -> Property
+propTransactionFailsEvaluation (tx, lookupUTxO) =
+  case evaluateTx tx lookupUTxO of
+    Left _ -> property True
+    Right redeemerReport ->
+      any isLeft redeemerReport
+        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
+        & counterexample ("Redeemer report: " <> show redeemerReport)
+        & counterexample "Phase-2 validation should have failed"
 
 -- * Mutations
 

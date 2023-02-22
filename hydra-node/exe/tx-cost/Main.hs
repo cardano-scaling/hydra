@@ -200,13 +200,15 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
     unlines $
       [ "## Cost of CollectCom Transaction"
       , ""
-      , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
-      , "| :------ | ------: | --------: | --------: | --------: |"
+      , "| Parties | UTxO (bytes) |Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :------ | :----------- |------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
+          ( \(numParties, utxoSize, txSize, mem, cpu, Lovelace minFee) ->
               "| " <> show numParties
-                <> "| "
+                <> " | "
+                <> show utxoSize
+                <> " | "
                 <> show txSize
                 <> " | "
                 <> show (mem `percentOf` maxMem)
@@ -302,13 +304,17 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
       [ "## Cost of FanOut Transaction"
       , "Involves spending head output and burning head tokens. Uses ada-only UTxO for better comparability."
       , ""
-      , "| UTxO  | Tx size | % max Mem | % max CPU | Min fee ₳ |"
-      , "| :---- | ------: | --------: | --------: | --------: |"
+      , "| Parties | UTxO  | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :------ | :---- | :----------- | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numElems, txSize, mem, cpu, Lovelace minFee) ->
-              "| " <> show numElems
-                <> "| "
+          ( \(parties, numElems, utxoSize, txSize, mem, cpu, Lovelace minFee) ->
+              "| " <> show parties
+                <> " | "
+                <> show numElems
+                <> " | "
+                <> show utxoSize
+                <> " | "
                 <> show txSize
                 <> " | "
                 <> show (mem `percentOf` maxMem)

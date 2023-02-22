@@ -15,6 +15,7 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
  )
+import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
   ChainContext (contestationPeriod),
   abort,
@@ -27,7 +28,7 @@ import Hydra.Chain.Direct.State (
   fanout,
   genCloseTx,
   genCommits,
-  genHydraContext,
+  genCommits',
   genHydraContextFor,
   genInitTx,
   genStClosed,
@@ -55,9 +56,10 @@ import Hydra.Ledger.Cardano.Evaluate (
   maxTxSize,
   slotNoFromUTCTime,
  )
-import Hydra.Options (maximumNumberOfParties)
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
+import Plutus.V2.Ledger.Api (toBuiltinData)
+import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.QuickCheck (generate, sublistOf)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
@@ -106,16 +108,15 @@ computeCommitCost = do
     (cctx, stInitial) <- genStInitial ctx
     pure (commit cctx stInitial utxo, getKnownUTxO stInitial <> getKnownUTxO cctx)
 
-computeCollectComCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeCollectComCost :: IO [(NumParties, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCollectComCost =
-  catMaybes <$> mapM compute [1 .. 100]
+  catMaybes <$> mapM compute [1 .. 10]
  where
   compute numParties = do
-    (st, tx) <- generate $ genCollectComTx numParties
-    let utxo = getKnownUTxO st
-    case checkSizeAndEvaluate tx utxo of
+    (utxo, tx, knownUtxo) <- generate $ genCollectComTx numParties
+    case checkSizeAndEvaluate tx knownUtxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
-        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
+        pure $ Just (NumParties numParties, serializedSize utxo, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
@@ -123,9 +124,9 @@ computeCollectComCost =
     ctx <- genHydraContextFor numParties
     cctx <- pickChainContext ctx
     initTx <- genInitTx ctx
-    commits <- genCommits ctx initTx
-    let (_, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (stInitialized, collect cctx stInitialized)
+    commits <- genCommits' (genUTxOAdaOnlyOfSize 1) ctx initTx
+    let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+    pure (fold committedUTxOs, collect cctx stInitialized, getKnownUTxO stInitialized)
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCloseCost = do
@@ -188,24 +189,29 @@ computeAbortCost =
     let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     pure (abort (fold committed) cctx stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
-computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 20]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 21]
+  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [5], u <- [0, 1, 5, 10, 20, 30, 40, 50]]
+  limit <-
+    maybeToList . getFirst
+      <$> foldMapM
+        (\(p, u) -> First <$> compute p u)
+        [(p, u) | p <- [5], u <- [100, 99 .. 0]]
   pure $ interesting <> limit
  where
-  compute numElems = do
-    (utxo, tx) <- generate $ genFanoutTx maximumNumberOfParties numElems
-    case checkSizeAndEvaluate tx utxo of
+  compute parties numElems = do
+    (utxo, tx, knownUTxO) <- generate $ genFanoutTx parties numElems
+    let utxoSerializedSize = serializedSize utxo
+    case checkSizeAndEvaluate tx knownUTxO of
       Just (txSize, memUnit, cpuUnit, minFee) ->
-        pure $ Just (NumUTxO numElems, txSize, memUnit, cpuUnit, minFee)
+        pure $ Just (NumParties parties, NumUTxO numElems, utxoSerializedSize, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
   -- Generate a fanout with a defined number of outputs.
   genFanoutTx numParties numOutputs = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
-    ctx <- genHydraContext numParties
+    ctx <- genHydraContextFor numParties
     (_committed, stOpen) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
@@ -214,7 +220,7 @@ computeFanOutCost = do
     let closeTx = close cctx stOpen snapshot startSlot closePoint
     let stClosed = snd . fromJust $ observeClose stOpen closeTx
     let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
-    pure (getKnownUTxO stClosed, fanout stClosed utxo deadlineSlotNo)
+    pure (utxo, fanout stClosed utxo deadlineSlotNo, getKnownUTxO stClosed)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
@@ -250,3 +256,9 @@ checkSizeAndEvaluate tx knownUTxO = do
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42
+
+serializedSize :: UTxO -> Natural
+serializedSize =
+  fromIntegral
+    . lengthOfByteString
+    . foldMap (serialiseData . toBuiltinData . fromJust . toPlutusTxOut)

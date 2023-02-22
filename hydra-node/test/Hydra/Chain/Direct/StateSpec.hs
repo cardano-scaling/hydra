@@ -6,12 +6,12 @@
 module Hydra.Chain.Direct.StateSpec where
 
 import Hydra.Prelude hiding (label)
+import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect)
-import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   Tx,
@@ -26,9 +26,14 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
+import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain (
+  OnChainTx (..),
   PostTxError (..),
+ )
+import Hydra.Chain.Direct.Contract.Mutation (
+  propTransactionEvaluates,
+  propTransactionFailsEvaluation,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -37,15 +42,19 @@ import Hydra.Chain.Direct.State (
   HydraContext (..),
   InitialState (..),
   abort,
+  close,
   closedThreadOutput,
+  collect,
   commit,
   ctxHeadParameters,
   ctxParties,
+  fanout,
   genChainStateWithTx,
   genCloseTx,
   genCollectComTx,
   genCommit,
   genCommits,
+  genCommits',
   genContestTx,
   genFanoutTx,
   genHydraContext,
@@ -55,6 +64,8 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialize,
   observeAbort,
+  observeClose,
+  observeCollect,
   observeCommit,
   observeInit,
   observeSomeTx,
@@ -67,27 +78,19 @@ import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
+  genUTxOAdaOnlyOfSize,
   genValue,
  )
 import Hydra.Ledger.Cardano.Evaluate (
-  evaluateTx',
-  maxTxExecutionUnits,
+  genValidityBoundsFromContestationPeriod,
   maxTxSize,
-  renderEvaluationReportFailures,
  )
+import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 import Hydra.Options (maximumNumberOfParties)
+import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
-import Test.Hydra.Prelude (
-  Spec,
-  SpecWith,
-  describe,
-  forAll2,
-  genericCoverTable,
-  parallel,
-  prop,
- )
 import Test.QuickCheck (
   Property,
   Testable (property),
@@ -95,6 +98,7 @@ import Test.QuickCheck (
   classify,
   conjoin,
   counterexample,
+  cover,
   discard,
   forAll,
   forAllBlind,
@@ -103,10 +107,12 @@ import Test.QuickCheck (
   sized,
   sublistOf,
   tabulate,
+  (.||.),
   (=/=),
   (===),
   (==>),
  )
+import Test.QuickCheck.Monadic (monadicST, pick)
 import qualified Prelude
 
 spec :: Spec
@@ -201,6 +207,54 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllFanout
     propIsValid forAllFanout
 
+  describe "acceptance" $ do
+    it "can close & fanout every collected head" $ do
+      prop_canCloseFanoutEveryCollect
+
+-- * Properties
+
+prop_canCloseFanoutEveryCollect :: Property
+prop_canCloseFanoutEveryCollect = monadicST $ do
+  let maxParties = 20
+  ctx@HydraContext{ctxContestationPeriod} <- pick $ genHydraContext maxParties
+  cctx <- pick $ pickChainContext ctx
+  -- Init
+  txInit <- pick $ genInitTx ctx
+  -- Commits
+  commits <- pick $ genCommits' (genUTxOAdaOnlyOfSize 1) ctx txInit
+  let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
+  -- Collect
+  let initialUTxO = fold committed
+  let txCollect = collect cctx stInitial
+  stOpen <- mfail $ snd <$> observeCollect stInitial txCollect
+  -- Close
+  (closeLower, closeUpper) <- pick $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
+  let txClose = close cctx stOpen InitialSnapshot{initialUTxO} closeLower closeUpper
+  (deadline, stClosed) <- case observeClose stOpen txClose of
+    Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
+    _ -> fail "not observed close"
+  -- Fanout
+  let txFanout = fanout stClosed initialUTxO (Fixture.slotNoFromUTCTime deadline)
+
+  -- Properties
+  let collectFails =
+        propTransactionFailsEvaluation (txCollect, getKnownUTxO stInitial)
+          & counterexample "collect passed, but others failed?"
+          & cover 10 True "collect failed already"
+  let collectCloseAndFanoutPass =
+        conjoin
+          [ propTransactionEvaluates (txCollect, getKnownUTxO stInitial)
+              & counterexample "collect failed"
+          , propTransactionEvaluates (txClose, getKnownUTxO stOpen)
+              & counterexample "close failed"
+          , propTransactionEvaluates (txFanout, getKnownUTxO stClosed)
+              & counterexample "fanout failed"
+          ]
+          & cover 10 True "collect, close and fanout passed"
+  pure $
+    checkCoverage
+      (collectFails .||. collectCloseAndFanoutPass)
+
 --
 -- Generic Properties
 --
@@ -221,23 +275,12 @@ propBelowSizeLimit txSizeLimit forAllTx =
  where
   showKB nb = show (nb `div` 1024) <> "kB"
 
--- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionValidates?
 propIsValid ::
   ((UTxO -> Tx -> Property) -> Property) ->
   SpecWith ()
 propIsValid forAllTx =
   prop "validates within maxTxExecutionUnits" $
-    forAllTx $ \utxo tx -> do
-      case evaluateTx' maxTxExecutionUnits tx utxo of
-        Left validityError ->
-          property False
-            & counterexample ("Tx: " <> renderTxWithUTxO utxo tx)
-            & counterexample ("Evaluation failed: " <> show validityError)
-        Right evaluationReport ->
-          all isRight (Map.elems evaluationReport)
-            & counterexample ("Tx: " <> renderTxWithUTxO utxo tx)
-            & counterexample (toString $ "Failures: " <> renderEvaluationReportFailures evaluationReport)
-            & counterexample "Phase-2 validation failed"
+    forAllTx $ \utxo tx -> propTransactionEvaluates (tx, utxo)
 
 --
 -- QuickCheck Extras
@@ -418,3 +461,10 @@ genByronCommit = do
   addr <- ByronAddressInEra <$> arbitrary
   value <- genValue
   pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone ReferenceScriptNone)
+
+-- * Helpers
+
+mfail :: MonadFail m => Maybe a -> m a
+mfail = \case
+  Nothing -> fail "encountered Nothing"
+  Just a -> pure a
