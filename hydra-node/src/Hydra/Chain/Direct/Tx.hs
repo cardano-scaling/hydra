@@ -16,6 +16,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
+import Data.Foldable (foldr')
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Chain (HeadId (..), HeadParameters (..))
@@ -589,8 +590,10 @@ data NotAnInitReason
   | NoSTFound
   | PartiesMismatch
   | PartiesLengthMismatch
+  | CardanoKeysLengthMismatch
   | OwnPartyMissing
   | CPMismatch
+  | PTsNotMintedCorrectly
   | Other
   deriving (Show, Eq)
 
@@ -604,18 +607,21 @@ observeInitTx ::
   Tx ->
   Either NotAnInitReason InitObservation
 observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = do
-  -- Check whether we have a proper head
+  unless (sameLength cardanoKeys allConfiguredParties) $
+    Left CardanoKeysLengthMismatch
 
   -- XXX: Lots of redundant information here
   (ix, headOut, headData, headState) <-
     maybeLeft NoHeadOutput $
       findFirst headOutput indexedOutputs
 
+  -- check that we have a proper head
   (headId, cp, ps, seedTxIn) <- case headState of
     (Head.Initial cp ps cid outRef) -> pure (fromPlutusCurrencySymbol cid, cp, ps, fromPlutusTxOutRef outRef)
     _ -> Left NotAHeadDatum
 
   let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
+
   unless (stQuantity == 1) $
     Left NoSTFound
 
@@ -641,10 +647,12 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
   unless (sameLength parties allConfiguredParties) $
     Left PartiesLengthMismatch
 
-  (headTokenPolicyId, headAssetName) <- maybeOther $ findHeadAssetId headOut
-  let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
-  let actualNames = assetNames headAssetName
-  maybeOther $ guard $ sort expectedNames == sort actualNames
+  -- pub key hashes of all configured participants == the token names of PTs
+  unless (allMintedPTs headId == length cardanoKeys) $
+    Left PTsNotMintedCorrectly
+
+  (headTokenPolicyId, _headAssetName) <- maybeOther $ findHeadAssetId headOut
+
   headTokenScript <- maybeOther $ findScriptMinting tx headTokenPolicyId
   pure
     InitObservation
@@ -666,6 +674,21 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
       , parties
       }
  where
+  allMintedPTs headId =
+    length $
+      foldr'
+        ( \asset def ->
+            case asset of
+              (AdaAssetId, _) -> def
+              (AssetId policyId assetName, q)
+                | q == 1, policyId == headId, assetName `elem` expectedPTtokenNames -> True : def
+                | otherwise -> def
+        )
+        []
+        (txMintAssets tx)
+   where
+    expectedPTtokenNames = assetNameFromVerificationKey <$> cardanoKeys
+
   containsSameElements a b = Set.fromList a == Set.fromList b
 
   sameLength a b = length a == length b
@@ -703,12 +726,6 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
   initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
 
   initialScript = fromPlutusScript Initial.validatorScript
-
-  assetNames headAssetName =
-    [ assetName
-    | (AssetId _ assetName, _) <- txMintAssets tx
-    , assetName /= headAssetName
-    ]
 
 data CommitObservation = CommitObservation
   { commitOutput :: UTxOWithScript

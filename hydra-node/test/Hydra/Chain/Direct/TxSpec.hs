@@ -63,11 +63,12 @@ spec =
   parallel $ do
     describe "collectComTx" $ do
       prop "cover fee correctly handles redeemers" $
-        withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys walletUTxO ->
-          forAll (genForParty genVerificationKey <$> elements (party : parties)) $ \signer ->
+        withMaxSuccess 60 $ \txIn cperiod (party :| parties) walletUTxO -> do
+          let allParties = party : parties
+              cardanoKeys = genForParty genVerificationKey <$> allParties
+          forAll (elements cardanoKeys) $ \signer ->
             forAll genScriptRegistry $ \scriptRegistry ->
-              let allParties = party : parties
-                  params = HeadParameters cperiod allParties
+              let params = HeadParameters cperiod allParties
                   tx = initTx testNetworkId cardanoKeys params txIn
                in case observeInitTx testNetworkId cardanoKeys cperiod party allParties tx of
                     Right InitObservation{initials, threadOutput} -> do
@@ -111,10 +112,11 @@ spec =
                         & counterexample (show e)
 
       prop "Ignore InitTx with wrong contestation period" $
-        withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys -> do
+        withMaxSuccess 60 $ \txIn cperiod (party :| parties) -> do
           i <- getPositive <$> arbitrary
-          let allParties = party : parties
           let params = HeadParameters cperiod allParties
+              allParties = party : parties
+              cardanoKeys = genForParty genVerificationKey <$> allParties
               (UnsafeContestationPeriod cp) = cperiod
               -- construct different/wrong CP
               wrongCPeriod = UnsafeContestationPeriod $ cp + wordToNatural i
@@ -124,7 +126,31 @@ spec =
               property False
                 & counterexample "Failed to ignore init tx with the wrong contestation period."
                 & counterexample (renderTx tx)
-            Left _ -> property True
+            Left CPMismatch -> property True
+            Left e ->
+              property False
+                & counterexample "Failed to ignore init tx for the right reason."
+                & counterexample (renderTx tx)
+                & counterexample (show e)
+
+      prop "Ignore InitTx with wrong cardano keys" $
+        withMaxSuccess 60 $ \txIn cperiod (party :| parties) wrongParty ->
+          let allParties = party : parties
+              cardanoKeys = genForParty genVerificationKey <$> allParties
+              wrongCardanoKeys = genForParty genVerificationKey <$> (wrongParty : parties)
+              params = HeadParameters cperiod allParties
+              tx = initTx testNetworkId cardanoKeys params txIn
+           in case observeInitTx testNetworkId wrongCardanoKeys cperiod party allParties tx of
+                Right InitObservation{} -> do
+                  property False
+                    & counterexample "Failed to ignore init tx with the wrong cardano keys."
+                    & counterexample (renderTx tx)
+                Left PTsNotMintedCorrectly -> property True
+                Left e ->
+                  property False
+                    & counterexample "Failed to ignore init tx for the right reason."
+                    & counterexample (renderTx tx)
+                    & counterexample (show e)
 
 ledgerPParams :: PParams LedgerEra
 ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
