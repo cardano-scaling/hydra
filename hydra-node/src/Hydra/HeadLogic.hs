@@ -676,7 +676,7 @@ onOpenNetworkReqSn ::
   -- | List of transactions to snapshot.
   [tx] ->
   Outcome tx
-onOpenNetworkReqSn env ledger st otherParty sn txs =
+onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
   -- TODO: Verify the request is signed by (?) / comes from the leader
   -- (Can we prove a message comes from a given peer, without signature?)
 
@@ -687,16 +687,11 @@ onOpenNetworkReqSn env ledger st otherParty sn txs =
       -- Spec: wait U̅ ◦ T ̸= ⊥ combined with Û ← Ū̅ ◦ T
       waitApplyTxs $ \u -> do
         -- NOTE: confSn == seenSn == sn here
-        let nextSnapshot = Snapshot (confSn + 1) u txs
+        let nextSnapshot = Snapshot (confSn + 1) u requestedTxs
         -- Spec: σᵢ
         let snapshotSignature = sign signingKey nextSnapshot
-        -- Prune transactions
-        -- TODO: filter/fold once
-        let seenTxs' = filter ((== Valid) . canApply ledger u) seenTxs
-        let seenUTxO' =
-              case applyTransactions ledger u seenTxs' of
-                Left (_, err) -> Hydra.Prelude.error $ "SHOULD NOT HAPPEN: " <> show err
-                Right u' -> u'
+        -- Spec: T̂ ← {tx | ∀tx ∈ T̂ , Û ◦ tx ≠ ⊥} and L̂ ← Û ◦ T̂
+        let (seenTxs', seenUTxO') = pruneTransactions u
         NewState
           ( Open
               st
@@ -721,12 +716,20 @@ onOpenNetworkReqSn env ledger st otherParty sn txs =
       else Wait $ WaitOnSnapshotNumber seenSn
 
   waitApplyTxs cont =
-    case applyTransactions ledger confirmedUTxO txs of
+    case applyTransactions ledger confirmedUTxO requestedTxs of
       Left (_, err) ->
         -- FIXME: this will not happen, as we are always comparing against the
         -- confirmed snapshot utxo in NewTx?
         Wait $ WaitOnNotApplicableTx err
       Right u -> cont u
+
+  pruneTransactions utxo = do
+    foldr go ([], utxo) seenTxs
+   where
+    go tx (txs, u) =
+      case applyTransactions ledger u [tx] of
+        Left (_, _) -> (txs, u)
+        Right u' -> (txs <> [tx], u')
 
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
