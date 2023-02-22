@@ -667,12 +667,9 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
       }
  where
   containsSameElements a b = Set.fromList a == Set.fromList b
+
   sameLength a b = length a == length b
-  --        [1, 2, 3] ==        [1, 2, 2, 3]
-  -- length [1, 2, 3] != length [1, 2, 2, 3]
-  --
-  --        [1, 2, 4] !=        [1, 2, 3]
-  -- length [1, 2, 4] == length [1, 2, 3]
+
   maybeLeft e = maybe (Left e) Right
 
   maybeOther = \case
