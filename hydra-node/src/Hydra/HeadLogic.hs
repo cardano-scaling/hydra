@@ -770,43 +770,50 @@ onOpenNetworkAckSn ::
   SnapshotNumber ->
   Outcome tx
 onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
-  -- Spec: wait ŝ = s
-  waitOnSeenSnapshot $ \snapshot sigs -> do
-    -- Spec: require s ∈ {ŝ, ŝ + 1} ∧ (j,σⱼ) ∉ ̂Σ
-    requireAckSn sigs $ do
-      let sigs'
-            -- TODO: Must check whether we know the 'otherParty' signing the snapshot
-            | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
-            | otherwise = sigs
-      ifAllMembersHaveSigned snapshot sigs' $ do
-        -- TODO: verify the aggregated multisig, only the individuals, or both?
-        let multisig = aggregateInOrder sigs' parties
-        NewState
-          ( onlyUpdateCoordinatedHeadState $
-              coordinatedHeadState
-                { confirmedSnapshot =
-                    ConfirmedSnapshot
-                      { snapshot
-                      , signatures = multisig
-                      }
-                , seenSnapshot = LastSeenSnapshot (number snapshot)
-                }
-          )
-          [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-          & emitSnapshot env
+  -- Spec: require s ∈ {ŝ, ŝ + 1}
+  requireValidAckSn $ do
+    -- Spec: wait ŝ = s
+    waitOnSeenSnapshot $ \snapshot sigs -> do
+      -- Spec: (j,.) ∉ ̂Σ
+      requireNotSignedYet sigs $ do
+        let sigs'
+              -- TODO: Must check whether we know the 'otherParty' signing the snapshot
+              | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
+              | otherwise = sigs
+        ifAllMembersHaveSigned snapshot sigs' $ do
+          -- TODO: verify the aggregated multisig, only the individuals, or both?
+          let multisig = aggregateInOrder sigs' parties
+          NewState
+            ( onlyUpdateCoordinatedHeadState $
+                coordinatedHeadState
+                  { confirmedSnapshot =
+                      ConfirmedSnapshot
+                        { snapshot
+                        , signatures = multisig
+                        }
+                  , seenSnapshot = LastSeenSnapshot (number snapshot)
+                  }
+            )
+            [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+            & emitSnapshot env
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
-  requireAckSn sigs continue =
-    if sn `elem` [seenSn, seenSn + 1] && not (Map.member otherParty sigs)
+  requireValidAckSn continue =
+    if sn `elem` [seenSn, seenSn + 1]
       then continue
-      else Error $ RequireFailed "requireReqSn"
+      else Error $ RequireFailed "requireValidAckSn"
 
   waitOnSeenSnapshot continue =
     case seenSnapshot of
       SeenSnapshot snapshot sigs
         | seenSn == sn -> continue snapshot sigs
       _ -> Wait WaitOnSeenSnapshot
+
+  requireNotSignedYet sigs continue =
+    if not (Map.member otherParty sigs)
+      then continue
+      else Error $ RequireFailed "requireNotSignedYet"
 
   ifAllMembersHaveSigned snapshot sigs' cont =
     if Map.keysSet sigs' == Set.fromList parties
