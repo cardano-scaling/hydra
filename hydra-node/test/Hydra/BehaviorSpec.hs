@@ -230,137 +230,137 @@ spec = parallel $ do
 
                 waitUntil [n2] $ GetUTxOResponse testHeadId (utxoRefs [1])
 
-  describe "in an open head" $ do
-    it "sees the head closed by other nodes" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
+    describe "in an open head" $ do
+      it "sees the head closed by other nodes" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
 
-              send n1 Close
-              waitForNext n2
-                >>= assertHeadIsClosedWith 0
+                send n1 Close
+                waitForNext n2
+                  >>= assertHeadIsClosedWith 0
 
-    it "valid new transactions are seen by all parties" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
+      it "valid new transactions are seen by all parties" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
 
-              send n1 (NewTx (aValidTx 42))
-              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
-              waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
+                send n1 (NewTx (aValidTx 42))
+                waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
+                waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
 
-    it "sending two conflicting transactions should lead one being confirmed and one expired" $
-      shouldRunInSim $
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 -> do
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
-              let tx' =
-                    SimpleTx
-                      { txSimpleId = 1
-                      , txInputs = utxoRef 1
-                      , txOutputs = utxoRef 10
-                      }
-                  tx'' =
-                    SimpleTx
-                      { txSimpleId = 2
-                      , txInputs = utxoRef 1
-                      , txOutputs = utxoRef 11
-                      }
-              send n1 (NewTx tx')
-              send n2 (NewTx tx'')
-              let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
-                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                  confirmed = SnapshotConfirmed testHeadId snapshot sigs
-              waitUntil [n1, n2] confirmed
-              waitUntil [n1, n2] (TxExpired testHeadId tx'')
+      it "sending two conflicting transactions should lead one being confirmed and one expired" $
+        shouldRunInSim $
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 -> do
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+                let tx' =
+                      SimpleTx
+                        { txSimpleId = 1
+                        , txInputs = utxoRef 1
+                        , txOutputs = utxoRef 10
+                        }
+                    tx'' =
+                      SimpleTx
+                        { txSimpleId = 2
+                        , txInputs = utxoRef 1
+                        , txOutputs = utxoRef 11
+                        }
+                send n1 (NewTx tx')
+                send n2 (NewTx tx'')
+                let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                    confirmed = SnapshotConfirmed testHeadId snapshot sigs
+                waitUntil [n1, n2] confirmed
+                waitUntil [n1, n2] (TxExpired testHeadId tx'')
 
-    it "valid new transactions get snapshotted" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
+      it "valid new transactions get snapshotted" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
 
-              send n1 (NewTx (aValidTx 42))
-              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
-              waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
+                send n1 (NewTx (aValidTx 42))
+                waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
+                waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
 
-              let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
-                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-              waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
+                let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
-              send n1 Close
-              waitForNext n1 >>= assertHeadIsClosedWith 1
+                send n1 Close
+                waitForNext n1 >>= assertHeadIsClosedWith 1
 
-    it "reports transactions as seen only when they validate (against the confirmed ledger)" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
+      it "reports transactions as seen only when they validate (against the confirmed ledger)" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
 
-              let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
-                  secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
+                let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
+                    secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
 
-              send n2 (NewTx secondTx)
-              waitUntil [n2] $ TxInvalid testHeadId (utxoRefs [1, 2]) secondTx (ValidationError "cannot apply transaction")
-              send n1 (NewTx firstTx)
-              waitUntil [n1] $ TxValid testHeadId firstTx
+                send n2 (NewTx secondTx)
+                waitUntil [n2] $ TxInvalid testHeadId (utxoRefs [1, 2]) secondTx (ValidationError "cannot apply transaction")
+                send n1 (NewTx firstTx)
+                waitUntil [n1] $ TxValid testHeadId firstTx
 
-              waitUntil [n1, n2] $ TxSeen testHeadId firstTx
-              let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
-                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                waitUntil [n1, n2] $ TxSeen testHeadId firstTx
+                let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
-              waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
+                waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
 
-              send n2 (NewTx secondTx)
-              waitUntil [n2] $ TxValid testHeadId secondTx
-              waitUntil [n1, n2] $ TxSeen testHeadId secondTx
+                send n2 (NewTx secondTx)
+                waitUntil [n2] $ TxValid testHeadId secondTx
+                waitUntil [n1, n2] $ TxSeen testHeadId secondTx
 
-    it "multiple transactions get snapshotted" $ do
-      pendingWith "This test is not longer true after recent changes which simplify the snapshot construction."
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
+      it "multiple transactions get snapshotted" $ do
+        pendingWith "This test is not longer true after recent changes which simplify the snapshot construction."
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
 
-              send n1 (NewTx (aValidTx 42))
-              send n1 (NewTx (aValidTx 43))
+                send n1 (NewTx (aValidTx 42))
+                send n1 (NewTx (aValidTx 43))
 
-              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
-              waitUntil [n1] $ TxValid testHeadId (aValidTx 43)
+                waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
+                waitUntil [n1] $ TxValid testHeadId (aValidTx 43)
 
-              waitUntil [n1] $ TxSeen testHeadId (aValidTx 42)
-              waitUntil [n1] $ TxSeen testHeadId (aValidTx 43)
+                waitUntil [n1] $ TxSeen testHeadId (aValidTx 42)
+                waitUntil [n1] $ TxSeen testHeadId (aValidTx 43)
 
-              let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43]
-                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43]
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
-              waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
+                waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
-    it "outputs utxo from confirmed snapshot when client requests it" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
-              let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
-              send n1 (NewTx newTx)
+      it "outputs utxo from confirmed snapshot when client requests it" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+                let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
+                send n1 (NewTx newTx)
 
-              let snapshot = Snapshot 1 (utxoRefs [2, 42]) [newTx]
-                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                let snapshot = Snapshot 1 (utxoRefs [2, 42]) [newTx]
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
-              waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
+                waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
 
-              send n1 GetUTxO
+                send n1 GetUTxO
 
-              waitUntil [n1] $ GetUTxOResponse testHeadId (utxoRefs [2, 42])
+                waitUntil [n1] $ GetUTxOResponse testHeadId (utxoRefs [2, 42])
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
