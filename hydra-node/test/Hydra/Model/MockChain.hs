@@ -41,6 +41,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   IdleState (..),
   defaultTTL,
+  otherParties,
  )
 import Hydra.Ledger.Cardano (genTxIn)
 import Hydra.Logging (Tracer)
@@ -71,11 +72,10 @@ mockChainAndNetwork ::
   ) =>
   Tracer m DirectChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
-  [Party] ->
   TVar m [MockHydraNode m] ->
   ContestationPeriod ->
   m (ConnectToChain Tx m, Async m ())
-mockChainAndNetwork tr seedKeys parties nodes cp = do
+mockChainAndNetwork tr seedKeys nodes cp = do
   queue <- newTQueueIO
   labelTQueueIO queue "chain-queue"
   tickThread <- async (labelThisThread "chain" >> simulateTicks queue)
@@ -113,7 +113,8 @@ mockChainAndNetwork tr seedKeys parties nodes cp = do
         nodeState <- createNodeState $ Idle IdleState{chainState}
         let HydraNode{eq} = node
         let callback = chainCallback nodeState eq
-        let chainHandler = chainSyncHandler tr callback getTimeHandle ctx parties
+        let chainHandler =
+              chainSyncHandler tr callback getTimeHandle ctx (otherParties (env node))
         let node' =
               node
                 { hn =
