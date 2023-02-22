@@ -157,9 +157,11 @@ spec = parallel $ do
         forAll genChainStateWithTx $ \(hydraCtx, ctx, st, tx, transition) ->
           let otherParties = pickOtherParties hydraCtx ctx
            in genericCoverTable [transition] $
-                traceShow ("spec: " <> show otherParties) $
-                  isJust (observeSomeTx ctx st tx otherParties)
-                    & counterexample "observeSomeTx returned Nothing"
+                traceShow ("ctxParties: " <> show (ctxParties hydraCtx)) $
+                  traceShow ("ownParty: " <> show (ownParty ctx)) $
+                    traceShow ("spec otherParties: " <> show otherParties) $
+                      isJust (observeSomeTx ctx st tx otherParties)
+                        & counterexample "observeSomeTx returned Nothing"
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit

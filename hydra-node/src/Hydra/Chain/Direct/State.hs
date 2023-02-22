@@ -820,7 +820,8 @@ genStInitial ctx = do
   seedInput <- genTxIn
   cctx <- pickChainContext ctx
   let txInit = initialize cctx (ctxHeadParameters ctx) seedInput
-  let initState = unsafeObserveInit cctx txInit (ctxParties ctx)
+  let otherParties = pickOtherParties ctx cctx
+  let initState = unsafeObserveInit cctx txInit otherParties
   pure (cctx, initState)
 
 genInitTx ::
