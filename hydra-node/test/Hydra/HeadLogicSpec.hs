@@ -99,7 +99,7 @@ spec = do
         s4 <- assertNewState $ update bobEnv ledger s3 (ackFrom bobSk bob)
         getConfirmedSnapshot s4 `shouldBe` Just snapshot1
 
-      it "does not confirm snapshot when given a non-matching signature produced from a different message" $ do
+      it "rejects last AckSn if one signature was from a different snapshot" $ do
         let s0 = inOpenState threeParties ledger
             reqSn = NetworkEvent defaultTTL $ ReqSn alice 1 []
             snapshot = Snapshot 1 mempty []
@@ -109,11 +109,10 @@ spec = do
         s1 <- assertNewState $ update bobEnv ledger s0 reqSn
         s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
         s3 <- assertNewState $ update bobEnv ledger s2 (ackFrom aliceSk alice)
-        s4 <- assertNewState $ update bobEnv ledger s3 (invalidAckFrom bobSk bob)
+        update bobEnv ledger s3 (invalidAckFrom bobSk bob)
+          `shouldBe` Error (RequireFailed "requireVerifiedMultisignature")
 
-        getConfirmedSnapshot s4 `shouldBe` getConfirmedSnapshot s3
-
-      it "does not confirm snapshot when given a non-matching signature produced from a different key" $ do
+      it "rejects last AckSn if one signature was from a different key" $ do
         let s0 = inOpenState threeParties ledger
             reqSn = NetworkEvent defaultTTL $ ReqSn alice 1 []
             snapshot = Snapshot 1 mempty []
@@ -121,9 +120,22 @@ spec = do
         s1 <- assertNewState $ update bobEnv ledger s0 reqSn
         s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
         s3 <- assertNewState $ update bobEnv ledger s2 (ackFrom aliceSk alice)
-        s4 <- assertNewState $ update bobEnv ledger s3 (ackFrom (generateSigningKey "foo") bob)
+        update bobEnv ledger s3 (ackFrom (generateSigningKey "foo") bob)
+          `shouldBe` Error (RequireFailed "requireVerifiedMultisignature")
 
-        getConfirmedSnapshot s4 `shouldBe` getConfirmedSnapshot s3
+      it "rejects last AckSn if one signature was from a completely different message" $ do
+        let s0 = inOpenState threeParties ledger
+            reqSn = NetworkEvent defaultTTL $ ReqSn alice 1 []
+            snapshot1 = Snapshot 1 mempty []
+            ackFrom sk vk = NetworkEvent defaultTTL $ AckSn vk (sign sk snapshot1) 1
+            invalidAckFrom sk vk =
+              NetworkEvent defaultTTL $
+                AckSn vk (coerce $ sign sk ("foo" :: ByteString)) 1
+        s1 <- assertNewState $ update bobEnv ledger s0 reqSn
+        s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
+        s3 <- assertNewState $ update bobEnv ledger s2 (invalidAckFrom bobSk bob)
+        update bobEnv ledger s3 (ackFrom aliceSk alice)
+          `shouldBe` Error (RequireFailed "requireVerifiedMultisignature")
 
       it "waits if we receive a snapshot with not-yet-seen transactions" $ do
         let event = NetworkEvent defaultTTL $ ReqSn alice 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
