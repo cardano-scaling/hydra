@@ -52,7 +52,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
-import Hydra.Ledger (Ledger, ValidationError (ValidationError))
+import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -271,6 +271,41 @@ spec = parallel $ do
                 send n1 Close
                 waitForNext n1 >>= assertHeadIsClosedWith 1
 
+      it "depending transactions stay pending and are confirmed in order" $
+        shouldRunInSim $
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 -> do
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+                let firstTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
+                let secondTx = SimpleTx 1 (utxoRef 3) (utxoRef 4)
+                -- Expect secondTx to be valid, but not applicable and stay pending
+                send n2 (NewTx secondTx)
+                waitUntil [n2] $ TxValid testHeadId secondTx
+                -- TODO: extend or have another test with a delay between the two
+                send n1 (NewTx firstTx)
+                waitUntil [n1] $ TxValid testHeadId firstTx
+                -- Expect a snapshot of the firstTx transaction
+                waitUntil [n1, n2] $ TxSeen testHeadId firstTx
+                waitUntil [n1, n2] $ do
+                  let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
+                      sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                  SnapshotConfirmed testHeadId snapshot sigs
+                -- Expect a snapshot of the now unblocked secondTx
+                -- NOTE: that until now there was no TxSeen for secondTx
+                waitUntil [n1, n2] $ TxSeen testHeadId secondTx
+                waitUntil [n1, n2] $ do
+                  let snapshot = Snapshot 2 (utxoRefs [2, 4]) [secondTx]
+                      sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                  SnapshotConfirmed testHeadId snapshot sigs
+
+                -- Also, re-submitting secondTx now, e.g. because the client
+                -- haven't seen the TxSeen for secondTx in time, is valid, but
+                -- expires
+                send n2 (NewTx secondTx)
+                waitUntil [n2] $ TxValid testHeadId secondTx
+                waitUntil [n2] $ TxExpired testHeadId secondTx
+
       it "sending two conflicting transactions should lead one being confirmed and one expired" $
         shouldRunInSim $
           withSimulatedChainAndNetwork $ \chain ->
@@ -296,31 +331,6 @@ spec = parallel $ do
                     confirmed = SnapshotConfirmed testHeadId snapshot sigs
                 waitUntil [n1, n2] confirmed
                 waitUntil [n1, n2] (TxExpired testHeadId tx'')
-
-      it "reports transactions as seen only when they validate (against the confirmed ledger)" $
-        shouldRunInSim $ do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [bob] chain $ \n1 ->
-              withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead n1 n2
-
-                let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
-                    secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
-
-                send n2 (NewTx secondTx)
-                waitUntil [n2] $ TxInvalid testHeadId (utxoRefs [1, 2]) secondTx (ValidationError "cannot apply transaction")
-                send n1 (NewTx firstTx)
-                waitUntil [n1] $ TxValid testHeadId firstTx
-
-                waitUntil [n1, n2] $ TxSeen testHeadId firstTx
-                let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
-                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-
-                waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
-
-                send n2 (NewTx secondTx)
-                waitUntil [n2] $ TxValid testHeadId secondTx
-                waitUntil [n1, n2] $ TxSeen testHeadId secondTx
 
       it "multiple transactions get snapshotted" $ do
         pendingWith "This test is not longer true after recent changes which simplify the snapshot construction."
