@@ -15,7 +15,7 @@ module Hydra.HeadLogic where
 
 import Hydra.Prelude
 
-import Data.List (elemIndex, (\\))
+import Data.List (elemIndex)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import GHC.Records (getField)
@@ -690,14 +690,21 @@ onOpenNetworkReqSn env ledger st otherParty sn txs =
         let nextSnapshot = Snapshot (confSn + 1) u txs
         -- Spec: σᵢ
         let snapshotSignature = sign signingKey nextSnapshot
+        -- Prune transactions
+        -- TODO: filter/fold once
+        let seenTxs' = filter ((== Valid) . canApply ledger u) seenTxs
+        let seenUTxO' =
+              case applyTransactions ledger u seenTxs' of
+                Left (_, err) -> Hydra.Prelude.error $ "SHOULD NOT HAPPEN: " <> show err
+                Right u' -> u'
         NewState
           ( Open
               st
                 { coordinatedHeadState =
                     coordinatedHeadState
                       { seenSnapshot = SeenSnapshot nextSnapshot mempty
-                      , -- TODO: prune transactions by applicability
-                        seenTxs = seenTxs \\ txs
+                      , seenTxs = seenTxs'
+                      , seenUTxO = seenUTxO'
                       }
                 }
           )
