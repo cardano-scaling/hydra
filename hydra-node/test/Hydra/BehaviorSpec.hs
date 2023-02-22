@@ -49,6 +49,7 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
+  IdleState (..),
   defaultTTL,
  )
 import Hydra.Ledger (Ledger, ValidationError (ValidationError))
@@ -689,7 +690,7 @@ withHydraNode ::
 withHydraNode signingKey otherParties connectToChain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  nodeState <- createNodeState $ IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
   node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory connectToChain testContestationPeriod
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraNode outputs outputHistory node)

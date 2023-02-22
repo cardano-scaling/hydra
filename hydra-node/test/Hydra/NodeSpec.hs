@@ -27,6 +27,7 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
+  IdleState (..),
   defaultTTL,
  )
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
@@ -165,7 +166,7 @@ createHydraNode ::
 createHydraNode signingKey otherParties contestationPeriod events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
-  nodeState <- createNodeState $ IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
   pure $
     HydraNode
       { eq

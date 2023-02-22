@@ -10,7 +10,7 @@ import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, wi
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.Util (readKeyPair)
-import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), defaultTTL, getChainState)
+import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), IdleState (..), defaultTTL, getChainState)
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
   newGlobals,
@@ -69,7 +69,7 @@ main = do
           load persistence >>= \case
             Nothing -> do
               traceWith tracer CreatedState
-              pure IdleState{chainState = initialChainState}
+              pure $ Idle IdleState{chainState = initialChainState}
             Just a -> do
               traceWith tracer LoadedState
               pure a

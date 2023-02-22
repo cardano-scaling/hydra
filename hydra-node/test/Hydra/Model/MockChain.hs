@@ -39,6 +39,7 @@ import Hydra.HeadLogic (
   Environment (party),
   Event (NetworkEvent),
   HeadState (..),
+  IdleState (..),
   defaultTTL,
  )
 import Hydra.Ledger.Cardano (genTxIn)
@@ -109,7 +110,7 @@ mockChainAndNetwork tr seedKeys _parties nodes cp = do
                 }
         let getTimeHandle = pure $ arbitrary `generateWith` 42
         let seedInput = genTxIn `generateWith` 42
-        nodeState <- createNodeState $ IdleState{chainState}
+        nodeState <- createNodeState $ Idle IdleState{chainState}
         let HydraNode{eq} = node
         let callback = chainCallback nodeState eq
         let chainHandler = chainSyncHandler tr callback getTimeHandle ctx

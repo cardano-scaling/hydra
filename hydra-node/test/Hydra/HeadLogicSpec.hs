@@ -23,12 +23,16 @@ import Hydra.Chain (
  )
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
+  ClosedState (..),
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
   Event (..),
   HeadState (..),
+  IdleState (..),
+  InitialState (..),
   LogicError (..),
+  OpenState (..),
   Outcome (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   WaitReason (..),
@@ -275,7 +279,7 @@ spec = do
             s1 = update bobEnv ledger s0 closeTxEvent
         s1 `hasEffect` contestTxEffect
         s1 `shouldSatisfy` \case
-          NewState ClosedState{} _ -> True
+          NewState (Closed ClosedState{}) _ -> True
           _ -> False
 
       it "re-contests when detecting contest with old snapshot" $ do
@@ -343,14 +347,15 @@ isAckSn = \case
 
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
-  InitialState
-    { parameters
-    , pendingCommits = Set.fromList parties
-    , committed = mempty
-    , previousRecoverableState = idleState
-    , chainState = SimpleChainState{slot = ChainSlot 0}
-    , headId = testHeadId
-    }
+  Initial
+    InitialState
+      { parameters
+      , pendingCommits = Set.fromList parties
+      , committed = mempty
+      , previousRecoverableState = Idle idleState
+      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , headId = testHeadId
+      }
  where
   parameters = HeadParameters cperiod parties
 
@@ -372,25 +377,27 @@ inOpenState' ::
   CoordinatedHeadState SimpleTx ->
   HeadState SimpleTx
 inOpenState' parties coordinatedHeadState =
-  OpenState
-    { parameters
-    , coordinatedHeadState
-    , previousRecoverableState
-    , chainState = SimpleChainState{slot = ChainSlot 0}
-    , headId = testHeadId
-    }
+  Open
+    OpenState
+      { parameters
+      , coordinatedHeadState
+      , previousRecoverableState
+      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , headId = testHeadId
+      }
  where
   parameters = HeadParameters cperiod parties
 
   previousRecoverableState =
-    InitialState
-      { parameters
-      , pendingCommits = mempty
-      , committed = mempty
-      , previousRecoverableState = idleState
-      , chainState = SimpleChainState{slot = ChainSlot 0}
-      , headId = testHeadId
-      }
+    Initial
+      InitialState
+        { parameters
+        , pendingCommits = mempty
+        , committed = mempty
+        , previousRecoverableState = Idle idleState
+        , chainState = SimpleChainState{slot = ChainSlot 0}
+        , headId = testHeadId
+        }
 
   idleState =
     IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
@@ -403,15 +410,16 @@ inClosedState parties = inClosedState' parties snapshot0
 
 inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> HeadState SimpleTx
 inClosedState' parties confirmedSnapshot =
-  ClosedState
-    { parameters
-    , previousRecoverableState
-    , confirmedSnapshot
-    , contestationDeadline
-    , readyToFanoutSent = False
-    , chainState = SimpleChainState{slot = ChainSlot 0}
-    , headId = testHeadId
-    }
+  Closed
+    ClosedState
+      { parameters
+      , previousRecoverableState
+      , confirmedSnapshot
+      , contestationDeadline
+      , readyToFanoutSent = False
+      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , headId = testHeadId
+      }
  where
   parameters = HeadParameters cperiod parties
 
@@ -421,7 +429,7 @@ inClosedState' parties confirmedSnapshot =
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
-  OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
     Just (getSnapshot confirmedSnapshot)
   _ ->
     Nothing
