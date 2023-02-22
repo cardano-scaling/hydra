@@ -37,6 +37,7 @@ import Hydra.Chain.Direct.State (
   HydraContext,
   InitialState (..),
   ctxHeadParameters,
+  ctxParties,
   deriveChainContexts,
   genChainStateWithTx,
   genCommit,
@@ -44,7 +45,6 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeCommit,
   observeSomeTx,
-  pickOtherParties,
   unsafeCommit,
   unsafeObserveInit,
  )
@@ -96,8 +96,9 @@ spec = do
       chainContext <- pickBlind arbitrary
       chainState <- pickBlind arbitrary
       hydraCtx <- pickBlind $ genHydraContext (length $ peerVerificationKeys chainContext)
-      let otherParties = pickOtherParties hydraCtx chainContext
-      (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle) otherParties
+
+      let allParties = ctxParties hydraCtx
+      (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle) allParties
 
       run $ onRollForward handler blk
 
@@ -118,8 +119,8 @@ spec = do
       chainContext <- pickBlind arbitrary
       hydraCtx <- pickBlind $ genHydraContext (length $ peerVerificationKeys chainContext)
       let chainSyncCallback = \_cont -> failure "Unexpected callback"
-          otherParties = pickOtherParties hydraCtx chainContext
-          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext otherParties
+          allParties = ctxParties hydraCtx
+          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext allParties
 
       run $
         onRollForward handler blk
@@ -129,7 +130,7 @@ spec = do
     -- Generate a state and related transaction and a block containing it
     (hydraCtx, ctx, st, tx, transition) <- pick genChainStateWithTx
     let chainState = ChainStateAt{chainState = st, recordedAt = Nothing}
-    let otherParties = pickOtherParties hydraCtx ctx
+    let allParties = ctxParties hydraCtx
     blk <- pickBlind $ genBlockAt 1 [tx]
     monitor (label $ show transition)
 
@@ -150,9 +151,9 @@ spec = do
               failure "rolled back but expected roll forward."
             Just Tick{} -> pure ()
             Just Observation{observedTx} ->
-              fst <$> observeSomeTx ctx st tx otherParties `shouldBe` Just observedTx
+              fst <$> observeSomeTx ctx st tx allParties `shouldBe` Just observedTx
 
-    let handler = chainSyncHandler nullTracer callback (pure timeHandle) ctx otherParties
+    let handler = chainSyncHandler nullTracer callback (pure timeHandle) ctx allParties
     run $ onRollForward handler blk
 
   prop "yields rollback events onRollBackward" . monadicIO $ do
@@ -172,14 +173,14 @@ spec = do
             Just (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
             Just Observation{newChainState} -> atomically $ writeTVar stateVar newChainState
 
-    let otherParties = pickOtherParties hydraContext chainContext
+    let allParties = ctxParties hydraContext
         handler =
           chainSyncHandler
             nullTracer
             callback
             (pure timeHandle)
             chainContext
-            otherParties
+            allParties
     -- Simulate some chain following
     run $ mapM_ (onRollForward handler) blocks
     -- Inject the rollback to somewhere between any of the previous state
@@ -195,9 +196,9 @@ spec = do
 -- NOTE: This 'ChainSyncHandler' does not handle chain state updates, but uses
 -- the given 'ChainState' constantly.
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> [Party] -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
-recordEventsHandler ctx cs getTimeHandle otherParties = do
+recordEventsHandler ctx cs getTimeHandle allParties = do
   eventsVar <- newTVarIO []
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx otherParties
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx allParties
   pure (handler, getEvents eventsVar)
  where
   getEvents = readTVarIO
@@ -317,8 +318,8 @@ genSequenceOfObservableBlocks = do
     Tx ->
     StateT [Block] Gen InitialState
   stepCommit hydraCtx ctx initTx = do
-    let otherParties = pickOtherParties hydraCtx ctx
-    let stInitial = unsafeObserveInit ctx initTx otherParties
+    let allParties = ctxParties hydraCtx
+    let stInitial = unsafeObserveInit ctx initTx allParties
     utxo <- lift genCommit
     let commitTx = unsafeCommit ctx stInitial utxo
     putNextBlock commitTx

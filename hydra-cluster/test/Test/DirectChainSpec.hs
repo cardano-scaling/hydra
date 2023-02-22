@@ -458,7 +458,7 @@ withDirectChainTest ::
   [Party] ->
   (DirectChainTest Tx IO -> IO a) ->
   IO a
-withDirectChainTest tracer config ctx otherParties action = do
+withDirectChainTest tracer config ctx allParties action = do
   eventMVar <- newEmptyTMVarIO
   stateVar <- newTVarIO initialChainState
 
@@ -474,7 +474,7 @@ withDirectChainTest tracer config ctx otherParties action = do
 
   wallet <- mkTinyWallet tracer config
 
-  withDirectChain tracer config ctx Nothing wallet otherParties callback $ \Chain{postTx} -> do
+  withDirectChain tracer config ctx Nothing wallet allParties callback $ \Chain{postTx} -> do
     action
       DirectChainTest
         { postTx = \tx -> do

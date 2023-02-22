@@ -470,9 +470,9 @@ fanout st utxo deadlineSlotNo = do
 -- function should try to observe all relevant transitions given some
 -- 'ChainState'.
 observeSomeTx :: ChainContext -> ChainState -> Tx -> [Party] -> Maybe (OnChainTx Tx, ChainState)
-observeSomeTx ctx cst tx otherParties = case cst of
+observeSomeTx ctx cst tx allParties = case cst of
   Idle ->
-    second Initial <$> hush (traceShow ("observeSomeTx: " <> show otherParties) $ observeInit ctx tx otherParties)
+    second Initial <$> hush (observeInit ctx tx allParties)
   Initial st ->
     second Initial <$> observeCommit ctx st tx
       <|> (,Idle) <$> observeAbort st tx
@@ -490,14 +490,14 @@ observeInit ::
   Tx ->
   [Party] ->
   Either NotAnInitReason (OnChainTx Tx, InitialState)
-observeInit ctx tx otherParties = traceShow ("observeInit: " <> show otherParties) $ do
+observeInit ctx tx allParties = do
   observation <-
     observeInitTx
       networkId
       (allVerificationKeys ctx)
       (Hydra.Chain.Direct.State.contestationPeriod ctx)
       ownParty
-      otherParties
+      allParties
       tx
   pure (toEvent observation, toState observation)
  where
@@ -820,8 +820,8 @@ genStInitial ctx = do
   seedInput <- genTxIn
   cctx <- pickChainContext ctx
   let txInit = initialize cctx (ctxHeadParameters ctx) seedInput
-  let otherParties = pickOtherParties ctx cctx
-  let initState = unsafeObserveInit cctx txInit otherParties
+  let allParties = ctxParties ctx
+  let initState = unsafeObserveInit cctx txInit allParties
   pure (cctx, initState)
 
 genInitTx ::
@@ -846,8 +846,7 @@ genCommits' ::
 genCommits' genUTxOToCommit ctx txInit = do
   allChainContexts <- deriveChainContexts ctx
   forM allChainContexts $ \cctx -> do
-    let otherParties = pickOtherParties ctx cctx
-    let (_, stInitial) = case observeInit cctx txInit otherParties of
+    let (_, stInitial) = case observeInit cctx txInit (ctxParties ctx) of
           Left err -> error $ "Did not observe an init tx: " <> show err
           Right st -> st
     unsafeCommit cctx stInitial <$> genUTxOToCommit
@@ -865,9 +864,9 @@ genCollectComTx = do
   txInit <- genInitTx ctx
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
-  let otherParties = pickOtherParties ctx cctx
+  let allParties = ctxParties ctx
   let (committedUTxO, stInitialized) =
-        unsafeObserveInitAndCommits cctx txInit commits otherParties
+        unsafeObserveInitAndCommits cctx txInit commits allParties
   pure (ctx, cctx, committedUTxO, stInitialized, collect cctx stInitialized)
 
 genCloseTx :: Int -> Gen (HydraContext, ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
@@ -915,9 +914,9 @@ genStOpen ctx = do
   txInit <- genInitTx ctx
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
-  let otherParties = pickOtherParties ctx cctx
+  let allParties = ctxParties ctx
   let (committed, stInitial) =
-        unsafeObserveInitAndCommits cctx txInit commits otherParties
+        unsafeObserveInitAndCommits cctx txInit commits allParties
   let txCollect = collect cctx stInitial
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
 
@@ -964,8 +963,8 @@ unsafeObserveInit ::
   Tx ->
   [Party] ->
   InitialState
-unsafeObserveInit cctx txInit otherParties =
-  case observeInit cctx txInit otherParties of
+unsafeObserveInit cctx txInit allParties =
+  case observeInit cctx txInit allParties of
     Left err -> error $ "Did not observe an init tx: " <> show err
     Right st -> snd st
 
@@ -976,10 +975,10 @@ unsafeObserveInitAndCommits ::
   [Tx] ->
   [Party] ->
   ([UTxO], InitialState)
-unsafeObserveInitAndCommits ctx txInit commits otherParties =
+unsafeObserveInitAndCommits ctx txInit commits allParties =
   (utxo, stInitial')
  where
-  stInitial = unsafeObserveInit ctx txInit otherParties
+  stInitial = unsafeObserveInit ctx txInit allParties
 
   (utxo, stInitial') = flip runState stInitial $ do
     forM commits $ \txCommit -> do
@@ -989,13 +988,3 @@ unsafeObserveInitAndCommits ctx txInit commits otherParties =
       pure $ case event of
         OnCommitTx{committed} -> committed
         _ -> mempty
-
-pickOtherParties :: HydraContext -> ChainContext -> [Party]
-pickOtherParties hydraCtx ctx =
-  let allParties = ctxParties hydraCtx
-      us = ownParty ctx
-      otherParties = filter (/= us) allParties
-   in traceShow allParties $
-        traceShow (ownParty ctx) $
-          traceShow otherParties $
-            otherParties

@@ -25,6 +25,7 @@ import Hydra.Chain.Direct.State (
   contest,
   ctxHeadParameters,
   ctxHydraSigningKeys,
+  ctxParties,
   fanout,
   genCloseTx,
   genCommits,
@@ -39,7 +40,6 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeClose,
   pickChainContext,
-  pickOtherParties,
   unsafeObserveInitAndCommits,
  )
 import Hydra.Ledger.Cardano (
@@ -188,9 +188,9 @@ computeAbortCost =
     initTx <- genInitTx ctx
     commits <- sublistOf =<< genCommits ctx initTx
     cctx <- pickChainContext ctx
-    let otherParties = pickOtherParties ctx cctx
+    let allParties = ctxParties ctx
     let (committed, stInitialized) =
-          unsafeObserveInitAndCommits cctx initTx commits otherParties
+          unsafeObserveInitAndCommits cctx initTx commits allParties
     pure (abort (fold committed) cctx stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
 computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]

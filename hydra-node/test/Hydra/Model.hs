@@ -460,7 +460,7 @@ seedWorld seedKeys seedCP = do
     nodes <- newTVarIO []
     labelTVarIO nodes "nodes"
     (connectToChain, tickThread) <-
-      mockChainAndNetwork (contramap DirectChain tr) seedKeys nodes seedCP
+      mockChainAndNetwork (contramap DirectChain tr) seedKeys parties nodes seedCP
     res <- forM seedKeys $ \(hsk, _csk) -> do
       outputs <- atomically newTQueue
       outputHistory <- newTVarIO []

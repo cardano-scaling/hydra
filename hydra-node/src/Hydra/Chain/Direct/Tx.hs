@@ -603,67 +603,68 @@ observeInitTx ::
   [Party] ->
   Tx ->
   Either NotAnInitReason InitObservation
-observeInitTx networkId cardanoKeys expectedCP party otherParties tx = traceShow "observeInitTx" $
-  traceShow otherParties $ do
-    -- Check whether we have a proper head
+observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = do
+  -- Check whether we have a proper head
 
-    -- XXX: Lots of redundant information here
-    (ix, headOut, headData, headState) <-
-      maybeLeft NoHeadOutput $
-        findFirst headOutput indexedOutputs
+  -- XXX: Lots of redundant information here
+  (ix, headOut, headData, headState) <-
+    maybeLeft NoHeadOutput $
+      findFirst headOutput indexedOutputs
 
-    (headId, cp, ps, seedTxIn) <- case headState of
-      (Head.Initial cp ps cid outRef) -> pure (fromPlutusCurrencySymbol cid, cp, ps, fromPlutusTxOutRef outRef)
-      _ -> Left NotAHeadDatum
+  (headId, cp, ps, seedTxIn) <- case headState of
+    (Head.Initial cp ps cid outRef) -> pure (fromPlutusCurrencySymbol cid, cp, ps, fromPlutusTxOutRef outRef)
+    _ -> Left NotAHeadDatum
 
-    let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
-    unless (stQuantity == 1) $
-      Left NoSTFound
+  let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
+  unless (stQuantity == 1) $
+    Left NoSTFound
 
-    unless (headId == HeadTokens.headPolicyId seedTxIn) $
-      Left NotAHeadPolicy
+  unless (headId == HeadTokens.headPolicyId seedTxIn) $
+    Left NotAHeadPolicy
 
-    -- Additional off-chain checks
-    parties <- maybeOther $ mapM partyFromChain ps
-    let contestationPeriod = fromChain cp
-    -- check that configured CP is present in the datum
-    unless (expectedCP == contestationPeriod) $
-      Left CPMismatch
-    -- check that our party is present in the datum
-    unless (party `elem` parties) $
-      Left OwnPartyMissing
-    -- check that configured parties are matched in the datum
-    unless (containsSameElements parties (party : otherParties)) $
-      Left PartiesMismatch
-    unless (sameLength parties (party : otherParties)) $
-      traceShow parties $
-        traceShow party $
-          traceShow ("otherParties: " <> show otherParties) $
-            Left PartiesLengthMismatch
-    (headTokenPolicyId, headAssetName) <- maybeOther $ findHeadAssetId headOut
-    let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
-    let actualNames = assetNames headAssetName
-    maybeOther $ guard $ sort expectedNames == sort actualNames
-    headTokenScript <- maybeOther $ findScriptMinting tx headTokenPolicyId
-    pure
-      InitObservation
-        { threadOutput =
-            InitialThreadOutput
-              { initialThreadUTxO =
-                  ( mkTxIn tx ix
-                  , toCtxUTxOTxOut headOut
-                  , headData
-                  )
-              , initialParties = ps
-              , initialContestationPeriod = cp
-              }
-        , initials
-        , commits = []
-        , headId = mkHeadId headTokenPolicyId
-        , headTokenScript
-        , contestationPeriod
-        , parties
-        }
+  -- Additional off-chain checks
+  parties <- maybeOther $ mapM partyFromChain ps
+  let contestationPeriod = fromChain cp
+
+  -- check that configured CP is present in the datum
+  unless (expectedCP == contestationPeriod) $
+    Left CPMismatch
+
+  -- check that our party is present in the datum
+  unless (party `elem` parties) $
+    Left OwnPartyMissing
+
+  -- check that configured parties are matched in the datum
+  unless (containsSameElements parties allConfiguredParties) $
+    Left PartiesMismatch
+
+  unless (sameLength parties allConfiguredParties) $
+    Left PartiesLengthMismatch
+
+  (headTokenPolicyId, headAssetName) <- maybeOther $ findHeadAssetId headOut
+  let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
+  let actualNames = assetNames headAssetName
+  maybeOther $ guard $ sort expectedNames == sort actualNames
+  headTokenScript <- maybeOther $ findScriptMinting tx headTokenPolicyId
+  pure
+    InitObservation
+      { threadOutput =
+          InitialThreadOutput
+            { initialThreadUTxO =
+                ( mkTxIn tx ix
+                , toCtxUTxOTxOut headOut
+                , headData
+                )
+            , initialParties = ps
+            , initialContestationPeriod = cp
+            }
+      , initials
+      , commits = []
+      , headId = mkHeadId headTokenPolicyId
+      , headTokenScript
+      , contestationPeriod
+      , parties
+      }
  where
   containsSameElements a b = Set.fromList a == Set.fromList b
   sameLength a b = length a == length b

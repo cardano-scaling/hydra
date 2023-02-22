@@ -191,11 +191,11 @@ chainSyncHandler ::
   GetTimeHandle m ->
   -- | Contextual information about our chain connection.
   ChainContext ->
-  -- | Other parties hydra keys
+  -- | All parties hydra keys
   [Party] ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx otherParties =
+chainSyncHandler tracer callback getTimeHandle ctx allParties =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -229,7 +229,7 @@ chainSyncHandler tracer callback getTimeHandle ctx otherParties =
 
     forM_ receivedTxs $ \tx ->
       callback $ \ChainStateAt{chainState = cs} ->
-        case observeSomeTx ctx cs tx otherParties of
+        case observeSomeTx ctx cs tx allParties of
           Nothing -> Nothing
           Just (observedTx, cs') ->
             Just $

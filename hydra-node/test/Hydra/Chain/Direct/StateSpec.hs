@@ -13,7 +13,6 @@ import Cardano.Binary (serialize)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect)
 import qualified Data.List as List
-import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   Tx,
@@ -81,7 +80,6 @@ import Hydra.Chain.Direct.State (
   observeInit,
   observeSomeTx,
   pickChainContext,
-  pickOtherParties,
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
@@ -96,9 +94,7 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx,
-  evaluateTx',
   genValidityBoundsFromContestationPeriod,
-  maxTxExecutionUnits,
   maxTxSize,
  )
 import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
@@ -108,17 +104,6 @@ import qualified Plutus.V1.Ledger.Examples as Plutus
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
-import Test.Hydra.Prelude (
-  Spec,
-  SpecWith,
-  describe,
-  forAll2,
-  genericCoverTable,
-  it,
-  parallel,
-  pickBlind,
-  prop,
- )
 import Test.QuickCheck (
   Property,
   Testable (property),
@@ -140,7 +125,7 @@ import Test.QuickCheck (
   (===),
   (==>),
  )
-import Test.QuickCheck.Monadic (assert, monadicIO)
+import Test.QuickCheck.Monadic (assert, monadicIO, monadicST, pick)
 import qualified Prelude
 
 spec :: Spec
@@ -155,13 +140,10 @@ spec = parallel $ do
     prop "All valid transitions for all possible states can be observed." $
       checkCoverage $
         forAll genChainStateWithTx $ \(hydraCtx, ctx, st, tx, transition) ->
-          let otherParties = pickOtherParties hydraCtx ctx
+          let allParties = ctxParties hydraCtx
            in genericCoverTable [transition] $
-                traceShow ("ctxParties: " <> show (ctxParties hydraCtx)) $
-                  traceShow ("ownParty: " <> show (ownParty ctx)) $
-                    traceShow ("spec otherParties: " <> show otherParties) $
-                      isJust (observeSomeTx ctx st tx otherParties)
-                        & counterexample "observeSomeTx returned Nothing"
+                isJust (observeSomeTx ctx st tx allParties)
+                  & counterexample "observeSomeTx returned Nothing"
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
@@ -175,8 +157,8 @@ spec = parallel $ do
         seedTxOut <- pickBlind genTxOutAdaOnly
 
         let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-        let otherParties = pickOtherParties ctx cctx
-        assert $ isRight (observeInit cctx tx otherParties)
+        let allParties = ctxParties ctx
+        assert $ isRight (observeInit cctx tx allParties)
         -- We do replace the minting policy and datum of a head output to
         -- simulate a faked init transaction.
         let alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
@@ -198,7 +180,7 @@ spec = parallel $ do
               | otherwise -> False
 
         pure $
-          observeInit cctx tx' otherParties === Left NotAHeadPolicy
+          observeInit cctx tx' allParties === Left NotAHeadPolicy
             & counterexample ("new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2))
             & counterexample (renderTx tx')
             & counterexample "Should not observe transaction"
@@ -210,8 +192,8 @@ spec = parallel $ do
           $ \(cctxA, cctxB) ->
             forAll genTxIn $ \seedInput ->
               let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
-                  otherParties = pickOtherParties ctxB cctxB
-               in isLeft (observeInit cctxB tx otherParties)
+                  allParties = ctxParties ctxB
+               in isLeft (observeInit cctxB tx allParties)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
@@ -291,7 +273,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   txInit <- pick $ genInitTx ctx
   -- Commits
   commits <- pick $ genCommits' (genUTxOAdaOnlyOfSize 1) ctx txInit
-  let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
+  let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits (ctxParties ctx)
   -- Collect
   let initialUTxO = fold committed
   let txCollect = collect cctx stInitial
@@ -423,18 +405,18 @@ forAllAbort action = do
     forAll (pickChainContext ctx) $ \cctx ->
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
-          let otherParties = pickOtherParties ctx cctx
-              (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits otherParties
+          let allParties = ctxParties ctx
+              (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits allParties
               utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
            in action utxo (abort (fold committed) cctx stInitialized)
                 & classify
                   (null commits)
                   "Abort immediately, after 0 commits"
                 & classify
-                  (not (null commits) && length commits < length (ctxParties ctx))
+                  (not (null commits) && length commits < length allParties)
                   "Abort after some (but not all) commits"
                 & classify
-                  (length commits == length (ctxParties ctx))
+                  (length commits == length allParties)
                   "Abort after all commits"
 
 forAllCollectCom ::
@@ -510,7 +492,7 @@ forAllFanout action =
        in action utxo tx
             & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
-  maxSupported = 38
+  maxSupported = 31
 
   countAssets = getSum . foldMap (Sum . valueSize . txOutValue)
 
