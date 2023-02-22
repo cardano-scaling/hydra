@@ -43,7 +43,7 @@ import Hydra.Chain.Direct (
  )
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
-import Hydra.Chain.Direct.State (ChainContext, ctxParties, genHydraContextFor)
+import Hydra.Chain.Direct.State (ChainContext)
 import Hydra.Cluster.Faucet (
   FaucetLog,
   Marked (Fuel, Normal),
@@ -85,16 +85,12 @@ spec = around showLogsOnFailure $ do
         -- Alice setup
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Bob, Carol] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice hydraScriptsTxId
-        hydraCtx <- generate $ genHydraContextFor (length $ cardanoVerificationKeys aliceChainConfig)
-        let parties = ctxParties hydraCtx
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext parties $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext [alice, bob, carol] $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Bob setup
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Carol] cperiod
             bobChainContext <- loadChainContext bobChainConfig bob hydraScriptsTxId
-            hydraCtx' <- generate $ genHydraContextFor (length $ cardanoVerificationKeys bobChainConfig)
-            let parties' = ctxParties hydraCtx'
-            withDirectChainTest nullTracer bobChainConfig bobChainContext parties' $
+            withDirectChainTest nullTracer bobChainConfig bobChainContext [bob, alice, carol] $
               \bobChain@DirectChainTest{} -> do
                 -- Scenario
                 postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
@@ -115,16 +111,12 @@ spec = around showLogsOnFailure $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Bob, Carol] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice hydraScriptsTxId
-        hydraCtx <- generate $ genHydraContextFor (length $ cardanoVerificationKeys aliceChainConfig)
-        let parties = ctxParties hydraCtx
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext parties $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext [alice, bob, carol] $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Bob setup
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Carol] cperiod
             bobChainContext <- loadChainContext bobChainConfig bob hydraScriptsTxId
-            hydraCtx' <- generate $ genHydraContextFor (length $ cardanoVerificationKeys bobChainConfig)
-            let parties' = ctxParties hydraCtx'
-            withDirectChainTest (contramap (FromDirectChain "bob") tracer) bobChainConfig bobChainContext parties' $
+            withDirectChainTest (contramap (FromDirectChain "bob") tracer) bobChainConfig bobChainContext [bob, alice, carol] $
               \bobChain@DirectChainTest{} -> do
                 -- Scenario
                 let aliceCommitment = 66_000_000
@@ -161,17 +153,13 @@ spec = around showLogsOnFailure $ do
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Carol] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice hydraScriptsTxId
 
-        hydraCtx <- generate $ genHydraContextFor (length $ cardanoVerificationKeys aliceChainConfig)
-        let parties = ctxParties hydraCtx
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext parties $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext [alice, carol] $
           \aliceChain@DirectChainTest{postTx = alicePostTx} -> do
             -- Bob setup
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Carol] cperiod
             bobChainContext <- loadChainContext bobChainConfig bob hydraScriptsTxId
 
-            hydraCtx' <- generate $ genHydraContextFor (length $ cardanoVerificationKeys bobChainConfig)
-            let parties' = ctxParties hydraCtx'
-            withDirectChainTest nullTracer bobChainConfig bobChainContext parties' $
+            withDirectChainTest nullTracer bobChainConfig bobChainContext [bob, alice, carol] $
               \DirectChainTest{postTx = bobPostTx} -> do
                 -- Scenario
                 alicePostTx $ InitTx $ HeadParameters cperiod [alice, carol]
@@ -191,9 +179,7 @@ spec = around showLogsOnFailure $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice hydraScriptsTxId
-        hydraCtx <- generate $ genHydraContextFor (length $ cardanoVerificationKeys aliceChainConfig)
-        let parties = ctxParties hydraCtx
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext parties $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext [alice] $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
             aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
@@ -224,9 +210,7 @@ spec = around showLogsOnFailure $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice hydraScriptsTxId
-        hydraCtx <- generate $ genHydraContextFor (length $ cardanoVerificationKeys aliceChainConfig)
-        let parties = ctxParties hydraCtx
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext parties $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext [alice] $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
             postTx $ InitTx $ HeadParameters cperiod [alice]
@@ -244,9 +228,7 @@ spec = around showLogsOnFailure $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice hydraScriptsTxId
-        hydraCtx <- generate $ genHydraContextFor (length $ cardanoVerificationKeys aliceChainConfig)
-        let parties = ctxParties hydraCtx
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext parties $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext [alice] $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
             someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
@@ -305,10 +287,8 @@ spec = around showLogsOnFailure $ do
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice hydraScriptsTxId
 
-        hydraCtx <- generate $ genHydraContextFor (length $ cardanoVerificationKeys aliceChainConfig)
-        let parties = ctxParties hydraCtx
         -- Scenario
-        tip <- withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext parties $
+        tip <- withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext [alice] $
           \aliceChain@DirectChainTest{postTx} -> do
             tip <- queryTip networkId nodeSocket
             postTx $ InitTx $ HeadParameters cperiod [alice]
@@ -316,11 +296,9 @@ spec = around showLogsOnFailure $ do
             pure tip
 
         let aliceChainConfig' = aliceChainConfig{startChainFrom = Just tip}
-        hydraCtx' <- generate $ genHydraContextFor (length $ cardanoVerificationKeys aliceChainConfig')
-        let parties' = ctxParties hydraCtx'
         -- REVIEW: It's a bit weird now that we would use the original chain
         -- state here. Does this test even make sense with persistence?
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig' aliceChainContext parties' $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig' aliceChainContext [alice] $
           \aliceChain@DirectChainTest{} ->
             aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
@@ -337,9 +315,7 @@ spec = around showLogsOnFailure $ do
           chainConfigFor Alice tmp nodeSocket [] cperiod
             <&> \cfg -> cfg{startChainFrom = Just fakeTip}
         aliceChainContext <- loadChainContext aliceChainConfig alice hydraScriptsTxId
-        hydraCtx <- generate $ genHydraContextFor (length $ cardanoVerificationKeys aliceChainConfig)
-        let parties = ctxParties hydraCtx
-        let action = withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext parties $ \_ ->
+        let action = withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext [alice] $ \_ ->
               threadDelay 5 >> fail "should not execute main action but did?"
 
         action `shouldThrow` \case
@@ -377,9 +353,7 @@ spec = around showLogsOnFailure $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice hydraScriptsTxId
-        hydraCtx <- generate $ genHydraContextFor (length $ cardanoVerificationKeys aliceChainConfig)
-        let parties = ctxParties hydraCtx
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext parties $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext [alice] $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
             someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
