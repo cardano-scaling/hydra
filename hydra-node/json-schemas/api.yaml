@@ -1186,15 +1186,33 @@ components:
           tag:
             type: string
             enum: ["NoSeenSnapshot"]
+      - title: LastSeenSnapshot
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - lastSeen
+        properties:
+          tag:
+            type: string
+            enum: ["LastSeenSnapshot"]
+          lastSeen:
+            $ref: "#/components/schemas/SnapshotNumber"
       - title: RequestedSnapshot
         type: object
         additionalProperties: false
         required:
           - tag
+          - lastSeen
+          - requested
         properties:
           tag:
             type: string
             enum: ["RequestedSnapshot"]
+          lastSeen:
+            $ref: "#/components/schemas/SnapshotNumber"
+          requested:
+            $ref: "#/components/schemas/SnapshotNumber"
       - title: SeenSnapshot
         type: object
         additionalProperties: false

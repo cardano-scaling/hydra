@@ -28,7 +28,8 @@ import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, cperiod)
-import Test.QuickCheck (Property, counterexample, forAll, label, (==>))
+import Test.QuickCheck (Property, counterexample, forAll, label, oneof, (===), (==>))
+import Test.QuickCheck.Monadic (monadicST, pick)
 import qualified Prelude
 
 spec :: Spec
@@ -110,13 +111,19 @@ spec = do
                 inOpenState' threeParties coordinatedState
               st' =
                 inOpenState' threeParties $
-                  coordinatedState{seenSnapshot = RequestedSnapshot}
+                  coordinatedState{seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}}
 
           emitSnapshot (envFor aliceSk) (NewState st [])
             `shouldBe` NewState st' [NetworkEffect $ ReqSn alice 1 [tx]]
 
 prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
-prop_singleMemberHeadAlwaysSnapshot sn =
+prop_singleMemberHeadAlwaysSnapshot sn = monadicST $ do
+  seenSnapshot <-
+    pick $
+      oneof
+        [ pure NoSeenSnapshot
+        , LastSeenSnapshot <$> arbitrary
+        ]
   let tx = aValidTx 1
       aliceEnv =
         let party = alice
@@ -131,14 +138,16 @@ prop_singleMemberHeadAlwaysSnapshot sn =
           { seenUTxO = mempty
           , seenTxs = [tx]
           , confirmedSnapshot = sn
-          , seenSnapshot = NoSeenSnapshot
+          , seenSnapshot
           }
       params = HeadParameters cperiod [alice]
       decision = newSn aliceEnv params st
       Snapshot{number} = getSnapshot sn
-   in decision == ShouldSnapshot (succ number) [tx]
-        & counterexample ("decision: " <> show decision)
-        & label (Prelude.head . Prelude.words . show $ sn)
+  pure $
+    decision
+      === ShouldSnapshot (succ number) [tx]
+      & counterexample ("decision: " <> show decision)
+      & label (Prelude.head . Prelude.words . show $ sn)
 
 prop_thereIsAlwaysALeader :: Property
 prop_thereIsAlwaysALeader =
