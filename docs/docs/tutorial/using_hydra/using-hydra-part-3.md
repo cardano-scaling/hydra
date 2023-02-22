@@ -122,7 +122,7 @@ After each party has made the commit action, the `hydra-node` will automatically
 ```
 This also indicated the balance as reported by the first checkpoint. Notice that the UTxOs of the initial snapshot correspond to the initial committed UTxO's (even the Tx hash and Tx id are the same). The head is now open and ready to be used!
 
-## Utlizing a head
+## Utilizing a head
 
 Now that the hydra head is open, we want to make a basic transaction between Alice and Bob. Since hydra is an isomorphic state channel, most things that work on the mainchain also work in the head. This means that constructing transactions is no different from the mainchain. This is great since it allows the usages of already written smart contracts and the use of already existing tools! In this simple example head, we will send 1000 ada from Bob to Alice.
 
