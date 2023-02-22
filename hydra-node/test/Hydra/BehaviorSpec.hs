@@ -474,22 +474,24 @@ waitUntil nodes expected =
   waitUntilMatch nodes (== expected)
 
 -- | Wait for some output to match some predicate /eventually/. This will not
--- wait forever, but for a VERY long time (1000 years) to get a nice error
--- location. Should not be an issue when used within `shouldRunInSim`.
+-- wait forever, but for a long time (1 month) to get a nice error location.
+-- Should not be an issue when used within `shouldRunInSim`, this was even 1000
+-- years before - but we since we are having the protocol produce 'Tick' events
+-- constantly this would be fully simulated to the end.
 waitUntilMatch ::
   (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
   [TestHydraNode tx m] ->
   (ServerOutput tx -> Bool) ->
   m ()
 waitUntilMatch nodes predicate =
-  failAfter veryLong $
+  failAfter oneMonth $
     forConcurrently_ nodes go
  where
   go n = do
     next <- waitForNext n
     unless (predicate next) $ go n
 
-  veryLong = 31557600000 -- 1000 years
+  oneMonth = 3600 * 24 * 30
 
 -- | Wait for an output matching the predicate and extracting some value. This
 -- will loop forever until a match has been found.
