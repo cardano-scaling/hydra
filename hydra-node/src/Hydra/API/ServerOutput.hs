@@ -58,10 +58,14 @@ data ServerOutput tx
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
   | CommandFailed {clientInput :: ClientInput tx}
-  | TxSeen {headId :: HeadId, transaction :: tx}
-  | TxValid {headId :: HeadId, transaction :: tx}
-  | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
-  | TxExpired {headId :: HeadId, transaction :: tx}
+  | -- TODO: define semantics
+    TxSeen {headId :: HeadId, transaction :: tx}
+  | -- TODO: define semantics, difference to TxSeen?
+    TxValid {headId :: HeadId, transaction :: tx}
+  | -- TODO: unused
+    TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
+  | -- TODO: define semantics, difference to TxInvalid?
+    TxExpired {headId :: HeadId, transaction :: tx}
   | SnapshotConfirmed
       { headId :: HeadId
       , snapshot :: Snapshot tx

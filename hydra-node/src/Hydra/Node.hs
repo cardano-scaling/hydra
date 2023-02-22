@@ -148,6 +148,7 @@ stepHydraNode tracer node = do
  where
   decreaseTTL =
     \case
+      -- FIXME: this yields in an arithUnderflow if ttl passes 0
       NetworkEvent ttl msg -> NetworkEvent (ttl - 1) msg
       e -> e
 

@@ -46,7 +46,7 @@ import Hydra.Ledger (
   Ledger (..),
   UTxOType,
   ValidationError,
-  ValidationResult (Invalid, Valid),
+  ValidationResult (Valid),
   applyTransactions,
   canApply,
  )
@@ -594,25 +594,18 @@ onInitialChainCollectTx st newChainState =
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientNewTx ::
   Environment ->
-  Ledger tx ->
   OpenState tx ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenClientNewTx env ledger st tx =
+onOpenClientNewTx env st tx =
+  -- TODO: Remove/rename TxValid & TxInvalid?
   OnlyEffects $
-    case canApply ledger utxo tx of
-      Valid ->
-        [ ClientEffect $ TxValid headId tx
-        , NetworkEffect $ ReqTx party tx
-        ]
-      Invalid validationError ->
-        [ ClientEffect $ TxInvalid{headId, utxo, transaction = tx, validationError}
-        ]
+    [ ClientEffect $ TxValid headId tx
+    , NetworkEffect $ ReqTx party tx
+    ]
  where
-  Snapshot{utxo} = getSnapshot confirmedSnapshot
-
-  OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId} = st
+  OpenState{headId} = st
 
   Environment{party} = env
 
@@ -650,6 +643,7 @@ onOpenNetworkReqTx env ledger st tx =
                     }
               }
         )
+        -- FIXME: should this be TxValid?
         [ClientEffect $ TxSeen headId tx]
         & emitSnapshot env
  where
@@ -1036,15 +1030,17 @@ update env ledger st ev = case (st, ev) of
   (Open openState, ClientEvent Close) ->
     onOpenClientClose openState
   (Open openState, ClientEvent (NewTx tx)) ->
-    onOpenClientNewTx env ledger openState tx
+    onOpenClientNewTx env openState tx
   (Open openState@OpenState{headId}, NetworkEvent ttl (ReqTx _ tx))
     | ttl == 0 ->
       OnlyEffects [ClientEffect $ TxExpired headId tx]
     | otherwise ->
       onOpenNetworkReqTx env ledger openState tx
   (Open openState, NetworkEvent _ (ReqSn otherParty sn txs)) ->
+    -- FIXME: ttl == 0 not handled for ReqSn
     onOpenNetworkReqSn env ledger openState otherParty sn txs
   (Open openState, NetworkEvent _ (AckSn otherParty snapshotSignature sn)) ->
+    -- FIXME: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState otherParty snapshotSignature sn
   ( Open openState
     , OnChainEvent Observation{observedTx = OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
