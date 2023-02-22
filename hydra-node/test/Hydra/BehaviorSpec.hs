@@ -64,6 +64,7 @@ import Hydra.Node (
   createEventQueue,
   createNodeState,
   runHydraNode,
+  waitDelay,
  )
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
@@ -282,15 +283,16 @@ spec = parallel $ do
                 -- Expect secondTx to be valid, but not applicable and stay pending
                 send n2 (NewTx secondTx)
                 waitUntil [n2] $ TxValid testHeadId secondTx
-                -- TODO: extend or have another test with a delay between the two
                 send n1 (NewTx firstTx)
                 waitUntil [n1] $ TxValid testHeadId firstTx
+
                 -- Expect a snapshot of the firstTx transaction
                 waitUntil [n1, n2] $ TxSeen testHeadId firstTx
                 waitUntil [n1, n2] $ do
                   let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
+
                 -- Expect a snapshot of the now unblocked secondTx
                 -- NOTE: that until now there was no TxSeen for secondTx
                 waitUntil [n1, n2] $ TxSeen testHeadId secondTx
@@ -305,6 +307,24 @@ spec = parallel $ do
                 send n2 (NewTx secondTx)
                 waitUntil [n2] $ TxValid testHeadId secondTx
                 waitUntil [n2] $ TxExpired testHeadId secondTx
+
+      it "depending transactions expire if not applicable in time" $
+        shouldRunInSim $
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 -> do
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+                let firstTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
+                let secondTx = SimpleTx 1 (utxoRef 3) (utxoRef 4)
+                -- Expect secondTx to be valid, but not applicable and stay pending
+                send n2 (NewTx secondTx)
+                waitUntil [n2] $ TxValid testHeadId secondTx
+                -- If we wait too long, secondTx will expire
+                threadDelay . realToFrac $ (fromIntegral defaultTTL) * waitDelay + 1
+                waitUntil [n1, n2] $ TxExpired testHeadId secondTx
+
+                send n1 (NewTx firstTx)
+                waitUntil [n1, n2] $ TxSeen testHeadId firstTx
 
       it "sending two conflicting transactions should lead one being confirmed and one expired" $
         shouldRunInSim $

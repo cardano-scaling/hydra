@@ -138,7 +138,7 @@ stepHydraNode tracer node = do
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
     Error _ -> return ()
-    Wait _reason -> putEventAfter eq 0.1 (decreaseTTL e)
+    Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
     NewState s effs -> do
       save s
       forM_ effs (processEffect node tracer)
@@ -156,6 +156,10 @@ stepHydraNode tracer node = do
   Persistence{save} = persistence
 
   HydraNode{persistence, eq, env} = node
+
+-- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
+waitDelay :: NominalDiffTime
+waitDelay = 0.1
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
