@@ -253,6 +253,24 @@ spec = parallel $ do
                 waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
                 waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
 
+      it "valid new transactions get snapshotted" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+
+                send n1 (NewTx (aValidTx 42))
+                waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
+                waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
+
+                let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
+
+                send n1 Close
+                waitForNext n1 >>= assertHeadIsClosedWith 1
+
       it "sending two conflicting transactions should lead one being confirmed and one expired" $
         shouldRunInSim $
           withSimulatedChainAndNetwork $ \chain ->
@@ -278,24 +296,6 @@ spec = parallel $ do
                     confirmed = SnapshotConfirmed testHeadId snapshot sigs
                 waitUntil [n1, n2] confirmed
                 waitUntil [n1, n2] (TxExpired testHeadId tx'')
-
-      it "valid new transactions get snapshotted" $
-        shouldRunInSim $ do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [bob] chain $ \n1 ->
-              withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead n1 n2
-
-                send n1 (NewTx (aValidTx 42))
-                waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
-                waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
-
-                let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
-                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
-
-                send n1 Close
-                waitForNext n1 >>= assertHeadIsClosedWith 1
 
       it "reports transactions as seen only when they validate (against the confirmed ledger)" $
         shouldRunInSim $ do
