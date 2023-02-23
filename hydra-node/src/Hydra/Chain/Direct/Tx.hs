@@ -16,7 +16,6 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
-import Data.Foldable (foldr')
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Chain (HeadId (..), HeadParameters (..))
@@ -614,10 +613,12 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
 
   -- check that we have a proper head
 
-  (headId, cp, ps, seedTxIn) <- case headState of
-    (Head.Initial cp ps cid outRef) -> pure (fromPlutusCurrencySymbol cid, cp, ps, fromPlutusTxOutRef outRef)
+  (headId, contestationPeriod, onChainParties, seedTxIn) <- case headState of
+    (Head.Initial cp ps cid outRef) -> do
+      pure (fromPlutusCurrencySymbol cid, fromChain cp, ps, fromPlutusTxOutRef outRef)
     _ -> Left NotAHeadDatum
 
+  offChainParties <- maybeOther $ mapM partyFromChain onChainParties
   let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
 
   unless (stQuantity == 1) $
@@ -626,32 +627,22 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
   unless (headId == HeadTokens.headPolicyId seedTxIn) $
     Left NotAHeadPolicy
 
-  -- Additional off-chain checks
-  parties <- maybeOther $ mapM partyFromChain ps
-  let contestationPeriod = fromChain cp
-
   -- check that configured CP is present in the datum
   unless (expectedCP == contestationPeriod) $
     Left CPMismatch
 
   -- check that our party is present in the datum
-  unless (party `elem` parties) $
+  unless (party `elem` offChainParties) $
     Left OwnPartyMissing
 
   -- check that configured parties are matched in the datum
-  unless (containsSameElements parties allConfiguredParties) $
+  unless (containsSameElements offChainParties allConfiguredParties) $
     Left PartiesMismatch
 
-  unless (sameLength parties allConfiguredParties) $
-    Left PartiesLengthMismatch
-
   -- pub key hashes of all configured participants == the token names of PTs
-  unless (allMintedPTs headId == length cardanoKeys) $
+  unless (containsSameElements configuredTokenNames (mintedTokenNames headId)) $
     Left PTsNotMintedCorrectly
 
-  (headTokenPolicyId, _headAssetName) <- maybeOther $ findHeadAssetId headOut
-
-  headTokenScript <- maybeOther $ findScriptMinting tx headTokenPolicyId
   pure
     InitObservation
       { threadOutput =
@@ -661,35 +652,32 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
                 , toCtxUTxOTxOut headOut
                 , headData
                 )
-            , initialParties = ps
-            , initialContestationPeriod = cp
+            , initialParties = onChainParties
+            , initialContestationPeriod = toChain contestationPeriod
             }
       , initials
       , commits = []
-      , headId = mkHeadId headTokenPolicyId
-      , headTokenScript
+      , headId = mkHeadId headId
+      , headTokenScript = HeadTokens.mkHeadTokenScript seedTxIn
       , contestationPeriod
-      , parties
+      , parties = offChainParties
       }
  where
-  allMintedPTs headId =
-    length $
-      foldr'
-        ( \asset def ->
-            case asset of
-              (AdaAssetId, _) -> def
-              (AssetId policyId assetName, q)
-                | q == 1, policyId == headId, assetName `elem` expectedPTtokenNames -> True : def
-                | otherwise -> def
-        )
-        []
-        (txMintAssets tx)
-   where
-    expectedPTtokenNames = assetNameFromVerificationKey <$> cardanoKeys
+  configuredTokenNames = assetNameFromVerificationKey <$> cardanoKeys
+  mintedTokenNames headId =
+    concatMap
+      ( \asset ->
+          case asset of
+            (AdaAssetId, _) -> []
+            (AssetId policyId assetName, q)
+              -- NOTE: it is importatant here to also check that quantity == 1 since we want
+              -- to make sure the tokens are actually minted
+              | q == 1, policyId == headId, assetName /= hydraHeadV1AssetName -> [assetName]
+              | otherwise -> []
+      )
+      (txMintAssets tx)
 
   containsSameElements a b = Set.fromList a == Set.fromList b
-
-  sameLength a b = length a == length b
 
   maybeLeft e = maybe (Left e) Right
 
