@@ -125,7 +125,7 @@ import Test.QuickCheck (
   (===),
   (==>),
  )
-import Test.QuickCheck.Monadic (assert, monadicIO, monadicST, pick)
+import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
 import qualified Prelude
 
 spec :: Spec
@@ -156,7 +156,7 @@ spec = parallel $ do
         seedTxOut <- pickBlind genTxOutAdaOnly
 
         let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-        assert $ isRight (observeInit cctx tx)
+            originalIsObserved = property $ isRight (observeInit cctx tx)
         -- We do replace the minting policy and datum of a head output to
         -- simulate a faked init transaction.
         let alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
@@ -169,19 +169,29 @@ spec = parallel $ do
                 ]
         let utxo = UTxO.singleton (seedInput, seedTxOut)
         let (tx', utxo') = applyMutation mutation (tx, utxo)
-        -- We expected mutated transaction to still be valid, but not observed.
-        assert $
-          case evaluateTx tx' utxo' of
-            Left _ -> False
-            Right ok
-              | all isRight ok -> True
-              | otherwise -> False
+            -- We expected mutated transaction to still be valid, but not observed.
+            mutatedIsValid = property $
+              case evaluateTx tx' utxo' of
+                Left _ -> False
+                Right ok
+                  | all isRight ok -> True
+                  | otherwise -> False
+            mutatedIsNotObserved =
+              observeInit cctx tx' === Left NotAHeadPolicy
 
         pure $
-          observeInit cctx tx' === Left NotAHeadPolicy
+          conjoin
+            [ originalIsObserved
+                & counterexample (renderTx tx)
+                & counterexample "Original transaction is not observed."
+            , mutatedIsValid
+                & counterexample (renderTx tx')
+                & counterexample "Mutated transaction is not valid."
+            , mutatedIsNotObserved
+                & counterexample (renderTx tx')
+                & counterexample "Should not observe mutated transaction"
+            ]
             & counterexample ("new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2))
-            & counterexample (renderTx tx')
-            & counterexample "Should not observe transaction"
 
     prop "is not observed if not invited" $
       forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
