@@ -14,7 +14,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
-import Hydra.Contract.Util (hydraHeadV1)
+import Hydra.Contract.Util (hasST)
 import Plutus.Extras (wrapMintingPolicy)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
@@ -24,7 +24,6 @@ import Plutus.V2.Ledger.Api (
   OutputDatum (..),
   Script,
   ScriptContext (ScriptContext, scriptContextTxInfo),
-  TokenName (TokenName),
   TxInInfo (..),
   TxInfo (..),
   TxOutRef,
@@ -70,14 +69,8 @@ validateTokensMinting initialValidator headValidator seedInput context =
     -- we expect a single head output containing ST token
     traceIfFalse "minted wrong" $
       case scriptOutputsAt headValidator txInfo of
-        [out] -> headOutputHasST out
+        [out] -> hasST currency (snd out)
         _outputs -> False
-
-  headOutputHasST (_, val) =
-    case Map.lookup currency (getValue val) of
-      Nothing -> False
-      Just tokenMap ->
-        Map.lookup (TokenName hydraHeadV1) tokenMap == Just 1
 
   mintedPTsMatchParties =
     participationTokensAreDistributed currency initialValidator txInfo nParties
