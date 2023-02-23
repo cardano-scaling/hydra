@@ -39,6 +39,8 @@ changes.
   + Check that value is preserved in v_head
   + Introduce a function `(===)` for strict equality check between serialized `Value`.
   + Push contestation deadline on contest.
+  + Improve on-chain checks when minting tokens and off-chain checks when
+    observing `initTx` so that we ensure we are part of the _proper_ head.
 
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds
