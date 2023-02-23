@@ -91,8 +91,8 @@ You could assess that the Hydra node chain layer code can only build transaction
 
 # Out of Scope
 
-With version 0.9, the Hydra team suggests to focus on the scope described in the above sections and consider anything else as out of scope.
-In particular, the following items shoudl be seen as out of scope:
+For a first security audit, the Hydra team suggests to focus on the scope described in the above sections and consider anything else as out of scope.
+In particular, the following items should be seen as out of scope:
 
 * Hydra Head protocol implementation is immune to attacks via chain transactions.
 * Hydra Head protocol implementation is immune to attacks via network.
