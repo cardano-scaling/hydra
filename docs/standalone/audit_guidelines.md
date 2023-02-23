@@ -1,4 +1,4 @@
-To whomever decides to perform an assessment of the security of the Hydra Head protocol implementation version 0.9.
+This document contains guidelines for anyone who decides to perform an assessment on the security of the Hydra Head protocol specification and implementation released from this repository.
 
 Hydra is an open-source project and, as such, can be freely used, reviewd and audited. Shall you want to perform a
 security audit, the hydra team would suggest to apply static and dynamic analysis, focused, but not limited to, the areas of concern below.
