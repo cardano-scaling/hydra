@@ -658,7 +658,11 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
       , commits = []
       , headId = mkHeadId headId
       , headTokenScript = HeadTokens.mkHeadTokenScript seedTxIn
-      , contestationPeriod
+      , -- NOTE: we should look into why parties and cp are duplicated in the InitObservation.
+        -- They are included: Once in the InitialThreadOutput in their on-chain form, once in
+        -- InitObservation in their off-chain form and they are also included in the datum of
+        -- the initialThreadUTxO`.. so three times.
+        contestationPeriod
       , parties = offChainParties
       }
  where
