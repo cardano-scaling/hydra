@@ -41,7 +41,6 @@ import System.Directory (createDirectoryIfMissing, removePathForcibly)
 import System.Exit (ExitCode (..))
 import System.FilePath (takeDirectory)
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
-import System.Info (os)
 import System.Process (ProcessHandle, waitForProcess)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
@@ -53,9 +52,7 @@ import Test.QuickCheck (Property, Testable, coverTable, forAll, tabulate)
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
 createSystemTempDirectory template = do
-  tmpDir <- case os of
-    "darwin" -> pure "/tmp" -- https://github.com/input-output-hk/hydra/issues/158.
-    _ -> getCanonicalTemporaryDirectory
+  tmpDir <- getCanonicalTemporaryDirectory
   createTempDirectory tmpDir template
 
 -- | Create a temporary directory for the given 'action' to use.
