@@ -151,10 +151,12 @@ loadChainContext ::
   ChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
+  -- | Other configured parties
+  [Party] ->
   -- | Transaction id at which to look for Hydra scripts.
   TxId ->
   IO ChainContext
-loadChainContext config party hydraScriptsTxId = do
+loadChainContext config party otherParties hydraScriptsTxId = do
   (vk, _) <- readKeyPair cardanoSigningKey
   otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
   scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
@@ -164,6 +166,7 @@ loadChainContext config party hydraScriptsTxId = do
       , peerVerificationKeys = otherCardanoKeys
       , ownVerificationKey = vk
       , ownParty = party
+      , otherParties
       , scriptRegistry
       , contestationPeriod
       }
@@ -210,9 +213,8 @@ withDirectChain ::
   -- | Last known point on chain as loaded from persistence.
   Maybe ChainPoint ->
   TinyWallet IO ->
-  [Party] ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx persistedPoint wallet allParties callback action = do
+withDirectChain tracer config ctx persistedPoint wallet callback action = do
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
@@ -230,7 +232,7 @@ withDirectChain tracer config ctx persistedPoint wallet allParties callback acti
   res <-
     race
       ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback getTimeHandle ctx allParties
+          let handler = chainSyncHandler tracer callback getTimeHandle ctx
           let intersection = toConsensusPointInMode CardanoMode chainPoint
           let client = ouroborosApplication tracer intersection queue handler wallet
           withIOManager $ \iocp ->

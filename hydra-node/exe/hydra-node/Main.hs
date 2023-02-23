@@ -74,10 +74,10 @@ main = do
               traceWith tracer LoadedState
               pure a
         nodeState <- createNodeState hs
-        ctx <- loadChainContext chainConfig party hydraScriptsTxId
+        ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
         let ChainStateAt{recordedAt} = getChainState hs
-        withDirectChain (contramap DirectChain tracer) chainConfig ctx recordedAt wallet (party : otherParties) (chainCallback nodeState eq) $ \chain -> do
+        withDirectChain (contramap DirectChain tracer) chainConfig ctx recordedAt wallet (chainCallback nodeState eq) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts

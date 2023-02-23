@@ -182,6 +182,7 @@ data ChainContext = ChainContext
   , peerVerificationKeys :: [VerificationKey PaymentKey]
   , ownVerificationKey :: VerificationKey PaymentKey
   , ownParty :: Party
+  , otherParties :: [Party]
   , scriptRegistry :: ScriptRegistry
   , contestationPeriod :: ContestationPeriod
   }
@@ -195,7 +196,8 @@ instance Arbitrary ChainContext where
     networkId <- Testnet . NetworkMagic <$> arbitrary
     peerVerificationKeys <- replicateM n genVerificationKey
     ownVerificationKey <- genVerificationKey
-    ownParty <- arbitrary
+    otherParties <- arbitrary
+    ownParty <- elements otherParties
     scriptRegistry <- genScriptRegistry
     contestationPeriod <- arbitrary
     pure
@@ -204,6 +206,7 @@ instance Arbitrary ChainContext where
         , peerVerificationKeys
         , ownVerificationKey
         , ownParty
+        , otherParties
         , scriptRegistry
         , contestationPeriod
         }
@@ -469,10 +472,10 @@ fanout st utxo deadlineSlotNo = do
 -- | Observe a transition without knowing the starting or ending state. This
 -- function should try to observe all relevant transitions given some
 -- 'ChainState'.
-observeSomeTx :: ChainContext -> ChainState -> Tx -> [Party] -> Maybe (OnChainTx Tx, ChainState)
-observeSomeTx ctx cst tx allParties = case cst of
+observeSomeTx :: ChainContext -> ChainState -> Tx -> Maybe (OnChainTx Tx, ChainState)
+observeSomeTx ctx cst tx = case cst of
   Idle ->
-    second Initial <$> hush (observeInit ctx tx allParties)
+    second Initial <$> hush (observeInit ctx tx)
   Initial st ->
     second Initial <$> observeCommit ctx st tx
       <|> (,Idle) <$> observeAbort st tx
@@ -488,16 +491,15 @@ observeSomeTx ctx cst tx allParties = case cst of
 observeInit ::
   ChainContext ->
   Tx ->
-  [Party] ->
   Either NotAnInitReason (OnChainTx Tx, InitialState)
-observeInit ctx tx allParties = do
+observeInit ctx tx = do
   observation <-
     observeInitTx
       networkId
       (allVerificationKeys ctx)
       (Hydra.Chain.Direct.State.contestationPeriod ctx)
       ownParty
-      allParties
+      (ownParty : otherParties)
       tx
   pure (toEvent observation, toState observation)
  where
@@ -513,7 +515,7 @@ observeInit ctx tx allParties = do
       , initialHeadTokenScript = headTokenScript
       }
 
-  ChainContext{networkId, ownParty} = ctx
+  ChainContext{networkId, ownParty, otherParties} = ctx
 
 -- ** InitialState transitions
 
@@ -683,7 +685,7 @@ genChainState =
 
 -- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
 -- transaction that results in a transition away from it.
-genChainStateWithTx :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
+genChainStateWithTx :: Gen (ChainContext, ChainState, Tx, ChainTransition)
 genChainStateWithTx =
   oneof
     [ genInitWithState
@@ -694,45 +696,45 @@ genChainStateWithTx =
     , genFanoutWithState
     ]
  where
-  genInitWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
+  genInitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genInitWithState = do
     ctx <- genHydraContext maxGenParties
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
     let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-    pure (ctx, cctx, Idle, tx, Init)
+    pure (cctx, Idle, tx, Init)
 
-  genCommitWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
+  genCommitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genCommitWithState = do
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
     utxo <- genCommit
     let tx = unsafeCommit cctx stInitial utxo
-    pure (ctx, cctx, Initial stInitial, tx, Commit)
+    pure (cctx, Initial stInitial, tx, Commit)
 
-  genCollectWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
+  genCollectWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genCollectWithState = do
-    (hydraCtx, ctx, _, st, tx) <- genCollectComTx
-    pure (hydraCtx, ctx, Initial st, tx, Collect)
+    (ctx, _, st, tx) <- genCollectComTx
+    pure (ctx, Initial st, tx, Collect)
 
-  genCloseWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
+  genCloseWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genCloseWithState = do
-    (hydraCtx, ctx, st, tx, _) <- genCloseTx maxGenParties
-    pure (hydraCtx, ctx, Open st, tx, Close)
+    (ctx, st, tx, _) <- genCloseTx maxGenParties
+    pure (ctx, Open st, tx, Close)
 
-  genContestWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
+  genContestWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genContestWithState = do
     (hctx, _, st, tx) <- genContestTx
     ctx <- pickChainContext hctx
-    pure (hctx, ctx, Closed st, tx, Contest)
+    pure (ctx, Closed st, tx, Contest)
 
-  genFanoutWithState :: Gen (HydraContext, ChainContext, ChainState, Tx, ChainTransition)
+  genFanoutWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genFanoutWithState = do
     Positive numParties <- arbitrary
     Positive numOutputs <- arbitrary
     (hctx, st, tx) <- genFanoutTx numParties numOutputs
     ctx <- pickChainContext hctx
-    pure (hctx, ctx, Closed st, tx, Fanout)
+    pure (ctx, Closed st, tx, Fanout)
 
 -- ** Warning zone
 
@@ -795,6 +797,7 @@ deriveChainContexts ctx = do
         , peerVerificationKeys = ctxVerificationKeys \\ [vk]
         , ownVerificationKey = vk
         , ownParty = p
+        , otherParties = allParties \\ [p]
         , scriptRegistry
         , contestationPeriod = ctxContestationPeriod ctx
         }
@@ -820,8 +823,7 @@ genStInitial ctx = do
   seedInput <- genTxIn
   cctx <- pickChainContext ctx
   let txInit = initialize cctx (ctxHeadParameters ctx) seedInput
-  let allParties = ctxParties ctx
-  let initState = unsafeObserveInit cctx txInit allParties
+  let initState = unsafeObserveInit cctx txInit
   pure (cctx, initState)
 
 genInitTx ::
@@ -846,7 +848,7 @@ genCommits' ::
 genCommits' genUTxOToCommit ctx txInit = do
   allChainContexts <- deriveChainContexts ctx
   forM allChainContexts $ \cctx -> do
-    let stInitial = unsafeObserveInit cctx txInit (ctxParties ctx)
+    let stInitial = unsafeObserveInit cctx txInit
     unsafeCommit cctx stInitial <$> genUTxOToCommit
 
 genCommit :: Gen UTxO
@@ -856,18 +858,16 @@ genCommit =
     , (10, genVerificationKey >>= genOneUTxOFor)
     ]
 
-genCollectComTx :: Gen (HydraContext, ChainContext, [UTxO], InitialState, Tx)
+genCollectComTx :: Gen (ChainContext, [UTxO], InitialState, Tx)
 genCollectComTx = do
   ctx <- genHydraContextFor maximumNumberOfParties
   txInit <- genInitTx ctx
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
-  let allParties = ctxParties ctx
-  let (committedUTxO, stInitialized) =
-        unsafeObserveInitAndCommits cctx txInit commits allParties
-  pure (ctx, cctx, committedUTxO, stInitialized, collect cctx stInitialized)
+  let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
+  pure (cctx, committedUTxO, stInitialized, collect cctx stInitialized)
 
-genCloseTx :: Int -> Gen (HydraContext, ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
+genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen) <- genStOpen ctx
@@ -875,7 +875,7 @@ genCloseTx numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  pure (ctx, cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
+  pure (cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
@@ -912,9 +912,7 @@ genStOpen ctx = do
   txInit <- genInitTx ctx
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
-  let allParties = ctxParties ctx
-  let (committed, stInitial) =
-        unsafeObserveInitAndCommits cctx txInit commits allParties
+  let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
   let txCollect = collect cctx stInitial
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
 
@@ -959,10 +957,9 @@ unsafeObserveInit ::
   HasCallStack =>
   ChainContext ->
   Tx ->
-  [Party] ->
   InitialState
-unsafeObserveInit cctx txInit allParties =
-  case observeInit cctx txInit allParties of
+unsafeObserveInit cctx txInit =
+  case observeInit cctx txInit of
     Left err -> error $ "Did not observe an init tx: " <> show err
     Right st -> snd st
 
@@ -971,12 +968,11 @@ unsafeObserveInitAndCommits ::
   ChainContext ->
   Tx ->
   [Tx] ->
-  [Party] ->
   ([UTxO], InitialState)
-unsafeObserveInitAndCommits ctx txInit commits allParties =
+unsafeObserveInitAndCommits ctx txInit commits =
   (utxo, stInitial')
  where
-  stInitial = unsafeObserveInit ctx txInit allParties
+  stInitial = unsafeObserveInit ctx txInit
 
   (utxo, stInitial') = flip runState stInitial $ do
     forM commits $ \txCommit -> do
