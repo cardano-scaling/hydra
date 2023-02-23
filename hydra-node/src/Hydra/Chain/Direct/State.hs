@@ -846,9 +846,7 @@ genCommits' ::
 genCommits' genUTxOToCommit ctx txInit = do
   allChainContexts <- deriveChainContexts ctx
   forM allChainContexts $ \cctx -> do
-    let (_, stInitial) = case observeInit cctx txInit (ctxParties ctx) of
-          Left err -> error $ "Did not observe an init tx: " <> show err
-          Right st -> st
+    let stInitial = unsafeObserveInit cctx txInit (ctxParties ctx)
     unsafeCommit cctx stInitial <$> genUTxOToCommit
 
 genCommit :: Gen UTxO
