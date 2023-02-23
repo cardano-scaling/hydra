@@ -610,7 +610,6 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
       findFirst headOutput indexedOutputs
 
   -- check that we have a proper head
-
   (headId, contestationPeriod, onChainParties, seedTxIn) <- case headState of
     (Head.Initial cp ps cid outRef) -> do
       pure (fromPlutusCurrencySymbol cid, fromChain cp, ps, fromPlutusTxOutRef outRef)
@@ -664,18 +663,16 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
       }
  where
   configuredTokenNames = assetNameFromVerificationKey <$> cardanoKeys
+
   mintedTokenNames headId =
-    concatMap
-      ( \asset ->
-          case asset of
-            (AdaAssetId, _) -> []
-            (AssetId policyId assetName, q)
-              -- NOTE: it is importatant here to also check that quantity == 1 since we want
-              -- to make sure the tokens are actually minted
-              | q == 1, policyId == headId, assetName /= hydraHeadV1AssetName -> [assetName]
-              | otherwise -> []
-      )
-      (txMintAssets tx)
+    [ assetName
+    | (AssetId policyId assetName, q) <- txMintAssets tx
+    , -- NOTE: it is importatant here to also check that quantity == 1 since we want
+    -- to make sure the tokens are actually minted
+    q == 1
+    , policyId == headId
+    , assetName /= hydraHeadV1AssetName
+    ]
 
   containsSameElements a b = Set.fromList a == Set.fromList b
 
