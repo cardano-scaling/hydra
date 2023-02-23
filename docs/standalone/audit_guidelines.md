@@ -46,13 +46,13 @@ Broadly speaking, an audit would probably want to ensure that the security prope
 Furthermore, we suggest to focus efforts on ensuring correctness and robustness of the _Hydra plutus scripts_ (on-chain code) as it is harder (or impossible) to fix in the field and attackers could side-step all measures but the on-chain code (i.e. use their own off-chain code).
 
 We suggest auditors to assess the following statements, which will be detailed in the next sections:
-1. Coordinated Hydra Head V1 specification proofs are sound.
+1. Hydra Head specification proofs are sound.
 2. Hydra plutus scripts (on-chain code) are consistent with Hydra Head V1 specification and immune to common Cardano smart-contract weaknesses.
 3. Hydra node chain layer code generates transactions which are consistent with Hydra Head V1 specification.
 
-## Coordinated Hydra Head V1 specification proofs are sound
+## Hydra Head specification proofs are sound
 
-The Hydra Head V1 specification describes Coordinated Hydra Head V1 Protocol.
+The Hydra Head specification describes the Hydra Head Protocol.
 
 This specification provides several important security properties:
 * Consistency: No two uncorrupted parties see conflicting transactions confirmed.
@@ -67,16 +67,16 @@ You could review this specification to share comments and assess that the above 
 
 ## Hydra plutus scripts are consistent with Hydra Head V1 specification and immune to common Cardano smart-contract weaknesses
 
-The Coordinated Hydra Head V1 specification defines the checks the on-chain scripts must perform for a functioning Hydra Head.
+The Hydra Head specification defines the checks the on-chain scripts must perform for a functioning Hydra Head.
 
-You could assess that the Hydra plutus scripts are consistent with the Coordinated Hydra Head V1 specification and immune to common possible vulnerabilities for Cardano smart contracts, such as but not limited to the following attacks:
+You could assess that the Hydra plutus scripts are consistent with the Hydra Head specification and immune to common possible vulnerabilities for Cardano smart contracts, such as but not limited to the following attacks:
 * Execution cost limits;
 * Double satisfaction;
 * Replay;
 * Denial of service.
 
 The outcome of the review could also include, without being limited to:
-* a validation that the Hydra plutus scripts validators do check the transaction constraints defined in the Coordinated Hydra Head V1 specification;
+* a validation that the Hydra plutus scripts validators do check the transaction constraints defined in the Hydra Head specification;
 * a review and comment on the mutation-based tests applied to the Hydra plutus scripts and, in particular, any adversarial situation that would not be covered by them but should be.
 
 See the documentation of our [Mutation-Based tests](https://hydra.family/head-protocol/haddock/hydra-node/tests/Hydra-Chain-Direct-Contract-Mutation.html).
@@ -85,9 +85,9 @@ See [Common Weaknesses](https://plutus.readthedocs.io/en/latest/reference/writin
 
 ## Hydra node chain layer code generates transactions which are consistent with Hydra Head V1 specification
 
-The Coordinated Hydra Head V1 specification defines the transactions the off-chain code should build and post to evolve the head status on-chain.
+The Hydra Head specification defines the transactions the off-chain code should build and post to evolve the head status on-chain.
 
-You could assess that the Hydra node chain layer code can only build transactions which are consistent with the Coordinated Hydra Head V1 specification.
+You could assess that the Hydra node chain layer code can only build transactions which are consistent with the Hydra Head specification.
 
 # Out of Scope
 
@@ -103,15 +103,15 @@ In particular, the following items shoudl be seen as out of scope:
 # Artifacts
 
 This sections gives a detailed description of the artifacts mentioned above in the document:
- - Coordinated Hydra Head V1 Specification
+ - Hydra Head Specification
  - Hydra plutus scripts (on-chain code)
  - Hydra node chain layer code (off-chain code)
 
-## Artifact 1: Coordinated Hydra Head V1 Specification
+## Artifact 1: Hydra Head Specification
 
 The Hydra Head protocol implementation derives from [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf) in several ways. Especially some simplifications have been introduced and generalizations removed.
 
-The [Coordinated Hydra Head V1 specification](https://www.overleaf.com/read/bbqzmptcxryj) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
+The [Hydra Head specification](https://www.overleaf.com/read/bbqzmptcxryj) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
 
 ## Artifact 2: Hydra Head Protocol Implementation
 
