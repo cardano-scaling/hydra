@@ -664,16 +664,6 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
  where
   configuredTokenNames = assetNameFromVerificationKey <$> cardanoKeys
 
-  mintedTokenNames headId =
-    [ assetName
-    | (AssetId policyId assetName, q) <- txMintAssets tx
-    , -- NOTE: it is importatant here to also check that quantity == 1 since we want
-    -- to make sure the tokens are actually minted
-    q == 1
-    , policyId == headId
-    , assetName /= hydraHeadV1AssetName
-    ]
-
   containsSameElements a b = Set.fromList a == Set.fromList b
 
   maybeLeft e = maybe (Left e) Right
@@ -705,6 +695,16 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
   initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
 
   initialScript = fromPlutusScript Initial.validatorScript
+
+  mintedTokenNames headId =
+    [ assetName
+    | (AssetId policyId assetName, q) <- txMintAssets tx
+    , -- NOTE: it is importatant here to also check that quantity == 1 since we want
+    -- to make sure the tokens are actually minted
+    q == 1
+    , policyId == headId
+    , assetName /= hydraHeadV1AssetName
+    ]
 
 data CommitObservation = CommitObservation
   { commitOutput :: UTxOWithScript
