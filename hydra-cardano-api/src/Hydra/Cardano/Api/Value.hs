@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Cardano.Api.Value where
 
 import Hydra.Cardano.Api.Prelude
