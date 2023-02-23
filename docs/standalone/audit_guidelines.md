@@ -132,6 +132,6 @@ Hydra plutus mutation based testing can be found in the [hydra-node module](http
 
 ### Artifact 2.2: Hydra node chain layer code (off-chain code)
 
-Hydra node chain layer code can be found in the [hydra-node module](https://github.com/input-output-hk/hydra/tree/master/hydra-node) in src/Hydra/Chain/Direct/
+Hydra node chain layer code can be found in the [hydra-node module](https://github.com/input-output-hk/hydra/tree/master/hydra-node/src/Hydra/Chain) in src/Hydra/Chain/Direct/
 
-Hydra node chain layer tests can be found in the [hydra-node module](https://github.com/input-output-hk/hydra/tree/master/hydra-node) in test/Hydra/Chain/Direct/
+Hydra node chain layer tests can be found in the [hydra-node module](https://github.com/input-output-hk/hydra/tree/master/hydra-node/test/Hydra/Chain) in test/Hydra/Chain/Direct/
