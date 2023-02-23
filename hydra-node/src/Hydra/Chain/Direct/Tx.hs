@@ -607,15 +607,13 @@ observeInitTx ::
   Tx ->
   Either NotAnInitReason InitObservation
 observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = do
-  unless (sameLength cardanoKeys allConfiguredParties) $
-    Left CardanoKeysLengthMismatch
-
   -- XXX: Lots of redundant information here
   (ix, headOut, headData, headState) <-
     maybeLeft NoHeadOutput $
       findFirst headOutput indexedOutputs
 
   -- check that we have a proper head
+
   (headId, cp, ps, seedTxIn) <- case headState of
     (Head.Initial cp ps cid outRef) -> pure (fromPlutusCurrencySymbol cid, cp, ps, fromPlutusTxOutRef outRef)
     _ -> Left NotAHeadDatum
