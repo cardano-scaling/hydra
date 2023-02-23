@@ -116,12 +116,11 @@ initTx networkId cardanoKeys parameters seedTxIn =
     emptyTxBody
       & addVkInputs [seedTxIn]
       & addOutputs
-        ( mkHeadOutputInitial networkId seedTxIn policyId parameters :
-          map (mkInitialOutput networkId policyId) cardanoKeys
+        ( mkHeadOutputInitial networkId seedTxIn parameters :
+          map (mkInitialOutput networkId seedTxIn) cardanoKeys
         )
       & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
  where
-  policyId = HeadTokens.headPolicyId seedTxIn
   participationTokens =
     [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
 
@@ -135,11 +134,11 @@ mkHeadOutput networkId tokenPolicyId datum =
  where
   headScript = fromPlutusScript Head.validatorScript
 
--- TODO: check wether we can remove 'PolicyId'
-mkHeadOutputInitial :: NetworkId -> TxIn -> PolicyId -> HeadParameters -> TxOut CtxTx
-mkHeadOutputInitial networkId seedTxIn tokenPolicyId HeadParameters{contestationPeriod, parties} =
+mkHeadOutputInitial :: NetworkId -> TxIn -> HeadParameters -> TxOut CtxTx
+mkHeadOutputInitial networkId seedTxIn HeadParameters{contestationPeriod, parties} =
   mkHeadOutput networkId tokenPolicyId headDatum
  where
+  tokenPolicyId = HeadTokens.headPolicyId seedTxIn
   headDatum =
     mkTxOutDatum $
       Head.Initial
@@ -149,10 +148,11 @@ mkHeadOutputInitial networkId seedTxIn tokenPolicyId HeadParameters{contestation
         , seed = toPlutusTxOutRef seedTxIn
         }
 
-mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
-mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
+mkInitialOutput :: NetworkId -> TxIn -> VerificationKey PaymentKey -> TxOut CtxTx
+mkInitialOutput networkId seedTxIn (verificationKeyHash -> pkh) =
   TxOut initialAddress initialValue initialDatum ReferenceScriptNone
  where
+  tokenPolicyId = HeadTokens.headPolicyId seedTxIn
   initialValue =
     headValue <> valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
   initialAddress =

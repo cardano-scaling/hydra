@@ -205,7 +205,7 @@ genCollectComMutation (tx, _utxo) =
         -- the initial input as if it were a commit input, hence fetching the datum which is expected
         -- in a commit and complaining that it did not find it
         (txIn, HealthyCommit{cardanoKey}) <- elements $ Map.toList healthyCommits
-        pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testPolicyId cardanoKey) Nothing
+        pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput cardanoKey) Nothing
     , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]

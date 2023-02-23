@@ -74,7 +74,7 @@ healthyAbortTx =
 
   headTokenScript = mkHeadTokenScript testSeedInput
 
-  headOutput = mkHeadOutputInitial testNetworkId testSeedInput testPolicyId healthyHeadParameters
+  headOutput = mkHeadOutputInitial testNetworkId testSeedInput healthyHeadParameters
 
   headDatum = unsafeGetDatum headOutput
 
