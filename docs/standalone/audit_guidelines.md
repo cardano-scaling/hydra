@@ -42,7 +42,7 @@ If you plan to consider a different operational environment were these assumptio
 
 # Suggested Tasks
 
-Broadly speaking, an audit would probably want to ensure that the security properties proven in _Coordinated Hydra Head V1 Specification_ hold for the implementation, taking also into acount the main entry points of a `hydra-node` which are the node to node network communications, the API and the Cardano ledger.
+Broadly speaking, an audit would probably want to ensure that the security properties proven in _Hydra Head Specification_ hold for the implementation, taking also into acount the main entry points of a `hydra-node` which are the node to node network communications, the API and the Cardano ledger.
 Furthermore, we suggest to focus efforts on ensuring correctness and robustness of the _Hydra plutus scripts_ (on-chain code) as it is harder (or impossible) to fix in the field and attackers could side-step all measures but the on-chain code (i.e. use their own off-chain code).
 
 We suggest auditors to assess the following statements, which will be detailed in the next sections:
