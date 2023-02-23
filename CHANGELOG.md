@@ -24,7 +24,6 @@ changes.
     `toConsensusPointHF` with `toConsensusPointInMode`.
   + Re-export new `AcquiringFailure` type from `cardano-api`.
   + Add `fromPlutusCurrencySymbol` conversion function.
-
   + Introduce new `Hydra.Cardano.Api.Pretty` module and move functions
     `renderTx`, `renderTxWithUTxO` and `renderTxs` from `hydra-node` package to
     this new module.
@@ -67,7 +66,9 @@ changes.
   `NotEnoughFuel` when utxo was not found. Now `NotEnoughFuel` is used when
   there is not enough fuel and `NoFuelUTXOFound` when utxo was not to be found.
 
-- HeadLogic Outcome is now being traced on every protocol step transition.
+- Changes to the logs:
+  - HeadLogic Outcome is now being logged on every protocol step transition.
+  - Added intermediate `LastSeenSnapshot` and extended `RequestedSnapshot` seen snapshot states.
 
 - Switched to using [nix flakes](https://nixos.wiki/wiki/Flakes):
   + Allows us to use some CI services (cicero).
@@ -77,7 +78,7 @@ changes.
 
 - Add script sizes to `hydra-node --script-info` and published transaction cost benchmarks.
 
--  `hydra-cluster` executable can be used to provide a local cardano "network" with `--devnet` argument
+- `hydra-cluster` executable can be used to provide a local cardano "network" with `--devnet` argument
 
 ## [0.8.1] - 2022-11-17
 
