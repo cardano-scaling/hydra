@@ -588,8 +588,6 @@ data NotAnInitReason
   | NotAHeadDatum
   | NoSTFound
   | PartiesMismatch
-  | PartiesLengthMismatch
-  | CardanoKeysLengthMismatch
   | OwnPartyMissing
   | CPMismatch
   | PTsNotMintedCorrectly
@@ -618,12 +616,14 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
       pure (fromPlutusCurrencySymbol cid, fromChain cp, ps, fromPlutusTxOutRef outRef)
     _ -> Left NotAHeadDatum
 
-  offChainParties <- maybeOther $ mapM partyFromChain onChainParties
+  let offChainParties = concatMap partyFromChain onChainParties
   let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
 
+  -- check that ST is present in the head output
   unless (stQuantity == 1) $
     Left NoSTFound
 
+  -- check that we are using the same seed and headId matches
   unless (headId == HeadTokens.headPolicyId seedTxIn) $
     Left NotAHeadPolicy
 
@@ -680,10 +680,6 @@ observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = d
   containsSameElements a b = Set.fromList a == Set.fromList b
 
   maybeLeft e = maybe (Left e) Right
-
-  maybeOther = \case
-    Nothing -> Left Other
-    Just x -> Right x
 
   headOutput = \case
     (ix, out@(TxOut addr _ (TxOutDatumInTx d) _)) -> do
