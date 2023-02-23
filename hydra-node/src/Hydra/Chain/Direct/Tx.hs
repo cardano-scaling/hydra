@@ -591,7 +591,6 @@ data NotAnInitReason
   | OwnPartyMissing
   | CPMismatch
   | PTsNotMintedCorrectly
-  | Other
   deriving (Show, Eq)
 
 observeInitTx ::
