@@ -699,8 +699,8 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
   mintedTokenNames headId =
     [ assetName
     | (AssetId policyId assetName, q) <- txMintAssets tx
-    , -- NOTE: it is importatant here to also check that quantity == 1 since we want
-    -- to make sure the tokens are actually minted
+    , -- NOTE: It is important to check quantity since we want to ensure
+    -- the tokens are unique.
     q == 1
     , policyId == headId
     , assetName /= hydraHeadV1AssetName
