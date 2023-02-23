@@ -499,7 +499,7 @@ observeInit ctx tx = do
       (allVerificationKeys ctx)
       (Hydra.Chain.Direct.State.contestationPeriod ctx)
       ownParty
-      (ownParty : otherParties)
+      otherParties
       tx
   pure (toEvent observation, toState observation)
  where

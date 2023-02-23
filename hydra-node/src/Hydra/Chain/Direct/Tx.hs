@@ -603,7 +603,8 @@ observeInitTx ::
   [Party] ->
   Tx ->
   Either NotAnInitReason InitObservation
-observeInitTx networkId cardanoKeys expectedCP party allConfiguredParties tx = do
+observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
+  let allConfiguredParties = party : otherParties
   -- XXX: Lots of redundant information here
   (ix, headOut, headData, headState) <-
     maybeLeft NoHeadOutput $

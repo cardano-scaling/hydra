@@ -70,7 +70,7 @@ spec =
             forAll genScriptRegistry $ \scriptRegistry ->
               let params = HeadParameters cperiod allParties
                   tx = initTx testNetworkId cardanoKeys params txIn
-               in case observeInitTx testNetworkId cardanoKeys cperiod party allParties tx of
+               in case observeInitTx testNetworkId cardanoKeys cperiod party parties tx of
                     Right InitObservation{initials, threadOutput} -> do
                       let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
                           initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
@@ -121,7 +121,7 @@ spec =
               -- construct different/wrong CP
               wrongCPeriod = UnsafeContestationPeriod $ cp + wordToNatural i
               tx = initTx testNetworkId cardanoKeys params txIn
-          pure $ case observeInitTx testNetworkId cardanoKeys wrongCPeriod party allParties tx of
+          pure $ case observeInitTx testNetworkId cardanoKeys wrongCPeriod party parties tx of
             Right InitObservation{} -> do
               property False
                 & counterexample "Failed to ignore init tx with the wrong contestation period."
@@ -140,7 +140,7 @@ spec =
               wrongCardanoKeys = genForParty genVerificationKey <$> (wrongParty : parties)
               params = HeadParameters cperiod allParties
               tx = initTx testNetworkId cardanoKeys params txIn
-           in case observeInitTx testNetworkId wrongCardanoKeys cperiod party allParties tx of
+           in case observeInitTx testNetworkId wrongCardanoKeys cperiod party parties tx of
                 Right InitObservation{} -> do
                   property False
                     & counterexample "Failed to ignore init tx with the wrong cardano keys."
