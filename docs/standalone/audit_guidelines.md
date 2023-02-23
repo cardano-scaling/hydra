@@ -11,7 +11,7 @@ Shall you decide to share your findings with us, please consider the following, 
 # Context and assumptions
 
 The Hydra Head protocol is implemented in the `hydra-node`, which connects to the Cardano network as layer 1 (L1) through a `cardano-node`, to other Hydra Head compliant nodes over an off-chain network, and exposes an API to users of the layer 2. Most relevant artifacts for an audit are:
- - Coordinated Hydra Head V1 Specification
+ - Hydra Head Specification
  - Hydra plutus scripts (on-chain code)
  - Hydra node chain layer code (off-chain code)
 
