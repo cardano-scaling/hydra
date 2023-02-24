@@ -19,6 +19,7 @@ import Hydra.Cardano.Api (
  )
 import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Contract.Head as Head
+import Hydra.Contract.HeadState (headId, seed)
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
@@ -67,17 +68,17 @@ validate initialValidator headValidator seedInput action context =
 -- * PTs are distributed to v_initial.
 --
 -- * Ensure out-ref and the headId are in the datum of the first output of the
---   transaction which mints tokens. FIXME: Need to also check out-ref and
---   headId in datum!?
+--   transaction which mints tokens.
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
 validateTokensMinting initialValidator headValidator seedInput context =
   seedInputIsConsumed
     && checkNumberOfTokens
     && singleSTIsPaidToTheHead
     && allInitialOutsHavePTs
+    && checkDatum
  where
   seedInputIsConsumed =
-    traceIfFalse "seed not consumed" $
+    traceIfFalse "seed not spent" $
       seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkNumberOfTokens =
@@ -92,9 +93,13 @@ validateTokensMinting initialValidator headValidator seedInput context =
     traceIfFalse "wrong number of initial outputs" (nParties == length initialTxOutValues)
       && all hasASinglePT initialTxOutValues
 
+  checkDatum =
+    traceIfFalse "wrong datum" $
+      headId == currency && seed == seedInput
+
   hasASinglePT val =
     case Map.lookup currency (getValue val) of
-      Nothing -> traceError "no PT distributed"
+      Nothing -> traceError "no PT"
       (Just tokenMap) -> case Map.toList tokenMap of
         [(_, qty)]
           | qty == 1 -> True
@@ -107,24 +112,19 @@ validateTokensMinting initialValidator headValidator seedInput context =
       . getValue
       $ txInfoMint txInfo
 
-  nParties =
-    -- HACK: We cannot do a traceError in the Nothing case here because of
-    -- strictness. Still we are not interested in the individual Nothing cases
-    -- so let's produce an always wrong value instead.
-    fromMaybe (-1) $ do
-      dh <- case headDatum of
-        OutputDatumHash dh -> Just dh
-        _ -> Nothing
-      da <- findDatum dh txInfo
-      state <- fromBuiltinData @Head.DatumType $ getDatum da
-      case state of
-        Head.Initial{Head.parties = parties} -> Just $ length parties
-        _ -> Nothing
+  (headId, seed, nParties) =
+    case headDatum of
+      OutputDatumHash dh ->
+        case findDatum dh txInfo >>= fromBuiltinData @Head.DatumType . getDatum of
+          Just Head.Initial{Head.parties = parties, headId = h, seed = s} ->
+            (h, s, length parties)
+          _ -> traceError "headDatum"
+      _ -> traceError "no datum"
 
   (headDatum, headValue) =
     case scriptOutputsAt headValidator txInfo of
       [(dat, val)] -> (dat, val)
-      _ -> traceError "expected single head output"
+      _ -> traceError "multiple head output"
 
   initialTxOutValues = snd <$> scriptOutputsAt initialValidator txInfo
 
