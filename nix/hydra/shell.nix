@@ -59,7 +59,7 @@ let
 
   devTools = if withoutDevTools then { } else {
     fourmolu = "0.4.0.0"; # 0.5.0.0 requires Cabal 3.6
-    haskell-language-server = "latest";
+    haskell-language-server = "1.8.0.0";
   };
 
   haskellNixShell = hsPkgs.shellFor {
