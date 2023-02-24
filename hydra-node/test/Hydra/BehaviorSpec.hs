@@ -255,30 +255,29 @@ spec = parallel $ do
 
     it "sending two conflicting transactions should lead one being confirmed and one expired" $
       shouldRunInSim $
-        failAfter 2 $ do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [bob] chain $ \n1 -> do
-              withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead n1 n2
-                let tx' =
-                      SimpleTx
-                        { txSimpleId = 1
-                        , txInputs = utxoRef 1
-                        , txOutputs = utxoRef 10
-                        }
-                    tx'' =
-                      SimpleTx
-                        { txSimpleId = 2
-                        , txInputs = utxoRef 1
-                        , txOutputs = utxoRef 11
-                        }
-                send n1 (NewTx tx')
-                send n2 (NewTx tx'')
-                let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
-                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                    confirmed = SnapshotConfirmed testHeadId snapshot sigs
-                waitUntil [n1, n2] confirmed
-                waitUntil [n1, n2] (TxExpired testHeadId tx'')
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 -> do
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead n1 n2
+              let tx' =
+                    SimpleTx
+                      { txSimpleId = 1
+                      , txInputs = utxoRef 1
+                      , txOutputs = utxoRef 10
+                      }
+                  tx'' =
+                    SimpleTx
+                      { txSimpleId = 2
+                      , txInputs = utxoRef 1
+                      , txOutputs = utxoRef 11
+                      }
+              send n1 (NewTx tx')
+              send n2 (NewTx tx'')
+              let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
+                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                  confirmed = SnapshotConfirmed testHeadId snapshot sigs
+              waitUntil [n1, n2] confirmed
+              waitUntil [n1, n2] (TxExpired testHeadId tx'')
 
     it "valid new transactions get snapshotted" $
       shouldRunInSim $ do

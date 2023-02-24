@@ -45,7 +45,7 @@ import Hydra.Ledger (
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (UnsafeSnapshotNumber), getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.QuickCheck (oneof)
 
 -- * Types
@@ -235,13 +235,14 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
-  { -- | The latest UTxO of the "seen ledger".
+  { -- | The latest UTxO resulting from applying 'seenTxs' to
+    -- 'confirmedSnapshot'. Spec: L̂
     seenUTxO :: UTxOType tx
-  , -- | List of seen transactions.
+  , -- | List of seen transactions. Spec: T̂
     seenTxs :: [tx]
-  , -- | The latest confirmed snapshot, representing the "confirmed ledger".
+  , -- | The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
     confirmedSnapshot :: ConfirmedSnapshot tx
-  , -- | Whether we are currently collecting signatures for a snapshot.
+  , -- | Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
     seenSnapshot :: SeenSnapshot tx
   }
   deriving stock (Generic)
@@ -254,14 +255,23 @@ deriving instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 instance IsTx tx => Arbitrary (CoordinatedHeadState tx) where
   arbitrary = genericArbitrary
 
--- | Data structure to help in tracking whether we are currently collecting
--- signatures for a snapshot.
+-- | Data structure to help in tracking whether we have seen or requested a
+-- ReqSn already and if seen, the signatures we collected already.
 data SeenSnapshot tx
-  = NoSeenSnapshot
-  | RequestedSnapshot
-  | SeenSnapshot
+  = -- | Never saw a ReqSn.
+    NoSeenSnapshot
+  | -- | No snapshot in flight with last seen snapshot number as given.
+    LastSeenSnapshot {lastSeen :: SnapshotNumber}
+  | -- | ReqSn was sent out and it should be considered already in flight.
+    RequestedSnapshot
+      { lastSeen :: SnapshotNumber
+      , requested :: SnapshotNumber
+      }
+  | -- | ReqSn for given snapshot was received.
+    SeenSnapshot
       { snapshot :: Snapshot tx
-      , signatories :: Map Party (Signature (Snapshot tx))
+      , -- | Collected signatures and so far.
+        signatories :: Map Party (Signature (Snapshot tx))
       }
   deriving stock (Generic)
 
@@ -272,6 +282,14 @@ deriving instance IsTx tx => Eq (SeenSnapshot tx)
 deriving instance IsTx tx => Show (SeenSnapshot tx)
 deriving instance IsTx tx => ToJSON (SeenSnapshot tx)
 deriving instance IsTx tx => FromJSON (SeenSnapshot tx)
+
+-- | Get the last seen snapshot number given a 'SeenSnapshot'.
+seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
+seenSnapshotNumber = \case
+  NoSeenSnapshot -> 0
+  LastSeenSnapshot{lastSeen} -> lastSeen
+  RequestedSnapshot{lastSeen} -> lastSeen
+  SeenSnapshot{snapshot = Snapshot{number}} -> number
 
 -- ** Closed
 
@@ -323,6 +341,7 @@ data LogicError tx
   | InvalidState (HeadState tx)
   | InvalidSnapshot {expected :: SnapshotNumber, actual :: SnapshotNumber}
   | LedgerError ValidationError
+  | RequireFailed Text
   deriving stock (Generic)
 
 instance (Typeable tx, Show (Event tx), Show (HeadState tx)) => Exception (LogicError tx)
@@ -590,14 +609,15 @@ onOpenClientNewTx env ledger st tx =
 
   Environment{party} = env
 
--- | Receive network message about a new transaction request ('ReqTx') from a
--- peer. We apply this transaction to the seen utxo (ledger state), resulting in
--- an updated seen ledger state. If it is not applicable, then we wait to retry
--- later.
+-- | Process a transaction request ('ReqTx') from a party.
+--
+-- We apply this transaction to the seen utxo (ledger state). If not applicable,
+-- we wait and retry later. If it applies, this yields an updated seen ledger
+-- state. Then, we check whether we are the leader for the next snapshot and
+-- emit a snapshot request 'ReqSn' including this transaction if needed.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
-  Eq (SeenSnapshot tx) =>
   Environment ->
   Ledger tx ->
   OpenState tx ->
@@ -605,6 +625,7 @@ onOpenNetworkReqTx ::
   tx ->
   Outcome tx
 onOpenNetworkReqTx env ledger st tx =
+  -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
   case applyTransactions seenUTxO [tx] of
     Left (_, err) -> Wait $ WaitOnNotApplicableTx err
     Right utxo' ->
@@ -631,27 +652,16 @@ onOpenNetworkReqTx env ledger st tx =
 
   OpenState{coordinatedHeadState, headId} = st
 
--- | Receive network message about a snapshot request ('ReqSn') from a peer. We
--- do distinguish two cases:
+-- | Process a snapshot request ('ReqSn') from party.
 --
---   * Case 1:
---
---       * The peer is the leader for requested snapshot number.
---       * Snapshot number is the next expected (based on the last confirmed)
---       * There is no snapshot pending, i.e. we are not collecting any signatures for a snapshot.
---
---       We try to apply the transactions of the requested snapshot to the confirmed utxo:
---
---           * If that succeeds, we do sign the snapshot, yield a snapshot
---             acknowledgment ('AckSn') and start tracking this snapshot.
---           * Else, we wait until the transactions become applicable.
---
---   * Case 2:
---
---       * The peer is the leader for requested snapshot number.
---       * Snapshot number is greater than the next expected.
---
---       We wait for the snapshots in between, i.e. until this 'ReqSn' is the next.
+-- This checks that s is the next snapshot number and that the party is
+-- responsible for leading that snapshot. Then, we potentially wait until the
+-- previous snapshot is confirmed (no snapshot is in flight), before we apply
+-- (or wait until applicable) the requested transactions to the last confirmed
+-- snapshot. Only then, we start tracking this new "seen" snapshot, compute a
+-- signature of it and send the corresponding 'AckSn' to all parties. Finally,
+-- the pending transaction set gets pruned to only contain still applicable
+-- transactions.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqSn ::
@@ -665,62 +675,55 @@ onOpenNetworkReqSn ::
   SnapshotNumber ->
   -- | List of transactions to snapshot.
   [tx] ->
-  -- TODO: get rid of this (how to handle 'require' from spec?)
-  Event tx ->
   Outcome tx
-onOpenNetworkReqSn env ledger st otherParty sn txs ev =
-  requireValidReqSn $
+onOpenNetworkReqSn env ledger st otherParty sn txs =
+  -- TODO: Verify the request is signed by (?) / comes from the leader
+  -- (Can we prove a message comes from a given peer, without signature?)
+
+  -- Spec: require s = ŝ + 1 and leader(s) = j
+  requireReqSn $
+    -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- TODO: Also we might be robust against multiple ReqSn for otherwise
-      -- valid request, which is currently leading to 'Error'
-      -- TODO: Verify the request is signed by (?) / comes from the leader
-      -- (Can we prove a message comes from a given peer, without signature?)
-
       -- Spec: wait U̅ ◦ T ̸= ⊥ combined with Û ← Ū̅ ◦ T
-      case applyTransactions ledger confirmedUTxO txs of
-        Left (_, err) ->
-          -- FIXME: this will not happen, as we are always comparing against the
-          -- confirmed snapshot utxo in NewTx?
-          Wait $ WaitOnNotApplicableTx err
-        Right u -> do
-          -- NOTE: confSn == seenSn == sn here
-          let nextSnapshot = Snapshot (confSn + 1) u txs
-          let snapshotSignature = sign signingKey nextSnapshot
-          NewState
-            ( Open
-                st
-                  { coordinatedHeadState =
-                      coordinatedHeadState
-                        { seenSnapshot = SeenSnapshot nextSnapshot mempty
-                        }
-                  }
-            )
-            [NetworkEffect $ AckSn party snapshotSignature sn]
+      waitApplyTxs $ \u -> do
+        -- NOTE: confSn == seenSn == sn here
+        let nextSnapshot = Snapshot (confSn + 1) u txs
+        -- Spec: σᵢ
+        let snapshotSignature = sign signingKey nextSnapshot
+        NewState
+          ( Open
+              st
+                { coordinatedHeadState =
+                    coordinatedHeadState
+                      { seenSnapshot = SeenSnapshot nextSnapshot mempty
+                      }
+                }
+          )
+          [NetworkEffect $ AckSn party snapshotSignature sn]
  where
-  requireValidReqSn cont
-    -- TODO: Spec: require s = ŝ + 1 and leader(s) = j
-    | sn > seenSn && isLeader parameters otherParty sn = cont
-    | otherwise =
-      -- TODO: require-specific error instead
-      Error $ InvalidEvent ev (Open st)
+  requireReqSn continue =
+    if sn == seenSn + 1 && isLeader parameters otherParty sn
+      then continue
+      else Error $ RequireFailed "requireReqSn"
 
-  waitNoSnapshotInFlight cont =
-    -- TODO: Spec: wait s̅ = ŝ
-    case seenSnapshot of
-      SeenSnapshot{snapshot = Snapshot{number}}
-        | number == sn -> Error $ InvalidEvent ev (Open st)
-        | otherwise -> Wait $ WaitOnSnapshotNumber seenSn
-      _
-        | sn > confSn + 1 -> Wait WaitOnSeenSnapshot
-        | otherwise -> cont
+  waitNoSnapshotInFlight continue =
+    if confSn == seenSn
+      then continue
+      else Wait $ WaitOnSnapshotNumber seenSn
+
+  waitApplyTxs cont =
+    case applyTransactions ledger confirmedUTxO txs of
+      Left (_, err) ->
+        -- FIXME: this will not happen, as we are always comparing against the
+        -- confirmed snapshot utxo in NewTx?
+        Wait $ WaitOnNotApplicableTx err
+      Right u -> cont u
 
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
     ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
 
-  seenSn = case seenSnapshot of
-    SeenSnapshot{snapshot = Snapshot{number}} -> number
-    _ -> 0
+  seenSn = seenSnapshotNumber seenSnapshot
 
   confirmedUTxO = case confirmedSnapshot of
     InitialSnapshot{initialUTxO} -> initialUTxO
@@ -732,25 +735,15 @@ onOpenNetworkReqSn env ledger st otherParty sn txs ev =
 
   Environment{party, signingKey} = env
 
--- | Receive network message about a snapshot acknowledgement ('AckSn') from a
--- peer. We do distinguish two cases:
+-- | Process a snapshot acknowledgement ('AckSn') from a party.
 --
---   * Case 1: we received an AckSn request we did not expect
---
---       * respective AckSn and ReqSn out of order.
---       * multiple AckSns out of order.
---
---       In this case we simply wait to see the expected AckSn and we reenqueue the event.
---
---       The reason this can happen is because we don't make any assumptions on
---       the network packet delivery, and therefore the messages can arrive in
---       any order.
---
---   * Case 2: we received the expected Ack
---
---       * provided that the signature is valid, we add it to the set of signatories we have
---       * when we have gather all the signatures then we confirm the snapshot.
---       * when the signature is not valid then nothing changes.
+-- We do require that the is from the last seen or next expected snapshot, and
+-- potentially wait wait for the corresponding 'ReqSn' before proceeding. If the
+-- party hasn't sent us a signature yet, we store it. Once a signature from each
+-- party has been collected, we aggregate a multi-signature and verify it is
+-- correct. If everything is fine, the snapshot can be considered as the latest
+-- confirmed one. Similar to processing a 'ReqTx', we check whether we are
+-- leading the next snapshot and craft a corresponding 'ReqSn' if needed.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkAckSn ::
@@ -765,37 +758,44 @@ onOpenNetworkAckSn ::
   SnapshotNumber ->
   Outcome tx
 onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
+  -- Spec: wait ŝ = s
   waitOnSeenSnapshot $ \snapshot sigs -> do
-    let sigs'
-          -- TODO: Must check whether we know the 'otherParty' signing the snapshot
-          | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
-          | otherwise = sigs
-    ifAllMembersHaveSigned snapshot sigs' $ do
-      let multisig = aggregateInOrder sigs' parties
-      NewState
-        ( onlyUpdateCoordinatedHeadState $
-            coordinatedHeadState
-              { confirmedSnapshot =
-                  ConfirmedSnapshot
-                    { snapshot
-                    , signatures = multisig
-                    }
-              , seenSnapshot = NoSeenSnapshot
-              , -- TODO: prune in ReqSn
-                seenTxs = seenTxs \\ confirmed snapshot
-              }
-        )
-        [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-        & emitSnapshot env
+    -- Spec: require s ∈ {ŝ, ŝ + 1} ∧ (j,σⱼ) ∉ ̂Σ
+    requireAckSn sigs $ do
+      let sigs'
+            -- TODO: Must check whether we know the 'otherParty' signing the snapshot
+            | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
+            | otherwise = sigs
+      ifAllMembersHaveSigned snapshot sigs' $ do
+        let multisig = aggregateInOrder sigs' parties
+        NewState
+          ( onlyUpdateCoordinatedHeadState $
+              coordinatedHeadState
+                { confirmedSnapshot =
+                    ConfirmedSnapshot
+                      { snapshot
+                      , signatures = multisig
+                      }
+                , seenSnapshot = LastSeenSnapshot (number snapshot)
+                , -- TODO: prune in ReqSn
+                  seenTxs = seenTxs \\ confirmed snapshot
+                }
+          )
+          [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+          & emitSnapshot env
  where
-  waitOnSeenSnapshot cont =
-    -- TODO: Spec: require sn ∈ {seenSn, seenSn + 1}
+  seenSn = seenSnapshotNumber seenSnapshot
+
+  requireAckSn sigs continue =
+    if sn `elem` [seenSn, seenSn + 1] && not (Map.member otherParty sigs)
+      then continue
+      else Error $ RequireFailed "requireReqSn"
+
+  waitOnSeenSnapshot continue =
     case seenSnapshot of
-      NoSeenSnapshot -> Wait WaitOnSeenSnapshot
-      RequestedSnapshot -> Wait WaitOnSeenSnapshot
       SeenSnapshot snapshot sigs
-        | number snapshot /= sn -> Wait $ WaitOnSnapshotNumber (number snapshot)
-        | otherwise -> cont snapshot sigs
+        | seenSn == sn -> continue snapshot sigs
+      _ -> Wait WaitOnSeenSnapshot
 
   ifAllMembersHaveSigned snapshot sigs' cont =
     if Map.keysSet sigs' == Set.fromList parties
@@ -1014,7 +1014,7 @@ update env ledger st ev = case (st, ev) of
     | otherwise ->
       onOpenNetworkReqTx env ledger openState tx
   (Open openState, NetworkEvent _ (ReqSn otherParty sn txs)) ->
-    onOpenNetworkReqSn env ledger openState otherParty sn txs ev
+    onOpenNetworkReqSn env ledger openState otherParty sn txs
   (Open openState, NetworkEvent _ (AckSn otherParty snapshotSignature sn)) ->
     onOpenNetworkAckSn env openState otherParty snapshotSignature sn
   ( Open openState
@@ -1065,21 +1065,22 @@ data NoSnapshotReason
   deriving (Eq, Show, Generic)
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
-isLeader HeadParameters{parties} p (UnsafeSnapshotNumber sn) =
+isLeader HeadParameters{parties} p sn =
   case p `elemIndex` parties of
-    Just i -> ((fromIntegral @Natural @Int sn - 1) `mod` length parties) == i
+    Just i -> ((fromIntegral sn - 1) `mod` length parties) == i
     _ -> False
 
 -- | Snapshot emission decider
-newSn :: Eq (SeenSnapshot tx) => Environment -> HeadParameters -> CoordinatedHeadState tx -> SnapshotOutcome tx
+newSn :: Environment -> HeadParameters -> CoordinatedHeadState tx -> SnapshotOutcome tx
 newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} =
   if
       | not (isLeader parameters party nextSn) ->
         ShouldNotSnapshot $ NotLeader nextSn
-      | -- REVIEW: This is slightly different than in the spec. Also, if we use
-        -- seenSn /= confirmedSn here, the model tests would not pass ->
-        -- incomplete spec?
-        seenSnapshot /= NoSeenSnapshot ->
+      | -- NOTE: This is different than in the spec. If we use seenSn /=
+        -- confirmedSn here, we implicitly require confirmedSn <= seenSn. Which
+        -- may be an acceptable invariant, but we have property tests which are
+        -- more strict right now. Anyhow, we can be more expressive.
+        snapshotInFlight ->
         ShouldNotSnapshot $ SnapshotInFlight nextSn
       | null seenTxs ->
         ShouldNotSnapshot NoTransactionsToSnapshot
@@ -1088,21 +1089,35 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
  where
   nextSn = confirmedSn + 1
 
+  snapshotInFlight = case seenSnapshot of
+    NoSeenSnapshot -> False
+    LastSeenSnapshot{} -> False
+    RequestedSnapshot{} -> True
+    SeenSnapshot{} -> True
+
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
 -- | Emit a snapshot if we are the next snapshot leader. 'Outcome' modifying
 -- signature so it can be chained with other 'update' functions.
-emitSnapshot :: Eq (SeenSnapshot tx) => Environment -> Outcome tx -> Outcome tx
+emitSnapshot :: Environment -> Outcome tx -> Outcome tx
 emitSnapshot env@Environment{party} outcome =
   case outcome of
     NewState (Open OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId}) effects ->
       case newSn env parameters coordinatedHeadState of
-        ShouldSnapshot sn txs ->
+        ShouldSnapshot sn txs -> do
+          let CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
           NewState
             ( Open
                 OpenState
                   { parameters
-                  , coordinatedHeadState = coordinatedHeadState{seenSnapshot = RequestedSnapshot}
+                  , coordinatedHeadState =
+                      coordinatedHeadState
+                        { seenSnapshot =
+                            RequestedSnapshot
+                              { lastSeen = seenSnapshotNumber $ seenSnapshot
+                              , requested = sn
+                              }
+                        }
                   , previousRecoverableState
                   , chainState
                   , headId
