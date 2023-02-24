@@ -9,7 +9,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
-import UnliftIO.IO.File (withBinaryFileDurable, writeBinaryFileDurableAtomic)
+import UnliftIO.IO.File (withBinaryFile, writeBinaryFileDurableAtomic)
 
 newtype PersistenceException
   = PersistenceException String
@@ -63,7 +63,7 @@ createPersistenceIncremental fp = do
     PersistenceIncremental
       { append = \a -> do
           let bytes = toStrict $ Aeson.encode a <> "\n"
-          liftIO $ withBinaryFileDurable fp AppendMode (`BS.hPut` bytes)
+          liftIO $ withBinaryFile fp AppendMode (`BS.hPut` bytes)
       , loadAll =
           liftIO (doesFileExist fp) >>= \case
             False -> pure []
