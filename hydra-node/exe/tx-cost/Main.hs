@@ -128,13 +128,15 @@ scriptSizes =
   , ""
   , "| Name   | Hash | Size (Bytes) "
   , "| :----- | :--- | -----------: "
+  , "| " <> "μHead" <> " | N/A | " <> show mintingScriptSize <> " | "
   , "| " <> "νInitial" <> " | " <> serialiseToRawBytesHexText initialScriptHash <> " | " <> show initialScriptSize <> " | "
   , "| " <> "νCommit" <> " | " <> serialiseToRawBytesHexText commitScriptHash <> " | " <> show commitScriptSize <> " | "
   , "| " <> "νHead" <> " | " <> serialiseToRawBytesHexText headScriptHash <> " | " <> show headScriptSize <> " | "
   ]
  where
   ScriptInfo
-    { initialScriptHash
+    { mintingScriptSize
+    , initialScriptHash
     , initialScriptSize
     , commitScriptHash
     , commitScriptSize
