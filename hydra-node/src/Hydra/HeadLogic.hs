@@ -1026,10 +1026,10 @@ update env ledger st ev = case (st, ev) of
   (Open openState, NetworkEvent ttl (ReqTx _ tx)) ->
     onOpenNetworkReqTx env ledger openState ttl tx
   (Open openState, NetworkEvent _ (ReqSn otherParty sn txs)) ->
-    -- FIXME: ttl == 0 not handled for ReqSn
+    -- XXX: ttl == 0 not handled for ReqSn
     onOpenNetworkReqSn env ledger openState otherParty sn txs
   (Open openState, NetworkEvent _ (AckSn otherParty snapshotSignature sn)) ->
-    -- FIXME: ttl == 0 not handled for AckSn
+    -- XXX: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState otherParty snapshotSignature sn
   ( Open openState
     , OnChainEvent Observation{observedTx = OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
