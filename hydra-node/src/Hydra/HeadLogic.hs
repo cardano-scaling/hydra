@@ -609,10 +609,12 @@ onOpenClientNewTx env ledger st tx =
 
   Environment{party} = env
 
--- | Receive network message about a new transaction request ('ReqTx') from a
--- peer. We apply this transaction to the seen utxo (ledger state), resulting in
--- an updated seen ledger state. If it is not applicable, then we wait to retry
--- later.
+-- | Process a transaction request ('ReqTx') from a party.
+--
+-- We apply this transaction to the seen utxo (ledger state). If not applicable,
+-- we wait and retry later. If it applies, this yields an updated seen ledger
+-- state. Then, we check whether we are the leader for the next snapshot and
+-- emit a snapshot request 'ReqSn' including this transaction if needed.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
@@ -650,27 +652,16 @@ onOpenNetworkReqTx env ledger st tx =
 
   OpenState{coordinatedHeadState, headId} = st
 
--- | Receive network message about a snapshot request ('ReqSn') from a peer. We
--- do distinguish two cases:
+-- | Process a snapshot request ('ReqSn') from party.
 --
---   * Case 1:
---
---       * The peer is the leader for requested snapshot number.
---       * Snapshot number is the next expected (based on the last confirmed)
---       * There is no snapshot pending, i.e. we are not collecting any signatures for a snapshot.
---
---       We try to apply the transactions of the requested snapshot to the confirmed utxo:
---
---           * If that succeeds, we do sign the snapshot, yield a snapshot
---             acknowledgment ('AckSn') and start tracking this snapshot.
---           * Else, we wait until the transactions become applicable.
---
---   * Case 2:
---
---       * The peer is the leader for requested snapshot number.
---       * Snapshot number is greater than the next expected.
---
---       We wait for the snapshots in between, i.e. until this 'ReqSn' is the next.
+-- This checks that s is the next snapshot number and that the party is
+-- responsible for leading that snapshot. Then, we potentially wait until the
+-- previous snapshot is confirmed (no snapshot is in flight), before we apply
+-- (or wait until applicable) the requested transactions to the last confirmed
+-- snapshot. Only then, we start tracking this new "seen" snapshot, compute a
+-- signature of it and send the corresponding 'AckSn' to all parties. Finally,
+-- the pending transaction set gets pruned to only contain still applicable
+-- transactions.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqSn ::
@@ -744,25 +735,15 @@ onOpenNetworkReqSn env ledger st otherParty sn txs =
 
   Environment{party, signingKey} = env
 
--- | Receive network message about a snapshot acknowledgement ('AckSn') from a
--- peer. We do distinguish two cases:
+-- | Process a snapshot acknowledgement ('AckSn') from a party.
 --
---   * Case 1: we received an AckSn request we did not expect
---
---       * respective AckSn and ReqSn out of order.
---       * multiple AckSns out of order.
---
---       In this case we simply wait to see the expected AckSn and we reenqueue the event.
---
---       The reason this can happen is because we don't make any assumptions on
---       the network packet delivery, and therefore the messages can arrive in
---       any order.
---
---   * Case 2: we received the expected Ack
---
---       * provided that the signature is valid, we add it to the set of signatories we have
---       * when we have gather all the signatures then we confirm the snapshot.
---       * when the signature is not valid then nothing changes.
+-- We do require that the is from the last seen or next expected snapshot, and
+-- potentially wait wait for the corresponding 'ReqSn' before proceeding. If the
+-- party hasn't sent us a signature yet, we store it. Once a signature from each
+-- party has been collected, we aggregate a multi-signature and verify it is
+-- correct. If everything is fine, the snapshot can be considered as the latest
+-- confirmed one. Similar to processing a 'ReqTx', we check whether we are
+-- leading the next snapshot and craft a corresponding 'ReqSn' if needed.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkAckSn ::
