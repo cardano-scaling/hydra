@@ -10,6 +10,9 @@ changes.
 
 ## [0.9.0] - UNRELEASED
 
+- Reduced the number of supported parties to `3`. This was caused by increased
+  size of minting policy and head validator scripts.
+
 - **BREAKING** Changes to the API:
   + Rename `ReadyToCommit -> HeadIsInitializing`
   + Add the `HeadId` to most server outputs. [#678](https://github.com/input-output-hk/hydra/pull/678)
@@ -25,7 +28,6 @@ changes.
   + Introduce new `Hydra.Cardano.Api.Pretty` module and move functions
     `renderTx`, `renderTxWithUTxO` and `renderTxs` from `hydra-node` package to
     this new module.
-
 
 - **BREAKING** Addressed short-comings in `hydra-plutus` scripts:
   + Check presence of state token (ST) and that it's consistent against datum.

@@ -76,7 +76,7 @@ import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
 -- The value is obtained from calculating the costs of running the scripts
 -- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
 maximumNumberOfParties :: Int
-maximumNumberOfParties = 4
+maximumNumberOfParties = 3
 
 data Command
   = Run RunOptions
