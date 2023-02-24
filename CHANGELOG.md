@@ -14,6 +14,8 @@ changes.
   size of minting policy and head validator scripts.
 
 - **BREAKING** Changes to the API:
+  + Remove `TxSeen` and `TxExpired` server outputs. Use the `TxValid` and `TxInvalid` responses instead.
+  + All participants now see `TxValid` for all valid transactions (it replaces `TxSeen`).
   + Rename `ReadyToCommit -> HeadIsInitializing`
   + Add the `HeadId` to most server outputs. [#678](https://github.com/input-output-hk/hydra/pull/678)
   + Add a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/input-output-hk/hydra/pull/618)

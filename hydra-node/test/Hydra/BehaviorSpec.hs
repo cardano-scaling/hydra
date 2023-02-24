@@ -251,8 +251,7 @@ spec = parallel $ do
                 openHead n1 n2
 
                 send n1 (NewTx (aValidTx 42))
-                waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
-                waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
+                waitUntil [n1, n2] $ TxValid testHeadId (aValidTx 42)
 
       it "valid new transactions get snapshotted" $
         shouldRunInSim $ do
@@ -262,8 +261,7 @@ spec = parallel $ do
                 openHead n1 n2
 
                 send n1 (NewTx (aValidTx 42))
-                waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
-                waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
+                waitUntil [n1, n2] $ TxValid testHeadId (aValidTx 42)
 
                 let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
@@ -282,31 +280,21 @@ spec = parallel $ do
                 let secondTx = SimpleTx 1 (utxoRef 3) (utxoRef 4)
                 -- Expect secondTx to be valid, but not applicable and stay pending
                 send n2 (NewTx secondTx)
-                waitUntil [n2] $ TxValid testHeadId secondTx
                 send n1 (NewTx firstTx)
-                waitUntil [n1] $ TxValid testHeadId firstTx
 
                 -- Expect a snapshot of the firstTx transaction
-                waitUntil [n1, n2] $ TxSeen testHeadId firstTx
+                waitUntil [n1, n2] $ TxValid testHeadId firstTx
                 waitUntil [n1, n2] $ do
                   let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
                 -- Expect a snapshot of the now unblocked secondTx
-                -- NOTE: that until now there was no TxSeen for secondTx
-                waitUntil [n1, n2] $ TxSeen testHeadId secondTx
+                waitUntil [n1, n2] $ TxValid testHeadId secondTx
                 waitUntil [n1, n2] $ do
                   let snapshot = Snapshot 2 (utxoRefs [2, 4]) [secondTx]
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
-
-                -- Also, re-submitting secondTx now, e.g. because the client
-                -- haven't seen the TxSeen for secondTx in time, is valid, but
-                -- expires
-                send n2 (NewTx secondTx)
-                waitUntil [n2] $ TxValid testHeadId secondTx
-                waitUntil [n2] $ TxExpired testHeadId secondTx
 
       it "depending transactions expire if not applicable in time" $
         shouldRunInSim $
@@ -318,13 +306,14 @@ spec = parallel $ do
                 let secondTx = SimpleTx 1 (utxoRef 3) (utxoRef 4)
                 -- Expect secondTx to be valid, but not applicable and stay pending
                 send n2 (NewTx secondTx)
-                waitUntil [n2] $ TxValid testHeadId secondTx
                 -- If we wait too long, secondTx will expire
                 threadDelay . realToFrac $ (fromIntegral defaultTTL) * waitDelay + 1
-                waitUntil [n1, n2] $ TxExpired testHeadId secondTx
+                waitUntilMatch [n1, n2] $ \case
+                  TxInvalid{transaction} -> transaction == secondTx
+                  _ -> False
 
                 send n1 (NewTx firstTx)
-                waitUntil [n1, n2] $ TxSeen testHeadId firstTx
+                waitUntil [n1, n2] $ TxValid testHeadId firstTx
 
       it "sending two conflicting transactions should lead one being confirmed and one expired" $
         shouldRunInSim $
@@ -346,11 +335,13 @@ spec = parallel $ do
                         }
                 send n1 (NewTx tx')
                 send n2 (NewTx tx'')
-                let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
-                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                    confirmed = SnapshotConfirmed testHeadId snapshot sigs
-                waitUntil [n1, n2] confirmed
-                waitUntil [n1, n2] (TxExpired testHeadId tx'')
+                waitUntil [n1, n2] $ do
+                  let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
+                      sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                  SnapshotConfirmed testHeadId snapshot sigs
+                waitUntilMatch [n1, n2] $ \case
+                  TxInvalid{transaction} -> transaction == tx''
+                  _ -> False
 
       it "multiple transactions get snapshotted" $ do
         pendingWith "This test is not longer true after recent changes which simplify the snapshot construction."
@@ -365,9 +356,6 @@ spec = parallel $ do
 
                 waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
                 waitUntil [n1] $ TxValid testHeadId (aValidTx 43)
-
-                waitUntil [n1] $ TxSeen testHeadId (aValidTx 42)
-                waitUntil [n1] $ TxSeen testHeadId (aValidTx 43)
 
                 let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43]
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]

@@ -58,15 +58,15 @@ data ServerOutput tx
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
   | CommandFailed {clientInput :: ClientInput tx}
-  | -- TODO: define semantics
-    TxSeen {headId :: HeadId, transaction :: tx}
-  | -- TODO: define semantics, difference to TxSeen?
+  | -- | Given transaction has been seen as valid in the Head. It is expected to
+    -- eventually be part of a 'SnapshotConfirmed'.
     TxValid {headId :: HeadId, transaction :: tx}
-  | -- TODO: unused
+  | -- | Given transaction was not not applicable to the given UTxO in time and
+    -- has been dropped.
     TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
-  | -- TODO: define semantics, difference to TxInvalid?
-    TxExpired {headId :: HeadId, transaction :: tx}
-  | SnapshotConfirmed
+  | -- | Given snapshot was confirmed and included transactions can be
+    -- considered final.
+    SnapshotConfirmed
       { headId :: HeadId
       , snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
@@ -107,9 +107,7 @@ instance
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
     CommandFailed i -> CommandFailed <$> shrink i
-    TxSeen headId tx -> TxSeen <$> shrink headId <*> shrink tx
     TxValid headId tx -> TxValid <$> shrink headId <*> shrink tx
-    TxExpired headId tx -> TxExpired <$> shrink headId <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
     GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u

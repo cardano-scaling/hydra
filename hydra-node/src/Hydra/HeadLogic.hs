@@ -46,9 +46,7 @@ import Hydra.Ledger (
   Ledger (..),
   UTxOType,
   ValidationError,
-  ValidationResult (Valid),
   applyTransactions,
-  canApply,
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
@@ -587,26 +585,17 @@ onInitialChainCollectTx st newChainState =
 
 -- ** Off-chain protocol
 
--- | Client request to ingest a new transaction into the head. We do check
--- whether the given transaction can be applied against the confirmed ledger
--- state and yield a corresponding 'TxValid' or 'TxInvalid' client response.
+-- | Client request to ingest a new transaction into the head.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientNewTx ::
   Environment ->
-  OpenState tx ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenClientNewTx env st tx =
-  -- TODO: Remove/rename TxValid & TxInvalid?
-  OnlyEffects $
-    [ ClientEffect $ TxValid headId tx
-    , NetworkEffect $ ReqTx party tx
-    ]
+onOpenClientNewTx env tx =
+  OnlyEffects [NetworkEffect $ ReqTx party tx]
  where
-  OpenState{headId} = st
-
   Environment{party} = env
 
 -- | Process a transaction request ('ReqTx') from a party.
@@ -621,13 +610,17 @@ onOpenNetworkReqTx ::
   Environment ->
   Ledger tx ->
   OpenState tx ->
+  TTL ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx env ledger st tx =
+onOpenNetworkReqTx env ledger st ttl tx =
   -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
   case applyTransactions seenUTxO [tx] of
-    Left (_, err) -> Wait $ WaitOnNotApplicableTx err
+    Left (_, err)
+      | ttl <= 0 ->
+        OnlyEffects [ClientEffect $ TxInvalid headId seenUTxO tx err]
+      | otherwise -> Wait $ WaitOnNotApplicableTx err
     Right utxo' ->
       NewState
         ( Open
@@ -643,8 +636,7 @@ onOpenNetworkReqTx env ledger st tx =
                     }
               }
         )
-        -- FIXME: should this be TxValid?
-        [ClientEffect $ TxSeen headId tx]
+        [ClientEffect $ TxValid headId tx]
         & emitSnapshot env
  where
   Ledger{applyTransactions} = ledger
@@ -1029,13 +1021,10 @@ update env ledger st ev = case (st, ev) of
   -- Open
   (Open openState, ClientEvent Close) ->
     onOpenClientClose openState
-  (Open openState, ClientEvent (NewTx tx)) ->
-    onOpenClientNewTx env openState tx
-  (Open openState@OpenState{headId}, NetworkEvent ttl (ReqTx _ tx))
-    | ttl == 0 ->
-      OnlyEffects [ClientEffect $ TxExpired headId tx]
-    | otherwise ->
-      onOpenNetworkReqTx env ledger openState tx
+  (Open{}, ClientEvent (NewTx tx)) ->
+    onOpenClientNewTx env tx
+  (Open openState, NetworkEvent ttl (ReqTx _ tx)) ->
+    onOpenNetworkReqTx env ledger openState ttl tx
   (Open openState, NetworkEvent _ (ReqSn otherParty sn txs)) ->
     -- FIXME: ttl == 0 not handled for ReqSn
     onOpenNetworkReqSn env ledger openState otherParty sn txs
@@ -1047,6 +1036,8 @@ update env ledger st ev = case (st, ev) of
     ) ->
       onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
+    -- TODO: Is it really intuitive that we respond from the confirmed ledger if
+    -- transactions are validated against the seen ledger?
     OnlyEffects [ClientEffect . GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   -- Closed
   (Closed closedState, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->

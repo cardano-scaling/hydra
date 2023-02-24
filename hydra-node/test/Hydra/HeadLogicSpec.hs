@@ -69,14 +69,16 @@ spec = do
               , contestationPeriod = defaultContestationPeriod
               }
 
-      it "rejects if a requested tx is expired" $ do
+      it "reports if a requested tx is expired" $ do
         let inputs = utxoRef 1
             tx = SimpleTx 2 inputs mempty
             ttl = 0
             reqTx = NetworkEvent ttl $ ReqTx alice tx
             s0 = inOpenState threeParties ledger
 
-        update bobEnv ledger s0 reqTx `hasEffect` ClientEffect (TxExpired testHeadId tx)
+        update bobEnv ledger s0 reqTx `hasEffectSatisfying` \case
+          ClientEffect TxInvalid{transaction} -> transaction == tx
+          _ -> False
 
       it "waits if a requested tx is not (yet) applicable" $ do
         let reqTx = NetworkEvent defaultTTL $ ReqTx alice $ SimpleTx 2 inputs mempty
@@ -340,11 +342,14 @@ hasEffect (OnlyEffects effects) effect
   | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
 hasEffect o _ = failure $ "Unexpected outcome: " <> show o
 
-hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
-hasEffectSatisfying (NewState s effects) match
-  | any match effects = pure s
-  | otherwise = failure $ "No effect matching predicate in produced effects: " <> show effects
-hasEffectSatisfying o _ = failure $ "Unexpected outcome: " <> show o
+hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasEffectSatisfying outcome match =
+  case outcome of
+    NewState _ effects
+      | any match effects -> pure ()
+    OnlyEffects effects
+      | any match effects -> pure ()
+    _ -> failure $ "No effect matching predicate in produced effects: " <> show outcome
 
 hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasNoEffectSatisfying (NewState _ effects) predicate

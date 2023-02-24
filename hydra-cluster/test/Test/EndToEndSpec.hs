@@ -448,7 +448,7 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
               aliceCardanoSk
       send n1 $ input "NewTx" ["transaction" .= tx]
       waitFor tracer 10 [n1, n2, n3] $
-        output "TxSeen" ["transaction" .= tx, "headId" .= headId]
+        output "TxValid" ["transaction" .= tx, "headId" .= headId]
 
       -- The expected new utxo set is the created payment to bob,
       -- alice's remaining utxo in head and whatever bot has
