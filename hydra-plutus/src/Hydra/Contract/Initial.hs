@@ -74,40 +74,21 @@ validator commitValidator headId red context =
     ViaAbort ->
       traceIfFalse "I01" (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
     ViaCommit{committedRef} ->
-      checkCommit commitValidator committedRef context
-        && checkAuthorAndHeadPolicy context headId
-
--- | Verifies that the commit is only done by the author
-checkAuthorAndHeadPolicy ::
-  ScriptContext ->
-  CurrencySymbol ->
-  Bool
-checkAuthorAndHeadPolicy context@ScriptContext{scriptContextTxInfo = txInfo} headId =
-  traceIfFalse "I02" $
-    unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
- where
-  ourParticipationTokenName =
-    case AssocMap.lookup headId (getValue initialValue) of
-      Nothing -> traceError "I05"
-      Just tokenMap ->
-        case AssocMap.toList tokenMap of
-          [(tk, q)] | q == 1 -> tk
-          _moreThanOneToken -> traceError "I06"
-
-  -- TODO: DRY
-  initialValue =
-    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
+      checkCommit commitValidator headId committedRef context
 
 checkCommit ::
   -- | Commit validator
   ValidatorHash ->
+  -- | Head id
+  CurrencySymbol ->
   Maybe TxOutRef ->
   ScriptContext ->
   Bool
-checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxInfo = txInfo} =
-  mustNotMintOrBurn txInfo
-    && checkCommittedValue
+checkCommit commitValidator headId committedRef context =
+  checkCommittedValue
     && checkLockedCommit
+    && mustBeSignedByParticipant
+    && mustNotMintOrBurn txInfo
  where
   checkCommittedValue =
     traceIfFalse "I03" $
@@ -125,6 +106,18 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
         traceIfFalse "I04" $
           Builtins.serialiseData (toBuiltinData txOut) == preSerializedOutput
             && ref == input
+
+  mustBeSignedByParticipant =
+    traceIfFalse "I02" $
+      unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
+
+  ourParticipationTokenName =
+    case AssocMap.lookup headId (getValue initialValue) of
+      Nothing -> traceError "I05"
+      Just tokenMap ->
+        case AssocMap.toList tokenMap of
+          [(tk, q)] | q == 1 -> tk
+          _moreThanOneToken -> traceError "I06"
 
   initialValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
@@ -153,6 +146,8 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
                   Just (_party, _headScriptHash, mCommit, _headId) ->
                     mCommit
       _ -> traceError "I13"
+
+  ScriptContext{scriptContextTxInfo = txInfo} = context
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
