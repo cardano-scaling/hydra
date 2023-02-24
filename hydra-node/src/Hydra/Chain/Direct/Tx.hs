@@ -209,11 +209,11 @@ commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
   commitValue =
     txOutValue out <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
-    mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo (headIdToCurrencySymbol headId)
+    mkTxOutDatum $ mkCommitDatum party utxo (headIdToCurrencySymbol headId)
 
-mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> CurrencySymbol -> Plutus.Datum
-mkCommitDatum party headValidatorHash utxo headId =
-  Commit.datum (partyToChain party, headValidatorHash, serializedUTxO, headId)
+mkCommitDatum :: Party -> Maybe (TxIn, TxOut CtxUTxO) -> CurrencySymbol -> Plutus.Datum
+mkCommitDatum party utxo headId =
+  Commit.datum (partyToChain party, serializedUTxO, headId)
  where
   serializedUTxO = case utxo of
     Nothing ->
@@ -276,7 +276,7 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
   extractCommit d =
     case fromData $ toPlutusData d of
       Nothing -> error "SNAFU"
-      Just ((_, _, Just o, _) :: Commit.DatumType) -> Just o
+      Just ((_, Just o, _) :: Commit.DatumType) -> Just o
       _ -> Nothing
 
   utxoHash =
@@ -777,7 +777,7 @@ observeCommitTx networkId initials tx = do
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
-  (onChainParty, _, onChainCommit, _headId) <- fromData @Commit.DatumType $ toPlutusData dat
+  (onChainParty, onChainCommit, _headId) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
 
   committed <-

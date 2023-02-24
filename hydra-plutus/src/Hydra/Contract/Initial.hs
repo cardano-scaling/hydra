@@ -143,7 +143,7 @@ checkCommit commitValidator headId committedRef context =
               Just da ->
                 case fromBuiltinData @Commit.DatumType $ getDatum da of
                   Nothing -> traceError "I12"
-                  Just (_party, _headScriptHash, mCommit, _headId) ->
+                  Just (_party, mCommit, _headId) ->
                     mCommit
       _ -> traceError "I13"
 

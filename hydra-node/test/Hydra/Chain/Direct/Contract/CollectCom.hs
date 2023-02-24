@@ -179,7 +179,7 @@ healthyCommitOutput party committed =
         [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoKey), 1)
         ]
   commitDatum =
-    mkCommitDatum party Head.validatorHash (Just committed) (toPlutusCurrencySymbol $ headPolicyId healthyHeadInput)
+    mkCommitDatum party (Just committed) (toPlutusCurrencySymbol $ headPolicyId healthyHeadInput)
 
 data CollectComMutation
   = MutateOpenUTxOHash

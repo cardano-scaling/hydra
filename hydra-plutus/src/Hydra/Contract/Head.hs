@@ -245,7 +245,7 @@ commitDatum :: TxInfo -> TxOut -> Maybe Commit
 commitDatum txInfo input = do
   let datum = findTxOutDatum txInfo input
   case fromBuiltinData @Commit.DatumType $ getDatum datum of
-    Just (_party, _validatorHash, commit, _headId) ->
+    Just (_party, commit, _headId) ->
       commit
     Nothing -> Nothing
 {-# INLINEABLE commitDatum #-}
