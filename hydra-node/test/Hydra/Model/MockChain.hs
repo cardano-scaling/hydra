@@ -36,7 +36,7 @@ import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
-  Environment (party),
+  Environment (Environment, otherParties, party),
   Event (NetworkEvent),
   HeadState (..),
   IdleState (..),
@@ -71,16 +71,15 @@ mockChainAndNetwork ::
   ) =>
   Tracer m DirectChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
-  [Party] ->
   TVar m [MockHydraNode m] ->
   ContestationPeriod ->
   m (ConnectToChain Tx m, Async m ())
-mockChainAndNetwork tr seedKeys _parties nodes cp = do
+mockChainAndNetwork tr seedKeys nodes cp = do
   queue <- newTQueueIO
   labelTQueueIO queue "chain-queue"
   tickThread <- async (labelThisThread "chain" >> simulateTicks queue)
   let chainComponent = \node -> do
-        let ownParty = party (env node)
+        let Environment{party = ownParty, otherParties} = env node
         let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
         let ctx =
               S.ChainContext
@@ -88,6 +87,7 @@ mockChainAndNetwork tr seedKeys _parties nodes cp = do
                 , peerVerificationKeys = vkeys
                 , ownVerificationKey = vkey
                 , ownParty
+                , otherParties
                 , scriptRegistry =
                     -- TODO: we probably want different _scripts_ as initial and commit one
                     let txIn = mkMockTxIn vkey 0

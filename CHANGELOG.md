@@ -10,6 +10,9 @@ changes.
 
 ## [0.9.0] - UNRELEASED
 
+- Reduced the number of supported parties to `3`. This was caused by increased
+  size of minting policy and head validator scripts.
+
 - **BREAKING** Changes to the API:
   + Rename `ReadyToCommit -> HeadIsInitializing`
   + Add the `HeadId` to most server outputs. [#678](https://github.com/input-output-hk/hydra/pull/678)
@@ -20,11 +23,11 @@ changes.
   + Replace `fromConsensusPointHF` with `fromConsensusPointInMode` and
     `toConsensusPointHF` with `toConsensusPointInMode`.
   + Re-export new `AcquiringFailure` type from `cardano-api`.
+  + Add `fromPlutusCurrencySymbol` conversion function.
 
   + Introduce new `Hydra.Cardano.Api.Pretty` module and move functions
     `renderTx`, `renderTxWithUTxO` and `renderTxs` from `hydra-node` package to
     this new module.
-
 
 - **BREAKING** Addressed short-comings in `hydra-plutus` scripts:
   + Check presence of state token (ST) and that it's consistent against datum.
@@ -38,6 +41,8 @@ changes.
   + Check that value is preserved in v_head
   + Introduce a function `(===)` for strict equality check between serialized `Value`.
   + Push contestation deadline on contest.
+  + Improve on-chain checks when minting tokens and off-chain checks when
+    observing `initTx` so that we ensure we are part of the _proper_ head.
 
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds

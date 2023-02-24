@@ -12,6 +12,7 @@ module Hydra.Chain.Direct.State where
 import Hydra.Prelude hiding (init)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Prelude (hush)
 import Data.List ((\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -67,6 +68,7 @@ import Hydra.Chain.Direct.Tx (
   FanoutObservation (FanoutObservation),
   InitObservation (..),
   InitialThreadOutput (..),
+  NotAnInitReason,
   OpenThreadOutput (..),
   UTxOHash (UTxOHash),
   UTxOWithScript,
@@ -180,6 +182,7 @@ data ChainContext = ChainContext
   , peerVerificationKeys :: [VerificationKey PaymentKey]
   , ownVerificationKey :: VerificationKey PaymentKey
   , ownParty :: Party
+  , otherParties :: [Party]
   , scriptRegistry :: ScriptRegistry
   , contestationPeriod :: ContestationPeriod
   }
@@ -193,7 +196,8 @@ instance Arbitrary ChainContext where
     networkId <- Testnet . NetworkMagic <$> arbitrary
     peerVerificationKeys <- replicateM n genVerificationKey
     ownVerificationKey <- genVerificationKey
-    ownParty <- arbitrary
+    otherParties <- arbitrary
+    ownParty <- elements otherParties
     scriptRegistry <- genScriptRegistry
     contestationPeriod <- arbitrary
     pure
@@ -202,6 +206,7 @@ instance Arbitrary ChainContext where
         , peerVerificationKeys
         , ownVerificationKey
         , ownParty
+        , otherParties
         , scriptRegistry
         , contestationPeriod
         }
@@ -470,7 +475,7 @@ fanout st utxo deadlineSlotNo = do
 observeSomeTx :: ChainContext -> ChainState -> Tx -> Maybe (OnChainTx Tx, ChainState)
 observeSomeTx ctx cst tx = case cst of
   Idle ->
-    second Initial <$> observeInit ctx tx
+    second Initial <$> hush (observeInit ctx tx)
   Initial st ->
     second Initial <$> observeCommit ctx st tx
       <|> (,Idle) <$> observeAbort st tx
@@ -486,7 +491,7 @@ observeSomeTx ctx cst tx = case cst of
 observeInit ::
   ChainContext ->
   Tx ->
-  Maybe (OnChainTx Tx, InitialState)
+  Either NotAnInitReason (OnChainTx Tx, InitialState)
 observeInit ctx tx = do
   observation <-
     observeInitTx
@@ -494,6 +499,7 @@ observeInit ctx tx = do
       (allVerificationKeys ctx)
       (Hydra.Chain.Direct.State.contestationPeriod ctx)
       ownParty
+      otherParties
       tx
   pure (toEvent observation, toState observation)
  where
@@ -509,7 +515,7 @@ observeInit ctx tx = do
       , initialHeadTokenScript = headTokenScript
       }
 
-  ChainContext{networkId, ownParty} = ctx
+  ChainContext{networkId, ownParty, otherParties} = ctx
 
 -- ** InitialState transitions
 
@@ -758,9 +764,8 @@ ctxHeadParameters ::
 ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
   HeadParameters ctxContestationPeriod (ctxParties ctx)
 
--- | Generate a `HydraContext` for a bounded arbitrary number of parties.
---
--- 'maxParties'  sets the upper bound in the number of parties in the Head.
+-- | Generate a `HydraContext` for a arbitrary number of parties, bounded by
+-- given maximum.
 genHydraContext :: Int -> Gen HydraContext
 genHydraContext maxParties = choose (1, maxParties) >>= genHydraContextFor
 
@@ -792,6 +797,7 @@ deriveChainContexts ctx = do
         , peerVerificationKeys = ctxVerificationKeys \\ [vk]
         , ownVerificationKey = vk
         , ownParty = p
+        , otherParties = allParties \\ [p]
         , scriptRegistry
         , contestationPeriod = ctxContestationPeriod ctx
         }
@@ -817,7 +823,8 @@ genStInitial ctx = do
   seedInput <- genTxIn
   cctx <- pickChainContext ctx
   let txInit = initialize cctx (ctxHeadParameters ctx) seedInput
-  pure (cctx, snd . fromJust $ observeInit cctx txInit)
+  let initState = unsafeObserveInit cctx txInit
+  pure (cctx, initState)
 
 genInitTx ::
   HydraContext ->
@@ -841,7 +848,7 @@ genCommits' ::
 genCommits' genUTxOToCommit ctx txInit = do
   allChainContexts <- deriveChainContexts ctx
   forM allChainContexts $ \cctx -> do
-    let (_, stInitial) = fromJust $ observeInit cctx txInit
+    let stInitial = unsafeObserveInit cctx txInit
     unsafeCommit cctx stInitial <$> genUTxOToCommit
 
 genCommit :: Gen UTxO
@@ -946,7 +953,18 @@ unsafeCommit ::
 unsafeCommit ctx st u =
   either (error . show) id $ commit ctx st u
 
+unsafeObserveInit ::
+  HasCallStack =>
+  ChainContext ->
+  Tx ->
+  InitialState
+unsafeObserveInit cctx txInit =
+  case observeInit cctx txInit of
+    Left err -> error $ "Did not observe an init tx: " <> show err
+    Right st -> snd st
+
 unsafeObserveInitAndCommits ::
+  HasCallStack =>
   ChainContext ->
   Tx ->
   [Tx] ->
@@ -954,7 +972,8 @@ unsafeObserveInitAndCommits ::
 unsafeObserveInitAndCommits ctx txInit commits =
   (utxo, stInitial')
  where
-  (_, stInitial) = fromJust $ observeInit ctx txInit
+  stInitial = unsafeObserveInit ctx txInit
+
   (utxo, stInitial') = flip runState stInitial $ do
     forM commits $ \txCommit -> do
       st <- get

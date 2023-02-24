@@ -8,15 +8,24 @@ module Hydra.Contract.HeadTokens where
 
 import PlutusTx.Prelude
 
-import Hydra.Cardano.Api (PlutusScriptV2, PolicyId, TxIn, fromPlutusScript, scriptPolicyId, toPlutusTxOutRef, pattern PlutusScript)
+import Hydra.Cardano.Api (
+  PlutusScriptV2,
+  PolicyId,
+  TxIn,
+  fromPlutusScript,
+  scriptPolicyId,
+  toPlutusTxOutRef,
+  pattern PlutusScript,
+ )
 import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Contract.Head as Head
+import Hydra.Contract.HeadState (headId, seed)
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
-import Plutus.Extras (scriptValidatorHash, wrapMintingPolicy)
+import Hydra.Contract.Util (hasST)
+import Plutus.Extras (wrapMintingPolicy)
 import Plutus.V2.Ledger.Api (
-  CurrencySymbol,
   Datum (getDatum),
   FromData (fromBuiltinData),
   MintingPolicy (getMintingPolicy),
@@ -25,7 +34,6 @@ import Plutus.V2.Ledger.Api (
   ScriptContext (ScriptContext, scriptContextTxInfo),
   TxInInfo (..),
   TxInfo (..),
-  TxOut (..),
   TxOutRef,
   ValidatorHash,
   Value (getValue),
@@ -49,91 +57,101 @@ validate initialValidator headValidator seedInput action context =
     Burn -> validateTokensBurning context
 {-# INLINEABLE validate #-}
 
+-- | When minting head tokens we want to make sure that:
+--
+-- * The number of minted PTs == number of participants (+1 for the ST) evident
+--   from the datum.
+--
+-- * There is single state token that is paid into v_head, which ensures
+--   continuity.
+--
+-- * PTs are distributed to v_initial.
+--
+-- * Ensure out-ref and the headId are in the datum of the first output of the
+--   transaction which mints tokens.
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
 validateTokensMinting initialValidator headValidator seedInput context =
-  traceIfFalse "minted wrong" $
-    participationTokensAreDistributed currency initialValidator txInfo nParties
-      && checkQuantities
-      && assetNamesInPolicy == nParties + 1
-      && seedInputIsConsumed
+  seedInputIsConsumed
+    && checkNumberOfTokens
+    && singleSTIsPaidToTheHead
+    && allInitialOutsHavePTs
+    && checkDatum
  where
+  seedInputIsConsumed =
+    traceIfFalse "seed not spent" $
+      seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
+
+  checkNumberOfTokens =
+    traceIfFalse "wrong number of tokens minted" $
+      mintedTokenCount == nParties + 1
+
+  singleSTIsPaidToTheHead =
+    traceIfFalse "missing ST" $
+      hasST currency headValue
+
+  allInitialOutsHavePTs =
+    traceIfFalse "wrong number of initial outputs" (nParties == length initialTxOutValues)
+      && all hasASinglePT initialTxOutValues
+
+  checkDatum =
+    traceIfFalse "wrong datum" $
+      headId == currency && seed == seedInput
+
+  hasASinglePT val =
+    case Map.lookup currency (getValue val) of
+      Nothing -> traceError "no PT"
+      (Just tokenMap) -> case Map.toList tokenMap of
+        [(_, qty)]
+          | qty == 1 -> True
+        _ -> traceError "wrong quantity"
+
+  mintedTokenCount =
+    maybe 0 sum
+      . Map.lookup currency
+      . getValue
+      $ txInfoMint txInfo
+
+  (headId, seed, nParties) =
+    case headDatum of
+      OutputDatumHash dh ->
+        case findDatum dh txInfo >>= fromBuiltinData @Head.DatumType . getDatum of
+          Just Head.Initial{Head.parties = parties, headId = h, seed = s} ->
+            (h, s, length parties)
+          _ -> traceError "headDatum"
+      _ -> traceError "no datum"
+
+  (headDatum, headValue) =
+    case scriptOutputsAt headValidator txInfo of
+      [(dat, val)] -> (dat, val)
+      _ -> traceError "multiple head output"
+
+  initialTxOutValues = snd <$> scriptOutputsAt initialValidator txInfo
+
   currency = ownCurrencySymbol context
-
-  minted = getValue $ txInfoMint txInfo
-
-  (checkQuantities, assetNamesInPolicy) = case Map.lookup currency minted of
-    Nothing -> (False, 0)
-    Just tokenMap ->
-      foldr
-        (\q (assertion, n) -> (assertion && q == 1, n + 1))
-        (True, 0)
-        tokenMap
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
-  nParties =
-    case scriptOutputsAt headValidator txInfo of
-      [(datum, _)] ->
-        case datum of
-          NoOutputDatum -> traceError "missing datum"
-          OutputDatum _ -> traceError "unexpected inline datum"
-          OutputDatumHash dh ->
-            case findDatum dh txInfo of
-              Nothing -> traceError "could not find datum"
-              Just da ->
-                case fromBuiltinData @Head.DatumType $ getDatum da of
-                  Nothing -> traceError "expected commit datum type, got something else"
-                  Just Head.Initial{Head.parties = parties} -> length parties
-                  Just _ -> traceError "unexpected State in datum"
-      _ -> traceError "expected single head output"
-
-  seedInputIsConsumed = seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
-
--- TODO: does this even make sense to check? Shouldn't we check that we are
--- doing an abort of fanout (terminal transitions) of the v_head? Or is this
--- even 'const True' as one need to be able to spend tokens to burn them. If we
--- only distribute them to v_initial on minting, that should be fine?
+-- | Token burning check should:
+-- * Not restrict burning on the mu_head at all.
+--
+-- It is ensured by the v_head validator, when tokens of a specific headId may
+-- be burned.
+--
+-- 'validateTokensBurning' just makes sure all tokens have negative quantity.
 validateTokensBurning :: ScriptContext -> Bool
 validateTokensBurning context =
-  traceIfFalse "burnt wrong" checkAllPTsAreBurnt
+  traceIfFalse "minting not allowed" burnHeadTokens
  where
-  -- we do not check the actual token names but only that all tokens pertaining
-  -- to the currency scripts are burnt. This should work whether we are burning
-  -- in Abort or FanOut transaction
-  checkAllPTsAreBurnt =
-    traceIfFalse "inconsistent quantity of head tokens burnt" $
-      consumedHeadTokens == burnHeadTokens
-
   currency = ownCurrencySymbol context
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
   minted = getValue $ txInfoMint txInfo
-
-  consumedHeadTokens =
-    foldr (\x acc -> acc + countOurTokens (txOutValue $ txInInfoResolved x)) 0 $ txInfoInputs txInfo
-
-  countOurTokens v =
-    maybe 0 sum (Map.lookup currency $ getValue v)
 
   burnHeadTokens =
     case Map.lookup currency minted of
-      Nothing -> 0
-      Just tokenMap -> negate $ sum tokenMap
-
-participationTokensAreDistributed :: CurrencySymbol -> ValidatorHash -> TxInfo -> Integer -> Bool
-participationTokensAreDistributed currency initialValidator txInfo nParties =
-  case scriptOutputsAt initialValidator txInfo of
-    [] -> traceIfFalse "no initial outputs for parties" $ nParties == (0 :: Integer)
-    outs -> nParties == length outs && all hasParticipationToken outs
- where
-  hasParticipationToken :: (OutputDatum, Value) -> Bool
-  hasParticipationToken (_, val) =
-    case Map.lookup currency (getValue val) of
-      Nothing -> traceError "no PT distributed"
-      (Just tokenMap) -> case Map.toList tokenMap of
-        [(_, qty)] -> qty == 1
-        _ -> traceError "wrong quantity of PT distributed"
+      Nothing -> False
+      Just tokenMap -> all (< 0) tokenMap
 
 mintingPolicy :: TxOutRef -> MintingPolicy
 mintingPolicy txOutRef =
@@ -143,18 +161,17 @@ mintingPolicy txOutRef =
       `PlutusTx.applyCode` PlutusTx.liftCode Head.validatorHash
       `PlutusTx.applyCode` PlutusTx.liftCode txOutRef
 
-validatorScript :: TxOutRef -> Script
-validatorScript = getMintingPolicy . mintingPolicy
-
-validatorHash :: TxOutRef -> ValidatorHash
-validatorHash = scriptValidatorHash . validatorScript
+mintingPolicyScript :: TxOutRef -> Script
+mintingPolicyScript = getMintingPolicy . mintingPolicy
 
 -- * Create PolicyId
 
+-- | Resolve the head policy id (a.k.a headId) given a seed 'TxIn'.
 headPolicyId :: TxIn -> PolicyId
 headPolicyId =
   scriptPolicyId . PlutusScript . mkHeadTokenScript
 
+-- | Get the applied head minting policy script given a seed 'TxIn'.
 mkHeadTokenScript :: TxIn -> Api.PlutusScript
 mkHeadTokenScript =
-  fromPlutusScript @PlutusScriptV2 . validatorScript . toPlutusTxOutRef
+  fromPlutusScript @PlutusScriptV2 . mintingPolicyScript . toPlutusTxOutRef

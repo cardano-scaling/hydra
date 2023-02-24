@@ -34,6 +34,7 @@ import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (Idle),
   ChainStateAt (..),
+  HydraContext,
   InitialState (..),
   ctxHeadParameters,
   deriveChainContexts,
@@ -42,9 +43,9 @@ import Hydra.Chain.Direct.State (
   genHydraContext,
   initialize,
   observeCommit,
-  observeInit,
   observeSomeTx,
   unsafeCommit,
+  unsafeObserveInit,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Util (Block)
@@ -58,12 +59,11 @@ import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (
   counterexample,
   elements,
-  forAllBlind,
   label,
   (===),
  )
 import Test.QuickCheck.Monadic (
-  PropertyM (MkPropertyM),
+  PropertyM,
   assert,
   monadicIO,
   monitor,
@@ -93,6 +93,7 @@ spec = do
 
       chainContext <- pickBlind arbitrary
       chainState <- pickBlind arbitrary
+
       (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle)
 
       run $ onRollForward handler blk
@@ -164,7 +165,13 @@ spec = do
             Just Tick{} -> pure ()
             Just (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
             Just Observation{newChainState} -> atomically $ writeTVar stateVar newChainState
-    let handler = chainSyncHandler nullTracer callback (pure timeHandle) chainContext
+
+    let handler =
+          chainSyncHandler
+            nullTracer
+            callback
+            (pure timeHandle)
+            chainContext
     -- Simulate some chain following
     run $ mapM_ (onRollForward handler) blocks
     -- Inject the rollback to somewhere between any of the previous state
@@ -192,13 +199,6 @@ recordEventsHandler ctx cs getTimeHandle = do
     case cont cs of
       Nothing -> pure ()
       Just e -> atomically $ modifyTVar var (e :)
-
--- | Like 'pick' but using 'forAllBlind' under the hood.
-pickBlind :: Monad m => Gen a -> PropertyM m a
-pickBlind gen = MkPropertyM $ \k -> do
-  a <- gen
-  mp <- k a
-  pure (forAllBlind (return a) . const <$> mp)
 
 withCounterExample :: [Block] -> TVar IO ChainStateAt -> IO a -> PropertyM IO a
 withCounterExample blks headState step = do
@@ -258,7 +258,7 @@ genSequenceOfObservableBlocks = do
   blks <- flip execStateT [] $ do
     initTx <- stepInit cctx (ctxHeadParameters ctx)
     -- Commit using all contexts
-    void $ stepCommits initTx allContexts
+    void $ stepCommits ctx initTx allContexts
   let chainState =
         ChainStateAt
           { chainState = Idle
@@ -292,22 +292,23 @@ genSequenceOfObservableBlocks = do
     initTx <$ putNextBlock initTx
 
   stepCommits ::
+    HydraContext ->
     Tx ->
     [ChainContext] ->
     StateT [Block] Gen [InitialState]
-  stepCommits initTx = \case
+  stepCommits hydraCtx initTx = \case
     [] ->
       pure []
     ctx : rest -> do
       stInitialized <- stepCommit ctx initTx
-      (stInitialized :) <$> stepCommits initTx rest
+      (stInitialized :) <$> stepCommits hydraCtx initTx rest
 
   stepCommit ::
     ChainContext ->
     Tx ->
     StateT [Block] Gen InitialState
   stepCommit ctx initTx = do
-    let (_, stInitial) = fromJust $ observeInit ctx initTx
+    let stInitial = unsafeObserveInit ctx initTx
     utxo <- lift genCommit
     let commitTx = unsafeCommit ctx stInitial utxo
     putNextBlock commitTx

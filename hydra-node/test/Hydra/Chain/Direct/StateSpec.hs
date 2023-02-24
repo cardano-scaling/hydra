@@ -12,16 +12,22 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect)
+import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   Tx,
   UTxO,
+  hashScript,
   renderUTxO,
+  scriptPolicyId,
+  toPlutusCurrencySymbol,
   txInputSet,
   txOutValue,
   txOuts',
   valueSize,
   pattern ByronAddressInEra,
+  pattern PlutusScript,
+  pattern PlutusScriptSerialised,
   pattern ReferenceScriptNone,
   pattern TxOut,
   pattern TxOutDatumNone,
@@ -32,8 +38,12 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.Contract.Mutation (
+  Mutation (ChangeMintingPolicy, ChangeOutput, Changes),
+  applyMutation,
+  changeHeadOutputDatum,
   propTransactionEvaluates,
   propTransactionFailsEvaluation,
+  replaceHeadId,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -73,21 +83,24 @@ import Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters))
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInitReason (..))
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
+  genTxOutAdaOnly,
   genUTxOAdaOnlyOfSize,
   genValue,
  )
 import Hydra.Ledger.Cardano.Evaluate (
+  evaluateTx,
   genValidityBoundsFromContestationPeriod,
   maxTxSize,
  )
 import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 import Hydra.Options (maximumNumberOfParties)
 import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
+import qualified Plutus.V1.Ledger.Examples as Plutus
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
@@ -112,7 +125,7 @@ import Test.QuickCheck (
   (===),
   (==>),
  )
-import Test.QuickCheck.Monadic (monadicST, pick)
+import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
 import qualified Prelude
 
 spec :: Spec
@@ -135,6 +148,51 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllInit
     propIsValid forAllInit
 
+    it "only proper head is observed" $
+      monadicIO $ do
+        ctx <- pickBlind (genHydraContext maximumNumberOfParties)
+        cctx <- pickBlind $ pickChainContext ctx
+        seedInput <- pickBlind arbitrary
+        seedTxOut <- pickBlind genTxOutAdaOnly
+
+        let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+            originalIsObserved = property $ isRight (observeInit cctx tx)
+        -- We do replace the minting policy and datum of a head output to
+        -- simulate a faked init transaction.
+        let alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
+        let fakeHeadId = toPlutusCurrencySymbol . scriptPolicyId $ PlutusScript alwaysSucceedsV2
+        let headTxOut = List.head (txOuts' tx)
+        let mutation =
+              Changes
+                [ ChangeMintingPolicy alwaysSucceedsV2
+                , ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId fakeHeadId) headTxOut
+                ]
+        let utxo = UTxO.singleton (seedInput, seedTxOut)
+        let (tx', utxo') = applyMutation mutation (tx, utxo)
+            -- We expected mutated transaction to still be valid, but not observed.
+            mutatedIsValid = property $
+              case evaluateTx tx' utxo' of
+                Left _ -> False
+                Right ok
+                  | all isRight ok -> True
+                  | otherwise -> False
+            mutatedIsNotObserved =
+              observeInit cctx tx' === Left NotAHeadPolicy
+
+        pure $
+          conjoin
+            [ originalIsObserved
+                & counterexample (renderTx tx)
+                & counterexample "Original transaction is not observed."
+            , mutatedIsValid
+                & counterexample (renderTx tx')
+                & counterexample "Mutated transaction is not valid."
+            , mutatedIsNotObserved
+                & counterexample (renderTx tx')
+                & counterexample "Should not observe mutated transaction"
+            ]
+            & counterexample ("new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2))
+
     prop "is not observed if not invited" $
       forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
         null (ctxParties ctxA `intersect` ctxParties ctxB)
@@ -142,7 +200,7 @@ spec = parallel $ do
           $ \(cctxA, cctxB) ->
             forAll genTxIn $ \seedInput ->
               let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
-               in isNothing (observeInit cctxB tx)
+               in isLeft (observeInit cctxB tx)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
@@ -440,7 +498,7 @@ forAllFanout action =
        in action utxo tx
             & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
-  maxSupported = 38
+  maxSupported = 35
 
   countAssets = getSum . foldMap (Sum . valueSize . txOutValue)
 

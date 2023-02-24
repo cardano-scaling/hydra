@@ -7,6 +7,7 @@ module Hydra.Contract where
 import Hydra.Prelude
 
 import Codec.Serialise (serialise)
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import Hydra.Cardano.Api (
   ScriptHash,
@@ -16,11 +17,15 @@ import Hydra.Cardano.Api (
  )
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
+import Plutus.V2.Ledger.Api (TxId (..), TxOutRef (..), toBuiltin)
 
 -- | Information about relevant Hydra scripts.
 data ScriptInfo = ScriptInfo
-  { initialScriptHash :: ScriptHash
+  { -- | Size of the μHead minting script given default paramters
+    mintingScriptSize :: Int64
+  , initialScriptHash :: ScriptHash
   , initialScriptSize :: Int64
   , commitScriptHash :: ScriptHash
   , commitScriptSize :: Int64
@@ -34,7 +39,8 @@ data ScriptInfo = ScriptInfo
 scriptInfo :: ScriptInfo
 scriptInfo =
   ScriptInfo
-    { initialScriptHash = plutusScriptHash Initial.validatorScript
+    { mintingScriptSize = scriptSize $ HeadTokens.mintingPolicyScript defaultOutRef
+    , initialScriptHash = plutusScriptHash Initial.validatorScript
     , initialScriptSize = scriptSize Initial.validatorScript
     , commitScriptHash = plutusScriptHash Commit.validatorScript
     , commitScriptSize = scriptSize Commit.validatorScript
@@ -46,3 +52,9 @@ scriptInfo =
     hashScript . PlutusScript . fromPlutusScript
 
   scriptSize = BSL.length . serialise
+
+  defaultOutRef =
+    TxOutRef
+      { txOutRefId = TxId (toBuiltin . BS.pack $ replicate 32 0)
+      , txOutRefIdx = 0
+      }

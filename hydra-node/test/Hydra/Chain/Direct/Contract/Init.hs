@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 -- | Mutation-based script validator tests for the init transaction where a
 -- 'healthyInitTx' gets mutated by an arbitrary 'InitMutation'.
 module Hydra.Chain.Direct.Contract.Init where
@@ -6,16 +8,20 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
+  changeHeadOutputDatum,
   changeMintedValueQuantityFrom,
+  replaceHeadId,
  )
-import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Chain.Direct.Tx (hydraHeadV1AssetName, initTx)
+import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
+import Hydra.Chain.Direct.Tx (initTx)
+import Hydra.Contract.HeadState (State (..))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Party (Party)
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
@@ -66,6 +72,8 @@ data InitMutation
   | MutateDropInitialOutput
   | MutateDropSeedInput
   | MutateInitialOutputValue
+  | MutateHeadIdInDatum
+  | MutateSeedInDatum
   deriving (Generic, Show, Enum, Bounded)
 
 data ObserveInitMutation
@@ -75,45 +83,29 @@ data ObserveInitMutation
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genInitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation Nothing MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
-    , SomeMutation Nothing MutateAddAnotherPT <$> addPTWithQuantity tx 1
-    , SomeMutation Nothing MutateInitialOutputValue <$> do
+    [ SomeMutation (Just "wrong number of tokens minted") MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
+    , SomeMutation (Just "wrong number of tokens minted") MutateAddAnotherPT <$> addPTWithQuantity tx 1
+    , SomeMutation (Just "no PT") MutateInitialOutputValue <$> do
         let outs = txOuts' tx
         (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation Nothing MutateDropInitialOutput <$> do
+    , SomeMutation (Just "wrong number of initial outputs") MutateDropInitialOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
-    , SomeMutation Nothing MutateDropSeedInput <$> do
+    , SomeMutation (Just "seed not spent") MutateDropSeedInput <$> do
         pure $ RemoveInput healthySeedInput
-    ]
-
--- REVIEW: This is odd and should not be needed? If we can remove this, then we
--- could simplify the machinery and drop propMutationOffChain
-
--- These are mutations we expect to be valid from an on-chain standpoint, yet
--- invalid for the off-chain observation. There's mainly only the `init`
--- transaction which is in this situation, because the on-chain parameters are
--- specified during the init and there's no way to check, on-chain, that they
--- correspond to what a node expects in terms of configuration.
-genObserveInitMutation :: (Tx, UTxO) -> Gen SomeMutation
-genObserveInitMutation (tx, _utxo) =
-  oneof
-    [ SomeMutation Nothing MutateSomePT <$> do
-        let minted = txMintAssets tx
-        vk' <- genVerificationKey `suchThat` (`notElem` healthyCardanoKeys)
-        let minted' = swapTokenName (verificationKeyHash vk') minted
-        pure $ ChangeMintedValue (valueFromList minted')
+    , SomeMutation (Just "wrong datum") MutateHeadIdInDatum <$> do
+        mutatedHeadId <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId mutatedHeadId) headTxOut
+    , SomeMutation (Just "wrong datum") MutateSeedInDatum <$> do
+        mutatedSeed <- toPlutusTxOutRef <$> arbitrary `suchThat` (/= testSeedInput)
+        pure $
+          ChangeOutput 0 $
+            flip changeHeadOutputDatum headTxOut $ \case
+              Initial{contestationPeriod, parties, headId} ->
+                Initial{contestationPeriod, parties, headId, seed = mutatedSeed}
+              s -> s
     ]
  where
-  swapTokenName :: Hash PaymentKey -> [(AssetId, Quantity)] -> [(AssetId, Quantity)]
-  swapTokenName vkh = \case
-    [] ->
-      []
-    x@(AdaAssetId, _) : xs ->
-      x : swapTokenName vkh xs
-    x@(AssetId pid assetName, q) : xs ->
-      if assetName == hydraHeadV1AssetName
-        then x : swapTokenName vkh xs
-        else (AssetId pid (AssetName $ serialiseToRawBytes vkh), q) : xs
+  headTxOut = fromJust $ txOuts' tx !!? 0

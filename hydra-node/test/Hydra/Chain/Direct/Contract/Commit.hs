@@ -66,7 +66,7 @@ healthyIntialTxIn :: TxIn
 healthyIntialTxIn = generateWith arbitrary 42
 
 healthyInitialTxOut :: TxOut CtxTx
-healthyInitialTxOut = mkInitialOutput Fixture.testNetworkId Fixture.testPolicyId commitVerificationKey
+healthyInitialTxOut = mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput commitVerificationKey
 
 -- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
 healthyCommittedUTxO :: (TxIn, TxOut CtxUTxO)

@@ -102,7 +102,7 @@ main = do
     , (abortDatum, "abortDatum")
     ]
 
-  headDatum = toData $ Head.Initial 1_000_000_000_000 [] (toPlutusCurrencySymbol $ HeadTokens.headPolicyId $ someTxIn)
+  headDatum = toData $ Head.Initial 1_000_000_000_000 [] (toPlutusCurrencySymbol $ HeadTokens.headPolicyId $ someTxIn) (toPlutusTxOutRef someTxIn)
 
   someTxIn = TxIn (TxId $ unsafeHashFromBytes "01234567890123456789012345678901") (TxIx 1)
 

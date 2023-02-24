@@ -151,10 +151,12 @@ loadChainContext ::
   ChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
+  -- | Other configured parties
+  [Party] ->
   -- | Transaction id at which to look for Hydra scripts.
   TxId ->
   IO ChainContext
-loadChainContext config party hydraScriptsTxId = do
+loadChainContext config party otherParties hydraScriptsTxId = do
   (vk, _) <- readKeyPair cardanoSigningKey
   otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
   scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
@@ -164,6 +166,7 @@ loadChainContext config party hydraScriptsTxId = do
       , peerVerificationKeys = otherCardanoKeys
       , ownVerificationKey = vk
       , ownParty = party
+      , otherParties
       , scriptRegistry
       , contestationPeriod
       }

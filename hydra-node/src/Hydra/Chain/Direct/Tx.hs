@@ -17,6 +17,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Hydra.Chain (HeadId (..), HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -110,17 +111,16 @@ initTx ::
   HeadParameters ->
   TxIn ->
   Tx
-initTx networkId cardanoKeys parameters seed =
+initTx networkId cardanoKeys parameters seedTxIn =
   unsafeBuildTransaction $
     emptyTxBody
-      & addVkInputs [seed]
+      & addVkInputs [seedTxIn]
       & addOutputs
-        ( mkHeadOutputInitial networkId policyId parameters :
-          map (mkInitialOutput networkId policyId) cardanoKeys
+        ( mkHeadOutputInitial networkId seedTxIn parameters :
+          map (mkInitialOutput networkId seedTxIn) cardanoKeys
         )
-      & mintTokens (HeadTokens.mkHeadTokenScript seed) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
+      & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
  where
-  policyId = HeadTokens.headPolicyId seed
   participationTokens =
     [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
 
@@ -134,21 +134,25 @@ mkHeadOutput networkId tokenPolicyId datum =
  where
   headScript = fromPlutusScript Head.validatorScript
 
-mkHeadOutputInitial :: NetworkId -> PolicyId -> HeadParameters -> TxOut CtxTx
-mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, parties} =
+mkHeadOutputInitial :: NetworkId -> TxIn -> HeadParameters -> TxOut CtxTx
+mkHeadOutputInitial networkId seedTxIn HeadParameters{contestationPeriod, parties} =
   mkHeadOutput networkId tokenPolicyId headDatum
  where
+  tokenPolicyId = HeadTokens.headPolicyId seedTxIn
   headDatum =
     mkTxOutDatum $
       Head.Initial
-        (toChain contestationPeriod)
-        (map partyToChain parties)
-        (toPlutusCurrencySymbol tokenPolicyId)
+        { contestationPeriod = toChain contestationPeriod
+        , parties = map partyToChain parties
+        , headId = toPlutusCurrencySymbol tokenPolicyId
+        , seed = toPlutusTxOutRef seedTxIn
+        }
 
-mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
-mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
+mkInitialOutput :: NetworkId -> TxIn -> VerificationKey PaymentKey -> TxOut CtxTx
+mkInitialOutput networkId seedTxIn (verificationKeyHash -> pkh) =
   TxOut initialAddress initialValue initialDatum ReferenceScriptNone
  where
+  tokenPolicyId = HeadTokens.headPolicyId seedTxIn
   initialValue =
     headValue <> valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
   initialAddress =
@@ -578,29 +582,65 @@ data InitObservation = InitObservation
   }
   deriving (Show, Eq)
 
--- XXX(SN): We should log decisions why a tx is not an initTx etc. instead of
--- only returning a Maybe, i.e. 'Either Reason (OnChainTx tx, OnChainHeadState)'
+data NotAnInitReason
+  = NotAHeadPolicy
+  | NoHeadOutput
+  | NotAHeadDatum
+  | NoSTFound
+  | PartiesMismatch
+  | OwnPartyMissing
+  | CPMismatch
+  | PTsNotMintedCorrectly
+  deriving (Show, Eq)
+
 observeInitTx ::
   NetworkId ->
   [VerificationKey PaymentKey] ->
   -- | Our node's contestation period
   ContestationPeriod ->
   Party ->
+  [Party] ->
   Tx ->
-  Maybe InitObservation
-observeInitTx networkId cardanoKeys expectedCP party tx = do
-  -- FIXME: This is affected by "same structure datum attacks", we should be
-  -- using the Head script address instead.
-  (ix, headOut, headData, Head.Initial cp ps _headPolicyId) <- findFirst headOutput indexedOutputs
-  parties <- mapM partyFromChain ps
-  let contestationPeriod = fromChain cp
-  guard $ expectedCP == contestationPeriod
-  guard $ party `elem` parties
-  (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
-  let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
-  let actualNames = assetNames headAssetName
-  guard $ sort expectedNames == sort actualNames
-  headTokenScript <- findScriptMinting tx headTokenPolicyId
+  Either NotAnInitReason InitObservation
+observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
+  -- XXX: Lots of redundant information here
+  (ix, headOut, headData, headState) <-
+    maybeLeft NoHeadOutput $
+      findFirst headOutput indexedOutputs
+
+  -- check that we have a proper head
+  (headId, contestationPeriod, onChainParties, seedTxIn) <- case headState of
+    (Head.Initial cp ps cid outRef) -> do
+      pure (fromPlutusCurrencySymbol cid, fromChain cp, ps, fromPlutusTxOutRef outRef)
+    _ -> Left NotAHeadDatum
+
+  let offChainParties = concatMap partyFromChain onChainParties
+  let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
+
+  -- check that ST is present in the head output
+  unless (stQuantity == 1) $
+    Left NoSTFound
+
+  -- check that we are using the same seed and headId matches
+  unless (headId == HeadTokens.headPolicyId seedTxIn) $
+    Left NotAHeadPolicy
+
+  -- check that configured CP is present in the datum
+  unless (expectedCP == contestationPeriod) $
+    Left CPMismatch
+
+  -- check that our party is present in the datum
+  unless (party `elem` offChainParties) $
+    Left OwnPartyMissing
+
+  -- check that configured parties are matched in the datum
+  unless (containsSameElements offChainParties allConfiguredParties) $
+    Left PartiesMismatch
+
+  -- pub key hashes of all configured participants == the token names of PTs
+  unless (containsSameElements configuredTokenNames (mintedTokenNames headId)) $
+    Left PTsNotMintedCorrectly
+
   pure
     InitObservation
       { threadOutput =
@@ -608,23 +648,40 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
             { initialThreadUTxO =
                 ( mkTxIn tx ix
                 , toCtxUTxOTxOut headOut
-                , fromLedgerData headData
+                , headData
                 )
-            , initialParties = ps
-            , initialContestationPeriod = cp
+            , initialParties = onChainParties
+            , initialContestationPeriod = toChain contestationPeriod
             }
       , initials
       , commits = []
-      , headId = mkHeadId headTokenPolicyId
-      , headTokenScript
-      , contestationPeriod
-      , parties
+      , headId = mkHeadId headId
+      , headTokenScript = HeadTokens.mkHeadTokenScript seedTxIn
+      , -- NOTE: we should look into why parties and cp are duplicated in the InitObservation.
+        -- They are included: Once in the InitialThreadOutput in their on-chain form, once in
+        -- InitObservation in their off-chain form and they are also included in the datum of
+        -- the initialThreadUTxO`.. so three times.
+        contestationPeriod
+      , parties = offChainParties
       }
  where
+  allConfiguredParties = party : otherParties
+
+  configuredTokenNames = assetNameFromVerificationKey <$> cardanoKeys
+
+  containsSameElements a b = Set.fromList a == Set.fromList b
+
+  maybeLeft e = maybe (Left e) Right
+
   headOutput = \case
-    (ix, out@(TxOut _ _ (TxOutDatumInTx d) _)) ->
-      (ix,out,toLedgerData d,) <$> fromData (toPlutusData d)
+    (ix, out@(TxOut addr _ (TxOutDatumInTx d) _)) -> do
+      guard $ addr == headAddress
+      (ix,out,d,) <$> fromData (toPlutusData d)
     _ -> Nothing
+
+  headAddress =
+    mkScriptAddress @PlutusScriptV2 networkId $
+      fromPlutusScript Head.validatorScript
 
   indexedOutputs = zip [0 ..] (txOuts' tx)
 
@@ -644,10 +701,14 @@ observeInitTx networkId cardanoKeys expectedCP party tx = do
 
   initialScript = fromPlutusScript Initial.validatorScript
 
-  assetNames headAssetName =
+  mintedTokenNames headId =
     [ assetName
-    | (AssetId _ assetName, _) <- txMintAssets tx
-    , assetName /= headAssetName
+    | (AssetId policyId assetName, q) <- txMintAssets tx
+    , -- NOTE: It is important to check quantity since we want to ensure
+    -- the tokens are unique.
+    q == 1
+    , policyId == headId
+    , assetName /= hydraHeadV1AssetName
     ]
 
 data CommitObservation = CommitObservation

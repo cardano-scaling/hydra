@@ -10,7 +10,7 @@ import PlutusTx.Prelude
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
-import Plutus.V2.Ledger.Api (CurrencySymbol, POSIXTime, PubKeyHash)
+import Plutus.V2.Ledger.Api (CurrencySymbol, POSIXTime, PubKeyHash, TxOutRef)
 import qualified PlutusTx
 import Text.Show (Show)
 
@@ -25,6 +25,7 @@ data State
       { contestationPeriod :: ContestationPeriod
       , parties :: [Party]
       , headId :: CurrencySymbol
+      , seed :: TxOutRef
       }
   | Open
       { contestationPeriod :: ContestationPeriod
