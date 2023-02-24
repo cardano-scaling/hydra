@@ -15,7 +15,7 @@ module Hydra.HeadLogic where
 
 import Hydra.Prelude
 
-import Data.List (elemIndex, (\\))
+import Data.List (elemIndex)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import GHC.Records (getField)
@@ -238,7 +238,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   { -- | The latest UTxO resulting from applying 'seenTxs' to
     -- 'confirmedSnapshot'. Spec: L̂
     seenUTxO :: UTxOType tx
-  , -- | List of seen transactions. Spec: T̂
+  , -- | List of seen transactions pending inclusion in a snapshot. Spec: T̂
     seenTxs :: [tx]
   , -- | The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
     confirmedSnapshot :: ConfirmedSnapshot tx
@@ -676,7 +676,7 @@ onOpenNetworkReqSn ::
   -- | List of transactions to snapshot.
   [tx] ->
   Outcome tx
-onOpenNetworkReqSn env ledger st otherParty sn txs =
+onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
   -- TODO: Verify the request is signed by (?) / comes from the leader
   -- (Can we prove a message comes from a given peer, without signature?)
 
@@ -687,15 +687,19 @@ onOpenNetworkReqSn env ledger st otherParty sn txs =
       -- Spec: wait U̅ ◦ T ̸= ⊥ combined with Û ← Ū̅ ◦ T
       waitApplyTxs $ \u -> do
         -- NOTE: confSn == seenSn == sn here
-        let nextSnapshot = Snapshot (confSn + 1) u txs
+        let nextSnapshot = Snapshot (confSn + 1) u requestedTxs
         -- Spec: σᵢ
         let snapshotSignature = sign signingKey nextSnapshot
+        -- Spec: T̂ ← {tx | ∀tx ∈ T̂ , Û ◦ tx ≠ ⊥} and L̂ ← Û ◦ T̂
+        let (seenTxs', seenUTxO') = pruneTransactions u
         NewState
           ( Open
               st
                 { coordinatedHeadState =
                     coordinatedHeadState
                       { seenSnapshot = SeenSnapshot nextSnapshot mempty
+                      , seenTxs = seenTxs'
+                      , seenUTxO = seenUTxO'
                       }
                 }
           )
@@ -712,12 +716,20 @@ onOpenNetworkReqSn env ledger st otherParty sn txs =
       else Wait $ WaitOnSnapshotNumber seenSn
 
   waitApplyTxs cont =
-    case applyTransactions ledger confirmedUTxO txs of
+    case applyTransactions ledger confirmedUTxO requestedTxs of
       Left (_, err) ->
         -- FIXME: this will not happen, as we are always comparing against the
         -- confirmed snapshot utxo in NewTx?
         Wait $ WaitOnNotApplicableTx err
       Right u -> cont u
+
+  pruneTransactions utxo = do
+    foldr go ([], utxo) seenTxs
+   where
+    go tx (txs, u) =
+      case applyTransactions ledger u [tx] of
+        Left (_, _) -> (txs, u)
+        Right u' -> (txs <> [tx], u')
 
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
@@ -729,7 +741,7 @@ onOpenNetworkReqSn env ledger st otherParty sn txs =
     InitialSnapshot{initialUTxO} -> initialUTxO
     ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
 
-  CoordinatedHeadState{confirmedSnapshot, seenSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} = coordinatedHeadState
 
   OpenState{parameters, coordinatedHeadState} = st
 
@@ -767,6 +779,7 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
             | verify (vkey otherParty) snapshotSignature snapshot = Map.insert otherParty snapshotSignature sigs
             | otherwise = sigs
       ifAllMembersHaveSigned snapshot sigs' $ do
+        -- TODO: verify the aggregated multisig, only the individuals, or both?
         let multisig = aggregateInOrder sigs' parties
         NewState
           ( onlyUpdateCoordinatedHeadState $
@@ -777,8 +790,6 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
                       , signatures = multisig
                       }
                 , seenSnapshot = LastSeenSnapshot (number snapshot)
-                , -- TODO: prune in ReqSn
-                  seenTxs = seenTxs \\ confirmed snapshot
                 }
           )
           [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
@@ -813,7 +824,7 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
   onlyUpdateCoordinatedHeadState chs' =
     Open openState{coordinatedHeadState = chs'}
 
-  CoordinatedHeadState{seenSnapshot, seenTxs} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
 
   OpenState
     { parameters = HeadParameters{parties}
