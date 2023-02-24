@@ -8,7 +8,15 @@ module Hydra.Contract.HeadTokens where
 
 import PlutusTx.Prelude
 
-import Hydra.Cardano.Api (PlutusScriptV2, PolicyId, TxIn, fromPlutusScript, scriptPolicyId, toPlutusTxOutRef, pattern PlutusScript)
+import Hydra.Cardano.Api (
+  PlutusScriptV2,
+  PolicyId,
+  TxIn,
+  fromPlutusScript,
+  scriptPolicyId,
+  toPlutusTxOutRef,
+  pattern PlutusScript,
+ )
 import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -17,7 +25,6 @@ import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
 import Plutus.Extras (wrapMintingPolicy)
 import Plutus.V2.Ledger.Api (
-  CurrencySymbol,
   Datum (getDatum),
   FromData (fromBuiltinData),
   MintingPolicy (getMintingPolicy),
@@ -51,62 +58,79 @@ validate initialValidator headValidator seedInput action context =
 
 -- | When minting head tokens we want to make sure that:
 --
--- * There is single state token that is paid into v_head, which ensures
--- continuity. ('singleSTIsPaidToTheHead')
---
 -- * The number of minted PTs == number of participants (+1 for the ST) evident
--- from the datum. ('mintedPTsMatchParties')
+--   from the datum.
+--
+-- * There is single state token that is paid into v_head, which ensures
+--   continuity.
+--
+-- * PTs are distributed to v_initial.
 --
 -- * Ensure out-ref and the headId are in the datum of the first output of the
--- transaction which mints tokens. ('seedInputIsConsumed')
+--   transaction which mints tokens. FIXME: Need to also check out-ref and
+--   headId in datum!?
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
 validateTokensMinting initialValidator headValidator seedInput context =
   seedInputIsConsumed
+    && checkNumberOfTokens
     && singleSTIsPaidToTheHead
-    && mintedPTsMatchParties
+    && allInitialOutsHavePTs
  where
+  seedInputIsConsumed =
+    traceIfFalse "seed not consumed" $
+      seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
+
+  checkNumberOfTokens =
+    traceIfFalse "wrong number of tokens minted" $
+      mintedTokenCount == nParties + 1
+
   singleSTIsPaidToTheHead =
-    -- we expect a single head output containing ST token
-    traceIfFalse "minted wrong" $
-      case scriptOutputsAt headValidator txInfo of
-        [out] -> hasST currency (snd out)
-        _outputs -> False
+    traceIfFalse "missing ST" $
+      hasST currency headValue
 
-  mintedPTsMatchParties =
-    participationTokensAreDistributed currency initialValidator txInfo nParties
-      -- here we are doing 'nParties' + 1 to account for the ST token too since
-      -- it has the same policy id as PTs.
-      && traceIfFalse "minted tokens do not match parties" (mintedTokenCount == nParties + 1)
+  allInitialOutsHavePTs =
+    traceIfFalse "wrong number of initial outputs" (nParties == length initialTxOutValues)
+      && all hasASinglePT initialTxOutValues
 
-  minted = getValue $ txInfoMint txInfo
+  hasASinglePT val =
+    case Map.lookup currency (getValue val) of
+      Nothing -> traceError "no PT distributed"
+      (Just tokenMap) -> case Map.toList tokenMap of
+        [(_, qty)]
+          | qty == 1 -> True
+        _ -> traceError "wrong quantity"
 
-  mintedTokens = fromMaybe Map.empty $ Map.lookup currency minted
+  mintedTokenCount =
+    fromMaybe 0
+      . fmap sum
+      . Map.lookup currency
+      . getValue
+      $ txInfoMint txInfo
 
-  mintedTokenCount = sum mintedTokens
+  nParties =
+    -- HACK: We cannot do a traceError in the Nothing case here because of
+    -- strictness. Still we are not interested in the individual Nothing cases
+    -- so let's produce an always wrong value instead.
+    fromMaybe (-1) $ do
+      dh <- case headDatum of
+        OutputDatumHash dh -> Just dh
+        _ -> Nothing
+      da <- findDatum dh txInfo
+      state <- fromBuiltinData @Head.DatumType $ getDatum da
+      case state of
+        Head.Initial{Head.parties = parties} -> Just $ length parties
+        _ -> Nothing
+
+  (headDatum, headValue) =
+    case scriptOutputsAt headValidator txInfo of
+      [(dat, val)] -> (dat, val)
+      _ -> traceError "expected single head output"
+
+  initialTxOutValues = snd <$> scriptOutputsAt initialValidator txInfo
 
   currency = ownCurrencySymbol context
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
-
-  nParties =
-    case scriptOutputsAt headValidator txInfo of
-      [(datum, _)] ->
-        case datum of
-          NoOutputDatum -> traceError "missing datum"
-          OutputDatum _ -> traceError "unexpected inline datum"
-          OutputDatumHash dh ->
-            case findDatum dh txInfo of
-              Nothing -> traceError "could not find datum"
-              Just da ->
-                case fromBuiltinData @Head.DatumType $ getDatum da of
-                  Nothing -> traceError "expected commit datum type, got something else"
-                  Just Head.Initial{Head.parties = parties} -> length parties
-                  Just _ -> traceError "unexpected State in datum"
-      _ -> traceError "expected single head output"
-
-  seedInputIsConsumed =
-    traceIfFalse "seed not consumed" $
-      seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
 -- | Token burning check should:
 -- * Not restrict burning on the mu_head at all.
@@ -128,22 +152,7 @@ validateTokensBurning context =
   burnHeadTokens =
     case Map.lookup currency minted of
       Nothing -> False
-      Just tokenMap -> all ((< 0) . snd) (Map.toList tokenMap)
-
--- | Checks that outputs from v_initial contain the right quantity of PTs
-participationTokensAreDistributed :: CurrencySymbol -> ValidatorHash -> TxInfo -> Integer -> Bool
-participationTokensAreDistributed currency initialValidator txInfo nParties =
-  case scriptOutputsAt initialValidator txInfo of
-    [] -> traceIfFalse "no initial outputs for parties" $ nParties == (0 :: Integer)
-    outs -> traceIfFalse "outputs do not match parties" $ nParties == length outs && all hasParticipationToken outs
- where
-  hasParticipationToken :: (OutputDatum, Value) -> Bool
-  hasParticipationToken (_, val) =
-    case Map.lookup currency (getValue val) of
-      Nothing -> traceError "no PT distributed"
-      (Just tokenMap) -> case Map.toList tokenMap of
-        [(_, qty)] -> qty == 1
-        _ -> traceError "wrong quantity of PT distributed"
+      Just tokenMap -> all (< 0) tokenMap
 
 mintingPolicy :: TxOutRef -> MintingPolicy
 mintingPolicy txOutRef =

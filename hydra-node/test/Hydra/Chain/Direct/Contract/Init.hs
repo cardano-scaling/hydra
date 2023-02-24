@@ -75,14 +75,14 @@ data ObserveInitMutation
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genInitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just "minted tokens do not match parties") MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
-    , SomeMutation (Just "minted tokens do not match parties") MutateAddAnotherPT <$> addPTWithQuantity tx 1
+    [ SomeMutation (Just "wrong number of tokens minted") MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
+    , SomeMutation (Just "wrong number of tokens minted") MutateAddAnotherPT <$> addPTWithQuantity tx 1
     , SomeMutation (Just "no PT distributed") MutateInitialOutputValue <$> do
         let outs = txOuts' tx
         (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation (Just "outputs do not match parties") MutateDropInitialOutput <$> do
+    , SomeMutation (Just "wrong number of initial outputs") MutateDropInitialOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
     , SomeMutation (Just "seed not consumed") MutateDropSeedInput <$> do
