@@ -603,7 +603,6 @@ observeInitTx ::
   Tx ->
   Either NotAnInitReason InitObservation
 observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
-  let allConfiguredParties = party : otherParties
   -- XXX: Lots of redundant information here
   (ix, headOut, headData, headState) <-
     maybeLeft NoHeadOutput $
@@ -666,6 +665,8 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
       , parties = offChainParties
       }
  where
+  allConfiguredParties = party : otherParties
+
   configuredTokenNames = assetNameFromVerificationKey <$> cardanoKeys
 
   containsSameElements a b = Set.fromList a == Set.fromList b
