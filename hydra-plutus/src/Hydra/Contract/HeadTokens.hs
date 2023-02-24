@@ -78,32 +78,32 @@ validateTokensMinting initialValidator headValidator seedInput context =
     && checkDatum
  where
   seedInputIsConsumed =
-    traceIfFalse "seed not spent" $
+    traceIfFalse "M01" $
       seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkNumberOfTokens =
-    traceIfFalse "wrong number of tokens minted" $
+    traceIfFalse "M02" $
       mintedTokenCount == nParties + 1
 
   singleSTIsPaidToTheHead =
-    traceIfFalse "missing ST" $
+    traceIfFalse "M03" $
       hasST currency headValue
 
   allInitialOutsHavePTs =
-    traceIfFalse "wrong number of initial outputs" (nParties == length initialTxOutValues)
+    traceIfFalse "M04" (nParties == length initialTxOutValues)
       && all hasASinglePT initialTxOutValues
 
   checkDatum =
-    traceIfFalse "wrong datum" $
+    traceIfFalse "M05" $
       headId == currency && seed == seedInput
 
   hasASinglePT val =
     case Map.lookup currency (getValue val) of
-      Nothing -> traceError "no PT"
+      Nothing -> traceError "M07"
       (Just tokenMap) -> case Map.toList tokenMap of
         [(_, qty)]
           | qty == 1 -> True
-        _ -> traceError "wrong quantity"
+        _ -> traceError "M08"
 
   mintedTokenCount =
     maybe 0 sum
@@ -117,13 +117,13 @@ validateTokensMinting initialValidator headValidator seedInput context =
         case findDatum dh txInfo >>= fromBuiltinData @Head.DatumType . getDatum of
           Just Head.Initial{Head.parties = parties, headId = h, seed = s} ->
             (h, s, length parties)
-          _ -> traceError "headDatum"
-      _ -> traceError "no datum"
+          _ -> traceError "M09"
+      _ -> traceError "M10"
 
   (headDatum, headValue) =
     case scriptOutputsAt headValidator txInfo of
       [(dat, val)] -> (dat, val)
-      _ -> traceError "multiple head output"
+      _ -> traceError "M11"
 
   initialTxOutValues = snd <$> scriptOutputsAt initialValidator txInfo
 
@@ -140,7 +140,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
 -- 'validateTokensBurning' just makes sure all tokens have negative quantity.
 validateTokensBurning :: ScriptContext -> Bool
 validateTokensBurning context =
-  traceIfFalse "minting not allowed" burnHeadTokens
+  traceIfFalse "M06" burnHeadTokens
  where
   currency = ownCurrencySymbol context
 

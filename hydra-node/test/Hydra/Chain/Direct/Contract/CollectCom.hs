@@ -12,11 +12,14 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
+  HeadError (DatumNotFound, IncorrectUtxoHash, MissingCommits, STNotSpent, SignerIsNotAParticipant),
   Mutation (..),
   SomeMutation (..),
+  UtilError (MintingOrBurningIsForbidden),
   changeHeadOutputDatum,
   changeMintedTokens,
   replaceParties,
+  toErrorCode,
  )
 import Hydra.Chain.Direct.Fixture (
   testNetworkId,
@@ -182,31 +185,31 @@ data CollectComMutation
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCollectComMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just "incorrect utxo hash") MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation (Just "missing commits") MutateNumberOfParties <$> do
+    [ SomeMutation (Just $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
+    , SomeMutation (Just $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
           Changes
             [ ChangeInputHeadDatum $ replaceParties moreParties healthyCollectComInitialDatum
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties headTxOut
             ]
-    , SomeMutation (Just "ST not spent") MutateHeadId <$> do
+    , SomeMutation (Just $ toErrorCode STNotSpent) MutateHeadId <$> do
         illedHeadResolvedInput <-
           mkHeadOutput
             <$> pure testNetworkId
             <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
         return $ ChangeInput healthyHeadInput illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
-    , SomeMutation (Just "signer is not a participant") MutateRequiredSigner <$> do
+    , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (Just "datum not found") MutateCommitToInitial <$> do
+    , SomeMutation (Just $ toErrorCode DatumNotFound) MutateCommitToInitial <$> do
         -- we're satisfied with "datum not found" as the current version of the validator will consider
         -- the initial input as if it were a commit input, hence fetching the datum which is expected
         -- in a commit and complaining that it did not find it
         (txIn, HealthyCommit{cardanoKey}) <- elements $ Map.toList healthyCommits
         pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput cardanoKey) Nothing
-    , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
+    , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]
  where

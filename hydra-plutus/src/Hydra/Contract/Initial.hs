@@ -73,7 +73,7 @@ validator ::
 validator commitValidator headId red context =
   case red of
     ViaAbort ->
-      traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
+      traceIfFalse "I01" (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
     ViaCommit{committedRef} ->
       checkCommit commitValidator committedRef context
         && checkAuthorAndHeadPolicy context headId
@@ -84,16 +84,16 @@ checkAuthorAndHeadPolicy ::
   CurrencySymbol ->
   Bool
 checkAuthorAndHeadPolicy context@ScriptContext{scriptContextTxInfo = txInfo} headId =
-  traceIfFalse "Missing or invalid commit author" $
+  traceIfFalse "I02" $
     unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
  where
   ourParticipationTokenName =
     case AssocMap.lookup headId (getValue initialValue) of
-      Nothing -> traceError "Could not find the correct CurrencySymbol in tokens"
+      Nothing -> traceError "I05"
       Just tokenMap ->
         case AssocMap.toList tokenMap of
           [(tk, q)] | q == 1 -> tk
-          _moreThanOneToken -> traceError "multiple head tokens or more than 1 PTs found"
+          _moreThanOneToken -> traceError "I06"
 
   -- TODO: DRY
   initialValue =
@@ -111,7 +111,7 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
     && checkLockedCommit
  where
   checkCommittedValue =
-    traceIfFalse "lockedValue does not match" $
+    traceIfFalse "I03" $
       traceIfFalse ("lockedValue: " `appendString` debugValue lockedValue) $
         traceIfFalse ("initialValue: " `appendString` debugValue initialValue) $
           traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
@@ -122,11 +122,11 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
       (Nothing, Nothing) ->
         True
       (Nothing, Just{}) ->
-        traceError "nothing committed, but TxOut in output datum"
+        traceError "I07"
       (Just{}, Nothing) ->
-        traceError "committed TxOut, but nothing in output datum"
+        traceError "I08"
       (Just (ref, txOut), Just Commit{input, preSerializedOutput}) ->
-        traceIfFalse "mismatch committed TxOut in datum" $
+        traceIfFalse "I04" $
           Builtins.serialiseData (toBuiltinData txOut) == preSerializedOutput
             && ref == input
 
@@ -146,17 +146,17 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
     case scriptOutputsAt commitValidator txInfo of
       [(dat, _)] ->
         case dat of
-          NoOutputDatum -> traceError "missing datum"
-          OutputDatum _ -> traceError "unexpected inline datum"
+          NoOutputDatum -> traceError "I09"
+          OutputDatum _ -> traceError "I10"
           OutputDatumHash dh ->
             case findDatum dh txInfo of
-              Nothing -> traceError "could not find datum"
+              Nothing -> traceError "I11"
               Just da ->
                 case fromBuiltinData @Commit.DatumType $ getDatum da of
-                  Nothing -> traceError "expected commit datum type, got something else"
+                  Nothing -> traceError "I12"
                   Just (_party, _headScriptHash, mCommit, _headId) ->
                     mCommit
-      _ -> traceError "expected single commit output"
+      _ -> traceError "I13"
 
   debugValue v =
     debugInteger . assetClassValueOf v $ assetClass adaSymbol adaToken

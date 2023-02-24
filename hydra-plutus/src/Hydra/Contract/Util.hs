@@ -22,7 +22,7 @@ hydraHeadV1 = "HydraHeadV1"
 -- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV1'
 hasST :: CurrencySymbol -> Value -> Bool
 hasST headPolicyId v =
-  maybe False id $ do
+  fromMaybe False $ do
     tokenMap <- Map.lookup headPolicyId $ getValue v
     quantity <- Map.lookup (TokenName hydraHeadV1) tokenMap
     pure $ quantity == 1
@@ -42,7 +42,7 @@ mustBurnST val headCurrencySymbol =
 
 mustNotMintOrBurn :: TxInfo -> Bool
 mustNotMintOrBurn TxInfo{txInfoMint} =
-  traceIfFalse "minting or burning is forbidden" $
+  traceIfFalse "U01" $
     isZero txInfoMint
 {-# INLINEABLE mustNotMintOrBurn #-}
 

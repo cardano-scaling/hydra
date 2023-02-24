@@ -12,8 +12,10 @@ import Data.Maybe (fromJust)
 import Cardano.Api.UTxO as UTxO
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
+  HeadError (ChangedParameters, ContesterNotIncluded, HeadValueIsNotPreserved, MustNotPushDeadline, MustPushDeadline, SignerAlreadyContested),
   Mutation (..),
   SomeMutation (..),
+  UtilError (MintingOrBurningIsForbidden),
   addParticipationTokens,
   changeHeadOutputDatum,
   changeMintedTokens,
@@ -24,6 +26,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceUtxoHash,
+  toErrorCode,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
@@ -258,9 +261,9 @@ genContestMutation
                   (replacePolicyIdWith testPolicyId otherHeadId healthyClosedHeadTxOut)
                   (Just $ toScriptData healthyClosedState)
               ]
-      , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
+      , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
           <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-      , SomeMutation (Just "signer already contested") MutateInputContesters . ChangeInputHeadDatum <$> do
+      , SomeMutation (Just $ toErrorCode SignerAlreadyContested) MutateInputContesters . ChangeInputHeadDatum <$> do
           let contester = toPlutusKeyHash (verificationKeyHash healthyContesterVerificationKey)
               contesterAndSomeOthers = do
                 contesters <- listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
@@ -272,18 +275,18 @@ genContestMutation
               ]
           pure $
             healthyClosedState & replaceContesters mutatedContesters
-      , SomeMutation (Just "contester not included") MutateContesters . ChangeOutput 0 <$> do
+      , SomeMutation (Just $ toErrorCode ContesterNotIncluded) MutateContesters . ChangeOutput 0 <$> do
           hashes <- listOf genHash
           let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
           pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut
-      , SomeMutation (Just "head value is not preserved") MutateValueInOutput <$> do
+      , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
           newValue <- genValue
           pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-      , SomeMutation (Just "must push deadline") NotUpdateDeadlineAlthoughItShould . ChangeOutput 0 <$> do
+      , SomeMutation (Just $ toErrorCode MustPushDeadline) NotUpdateDeadlineAlthoughItShould . ChangeOutput 0 <$> do
           let deadline = posixFromUTCTime healthyContestationDeadline
           -- Here we are replacing the contestationDeadline using the previous so we are not _pushing it_ further
           pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
-      , SomeMutation (Just "must not push deadline") PushDeadlineAlthoughItShouldNot <$> do
+      , SomeMutation (Just $ toErrorCode MustNotPushDeadline) PushDeadlineAlthoughItShouldNot <$> do
           alreadyContested <- vectorOf (length healthyParties - 1) $ Plutus.PubKeyHash . toBuiltin <$> genHash
           let contester = toPlutusKeyHash $ verificationKeyHash healthyContesterVerificationKey
           pure $
@@ -291,7 +294,7 @@ genContestMutation
               [ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContesters (contester : alreadyContested)))
               , ChangeInputHeadDatum (healthyClosedState & replaceContesters alreadyContested)
               ]
-      , SomeMutation (Just "changed parameters") MutateOutputContestationPeriod <$> do
+      , SomeMutation (Just $ toErrorCode ChangedParameters) MutateOutputContestationPeriod <$> do
           randomCP <- arbitrary `suchThat` (/= healthyOnChainContestationPeriod)
           pure $ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContestationPeriod randomCP))
       ]

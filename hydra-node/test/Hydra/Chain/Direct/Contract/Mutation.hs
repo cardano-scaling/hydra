@@ -835,3 +835,178 @@ replaceContesters contesters = \case
       , Head.contesters = contesters
       }
   otherState -> otherState
+
+data MutationError
+  = UtilError
+  | HeadTokensError
+  | InitialError
+  | CommitError
+  | HeadError
+  deriving (Show)
+
+data UtilError
+  = MintingOrBurningIsForbidden
+  deriving (Show)
+
+data HeadTokensError
+  = SeedNotSpent
+  | WrongNumberOfTokensMinted
+  | MissingST
+  | WrongNumberOfInitialOutputs
+  | WrongDatum
+  | MintingNotAllowed
+  | NoPT
+  | WrongQuantity
+  | HeadDatum
+  | NoDatum
+  | MultipleHeadOutput
+  deriving (Show)
+
+data InitialError
+  = STNotBurned
+  | MissingOrInvalidCommitAuthor
+  | LockedValueDoesNotMatch
+  | MismatchCommittedTxOutInDatum
+  | CouldNotFindTheCorrectCurrencySymbolInTokens
+  | MultipleHeadTokensOrMoreThan1PTsFound
+  | NothingCommittedButTxOutInOutputDatum
+  | CommittedTxOutButNothingInOutputDatum
+  | MissingDatum
+  | UnexpectedInlineDatum
+  | CouldNotFindDatum
+  | ExpectedCommitDatumTypeGotSomethingElse
+  | ExpectedSingleCommitOutput
+  deriving (Show)
+
+data CommitError
+  = STNotBurnedError
+  | STIsMissingInTheOutput
+  deriving (Show)
+
+data HeadError
+  = InvalidHeadStateTransition
+  | BurntTokenNumberMismatch
+  | ReimbursedOutputsDontMatch
+  | STNotSpent
+  | IncorrectUtxoHash
+  | ChangedParameters
+  | WrongStateInOutputDatum
+  | MissingCommits
+  | HeadValueIsNotPreserved
+  | HasBoundedValidityCheckFailed
+  | InvalidSnapshotSignature
+  | ClosedWithNonInitialHash
+  | IncorrectClosedContestationDeadline
+  | InfiniteUpperBound
+  | InfiniteLowerBound
+  | ContestersNonEmpty
+  | TooOldSnapshot
+  | UpperBoundBeyondContestationDeadline
+  | ContestNoUpperBoundDefined
+  | MustNotPushDeadline
+  | MustPushDeadline
+  | ContesterNotIncluded
+  | WrongNumberOfSigners
+  | SignerAlreadyContested
+  | FannedOutUtxoHashNotEqualToClosedUtxoHash
+  | LowerBoundBeforeContestationDeadline
+  | FanoutNoLowerBoundDefined
+  | CloseNoUpperBoundDefined
+  | ScriptNotSpendingAHeadInput
+  | SignerIsNotAParticipant
+  | NoSigners
+  | TooManySigners
+  | NoOutputDatumError
+  | DatumNotFound
+  | SignatureVerificationFailed
+  | PartySignatureVerificationFailed
+  deriving (Show)
+
+class Show a => ToErrorCode a where
+  toCode :: a -> Text
+
+instance ToErrorCode UtilError where
+  toCode :: UtilError -> Text
+  toCode = \case
+    MintingOrBurningIsForbidden -> "U01"
+
+instance ToErrorCode HeadTokensError where
+  toCode :: HeadTokensError -> Text
+  toCode = \case
+    SeedNotSpent -> "M01"
+    WrongNumberOfTokensMinted -> "M02"
+    MissingST -> "M03"
+    WrongNumberOfInitialOutputs -> "M04"
+    WrongDatum -> "M05"
+    MintingNotAllowed -> "M06"
+    NoPT -> "M07"
+    WrongQuantity -> "M08"
+    HeadDatum -> "M09"
+    NoDatum -> "M10"
+    MultipleHeadOutput -> "M11"
+
+instance ToErrorCode InitialError where
+  toCode :: InitialError -> Text
+  toCode = \case
+    STNotBurned -> "I01"
+    MissingOrInvalidCommitAuthor -> "I02"
+    LockedValueDoesNotMatch -> "I03"
+    MismatchCommittedTxOutInDatum -> "I04"
+    CouldNotFindTheCorrectCurrencySymbolInTokens -> "I05"
+    MultipleHeadTokensOrMoreThan1PTsFound -> "I06"
+    NothingCommittedButTxOutInOutputDatum -> "I07"
+    CommittedTxOutButNothingInOutputDatum -> "I08"
+    MissingDatum -> "I09"
+    UnexpectedInlineDatum -> "I10"
+    CouldNotFindDatum -> "I11"
+    ExpectedCommitDatumTypeGotSomethingElse -> "I12"
+    ExpectedSingleCommitOutput -> "I13"
+
+instance ToErrorCode CommitError where
+  toCode :: CommitError -> Text
+  toCode = \case
+    STNotBurnedError -> "C01"
+    STIsMissingInTheOutput -> "C02"
+
+instance ToErrorCode HeadError where
+  toCode :: HeadError -> Text
+  toCode = \case
+    InvalidHeadStateTransition -> "H01"
+    BurntTokenNumberMismatch -> "H02"
+    ReimbursedOutputsDontMatch -> "H03"
+    STNotSpent -> "H04"
+    IncorrectUtxoHash -> "H05"
+    ChangedParameters -> "H06"
+    WrongStateInOutputDatum -> "H07"
+    MissingCommits -> "H08"
+    HeadValueIsNotPreserved -> "H09"
+    HasBoundedValidityCheckFailed -> "H10"
+    InvalidSnapshotSignature -> "H11"
+    ClosedWithNonInitialHash -> "H12"
+    IncorrectClosedContestationDeadline -> "H13"
+    InfiniteUpperBound -> "H14"
+    InfiniteLowerBound -> "H15"
+    ContestersNonEmpty -> "H16"
+    TooOldSnapshot -> "H17"
+    UpperBoundBeyondContestationDeadline -> "H18"
+    ContestNoUpperBoundDefined -> "H19"
+    MustNotPushDeadline -> "H20"
+    MustPushDeadline -> "H21"
+    ContesterNotIncluded -> "H22"
+    WrongNumberOfSigners -> "H23"
+    SignerAlreadyContested -> "H24"
+    FannedOutUtxoHashNotEqualToClosedUtxoHash -> "H25"
+    LowerBoundBeforeContestationDeadline -> "H26"
+    FanoutNoLowerBoundDefined -> "H27"
+    CloseNoUpperBoundDefined -> "H28"
+    ScriptNotSpendingAHeadInput -> "H29"
+    SignerIsNotAParticipant -> "H30"
+    NoSigners -> "H31"
+    TooManySigners -> "H32"
+    NoOutputDatumError -> "H33"
+    DatumNotFound -> "H34"
+    SignatureVerificationFailed -> "H35"
+    PartySignatureVerificationFailed -> "H36"
+
+toErrorCode :: ToErrorCode a => a -> Text
+toErrorCode = toCode

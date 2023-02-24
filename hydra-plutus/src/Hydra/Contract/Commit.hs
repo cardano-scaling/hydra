@@ -96,9 +96,9 @@ validator (_party, _headScriptHash, _commit, headId) r ctx =
     -- NOTE: The reimbursement of the committed output 'commit' is
     -- delegated to the 'head' script who has more information to do it.
     ViaAbort ->
-      traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
+      traceIfFalse "C01" (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
     ViaCollectCom ->
-      traceIfFalse "ST is missing in the output" (hasST headId headOutputValue)
+      traceIfFalse "C02" (hasST headId headOutputValue)
  where
   headOutputValue =
     txOutValue . head $ txInfoOutputs (scriptContextTxInfo ctx)

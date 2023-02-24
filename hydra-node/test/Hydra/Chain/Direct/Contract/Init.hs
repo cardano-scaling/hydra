@@ -12,12 +12,14 @@ import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Contract.Mutation (
+  HeadTokensError (NoPT, SeedNotSpent, WrongDatum, WrongNumberOfInitialOutputs, WrongNumberOfTokensMinted),
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
   changeHeadOutputDatum,
   changeMintedValueQuantityFrom,
   replaceHeadId,
+  toErrorCode,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.Tx (initTx)
@@ -83,22 +85,22 @@ data ObserveInitMutation
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genInitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just "wrong number of tokens minted") MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
-    , SomeMutation (Just "wrong number of tokens minted") MutateAddAnotherPT <$> addPTWithQuantity tx 1
-    , SomeMutation (Just "no PT") MutateInitialOutputValue <$> do
+    [ SomeMutation (Just $ toErrorCode WrongNumberOfTokensMinted) MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
+    , SomeMutation (Just $ toErrorCode WrongNumberOfTokensMinted) MutateAddAnotherPT <$> addPTWithQuantity tx 1
+    , SomeMutation (Just $ toErrorCode NoPT) MutateInitialOutputValue <$> do
         let outs = txOuts' tx
         (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation (Just "wrong number of initial outputs") MutateDropInitialOutput <$> do
+    , SomeMutation (Just $ toErrorCode WrongNumberOfInitialOutputs) MutateDropInitialOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
-    , SomeMutation (Just "seed not spent") MutateDropSeedInput <$> do
+    , SomeMutation (Just $ toErrorCode SeedNotSpent) MutateDropSeedInput <$> do
         pure $ RemoveInput healthySeedInput
-    , SomeMutation (Just "wrong datum") MutateHeadIdInDatum <$> do
+    , SomeMutation (Just $ toErrorCode WrongDatum) MutateHeadIdInDatum <$> do
         mutatedHeadId <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId mutatedHeadId) headTxOut
-    , SomeMutation (Just "wrong datum") MutateSeedInDatum <$> do
+    , SomeMutation (Just $ toErrorCode WrongDatum) MutateSeedInDatum <$> do
         mutatedSeed <- toPlutusTxOutRef <$> arbitrary `suchThat` (/= testSeedInput)
         pure $
           ChangeOutput 0 $

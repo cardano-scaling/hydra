@@ -14,8 +14,10 @@ import Hydra.Chain.Direct.Contract.Gen (genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
+  UtilError (MintingOrBurningIsForbidden),
   changeMintedTokens,
   replacePolicyIdWith,
+  toErrorCode,
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
@@ -113,7 +115,7 @@ genCommitMutation (tx, _utxo) =
                 (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
                 (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef committedTxIn)
             ]
-    , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
+    , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]
  where

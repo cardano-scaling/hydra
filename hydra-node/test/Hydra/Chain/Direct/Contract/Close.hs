@@ -11,8 +11,10 @@ import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
+  HeadError (ChangedParameters, ClosedWithNonInitialHash, ContestersNonEmpty, HasBoundedValidityCheckFailed, HeadValueIsNotPreserved, IncorrectClosedContestationDeadline, InfiniteLowerBound, InfiniteUpperBound, InvalidSnapshotSignature),
   Mutation (..),
   SomeMutation (..),
+  UtilError (MintingOrBurningIsForbidden),
   addParticipationTokens,
   changeHeadOutputDatum,
   changeMintedTokens,
@@ -23,6 +25,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceUtxoHash,
+  toErrorCode,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
@@ -212,8 +215,8 @@ data CloseMutation
   | MutateCloseUTxOHash
   | MutatePartiesInOutput
   | MutateHeadIdInOutput
-  | InfiniteLowerBound
-  | InfiniteUpperBound
+  | MutateInfiniteLowerBound
+  | MutateInfiniteUpperBound
   | -- | See spec: 5.5 rule 4 -> contestationDeadline = upperBound + contestationPeriod
     MutateContestationDeadline
   | -- | See spec: 5.5. rule 5 -> upperBound - lowerBound <= contestationPeriod
@@ -230,12 +233,12 @@ data CloseMutation
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just "invalid snapshot signature") MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    [ SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-    , SomeMutation (Just "closed with non-initial hash") MutateSnapshotNumberToLessThanZero <$> do
+    , SomeMutation (Just $ toErrorCode ClosedWithNonInitialHash) MutateSnapshotNumberToLessThanZero <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (<= 0)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
-    , SomeMutation (Just "invalid snapshot signature") MutateSnapshotNumberButNotSignature <$> do
+    , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , SomeMutation Nothing MutateParties . ChangeInputHeadDatum <$> do
@@ -247,24 +250,24 @@ genCloseMutation (tx, _utxo) =
             , contestationPeriod = healthyContestationPeriod
             , headId = toPlutusCurrencySymbol Fixture.testPolicyId
             }
-    , SomeMutation (Just "changed parameters") MutatePartiesInOutput <$> do
+    , SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceParties mutatedParties) headTxOut
-    , SomeMutation (Just "changed parameters") MutateHeadIdInOutput <$> do
+    , SomeMutation (Just $ toErrorCode ChangedParameters) MutateHeadIdInOutput <$> do
         otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId otherHeadId) headTxOut
     , SomeMutation Nothing MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation Nothing MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
-    , SomeMutation (Just "incorrect closed contestation deadline") MutateContestationDeadline <$> do
+    , SomeMutation (Just $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationDeadline mutatedDeadline) headTxOut
-    , SomeMutation (Just "infinite lower bound") InfiniteLowerBound . ChangeValidityLowerBound <$> do
+    , SomeMutation (Just $ toErrorCode InfiniteLowerBound) MutateInfiniteLowerBound . ChangeValidityLowerBound <$> do
         pure TxValidityNoLowerBound
-    , SomeMutation (Just "infinite upper bound") InfiniteUpperBound . ChangeValidityUpperBound <$> do
+    , SomeMutation (Just $ toErrorCode InfiniteUpperBound) MutateInfiniteUpperBound . ChangeValidityUpperBound <$> do
         pure TxValidityNoUpperBound
-    , SomeMutation (Just "hasBoundedValidity check failed") MutateValidityInterval <$> do
+    , SomeMutation (Just $ toErrorCode HasBoundedValidityCheckFailed) MutateValidityInterval <$> do
         (lowerSlotNo, upperSlotNo, adjustedContestationDeadline) <- genOversizedTransactionValidity
         pure $
           Changes
@@ -281,12 +284,12 @@ genCloseMutation (tx, _utxo) =
                 (replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyOpenHeadTxOut)
                 (Just $ toScriptData healthyOpenHeadDatum)
             ]
-    , SomeMutation (Just "minting or burning is forbidden") MutateTokenMintingOrBurning
+    , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-    , SomeMutation (Just "contesters non-empty") MutateContesters . ChangeOutput 0 <$> do
+    , SomeMutation (Just $ toErrorCode ContestersNonEmpty) MutateContesters . ChangeOutput 0 <$> do
         mutatedContesters <- listOf1 $ PubKeyHash . toBuiltin <$> genHash
         pure $ headTxOut & changeHeadOutputDatum (replaceContesters mutatedContesters)
-    , SomeMutation (Just "head value is not preserved") MutateValueInOutput <$> do
+    , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     ]
@@ -319,7 +322,7 @@ data CloseInitialMutation
 genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseInitialMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just "incorrect closed contestation deadline") MutateCloseContestationDeadline' <$> do
+    [ SomeMutation (Just $ toErrorCode IncorrectClosedContestationDeadline) MutateCloseContestationDeadline' <$> do
         mutatedDeadline <- genMutatedDeadline
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationDeadline mutatedDeadline) headTxOut
     ]
