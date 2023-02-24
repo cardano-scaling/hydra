@@ -106,8 +106,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
         _ -> traceError "wrong quantity"
 
   mintedTokenCount =
-    fromMaybe 0
-      . fmap sum
+    maybe 0 sum
       . Map.lookup currency
       . getValue
       $ txInfoMint txInfo

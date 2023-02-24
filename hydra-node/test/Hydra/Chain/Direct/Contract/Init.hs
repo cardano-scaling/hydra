@@ -96,7 +96,7 @@ genInitMutation (tx, _utxo) =
     , SomeMutation (Just "seed not spent") MutateDropSeedInput <$> do
         pure $ RemoveInput healthySeedInput
     , SomeMutation (Just "wrong datum") MutateHeadIdInDatum <$> do
-        mutatedHeadId <- arbitrary `suchThat` (/= (toPlutusCurrencySymbol testPolicyId))
+        mutatedHeadId <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId mutatedHeadId) headTxOut
     , SomeMutation (Just "wrong datum") MutateSeedInDatum <$> do
         mutatedSeed <- toPlutusTxOutRef <$> arbitrary `suchThat` (/= testSeedInput)
