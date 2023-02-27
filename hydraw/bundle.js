@@ -13,7 +13,8 @@ let n = 0
 client.addEventListener("message", e => {
   const msg = JSON.parse(e.data);
   switch (msg.tag) {
-    case "TxSeen":
+    case "TxValid":
+      // TODO: Should only draw pixels on SnapshotConfirmed
       console.log("New transaction seen", msg.transaction.id);
       if (msg.transaction.auxiliaryData != null) {
         console.log("Transaction has auxiliary data", msg.transaction.auxiliaryData);

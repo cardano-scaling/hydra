@@ -51,10 +51,8 @@ channels:
           - $ref: "#/components/messages/ReadyToFanout"
           - $ref: "#/components/messages/HeadIsAborted"
           - $ref: "#/components/messages/HeadIsFinalized"
-          - $ref: "#/components/messages/TxSeen"
           - $ref: "#/components/messages/TxValid"
           - $ref: "#/components/messages/TxInvalid"
-          - $ref: "#/components/messages/TxExpired"
           - $ref: "#/components/messages/SnapshotConfirmed"
           - $ref: "#/components/messages/GetUTxOResponse"
           - $ref: "#/components/messages/RolledBack"
@@ -474,35 +472,12 @@ components:
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
-    TxSeen:
-      title: TxSeen
-      description: |
-        A new transaction was observed inside the head. Note that a node observes its own transactions.
-      payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - transaction
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["TxSeen"]
-          headId:
-            $ref: "#/components/schemas/HeadId"
-          transaction:
-            $ref: "#/components/schemas/Transaction"
-          seq:
-            $ref: "#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "#/components/schemas/UTCTime"
-
     TxValid:
       title: TxValid
       description: |
-        An observed transaction is valid and can therefore be applied.
+        Observed a valid transaction inside the head. Note that a node observes
+        its own transactions and it may still happen that this transaction is
+        not included in a snapshot.
       payload:
         type: object
         required:
@@ -527,8 +502,11 @@ components:
     TxInvalid:
       title: TxInvalid
       description: |
-        An observed transaction is invalid. Either it is not yet valid (because some other transactions need to be seen first), or it
-        is no longer valid (because of conflicting transactions observed in-between.
+        Observed an invalid transaction inside the head. Either it is not yet
+        valid (because some other transactions need to be seen first), or it is
+        no longer valid (because of conflicting transactions observed
+        in-between. The included validation error should give an indication why
+        it was not applicable to the given UTxO (the local, seen ledger state).
       payload:
         type: object
         required:
@@ -558,31 +536,6 @@ components:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
-
-    TxExpired:
-      title: TxExpired
-      description: |
-        An observed transaction is expired. The transactions is no longer valid because its ttl got to zero.
-      payload:
-        type: object
-        required:
-        - tag
-        - headId
-        - transaction
-        - seq
-        - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["TxExpired"]
-          headId:
-            $ref: "#/components/schemas/HeadId"
-          transaction:
-            $ref: "#/components/schemas/Transaction"
-          seq:
-            $ref: "#/components/schemas/SequenceNumber"
-          timestamp:
-              $ref: "#/components/schemas/UTCTime"
 
     SnapshotConfirmed:
       title: SnapshotConfirmed

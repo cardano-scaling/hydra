@@ -27,7 +27,6 @@ filterLog entry = do
       case node ^? clientEffect . key "tag" <|> node ^? networkEffect . key "tag" of
         Just "SnapshotConfirmed" -> processSnapshotConfirmed node
         Just "Committed" -> replaceUtxoWithNull node
-        Just "TxSeen" -> replaceTransactionWithTxId node clientEffect
         Just "TxInvalid" -> replaceTransactionWithTxId node clientEffect >>= replaceUtxoWithNull
         Just "TxValid" -> replaceTransactionWithTxId node clientEffect
         Just "ReqTx" -> replaceTransactionWithTxId node networkEffect
@@ -37,7 +36,6 @@ filterLog entry = do
       case node ^? clientEffect . key "tag" <|> node ^? networkEffect . key "tag" of
         Just "SnapshotConfirmed" -> processSnapshotConfirmed node
         Just "Committed" -> replaceUtxoWithNull node
-        Just "TxSeen" -> replaceTransactionWithTxId node clientEffect
         Just "TxInvalid" -> replaceTransactionWithTxId node clientEffect >>= replaceUtxoWithNull
         Just "TxValid" -> replaceTransactionWithTxId node clientEffect
         Just "ReqTx" -> replaceTransactionWithTxId node networkEffect

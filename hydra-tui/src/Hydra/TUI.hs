@@ -341,14 +341,10 @@ handleAppEvent s = \case
     s & headStateL .~ Final{utxo}
       & info "Head finalized."
       & stopPending
-  Update TxSeen{} ->
-    s -- TUI is not needing this response, ignore it
   Update TxValid{} ->
     s & report Success "Transaction submitted successfully!"
-  Update TxExpired{transaction} ->
-    s & report Success ("Transaction with id " <> show (txId transaction) <> " is not applicable")
-  Update TxInvalid{validationError} ->
-    s & warn (show validationError)
+  Update TxInvalid{transaction, validationError} ->
+    s & warn ("Transaction with id " <> show (txId transaction) <> " is not applicable: " <> show validationError)
   Update SnapshotConfirmed{snapshot} ->
     snapshotConfirmed snapshot
   Update GetUTxOResponse{} ->

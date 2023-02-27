@@ -52,7 +52,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
-import Hydra.Ledger (Ledger, ValidationError (ValidationError))
+import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -64,6 +64,7 @@ import Hydra.Node (
   createEventQueue,
   createNodeState,
   runHydraNode,
+  waitDelay,
  )
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
@@ -230,137 +231,154 @@ spec = parallel $ do
 
                 waitUntil [n2] $ GetUTxOResponse testHeadId (utxoRefs [1])
 
-  describe "in an open head" $ do
-    it "sees the head closed by other nodes" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
+    describe "in an open head" $ do
+      it "sees the head closed by other nodes" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
 
-              send n1 Close
-              waitForNext n2
-                >>= assertHeadIsClosedWith 0
+                send n1 Close
+                waitForNext n2
+                  >>= assertHeadIsClosedWith 0
 
-    it "valid new transactions are seen by all parties" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
+      it "valid new transactions are seen by all parties" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
 
-              send n1 (NewTx (aValidTx 42))
-              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
-              waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
+                send n1 (NewTx (aValidTx 42))
+                waitUntil [n1, n2] $ TxValid testHeadId (aValidTx 42)
 
-    it "sending two conflicting transactions should lead one being confirmed and one expired" $
-      shouldRunInSim $
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 -> do
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
-              let tx' =
-                    SimpleTx
-                      { txSimpleId = 1
-                      , txInputs = utxoRef 1
-                      , txOutputs = utxoRef 10
-                      }
-                  tx'' =
-                    SimpleTx
-                      { txSimpleId = 2
-                      , txInputs = utxoRef 1
-                      , txOutputs = utxoRef 11
-                      }
-              send n1 (NewTx tx')
-              send n2 (NewTx tx'')
-              let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
-                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                  confirmed = SnapshotConfirmed testHeadId snapshot sigs
-              waitUntil [n1, n2] confirmed
-              waitUntil [n1, n2] (TxExpired testHeadId tx'')
+      it "valid new transactions get snapshotted" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
 
-    it "valid new transactions get snapshotted" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
+                send n1 (NewTx (aValidTx 42))
+                waitUntil [n1, n2] $ TxValid testHeadId (aValidTx 42)
 
-              send n1 (NewTx (aValidTx 42))
-              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
-              waitUntil [n1, n2] $ TxSeen testHeadId (aValidTx 42)
+                let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
-              let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
-                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-              waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
+                send n1 Close
+                waitForNext n1 >>= assertHeadIsClosedWith 1
 
-              send n1 Close
-              waitForNext n1 >>= assertHeadIsClosedWith 1
+      it "depending transactions stay pending and are confirmed in order" $
+        shouldRunInSim $
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 -> do
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+                let firstTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
+                let secondTx = SimpleTx 1 (utxoRef 3) (utxoRef 4)
+                -- Expect secondTx to be valid, but not applicable and stay pending
+                send n2 (NewTx secondTx)
+                send n1 (NewTx firstTx)
 
-    it "reports transactions as seen only when they validate (against the confirmed ledger)" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
+                -- Expect a snapshot of the firstTx transaction
+                waitUntil [n1, n2] $ TxValid testHeadId firstTx
+                waitUntil [n1, n2] $ do
+                  let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
+                      sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                  SnapshotConfirmed testHeadId snapshot sigs
 
-              let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
-                  secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
+                -- Expect a snapshot of the now unblocked secondTx
+                waitUntil [n1, n2] $ TxValid testHeadId secondTx
+                waitUntil [n1, n2] $ do
+                  let snapshot = Snapshot 2 (utxoRefs [2, 4]) [secondTx]
+                      sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                  SnapshotConfirmed testHeadId snapshot sigs
 
-              send n2 (NewTx secondTx)
-              waitUntil [n2] $ TxInvalid testHeadId (utxoRefs [1, 2]) secondTx (ValidationError "cannot apply transaction")
-              send n1 (NewTx firstTx)
-              waitUntil [n1] $ TxValid testHeadId firstTx
+      it "depending transactions expire if not applicable in time" $
+        shouldRunInSim $
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 -> do
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+                let firstTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
+                let secondTx = SimpleTx 1 (utxoRef 3) (utxoRef 4)
+                -- Expect secondTx to be valid, but not applicable and stay pending
+                send n2 (NewTx secondTx)
+                -- If we wait too long, secondTx will expire
+                threadDelay . realToFrac $ (fromIntegral defaultTTL) * waitDelay + 1
+                waitUntilMatch [n1, n2] $ \case
+                  TxInvalid{transaction} -> transaction == secondTx
+                  _ -> False
 
-              waitUntil [n1, n2] $ TxSeen testHeadId firstTx
-              let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
-                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                send n1 (NewTx firstTx)
+                waitUntil [n1, n2] $ TxValid testHeadId firstTx
 
-              waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
+      it "sending two conflicting transactions should lead one being confirmed and one expired" $
+        shouldRunInSim $
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 -> do
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+                let tx' =
+                      SimpleTx
+                        { txSimpleId = 1
+                        , txInputs = utxoRef 1
+                        , txOutputs = utxoRef 10
+                        }
+                    tx'' =
+                      SimpleTx
+                        { txSimpleId = 2
+                        , txInputs = utxoRef 1
+                        , txOutputs = utxoRef 11
+                        }
+                send n1 (NewTx tx')
+                send n2 (NewTx tx'')
+                waitUntil [n1, n2] $ do
+                  let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
+                      sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                  SnapshotConfirmed testHeadId snapshot sigs
+                waitUntilMatch [n1, n2] $ \case
+                  TxInvalid{transaction} -> transaction == tx''
+                  _ -> False
 
-              send n2 (NewTx secondTx)
-              waitUntil [n2] $ TxValid testHeadId secondTx
-              waitUntil [n1, n2] $ TxSeen testHeadId secondTx
+      it "multiple transactions get snapshotted" $ do
+        pendingWith "This test is not longer true after recent changes which simplify the snapshot construction."
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
 
-    it "multiple transactions get snapshotted" $ do
-      pendingWith "This test is not longer true after recent changes which simplify the snapshot construction."
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
+                send n1 (NewTx (aValidTx 42))
+                send n1 (NewTx (aValidTx 43))
 
-              send n1 (NewTx (aValidTx 42))
-              send n1 (NewTx (aValidTx 43))
+                waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
+                waitUntil [n1] $ TxValid testHeadId (aValidTx 43)
 
-              waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
-              waitUntil [n1] $ TxValid testHeadId (aValidTx 43)
+                let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43]
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
-              waitUntil [n1] $ TxSeen testHeadId (aValidTx 42)
-              waitUntil [n1] $ TxSeen testHeadId (aValidTx 43)
+                waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
-              let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43]
-                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+      it "outputs utxo from confirmed snapshot when client requests it" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+                let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
+                send n1 (NewTx newTx)
 
-              waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
+                let snapshot = Snapshot 1 (utxoRefs [2, 42]) [newTx]
+                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
-    it "outputs utxo from confirmed snapshot when client requests it" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead n1 n2
-              let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
-              send n1 (NewTx newTx)
+                waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
 
-              let snapshot = Snapshot 1 (utxoRefs [2, 42]) [newTx]
-                  sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                send n1 GetUTxO
 
-              waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
-
-              send n1 GetUTxO
-
-              waitUntil [n1] $ GetUTxOResponse testHeadId (utxoRefs [2, 42])
+                waitUntil [n1] $ GetUTxOResponse testHeadId (utxoRefs [2, 42])
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
@@ -474,22 +492,24 @@ waitUntil nodes expected =
   waitUntilMatch nodes (== expected)
 
 -- | Wait for some output to match some predicate /eventually/. This will not
--- wait forever, but for a VERY long time (1000 years) to get a nice error
--- location. Should not be an issue when used within `shouldRunInSim`.
+-- wait forever, but for a long time (1 month) to get a nice error location.
+-- Should not be an issue when used within `shouldRunInSim`, this was even 1000
+-- years before - but we since we are having the protocol produce 'Tick' events
+-- constantly this would be fully simulated to the end.
 waitUntilMatch ::
   (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
   [TestHydraNode tx m] ->
   (ServerOutput tx -> Bool) ->
   m ()
 waitUntilMatch nodes predicate =
-  failAfter veryLong $
+  failAfter oneMonth $
     forConcurrently_ nodes go
  where
   go n = do
     next <- waitForNext n
     unless (predicate next) $ go n
 
-  veryLong = 31557600000 -- 1000 years
+  oneMonth = 3600 * 24 * 30
 
 -- | Wait for an output matching the predicate and extracting some value. This
 -- will loop forever until a match has been found.
