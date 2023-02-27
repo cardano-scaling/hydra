@@ -10,6 +10,10 @@ Shall you decide to share your findings with us, please consider the following, 
 2. When automated tools are used as a replacement for manual review/code inspection, they shall be documented or referenced. Note that it’s the responsibility of the auditor to ensure that such tooling may not exhibit potential failures that can adversely affect the review outcome.
 3. Any strategies/methodologies used to assess the consistency, correctness and completeness of the requirements shall also be documented or referenced.
 
+## Reporting a Vulnerability
+
+If you discover a security vulnerability in Hydra, we ask that you report it to us confidentially. See [`SECURITY.md`](https://github.com/input-output-hk/hydra/blob/master/SECURITY.md) on how to report a security vulnerability.
+
 ## Context and assumptions
 
 The Hydra Head protocol is implemented in the `hydra-node`, which connects to the Cardano network as layer 1 (L1) through a `cardano-node`, to other Hydra Head compliant nodes over an off-chain network, and exposes an API to users of the layer 2. Most relevant artifacts for an audit are:
