@@ -60,7 +60,7 @@ import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
-import Test.QuickCheck (generate, sublistOf)
+import Test.QuickCheck (generate)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeInitCost = do
