@@ -12,18 +12,26 @@ import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Contract.Mutation (
-  HeadTokensError (NoPT, SeedNotSpent, WrongDatum, WrongNumberOfInitialOutputs, WrongNumberOfTokensMinted),
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
   changeHeadOutputDatum,
   changeMintedValueQuantityFrom,
   replaceHeadId,
-  toErrorCode,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.Tx (initTx)
 import Hydra.Contract.HeadState (State (..))
+import Hydra.Contract.HeadTokens (
+  HeadTokensError (
+    NoPT,
+    SeedNotSpent,
+    WrongDatum,
+    WrongNumberOfInitialOutputs,
+    WrongNumberOfTokensMinted
+  ),
+ )
+import Hydra.Contract.Util (toErrorCode)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Party (Party)
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)

@@ -1,8 +1,9 @@
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
 module Hydra.Contract.Util where
 
+import Data.Text (Text)
+import Hydra.Prelude (Show)
 import Plutus.V1.Ledger.Value (isZero)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
@@ -14,6 +15,29 @@ import Plutus.V2.Ledger.Api (
 import qualified PlutusTx.AssocMap as Map
 import PlutusTx.Builtins (serialiseData)
 import PlutusTx.Prelude
+
+data MutationError
+  = UtilError
+  | HeadTokensError
+  | InitialError
+  | CommitError
+  | HeadError
+  deriving (Show)
+
+class Show a => ToErrorCode a where
+  toCode :: a -> Text
+
+toErrorCode :: ToErrorCode a => a -> Text
+toErrorCode = toCode
+
+data UtilError
+  = MintingOrBurningIsForbidden
+  deriving (Show)
+
+instance ToErrorCode UtilError where
+  toCode :: UtilError -> Text
+  toCode = \case
+    MintingOrBurningIsForbidden -> "U01"
 
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"

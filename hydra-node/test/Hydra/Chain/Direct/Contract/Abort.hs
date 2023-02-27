@@ -15,15 +15,12 @@ import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Contract.Mutation (
-  HeadError (BurntTokenNumberMismatch, ReimbursedOutputsDontMatch, SignerIsNotAParticipant),
-  HeadTokensError (MintingNotAllowed),
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
   changeMintedValueQuantityFrom,
   isHeadOutput,
   replacePolicyIdWith,
-  toErrorCode,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
@@ -35,9 +32,21 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import Hydra.ContestationPeriod (toChain)
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Head (
+  HeadError (
+    BurntTokenNumberMismatch,
+    ReimbursedOutputsDontMatch,
+    SignerIsNotAParticipant
+  ),
+ )
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
+import Hydra.Contract.HeadTokens (
+  HeadTokensError (MintingNotAllowed),
+  headPolicyId,
+  mkHeadTokenScript,
+ )
 import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.Util (toErrorCode)
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Test.Hydra.Fixture (cperiod)

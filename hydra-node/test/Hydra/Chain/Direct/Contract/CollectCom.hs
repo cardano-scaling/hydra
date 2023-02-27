@@ -12,14 +12,11 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
-  HeadError (DatumNotFound, IncorrectUtxoHash, MissingCommits, STNotSpent, SignerIsNotAParticipant),
   Mutation (..),
   SomeMutation (..),
-  UtilError (MintingOrBurningIsForbidden),
   changeHeadOutputDatum,
   changeMintedTokens,
   replaceParties,
-  toErrorCode,
  )
 import Hydra.Chain.Direct.Fixture (
   testNetworkId,
@@ -37,9 +34,19 @@ import Hydra.Chain.Direct.Tx (
   mkInitialOutput,
  )
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Head (
+  HeadError (
+    DatumNotFound,
+    IncorrectUtxoHash,
+    MissingCommits,
+    STNotSpent,
+    SignerIsNotAParticipant
+  ),
+ )
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
+import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden), toErrorCode)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)

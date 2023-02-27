@@ -14,16 +14,15 @@ import Hydra.Chain.Direct.Contract.Gen (genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
-  UtilError (MintingOrBurningIsForbidden),
   changeMintedTokens,
   replacePolicyIdWith,
-  toErrorCode,
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput)
 import Hydra.Contract.HeadTokens (headPolicyId)
 import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden), toErrorCode)
 import Hydra.Ledger.Cardano (
   genAddressInEra,
   genOutput,

@@ -11,10 +11,8 @@ import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
-  HeadError (ChangedParameters, ClosedWithNonInitialHash, ContestersNonEmpty, HasBoundedValidityCheckFailed, HeadValueIsNotPreserved, IncorrectClosedContestationDeadline, InfiniteLowerBound, InfiniteUpperBound, InvalidSnapshotSignature),
   Mutation (..),
   SomeMutation (..),
-  UtilError (MintingOrBurningIsForbidden),
   addParticipationTokens,
   changeHeadOutputDatum,
   changeMintedTokens,
@@ -25,15 +23,28 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceUtxoHash,
-  toErrorCode,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (fromChain)
+import Hydra.Contract.Head (
+  HeadError (
+    ChangedParameters,
+    ClosedWithNonInitialHash,
+    ContestersNonEmpty,
+    HasBoundedValidityCheckFailed,
+    HeadValueIsNotPreserved,
+    IncorrectClosedContestationDeadline,
+    InfiniteLowerBound,
+    InfiniteUpperBound,
+    InvalidSnapshotSignature
+  ),
+ )
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
+import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden), toErrorCode)
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain

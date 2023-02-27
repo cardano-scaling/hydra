@@ -8,6 +8,7 @@ module Hydra.Contract.HeadTokens where
 
 import PlutusTx.Prelude
 
+import Data.Text (Text)
 import Hydra.Cardano.Api (
   PlutusScriptV2,
   PolicyId,
@@ -23,7 +24,8 @@ import Hydra.Contract.HeadState (headId, seed)
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
-import Hydra.Contract.Util (hasST)
+import Hydra.Contract.Util (ToErrorCode (toCode), hasST)
+import Hydra.Prelude (Show)
 import Plutus.Extras (wrapMintingPolicy)
 import Plutus.V2.Ledger.Api (
   Datum (getDatum),
@@ -42,6 +44,35 @@ import Plutus.V2.Ledger.Api (
 import Plutus.V2.Ledger.Contexts (findDatum, ownCurrencySymbol, scriptOutputsAt)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
+
+data HeadTokensError
+  = SeedNotSpent
+  | WrongNumberOfTokensMinted
+  | MissingST
+  | WrongNumberOfInitialOutputs
+  | WrongDatum
+  | MintingNotAllowed
+  | NoPT
+  | WrongQuantity
+  | HeadDatum
+  | NoDatum
+  | MultipleHeadOutput
+  deriving (Show)
+
+instance ToErrorCode HeadTokensError where
+  toCode :: HeadTokensError -> Text
+  toCode = \case
+    SeedNotSpent -> "M01"
+    WrongNumberOfTokensMinted -> "M02"
+    MissingST -> "M03"
+    WrongNumberOfInitialOutputs -> "M04"
+    WrongDatum -> "M05"
+    MintingNotAllowed -> "M06"
+    NoPT -> "M07"
+    WrongQuantity -> "M08"
+    HeadDatum -> "M09"
+    NoDatum -> "M10"
+    MultipleHeadOutput -> "M11"
 
 validate ::
   -- | Head validator

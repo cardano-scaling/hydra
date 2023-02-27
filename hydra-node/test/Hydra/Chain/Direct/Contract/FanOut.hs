@@ -9,11 +9,18 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
-import Hydra.Chain.Direct.Contract.Mutation (HeadError (FannedOutUtxoHashNotEqualToClosedUtxoHash, LowerBoundBeforeContestationDeadline), Mutation (..), SomeMutation (..), toErrorCode)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
+import Hydra.Contract.Head (
+  HeadError (
+    FannedOutUtxoHashNotEqualToClosedUtxoHash,
+    LowerBoundBeforeContestationDeadline
+  ),
+ )
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
+import Hydra.Contract.Util (toErrorCode)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
