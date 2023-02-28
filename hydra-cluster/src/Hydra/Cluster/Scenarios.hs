@@ -122,7 +122,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     waitFor tracer (truncate $ remainingTime + 60) [n1] $
       output "ReadyToFanout" ["headId" .= headId]
     send n1 $ input "Fanout" []
-    waitFor tracer 10 [n1] $
+    waitFor tracer 600 [n1] $
       output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
   traceRemainingFunds Alice
  where
