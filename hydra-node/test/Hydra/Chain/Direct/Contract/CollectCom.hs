@@ -45,7 +45,6 @@ import Hydra.Contract.Head (
     SignerIsNotAParticipant
   ),
  )
-import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
