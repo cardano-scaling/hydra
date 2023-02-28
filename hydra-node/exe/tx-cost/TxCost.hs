@@ -60,7 +60,7 @@ import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
-import Test.QuickCheck (generate, sublistOf)
+import Test.QuickCheck (generate)
 
 computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeInitCost = do
@@ -184,7 +184,8 @@ computeAbortCost =
   genAbortTx numParties = do
     ctx <- genHydraContextFor numParties
     initTx <- genInitTx ctx
-    commits <- sublistOf =<< genCommits ctx initTx
+    -- NOTE: Commits are more expensive to abort, so let's use all commits
+    commits <- genCommits ctx initTx
     cctx <- pickChainContext ctx
     let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     pure (abort (fold committed) cctx stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)

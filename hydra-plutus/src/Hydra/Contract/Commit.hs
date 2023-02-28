@@ -14,6 +14,7 @@ import qualified Hydra.Cardano.Api as OffChain
 import Hydra.Cardano.Api.Network (Network (Testnet))
 import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
+import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
@@ -31,6 +32,7 @@ import Plutus.V2.Ledger.Api (
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx
 import qualified Prelude as Haskell
+import Hydra.Contract.Error (ToErrorCode (..))
 
 data CommitRedeemer
   = ViaCollectCom
@@ -96,9 +98,9 @@ validator (_party, _headScriptHash, _commit, headId) r ctx =
     -- NOTE: The reimbursement of the committed output 'commit' is
     -- delegated to the 'head' script who has more information to do it.
     ViaAbort ->
-      traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
+      traceIfFalse "C01" (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
     ViaCollectCom ->
-      traceIfFalse "ST is missing in the output" (hasST headId headOutputValue)
+      traceIfFalse "C02" (hasST headId headOutputValue)
  where
   headOutputValue =
     txOutValue . head $ txInfoOutputs (scriptContextTxInfo ctx)
@@ -120,3 +122,15 @@ datum a = Datum (toBuiltinData a)
 
 redeemer :: RedeemerType -> Redeemer
 redeemer a = Redeemer (toBuiltinData a)
+
+-- * Errors
+
+data CommitError
+  = STNotBurnedError
+  | STIsMissingInTheOutput
+  deriving (Show)
+
+instance ToErrorCode CommitError where
+  toErrorCode = \case
+    STNotBurnedError -> "C01"
+    STIsMissingInTheOutput -> "C02"

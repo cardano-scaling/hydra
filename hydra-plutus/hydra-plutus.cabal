@@ -74,6 +74,7 @@ library
   exposed-modules:
     Hydra.Contract
     Hydra.Contract.Commit
+    Hydra.Contract.Error
     Hydra.Contract.Hash
     Hydra.Contract.Head
     Hydra.Contract.HeadState
@@ -136,7 +137,7 @@ test-suite tests
     , QuickCheck
     , time
 
-  build-tool-depends: hspec-discover:hspec-discover -any
+  build-tool-depends: hspec-discover:hspec-discover
 
 executable inspect-script
   import:         project-config

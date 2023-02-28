@@ -32,9 +32,21 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import Hydra.ContestationPeriod (toChain)
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Head (
+  HeadError (
+    BurntTokenNumberMismatch,
+    ReimbursedOutputsDontMatch,
+    SignerIsNotAParticipant
+  ),
+ )
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
+import Hydra.Contract.HeadTokens (
+  HeadTokensError (MintingNotAllowed),
+  headPolicyId,
+  mkHeadTokenScript,
+ )
 import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.Error (toErrorCode)
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Test.Hydra.Fixture (cperiod)
@@ -159,7 +171,7 @@ data AbortMutation
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
 genAbortMutation (tx, utxo) =
   oneof
-    [ SomeMutation (Just "burnt token number mismatch") MutateParties . ChangeInputHeadDatum <$> do
+    [ SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) MutateParties . ChangeInputHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
         pure $
@@ -168,7 +180,7 @@ genAbortMutation (tx, utxo) =
             (partyToChain <$> moreParties)
             (toPlutusCurrencySymbol $ headPolicyId testSeedInput)
             (toPlutusTxOutRef testSeedInput)
-    , SomeMutation (Just "burnt token number mismatch") DropCollectedInput <$> do
+    , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) DropCollectedInput <$> do
         let resolvedInputs = txIns' tx & mapMaybe (\input -> (input,) <$> UTxO.resolve input utxo)
             abortableInputs = filter (not . isHeadOutput . snd) resolvedInputs
         (toDropTxIn, toDropTxOut) <- elements abortableInputs
@@ -177,13 +189,13 @@ genAbortMutation (tx, utxo) =
             [ RemoveInput toDropTxIn
             , ChangeMintedValue $ removePTFromMintedValue toDropTxOut tx
             ]
-    , SomeMutation (Just "reimbursed outputs dont match") DropOneCommitOutput . RemoveOutput <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
-    , SomeMutation (Just "burnt token number mismatch") MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
-    , SomeMutation (Just "burnt token number mismatch") BurnOneTokenMore <$> addPTWithQuantity tx (-1)
-    , SomeMutation (Just "signer is not a participant") MutateRequiredSigner <$> do
+    , SomeMutation (Just $ toErrorCode ReimbursedOutputsDontMatch) DropOneCommitOutput . RemoveOutput <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
+    , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
+    , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) BurnOneTokenMore <$> addPTWithQuantity tx (-1)
+    , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (Just "burnt token number mismatch") MutateUseDifferentHeadToAbort <$> do
+    , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) MutateUseDifferentHeadToAbort <$> do
         mutatedSeed <- arbitrary `suchThat` (/= testSeedInput)
         pure $
           ChangeInputHeadDatum
@@ -193,7 +205,7 @@ genAbortMutation (tx, utxo) =
               , Head.headId = toPlutusCurrencySymbol $ headPolicyId mutatedSeed
               , Head.seed = toPlutusTxOutRef mutatedSeed
               }
-    , SomeMutation (Just "burnt token number mismatch") UseInputFromOtherHead <$> do
+    , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) UseInputFromOtherHead <$> do
         (input, output, _) <- elements healthyInitials
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
         pure $
@@ -204,12 +216,12 @@ genAbortMutation (tx, utxo) =
               ChangeInput input (replacePolicyIdWith testPolicyId otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
             , ChangeMintedValue (removePTFromMintedValue output tx)
             ]
-    , SomeMutation (Just "reimbursed outputs dont match") ReorderCommitOutputs <$> do
+    , SomeMutation (Just $ toErrorCode ReimbursedOutputsDontMatch) ReorderCommitOutputs <$> do
         let outputs = txOuts' tx
         outputs' <- shuffle outputs `suchThat` (/= outputs)
         let reorderedOutputs = uncurry ChangeOutput <$> zip [0 ..] outputs'
         pure $ Changes reorderedOutputs
-    , SomeMutation (Just "minting not allowed") MintOnAbort <$> do
+    , SomeMutation (Just $ toErrorCode MintingNotAllowed) MintOnAbort <$> do
         mintAPT <- addPTWithQuantity tx 1
         -- We need to also remove one party to make sure the vHead validator
         -- still thinks it's the right number of tokens getting burned.

@@ -10,6 +10,7 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Util (mustBurnST, mustNotMintOrBurn)
+import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
 import Plutus.V2.Ledger.Api (
@@ -39,6 +40,7 @@ import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
 import qualified PlutusTx.Builtins as Builtins
+import Hydra.Contract.Error (ToErrorCode (..))
 
 data InitialRedeemer
   = ViaAbort
@@ -73,7 +75,7 @@ validator ::
 validator commitValidator headId red context =
   case red of
     ViaAbort ->
-      traceIfFalse "ST not burned" (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
+      traceIfFalse "I01" (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
     ViaCommit{committedRef} ->
       checkCommit commitValidator committedRef context
         && checkAuthorAndHeadPolicy context headId
@@ -84,16 +86,16 @@ checkAuthorAndHeadPolicy ::
   CurrencySymbol ->
   Bool
 checkAuthorAndHeadPolicy context@ScriptContext{scriptContextTxInfo = txInfo} headId =
-  traceIfFalse "Missing or invalid commit author" $
+  traceIfFalse "I02" $
     unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
  where
   ourParticipationTokenName =
     case AssocMap.lookup headId (getValue initialValue) of
-      Nothing -> traceError "Could not find the correct CurrencySymbol in tokens"
+      Nothing -> traceError "I05"
       Just tokenMap ->
         case AssocMap.toList tokenMap of
           [(tk, q)] | q == 1 -> tk
-          _moreThanOneToken -> traceError "multiple head tokens or more than 1 PTs found"
+          _moreThanOneToken -> traceError "I06"
 
   -- TODO: DRY
   initialValue =
@@ -111,7 +113,7 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
     && checkLockedCommit
  where
   checkCommittedValue =
-    traceIfFalse "lockedValue does not match" $
+    traceIfFalse "I03" $
       traceIfFalse ("lockedValue: " `appendString` debugValue lockedValue) $
         traceIfFalse ("initialValue: " `appendString` debugValue initialValue) $
           traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
@@ -122,11 +124,11 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
       (Nothing, Nothing) ->
         True
       (Nothing, Just{}) ->
-        traceError "nothing committed, but TxOut in output datum"
+        traceError "I07"
       (Just{}, Nothing) ->
-        traceError "committed TxOut, but nothing in output datum"
+        traceError "I08"
       (Just (ref, txOut), Just Commit{input, preSerializedOutput}) ->
-        traceIfFalse "mismatch committed TxOut in datum" $
+        traceIfFalse "I04" $
           Builtins.serialiseData (toBuiltinData txOut) == preSerializedOutput
             && ref == input
 
@@ -146,17 +148,17 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
     case scriptOutputsAt commitValidator txInfo of
       [(dat, _)] ->
         case dat of
-          NoOutputDatum -> traceError "missing datum"
-          OutputDatum _ -> traceError "unexpected inline datum"
+          NoOutputDatum -> traceError "I09"
+          OutputDatum _ -> traceError "I10"
           OutputDatumHash dh ->
             case findDatum dh txInfo of
-              Nothing -> traceError "could not find datum"
+              Nothing -> traceError "I11"
               Just da ->
                 case fromBuiltinData @Commit.DatumType $ getDatum da of
-                  Nothing -> traceError "expected commit datum type, got something else"
+                  Nothing -> traceError "I12"
                   Just (_party, _headScriptHash, mCommit, _headId) ->
                     mCommit
-      _ -> traceError "expected single commit output"
+      _ -> traceError "I13"
 
   debugValue v =
     debugInteger . assetClassValueOf v $ assetClass adaSymbol adaToken
@@ -197,3 +199,37 @@ datum a = Datum (toBuiltinData a)
 
 redeemer :: RedeemerType -> Redeemer
 redeemer a = Redeemer (toBuiltinData a)
+
+-- * Errors
+
+data InitialError
+  = STNotBurned
+  | MissingOrInvalidCommitAuthor
+  | LockedValueDoesNotMatch
+  | MismatchCommittedTxOutInDatum
+  | CouldNotFindTheCorrectCurrencySymbolInTokens
+  | MultipleHeadTokensOrMoreThan1PTsFound
+  | NothingCommittedButTxOutInOutputDatum
+  | CommittedTxOutButNothingInOutputDatum
+  | MissingDatum
+  | UnexpectedInlineDatum
+  | CouldNotFindDatum
+  | ExpectedCommitDatumTypeGotSomethingElse
+  | ExpectedSingleCommitOutput
+  deriving (Show)
+
+instance ToErrorCode InitialError where
+  toErrorCode = \case
+    STNotBurned -> "I01"
+    MissingOrInvalidCommitAuthor -> "I02"
+    LockedValueDoesNotMatch -> "I03"
+    MismatchCommittedTxOutInDatum -> "I04"
+    CouldNotFindTheCorrectCurrencySymbolInTokens -> "I05"
+    MultipleHeadTokensOrMoreThan1PTsFound -> "I06"
+    NothingCommittedButTxOutInOutputDatum -> "I07"
+    CommittedTxOutButNothingInOutputDatum -> "I08"
+    MissingDatum -> "I09"
+    UnexpectedInlineDatum -> "I10"
+    CouldNotFindDatum -> "I11"
+    ExpectedCommitDatumTypeGotSomethingElse -> "I12"
+    ExpectedSingleCommitOutput -> "I13"

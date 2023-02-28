@@ -44,6 +44,7 @@ changes.
   + Push contestation deadline on contest.
   + Improve on-chain checks when minting tokens and off-chain checks when
     observing `initTx` so that we ensure we are part of the _proper_ head.
+  + Replace error traces by error codes in all plutus scripts.
 
 - **BREAKING** Change the way tx validity and contestation deadline is constructed for close transactions:
   + There is a new hydra-node flag `--contestation-period` expressed in seconds

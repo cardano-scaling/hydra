@@ -24,6 +24,7 @@ import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
+import Hydra.Prelude (Show)
 import Plutus.Extras (wrapMintingPolicy)
 import Plutus.V2.Ledger.Api (
   Datum (getDatum),
@@ -42,6 +43,7 @@ import Plutus.V2.Ledger.Api (
 import Plutus.V2.Ledger.Contexts (findDatum, ownCurrencySymbol, scriptOutputsAt)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
+import Hydra.Contract.Error (ToErrorCode (..))
 
 validate ::
   -- | Head validator
@@ -78,32 +80,32 @@ validateTokensMinting initialValidator headValidator seedInput context =
     && checkDatum
  where
   seedInputIsConsumed =
-    traceIfFalse "seed not spent" $
+    traceIfFalse "M01" $
       seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkNumberOfTokens =
-    traceIfFalse "wrong number of tokens minted" $
+    traceIfFalse "M02" $
       mintedTokenCount == nParties + 1
 
   singleSTIsPaidToTheHead =
-    traceIfFalse "missing ST" $
+    traceIfFalse "M03" $
       hasST currency headValue
 
   allInitialOutsHavePTs =
-    traceIfFalse "wrong number of initial outputs" (nParties == length initialTxOutValues)
+    traceIfFalse "M04" (nParties == length initialTxOutValues)
       && all hasASinglePT initialTxOutValues
 
   checkDatum =
-    traceIfFalse "wrong datum" $
+    traceIfFalse "M05" $
       headId == currency && seed == seedInput
 
   hasASinglePT val =
     case Map.lookup currency (getValue val) of
-      Nothing -> traceError "no PT"
+      Nothing -> traceError "M07"
       (Just tokenMap) -> case Map.toList tokenMap of
         [(_, qty)]
           | qty == 1 -> True
-        _ -> traceError "wrong quantity"
+        _ -> traceError "M08"
 
   mintedTokenCount =
     maybe 0 sum
@@ -117,13 +119,13 @@ validateTokensMinting initialValidator headValidator seedInput context =
         case findDatum dh txInfo >>= fromBuiltinData @Head.DatumType . getDatum of
           Just Head.Initial{Head.parties = parties, headId = h, seed = s} ->
             (h, s, length parties)
-          _ -> traceError "headDatum"
-      _ -> traceError "no datum"
+          _ -> traceError "M09"
+      _ -> traceError "M10"
 
   (headDatum, headValue) =
     case scriptOutputsAt headValidator txInfo of
       [(dat, val)] -> (dat, val)
-      _ -> traceError "multiple head output"
+      _ -> traceError "M11"
 
   initialTxOutValues = snd <$> scriptOutputsAt initialValidator txInfo
 
@@ -140,7 +142,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
 -- 'validateTokensBurning' just makes sure all tokens have negative quantity.
 validateTokensBurning :: ScriptContext -> Bool
 validateTokensBurning context =
-  traceIfFalse "minting not allowed" burnHeadTokens
+  traceIfFalse "M06" burnHeadTokens
  where
   currency = ownCurrencySymbol context
 
@@ -175,3 +177,33 @@ headPolicyId =
 mkHeadTokenScript :: TxIn -> Api.PlutusScript
 mkHeadTokenScript =
   fromPlutusScript @PlutusScriptV2 . mintingPolicyScript . toPlutusTxOutRef
+
+-- * Errors
+
+data HeadTokensError
+  = SeedNotSpent
+  | WrongNumberOfTokensMinted
+  | MissingST
+  | WrongNumberOfInitialOutputs
+  | WrongDatum
+  | MintingNotAllowed
+  | NoPT
+  | WrongQuantity
+  | HeadDatum
+  | NoDatum
+  | MultipleHeadOutput
+  deriving (Show)
+
+instance ToErrorCode HeadTokensError where
+  toErrorCode = \case
+    SeedNotSpent -> "M01"
+    WrongNumberOfTokensMinted -> "M02"
+    MissingST -> "M03"
+    WrongNumberOfInitialOutputs -> "M04"
+    WrongDatum -> "M05"
+    MintingNotAllowed -> "M06"
+    NoPT -> "M07"
+    WrongQuantity -> "M08"
+    HeadDatum -> "M09"
+    NoDatum -> "M10"
+    MultipleHeadOutput -> "M11"

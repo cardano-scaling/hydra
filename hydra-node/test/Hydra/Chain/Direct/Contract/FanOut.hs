@@ -12,6 +12,13 @@ import Cardano.Api.UTxO as UTxO
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
+import Hydra.Contract.Error (toErrorCode)
+import Hydra.Contract.Head (
+  HeadError (
+    FannedOutUtxoHashNotEqualToClosedUtxoHash,
+    LowerBoundBeforeContestationDeadline
+  ),
+ )
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
@@ -100,9 +107,9 @@ data FanoutMutation
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 genFanoutMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just "fannedOutUtxoHash /= closedUtxoHash") MutateAddUnexpectedOutput . PrependOutput <$> do
+    [ SomeMutation (Just $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateAddUnexpectedOutput . PrependOutput <$> do
         arbitrary >>= genOutput
-    , SomeMutation (Just "fannedOutUtxoHash /= closedUtxoHash") MutateChangeOutputValue <$> do
+    , SomeMutation (Just $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateChangeOutputValue <$> do
         let outs = txOuts' tx
         -- NOTE: Assumes the fanout transaction has non-empty outputs, which
         -- might not be always the case when testing unbalanced txs and we need
@@ -110,7 +117,7 @@ genFanoutMutation (tx, _utxo) =
         (ix, out) <- elements (zip [0 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation (Just "lower bound before contestation deadline") MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
+    , SomeMutation (Just $ toErrorCode LowerBoundBeforeContestationDeadline) MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
         lb <- arbitrary `suchThat` slotBeforeContestationDeadline
         pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
     ]
