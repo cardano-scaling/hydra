@@ -34,6 +34,7 @@ import Hydra.Chain.Direct.Tx (
   mkInitialOutput,
  )
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.Head (
   HeadError (
     DatumNotFound,
@@ -46,7 +47,7 @@ import Hydra.Contract.Head (
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden), toErrorCode)
+import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)

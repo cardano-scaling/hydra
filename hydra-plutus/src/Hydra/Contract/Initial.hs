@@ -7,10 +7,9 @@ module Hydra.Contract.Initial where
 
 import PlutusTx.Prelude
 
-import Data.Text (Text)
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
-import Hydra.Contract.Util (ToErrorCode (toCode), mustBurnST, mustNotMintOrBurn)
+import Hydra.Contract.Util (mustBurnST, mustNotMintOrBurn)
 import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
@@ -41,39 +40,7 @@ import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
 import qualified PlutusTx.Builtins as Builtins
-
-data InitialError
-  = STNotBurned
-  | MissingOrInvalidCommitAuthor
-  | LockedValueDoesNotMatch
-  | MismatchCommittedTxOutInDatum
-  | CouldNotFindTheCorrectCurrencySymbolInTokens
-  | MultipleHeadTokensOrMoreThan1PTsFound
-  | NothingCommittedButTxOutInOutputDatum
-  | CommittedTxOutButNothingInOutputDatum
-  | MissingDatum
-  | UnexpectedInlineDatum
-  | CouldNotFindDatum
-  | ExpectedCommitDatumTypeGotSomethingElse
-  | ExpectedSingleCommitOutput
-  deriving (Show)
-
-instance ToErrorCode InitialError where
-  toCode :: InitialError -> Text
-  toCode = \case
-    STNotBurned -> "I01"
-    MissingOrInvalidCommitAuthor -> "I02"
-    LockedValueDoesNotMatch -> "I03"
-    MismatchCommittedTxOutInDatum -> "I04"
-    CouldNotFindTheCorrectCurrencySymbolInTokens -> "I05"
-    MultipleHeadTokensOrMoreThan1PTsFound -> "I06"
-    NothingCommittedButTxOutInOutputDatum -> "I07"
-    CommittedTxOutButNothingInOutputDatum -> "I08"
-    MissingDatum -> "I09"
-    UnexpectedInlineDatum -> "I10"
-    CouldNotFindDatum -> "I11"
-    ExpectedCommitDatumTypeGotSomethingElse -> "I12"
-    ExpectedSingleCommitOutput -> "I13"
+import Hydra.Contract.Error (ToErrorCode (..))
 
 data InitialRedeemer
   = ViaAbort
@@ -232,3 +199,37 @@ datum a = Datum (toBuiltinData a)
 
 redeemer :: RedeemerType -> Redeemer
 redeemer a = Redeemer (toBuiltinData a)
+
+-- * Errors
+
+data InitialError
+  = STNotBurned
+  | MissingOrInvalidCommitAuthor
+  | LockedValueDoesNotMatch
+  | MismatchCommittedTxOutInDatum
+  | CouldNotFindTheCorrectCurrencySymbolInTokens
+  | MultipleHeadTokensOrMoreThan1PTsFound
+  | NothingCommittedButTxOutInOutputDatum
+  | CommittedTxOutButNothingInOutputDatum
+  | MissingDatum
+  | UnexpectedInlineDatum
+  | CouldNotFindDatum
+  | ExpectedCommitDatumTypeGotSomethingElse
+  | ExpectedSingleCommitOutput
+  deriving (Show)
+
+instance ToErrorCode InitialError where
+  toErrorCode = \case
+    STNotBurned -> "I01"
+    MissingOrInvalidCommitAuthor -> "I02"
+    LockedValueDoesNotMatch -> "I03"
+    MismatchCommittedTxOutInDatum -> "I04"
+    CouldNotFindTheCorrectCurrencySymbolInTokens -> "I05"
+    MultipleHeadTokensOrMoreThan1PTsFound -> "I06"
+    NothingCommittedButTxOutInOutputDatum -> "I07"
+    CommittedTxOutButNothingInOutputDatum -> "I08"
+    MissingDatum -> "I09"
+    UnexpectedInlineDatum -> "I10"
+    CouldNotFindDatum -> "I11"
+    ExpectedCommitDatumTypeGotSomethingElse -> "I12"
+    ExpectedSingleCommitOutput -> "I13"

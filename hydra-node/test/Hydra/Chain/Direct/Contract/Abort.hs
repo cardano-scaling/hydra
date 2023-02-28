@@ -46,7 +46,7 @@ import Hydra.Contract.HeadTokens (
   mkHeadTokenScript,
  )
 import qualified Hydra.Contract.Initial as Initial
-import Hydra.Contract.Util (toErrorCode)
+import Hydra.Contract.Error (toErrorCode)
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Test.Hydra.Fixture (cperiod)

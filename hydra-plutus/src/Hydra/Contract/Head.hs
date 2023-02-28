@@ -14,44 +14,7 @@ module Hydra.Contract.Head (
   compiledValidator,
   validatorScript,
   validatorHash,
-  HeadError (
-    InvalidHeadStateTransition,
-    BurntTokenNumberMismatch,
-    ReimbursedOutputsDontMatch,
-    STNotSpent,
-    IncorrectUtxoHash,
-    ChangedParameters,
-    WrongStateInOutputDatum,
-    MissingCommits,
-    HeadValueIsNotPreserved,
-    HasBoundedValidityCheckFailed,
-    InvalidSnapshotSignature,
-    ClosedWithNonInitialHash,
-    IncorrectClosedContestationDeadline,
-    InfiniteUpperBound,
-    InfiniteLowerBound,
-    ContestersNonEmpty,
-    TooOldSnapshot,
-    UpperBoundBeyondContestationDeadline,
-    ContestNoUpperBoundDefined,
-    MustNotPushDeadline,
-    MustPushDeadline,
-    ContesterNotIncluded,
-    WrongNumberOfSigners,
-    SignerAlreadyContested,
-    FannedOutUtxoHashNotEqualToClosedUtxoHash,
-    LowerBoundBeforeContestationDeadline,
-    FanoutNoLowerBoundDefined,
-    CloseNoUpperBoundDefined,
-    ScriptNotSpendingAHeadInput,
-    SignerIsNotAParticipant,
-    NoSigners,
-    TooManySigners,
-    NoOutputDatumError,
-    DatumNotFound,
-    SignatureVerificationFailed,
-    PartySignatureVerificationFailed
-  ),
+  HeadError (..),
 ) where
 
 import PlutusTx.Prelude
@@ -59,10 +22,10 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
-import Hydra.Contract.Util (ToErrorCode (toCode), hasST, mustNotMintOrBurn, (===))
+import Hydra.Contract.Util (hasST, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
-import Hydra.Prelude (Show, Text)
+import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Time (fromMilliSeconds)
 import Plutus.V1.Ledger.Value (valueOf)
@@ -98,85 +61,7 @@ import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 import qualified PlutusTx.Builtins as Builtins
-
-data HeadError
-  = InvalidHeadStateTransition
-  | BurntTokenNumberMismatch
-  | ReimbursedOutputsDontMatch
-  | STNotSpent
-  | IncorrectUtxoHash
-  | ChangedParameters
-  | WrongStateInOutputDatum
-  | MissingCommits
-  | HeadValueIsNotPreserved
-  | HasBoundedValidityCheckFailed
-  | InvalidSnapshotSignature
-  | ClosedWithNonInitialHash
-  | IncorrectClosedContestationDeadline
-  | InfiniteUpperBound
-  | InfiniteLowerBound
-  | ContestersNonEmpty
-  | TooOldSnapshot
-  | UpperBoundBeyondContestationDeadline
-  | ContestNoUpperBoundDefined
-  | MustNotPushDeadline
-  | MustPushDeadline
-  | ContesterNotIncluded
-  | WrongNumberOfSigners
-  | SignerAlreadyContested
-  | FannedOutUtxoHashNotEqualToClosedUtxoHash
-  | LowerBoundBeforeContestationDeadline
-  | FanoutNoLowerBoundDefined
-  | CloseNoUpperBoundDefined
-  | ScriptNotSpendingAHeadInput
-  | SignerIsNotAParticipant
-  | NoSigners
-  | TooManySigners
-  | NoOutputDatumError
-  | DatumNotFound
-  | SignatureVerificationFailed
-  | PartySignatureVerificationFailed
-  deriving (Show)
-
-instance ToErrorCode HeadError where
-  toCode :: HeadError -> Text
-  toCode = \case
-    InvalidHeadStateTransition -> "H01"
-    BurntTokenNumberMismatch -> "H02"
-    ReimbursedOutputsDontMatch -> "H03"
-    STNotSpent -> "H04"
-    IncorrectUtxoHash -> "H05"
-    ChangedParameters -> "H06"
-    WrongStateInOutputDatum -> "H07"
-    MissingCommits -> "H08"
-    HeadValueIsNotPreserved -> "H09"
-    HasBoundedValidityCheckFailed -> "H10"
-    InvalidSnapshotSignature -> "H11"
-    ClosedWithNonInitialHash -> "H12"
-    IncorrectClosedContestationDeadline -> "H13"
-    InfiniteUpperBound -> "H14"
-    InfiniteLowerBound -> "H15"
-    ContestersNonEmpty -> "H16"
-    TooOldSnapshot -> "H17"
-    UpperBoundBeyondContestationDeadline -> "H18"
-    ContestNoUpperBoundDefined -> "H19"
-    MustNotPushDeadline -> "H20"
-    MustPushDeadline -> "H21"
-    ContesterNotIncluded -> "H22"
-    WrongNumberOfSigners -> "H23"
-    SignerAlreadyContested -> "H24"
-    FannedOutUtxoHashNotEqualToClosedUtxoHash -> "H25"
-    LowerBoundBeforeContestationDeadline -> "H26"
-    FanoutNoLowerBoundDefined -> "H27"
-    CloseNoUpperBoundDefined -> "H28"
-    ScriptNotSpendingAHeadInput -> "H29"
-    SignerIsNotAParticipant -> "H30"
-    NoSigners -> "H31"
-    TooManySigners -> "H32"
-    NoOutputDatumError -> "H33"
-    DatumNotFound -> "H34"
-    SignatureVerificationFailed -> "H35"
-    PartySignatureVerificationFailed -> "H36"
+import Hydra.Contract.Error (ToErrorCode (..))
 
 type DatumType = State
 type RedeemerType = Input
@@ -734,3 +619,83 @@ validatorScript = getValidator $ mkValidatorScript compiledValidator
 
 validatorHash :: ValidatorHash
 validatorHash = scriptValidatorHash validatorScript
+
+-- * Errors
+
+data HeadError
+  = InvalidHeadStateTransition
+  | BurntTokenNumberMismatch
+  | ReimbursedOutputsDontMatch
+  | STNotSpent
+  | IncorrectUtxoHash
+  | ChangedParameters
+  | WrongStateInOutputDatum
+  | MissingCommits
+  | HeadValueIsNotPreserved
+  | HasBoundedValidityCheckFailed
+  | InvalidSnapshotSignature
+  | ClosedWithNonInitialHash
+  | IncorrectClosedContestationDeadline
+  | InfiniteUpperBound
+  | InfiniteLowerBound
+  | ContestersNonEmpty
+  | TooOldSnapshot
+  | UpperBoundBeyondContestationDeadline
+  | ContestNoUpperBoundDefined
+  | MustNotPushDeadline
+  | MustPushDeadline
+  | ContesterNotIncluded
+  | WrongNumberOfSigners
+  | SignerAlreadyContested
+  | FannedOutUtxoHashNotEqualToClosedUtxoHash
+  | LowerBoundBeforeContestationDeadline
+  | FanoutNoLowerBoundDefined
+  | CloseNoUpperBoundDefined
+  | ScriptNotSpendingAHeadInput
+  | SignerIsNotAParticipant
+  | NoSigners
+  | TooManySigners
+  | NoOutputDatumError
+  | DatumNotFound
+  | SignatureVerificationFailed
+  | PartySignatureVerificationFailed
+  deriving (Show)
+
+instance ToErrorCode HeadError where
+  toErrorCode = \case
+    InvalidHeadStateTransition -> "H01"
+    BurntTokenNumberMismatch -> "H02"
+    ReimbursedOutputsDontMatch -> "H03"
+    STNotSpent -> "H04"
+    IncorrectUtxoHash -> "H05"
+    ChangedParameters -> "H06"
+    WrongStateInOutputDatum -> "H07"
+    MissingCommits -> "H08"
+    HeadValueIsNotPreserved -> "H09"
+    HasBoundedValidityCheckFailed -> "H10"
+    InvalidSnapshotSignature -> "H11"
+    ClosedWithNonInitialHash -> "H12"
+    IncorrectClosedContestationDeadline -> "H13"
+    InfiniteUpperBound -> "H14"
+    InfiniteLowerBound -> "H15"
+    ContestersNonEmpty -> "H16"
+    TooOldSnapshot -> "H17"
+    UpperBoundBeyondContestationDeadline -> "H18"
+    ContestNoUpperBoundDefined -> "H19"
+    MustNotPushDeadline -> "H20"
+    MustPushDeadline -> "H21"
+    ContesterNotIncluded -> "H22"
+    WrongNumberOfSigners -> "H23"
+    SignerAlreadyContested -> "H24"
+    FannedOutUtxoHashNotEqualToClosedUtxoHash -> "H25"
+    LowerBoundBeforeContestationDeadline -> "H26"
+    FanoutNoLowerBoundDefined -> "H27"
+    CloseNoUpperBoundDefined -> "H28"
+    ScriptNotSpendingAHeadInput -> "H29"
+    SignerIsNotAParticipant -> "H30"
+    NoSigners -> "H31"
+    TooManySigners -> "H32"
+    NoOutputDatumError -> "H33"
+    DatumNotFound -> "H34"
+    SignatureVerificationFailed -> "H35"
+    PartySignatureVerificationFailed -> "H36"

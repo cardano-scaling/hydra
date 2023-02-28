@@ -2,7 +2,6 @@
 
 module Hydra.Contract.Util where
 
-import Data.Text (Text)
 import Hydra.Prelude (Show)
 import Plutus.V1.Ledger.Value (isZero)
 import Plutus.V2.Ledger.Api (
@@ -15,29 +14,7 @@ import Plutus.V2.Ledger.Api (
 import qualified PlutusTx.AssocMap as Map
 import PlutusTx.Builtins (serialiseData)
 import PlutusTx.Prelude
-
-data MutationError
-  = UtilError
-  | HeadTokensError
-  | InitialError
-  | CommitError
-  | HeadError
-  deriving (Show)
-
-class Show a => ToErrorCode a where
-  toCode :: a -> Text
-
-toErrorCode :: ToErrorCode a => a -> Text
-toErrorCode = toCode
-
-data UtilError
-  = MintingOrBurningIsForbidden
-  deriving (Show)
-
-instance ToErrorCode UtilError where
-  toCode :: UtilError -> Text
-  toCode = \case
-    MintingOrBurningIsForbidden -> "U01"
+import Hydra.Contract.Error (ToErrorCode (..))
 
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
@@ -80,3 +57,13 @@ infix 4 ===
 (===) val val' =
   serialiseData (toBuiltinData val) == serialiseData (toBuiltinData val')
 {-# INLINEABLE (===) #-}
+
+-- * Errors
+
+data UtilError
+  = MintingOrBurningIsForbidden
+  deriving (Show)
+
+instance ToErrorCode UtilError where
+  toErrorCode = \case
+    MintingOrBurningIsForbidden -> "U01"

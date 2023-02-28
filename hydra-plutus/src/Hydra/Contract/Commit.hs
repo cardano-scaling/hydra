@@ -9,11 +9,10 @@ import PlutusTx.Prelude
 
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Data.ByteString.Lazy (fromStrict, toStrict)
-import Data.Text (Text)
 import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import qualified Hydra.Cardano.Api as OffChain
 import Hydra.Cardano.Api.Network (Network (Testnet))
-import Hydra.Contract.Util (ToErrorCode (toCode), hasST, mustBurnST)
+import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -33,17 +32,7 @@ import Plutus.V2.Ledger.Api (
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx
 import qualified Prelude as Haskell
-
-data CommitError
-  = STNotBurnedError
-  | STIsMissingInTheOutput
-  deriving (Show)
-
-instance ToErrorCode CommitError where
-  toCode :: CommitError -> Text
-  toCode = \case
-    STNotBurnedError -> "C01"
-    STIsMissingInTheOutput -> "C02"
+import Hydra.Contract.Error (ToErrorCode (..))
 
 data CommitRedeemer
   = ViaCollectCom
@@ -133,3 +122,15 @@ datum a = Datum (toBuiltinData a)
 
 redeemer :: RedeemerType -> Redeemer
 redeemer a = Redeemer (toBuiltinData a)
+
+-- * Errors
+
+data CommitError
+  = STNotBurnedError
+  | STIsMissingInTheOutput
+  deriving (Show)
+
+instance ToErrorCode CommitError where
+  toErrorCode = \case
+    STNotBurnedError -> "C01"
+    STIsMissingInTheOutput -> "C02"

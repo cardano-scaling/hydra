@@ -31,7 +31,7 @@ import Hydra.Contract.HeadTokens (
     WrongNumberOfTokensMinted
   ),
  )
-import Hydra.Contract.Util (toErrorCode)
+import Hydra.Contract.Error (toErrorCode)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Party (Party)
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
