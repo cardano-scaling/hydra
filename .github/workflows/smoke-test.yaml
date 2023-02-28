@@ -44,6 +44,10 @@ jobs:
         path: state-${{inputs.network}}
         key: state-${{inputs.network}}
 
+    - name: 🚬 Cleanup hydra-node state
+      run: |
+        rm -rf state-${{inputs.network}}/state-*
+
     - name: 🚬 Run hydra-cluster smoke test
       run: |
         if [ -n "${{inputs.hydra-scripts-tx-id}}" ]; then
