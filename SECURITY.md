@@ -12,12 +12,6 @@ We encourage responsible disclosure practices, which means giving us a reasonabl
 
 We will provide security updates for the latest version of Hydra.
 
-## Reporting Channels
-
-You can report a security vulnerability by emailing security@iohk.io with the details of the vulnerability and steps to reproduce it. Please use "Hydra Security Disclosure" as the subject line for your email.
-
-We will acknowledge receipt of your email and will aim to provide a timeline for remediation.
-
 ## Bug Bounty
 
 We do not offer a bug bounty program for Hydra at this time. However, we appreciate and value security researchers who practice responsible disclosure and will give credit where credit is due.
