@@ -55,8 +55,9 @@
         # Build selected derivations in CI for caching
         hydraJobs = {
           packages = { inherit (packages) hydra-node hydra-tui hydraw; };
-          # devShells will not build for aarch64-darwin as the cardano-node
+          # XXX: devShells will not build for aarch64-darwin as the cardano-node
           # version we use is not supporting it
+          devShells = { inherit (devShells) default; };
         };
       });
 
