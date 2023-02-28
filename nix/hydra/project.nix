@@ -64,17 +64,7 @@ let
       )
     ];
   };
-
-  # Add cardano-node & cardano-cli for our shell environments.
-  # XXX: We are using a branch as 1.35.4 was using builtins.currentSystem
-  cardano-node = import
-    (builtins.fetchGit {
-      url = "https://github.com/input-output-hk/cardano-node";
-      ref = "purity-backport-1.35.4";
-      rev = "a42ca8801ea31cb0b23a3f53dcc063ce4a5a0be5";
-    })
-    { inherit system; };
 in
 {
-  inherit compiler pkgs hsPkgs cardano-node;
+  inherit compiler pkgs hsPkgs;
 }

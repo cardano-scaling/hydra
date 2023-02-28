@@ -5,11 +5,14 @@
 {
   # Used in CI to have a smaller closure
   withoutDevTools ? false
-, hydraProject # as defined in default.nix
+, hydraProject
 , system ? builtins.currentSystem
+, cardano-node
 }:
 let
-  inherit (hydraProject) compiler pkgs hsPkgs cardano-node;
+  inherit (hydraProject) compiler pkgs hsPkgs;
+
+  cardano-node-pkgs = cardano-node.packages.${system};
 
   libs = [
     pkgs.glibcLocales
@@ -31,7 +34,7 @@ let
     # For plotting results of hydra-cluster benchmarks
     pkgs.gnuplot
     # For integration tests
-    cardano-node.cardano-node
+    cardano-node-pkgs.cardano-node
   ];
 
   devInputs = if withoutDevTools then [ ] else [
@@ -49,7 +52,7 @@ let
     pkgs.yarn
     pkgs.nodejs
     # To interact with cardano-node and testing out things
-    cardano-node.cardano-cli
+    cardano-node-pkgs.cardano-cli
   ];
 
   # Haskell.nix managed tools (via hackage)
@@ -121,8 +124,8 @@ let
     name = "hydra-node-exe-shell";
 
     buildInputs = [
-      cardano-node.cardano-node
-      cardano-node.cardano-cli
+      cardano-node-pkgs.cardano-node
+      cardano-node-pkgs.cardano-cli
       hsPkgs.hydra-node.components.exes.hydra-node
       hsPkgs.hydra-cluster.components.exes.hydra-cluster
     ];
