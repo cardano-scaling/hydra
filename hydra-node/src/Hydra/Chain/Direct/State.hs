@@ -755,6 +755,7 @@ data HydraContext = HydraContext
   , ctxHydraSigningKeys :: [SigningKey HydraKey]
   , ctxNetworkId :: NetworkId
   , ctxContestationPeriod :: ContestationPeriod
+  , ctxScriptRegistry :: ScriptRegistry
   }
   deriving (Show)
 
@@ -779,12 +780,14 @@ genHydraContextFor n = do
   ctxHydraSigningKeys <- vector n
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
   ctxContestationPeriod <- arbitrary
+  ctxScriptRegistry <- genScriptRegistry
   pure $
     HydraContext
       { ctxVerificationKeys
       , ctxHydraSigningKeys
       , ctxNetworkId
       , ctxContestationPeriod
+      , ctxScriptRegistry
       }
 
 -- | Get all peer-specific 'ChainContext's from a 'HydraContext'. NOTE: This
@@ -792,7 +795,6 @@ genHydraContextFor n = do
 -- 'ctxHydraSigningKeys'.
 deriveChainContexts :: HydraContext -> Gen [ChainContext]
 deriveChainContexts ctx = do
-  scriptRegistry <- genScriptRegistry
   pure $
     flip map (zip ctxVerificationKeys allParties) $ \(vk, p) ->
       ChainContext
@@ -801,7 +803,7 @@ deriveChainContexts ctx = do
         , ownVerificationKey = vk
         , ownParty = p
         , otherParties = allParties \\ [p]
-        , scriptRegistry
+        , scriptRegistry = ctxScriptRegistry
         , contestationPeriod = ctxContestationPeriod ctx
         }
  where
@@ -810,6 +812,7 @@ deriveChainContexts ctx = do
   HydraContext
     { ctxVerificationKeys
     , ctxNetworkId
+    , ctxScriptRegistry
     } = ctx
 
 -- | Pick one of the participants and derive the peer-specific 'ChainContext'
