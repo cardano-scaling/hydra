@@ -41,7 +41,7 @@ import Hydra.Contract.Head (
     IncorrectClosedContestationDeadline,
     InfiniteLowerBound,
     InfiniteUpperBound,
-    InvalidSnapshotSignature,
+    SignatureVerificationFailed,
     SignerIsNotAParticipant
   ),
  )
@@ -253,15 +253,15 @@ data CloseMutation
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    [ SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
     , SomeMutation (Just $ toErrorCode ClosedWithNonInitialHash) MutateSnapshotNumberToLessThanZero <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (<= 0)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
-    , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateSnapshotNumberButNotSignature <$> do
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
-    , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateParties . ChangeInputHeadDatum <$> do
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $
           Head.Open
@@ -279,7 +279,7 @@ genCloseMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
     , SomeMutation (Just $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationDeadline mutatedDeadline) headTxOut

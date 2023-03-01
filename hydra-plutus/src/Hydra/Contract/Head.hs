@@ -21,6 +21,7 @@ import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
 import Hydra.Contract.Util (hasST, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
@@ -61,7 +62,6 @@ import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 import qualified PlutusTx.Builtins as Builtins
-import Hydra.Contract.Error (ToErrorCode (..))
 
 type DatumType = State
 type RedeemerType = Input
@@ -313,8 +313,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
-      traceIfFalse "H11" $
-        verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
+      verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
     | otherwise =
       traceIfFalse "H12" $
         closedUtxoHash == initialUtxoHash
@@ -631,7 +630,6 @@ data HeadError
   | MissingCommits
   | HeadValueIsNotPreserved
   | HasBoundedValidityCheckFailed
-  | InvalidSnapshotSignature
   | ClosedWithNonInitialHash
   | IncorrectClosedContestationDeadline
   | InfiniteUpperBound
@@ -671,7 +669,6 @@ instance ToErrorCode HeadError where
     MissingCommits -> "H08"
     HeadValueIsNotPreserved -> "H09"
     HasBoundedValidityCheckFailed -> "H10"
-    InvalidSnapshotSignature -> "H11"
     ClosedWithNonInitialHash -> "H12"
     IncorrectClosedContestationDeadline -> "H13"
     InfiniteUpperBound -> "H14"
