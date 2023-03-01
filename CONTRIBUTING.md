@@ -167,13 +167,18 @@ During development
 
 ### Releasing
 
-To perform a release of next `<version>`
-+ Check version to be released is also correct in software components, e.g. `.cabal` files.
-+ Refer to `<version>` in deployment instructions, e.g. `docker-compose.yaml` files.
-+ Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601)
-+ Create a signed, annotated git tag of the version: `git tag -as <version>`
-  - Copy/paste this release CHANGELOG as annotation
-+ Create a github release page containing
-  - The released changes (formatted) and giving credit where credit is due
-  - Attach static binaries to the release (or link the CI artifact)
-  - Publish hydra scripts onto `preview` and `pre-prod` and include transaction ids (e.g. using the [smoke test](https://github.com/input-output-hk/hydra/actions/workflows/smoke-test.yaml))
+To perform a release of next `<version>`:
+
+1. Check version to be released is also correct in software components, e.g. `.cabal` files.
+2. Refer to `<version>` in deployment instructions, e.g. `docker-compose.yaml` files.
+3. Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601)
+4. Publish hydra scripts onto `preview`/`pre-prod` using the [smoke
+   test](https://github.com/input-output-hk/hydra/actions/workflows/smoke-test.yaml)
+   and update transaction ids in our documentation and examples. This will also
+   be the green light for the next step.
+5. Create a signed, annotated git tag of the version: `git tag -as <version>`
+   - Copy/paste this release CHANGELOG as annotation
+6. Create a github release page containing
+   - The released changes (formatted) and giving credit where credit is due
+   - Attach static binaries to the release (or link the CI artifact)
+   - The just published `hydra-scripts-tx-id` from step 4
