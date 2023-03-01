@@ -8,6 +8,10 @@ where others can benefit from it as well:
 - Github [Discussions](https://github.com/input-output-hk/hydra/discussions)
 - Cardano [StackExchange](https://cardano.stackexchange.com/) using the `hydra` tag
 
-## Contributions
+# Reporting a Vulnerability
+
+See [`SECURITY.md`](SECURITY.md) on how to report a security vulnerability.
+
+# Contributions
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) on how to contribute.
