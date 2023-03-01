@@ -338,7 +338,8 @@ propIsValid ::
   SpecWith ()
 propIsValid forAllTx =
   prop "validates within maxTxExecutionUnits" $
-    forAllTx $ \utxo tx -> propTransactionEvaluates (tx, utxo)
+    forAllTx $
+      \utxo tx -> propTransactionEvaluates (tx, utxo)
 
 --
 -- QuickCheck Extras
@@ -498,7 +499,7 @@ forAllFanout action =
        in action utxo tx
             & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
-  maxSupported = 35
+  maxSupported = 58
 
   countAssets = getSum . foldMap (Sum . valueSize . txOutValue)
 
