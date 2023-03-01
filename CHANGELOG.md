@@ -10,8 +10,24 @@ changes.
 
 ## [0.9.0] - UNRELEASED
 
+:warning: Delete your persistence directory!
+
+This release contains several breaking changes and you'll need to apply the following procedure to upgrade
+all the nodes running a head:
+1. close the head
+2. stop Hydra node
+3. remove persistent files stored in `--persistence-dir`, in particular `server-output` and `state`
+4. upgrade Hydra node version
+5. start Hydra node
+
+Only when this procedure has been applied to all Hydra nodes can you open a new head again.
+
 - Reduced the number of supported parties to `3`. This was caused by increased
   size of minting policy and head validator scripts.
+
+- **BREAKING** Changes in the persistence format:
+  + Refactor HeadLogic with types for each state [#725](https://github.com/input-output-hk/hydra/pull/725)
+  + changes in the API hisotry [#745](https://github.com/input-output-hk/hydra/pull/745)
 
 - **BREAKING** Changes to the API:
   + Remove `TxSeen` and `TxExpired` server outputs. Use the `TxValid` and `TxInvalid` responses instead.
