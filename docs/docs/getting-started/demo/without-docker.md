@@ -160,9 +160,12 @@ source .env && hydra-node \
 If things go well, the nodes should start logging once connected to the chain.
 
 ## Running The Clients
-Connect to the nodes using hydra-tui. For example, to use Alice's hydra-node and her on-chain credentials:
+Connect to the nodes using hydra-tui.
 
 ````mdx-code-block
+<Tabs>
+
+<TabItem value="Alice">
 <TerminalWindow>
 
 ```
@@ -174,6 +177,35 @@ hydra-tui \
 ```
 
 </TerminalWindow>
-````
+</TabItem>
 
-Replace port `4001` with `4002` or `4003` to connect to the other 2 nodes and `alice.sk` with `bob.sk` or `carol.sk` respectively.
+<TabItem value="Bob">
+<TerminalWindow>
+
+```
+hydra-tui \
+  --connect 0.0.0.0:4002 \
+  --cardano-signing-key devnet/credentials/bob.sk \
+  --network-id 42 \
+  --node-socket devnet/node.socket
+```
+
+</TerminalWindow>
+</TabItem>
+
+<TabItem value="Carol">
+<TerminalWindow>
+
+```
+hydra-tui \
+  --connect 0.0.0.0:4002 \
+  --cardano-signing-key devnet/credentials/carol.sk \
+  --network-id 42 \
+  --node-socket devnet/node.socket
+```
+
+</TerminalWindow>
+</TabItem>
+
+</Tabs>
+````
