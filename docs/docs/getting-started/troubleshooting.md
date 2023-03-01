@@ -4,21 +4,13 @@
 
 ### hydra-node
 
-- AcquireFailurePointNotOnChain
-
-    + It ocurs when you attempt to start a head using a point in the past too old (exceeding **k** limit).
-
-    + Reference: [issue #439](https://github.com/input-output-hk/hydra/issues/439) AcquireFailurePointTooOld when `--start-chain-from` point is past **k**.
-
-    + Workaround: Restart your node fresh, without state. For that you need to remove your persistance dir and restart the hydra-node.
-
 - Hydra node crashes after a fork
 
     + It ocurs during a fork and expects the operator to restart its hydra-node.
 
     + Reference: [issue #560](https://github.com/input-output-hk/hydra/issues/560) Hydra node crashed after a fork.
     
-    + Workaround: Restarting your node should be enough to come back to live. Beware, if you wait to long to restart it then you may fall under `QueryAcquireException AcquireFailurePointTooOld` and will require you to restart without state.
+    + Workaround: Restarting your node should be enough to come back to live.
 
 - The current transaction size has a limit of ~16KB. This causes the following inconveniences:
 
