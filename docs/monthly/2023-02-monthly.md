@@ -7,19 +7,18 @@ tags: [monthly]
 
 This report summarizes the work on Hydra since January 2023. It serves as
 preparation for the monthly review meeting, where the teams update major project
-stakeholders on recent developments to gather their feedback on proposed
-plans.
+stakeholders on recent developments to gather their feedback on proposed plans.
 
 ## Roadmap
 
 Looking at the [roadmap](https://github.com/orgs/input-output-hk/projects/21),
 there are a few things that changed this month:
 
-- In general, there will be several items in flux as we align the
-  technical roadmap to support our high-level objectives for the year.
+- In general, there will be several items in flux as we align the technical
+  roadmap to support our high-level objectives for the year.
 
-  + New items for example: [create a use case-centric
-  roadmap #710](https://github.com/input-output-hk/hydra/issues/710) and [open
+  + New items for example: [create a use case-centric roadmap
+  #710](https://github.com/input-output-hk/hydra/issues/710) and [open
   specification with change process
   #693](https://github.com/input-output-hk/hydra/issues/693).
 
@@ -32,19 +31,27 @@ there are a few things that changed this month:
   specification and discussions with researchers leading to scope creep.  
   Most importantly, we made on-chain behavior consistent with specification.
   + Follow-ups for some off-chain protocol logic:
-    - [Authenticate network messages #727](https://github.com/input-output-hk/hydra/issues/727)
-    - [ReqSn only sends transaction ids #728](https://github.com/input-output-hk/hydra/issues/728)
+    - [Authenticate network messages
+      #727](https://github.com/input-output-hk/hydra/issues/727)
+    - [ReqSn only sends transaction ids
+      #728](https://github.com/input-output-hk/hydra/issues/728)
   
-- Version **0.9.0** will be the first release to be developed against a full technical specification. We expect a release in early March.
+- Version **0.9.0** will be the first release to be developed against a full
+  technical specification. We expect a release in early March.
 
-- Version **0.10.0** will be the first mainnet compatible release. For this, we created and groomed the main feature item [Mainnnet compatibility #713](https://github.com/input-output-hk/hydra/issues/713):
-  - Not only making it technically compatible but also adding guard rails to limit
-    risk (“not shoot yourself in the foot .. with a real gun now”) and documenting
-    known issues.
+- Version **0.10.0** will be the first mainnet compatible release. For this, we
+  created and groomed the main feature item [Mainnnet compatibility
+  #713](https://github.com/input-output-hk/hydra/issues/713):
+  - Not only making it technically compatible but also adding guard rails to
+    limit risk (“not shoot yourself in the foot .. with a real gun now”) and
+    documenting known issues.
 
-- For a fully maintained version **1.0.0** we still need to address some things, but we aim for an increased rate of planned releases in the next months as we march toward it.
+- For a fully maintained version **1.0.0** we still need to address some things,
+  but we aim for an increased rate of planned releases in the next months as we
+  march toward it.
   
-![](./img/2023-02-roadmap.png) <small><center> The latest roadmap with multiple new items and starting to reflect Hydra objectives of 2023.</center></small>
+![](./img/2023-02-roadmap.png) <small><center> The latest roadmap with multiple
+new items and starting to reflect Hydra objectives of 2023.</center></small>
 
 ## Development
 
@@ -59,11 +66,13 @@ This month, the team worked on the following:
   must-have parts and can continue now on other features. Notable things from
   this month were:
   
-  **Pushing out contestation deadlines:** The original paper defined that
-  all participants need to be contesting within the contestation period (after
+  **Pushing out contestation deadlines:** The original paper defined that all
+  participants need to be contesting within the contestation period (after
   close, before the deadline). In discussions with researchers last year, we
   identified better semantics: the contestation deadline gets "pushed out" on
-  each contest. This has the benefit that the period needs to only accommodate the minimum time required to get a single contest transaction into the blockchain. Before it was depending on the size of the Hydra head - each
+  each contest. This has the benefit that the period needs to only accommodate
+  the minimum time required to get a single contest transaction into the
+  blockchain. Before it was depending on the size of the Hydra head - each
   participant can contest once.
   
   **Align off-chain protocol logic:** While most concerns addressed were about
@@ -79,10 +88,10 @@ This month, the team worked on the following:
   behavior tests whether the protocol as specified is sound as well. Below you
   see an excerpt of the Haskell code against the LaTeX pseudocode formalism:
   
-  <center>
-    <img src={require("./img/2023-02-logic-haskell.png").default} style={{width: 310}} />
-    <img src={require("./img/2023-02-logic-latex.png").default} style={{width: 250}} />
-  </center>
+  <center> <img src={require("./img/2023-02-logic-haskell.png").default}
+    style={{width: 310}} /> <img
+    src={require("./img/2023-02-logic-latex.png").default} style={{width: 250}}
+    /> </center>
  
 - **Profiling Hydra transactions.** We will want to maximize the capability of
   the Hydra Head protocol. This includes writing the on-chain scripts
@@ -92,30 +101,33 @@ This month, the team worked on the following:
   published a [tutorial on the Hydra
   website](https://hydra.family/head-protocol/benchmarks/profiling). This allows
   any contributor to [Hydra](https://github.com/input-output-hk/hydra) to
-  profile the scripts used in these transactions and identify code that uses a lot of the memory or CPU budget in flame graphs like this: 
+  profile the scripts used in these transactions and identify code that uses a
+  lot of the memory or CPU budget in flame graphs like this:
   
-  ![](../benchmarks/profile-mem.svg)
-  [Interactive]Head not closable/limiting script size discussion + acceptance property
+  ![](../benchmarks/profile-mem.svg) [Interactive]Head not closable/limiting
+  script size discussion + acceptance property
 
 ## Community
 
 - **Audit guidelines.** Hydra is an open-source project and, as such, should be
   freely used, reviewed and audited. The goal of audits and peer reviews is to
   increase confidence in the security of a system. However, conducting an audit
-  is also very expensive and not in the scope of our current budget. All the while,
-  the worth of an audit is not the same to all users, some will not even trust
-  an audit they have not paid for themselves, while others do not care at all
-  and would blindly trust the word of the maintainers.
+  is also very expensive and not in the scope of our current budget. All the
+  while, the worth of an audit is not the same to all users, some will not even
+  trust an audit they have not paid for themselves, while others do not care at
+  all and would blindly trust the word of the maintainers.
   
   While the Hydra project continues to seek for funding to eventually pay for an
-  audit of the protocol specification and the `hydra-node` implementation, it is a prerequisite that the necessary artifacts for such an audit exist. As we have
-  been creating them in recent months, we also worked on guidelines for
+  audit of the protocol specification and the `hydra-node` implementation, it is
+  a prerequisite that the necessary artifacts for such an audit exist. As we
+  have been creating them in recent months, we also worked on guidelines for
   auditors, now [published on our
   website](https://hydra.family/head-protocol/audit-guidelines/). These
   guidelines should serve as a starting point and scope description of what
   would be most crucial to audit.
 
-- **New tutorial.** This month we received a great contribution from [@perturbing](https://github.com/perturbing/), who created an [end-to-end
+- **New tutorial.** This month we received a great contribution from
+  [@perturbing](https://github.com/perturbing/), who created an [end-to-end
   tutorial](https://hydra.family/head-protocol/docs/tutorial/) on using a
   `hydra-node` and opening a Hydra head on the testnet. We gladly adopted this
   tutorial and aim to keep it up to date with upcoming versions of the
@@ -134,16 +146,17 @@ This month, the team worked on the following:
 - **Hydra for Voting.** The project with Catalyst and Cardano Foundation on
   voting with Hydra (or rather *tallying* with Hydra) showed some progress. They
   have [contributed Merkle Trees to
-  Aiken](https://github.com/aiken-lang/trees/pull/1), which will be useful to prove the correct tallying of votes in the L2. They started work on a
+  Aiken](https://github.com/aiken-lang/trees/pull/1), which will be useful to
+  prove the correct tallying of votes in the L2. They started work on a
   [hydra-java-client](https://github.com/cardano-foundation/hydra-java-client)
   and provided valuable feedback on the `hydra-node` API over the last month.
 
 - **Hydra on Demeter.** The folks from [@txpipe](https://github.com/txpipe) have
-  been working on integrating Hydra into their platform-as-a-service offering, Demeter. This is a great way to get started with running a `hydra-node`
-  as a service and we plan on integrating one instance into our long-running
-  hydraw demo. It's still not fully released, but the teams are working together
-  to make this integration great. Thanks for providing this service!
-  :green_heart:
+  been working on integrating Hydra into their platform-as-a-service offering,
+  Demeter. This is a great way to get started with running a `hydra-node` as a
+  service and we plan on integrating one instance into our long-running hydraw
+  demo. It's still not fully released, but the teams are working together to
+  make this integration great. Thanks for providing this service! :green_heart:
   
 - **New discord category.** The Hydra project will be using Discord a bit more
   in the coming weeks and months. For that, a new category on the [IOG Technical
@@ -151,10 +164,9 @@ This month, the team worked on the following:
   news and, most importantly, invites for the next month's review meeting in the
   new Hydra #announcements channel!
   
-  <div style={{display: 'flex'}}>
-    <img src={require("./img/2023-02-discord.png").default} style={{width: 300,
-    margin: '0 auto'}} />
-  </div>
+  <div style={{display: 'flex'}}> <img
+    src={require("./img/2023-02-discord.png").default} style={{width: 300,
+    margin: '0 auto'}} /> </div>
 
 ## Conclusion
 
@@ -164,10 +176,11 @@ Meet -
 /
 [recording](https://drive.google.com/file/d/15l5F5NJNO1aC4X8HdQUDsg_dKMgVCO-J/view?usp=sharing).
 
-This month's installment featured two demos, one about the Hydra Payment channels, and another about the progress on the Hydra for Auctions project. It was
-great to showcase not only core development progress on the specification and
-protocol implementation in the `hydra-node`, but also to see contributions from
-the Community on tutorials and tooling (Demeter integration).
+This month's installment featured two demos, one about the Hydra Payment
+channels, and another about the progress on the Hydra for Auctions project. It
+was great to showcase not only core development progress on the specification
+and protocol implementation in the `hydra-node`, but also to see contributions
+from the Community on tutorials and tooling (Demeter integration).
 
 An exciting, but also challenging next step will be to aim for mainnet
 compatibility and at the same time deliver quick releases to enable these
