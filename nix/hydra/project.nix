@@ -63,6 +63,8 @@ let
         }
       )
     ];
+    materialized = ./hydra.materialized;
+    checkMaterialization = true;
   };
 in
 {
