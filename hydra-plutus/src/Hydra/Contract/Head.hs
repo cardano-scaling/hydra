@@ -403,10 +403,10 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
 
   mustBeNewer =
     traceIfFalse "H17" $
-      contestSnapshotNumber > closedSnapshotNumber
+      closedSnapshotNumber' > closedSnapshotNumber
 
   mustBeMultiSigned =
-    verifySnapshotSignature parties contestSnapshotNumber contestUtxoHash sig
+    verifySnapshotSignature parties closedSnapshotNumber' closedUtxoHash' sig
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange txInfo) of
@@ -433,7 +433,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     traceIfFalse "H22" $
       contesters' == contester : contesters
 
-  (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', contestationPeriod', headId', contesters') =
+  (closedSnapshotNumber', closedUtxoHash', parties', contestationDeadline', contestationPeriod', headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just

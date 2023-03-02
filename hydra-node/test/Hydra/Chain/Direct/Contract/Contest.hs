@@ -256,11 +256,11 @@ genContestMutation
       , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
           newSigner <- verificationKeyHash <$> genVerificationKey
           pure $ ChangeRequiredSigners [newSigner]
-      , SomeMutation (Just $ toErrorCode TooOldSnapshot) MutateContestUTxOHash . ChangeOutput 0 <$> do
+      , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
           mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
           pure $
             changeHeadOutputDatum
-              (const $ healthyClosedState & replaceUtxoHash (toBuiltin mutatedUTxOHash))
+              (replaceUtxoHash (toBuiltin mutatedUTxOHash))
               headTxOut
       , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateParties . ChangeInputHeadDatum <$> do
           mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
