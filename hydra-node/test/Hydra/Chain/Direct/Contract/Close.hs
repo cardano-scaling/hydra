@@ -327,7 +327,7 @@ genCloseMutation (tx, _utxo) =
 
   mutateCloseUTxOHash :: Gen (TxOut CtxTx)
   mutateCloseUTxOHash = do
-    mutatedUTxOHash <- genHash
+    mutatedUTxOHash <- genHash `suchThat` ((/= healthyClosedUTxOHash) . toBuiltin)
     pure $ changeHeadOutputDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
 
 data CloseInitialMutation
