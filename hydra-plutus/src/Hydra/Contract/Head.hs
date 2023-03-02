@@ -245,7 +245,7 @@ commitDatum :: TxInfo -> TxOut -> Maybe Commit
 commitDatum txInfo input = do
   let datum = findTxOutDatum txInfo input
   case fromBuiltinData @Commit.DatumType $ getDatum datum of
-    Just (_party, _validatorHash, commit, _headId) ->
+    Just (_party, commit, _headId) ->
       commit
     Nothing -> Nothing
 {-# INLINEABLE commitDatum #-}
@@ -606,8 +606,6 @@ TxOutRef{txOutRefId, txOutRefIdx} `compareRef` TxOutRef{txOutRefId = id', txOutR
     ord -> ord
 {-# INLINEABLE compareRef #-}
 
--- TODO: Add a NetworkId so that we can properly serialise address hashes
--- see 'encodeAddress' for details
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
   $$(PlutusTx.compile [||wrap headValidator||])

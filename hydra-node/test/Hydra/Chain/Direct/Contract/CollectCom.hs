@@ -23,6 +23,7 @@ import Hydra.Chain.Direct.Fixture (
   testPolicyId,
   testSeedInput,
  )
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
   InitialThreadOutput (..),
   assetNameFromVerificationKey,
@@ -44,7 +45,6 @@ import Hydra.Contract.Head (
     SignerIsNotAParticipant
   ),
  )
-import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
@@ -67,15 +67,20 @@ healthyCollectComTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput) <> UTxO (txOut <$> healthyCommits)
+    UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput)
+      <> UTxO (txOut <$> healthyCommits)
+      <> registryUTxO scriptRegistry
 
   tx =
     collectComTx
       testNetworkId
+      scriptRegistry
       somePartyCardanoVerificationKey
       initialThreadOutput
       ((txOut &&& scriptData) <$> healthyCommits)
       (mkHeadId testPolicyId)
+
+  scriptRegistry = genScriptRegistry `generateWith` 42
 
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties
@@ -173,7 +178,7 @@ healthyCommitOutput party committed =
         [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoKey), 1)
         ]
   commitDatum =
-    mkCommitDatum party Head.validatorHash (Just committed) (toPlutusCurrencySymbol $ headPolicyId healthyHeadInput)
+    mkCommitDatum party (Just committed) (toPlutusCurrencySymbol $ headPolicyId healthyHeadInput)
 
 data CollectComMutation
   = MutateOpenUTxOHash

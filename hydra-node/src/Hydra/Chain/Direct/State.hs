@@ -301,9 +301,9 @@ commit ctx st utxo = do
       case UTxO.pairs utxo of
         [aUTxO] -> do
           rejectByronAddress aUTxO
-          Right $ commitTx scriptRegistry networkId headId ownParty (Just aUTxO) initial
+          Right $ commitTx networkId scriptRegistry headId ownParty (Just aUTxO) initial
         [] -> do
-          Right $ commitTx scriptRegistry networkId headId ownParty Nothing initial
+          Right $ commitTx networkId scriptRegistry headId ownParty Nothing initial
         _ ->
           Left (MoreThanOneUTxOCommitted @Tx)
  where
@@ -342,12 +342,12 @@ commit ctx st utxo = do
 -- reimburse all the already committed outputs.
 abort ::
   HasCallStack =>
-  -- | Committed UTxOs to reimburse.
-  UTxO ->
   ChainContext ->
   InitialState ->
+  -- | Committed UTxOs to reimburse.
+  UTxO ->
   Tx
-abort committedUTxO ctx st = do
+abort ctx st committedUTxO = do
   let InitialThreadOutput{initialThreadUTxO = (i, o, dat)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
@@ -379,9 +379,9 @@ collect ::
   Tx
 collect ctx st = do
   let commits = Map.fromList $ fmap tripleToPair initialCommits
-   in collectComTx networkId ownVerificationKey initialThreadOutput commits headId
+   in collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput commits headId
  where
-  ChainContext{networkId, ownVerificationKey} = ctx
+  ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
   InitialState
     { initialThreadOutput
@@ -407,7 +407,7 @@ close ::
   PointInTime ->
   Tx
 close ctx st confirmedSnapshot startSlotNo pointInTime =
-  closeTx ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput headId
+  closeTx scriptRegistry ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput headId
  where
   closingSnapshot = case confirmedSnapshot of
     -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
@@ -420,7 +420,7 @@ close ctx st confirmedSnapshot startSlotNo pointInTime =
         , signatures
         }
 
-  ChainContext{ownVerificationKey} = ctx
+  ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
   OpenState
     { openThreadOutput
@@ -438,14 +438,14 @@ contest ::
   PointInTime ->
   Tx
 contest ctx st confirmedSnapshot pointInTime = do
-  contestTx ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod
+  contestTx scriptRegistry ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod
  where
   (sn, sigs) =
     case confirmedSnapshot of
       ConfirmedSnapshot{signatures} -> (getSnapshot confirmedSnapshot, signatures)
       _ -> (getSnapshot confirmedSnapshot, mempty)
 
-  ChainContext{contestationPeriod, ownVerificationKey} = ctx
+  ChainContext{contestationPeriod, ownVerificationKey, scriptRegistry} = ctx
 
   ClosedState
     { closedThreadOutput
@@ -455,14 +455,17 @@ contest ctx st confirmedSnapshot pointInTime = do
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
 -- agreed 'UTxO' set to fan out.
 fanout ::
+  ChainContext ->
   ClosedState ->
   UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Tx
-fanout st utxo deadlineSlotNo = do
-  fanoutTx utxo (i, o, dat) deadlineSlotNo closedHeadTokenScript
+fanout ctx st utxo deadlineSlotNo = do
+  fanoutTx scriptRegistry utxo (i, o, dat) deadlineSlotNo closedHeadTokenScript
  where
+  ChainContext{scriptRegistry} = ctx
+
   ClosedState{closedThreadOutput, closedHeadTokenScript} = st
 
   ClosedThreadOutput{closedThreadUTxO = (i, o, dat)} = closedThreadOutput
@@ -752,6 +755,7 @@ data HydraContext = HydraContext
   , ctxHydraSigningKeys :: [SigningKey HydraKey]
   , ctxNetworkId :: NetworkId
   , ctxContestationPeriod :: ContestationPeriod
+  , ctxScriptRegistry :: ScriptRegistry
   }
   deriving (Show)
 
@@ -776,12 +780,14 @@ genHydraContextFor n = do
   ctxHydraSigningKeys <- vector n
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
   ctxContestationPeriod <- arbitrary
+  ctxScriptRegistry <- genScriptRegistry
   pure $
     HydraContext
       { ctxVerificationKeys
       , ctxHydraSigningKeys
       , ctxNetworkId
       , ctxContestationPeriod
+      , ctxScriptRegistry
       }
 
 -- | Get all peer-specific 'ChainContext's from a 'HydraContext'. NOTE: This
@@ -789,7 +795,6 @@ genHydraContextFor n = do
 -- 'ctxHydraSigningKeys'.
 deriveChainContexts :: HydraContext -> Gen [ChainContext]
 deriveChainContexts ctx = do
-  scriptRegistry <- genScriptRegistry
   pure $
     flip map (zip ctxVerificationKeys allParties) $ \(vk, p) ->
       ChainContext
@@ -798,7 +803,7 @@ deriveChainContexts ctx = do
         , ownVerificationKey = vk
         , ownParty = p
         , otherParties = allParties \\ [p]
-        , scriptRegistry
+        , scriptRegistry = ctxScriptRegistry
         , contestationPeriod = ctxContestationPeriod ctx
         }
  where
@@ -807,6 +812,7 @@ deriveChainContexts ctx = do
   HydraContext
     { ctxVerificationKeys
     , ctxNetworkId
+    , ctxScriptRegistry
     } = ctx
 
 -- | Pick one of the participants and derive the peer-specific 'ChainContext'
@@ -897,8 +903,9 @@ genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
   utxo <- genUTxOAdaOnlyOfSize numOutputs
   (_, toFanout, stClosed) <- genStClosed ctx utxo
+  cctx <- pickChainContext ctx
   let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
-  pure (ctx, stClosed, fanout stClosed toFanout deadlineSlotNo)
+  pure (ctx, stClosed, fanout cctx stClosed toFanout deadlineSlotNo)
 
 getContestationDeadline :: ClosedState -> UTCTime
 getContestationDeadline

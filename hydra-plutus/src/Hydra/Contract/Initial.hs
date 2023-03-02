@@ -12,7 +12,6 @@ import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Util (mustBurnST, mustNotMintOrBurn)
 import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Value (assetClass, assetClassValueOf)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   Datum (..),
@@ -31,8 +30,6 @@ import Plutus.V2.Ledger.Api (
   Validator (getValidator),
   ValidatorHash,
   Value (getValue),
-  adaSymbol,
-  adaToken,
   mkValidatorScript,
  )
 import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
@@ -77,47 +74,25 @@ validator commitValidator headId red context =
     ViaAbort ->
       traceIfFalse "I01" (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
     ViaCommit{committedRef} ->
-      checkCommit commitValidator committedRef context
-        && checkAuthorAndHeadPolicy context headId
-
--- | Verifies that the commit is only done by the author
-checkAuthorAndHeadPolicy ::
-  ScriptContext ->
-  CurrencySymbol ->
-  Bool
-checkAuthorAndHeadPolicy context@ScriptContext{scriptContextTxInfo = txInfo} headId =
-  traceIfFalse "I02" $
-    unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
- where
-  ourParticipationTokenName =
-    case AssocMap.lookup headId (getValue initialValue) of
-      Nothing -> traceError "I05"
-      Just tokenMap ->
-        case AssocMap.toList tokenMap of
-          [(tk, q)] | q == 1 -> tk
-          _moreThanOneToken -> traceError "I06"
-
-  -- TODO: DRY
-  initialValue =
-    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
+      checkCommit commitValidator headId committedRef context
 
 checkCommit ::
   -- | Commit validator
   ValidatorHash ->
+  -- | Head id
+  CurrencySymbol ->
   Maybe TxOutRef ->
   ScriptContext ->
   Bool
-checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxInfo = txInfo} =
-  mustNotMintOrBurn txInfo
-    && checkCommittedValue
+checkCommit commitValidator headId committedRef context =
+  checkCommittedValue
     && checkLockedCommit
+    && mustBeSignedByParticipant
+    && mustNotMintOrBurn txInfo
  where
   checkCommittedValue =
     traceIfFalse "I03" $
-      traceIfFalse ("lockedValue: " `appendString` debugValue lockedValue) $
-        traceIfFalse ("initialValue: " `appendString` debugValue initialValue) $
-          traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
-            lockedValue == initialValue + committedValue
+      lockedValue == initialValue + committedValue
 
   checkLockedCommit =
     case (committedTxOut, lockedCommit) of
@@ -131,6 +106,18 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
         traceIfFalse "I04" $
           Builtins.serialiseData (toBuiltinData txOut) == preSerializedOutput
             && ref == input
+
+  mustBeSignedByParticipant =
+    traceIfFalse "I02" $
+      unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
+
+  ourParticipationTokenName =
+    case AssocMap.lookup headId (getValue initialValue) of
+      Nothing -> traceError "I05"
+      Just tokenMap ->
+        case AssocMap.toList tokenMap of
+          [(tk, q)] | q == 1 -> tk
+          _moreThanOneToken -> traceError "I06"
 
   initialValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
@@ -156,30 +143,11 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
               Just da ->
                 case fromBuiltinData @Commit.DatumType $ getDatum da of
                   Nothing -> traceError "I12"
-                  Just (_party, _headScriptHash, mCommit, _headId) ->
+                  Just (_party, mCommit, _headId) ->
                     mCommit
       _ -> traceError "I13"
 
-  debugValue v =
-    debugInteger . assetClassValueOf v $ assetClass adaSymbol adaToken
-
--- | Show an 'Integer' as decimal number. This is very inefficient and only
--- should be used for debugging.
-debugInteger :: Integer -> BuiltinString
-debugInteger i
-  | i == 0 = "0"
-  | i == 1 = "1"
-  | i == 2 = "2"
-  | i == 3 = "3"
-  | i == 4 = "4"
-  | i == 5 = "5"
-  | i == 6 = "6"
-  | i == 7 = "7"
-  | i == 8 = "8"
-  | i == 9 = "9"
-  | i >= 10 = debugInteger (i `quotient` 10) `appendString` "0"
-  | otherwise = "-" `appendString` debugInteger (negate i)
-{-# INLINEABLE debugInteger #-}
+  ScriptContext{scriptContextTxInfo = txInfo} = context
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =

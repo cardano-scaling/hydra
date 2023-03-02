@@ -242,8 +242,8 @@ spec = parallel $ do
             when (h1 == h2) discard
             pure ((ctx1, st1), (ctx2, st2))
       forAll twoDistinctHeads $ \((ctx1, stHead1), (ctx2, stHead2)) ->
-        let observedIn1 = observeAbort stHead1 (abort mempty ctx1 stHead1)
-            observedIn2 = observeAbort stHead2 (abort mempty ctx2 stHead1)
+        let observedIn1 = observeAbort stHead1 (abort ctx1 stHead1 mempty)
+            observedIn2 = observeAbort stHead2 (abort ctx2 stHead1 mempty)
          in conjoin
               [ observedIn1 =/= Nothing
               , observedIn2 === Nothing
@@ -292,7 +292,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"
   -- Fanout
-  let txFanout = fanout stClosed initialUTxO (Fixture.slotNoFromUTCTime deadline)
+  let txFanout = fanout cctx stClosed initialUTxO (Fixture.slotNoFromUTCTime deadline)
 
   -- Properties
   let collectFails =
@@ -338,7 +338,8 @@ propIsValid ::
   SpecWith ()
 propIsValid forAllTx =
   prop "validates within maxTxExecutionUnits" $
-    forAllTx $ \utxo tx -> propTransactionEvaluates (tx, utxo)
+    forAllTx $
+      \utxo tx -> propTransactionEvaluates (tx, utxo)
 
 --
 -- QuickCheck Extras
@@ -414,7 +415,7 @@ forAllAbort action = do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
           let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
               utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
-           in action utxo (abort (fold committed) cctx stInitialized)
+           in action utxo (abort cctx stInitialized (fold committed))
                 & classify
                   (null commits)
                   "Abort immediately, after 0 commits"
@@ -498,7 +499,7 @@ forAllFanout action =
        in action utxo tx
             & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
-  maxSupported = 35
+  maxSupported = 58
 
   countAssets = getSum . foldMap (Sum . valueSize . txOutValue)
 

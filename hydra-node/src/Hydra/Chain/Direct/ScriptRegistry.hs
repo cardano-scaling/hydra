@@ -50,6 +50,7 @@ import Hydra.Chain.CardanoClient (
  )
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import qualified Hydra.Contract.Commit as Commit
+import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genTxOutAdaOnly)
 
@@ -57,8 +58,29 @@ import Hydra.Ledger.Cardano (genTxOutAdaOnly)
 data ScriptRegistry = ScriptRegistry
   { initialReference :: (TxIn, TxOut CtxUTxO)
   , commitReference :: (TxIn, TxOut CtxUTxO)
+  , headReference :: (TxIn, TxOut CtxUTxO)
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+genScriptRegistry :: Gen ScriptRegistry
+genScriptRegistry = do
+  txId <- arbitrary
+  txOut <- genTxOutAdaOnly
+  pure $
+    ScriptRegistry
+      { initialReference =
+          ( TxIn txId (TxIx 0)
+          , txOut{txOutReferenceScript = mkScriptRef Initial.validatorScript}
+          )
+      , commitReference =
+          ( TxIn txId (TxIx 1)
+          , txOut{txOutReferenceScript = mkScriptRef Commit.validatorScript}
+          )
+      , headReference =
+          ( TxIn txId (TxIx 2)
+          , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
+          )
+      }
 
 data NewScriptRegistryException = MissingScript
   { scriptName :: Text
@@ -88,20 +110,21 @@ newScriptRegistry =
   resolve ::
     Map ScriptHash (TxIn, TxOut CtxUTxO) ->
     Either NewScriptRegistryException ScriptRegistry
-  resolve m =
-    ScriptRegistry
-      <$> maybe
-        (Left $ MissingScript "νInitial" initialScriptHash (Map.keysSet m))
-        Right
-        (lookup initialScriptHash m)
-      <*> maybe
-        (Left $ MissingScript "νCommit" commitScriptHash (Map.keysSet m))
-        Right
-        (lookup commitScriptHash m)
+  resolve m = do
+    initialReference <- lookupScriptHash "νInitial" initialScriptHash m
+    commitReference <- lookupScriptHash "νCommit" commitScriptHash m
+    headReference <- lookupScriptHash "νHead" headScriptHash m
+    pure $ ScriptRegistry{initialReference, commitReference, headReference}
+
+  lookupScriptHash name sh m =
+    case lookup sh m of
+      Nothing -> Left $ MissingScript name sh (Map.keysSet m)
+      Just s -> Right s
 
   ScriptInfo
     { initialScriptHash
     , commitScriptHash
+    , headScriptHash
     } = scriptInfo
 
 -- | Get the UTxO that corresponds to a script registry.
@@ -111,11 +134,12 @@ newScriptRegistry =
 --     newScriptRegistry (registryUTxO r) === Just r
 registryUTxO :: ScriptRegistry -> UTxO
 registryUTxO scriptRegistry =
-  UTxO.fromPairs [initialReference, commitReference]
+  UTxO.fromPairs [initialReference, commitReference, headReference]
  where
   ScriptRegistry
     { initialReference
     , commitReference
+    , headReference
     } = scriptRegistry
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
@@ -144,26 +168,6 @@ queryScriptRegistry networkId nodeSocket txId = do
  where
   candidates = [TxIn txId ix | ix <- [TxIx 0 .. TxIx 10]] -- Arbitrary but, high-enough.
 
-genScriptRegistry :: Gen ScriptRegistry
-genScriptRegistry = do
-  txId <- arbitrary
-  txOut <- genTxOutAdaOnly
-  pure $
-    ScriptRegistry
-      { initialReference =
-          ( TxIn txId (TxIx 0)
-          , txOut
-              { txOutReferenceScript = mkScriptRef Initial.validatorScript
-              }
-          )
-      , commitReference =
-          ( TxIn txId (TxIx 1)
-          , txOut
-              { txOutReferenceScript = mkScriptRef Commit.validatorScript
-              }
-          )
-      }
-
 publishHydraScripts ::
   -- | Expected network discriminant.
   NetworkId ->
@@ -175,8 +179,13 @@ publishHydraScripts ::
 publishHydraScripts networkId nodeSocket sk = do
   pparams <- queryProtocolParameters networkId nodeSocket QueryTip
   utxo <- queryUTxOFor networkId nodeSocket QueryTip vk
-  let outputs = [publishInitial pparams, publishCommit pparams]
-  let totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
+  let outputs =
+        mkScriptTxOut pparams
+          <$> [ Initial.validatorScript
+              , Commit.validatorScript
+              , Head.validatorScript
+              ]
+      totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
       someUTxO =
         maybe mempty UTxO.singleton $
           UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
@@ -197,23 +206,16 @@ publishHydraScripts networkId nodeSocket sk = do
         return $ getTxId body
  where
   vk = getVerificationKey sk
+
   changeAddress = mkVkAddress networkId vk
 
-  publishInitial pparams =
+  mkScriptTxOut pparams script =
     mkTxOutAutoBalance
       pparams
       unspendableScriptAddress
       mempty
       TxOutDatumNone
-      (mkScriptRef Initial.validatorScript)
-
-  publishCommit pparams =
-    mkTxOutAutoBalance
-      pparams
-      unspendableScriptAddress
-      mempty
-      TxOutDatumNone
-      (mkScriptRef Commit.validatorScript)
+      (mkScriptRef script)
 
   unspendableScriptAddress =
     mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn

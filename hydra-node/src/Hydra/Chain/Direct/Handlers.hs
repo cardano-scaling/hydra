@@ -256,7 +256,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
         Nothing ->
           throwIO (NoSeedInput @Tx)
     (AbortTx{utxo}, Initial st) ->
-      pure $ abort utxo ctx st
+      pure $ abort ctx st utxo
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
@@ -281,7 +281,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
       pure (contest ctx st confirmedSnapshot upperBound)
     (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
-      pure (fanout st utxo deadlineSlot)
+      pure (fanout ctx st utxo deadlineSlot)
     (_, _) -> throwIO $ InvalidStateToPost{txTried = tx, chainState = cst}
  where
   -- XXX: Might want a dedicated exception type here

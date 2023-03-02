@@ -8,10 +8,10 @@ import Hydra.Chain.Direct.ScriptRegistry (
   newScriptRegistry,
   registryUTxO,
  )
-import Test.QuickCheck (forAll, (===))
+import Test.QuickCheck (forAllBlind, (===))
 
 spec :: Spec
 spec =
   prop "newScriptRegistry (registryUTxO r) === Just r" $
-    forAll genScriptRegistry $ \r ->
+    forAllBlind genScriptRegistry $ \r ->
       newScriptRegistry (registryUTxO r) === Right r

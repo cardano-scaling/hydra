@@ -32,7 +32,6 @@ import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import qualified Hydra.Contract.Commit as Commit
-import qualified Hydra.Contract.Head as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (
@@ -219,7 +218,7 @@ generateCommitUTxOs parties = do
 
     commitScript = fromPlutusScript Commit.validatorScript
 
-    commitDatum = mkCommitDatum party Head.validatorHash utxo (toPlutusCurrencySymbol testPolicyId)
+    commitDatum = mkCommitDatum party utxo (toPlutusCurrencySymbol testPolicyId)
 
 prettyEvaluationReport :: EvaluationReport -> String
 prettyEvaluationReport (Map.toList -> xs) =

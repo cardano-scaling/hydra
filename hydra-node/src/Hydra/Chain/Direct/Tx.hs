@@ -164,9 +164,9 @@ mkInitialOutput networkId seedTxIn (verificationKeyHash -> pkh) =
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 commitTx ::
+  NetworkId ->
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
-  NetworkId ->
   HeadId ->
   Party ->
   -- | A single UTxO to commit to the Head
@@ -176,7 +176,7 @@ commitTx ::
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
   Tx
-commitTx scriptRegistry networkId headId party utxo (initialInput, out, vkh) =
+commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(initialInput, initialWitness)]
@@ -209,11 +209,11 @@ commitTx scriptRegistry networkId headId party utxo (initialInput, out, vkh) =
   commitValue =
     txOutValue out <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
-    mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo (headIdToCurrencySymbol headId)
+    mkTxOutDatum $ mkCommitDatum party utxo (headIdToCurrencySymbol headId)
 
-mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> CurrencySymbol -> Plutus.Datum
-mkCommitDatum party headValidatorHash utxo headId =
-  Commit.datum (partyToChain party, headValidatorHash, serializedUTxO, headId)
+mkCommitDatum :: Party -> Maybe (TxIn, TxOut CtxUTxO) -> CurrencySymbol -> Plutus.Datum
+mkCommitDatum party utxo headId =
+  Commit.datum (partyToChain party, serializedUTxO, headId)
  where
   serializedUTxO = case utxo of
     Nothing ->
@@ -225,6 +225,8 @@ mkCommitDatum party headValidatorHash utxo headId =
 -- i.e. driving the Head script state.
 collectComTx ::
   NetworkId ->
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
@@ -235,10 +237,11 @@ collectComTx ::
   -- | Head id
   HeadId ->
   Tx
-collectComTx networkId vk initialThreadOutput commits headId =
+collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
+      & addReferenceInputs [commitScriptRef, headScriptRef]
       & addOutputs [headOutput]
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
@@ -247,14 +250,14 @@ collectComTx networkId vk initialThreadOutput commits headId =
       (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
     , initialParties
     , initialContestationPeriod
-    } =
-      initialThreadOutput
+    } = initialThreadOutput
   headWitness =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
-  headScript =
-    fromPlutusScript @PlutusScriptV2 Head.validatorScript
-  headRedeemer =
-    toScriptData Head.CollectCom
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScriptRef = fst (headReference scriptRegistry)
+  headRedeemer = toScriptData Head.CollectCom
   headOutput =
     TxOut
       (mkScriptAddress @PlutusScriptV2 networkId headScript)
@@ -273,7 +276,7 @@ collectComTx networkId vk initialThreadOutput commits headId =
   extractCommit d =
     case fromData $ toPlutusData d of
       Nothing -> error "SNAFU"
-      Just ((_, _, Just o, _) :: Commit.DatumType) -> Just o
+      Just ((_, Just o, _) :: Commit.DatumType) -> Just o
       _ -> Nothing
 
   utxoHash =
@@ -284,7 +287,11 @@ collectComTx networkId vk initialThreadOutput commits headId =
     , mkCommitWitness commitDatum
     )
   mkCommitWitness (ScriptDatumForTxIn -> commitDatum) =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness commitScript commitDatum commitRedeemer
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference commitScriptRef commitScript commitDatum commitRedeemer
+  commitScriptRef =
+    fst (commitReference scriptRegistry)
   commitValue =
     mconcat $ txOutValue . fst <$> Map.elems commits
   commitScript =
@@ -309,6 +316,8 @@ data ClosingSnapshot
 -- | Create a transaction closing a head with either the initial snapshot or
 -- with a multi-signed confirmed snapshot.
 closeTx ::
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | The snapshot to close with, can be either initial or confirmed one.
@@ -322,10 +331,11 @@ closeTx ::
   -- | Head identifier
   HeadId ->
   Tx
-closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
+closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
+      & addReferenceInputs [headScriptRef]
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
       & setValidityLowerBound startSlotNo
@@ -338,7 +348,12 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
     } = openThreadOutput
 
   headWitness =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+
+  headScriptRef =
+    fst (headReference scriptRegistry)
 
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
@@ -385,6 +400,8 @@ closeTx vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
 -- something more principled at the protocol level itself and "merge" close and
 -- contest as one operation.
 contestTx ::
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Contested snapshot number (i.e. the one we contest to)
@@ -398,52 +415,67 @@ contestTx ::
   HeadId ->
   ContestationPeriod ->
   Tx
-contestTx vk Snapshot{number, utxo} sig (slotNo, _) ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline, closedContesters} headId contestationPeriod =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs [(headInput, headWitness)]
-      & addOutputs [headOutputAfter]
-      & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValidityUpperBound slotNo
- where
-  headWitness =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
-  headScript =
-    fromPlutusScript @PlutusScriptV2 Head.validatorScript
-  headRedeemer =
-    toScriptData
-      Head.Contest
-        { signature = toPlutusSignatures sig
-        }
-  headOutputAfter =
-    modifyTxOutDatum (const headDatumAfter) headOutputBefore
+contestTx
+  scriptRegistry
+  vk
+  Snapshot{number, utxo}
+  sig
+  (slotNo, _)
+  ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline, closedContesters}
+  headId
+  contestationPeriod =
+    unsafeBuildTransaction $
+      emptyTxBody
+        & addInputs [(headInput, headWitness)]
+        & addReferenceInputs [headScriptRef]
+        & addOutputs [headOutputAfter]
+        & addExtraRequiredSigners [verificationKeyHash vk]
+        & setValidityUpperBound slotNo
+   where
+    headWitness =
+      BuildTxWith $
+        ScriptWitness scriptWitnessCtx $
+          mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+    headScriptRef =
+      fst (headReference scriptRegistry)
+    headScript =
+      fromPlutusScript @PlutusScriptV2 Head.validatorScript
+    headRedeemer =
+      toScriptData
+        Head.Contest
+          { signature = toPlutusSignatures sig
+          }
+    headOutputAfter =
+      modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-  contester = toPlutusKeyHash (verificationKeyHash vk)
+    contester = toPlutusKeyHash (verificationKeyHash vk)
 
-  onChainConstestationPeriod = toChain contestationPeriod
+    onChainConstestationPeriod = toChain contestationPeriod
 
-  newContestationDeadline =
-    if length (contester : closedContesters) == length closedParties
-      then closedContestationDeadline
-      else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
+    newContestationDeadline =
+      if length (contester : closedContesters) == length closedParties
+        then closedContestationDeadline
+        else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
 
-  headDatumAfter =
-    mkTxOutDatum
-      Head.Closed
-        { snapshotNumber = toInteger number
-        , utxoHash
-        , parties = closedParties
-        , contestationDeadline = newContestationDeadline
-        , contestationPeriod = onChainConstestationPeriod
-        , headId = headIdToCurrencySymbol headId
-        , contesters = contester : closedContesters
-        }
-  utxoHash = toBuiltin $ hashUTxO @Tx utxo
+    headDatumAfter =
+      mkTxOutDatum
+        Head.Closed
+          { snapshotNumber = toInteger number
+          , utxoHash
+          , parties = closedParties
+          , contestationDeadline = newContestationDeadline
+          , contestationPeriod = onChainConstestationPeriod
+          , headId = headIdToCurrencySymbol headId
+          , contesters = contester : closedContesters
+          }
+    utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need
 -- to set the lower bound to be deadline + 1 slot.
 fanoutTx ::
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
   -- | Everything needed to spend the Head state-machine output.
@@ -453,17 +485,21 @@ fanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) deadlineSlotNo headTokenScript =
+fanoutTx scriptRegistry utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
+      & addReferenceInputs [headScriptRef]
       & addOutputs orderedTxOutsToFanout
       & burnTokens headTokenScript Burn headTokens
       & setValidityLowerBound (deadlineSlotNo + 1)
  where
   headWitness =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
-
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+  headScriptRef =
+    fst (headReference scriptRegistry)
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
   headRedeemer =
@@ -506,13 +542,17 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
       unsafeBuildTransaction $
         emptyTxBody
           & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-          & addReferenceInputs [initialScriptRef, commitScriptRef]
+          & addReferenceInputs [initialScriptRef, commitScriptRef, headScriptRef]
           & addOutputs reimbursedOutputs
           & burnTokens headTokenScript Burn headTokens
           & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headWitness =
-    BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
+    BuildTxWith $
+      ScriptWitness scriptWitnessCtx $
+        mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+  headScriptRef =
+    fst (headReference scriptRegistry)
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
   headRedeemer =
@@ -737,7 +777,7 @@ observeCommitTx networkId initials tx = do
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
-  (onChainParty, _, onChainCommit, _headId) <- fromData @Commit.DatumType $ toPlutusData dat
+  (onChainParty, onChainCommit, _headId) <- fromData @Commit.DatumType $ toPlutusData dat
   party <- partyFromChain onChainParty
 
   committed <-
