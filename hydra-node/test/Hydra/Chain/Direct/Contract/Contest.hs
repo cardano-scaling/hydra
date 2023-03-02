@@ -240,8 +240,8 @@ genContestMutation
             Head.Contest
               { signature = toPlutusSignatures mutatedSignature
               }
-      , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateToNonNewerSnapshot <$> do
-          mutatedSnapshotNumber <- choose (0, toInteger healthyClosedSnapshotNumber)
+      , SomeMutation (Just $ toErrorCode TooOldSnapshot) MutateToNonNewerSnapshot <$> do
+          mutatedSnapshotNumber <- choose (toInteger healthyContestSnapshotNumber, toInteger healthyContestSnapshotNumber + 1)
           pure $
             Changes
               [ ChangeInputHeadDatum $
