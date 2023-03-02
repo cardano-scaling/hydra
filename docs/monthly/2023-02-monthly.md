@@ -22,8 +22,8 @@ there are a few things that changed this month:
   specification with change process
   #693](https://github.com/input-output-hk/hydra/issues/693).
 
-- Also note, that we have not had a release in a while and we want to have
-  smaller faster releasable items again
+- Also note that we have not had a release in a while and we want to have
+  smaller faster releasable items again.
 
 - [Aligning implementation with HeadV1 specification
   #452](https://github.com/input-output-hk/hydra/issues/452) was more work than
