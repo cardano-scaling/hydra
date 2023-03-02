@@ -207,8 +207,10 @@ data ContestMutation
   | -- | Change the validity interval of the transaction to a value greater
     -- than the contestation deadline
     MutateValidityPastDeadline
-  | -- | Change the head policy id to test the head validators
-    MutateHeadId
+  | -- | Change the head policy id to simulate contestation using a ST and signer from a different head.
+    -- The signer shows a correct signature but from a different head.
+    -- This will cause the signer to not be present in the participation tokens.
+    ContestFromDifferentHead
   | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
     MutateTokenMintingOrBurning
   | -- | Change the contesters to check if already contested
@@ -270,8 +272,9 @@ genContestMutation
           lb <- arbitrary
           ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
           pure (lb, ub)
-      , -- REVIEW: There is no trace for this error. Fails due to `verifyEd25519Signature`
-        SomeMutation Nothing MutateHeadId <$> do
+      , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
+        -- This also seems to be covered by MutateRequiredSigner
+        SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
           otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyClosedHeadTxIn))
           pure $
             Changes
@@ -279,7 +282,15 @@ genContestMutation
               , ChangeInput
                   healthyClosedHeadTxIn
                   (replacePolicyIdWith testPolicyId otherHeadId healthyClosedHeadTxOut)
-                  (Just $ toScriptData healthyClosedState)
+                  ( Just $
+                      toScriptData
+                        ( Head.Contest
+                            { signature =
+                                toPlutusSignatures $
+                                  healthySignature healthyContestSnapshotNumber
+                            }
+                        )
+                  )
               ]
       , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
           <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
