@@ -1,8 +1,8 @@
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
 module Hydra.Contract.Util where
 
+import Hydra.Prelude (Show)
 import Plutus.V1.Ledger.Value (isZero)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
@@ -14,6 +14,7 @@ import Plutus.V2.Ledger.Api (
 import qualified PlutusTx.AssocMap as Map
 import PlutusTx.Builtins (serialiseData)
 import PlutusTx.Prelude
+import Hydra.Contract.Error (ToErrorCode (..))
 
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
@@ -22,7 +23,7 @@ hydraHeadV1 = "HydraHeadV1"
 -- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV1'
 hasST :: CurrencySymbol -> Value -> Bool
 hasST headPolicyId v =
-  maybe False id $ do
+  fromMaybe False $ do
     tokenMap <- Map.lookup headPolicyId $ getValue v
     quantity <- Map.lookup (TokenName hydraHeadV1) tokenMap
     pure $ quantity == 1
@@ -42,7 +43,7 @@ mustBurnST val headCurrencySymbol =
 
 mustNotMintOrBurn :: TxInfo -> Bool
 mustNotMintOrBurn TxInfo{txInfoMint} =
-  traceIfFalse "minting or burning is forbidden" $
+  traceIfFalse "U01" $
     isZero txInfoMint
 {-# INLINEABLE mustNotMintOrBurn #-}
 
@@ -56,3 +57,13 @@ infix 4 ===
 (===) val val' =
   serialiseData (toBuiltinData val) == serialiseData (toBuiltinData val')
 {-# INLINEABLE (===) #-}
+
+-- * Errors
+
+data UtilError
+  = MintingOrBurningIsForbidden
+  deriving (Show)
+
+instance ToErrorCode UtilError where
+  toErrorCode = \case
+    MintingOrBurningIsForbidden -> "U01"
