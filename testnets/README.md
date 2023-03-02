@@ -41,7 +41,10 @@ hydra-node publish-scripts \
     --cardano-signing-key credentials/sebastian.cardano.sk
 ```
 
-We sometimes store published script transaction ids for unreleased versions in the repository. For example `./preview/hydra-scripts-0.8.1-521-g5447acb3.txid` holds a transaction id with scripts from git commit `5447acb3` on the corresponding `preview` network.
+We sometimes store published script transaction ids for released and unreleased
+versions in the repository. For example
+`./preview/hydra-scripts-0.8.1-521-g5447acb3.txid` holds a transaction id with
+scripts from git commit `5447acb3` on the corresponding `preview` network.
 
 For the sake of this example let's assume one:
 

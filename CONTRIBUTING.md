@@ -174,8 +174,9 @@ To perform a release of next `<version>`:
 3. Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601)
 4. Publish hydra scripts onto `preview`/`pre-prod` using the [smoke
    test](https://github.com/input-output-hk/hydra/actions/workflows/smoke-test.yaml)
-   and update transaction ids in our documentation and examples. This will also
-   be the green light for the next step.
+   and update transaction ids in our documentation, examples and
+   `testnets/<network/hydra-scripts-tx-id` files. This will also be the green
+   light for the next step.
 5. Create a signed, annotated git tag of the version: `git tag -as <version>`
    - Copy/paste this release CHANGELOG as annotation
 6. Create a github release page containing
