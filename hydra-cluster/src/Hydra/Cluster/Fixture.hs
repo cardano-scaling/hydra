@@ -62,4 +62,5 @@ actorName = \case
 data KnownNetwork
   = Preview
   | Preproduction
+  | Mainnet
   deriving (Show)
