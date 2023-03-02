@@ -388,7 +388,6 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     && checkSignedParticipantContestOnlyOnce
     && mustBeWithinContestationPeriod
     && mustUpdateContesters
-    && hasST headId val
     && mustPushDeadline
     && mustNotChangeParameters
     && mustPreserveValue
