@@ -3,6 +3,7 @@
 module Hydra.Cardano.Api.TxOut where
 
 import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset (..))
+import qualified Hydra.Cardano.Api.Network as Network
 import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
@@ -120,7 +121,7 @@ fromPlutusTxOut ::
 fromPlutusTxOut network out =
   TxOut addressInEra value datum ReferenceScriptNone
  where
-  addressInEra = fromPlutusAddress network plutusAddress
+  addressInEra = fromPlutusAddress (networkIdToNetwork network) plutusAddress
 
   value = TxOutValue multiAssetSupportedInEra $ fromPlutusValue plutusValue
 
@@ -130,6 +131,9 @@ fromPlutusTxOut network out =
       TxOutDatumHash scriptDataSupportedInEra . unsafeScriptDataHashFromBytes $ fromBuiltin hashBytes
     OutputDatum (Plutus.Datum datumData) ->
       TxOutDatumInline inlineDatumsSupportedInEra $ toScriptData datumData
+
+  networkIdToNetwork Mainnet = Network.Mainnet
+  networkIdToNetwork (Testnet _) = Network.Testnet
 
   Plutus.TxOut plutusAddress plutusValue plutusDatum _ = out
 
