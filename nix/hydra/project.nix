@@ -64,7 +64,10 @@ let
       )
     ];
     materialized = ./hydra.materialized;
-    checkMaterialization = true;
+
+    # NOTE: Enable this to verify materialized files (do all the work of
+    # materializing) and provide output how to update the materialized files.
+    checkMaterialization = false;
   };
 in
 {
