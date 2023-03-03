@@ -10,6 +10,10 @@ changes.
 
 ## [0.10.0] - UNRELEASED
 
+- **BREAKING**
+ - Changed `hydra-node` and `hydra-tui` arguments.
+ - Instead of `--network-id` flag they now use `--testnet-magic`.
+
 - Hydra node can now parse `Mainnet` network command line argument.
 
 - Changed interface of `Hydra.Ledger.Cardano.Evaluate` functions.
