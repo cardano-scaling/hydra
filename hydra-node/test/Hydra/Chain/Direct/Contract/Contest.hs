@@ -194,26 +194,35 @@ healthySignature number =
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation
-  = -- | Ensure signatures are actually checked.
+  = -- | Makes the tx `snapshot signature` invalid by changing the redeemer signature but not the snapshot number in resulting head output.
+    -- This ensures the snapshot signature is multisigned by all valid Head participants.
     MutateSignatureButNotSnapshotNumber
-  | -- | Ensure too old snapshot are not valid.
+  | -- | Makes the tx `snapshot signature` invalid by changing the snapshot number in resulting head output but not the redeemer signature.
+    -- This ensures the snapshot signature is aligned with snapshot number.
+    MutateSnapshotNumberButNotSignature
+  | -- | Makes the tx `snapshot signature` invalid by changing the snapshot number in the head input (stored state) to be too old.
+    -- This ensures that too old snapshot are not valid.
+    -- This also changes the redeemer so the tx snapshot signature is valid against it.
     MutateToNonNewerSnapshot
-  | -- | Ensure that it's performed by a Head party
+  | -- | Makes the tx `signer` invalid by using a signer not present in the list of distributed PTs.
+    -- | This ensures that it's performed by a Head party.
     MutateRequiredSigner
-  | -- | Ensure output state is consistent with redeemer
+  | -- | Makes the tx `snapshot signature` invalid by changing the utxo hash in resulting head output.
+    -- This ensures the output state is consistent with the redeemer.
     MutateContestUTxOHash
-  | -- | Change parties stored in the state, causing multisig to fail
+  | -- | Makes the tx `snapshot signature` invalid by changing the parties in the head input (stored state).
     MutateParties
-  | -- | Change the validity interval of the transaction to a value greater
-    -- than the contestation deadline
+  | -- | Makes the tx `validity range` invalid by changing its upper bound to be beyond contestation deadline from head input (stored state).
     MutateValidityPastDeadline
   | -- | Change the head policy id to simulate contestation using a ST and signer from a different head.
     -- The signer shows a correct signature but from a different head.
     -- This will cause the signer to not be present in the participation tokens.
     ContestFromDifferentHead
-  | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
+  | -- | Makes the tx `output minted values` invalid by changing them to include burning/minting of tokens.
+    -- Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'.
     MutateTokenMintingOrBurning
-  | -- | Change the contesters to check if already contested
+  | -- | Makes the tx `signer` invalid by changing the head input (stored head) list of already contesters to include the signer.
+    -- This ensures a signed participant can only contest once.
     MutateInputContesters
   | -- | Change the resulting contesters arbitrarily to see if they are checked
     MutateContesters
