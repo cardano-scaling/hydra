@@ -13,11 +13,16 @@ import Cardano.Binary (serialize)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect)
 import qualified Data.List as List
+import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
+  Lovelace (Lovelace),
+  NetworkId (Mainnet),
   Tx,
   UTxO,
   hashScript,
+  lovelaceToValue,
+  mkVkAddress,
   renderUTxO,
   scriptPolicyId,
   toPlutusCurrencySymbol,
@@ -112,8 +117,10 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShow,
   label,
+  scale,
   sized,
   sublistOf,
+  suchThat,
   tabulate,
   (.||.),
   (=/=),
@@ -220,23 +227,32 @@ spec = parallel $ do
           Nothing ->
             False
 
-    prop "reject committing outputs with byron addresses" $ monadicST $ do
-      hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-      (ctx, stInitial) <- pickBlind $ genStInitial hctx
-      utxo <- pick $ genUTxO1 genTxOutByron
-      pure $
-        case commit ctx stInitial utxo of
-          Left UnsupportedLegacyOutput{} -> property True
-          _ -> property False
+    prop "reject committing outputs with byron addresses" $
+      monadicST $ do
+        hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        utxo <- pick $ genUTxO1 genTxOutByron
+        pure $
+          case commit ctx stInitial utxo of
+            Left UnsupportedLegacyOutput{} -> property True
+            _ -> property False
 
-    prop "reject committing outputs with reference scripts" $ monadicST $ do
-      hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-      (ctx, stInitial) <- pickBlind $ genStInitial hctx
-      utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
-      pure $
-        case commit ctx stInitial utxo of
-          Left CannotCommitReferenceScript{} -> property True
-          _ -> property False
+    prop "reject committing outputs with reference scripts" $
+      monadicST $ do
+        hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
+        pure $
+          case commit ctx stInitial utxo of
+            Left CannotCommitReferenceScript{} -> property True
+            _ -> property False
+
+    prop "reject Commits with more than 100 ADA" $
+      forAllCommitWithMoreThan100ADA $ \case
+        FailedToPostTx{failureReason} ->
+          property $
+            failureReason == "cannot commit more than 100 ADA to the head on mainnet."
+        _ -> property False
 
   describe "abort" $ do
     propBelowSizeLimit maxTxSize forAllAbort
@@ -401,6 +417,28 @@ forAllCommit' action = do
                 (not (null toCommit))
                 "Non-empty commit"
               & counterexample ("tx: " <> renderTx tx)
+
+forAllCommitWithMoreThan100ADA ::
+  (PostTxError Tx -> Property) ->
+  Property
+forAllCommitWithMoreThan100ADA action = do
+  forAll (genHydraContext maximumNumberOfParties) $ \hctx ->
+    forAll (genStInitial hctx) $ \(ctx, stInitial) ->
+      forAllShow (genAdaOnlyUTxOOnMainnetWithAmountBiggerThan 100) renderUTxO $ \utxo ->
+        case commit (alterChainContextNetworkToMainnet ctx) stInitial utxo of
+          Right{} -> property False
+          Left e -> action e
+ where
+  genAdaOnlyUTxOOnMainnetWithAmountBiggerThan :: Integer -> Gen UTxO
+  genAdaOnlyUTxOOnMainnetWithAmountBiggerThan i = do
+    vk <- arbitrary
+    value <- lovelaceToValue . Lovelace <$> scale (* 8) arbitrary `suchThat` (> i)
+    txIn <- arbitrary
+    pure . UTxO.UTxO $
+      Map.singleton txIn (TxOut (mkVkAddress Mainnet vk) value TxOutDatumNone ReferenceScriptNone)
+
+  alterChainContextNetworkToMainnet ctx =
+    ctx{networkId = Mainnet}
 
 forAllAbort ::
   (Testable property) =>

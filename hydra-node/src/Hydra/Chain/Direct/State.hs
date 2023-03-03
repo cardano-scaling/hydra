@@ -22,7 +22,7 @@ import Hydra.Cardano.Api (
   CtxUTxO,
   Hash,
   Key (SigningKey, VerificationKey, verificationKeyHash),
-  NetworkId (Testnet),
+  NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
   PlutusScript,
@@ -37,6 +37,7 @@ import Hydra.Cardano.Api (
   Value,
   chainPointToSlotNo,
   modifyTxOutValue,
+  selectLovelace,
   txIns',
   txOutReferenceScript,
   txOutValue,
@@ -309,6 +310,7 @@ commit ctx st utxo = do
         [aUTxO] -> do
           rejectByronAddress aUTxO
           rejectReferenceScripts aUTxO
+          rejectMoreThan100ADA networkId (snd aUTxO)
           Right $ commitTx networkId scriptRegistry headId ownParty (Just aUTxO) initial
         [] -> do
           Right $ commitTx networkId scriptRegistry headId ownParty Nothing initial
@@ -351,6 +353,14 @@ commit ctx st utxo = do
     case txOutReferenceScript out of
       ReferenceScriptNone -> Right ()
       ReferenceScript{} -> Left CannotCommitReferenceScript
+
+  -- NOTE: Remove this limit once we have more experiments on mainnet.
+  rejectMoreThan100ADA :: NetworkId -> TxOut CtxUTxO -> Either (PostTxError Tx) ()
+  rejectMoreThan100ADA Mainnet output =
+    if selectLovelace (txOutValue output) > 100
+      then Left $ FailedToPostTx "cannot commit more than 100 ADA to the head on mainnet."
+      else return ()
+  rejectMoreThan100ADA _network _txOut = return ()
 
 -- | Construct a collect transaction based on the 'InitialState'. This will
 -- reimburse all the already committed outputs.
