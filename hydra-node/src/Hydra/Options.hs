@@ -328,7 +328,13 @@ networkIdParser = pMainnet <|> fmap Testnet pTestnetMagic
         auto
         ( long "testnet-magic"
             <> metavar "NATURAL"
-            <> help "Specify a testnet magic id."
+            <> value 42
+            <> showDefault
+            <> completer (listCompleter ["1", "2", "42"])
+            <> help
+              "Network identifier for a testnet to connect to. We only need to \
+              \provide the magic number here. For example: '2' is the 'preview' \
+              \network. See https://book.world.dev.cardano.org/environments.html for available networks."
         )
 
 nodeSocketParser :: Parser FilePath
