@@ -60,7 +60,7 @@ import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (elements, listOf, oneof, suchThat, vectorOf)
+import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -251,6 +251,9 @@ genContestMutation
             Head.Contest
               { signature = toPlutusSignatures mutatedSignature
               }
+      , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
+          mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
+          pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
       , SomeMutation (Just $ toErrorCode TooOldSnapshot) MutateToNonNewerSnapshot <$> do
           mutatedSnapshotNumber <- choose (toInteger healthyContestSnapshotNumber, toInteger healthyContestSnapshotNumber + 1)
           pure $
