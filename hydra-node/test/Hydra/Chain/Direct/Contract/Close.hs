@@ -97,9 +97,9 @@ healthyCloseTx =
   closingSnapshot :: ClosingSnapshot
   closingSnapshot =
     CloseWithConfirmedSnapshot
-      { snapshotNumber = healthySnapshotNumber
+      { snapshotNumber = healthyCloseSnapshotNumber
       , closeUtxoHash = UTxOHash $ hashUTxO @Tx healthyCloseUTxO
-      , signatures = healthySignature healthySnapshotNumber
+      , signatures = healthySignature healthyCloseSnapshotNumber
       }
 
 -- | Healthy close transaction for the specific case were we close a head
@@ -160,7 +160,7 @@ healthyOpenHeadTxOut =
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
   Snapshot
-    { number = healthySnapshotNumber
+    { number = healthyCloseSnapshotNumber
     , utxo = healthyCloseUTxO
     , confirmed = []
     }
@@ -170,8 +170,8 @@ healthyCloseUTxO =
   (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyUTxO))
     `generateWith` 42
 
-healthySnapshotNumber :: SnapshotNumber
-healthySnapshotNumber = 1
+healthyCloseSnapshotNumber :: SnapshotNumber
+healthyCloseSnapshotNumber = 1
 
 healthyOpenHeadDatum :: Head.State
 healthyOpenHeadDatum =
@@ -271,7 +271,7 @@ genCloseMutation (tx, _utxo) =
         mutatedSnapshotNumber <- arbitrary `suchThat` (<= 0)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
-        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthySnapshotNumber)
+        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotNumber)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
@@ -323,7 +323,7 @@ genCloseMutation (tx, _utxo) =
                       ( Head.Close
                           { signature =
                               toPlutusSignatures $
-                                healthySignature healthySnapshotNumber
+                                healthySignature healthyCloseSnapshotNumber
                           }
                       )
                 )
