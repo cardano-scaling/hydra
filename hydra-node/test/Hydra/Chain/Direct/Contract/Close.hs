@@ -271,7 +271,7 @@ genCloseMutation (tx, _utxo) =
         mutatedSnapshotNumber <- arbitrary `suchThat` (<= 0)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
-        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
+        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthySnapshotNumber)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
