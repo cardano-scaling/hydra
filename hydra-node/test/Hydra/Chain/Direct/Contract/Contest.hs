@@ -275,7 +275,7 @@ genContestMutation
       , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
         -- This also seems to be covered by MutateRequiredSigner
         SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
-          otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyClosedHeadTxIn))
+          otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
           pure $
             Changes
               [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
