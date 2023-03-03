@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-cluster
-version:            0.9.0
+version:            0.10.0
 synopsis:
   Integration test suite using a local cluster of cardano and hydra nodes
 
@@ -10,6 +10,7 @@ license:            Apache-2.0
 license-files:
   LICENSE
   NOTICE
+
 extra-source-files: README.md
 data-files:
   config/cardano-configurations/network/preprod/cardano-node/config.json
@@ -169,7 +170,7 @@ executable hydra-cluster
     , hydra-test-utils
     , optparse-applicative
 
-  build-tool-depends: hydra-node:hydra-node -any
+  build-tool-depends: hydra-node:hydra-node
   ghc-options:        -threaded -rtsopts
 
 executable log-filter
@@ -242,9 +243,7 @@ test-suite integration
     , temporary
     , text
 
-  build-tool-depends:
-    hspec-discover:hspec-discover -any, hydra-node:hydra-node -any
-
+  build-tool-depends: hspec-discover:hspec-discover, hydra-node:hydra-node
   ghc-options:        -threaded -rtsopts
 
 benchmark bench-e2e
@@ -278,5 +277,5 @@ benchmark bench-e2e
     , strict-containers
     , time
 
-  build-tool-depends: hydra-node:hydra-node -any
+  build-tool-depends: hydra-node:hydra-node
   ghc-options:        -threaded -rtsopts

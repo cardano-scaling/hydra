@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          hydraw
-version:       0.0.1
+version:       0.10.0
 build-type:    Simple
 
 common project-config
@@ -73,11 +73,11 @@ executable hydraw
     -Wunused-packages -threaded -rtsopts
 
   build-depends:
-    , base            >=4.7 && <5
+    , base               >=4.7 && <5
     , http-types
+    , hydra-cardano-api
     , hydra-node
     , hydra-prelude
-    , hydra-cardano-api
     , hydraw
     , io-classes
     , relude
