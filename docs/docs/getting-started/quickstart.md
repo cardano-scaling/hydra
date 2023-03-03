@@ -23,17 +23,17 @@ This image contains both `cardano-node` and `cardano-cli`. The latter is handy t
 The entire configuration of the `hydra-node` is provided through command-line options. Options are used to configure various elements of the network, API, chain connection and used ledger. You can use the `--help` option to get a description of all options:
 
 ```
-hydra-node - A prototype of Hydra Head protocol
 
 Usage: hydra-node ([-q|--quiet] (-n|--node-id NODE-ID) [-h|--host IP]
                     [-p|--port PORT] [-P|--peer ARG] [--api-host IP]
                     [--api-port PORT] [--monitoring-port PORT]
                     [--hydra-signing-key FILE] [--hydra-verification-key FILE]
                     [--hydra-scripts-tx-id TXID] [--persistence-dir DIR]
-                    [--testnet-magic INTEGER] [--node-socket FILE]
+                    (--mainnet | --testnet-magic NATURAL) [--node-socket FILE]
                     [--cardano-signing-key FILE]
                     [--cardano-verification-key FILE]
                     [--start-chain-from SLOT.HEADER_HASH]
+                    [--contestation-period CONTESTATION-PERIOD]
                     [--ledger-genesis FILE]
                     [--ledger-protocol-parameters FILE] |
                     COMMAND) [--version] [--script-info]
@@ -65,7 +65,7 @@ Available options:
   --hydra-verification-key FILE
                            Hydra verification key of another party in the Head.
                            Can be provided multiple times, once for each
-                           participant (current maximum limit is 4).
+                           participant (current maximum limit is 4 ).
   --hydra-scripts-tx-id TXID
                            The transaction which is expected to have published
                            Hydra scripts as reference scripts in its outputs.
@@ -75,11 +75,8 @@ Available options:
                            yourself.
   --persistence-dir DIR    The directory where the Hydra Head state is stored.Do
                            not edit these files manually!
-  --testnet-magic INTEGER     Network identifier for a testnet to connect to. We
-                           only need to provide the magic number here. For
-                           example: '2' is the 'preview' network. See
-                           https://book.world.dev.cardano.org/environments.html
-                           for available networks. (default: 42)
+  --mainnet                Use the mainnet magic id.
+  --testnet-magic NATURAL  Specify a testnet magic id.
   --node-socket FILE       Filepath to local unix domain socket used to
                            communicate with the cardano node.
                            (default: "node.socket")
@@ -97,6 +94,12 @@ Available options:
                            startup. Composed by the slot number, a separator
                            ('.') and the hash of the block header. For example:
                            52970883.d36a9936ae7a07f5f4bdc9ad0b23761cb7b14f35007e54947e27a1510f897f04.
+  --contestation-period CONTESTATION-PERIOD
+                           Contestation period for close transaction in seconds.
+                           If this value is not in sync with other participants
+                           hydra-node will ignore the initial tx. Additionally,
+                           this value needs to make sense compared to the
+                           current network we are running. (default: 60s)
   --ledger-genesis FILE    Path to a Shelley-compatible genesis JSON file used
                            for the Hydra ledger. You can use the corresponding
                            Cardano network's shelley genesis file from:
@@ -120,6 +123,7 @@ Available commands:
                             ┃    This costs money. About 50 Ada.    ┃
                             ┃ Spent using the provided signing key. ┃
                             ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
 
 ```
 
