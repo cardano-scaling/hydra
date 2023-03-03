@@ -270,7 +270,7 @@ spec = parallel $
           mconcat
             [ ["publish-scripts"]
             , ["--node-socket", "foo"]
-            , ["--testnet-magic", "42"]
+            , ["--mainnet"]
             ]
 
       xit "does not parse with some missing option (2)" $
@@ -289,7 +289,7 @@ spec = parallel $
             , ["--cardano-signing-key", "foo"]
             ]
 
-      it "should parse with all options" $
+      it "should parse using testnet and all options" $
         mconcat
           [ ["publish-scripts"]
           , ["--node-socket", "foo"]
@@ -301,6 +301,19 @@ spec = parallel $
               { publishNodeSocket = "foo"
               , publishNetworkId = Testnet (NetworkMagic 42)
               , publishSigningKey = "bar"
+              }
+      it "should parse using mainnet and all options" $
+        mconcat
+          [ ["publish-scripts"]
+          , ["--node-socket", "baz"]
+          , ["--mainnet"]
+          , ["--cardano-signing-key", "crux"]
+          ]
+          `shouldParse` Publish
+            PublishOptions
+              { publishNodeSocket = "baz"
+              , publishNetworkId = Mainnet
+              , publishSigningKey = "crux"
               }
 
 canRoundtripRunOptionsAndPrettyPrinting :: RunOptions -> Property
