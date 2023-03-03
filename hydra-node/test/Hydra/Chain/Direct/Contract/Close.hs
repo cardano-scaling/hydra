@@ -224,29 +224,41 @@ healthyClosedUTxO =
   genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
 
 data CloseMutation
-  = MutateSignatureButNotSnapshotNumber
-  | -- | Change the resulting snapshot number, this should make the signature
-    -- invalid.
+  = -- | Makes the tx `snapshot signature` invalid by changing the redeemer signature but not the snapshot number in resulting head output.
+    MutateSignatureButNotSnapshotNumber
+  | -- | Makes the tx `snapshot signature` invalid by changing the snapshot number in resulting head output but not the redeemer signature.
     MutateSnapshotNumberButNotSignature
-  | -- | This test the case when we have a non-initial utxo hash but the snapshot number is less than or equal to 0
+  | -- | Makes the tx `utxo hash` invalid by changing the snapshot number in resulting head output to be a non-initual utxo (when snapshot number <= 0).
     MutateSnapshotNumberToLessThanZero
-  | MutateParties
-  | MutateRequiredSigner
-  | MutateCloseUTxOHash
-  | MutatePartiesInOutput
-  | MutateHeadIdInOutput
-  | MutateInfiniteLowerBound
-  | MutateInfiniteUpperBound
-  | -- | See spec: 5.5 rule 4 -> contestationDeadline = upperBound + contestationPeriod
+  | -- | Makes the tx `snapshot signature` invalid by changing the parties in head input.
+    MutateParties
+  | -- | Makes the tx `signer` invalid by using a signer not present in the list of distributed PTs.
+    MutateRequiredSigner
+  | -- | Makes the tx `snapshot signature` invalid by changing the utxo hash in resulting head output.
+    MutateCloseUTxOHash
+  | -- | Makes the tx resulting `head output` invalid by changing its parties to be different from the head input.
+    MutatePartiesInOutput
+  | -- | Makes the tx resulting `head output` invalid by changing its head id to be different from the head input.
+    MutateHeadIdInOutput
+  | -- | Makes the tx `validity range` invalid by changing its lower bound to be non finite.
+    MutateInfiniteLowerBound
+  | -- | Makes the tx `validity range` invalid by changing its upper bound to be non finite.
+    MutateInfiniteUpperBound
+  | -- | Makes the tx resulting `head output` invalid by changing its contestation deadline to not satisfy `contestationDeadline = upperBound + contestationPeriod`.
     MutateContestationDeadline
-  | -- | See spec: 5.5. rule 5 -> upperBound - lowerBound <= contestationPeriod
+  | -- | Makes the tx `validity range` invalid by changing its lower and upper bound to be not bounded as per spec `upperBound - lowerBound <= contestationPeriod`.
+    -- This also changes the resulting `head output` contestation deadline to be valid, so it satisfy `contestationDeadline = upperBound + contestationPeriod`.
     MutateValidityInterval
-  | MutateHeadId
-  | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
+  | -- | Change the head policy id to simulate contestation using a ST and signer from a different head.
+    -- The signer shows a correct signature but from a different head.
+    -- This will cause the signer to not be present in the participation tokens.
+    ContestFromDifferentHead
+  | -- | Makes the tx `output minted values` invalid by changing them to include burning/minting of tokens.
+    -- Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'.
     MutateTokenMintingOrBurning
-  | -- | Change the resulting contesters to non-empty to see if they are checked
+  | -- | Makes the tx resulting `head output` invalid by changing its contesters to be non empty.
     MutateContesters
-  | -- | See spec: 5.5. rule 6 -> value is preserved
+  | -- | Makes the tx `output values` invalid by changing them arbitrarly to be differnet (not preserved) from the head.
     MutateValueInOutput
   deriving (Generic, Show, Enum, Bounded)
 
@@ -277,9 +289,11 @@ genCloseMutation (tx, _utxo) =
         otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId otherHeadId) headTxOut
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
-        newSigner <- verificationKeyHash <$> genVerificationKey
+        newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> mutateCloseUTxOHash
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
+        mutatedUTxOHash <- genHash `suchThat` ((/= healthyClosedUTxOHash) . toBuiltin)
+        pure $ changeHeadOutputDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
     , SomeMutation (Just $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationDeadline mutatedDeadline) headTxOut
@@ -296,7 +310,7 @@ genCloseMutation (tx, _utxo) =
             ]
     , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
-      SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateHeadId <$> do
+      SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
         pure $
           Changes
@@ -333,11 +347,6 @@ genCloseMutation (tx, _utxo) =
     pure (SlotNo lowerValidityBound, SlotNo upperValidityBound, adjustedContestationDeadline)
 
   headTxOut = fromJust $ txOuts' tx !!? 0
-
-  mutateCloseUTxOHash :: Gen (TxOut CtxTx)
-  mutateCloseUTxOHash = do
-    mutatedUTxOHash <- genHash `suchThat` ((/= healthyClosedUTxOHash) . toBuiltin)
-    pure $ changeHeadOutputDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'
