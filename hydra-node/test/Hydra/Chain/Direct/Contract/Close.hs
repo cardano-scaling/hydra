@@ -225,20 +225,23 @@ healthyClosedUTxO =
 
 data CloseMutation
   = -- | Makes the tx `snapshot signature` invalid by changing the redeemer signature but not the snapshot number in resulting head output.
+    -- This ensures the snapshot signature is multisigned by all valid Head participants.
     MutateSignatureButNotSnapshotNumber
   | -- | Makes the tx `snapshot signature` invalid by changing the snapshot number in resulting head output but not the redeemer signature.
     MutateSnapshotNumberButNotSignature
   | -- | Makes the tx `utxo hash` invalid by changing the snapshot number in resulting head output to be a non-initual utxo (when snapshot number <= 0).
     MutateSnapshotNumberToLessThanZero
-  | -- | Makes the tx `snapshot signature` invalid by changing the parties in head input.
+  | -- | Makes the tx `snapshot signature` invalid by changing the parties in the head input (stored state).
     MutateParties
   | -- | Makes the tx `signer` invalid by using a signer not present in the list of distributed PTs.
+    -- This ensures that it's performed by a Head party.
     MutateRequiredSigner
   | -- | Makes the tx `snapshot signature` invalid by changing the utxo hash in resulting head output.
+    -- This ensures the output state is consistent with the redeemer.
     MutateCloseUTxOHash
-  | -- | Makes the tx resulting `head output` invalid by changing its parties to be different from the head input.
+  | -- | Makes the tx resulting `head output` invalid by changing its parties to be different from the head input (stored state).
     MutatePartiesInOutput
-  | -- | Makes the tx resulting `head output` invalid by changing its head id to be different from the head input.
+  | -- | Makes the tx resulting `head output` invalid by changing its head id to be different from the head input (stored state).
     MutateHeadIdInOutput
   | -- | Makes the tx `validity range` invalid by changing its lower bound to be non finite.
     MutateInfiniteLowerBound
