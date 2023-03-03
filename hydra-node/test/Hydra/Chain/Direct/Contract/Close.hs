@@ -294,8 +294,9 @@ genCloseMutation (tx, _utxo) =
             [ ChangeValidityInterval (TxValidityLowerBound lowerSlotNo, TxValidityUpperBound upperSlotNo)
             , ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationDeadline adjustedContestationDeadline) headTxOut
             ]
-    , -- REVIEW: There is no trace for this error. Fails due to `unListData`
-      SomeMutation Nothing MutateHeadId <$> do
+    , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
+      -- This also seems to be covered by MutateRequiredSigner
+      SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateHeadId <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
         pure $
           Changes
@@ -303,7 +304,15 @@ genCloseMutation (tx, _utxo) =
             , ChangeInput
                 healthyOpenHeadTxIn
                 (replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyOpenHeadTxOut)
-                (Just $ toScriptData healthyOpenHeadDatum)
+                ( Just $
+                    toScriptData
+                      ( Head.Close
+                          { signature =
+                              toPlutusSignatures $
+                                healthySignature healthySnapshotNumber
+                          }
+                      )
+                )
             ]
     , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
