@@ -191,25 +191,24 @@ propMutation (tx, utxo) genMutation =
 -- | Expect a phase-2 evaluation failure of given 'Tx' and 'UTxO'.
 propTransactionFailsPhase2 :: Maybe Text -> (Tx, UTxO) -> Property
 propTransactionFailsPhase2 mExpectedError (tx, lookupUTxO) =
-  let result = evaluateTx tx lookupUTxO
-   in case result of
-        Left basicFailure ->
-          property False
-            & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
-            & counterexample ("Phase-1 validation failed: " <> show basicFailure)
-        Right redeemerReport ->
-          let errors = lefts $ Map.elems redeemerReport
-           in case mExpectedError of
-                Nothing ->
-                  not (null errors)
-                    & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
-                    & counterexample ("Redeemer report: " <> show redeemerReport)
-                    & counterexample "Phase-2 validation should have failed"
-                Just expectedError ->
-                  any (matchesErrorMessage expectedError) errors
-                    & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
-                    & counterexample ("Redeemer report: " <> show redeemerReport)
-                    & counterexample ("Phase-2 validation should have failed with error message: " <> show expectedError)
+  case evaluateTx tx lookupUTxO of
+    Left err ->
+      property False
+        & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
+        & counterexample ("Phase-1 validation failed: " <> show err)
+    Right redeemerReport ->
+      let errors = lefts $ Map.elems redeemerReport
+       in case mExpectedError of
+            Nothing ->
+              not (null errors)
+                & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
+                & counterexample ("Redeemer report: " <> show redeemerReport)
+                & counterexample "Phase-2 validation should have failed"
+            Just expectedError ->
+              any (matchesErrorMessage expectedError) errors
+                & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
+                & counterexample ("Redeemer report: " <> show redeemerReport)
+                & counterexample ("Phase-2 validation should have failed with error message: " <> show expectedError)
  where
   matchesErrorMessage errMsg = \case
     ScriptErrorEvaluationFailed _ errList -> errMsg `elem` errList
@@ -218,17 +217,16 @@ propTransactionFailsPhase2 mExpectedError (tx, lookupUTxO) =
 -- | Expect a given 'Tx' and 'UTxO' to pass evaluation.
 propTransactionEvaluates :: (Tx, UTxO) -> Property
 propTransactionEvaluates (tx, lookupUTxO) =
-  let result = evaluateTx tx lookupUTxO
-   in case result of
-        Left basicFailure ->
-          property False
-            & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
-            & counterexample ("Phase-1 validation failed: " <> show basicFailure)
-        Right redeemerReport ->
-          all isRight (Map.elems redeemerReport)
-            & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
-            & counterexample ("Redeemer report: " <> show redeemerReport)
-            & counterexample "Phase-2 validation failed"
+  case evaluateTx tx lookupUTxO of
+    Left err ->
+      property False
+        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
+        & counterexample ("Phase-1 validation failed: " <> show err)
+    Right redeemerReport ->
+      all isRight (Map.elems redeemerReport)
+        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
+        & counterexample ("Redeemer report: " <> show redeemerReport)
+        & counterexample "Phase-2 validation failed"
 
 -- | Expect a given 'Tx' and 'UTxO' to fail phase 1 or phase 2 evaluation.
 propTransactionFailsEvaluation :: (Tx, UTxO) -> Property
@@ -339,9 +337,9 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         -- change the lookup UTXO
         fn o@(TxOut addr value _ refScript)
           | isHeadOutput o =
-            TxOut addr value datumHash refScript
+              TxOut addr value datumHash refScript
           | otherwise =
-            o
+              o
         -- change the datums in the tx
         ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
         newDatums = addDatum datum scriptData
@@ -361,7 +359,8 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         then error "trying to removeAt beyond end of list"
         else
           map snd $
-            filter ((/= i) . fst) $ zip [0 ..] es
+            filter ((/= i) . fst) $
+              zip [0 ..] es
   RemoveInput txIn ->
     ( alterTxIns (filter (\(i, _) -> i /= txIn)) tx
     , utxo
@@ -588,12 +587,12 @@ alterTxIns fn tx =
   -- NOTE: This needs to be ordered, such that we can calculate the redeemer
   -- pointers correctly.
   newSortedInputs =
-    sortOn fst $
-      fn
+    sortOn fst
+      $ fn
         . resolveRedeemers
         . fmap fromLedgerTxIn
         . toList
-        $ Ledger.inputs ledgerBody
+      $ Ledger.inputs ledgerBody
 
   resolveRedeemers :: [TxIn] -> [(TxIn, Maybe ScriptData)]
   resolveRedeemers txInputs =

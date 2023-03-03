@@ -5,7 +5,6 @@ import Hydra.Prelude hiding (catch)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   ExecutionUnits (..),
@@ -51,10 +50,9 @@ import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx,
   genPointInTimeBefore,
   genValidityBoundsFromContestationPeriod,
-  maxCpu,
-  maxMem,
   maxTxSize,
   slotNoFromUTCTime,
+  usedExecutionUnits,
  )
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
@@ -242,14 +240,13 @@ checkSizeAndEvaluate tx knownUTxO = do
   guard $ txSize < maxTxSize
   case evaluateTx tx knownUTxO of
     (Right report) -> do
-      let results = Map.elems report
-      guard $ all isRight results
-      let totalMemory = sum $ executionMemory <$> rights results
-      let totalCpu = sum $ executionSteps <$> rights results
-      guard $ totalMemory <= maxMem
-      guard $ totalCpu <= maxCpu
+      guard $ all isRight report
+      let ExecutionUnits
+            { executionMemory = usedMemory
+            , executionSteps = usedCpu
+            } = usedExecutionUnits report
       let minFee = estimateMinFee tx report
-      Just (TxSize txSize, MemUnit totalMemory, CpuUnit totalCpu, minFee)
+      Just (TxSize txSize, MemUnit usedMemory, CpuUnit usedCpu, minFee)
     _ -> Nothing
  where
   txSize = fromIntegral $ LBS.length $ serialize tx

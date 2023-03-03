@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-node
-version:       0.9.0
+version:       0.10.0
 synopsis:      The Hydra node
 author:        IOG
 copyright:     2022 IOG
@@ -351,6 +351,7 @@ test-suite tests
     , ouroboros-network
     , ouroboros-network-framework
     , plutus-ledger-api
+    , plutus-tx
     , process
     , QuickCheck
     , quickcheck-dynamic                ==2.0.0
@@ -366,5 +367,5 @@ test-suite tests
     , websockets
     , yaml
 
-  build-tool-depends: hspec-discover:hspec-discover -any
+  build-tool-depends: hspec-discover:hspec-discover
   ghc-options:        -threaded -rtsopts
