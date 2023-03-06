@@ -21,7 +21,7 @@ changes.
     scripts.
   + Reference scripts on the layer 2 ledger are non-problematic.
 
-- Introduced a hard-coded limit of 100 ADA for the commit tx on mainnet.
+ - Introduced a hard-coded limit of 100 ADA for the commit tx on mainnet: help people to not shoot themselves in the foot too hard.
 
 ## [0.9.0] - 2023-03-02
 
