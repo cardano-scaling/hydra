@@ -175,7 +175,7 @@ To perform a release of next `<version>`:
    `testnets/<network/hydra-scripts-tx-id` files. This will also be the green
    light for the next step.
 2. Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) in CHANGELOG.md
-3. run `./release` with `<version>` and the just published `hydra-scripts-tx-id` from step 1
+3. run `./release.sh` with `<version>` and the just published `hydra-scripts-tx-id` from step 1
 4. Create a github release page containing
    - The released changes (formatted) and giving credit where credit is due
    - Attach static binaries to the release (or link the CI artifact)
