@@ -21,7 +21,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), NetworkId, PaymentKey, SigningKey, VerificationKey, generateSigningKey, getProgress, getVerificationKey)
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cluster.Fixture (
-  KnownNetwork (Preproduction, Preview),
+  KnownNetwork (Mainnet, Preproduction, Preview),
   defaultNetworkId,
  )
 import Hydra.Cluster.Util (readConfigFile)
@@ -201,14 +201,14 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
       , nodeAlonzoGenesisFile = "genesis/alonzo.json"
       }
 
-  -- Read 'NetworkId' from shelley genesis, failing if on mainnet or not able to
-  -- find the network magic.
+  -- Read 'NetworkId' from shelley genesis
   readNetworkId = do
     shelleyGenesis :: Aeson.Value <- unsafeDecodeJson =<< readConfigFile (knownNetworkPath </> "genesis" </> "shelley.json")
-    when (shelleyGenesis ^?! key "networkId" == "Mainnet") $
-      fail "Mainnet not supported yet"
-    let magic = shelleyGenesis ^?! key "networkMagic" . _Number
-    pure $ Api.Testnet (Api.NetworkMagic $ truncate magic)
+    if shelleyGenesis ^?! key "networkId" == "Mainnet"
+      then pure $ Api.Mainnet
+      else do
+        let magic = shelleyGenesis ^?! key "networkMagic" . _Number
+        pure $ Api.Testnet (Api.NetworkMagic $ truncate magic)
 
   copyKnownNetworkFiles =
     forM_
@@ -227,6 +227,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   knownNetworkName = case knownNetwork of
     Preview -> "preview"
     Preproduction -> "preprod"
+    Mainnet -> "mainnet"
 
   knownNetworkPath =
     "cardano-configurations" </> "network" </> knownNetworkName

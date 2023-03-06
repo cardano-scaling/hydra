@@ -24,8 +24,8 @@ data Pixel = Pixel
   { x, y, red, green, blue :: Word8
   }
 
-paintPixel :: FilePath -> Connection -> Pixel -> IO ()
-paintPixel signingKeyPath cnx pixel = do
+paintPixel :: NetworkId -> FilePath -> Connection -> Pixel -> IO ()
+paintPixel networkId signingKeyPath cnx pixel = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) signingKeyPath
   let vk = getVerificationKey sk
   flushQueue cnx
@@ -42,9 +42,6 @@ paintPixel signingKeyPath cnx pixel = do
         Right tx -> sendTextData cnx $ Aeson.encode $ NewTx tx
     Right other -> error $ "Unexpected server answer:  " <> decodeUtf8 msg
  where
-  networkId = Testnet unusedNetworkMagic
-  unusedNetworkMagic = NetworkMagic 42
-
   flushQueue cnx =
     race_ (threadDelay 0.25) (void (receive cnx) >> flushQueue cnx)
 

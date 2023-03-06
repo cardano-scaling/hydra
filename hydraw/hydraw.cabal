@@ -73,8 +73,9 @@ executable hydraw
     -Wunused-packages -threaded -rtsopts
 
   build-depends:
-    , base            >=4.7 && <5
+    , base               >=4.7 && <5
     , http-types
+    , hydra-cardano-api
     , hydra-node
     , hydra-prelude
     , hydraw

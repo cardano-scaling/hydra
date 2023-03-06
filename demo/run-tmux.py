@@ -85,7 +85,7 @@ if not session:
             '--cardano-verification-key', 'devnet/credentials/carol.vk',
             '--ledger-genesis', 'devnet/genesis-shelley.json',
             '--ledger-protocol-parameters', 'devnet/protocol-parameters.json',
-            '--network-id', '42',
+            '--testnet-magic', '42',
             '--node-socket', 'devnet/node.socket',
             ]))
         hydra_node_pane_bob = hydra_nodes_window.split_window(vertical=True)
@@ -107,7 +107,7 @@ if not session:
             '--cardano-verification-key', 'devnet/credentials/carol.vk',
             '--ledger-genesis', 'devnet/genesis-shelley.json',
             '--ledger-protocol-parameters', 'devnet/protocol-parameters.json',
-            '--network-id', '42',
+            '--testnet-magic', '42',
             '--node-socket', 'devnet/node.socket',
             ]))
         hydra_node_pane_carol = hydra_nodes_window.split_window(vertical=True)
@@ -129,7 +129,7 @@ if not session:
             '--cardano-verification-key', 'devnet/credentials/bob.vk',
             '--ledger-genesis', 'devnet/genesis-shelley.json',
             '--ledger-protocol-parameters', 'devnet/protocol-parameters.json',
-            '--network-id', '42',
+            '--testnet-magic', '42',
             '--node-socket', 'devnet/node.socket',
             ]))
         time.sleep(2)
@@ -142,7 +142,7 @@ if not session:
              'hydra-tui',
              '--connect', '0.0.0.0:4001',
              '--cardano-signing-key', 'devnet/credentials/alice.sk',
-             '--network-id', '42',
+             '--testnet-magic', '42',
              '--node-socket', 'devnet/node.socket',
             ]))
 
@@ -151,7 +151,7 @@ if not session:
             'hydra-tui',
             '--connect', '0.0.0.0:4002',
             '--cardano-signing-key', 'devnet/credentials/bob.sk',
-            '--network-id', '42',
+            '--testnet-magic', '42',
             '--node-socket', 'devnet/node.socket',
             ]))
 
@@ -160,7 +160,7 @@ if not session:
             'hydra-tui',
             '--connect', '0.0.0.0:4003',
             '--cardano-signing-key', 'devnet/credentials/carol.sk',
-            '--network-id', '42',
+            '--testnet-magic', '42',
             '--node-socket', 'devnet/node.socket',
             ]))
         sys.exit(0)

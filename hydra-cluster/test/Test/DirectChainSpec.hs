@@ -332,7 +332,7 @@ spec = around showLogsOnFailure $ do
                 ( "publish-scripts" :
                   mconcat
                     [ ["--node-socket", nodeSocket]
-                    , ["--network-id", toArgNetworkId networkId]
+                    , toArgNetworkId networkId
                     , ["--cardano-signing-key", cardanoSigningKey]
                     ]
                 )

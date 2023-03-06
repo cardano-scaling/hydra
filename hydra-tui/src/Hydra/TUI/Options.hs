@@ -1,18 +1,19 @@
 module Hydra.TUI.Options where
 
-import Hydra.Prelude
-
-import Hydra.Cardano.Api (
-  NetworkId (Testnet),
-  NetworkMagic (NetworkMagic),
+import Hydra.Prelude (
+  Applicative ((<*>)),
+  FilePath,
+  Semigroup ((<>)),
+  (<$>),
  )
+
+import Hydra.Cardano.Api (NetworkId)
 import Hydra.Network (Host (Host))
+import Hydra.Options (networkIdParser)
 import Options.Applicative (
   Parser,
   auto,
-  completer,
   help,
-  listCompleter,
   long,
   metavar,
   option,
@@ -34,7 +35,7 @@ parseOptions =
   Options
     <$> parseNodeHost
     <*> parseCardanoNodeSocket
-    <*> parseCardanoNetworkId
+    <*> networkIdParser
     <*> parseCardanoSigningKey
 
 parseCardanoNodeSocket :: Parser FilePath
@@ -57,19 +58,6 @@ parseNodeHost =
         <> value (Host "0.0.0.0" 4001)
         <> showDefault
     )
-
-parseCardanoNetworkId :: Parser NetworkId
-parseCardanoNetworkId =
-  Testnet . NetworkMagic
-    <$> option
-      auto
-      ( long "network-id"
-          <> short 'n'
-          <> metavar "INTEGER"
-          <> help "The network magic number identifying the testnet to connect to."
-          <> completer (listCompleter ["1097911063", "42"])
-          <> showDefault
-      )
 
 parseCardanoSigningKey :: Parser FilePath
 parseCardanoSigningKey =

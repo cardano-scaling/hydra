@@ -28,6 +28,7 @@ parseOptions =
   parseKnownNetwork =
     flag' (Just Preview) (long "preview" <> help "The preview testnet")
       <|> flag' (Just Preproduction) (long "preprod" <> help "The pre-production testnet")
+      <|> flag' (Just Mainnet) (long "mainnet" <> help "The mainnet")
       <|> flag'
         Nothing
         ( long "devnet"

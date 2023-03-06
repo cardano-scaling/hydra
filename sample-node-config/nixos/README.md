@@ -62,7 +62,7 @@ ssh -t example docker run --rm -it \
   ghcr.io/input-output-hk/hydra-tui \
   --connect 0.0.0.0:4001 \
   --node-socket /data/cardano-node/node.socket \
-  --network-id 2 \
+  --testnet-magic 2 \
   --cardano-signing-key /data/hydra-node/credentials/sebastian.cardano.sk
 ```
 

@@ -95,7 +95,7 @@ source .env && hydra-node \
   --cardano-verification-key devnet/credentials/carol.vk \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
-  --network-id 42 \
+  --testnet-magic 42 \
   --node-socket devnet/node.socket \
   --persistence-dir persistence/alice
 ```
@@ -120,7 +120,7 @@ source .env && hydra-node \
   --cardano-verification-key devnet/credentials/carol.vk \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
-  --network-id 42 \
+  --testnet-magic 42 \
   --node-socket devnet/node.socket \
   --persistence-dir persistence/bob
 ```
@@ -145,7 +145,7 @@ source .env && hydra-node \
   --cardano-verification-key devnet/credentials/bob.vk \
   --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
-  --network-id 42 \
+  --testnet-magic 42 \
   --node-socket devnet/node.socket \
   --persistence-dir persistence/carol
 ```
@@ -172,7 +172,7 @@ Connect to the nodes using hydra-tui.
 hydra-tui \
   --connect 0.0.0.0:4001 \
   --cardano-signing-key devnet/credentials/alice.sk \
-  --network-id 42 \
+  --testnet-magic 42 \
   --node-socket devnet/node.socket
 ```
 

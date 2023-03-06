@@ -18,6 +18,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Chain (HeadId (..), HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -784,7 +785,7 @@ observeCommitTx networkId initials tx = do
     -- TODO: We could simplify this by just using the datum. However, we would
     -- need to ensure the commit is belonging to a head / is rightful. By just
     -- looking for some known initials we achieve this (a bit complicated) now.
-    case (mCommittedTxIn, onChainCommit >>= Commit.deserializeCommit) of
+    case (mCommittedTxIn, onChainCommit >>= Commit.deserializeCommit (networkIdToNetwork networkId)) of
       (Nothing, Nothing) -> Just mempty
       (Just i, Just (_i, o)) -> Just $ UTxO.singleton (i, o)
       (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."

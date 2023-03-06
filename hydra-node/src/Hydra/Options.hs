@@ -46,6 +46,7 @@ import Options.Applicative (
   eitherReader,
   execParserPure,
   flag,
+  flag',
   footer,
   fullDesc,
   handleParseResult,
@@ -310,15 +311,23 @@ chainConfigParser =
     <*> contestationPeriodParser
 
 networkIdParser :: Parser NetworkId
-networkIdParser =
-  testnetParser
+networkIdParser = pMainnet <|> fmap Testnet pTestnetMagic
  where
-  testnetParser =
-    Testnet . NetworkMagic
+  pMainnet :: Parser NetworkId
+  pMainnet =
+    flag'
+      Mainnet
+      ( long "mainnet"
+          <> help "Use the mainnet magic id."
+      )
+
+  pTestnetMagic :: Parser NetworkMagic
+  pTestnetMagic =
+    NetworkMagic
       <$> option
         auto
-        ( long "network-id"
-            <> metavar "INTEGER"
+        ( long "testnet-magic"
+            <> metavar "NATURAL"
             <> value 42
             <> showDefault
             <> completer (listCompleter ["1", "2", "42"])
@@ -682,7 +691,7 @@ toArgs
         []
 
     argsChainConfig =
-      ["--network-id", toArgNetworkId networkId]
+      toArgNetworkId networkId
         <> ["--node-socket", nodeSocket]
         <> ["--cardano-signing-key", cardanoSigningKey]
         <> ["--contestation-period", show contestationPeriod]
@@ -707,10 +716,10 @@ toArgs
       , contestationPeriod
       } = chainConfig
 
-toArgNetworkId :: NetworkId -> String
+toArgNetworkId :: NetworkId -> [String]
 toArgNetworkId = \case
-  Mainnet -> error "Mainnet not supported"
-  Testnet (NetworkMagic magic) -> show magic
+  Mainnet -> ["--mainnet"]
+  Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
 
 genFilePath :: String -> Gen FilePath
 genFilePath extension = do
