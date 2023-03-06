@@ -11,6 +11,8 @@ import Codec.Serialise (deserialiseOrFail, serialise)
 import Data.ByteString.Lazy (fromStrict, toStrict)
 import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import qualified Hydra.Cardano.Api as OffChain
+import Hydra.Cardano.Api.Network (Network)
+import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
@@ -31,7 +33,6 @@ import Plutus.V2.Ledger.Api (
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import qualified PlutusTx
 import qualified Prelude as Haskell
-import Hydra.Contract.Error (ToErrorCode (..))
 
 data CommitRedeemer
   = ViaCollectCom
@@ -67,12 +68,12 @@ serializeCommit (i, o) = do
 
 -- | Decode an on-chain 'SerializedTxOut' back into an off-chain 'TxOut'.
 -- NOTE: Depends on the 'Serialise' instance for Plutus' 'Data'.
-deserializeCommit :: OffChain.NetworkId -> Commit -> Maybe (OffChain.TxIn, OffChain.TxOut CtxUTxO)
-deserializeCommit networkId Commit{input, preSerializedOutput} =
+deserializeCommit :: Network -> Commit -> Maybe (OffChain.TxIn, OffChain.TxOut CtxUTxO)
+deserializeCommit network Commit{input, preSerializedOutput} =
   case deserialiseOrFail . fromStrict $ fromBuiltin preSerializedOutput of
     Left{} -> Nothing
     Right dat -> do
-      txOut <- fromPlutusTxOut networkId <$> fromData dat
+      txOut <- fromPlutusTxOut network <$> fromData dat
       pure (fromPlutusTxOutRef input, txOut)
  where
 
