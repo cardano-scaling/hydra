@@ -58,9 +58,12 @@ jobs:
         restore-keys: |
           cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
-    - name: 🔨 Build
+    - name: 🧰 Prepare tools
       run: |
         nix develop .#ci --command bash -c 'cabal update'
+
+    - name: 🔨 Build
+      run: |
         nix develop .#ci --command bash -c 'cabal build ${{ matrix.package }}'
 
     - name: ❓ Test
@@ -195,13 +198,16 @@ jobs:
         key: |
           cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
+    - name: 🧰 Prepare tools
+      run: |
+        nix develop .#ci --command bash -c 'cabal update'
+
     - name: 📈 Benchmark
       run: |
         nix develop .#ci --command bash -c 'cabal bench ${{ matrix.bench }} --benchmark-options "${{ matrix.options }}"'
 
     - name: 📚 Documentation (Haddock)
       run: |
-        nix develop .#ci --command bash -c 'cabal update'
         nix develop .#ci --command bash -c '.github/workflows/ci-haddock.sh'
 
     - name: 💾 Upload build & test artifacts
