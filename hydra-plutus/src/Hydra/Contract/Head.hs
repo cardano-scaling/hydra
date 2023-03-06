@@ -313,7 +313,8 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
-      verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
+      traceIfFalse "H11" $
+        verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
     | otherwise =
       traceIfFalse "H12" $
         closedUtxoHash == initialUtxoHash
@@ -388,6 +389,11 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     && checkSignedParticipantContestOnlyOnce
     && mustBeWithinContestationPeriod
     && mustUpdateContesters
+    -- XXX: This check is redundant and can be removed,
+    -- because is enough to check that the value is preserved.
+    -- Remember we are comming from a valid Closed state,
+    -- having already checked that the ST is present.
+    && hasST headId val
     && mustPushDeadline
     && mustNotChangeParameters
     && mustPreserveValue
@@ -402,10 +408,10 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
 
   mustBeNewer =
     traceIfFalse "H17" $
-      closedSnapshotNumber' > closedSnapshotNumber
+      contestSnapshotNumber > closedSnapshotNumber
 
   mustBeMultiSigned =
-    verifySnapshotSignature parties closedSnapshotNumber' closedUtxoHash' sig
+    verifySnapshotSignature parties contestSnapshotNumber contestUtxoHash sig
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange txInfo) of
@@ -432,7 +438,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     traceIfFalse "H22" $
       contesters' == contester : contesters
 
-  (closedSnapshotNumber', closedUtxoHash', parties', contestationDeadline', contestationPeriod', headId', contesters') =
+  (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', contestationPeriod', headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
@@ -629,6 +635,7 @@ data HeadError
   | MissingCommits
   | HeadValueIsNotPreserved
   | HasBoundedValidityCheckFailed
+  | InvalidSnapshotSignature
   | ClosedWithNonInitialHash
   | IncorrectClosedContestationDeadline
   | InfiniteUpperBound
@@ -668,6 +675,9 @@ instance ToErrorCode HeadError where
     MissingCommits -> "H08"
     HeadValueIsNotPreserved -> "H09"
     HasBoundedValidityCheckFailed -> "H10"
+    -- XXX: This error code is redundant and can be removed in favor of H35.
+    -- This will also make the close checks consistent with the contest's
+    InvalidSnapshotSignature -> "H11"
     ClosedWithNonInitialHash -> "H12"
     IncorrectClosedContestationDeadline -> "H13"
     InfiniteUpperBound -> "H14"
