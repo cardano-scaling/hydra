@@ -12,9 +12,7 @@ changes.
 
 - **BREAKING**
  - Changed `hydra-node` and `hydra-tui` arguments.
- - Instead of `--network-id` flag they now use `--testnet-magic`.
-
-- Hydra node can now parse `Mainnet` network command line argument.
+ - Instead of `--network-id` flag they now use `--testnet-magic` and we support also `--mainnet` flag.
 
 - Changed interface of `Hydra.Ledger.Cardano.Evaluate` functions.
 
