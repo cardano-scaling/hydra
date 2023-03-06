@@ -1139,6 +1139,18 @@ components:
             failureReason:
               type: string
 
+        - title: ReachedMainnetHardcodedLimit
+          description: |
+            Raised if the user tries to commit more than 100 ADA while on the mainnet network.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["ReachedMainnetHardcodedLimit"]
+
     Signature:
       type: string
       description: >-
