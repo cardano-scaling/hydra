@@ -55,7 +55,7 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
-import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
+import Hydra.Persistence (Persistence (load), PersistenceException (..), createPersistence, createPersistenceIncremental)
 
 main :: IO ()
 main = do
@@ -84,11 +84,11 @@ main = do
               pure $ Idle IdleState{chainState = initialChainState}
             Just headState -> do
               traceWith tracer LoadedState
-              case checkRestartParams headState env of
-                Nothing -> pure headState
-                Just misconfiguration -> do
-                  traceWith tracer (Misconfiguration misconfiguration)
-                  pure headState
+              pure headState
+        let paramsMismatch = checkParamsAgainstExistingState hs env
+        when (not $ null paramsMismatch) $ do
+          traceWith tracer (Misconfiguration paramsMismatch)
+          throwIO $ PersistenceException $ concat paramsMismatch
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
@@ -126,18 +126,19 @@ main = do
 
     action (Ledger.cardanoLedger globals ledgerEnv)
 
-  checkRestartParams :: HeadState Ledger.Tx -> Environment -> Maybe Text
-  checkRestartParams hs env =
+  -- check if hydra-node parameters are matching with the hydra-node state.
+  checkParamsAgainstExistingState :: HeadState Ledger.Tx -> Environment -> [String]
+  checkParamsAgainstExistingState hs env =
     case hs of
-      Idle _ -> Nothing
+      Idle _ -> []
       Initial InitialState{parameters} -> checkCPAndParties "InitialState" parameters
       Open OpenState{parameters} -> checkCPAndParties "OpenState" parameters
       Closed ClosedState{parameters} -> checkCPAndParties "ClosedState" parameters
    where
     checkCPAndParties st params
-      | Hydra.Chain.contestationPeriod params == cp = Just $ st <> " : " <> "Contestation period does not match"
-      | Hydra.Chain.parties params == envParties = Just $ st <> " : " <> "Parties mismatch"
-      | otherwise = Nothing
+      | Hydra.Chain.contestationPeriod params /= cp = [st <> " : " <> "Contestation period does not match"]
+      | Hydra.Chain.parties params /= envParties = [st <> " : " <> "Parties mismatch"]
+      | otherwise = []
     Environment{contestationPeriod = cp, otherParties, party} = env
     envParties = party : otherParties
 

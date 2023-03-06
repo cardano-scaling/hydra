@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
-import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
+import CardanoNode (RunningNode (..), generateCardanoKey, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^?))
@@ -16,22 +16,11 @@ import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, 
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _JSON)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Hydra.Cardano.Api (
-  AddressInEra,
-  Key (SigningKey),
-  NetworkId (Testnet),
-  NetworkMagic (NetworkMagic),
-  PaymentKey,
-  TxId,
-  TxIn (..),
-  VerificationKey,
-  lovelaceToValue,
-  mkVkAddress,
-  serialiseAddress,
-  writeFileTextEnvelope,
- )
+import Hydra.Cardano.Api (AddressInEra, Key (SigningKey), NetworkId (Testnet), NetworkMagic (NetworkMagic), PaymentKey, Tx, TxId, TxIn (..), VerificationKey, lovelaceToValue, mkVkAddress, serialiseAddress, serialiseToRawBytesHexText, writeFileTextEnvelope)
+import Hydra.Chain (HeadParameters (HeadParameters, contestationPeriod, parties))
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
@@ -60,6 +49,7 @@ import Hydra.Cluster.Scenarios (
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
+import Hydra.HeadLogic (HeadState (Open), OpenState (parameters))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -79,7 +69,7 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
  )
-import System.Directory (removeDirectoryRecursive)
+import System.Directory (createDirectoryIfMissing, removeDirectoryRecursive)
 import System.FilePath ((</>))
 import System.IO (hGetLine)
 import System.IO.Error (isEOFError)
@@ -369,6 +359,60 @@ spec = around showLogsOnFailure $ do
             \_ (Just nodeStdout) _ _ ->
               waitForLog 10 nodeStdout "JSON object with key NodeOptions" $ \line ->
                 line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
+
+      it "detects misconfiguration" $ \tracer -> do
+        withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            let persistenceDir = dir </> "persistence"
+            openState :: OpenState Tx <- generate arbitrary
+
+            let nodeState = Open (openState{parameters = HeadParameters{contestationPeriod = UnsafeContestationPeriod 1, parties = []}})
+
+            void $ do
+              createDirectoryIfMissing True persistenceDir
+              BSL.writeFile (persistenceDir </> "state") (Aeson.encode nodeState)
+
+            let cardanoSK = dir </> "cardano.sk"
+            let hydraSK = dir </> "hydra.sk"
+
+            (_, cardanoSKey) <- generateCardanoKey
+            hydraSKey :: SigningKey HydraKey <- generate arbitrary
+
+            void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
+            void $ writeFileTextEnvelope cardanoSK Nothing cardanoSKey
+
+            let nodeArgs =
+                  [ "-n"
+                  , "hydra-node-1"
+                  , "--testnet-magic"
+                  , "42"
+                  , "--cardano-signing-key"
+                  , cardanoSK
+                  , "--hydra-signing-key"
+                  , hydraSK
+                  , "--contestation-period"
+                  , "100s"
+                  , "--persistence-dir"
+                  , persistenceDir
+                  , "--node-socket"
+                  , nodeSocket
+                  , "--hydra-scripts-tx-id"
+                  , toString $ serialiseToRawBytesHexText hydraScriptsTxId
+                  , "--ledger-genesis"
+                  , "config/devnet/genesis-shelley.json"
+                  , "--ledger-protocol-parameters"
+                  , "config/protocol-parameters.json"
+                  ]
+            -- expecting misconfiguration
+            withCreateProcess (proc "hydra-node" nodeArgs){std_out = CreatePipe, std_err = CreatePipe} $
+              \_ (Just nodeStdout) (Just nodeStdErr) _ -> do
+                waitForLog 10 nodeStdout "Detect Misconfiguration log" $ \outline ->
+                  outline ^? key "message" . key "tag" == Just (Aeson.String "Misconfiguration")
+
+                waitForLog 10 nodeStdErr "Detect PersistenceException" $ \errline ->
+                  let allLogLines = lines errline
+                   in "hydra-node: PersistenceException \"OpenState : Contestation period does not match\"" `elem` allLogLines
 
 waitForLog :: NominalDiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
