@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE MultiWayIf #-}
 
 module Main where
 
@@ -6,11 +7,22 @@ import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
+import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.Util (readKeyPair)
-import Hydra.HeadLogic (Environment (..), Event (..), HeadState (..), IdleState (..), defaultTTL, getChainState)
+import Hydra.HeadLogic (
+  ClosedState (..),
+  Environment (..),
+  Event (..),
+  HeadState (..),
+  IdleState (..),
+  InitialState (..),
+  OpenState (..),
+  defaultTTL,
+  getChainState,
+ )
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
   newGlobals,
@@ -70,9 +82,13 @@ main = do
             Nothing -> do
               traceWith tracer CreatedState
               pure $ Idle IdleState{chainState = initialChainState}
-            Just a -> do
+            Just headState -> do
               traceWith tracer LoadedState
-              pure a
+              case checkRestartParams headState env of
+                Nothing -> pure headState
+                Just misconfiguration -> do
+                  traceWith tracer (Misconfiguration misconfiguration)
+                  pure headState
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
@@ -109,6 +125,21 @@ main = do
         <$> readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
 
     action (Ledger.cardanoLedger globals ledgerEnv)
+
+  checkRestartParams :: HeadState Ledger.Tx -> Environment -> Maybe Text
+  checkRestartParams hs env =
+    case hs of
+      Idle _ -> Nothing
+      Initial InitialState{parameters} -> checkCPAndParties "InitialState" parameters
+      Open OpenState{parameters} -> checkCPAndParties "OpenState" parameters
+      Closed ClosedState{parameters} -> checkCPAndParties "ClosedState" parameters
+   where
+    checkCPAndParties st params
+      | Hydra.Chain.contestationPeriod params == cp = Just $ st <> " : " <> "Contestation period does not match"
+      | Hydra.Chain.parties params == envParties = Just $ st <> " : " <> "Parties mismatch"
+      | otherwise = Nothing
+    Environment{contestationPeriod = cp, otherParties, party} = env
+    envParties = party : otherParties
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
