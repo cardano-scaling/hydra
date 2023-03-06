@@ -59,7 +59,7 @@ For this, we do not need a service definition, but can simply use `docker` via S
 ssh -t example docker run --rm -it \
   -v /data:/data \
   --network host \
-  ghcr.io/input-output-hk/hydra-tui:0.9.0 \
+  ghcr.io/input-output-hk/hydra-tui \
   --connect 0.0.0.0:4001 \
   --node-socket /data/cardano-node/node.socket \
   --network-id 2 \

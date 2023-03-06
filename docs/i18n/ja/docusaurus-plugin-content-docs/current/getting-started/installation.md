@@ -17,7 +17,7 @@ hydra-nodeを動かす一番迅速な方法は、専用のDockerイメージを�
 <TerminalWindow>
 
 ```
-docker pull ghcr.io/input-output-hk/hydra-node:0.9.0
+docker pull ghcr.io/input-output-hk/hydra-node
 docker run --rm ghcr.io/input-output-hk/hydra-node --help
 ```
 
