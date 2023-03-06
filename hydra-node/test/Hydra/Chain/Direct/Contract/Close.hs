@@ -94,6 +94,7 @@ healthyCloseTx =
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }
+
   closingSnapshot :: ClosingSnapshot
   closingSnapshot =
     CloseWithConfirmedSnapshot
@@ -224,24 +225,33 @@ healthyClosedUTxO =
   genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
 
 data CloseMutation
-  = -- | Makes the tx `snapshot signature` invalid by changing the redeemer signature but not the snapshot number in resulting head output.
-    -- This ensures the snapshot signature is multisigned by all valid Head participants.
+  = -- | Ensures the snapshot signature is multisigned by all valid Head
+    -- participants.
+    --
+    -- Invalidates tx `snapshot signature` by changing the redeemer signature
+    -- but not the snapshot number in output head datum.
     MutateSignatureButNotSnapshotNumber
-  | -- | Makes the tx `snapshot signature` invalid by changing the snapshot number in resulting head output but not the redeemer signature.
+  | -- | Ensures the snapshot number is consistent with the signature.
+    --
+    -- Invalidates the tx `snapshot signature` by changing the snapshot number
+    -- in resulting head output but not the redeemer signature.
     MutateSnapshotNumberButNotSignature
-  | -- | Makes the tx `utxo hash` invalid by changing the snapshot number in resulting head output to be a non-initual utxo (when snapshot number <= 0).
-    MutateSnapshotNumberToLessThanZero
-  | -- | Makes the tx `snapshot signature` invalid by changing the parties in the head input (stored state).
-    MutateParties
-  | -- | Makes the tx `signer` invalid by using a signer not present in the list of distributed PTs.
-    -- This ensures that it's performed by a Head party.
+  | -- | Check that snapshot numbers <= 0 need to close the head with the
+    -- initial UTxO hash.
+    MutateSnapshotNumberToLessThanEqualZero
+  | -- | Ensures the tx `snapshot signature` is multisigned by all Head
+    -- participants by changing the parties in the input head datum. If they do
+    -- not align the multisignature will not be valid anymore.
+    SnapshotNotSignedByAllParties
+  | -- | Ensures close is authenticated by a Head party by changing the signer
+    -- used on the transaction to be not one of PTs.
     MutateRequiredSigner
   | -- | Makes the tx `snapshot signature` invalid by changing the utxo hash in resulting head output.
     -- This ensures the output state is consistent with the redeemer.
     MutateCloseUTxOHash
-  | -- | Makes the tx resulting `head output` invalid by changing its parties to be different from the head input (stored state).
+  | -- | Ensures parties do not change between head input datum and head output datum.
     MutatePartiesInOutput
-  | -- | Makes the tx resulting `head output` invalid by changing its head id to be different from the head input (stored state).
+  | -- | Ensures headId do not change between head input datum and head output datum.
     MutateHeadIdInOutput
   | -- | Makes the tx `validity range` invalid by changing its lower bound to be non finite.
     MutateInfiniteLowerBound
@@ -252,10 +262,15 @@ data CloseMutation
   | -- | Makes the tx `validity range` invalid by changing its lower and upper bound to be not bounded as per spec `upperBound - lowerBound <= contestationPeriod`.
     -- This also changes the resulting `head output` contestation deadline to be valid, so it satisfy `contestationDeadline = upperBound + contestationPeriod`.
     MutateValidityInterval
-  | -- | Change the head policy id to simulate contestation using a ST and signer from a different head.
-    -- The signer shows a correct signature but from a different head.
-    -- This will cause the signer to not be present in the participation tokens.
-    ContestFromDifferentHead
+  | -- | Ensure the Head cannot be closed with correct authentication from a
+    -- different Head. We simulate this by changing the head policy id of the ST
+    -- and PTs to be of a different head - a real attack would be to add inputs
+    -- with those tokens on top of spending the head output, a bit like a double
+    -- satisfaction attack. Note that the token name stays the same and
+    -- consistent with the signer. This will cause authentication failure
+    -- because the signer's PT, although with a consistent name, is not from the
+    -- right head (has a different policy id than in the datum).
+    CloseFromDifferentHead
   | -- | Makes the tx `output minted values` invalid by changing them to include burning/minting of tokens.
     -- Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'.
     MutateTokenMintingOrBurning
@@ -270,13 +285,13 @@ genCloseMutation (tx, _utxo) =
   oneof
     [ SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-    , SomeMutation (Just $ toErrorCode ClosedWithNonInitialHash) MutateSnapshotNumberToLessThanZero <$> do
+    , SomeMutation (Just $ toErrorCode ClosedWithNonInitialHash) MutateSnapshotNumberToLessThanEqualZero <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (<= 0)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
     , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotNumber)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
-    , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateParties . ChangeInputHeadDatum <$> do
+    , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $
           Head.Open
@@ -313,7 +328,7 @@ genCloseMutation (tx, _utxo) =
             ]
     , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
-      SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
+      SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) CloseFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
         pure $
           Changes

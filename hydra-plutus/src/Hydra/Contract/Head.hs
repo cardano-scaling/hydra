@@ -517,6 +517,7 @@ mkHeadAddress ctx =
    in txOutAddress (txInInfoResolved headInput)
 {-# INLINEABLE mkHeadAddress #-}
 
+-- XXX: We might not need to distinguish between the three cases here.
 mustBeSignedByParticipant ::
   ScriptContext ->
   CurrencySymbol ->
