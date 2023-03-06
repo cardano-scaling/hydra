@@ -88,41 +88,71 @@ import Test.QuickCheck (choose)
 import Test.QuickCheck.Gen (chooseWord64)
 import qualified UntypedPlutusCore as UPLC
 
--- | Thin wrapper around 'evaluateTransactionExecutionUnits', which uses
--- fixtures for system start, era history and protocol parameters. See
--- 'pparams'.
+-- * Evaluate transactions
+
+-- | Thin wrapper around 'evaluateTransactionExecutionUnits', using fixtures
+-- from this module for 'systemStart', 'eraHistory' and 'pparams'.
+--
+-- Additionally, this function checks the overall execution units are not
+-- exceeding 'maxTxExecutionUnits'.
 evaluateTx ::
   Tx ->
   UTxO ->
-  Either
-    TransactionValidityError
-    (Map ScriptWitnessIndex (Either ScriptExecutionError ExecutionUnits))
+  Either EvaluationError EvaluationReport
 evaluateTx = evaluateTx' maxTxExecutionUnits
 
--- | Thin wrapper around 'evaluateTransactionExecutionUnits', which uses
--- fixtures for system start, era history, protocol parameters, but allows to
--- configure max 'ExecutionUnits'. See 'pparams'.
+-- | Like 'evaluateTx', but with a configurable maximum transaction
+-- 'ExecutionUnits'.
 evaluateTx' ::
   -- | Max tx execution units.
   ExecutionUnits ->
   Tx ->
   UTxO ->
-  Either
-    TransactionValidityError
-    (Map ScriptWitnessIndex (Either ScriptExecutionError ExecutionUnits))
+  Either EvaluationError EvaluationReport
 evaluateTx' maxUnits tx utxo =
-  evaluateTransactionExecutionUnits
-    BabbageEraInCardanoMode
-    systemStart
-    eraHistory
-    pparams'
-    (UTxO.toApi utxo)
-    txBody
+  case result of
+    Left txValidityError -> Left $ TransactionInvalid txValidityError
+    Right report
+      -- Check overall budget when all individual scripts evaluated
+      | all isRight report -> checkBudget maxUnits report
+      | otherwise -> Right report
  where
-  txBody = getTxBody tx
+  result =
+    evaluateTransactionExecutionUnits
+      BabbageEraInCardanoMode
+      systemStart
+      eraHistory
+      pparams{protocolParamMaxTxExUnits = Just maxUnits}
+      (UTxO.toApi utxo)
+      (getTxBody tx)
 
-  pparams' = pparams{protocolParamMaxTxExUnits = Just maxUnits}
+-- | Check the budget used by provided 'EvaluationReport' does not exceed given
+-- maximum 'ExecutionUnits'.
+checkBudget :: ExecutionUnits -> EvaluationReport -> Either EvaluationError EvaluationReport
+checkBudget maxUnits report
+  | usedMemory <= executionMemory maxUnits && usedCpu <= executionSteps maxUnits =
+      Right report
+  | otherwise =
+      Left
+        TransactionBudgetOverspent
+          { used
+          , available = maxUnits
+          }
+ where
+  used@ExecutionUnits
+    { executionMemory = usedMemory
+    , executionSteps = usedCpu
+    } = usedExecutionUnits report
 
+-- | Errors returned by 'evaluateTx' extending the upstream
+-- 'TransactionValidityError' with additional cases.
+data EvaluationError
+  = TransactionBudgetOverspent {used :: ExecutionUnits, available :: ExecutionUnits}
+  | TransactionInvalid TransactionValidityError
+  deriving (Show)
+
+-- | Evaluation result for each of the included scripts. Either they failed
+-- evaluation or used a number of 'ExecutionUnits'.
 type EvaluationReport =
   (Map ScriptWitnessIndex (Either ScriptExecutionError ExecutionUnits))
 
@@ -138,6 +168,21 @@ renderEvaluationReportFailures reportMap =
     f ->
       show f
 
+-- | Get the total used 'ExecutionUnits' from an 'EvaluationReport'. Useful to
+-- further process the result of 'evaluateTx'.
+usedExecutionUnits :: EvaluationReport -> ExecutionUnits
+usedExecutionUnits report =
+  ExecutionUnits
+    { executionMemory = usedMemory
+    , executionSteps = usedCpu
+    }
+ where
+  usedMemory = sum $ executionMemory <$> budgets
+
+  usedCpu = sum $ executionSteps <$> budgets
+
+  budgets = rights $ toList report
+
 -- | Estimate minimum fee for given transaction and evaluated redeemers. Instead
 -- of using the budgets from the transaction (which might are usually set to 0
 -- until balancing), this directly computes the fee from transaction size and
@@ -150,7 +195,7 @@ estimateMinFee ::
   Lovelace
 estimateMinFee tx evaluationReport =
   fromLedgerCoin $
-    txSize <×> a <+> b
+    (txSize <×> a <+> b)
       <+> txscriptfee (_prices pp) allExunits
  where
   txSize = BS.length $ serialiseToCBOR tx
@@ -158,6 +203,8 @@ estimateMinFee tx evaluationReport =
   b = Coin . fromIntegral $ _minfeeB pp
   pp = toLedgerPParams (shelleyBasedEra @Era) pparams
   allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport
+
+-- * Profile transactions
 
 -- | Like 'evaluateTx', but instead of actual evaluation, return the
 -- flat-encoded, fully applied scripts for each redeemer to be evaluated
