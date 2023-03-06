@@ -224,18 +224,18 @@ data ContestMutation
   | -- | Makes the tx `signer` invalid by changing the head input (stored head) list of already contesters to include the signer.
     -- This ensures a signed participant can only contest once.
     MutateInputContesters
-  | -- | Change the resulting contesters arbitrarily to see if they are checked
+  | -- Makes the tx `signer` invalid by changing the head output to not include it as already contested.
     MutateContesters
-  | -- | See spec: 5.5. rule 6 -> value is preserved
+  | -- | Makes the tx `output values` invalid by changing them arbitrarly to be differnet (not preserved) from the head.
     MutateValueInOutput
-  | -- | Change the 'ContestationDeadline' in the 'Closed' output datum such that deadline is pushed away
+  | -- | Makes the tx `head output` invalid by changing the contestation deadline in head output such that deadline is not pushed away.
     NotUpdateDeadlineAlthoughItShould
   | -- | Pushes the deadline although this is the last contest. Instead of
     -- creating another healthy case and mutate that one, this mutation just
     -- changes the starting situation so that everyone else already contested.
     -- Remember the 'healthyContestTx' is already pushing out the deadline.
     PushDeadlineAlthoughItShouldNot
-  | -- | Change the contestation period to test parameters not changed in output.
+  | -- | Makes the tx resulting `head output` invalid by changing its contestation period to be different from the head input (stored state).
     MutateOutputContestationPeriod
   deriving (Generic, Show, Enum, Bounded)
 
@@ -328,6 +328,7 @@ genContestMutation
       , SomeMutation (Just $ toErrorCode MustPushDeadline) NotUpdateDeadlineAlthoughItShould . ChangeOutput 0 <$> do
           let deadline = posixFromUTCTime healthyContestationDeadline
           -- Here we are replacing the contestationDeadline using the previous so we are not _pushing it_ further
+          -- Remember the 'healthyContestTx' is already pushing out the deadline.
           pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
       , SomeMutation (Just $ toErrorCode MustNotPushDeadline) PushDeadlineAlthoughItShouldNot <$> do
           alreadyContested <- vectorOf (length healthyParties - 1) $ Plutus.PubKeyHash . toBuiltin <$> genHash
