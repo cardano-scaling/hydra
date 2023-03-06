@@ -358,7 +358,7 @@ commit ctx st utxo = do
   rejectMoreThan100ADA :: NetworkId -> TxOut CtxUTxO -> Either (PostTxError Tx) ()
   rejectMoreThan100ADA Mainnet output =
     if selectLovelace (txOutValue output) > 100
-      then Left $ FailedToPostTx "cannot commit more than 100 ADA to the head on mainnet."
+      then Left $ FailedToPostTx "hard-coded limit of 100 ADA for the commit tx on mainnet reached."
       else return ()
   rejectMoreThan100ADA _network _txOut = return ()
 
