@@ -66,9 +66,9 @@ prepare_release() {
 publish_release() {
   local version="$1"
 
-  echo You shall manually, for now, run the following commands: >&2
+  echo Prepared the release commit and tag, review it now and if everything is okay, push using: >&2:
   echo git push >&2
-  echo git push --tags >&2
+  echo git push ${version} >&2
   echo >&2
   echo And then you shall manually create the release page, see CONTRIBUTING.md >&2
 }
