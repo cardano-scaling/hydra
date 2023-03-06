@@ -40,11 +40,12 @@ main = do
             putStrLn "Server started..."
             putStrLn $ "Listening on: tcp/" <> show port
         )
-  -- try to parse magic number and if unsuccessfull default to 'Mainnet'
+  -- in case expected network string is not set default to `Testnet (NetworkMagic 42)`
   parseNetwork mStr =
     case mStr of
-      Nothing -> Mainnet
+      Nothing -> Testnet (NetworkMagic 42)
       Just i ->
+        -- try to parse magic number and if it fails just default to 'Mainnet'
         case readMaybe i :: Maybe Word32 of
           Nothing -> Mainnet
           Just m -> Testnet (NetworkMagic m)

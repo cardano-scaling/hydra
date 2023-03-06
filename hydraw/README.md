@@ -30,7 +30,7 @@ All commands must be run from within `hydraw/` and assuming your Hydra API host+
 
 You can choose the network by specifying `HYDRAW_NETWORK`.
 
-This value contain either network magic number in case you want to run hydraw on one of the testnets or a string "mainnet".
+This value contains either network magic number in case you want to run hydraw on one of the testnets or a string "mainnet".
 
 In case HYDRAW_NETWORK is not set we default to `Testnet (NetworkMagic 42)`.
 
