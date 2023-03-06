@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          hydraw
-version:       0.10.0
+version:       0.0.1
 build-type:    Simple
 
 common project-config
