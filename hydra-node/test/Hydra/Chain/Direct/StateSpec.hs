@@ -251,7 +251,7 @@ spec = parallel $ do
       forAllCommitWithMoreThan100ADA $ \case
         FailedToPostTx{failureReason} ->
           property $
-            failureReason == "cannot commit more than 100 ADA to the head on mainnet."
+            failureReason == "hard-coded limit of 100 ADA for the commit tx on mainnet reached."
         _ -> property False
 
   describe "abort" $ do
