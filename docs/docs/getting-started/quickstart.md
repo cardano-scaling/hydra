@@ -24,12 +24,13 @@ The entire configuration of the `hydra-node` is provided through command-line op
 
 ```
 
+
 Usage: hydra-node ([-q|--quiet] (-n|--node-id NODE-ID) [-h|--host IP]
                     [-p|--port PORT] [-P|--peer ARG] [--api-host IP]
                     [--api-port PORT] [--monitoring-port PORT]
                     [--hydra-signing-key FILE] [--hydra-verification-key FILE]
                     [--hydra-scripts-tx-id TXID] [--persistence-dir DIR]
-                    (--mainnet | --testnet-magic NATURAL) [--node-socket FILE]
+                    [--mainnet | --testnet-magic NATURAL] [--node-socket FILE]
                     [--cardano-signing-key FILE]
                     [--cardano-verification-key FILE]
                     [--start-chain-from SLOT.HEADER_HASH]
@@ -76,7 +77,11 @@ Available options:
   --persistence-dir DIR    The directory where the Hydra Head state is stored.Do
                            not edit these files manually!
   --mainnet                Use the mainnet magic id.
-  --testnet-magic NATURAL  Specify a testnet magic id.
+  --testnet-magic NATURAL  Network identifier for a testnet to connect to. We
+                           only need to provide the magic number here. For
+                           example: '2' is the 'preview' network. See
+                           https://book.world.dev.cardano.org/environments.html
+                           for available networks. (default: 42)
   --node-socket FILE       Filepath to local unix domain socket used to
                            communicate with the cardano node.
                            (default: "node.socket")
