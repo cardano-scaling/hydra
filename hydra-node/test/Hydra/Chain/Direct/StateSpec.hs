@@ -249,9 +249,7 @@ spec = parallel $ do
 
     prop "reject Commits with more than 100 ADA" $
       forAllCommitWithMoreThan100ADA $ \case
-        FailedToPostTx{failureReason} ->
-          property $
-            failureReason == "hard-coded limit of 100 ADA for the commit tx on mainnet reached."
+        ReachedMainnetHardcodedLimit -> property True
         _ -> property False
 
   describe "abort" $ do

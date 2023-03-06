@@ -132,6 +132,8 @@ data PostTxError tx
     -- NOTE: PlutusDebugInfo does not have much available instances so we put it
     -- in Text form but it's lame
     PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
+  | -- | User tried to commit more than 100 ADA hardcoded limit on mainnet
+    ReachedMainnetHardcodedLimit
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)
