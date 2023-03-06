@@ -58,7 +58,7 @@ prepare_release() {
   
   git add .
   
-  git commit -m "prepare release $version"
+  git commit -m "Prepare release $version"
  
   git tag -as "$version" -F <(changelog "$version")
 }
