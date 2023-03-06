@@ -117,7 +117,6 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShow,
   label,
-  scale,
   sized,
   sublistOf,
   suchThat,
@@ -422,15 +421,16 @@ forAllCommitWithMoreThan100ADA ::
 forAllCommitWithMoreThan100ADA action = do
   forAll (genHydraContext maximumNumberOfParties) $ \hctx ->
     forAll (genStInitial hctx) $ \(ctx, stInitial) ->
-      forAllShow (genAdaOnlyUTxOOnMainnetWithAmountBiggerThan 100) renderUTxO $ \utxo ->
+      forAll genAdaOnlyUTxOOnMainnetWithAmountBiggerThan100k $ \utxo ->
         case commit (alterChainContextNetworkToMainnet ctx) stInitial utxo of
           Right{} -> property False
           Left e -> action e
  where
-  genAdaOnlyUTxOOnMainnetWithAmountBiggerThan :: Integer -> Gen UTxO
-  genAdaOnlyUTxOOnMainnetWithAmountBiggerThan i = do
+  genAdaOnlyUTxOOnMainnetWithAmountBiggerThan100k :: Gen UTxO
+  genAdaOnlyUTxOOnMainnetWithAmountBiggerThan100k = do
     vk <- arbitrary
-    value <- lovelaceToValue . Lovelace <$> scale (* 8) arbitrary `suchThat` (> i)
+    adaAmount <- arbitrary `suchThat` (> 0)
+    let value = lovelaceToValue $ Lovelace (adaAmount + 100_000_000)
     txIn <- arbitrary
     pure . UTxO.UTxO $
       Map.singleton txIn (TxOut (mkVkAddress Mainnet vk) value TxOutDatumNone ReferenceScriptNone)
