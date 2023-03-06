@@ -228,38 +228,40 @@ data CloseMutation
   = -- | Ensures the snapshot signature is multisigned by all valid Head
     -- participants.
     --
-    -- Invalidates tx `snapshot signature` by changing the redeemer signature
+    -- Invalidates the tx by changing the redeemer signature
     -- but not the snapshot number in output head datum.
     MutateSignatureButNotSnapshotNumber
   | -- | Ensures the snapshot number is consistent with the signature.
     --
-    -- Invalidates the tx `snapshot signature` by changing the snapshot number
+    -- Invalidates the tx by changing the snapshot number
     -- in resulting head output but not the redeemer signature.
     MutateSnapshotNumberButNotSignature
   | -- | Check that snapshot numbers <= 0 need to close the head with the
     -- initial UTxO hash.
     MutateSnapshotNumberToLessThanEqualZero
-  | -- | Ensures the tx `snapshot signature` is multisigned by all Head
+  | -- | Ensures the tx is multisigned by all Head
     -- participants by changing the parties in the input head datum. If they do
     -- not align the multisignature will not be valid anymore.
     SnapshotNotSignedByAllParties
   | -- | Ensures close is authenticated by a Head party by changing the signer
     -- used on the transaction to be not one of PTs.
     MutateRequiredSigner
-  | -- | Makes the tx `snapshot signature` invalid by changing the utxo hash in resulting head output.
-    -- This ensures the output state is consistent with the redeemer.
+  | -- | Invalidates the tx by changing the utxo hash in resulting head output.
+    --
+    -- Ensures the output state is consistent with the redeemer.
     MutateCloseUTxOHash
   | -- | Ensures parties do not change between head input datum and head output datum.
     MutatePartiesInOutput
   | -- | Ensures headId do not change between head input datum and head output datum.
     MutateHeadIdInOutput
-  | -- | Makes the tx `validity range` invalid by changing its lower bound to be non finite.
+  | -- | Invalidates the tx by changing the lower bound to be non finite.
     MutateInfiniteLowerBound
-  | -- | Makes the tx `validity range` invalid by changing its upper bound to be non finite.
+  | -- | Invalidates the tx by changing the upper bound to be non finite.
     MutateInfiniteUpperBound
-  | -- | Makes the tx resulting `head output` invalid by changing its contestation deadline to not satisfy `contestationDeadline = upperBound + contestationPeriod`.
+  | -- | Invalidates the tx by changing the contestation deadline to not satisfy `contestationDeadline = upperBound + contestationPeriod`.
     MutateContestationDeadline
-  | -- | Makes the tx `validity range` invalid by changing its lower and upper bound to be not bounded as per spec `upperBound - lowerBound <= contestationPeriod`.
+  | -- | Invalidates the tx by changing the lower and upper bound to be not bounded as per spec `upperBound - lowerBound <= contestationPeriod`.
+    --
     -- This also changes the resulting `head output` contestation deadline to be valid, so it satisfy `contestationDeadline = upperBound + contestationPeriod`.
     MutateValidityInterval
   | -- | Ensure the Head cannot be closed with correct authentication from a
@@ -271,12 +273,13 @@ data CloseMutation
     -- because the signer's PT, although with a consistent name, is not from the
     -- right head (has a different policy id than in the datum).
     CloseFromDifferentHead
-  | -- | Makes the tx `output minted values` invalid by changing them to include burning/minting of tokens.
+  | -- | Invalidates the tx by changing the output minted values to include burning/minting of tokens.
+    --
     -- Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'.
     MutateTokenMintingOrBurning
-  | -- | Makes the tx resulting `head output` invalid by changing its contesters to be non empty.
+  | -- | Invalidates the tx by changing the contesters to be non empty.
     MutateContesters
-  | -- | Makes the tx `output values` invalid by changing them arbitrarly to be differnet (not preserved) from the head.
+  | -- | Invalidates the tx by changing output values arbitrarly to be differnet (not preserved) from the head.
     MutateValueInOutput
   deriving (Generic, Show, Enum, Bounded)
 
