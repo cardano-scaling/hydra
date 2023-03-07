@@ -108,7 +108,7 @@ genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCommitMutation (tx, _utxo) =
   oneof
     [ SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
-        mutatedValue <- genValue `suchThat` (/= commitOutputValue)
+        mutatedValue <- scale (`div` 2) genValue `suchThat` (/= commitOutputValue)
         pure $ commitTxOut{txOutValue = mutatedValue}
     , SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= committedOutputValue)
