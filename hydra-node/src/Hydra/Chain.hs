@@ -111,7 +111,10 @@ data PostTxError tx
   = NoSeedInput
   | MoreThanOneUTxOCommitted
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
-  | UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
+  | -- | Comitting byron addresses is not supported.
+    UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
+  | -- | Comitting reference scripts is not supported right now.
+    CannotCommitReferenceScript
   | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
   | NotEnoughFuel
   | NoFuelUTXOFound

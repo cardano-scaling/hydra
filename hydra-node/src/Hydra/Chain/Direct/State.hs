@@ -38,10 +38,13 @@ import Hydra.Cardano.Api (
   chainPointToSlotNo,
   modifyTxOutValue,
   txIns',
+  txOutReferenceScript,
   txOutValue,
   valueFromList,
   valueToList,
   pattern ByronAddressInEra,
+  pattern ReferenceScript,
+  pattern ReferenceScriptNone,
   pattern ShelleyAddressInEra,
   pattern TxOut,
  )
@@ -305,6 +308,7 @@ commit ctx st utxo = do
       case UTxO.pairs utxo of
         [aUTxO] -> do
           rejectByronAddress aUTxO
+          rejectReferenceScripts aUTxO
           Right $ commitTx networkId scriptRegistry headId ownParty (Just aUTxO) initial
         [] -> do
           Right $ commitTx networkId scriptRegistry headId ownParty Nothing initial
@@ -341,6 +345,12 @@ commit ctx st utxo = do
       Left (UnsupportedLegacyOutput addr)
     (_, TxOut ShelleyAddressInEra{} _ _ _) ->
       Right ()
+
+  rejectReferenceScripts :: (TxIn, TxOut CtxUTxO) -> Either (PostTxError Tx) ()
+  rejectReferenceScripts (_, out) =
+    case txOutReferenceScript out of
+      ReferenceScriptNone -> Right ()
+      ReferenceScript{} -> Left CannotCommitReferenceScript
 
 -- | Construct a collect transaction based on the 'InitialState'. This will
 -- reimburse all the already committed outputs.

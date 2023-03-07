@@ -25,18 +25,11 @@ import Hydra.Cardano.Api (
   txOutValue,
   txOuts',
   valueSize,
-  pattern ByronAddressInEra,
   pattern PlutusScript,
   pattern PlutusScriptSerialised,
-  pattern ReferenceScriptNone,
-  pattern TxOut,
-  pattern TxOutDatumNone,
  )
 import Hydra.Cardano.Api.Pretty (renderTx)
-import Hydra.Chain (
-  OnChainTx (..),
-  PostTxError (..),
- )
+import Hydra.Chain (OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (ChangeMintingPolicy, ChangeOutput, Changes),
   applyMutation,
@@ -89,8 +82,10 @@ import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
   genTxOutAdaOnly,
+  genTxOutByron,
+  genTxOutWithReferenceScript,
+  genUTxO1,
   genUTxOSized,
-  genValue,
  )
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx,
@@ -125,7 +120,7 @@ import Test.QuickCheck (
   (===),
   (==>),
  )
-import Test.QuickCheck.Monadic (monadicIO, monadicST)
+import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
 import qualified Prelude
 
 spec :: Spec
@@ -225,10 +220,23 @@ spec = parallel $ do
           Nothing ->
             False
 
-    prop "reject Commits of Byron outputs" $
-      forAllNonEmptyByronCommit $ \case
-        UnsupportedLegacyOutput{} -> property True
-        _ -> property False
+    prop "reject committing outputs with byron addresses" $ monadicST $ do
+      hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+      (ctx, stInitial) <- pickBlind $ genStInitial hctx
+      utxo <- pick $ genUTxO1 genTxOutByron
+      pure $
+        case commit ctx stInitial utxo of
+          Left UnsupportedLegacyOutput{} -> property True
+          _ -> property False
+
+    prop "reject committing outputs with reference scripts" $ monadicST $ do
+      hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+      (ctx, stInitial) <- pickBlind $ genStInitial hctx
+      utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
+      pure $
+        case commit ctx stInitial utxo of
+          Left CannotCommitReferenceScript{} -> property True
+          _ -> property False
 
   describe "abort" $ do
     propBelowSizeLimit maxTxSize forAllAbort
@@ -394,17 +402,6 @@ forAllCommit' action = do
                 "Non-empty commit"
               & counterexample ("tx: " <> renderTx tx)
 
-forAllNonEmptyByronCommit ::
-  (PostTxError Tx -> Property) ->
-  Property
-forAllNonEmptyByronCommit action = do
-  forAll (genHydraContext maximumNumberOfParties) $ \hctx ->
-    forAll (genStInitial hctx) $ \(ctx, stInitial) ->
-      forAllShow genByronCommit renderUTxO $ \utxo ->
-        case commit ctx stInitial utxo of
-          Right{} -> property False
-          Left e -> action e
-
 forAllAbort ::
   (Testable property) =>
   (UTxO -> Tx -> property) ->
@@ -510,17 +507,6 @@ forAllFanout action =
     | len >= 10 = "10-40"
     | len >= 1 = "1-10"
     | otherwise = "0"
-
---
--- Generators
---
-
-genByronCommit :: Gen UTxO
-genByronCommit = do
-  input <- arbitrary
-  addr <- ByronAddressInEra <$> arbitrary
-  value <- genValue
-  pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone ReferenceScriptNone)
 
 -- * Helpers
 

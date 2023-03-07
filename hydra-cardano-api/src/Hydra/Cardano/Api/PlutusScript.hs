@@ -6,15 +6,15 @@ import Hydra.Cardano.Api.Prelude
 import qualified Cardano.Ledger.Alonzo.Language as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Codec.Serialise (serialise)
+import Data.ByteString.Short (toShort)
 import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import qualified Plutus.V2.Ledger.Api as Plutus
-import Data.ByteString.Short (toShort)
 
 -- * Type Conversions
 
 -- | Convert a cardano-ledger 'Script' into a cardano-api 'PlutusScript'
 --
--- Note that this function is unsafe in two manners:
+-- NOTE: This function is unsafe in two manners:
 --
 -- (a) If the given script is a timelock script, it throws an impure exception;
 -- (b) If the given script is in a wrong language, it silently coerces it.
@@ -42,7 +42,7 @@ fromPlutusScript =
 
 -- * Orphans
 
--- XXX: IsPlutusScriptLanguage is not exported, we would want to it here
+-- XXX: IsPlutusScriptLanguage is not exported, we would want to use it here
 
 instance ToJSON (PlutusScript PlutusScriptV2) where
   toJSON = toJSON . serialiseToTextEnvelope Nothing

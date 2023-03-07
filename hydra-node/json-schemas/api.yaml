@@ -1057,13 +1057,24 @@ components:
           - tag
           - byronAddress
           description: >-
-            The UTxO provided for commit is locked by a (legacy) Byron address, which is not supported.
+            The UTxO provided to commit is locked by a (legacy) Byron address, which is not supported.
           properties:
             tag:
               type: string
               enum: ["UnsupportedLegacyOutput"]
             byronAddress:
               $ref: "#/components/schemas/ByronAddress"
+        - title: CannotCommitReferenceScript
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          description: >-
+            The UTxO provided to commit contains a reference script, which is currently not supported.
+          properties:
+            tag:
+              type: string
+              enum: ["CannotCommitReferenceScript"]
         - title: NoSeedInput
           type: object
           additionalProperties: false
