@@ -81,25 +81,23 @@ healthyCommittedUTxO = flip generateWith 42 $ do
 data CommitMutation
   = -- | Invalidates the tx by changing the commit output value.
     --
-    -- Ensures the committed value is consistent with the locked value
-    -- by the commit validator.
+    -- Ensures the committed value is consistent with the locked value by the
+    -- commit validator.
     MutateCommitOutputValue
   | MutateCommittedValue
   | -- | Invalidates the tx by changing the address of the input out-ref.
     --
     -- Ensures the output tx out-ref is consistent with the input tx out-ref.
     MutateCommittedAddress
-  | -- | Invalidates the tx by using a signer not present in the list of distributed PTs.
-    --
-    -- Ensures that it's performed by a Head party.
+  | -- | Ensures commit is authenticated by a Head party by changing the signer
+    -- used on the transaction to be the one in the PT.
     MutateRequiredSigner
-  | -- | Change the head policy id to simulate contestation using a ST and signer from a different head.
-    -- The signer shows a correct signature but from a different head.
-    -- This will cause the signer to not be present in the participation tokens.
-    ContestFromDifferentHead
-  | -- | Makes the tx `output minted values` invalid by changing them to include burning/minting of tokens.
-    --
-    -- Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'.
+  | -- | Change the head policy id to simulate commit using a PT and signer from
+    -- a different head. The signer shows a correct signature but from a
+    -- different head. This will cause the signer to not be present in the
+    -- participation tokens.
+    CommitFromDifferentHead
+  | -- | Minting or burning of the tokens should not be possible in commit.
     MutateTokenMintingOrBurning
   deriving (Generic, Show, Enum, Bounded)
 
@@ -122,7 +120,7 @@ genCommitMutation (tx, _utxo) =
         pure $ ChangeRequiredSigners [newSigner]
     , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
-      SomeMutation (Just $ toErrorCode CouldNotFindTheCorrectCurrencySymbolInTokens) ContestFromDifferentHead <$> do
+      SomeMutation (Just $ toErrorCode CouldNotFindTheCorrectCurrencySymbolInTokens) CommitFromDifferentHead <$> do
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyIntialTxIn))
         pure $
           Changes

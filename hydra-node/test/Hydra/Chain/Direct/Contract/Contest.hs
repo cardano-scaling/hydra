@@ -194,56 +194,61 @@ healthySignature number =
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation
-  = -- | Invalidates the tx by changing the redeemer signature but not the snapshot number in resulting head output.
+  = -- | Invalidates the tx by changing the redeemer signature but not the
+    -- snapshot number in resulting head output.
     --
-    -- Ensures the snapshot signature is multisigned by all valid Head participants.
+    -- Ensures the snapshot signature is multisigned by all valid Head
+    -- participants.
     MutateSignatureButNotSnapshotNumber
-  | -- | Invalidates the tx by changing the snapshot number in resulting head output but not the redeemer signature.
+  | -- | Invalidates the tx by changing the snapshot number in resulting head
+    -- output but not the redeemer signature.
     --
     -- Ensures the snapshot signature is aligned with snapshot number.
     MutateSnapshotNumberButNotSignature
-  | -- | Invalidates the tx by changing the snapshot number in the head input (stored state) to be too old.
+  | -- | Invalidates the tx by changing the contest snapshot number too old.
     --
-    -- Ensures that too old snapshot are not valid.
-    --
-    -- This also changes the redeemer so the tx snapshot signature is valid against it.
+    -- This is achieved by updating the head input datum to be older, so the
+    -- healthy snapshot number becomes to old.
     MutateToNonNewerSnapshot
-  | -- | Invalidates the tx by using a signer not present in the list of distributed PTs.
-    --
-    -- Ensures that it's performed by a Head party.
+  | -- | Ensures close is authenticated by a Head party by changing the signer
+    -- used on the transaction to be not one of PTs.
     MutateRequiredSigner
   | -- | Invalidates the tx by changing the utxo hash in resulting head output.
     --
     -- Ensures the output state is consistent with the redeemer.
     MutateContestUTxOHash
-  | -- | Invalidates the tx by changing the parties in the head input (stored state).
-    MutateParties
-  | -- | Invalidates the tx by changing the upper bound to be beyond contestation deadline from head input (stored state).
+  | -- | Ensures the contest snapshot is multisigned by all Head participants by
+    -- changing the parties in the input head datum. If they do not align the
+    -- multisignature will not be valid anymore.
+    SnapshotNotSignedByAllParties
+  | -- | Invalidates the tx by changing the upper bound to be beyond
+    -- contestation deadline from head input (stored state).
     MutateValidityPastDeadline
-  | -- | Change the head policy id to simulate contestation using a ST and signer from a different head.
-    -- The signer shows a correct signature but from a different head.
-    -- This will cause the signer to not be present in the participation tokens.
+  | -- | Change the head policy id to simulate contestation using a ST and
+    -- signer from a different head. The signer shows a correct signature but
+    -- from a different head. This will cause the signer to not be present in
+    -- the participation tokens.
     ContestFromDifferentHead
-  | -- | Invalidates the tx by changing the output minted values to include burning/minting of tokens.
-    --
-    -- Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'.
+  | -- | Minting or burning of tokens should not be possible in contest.
     MutateTokenMintingOrBurning
-  | -- | Invalidates the tx by changing the head input (stored head) list of already contesters to include the signer.
-    --
-    -- Ensures a signed participant can only contest once.
+  | -- | Ensures a participant can only contest once by changing the head input
+    -- datum to already include the signer.
     MutateInputContesters
-  | -- | Invalidates the tx by changing the head output to not include it as already contested.
+  | -- | Ensures a the signer needs to be added to the head output datum.
     MutateContesters
-  | -- | Invalidates the tx by changing the output values arbitrarly to be differnet (not preserved) from the head.
+  | -- | Invalidates the tx by changing the output values arbitrarly to be
+    -- different (not preserved) from the head.
     MutateValueInOutput
-  | -- | Invalidates the tx by changing the contestation deadline in head output such that deadline is not pushed away.
+  | -- | Not pushing the contestation deadline in head output datum should not
+    -- be allowed.
     NotUpdateDeadlineAlthoughItShould
   | -- | Pushes the deadline although this is the last contest. Instead of
     -- creating another healthy case and mutate that one, this mutation just
     -- changes the starting situation so that everyone else already contested.
     -- Remember the 'healthyContestTx' is already pushing out the deadline.
     PushDeadlineAlthoughItShouldNot
-  | -- | Invalidates the tx by changing the contestation period to be different from the head input (stored state).
+  | -- | Ensures contestation period does not change between head input datum
+    -- and head output datum.
     MutateOutputContestationPeriod
   deriving (Generic, Show, Enum, Bounded)
 
@@ -284,7 +289,7 @@ genContestMutation
             changeHeadOutputDatum
               (replaceUtxoHash (toBuiltin mutatedUTxOHash))
               headTxOut
-      , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateParties . ChangeInputHeadDatum <$> do
+      , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
           mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
           pure $
             healthyClosedState & replaceParties mutatedParties

@@ -182,16 +182,18 @@ healthyCommitOutput party committed =
 
 data CollectComMutation
   = MutateOpenUTxOHash
-  | -- | Test that collectCom cannot collect from an initial UTxO.
+  | -- | Ensures collectCom cannot collect from an initial UTxO.
     MutateCommitToInitial
-  | -- | Every party should have commited and been taken into account for the collectCom transaction to be
-    --   valid. Here we increase the number of parties in input and output but keep the commits unchanged.
-    --   This simulates the situation where one participant would not have commited already or whose commit
-    --   would have been ignored by the collectCom transaction.
+  | -- | Every party should have commited and been taken into account for the
+    -- collectCom transaction to be valid. Here we increase the number of
+    -- parties in input and output but keep the commits unchanged. This
+    -- simulates the situation where one participant would not have commited
+    -- already or whose commit would have been ignored by the collectCom
+    -- transaction.
     MutateNumberOfParties
   | MutateHeadId
   | MutateRequiredSigner
-  | -- | Minting or burning of the tokens should not be possible in v_head apart from 'checkAbort' or 'checkFanout'
+  | -- | Minting or burning of tokens should not be possible in collectCom.
     MutateTokenMintingOrBurning
   deriving (Generic, Show, Enum, Bounded)
 
