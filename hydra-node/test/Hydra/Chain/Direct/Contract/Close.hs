@@ -42,7 +42,9 @@ import Hydra.Contract.Head (
     InfiniteLowerBound,
     InfiniteUpperBound,
     InvalidSnapshotSignature,
-    SignerIsNotAParticipant
+    NoSigners,
+    SignerIsNotAParticipant,
+    TooManySigners
   ),
  )
 import qualified Hydra.Contract.HeadState as Head
@@ -243,9 +245,16 @@ data CloseMutation
     -- changing the parties in the input head datum. If they do not align the
     -- multisignature will not be valid anymore.
     SnapshotNotSignedByAllParties
-  | -- | Ensures close is authenticated by a Head party by changing the signer
-    -- used on the transaction to be not one of PTs.
+  | -- | Ensures close is authenticated by a single Head party by changing the signer
+    -- used on the tx to be not one of PTs.
     MutateRequiredSigner
+  | -- | Ensures close is authenticated by a single Head party by changing the signer
+    -- used on the tx to be empty.
+    MutateNoRequiredSigner
+  | -- | Ensures close is authenticated by a single Head party by changing the signer
+    -- used on the tx to have multiple signers (including the signer to not fail for
+    -- SignerIsNotAParticipant).
+    MutateMultipleRequiredSigner
   | -- | Invalidates the tx by changing the utxo hash in resulting head output.
     --
     -- Ensures the output state is consistent with the redeemer.
@@ -285,6 +294,8 @@ data CloseMutation
     MutateContesters
   | -- | Invalidates the tx by changing output values arbitrarly to be different
     -- (not preserved) from the head.
+    --
+    -- Ensures values are preserved between head input and output.
     MutateValueInOutput
   deriving (Generic, Show, Enum, Bounded)
 
@@ -317,6 +328,12 @@ genCloseMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation (Just $ toErrorCode NoSigners) MutateNoRequiredSigner <$> do
+        pure $ ChangeRequiredSigners []
+    , SomeMutation (Just $ toErrorCode TooManySigners) MutateMultipleRequiredSigner <$> do
+        otherSigners <- listOf1 (genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey))
+        let signerAndOthers = somePartyCardanoVerificationKey : otherSigners
+        pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
     , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateCloseUTxOHash . ChangeOutput 0 <$> do
         mutatedUTxOHash <- genHash `suchThat` ((/= healthyClosedUTxOHash) . toBuiltin)
         pure $ changeHeadOutputDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut

@@ -20,12 +20,14 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceHeadId,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceUtxoHash,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
+import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (ContestationPeriod, fromChain)
@@ -37,9 +39,11 @@ import Hydra.Contract.Head (
     HeadValueIsNotPreserved,
     MustNotPushDeadline,
     MustPushDeadline,
+    NoSigners,
     SignatureVerificationFailed,
     SignerAlreadyContested,
     SignerIsNotAParticipant,
+    TooManySigners,
     TooOldSnapshot,
     UpperBoundBeyondContestationDeadline
   ),
@@ -50,6 +54,7 @@ import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
+import Hydra.Data.Party (partyFromVerificationKeyBytes)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
@@ -60,7 +65,7 @@ import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, oneof, suchThat, vectorOf)
+import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -210,9 +215,16 @@ data ContestMutation
     -- This is achieved by updating the head input datum to be older, so the
     -- healthy snapshot number becomes to old.
     MutateToNonNewerSnapshot
-  | -- | Ensures close is authenticated by a Head party by changing the signer
-    -- used on the transaction to be not one of PTs.
+  | -- | Ensures close is authenticated by a single Head party by changing the signer
+    -- used on the tx to be not one of PTs.
     MutateRequiredSigner
+  | -- | Ensures close is authenticated by a single Head party by changing the signer
+    -- used on the tx to be empty.
+    MutateNoRequiredSigner
+  | -- | Ensures close is authenticated by a single Head party by changing the signer
+    -- used on the tx to have multiple signers (including the signer to not fail for
+    -- SignerIsNotAParticipant).
+    MutateMultipleRequiredSigner
   | -- | Invalidates the tx by changing the utxo hash in resulting head output.
     --
     -- Ensures the output state is consistent with the redeemer.
@@ -238,6 +250,8 @@ data ContestMutation
     MutateContesters
   | -- | Invalidates the tx by changing the output values arbitrarly to be
     -- different (not preserved) from the head.
+    --
+    -- Ensures values are preserved between head input and output.
     MutateValueInOutput
   | -- | Not pushing the contestation deadline in head output datum should not
     -- be allowed.
@@ -250,6 +264,12 @@ data ContestMutation
   | -- | Ensures contestation period does not change between head input datum
     -- and head output datum.
     MutateOutputContestationPeriod
+  | -- | Ensures parties do not change between head input datum and head output
+    --  datum.
+    MutatePartiesInOutput
+  | -- | Ensures headId do not change between head input datum and head output
+    -- datum.
+    MutateHeadIdInOutput
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -283,6 +303,12 @@ genContestMutation
       , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
           newSigner <- verificationKeyHash <$> genVerificationKey
           pure $ ChangeRequiredSigners [newSigner]
+      , SomeMutation (Just $ toErrorCode NoSigners) MutateNoRequiredSigner <$> do
+          pure $ ChangeRequiredSigners []
+      , SomeMutation (Just $ toErrorCode TooManySigners) MutateMultipleRequiredSigner <$> do
+          otherSigners <- listOf1 (genVerificationKey `suchThat` (/= healthyContesterVerificationKey))
+          let signerAndOthers = healthyContesterVerificationKey : otherSigners
+          pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
       , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
           mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
           pure $
@@ -354,6 +380,19 @@ genContestMutation
       , SomeMutation (Just $ toErrorCode ChangedParameters) MutateOutputContestationPeriod <$> do
           randomCP <- arbitrary `suchThat` (/= healthyOnChainContestationPeriod)
           pure $ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContestationPeriod randomCP))
+      , SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
+          mutatedParties <-
+            -- XXX: we need to length of mutatedParties is the same as healthyOnChainParties
+            -- so to not fail because of `must not push contestation deadline`.
+            vectorOf
+              (length healthyOnChainParties)
+              ( partyFromVerificationKeyBytes <$> genHash
+              )
+              `suchThat` (/= healthyOnChainParties)
+          pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceParties mutatedParties) headTxOut
+      , SomeMutation (Just $ toErrorCode ChangedParameters) MutateHeadIdInOutput <$> do
+          otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
+          pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId otherHeadId) headTxOut
       ]
    where
     headTxOut = fromJust $ txOuts' tx !!? 0
