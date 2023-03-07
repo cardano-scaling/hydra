@@ -53,6 +53,16 @@ local `state-testnet` directory (to re-use the synchronized chain db):
 hydra-cluster --preview --state-directory state-testnet
 ```
 
+:warning: the C.I. overrides these files for mainnet. On the C.I. the
+faucet secrets are base64 encoded. Shall you need to update them, you
+could do it with the following commands (if you're not sure, do not
+do this, you may loose access to faucet funds):
+
+```sh
+#> cat faucet.vk | base64 | gh secret set faucet_vk
+#> cat faucet.sk | base64 | gh secret set faucet_sk
+```
+
 ## Local devnet
 
 `hydra-cluster` can run a local cardano devnet in the form of a single
