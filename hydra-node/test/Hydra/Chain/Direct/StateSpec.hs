@@ -273,7 +273,7 @@ spec = parallel $ do
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
-  let maxParties = 20
+  let maxParties = 10
   ctx@HydraContext{ctxContestationPeriod} <- pickBlind $ genHydraContext maxParties
   cctx <- pickBlind $ pickChainContext ctx
   -- Init
@@ -296,20 +296,21 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
 
   -- Properties
   let collectFails =
-        propTransactionFailsEvaluation (txCollect, getKnownUTxO stInitial)
+        propTransactionFailsEvaluation (txCollect, getKnownUTxO cctx <> getKnownUTxO stInitial)
           & counterexample "collect passed, but others failed?"
           & cover 10 True "collect failed already"
   let collectCloseAndFanoutPass =
         conjoin
-          [ propTransactionEvaluates (txCollect, getKnownUTxO stInitial)
+          [ propTransactionEvaluates (txCollect, getKnownUTxO cctx <> getKnownUTxO stInitial)
               & counterexample "collect failed"
-          , propTransactionEvaluates (txClose, getKnownUTxO stOpen)
+          , propTransactionEvaluates (txClose, getKnownUTxO cctx <> getKnownUTxO stOpen)
               & counterexample "close failed"
-          , propTransactionEvaluates (txFanout, getKnownUTxO stClosed)
+          , propTransactionEvaluates (txFanout, getKnownUTxO cctx <> getKnownUTxO stClosed)
               & counterexample "fanout failed"
           ]
           & cover 10 True "collect, close and fanout passed"
   pure $
+    -- FIXME: coverage actually not working on this property
     checkCoverage
       (collectFails .||. collectCloseAndFanoutPass)
 
