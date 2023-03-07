@@ -281,6 +281,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
     && mustInitializeContesters
+    -- XXX: missing to trace for this error code
     && hasST headPolicyId val
     && mustPreserveValue
     && mustNotChangeParameters
