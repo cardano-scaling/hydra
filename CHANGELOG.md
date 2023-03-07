@@ -10,12 +10,16 @@ changes.
 
 ## [0.10.0] - UNRELEASED
 
-- **BREAKING**
- - Changed `hydra-node` and `hydra-tui` arguments.
- - Instead of `--network-id` flag they now use `--testnet-magic` and we support also `--mainnet` flag.
+- **BREAKING** Changed `hydra-node` and `hydra-tui` arguments:
+  + Instead of `--network-id` flag they now use `--testnet-magic` and we support also `--mainnet` flag.
 
 - Changed interface of `Hydra.Ledger.Cardano.Evaluate` functions.
 
+- Reject commits of `UTxO` containing `ReferenceScript` in `hydra-node`:
+  + The scripts still accept these outputs, but `hydra-node` would not be able
+    to properly finalize a Head which was opened from commits with reference
+    scripts.
+  + Reference scripts on the layer 2 ledger are non-problematic.
 
 ## [0.9.0] - 2023-03-02
 
