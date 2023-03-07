@@ -40,7 +40,7 @@ import Hydra.Ledger (hashUTxO)
 import qualified Hydra.Ledger as OffChain
 import Hydra.Ledger.Cardano (
   Tx,
-  genOutput,
+  genUTxOSized,
   genUTxOWithSimplifiedAddresses,
   shrinkUTxO,
  )
@@ -54,6 +54,7 @@ import Test.QuickCheck (
   conjoin,
   counterexample,
   forAll,
+  forAllBlind,
   forAllShrink,
   property,
   shuffle,
@@ -138,9 +139,7 @@ spec = parallel $ do
 
 prop_serializingCommitRoundtrip :: Property
 prop_serializingCommitRoundtrip =
-  -- NOTE: Generate shelley addressed txOut because Byron not supported by
-  -- Plutus.TxOut
-  forAll ((,) <$> arbitrary <*> (arbitrary >>= genOutput)) $ \singleUTxO ->
+  forAllBlind (List.head . UTxO.pairs <$> genUTxOSized 1) $ \singleUTxO ->
     let serialized = Commit.serializeCommit singleUTxO
         deserialized = serialized >>= Commit.deserializeCommit (networkIdToNetwork testNetworkId)
      in case deserialized of
@@ -175,7 +174,8 @@ prop_consistentHashPreSerializedCommits =
         serializedCommits = mapMaybe Commit.serializeCommit unsortedUTxOPairs
         hashedCommits = OnChain.hashPreSerializedCommits serializedCommits
         hashedTxOuts = OnChain.hashTxOuts toFanoutTxOuts
-     in hashedCommits === hashedTxOuts
+     in hashedCommits
+          === hashedTxOuts
           & counterexample ("Hashed commits: " <> decodeUtf8 (Base16.encode $ fromBuiltin hashedCommits))
           & counterexample ("Hashed txOuts: " <> decodeUtf8 (Base16.encode $ fromBuiltin hashedTxOuts))
           & counterexample ("Serialized commits: " <> show serializedCommits)
