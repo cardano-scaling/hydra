@@ -271,22 +271,22 @@ genUTxOSized numUTxO =
   gen = (,) <$> arbitrary <*> genTxOut
 
 -- | Generate a 'Babbage' era 'TxOut', which may contain arbitrary assets
--- addressed to public keys and scripts, as well as datums and reference
--- scripts.
+-- addressed to public keys and scripts, as well as datums.
 --
--- NOTE: This generator does not produce byron addresses as most of the cardano
--- ecosystem dropped support for that (including plutus). Also no stake pointers
--- are generated (replaced with `StakeRefNull`).
+-- NOTE: This generator does
+--  * not produce byron addresses as most of the cardano ecosystem dropped support for that (including plutus),
+--  * not produce reference scripts as they are nut fully "visible" from plutus,
+--  * replace stake pointers with null references as nobody uses that.
 genTxOut :: Gen (TxOut ctx)
 genTxOut =
-  (tweakAddress . fromLedgerTxOut <$> arbitrary)
+  (noRefScripts . noStakeRefPtr . fromLedgerTxOut <$> arbitrary)
     `suchThat` notByronAddress
  where
   notByronAddress (TxOut addr _ _ _) = case addr of
     ByronAddressInEra{} -> False
     _ -> True
 
-  tweakAddress out@(TxOut addr val dat refScript) = case addr of
+  noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
     ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
       case sr of
         Ledger.StakeRefPtr _ ->
@@ -294,6 +294,9 @@ genTxOut =
         _ ->
           TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre sr)) val dat refScript
     _ -> out
+
+  noRefScripts out =
+    out{txOutReferenceScript = ReferenceScriptNone}
 
 -- | Generate utxos owned by the given cardano key.
 genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO

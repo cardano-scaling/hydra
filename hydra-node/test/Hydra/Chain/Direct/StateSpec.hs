@@ -310,7 +310,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
           ]
           & cover 10 True "collect, close and fanout passed"
   pure $
-    -- FIXME: coverage actually not working on this property
+    -- XXX: Coverage does not work if we only collectFails
     checkCoverage
       (collectFails .||. collectCloseAndFanoutPass)
 
