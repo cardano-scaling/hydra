@@ -84,7 +84,10 @@ data CommitMutation
     -- Ensures the committed value is consistent with the locked value by the
     -- commit validator.
     MutateCommitOutputValue
-  | MutateCommittedValue
+  | -- | Invalidates the tx by changing the value of the input committed utxo.
+    --
+    -- Ensures the output committed utxo value is consistent with the input committed utxo value.
+    MutateCommittedValue
   | -- | Invalidates the tx by changing the address of the input out-ref.
     --
     -- Ensures the output tx out-ref is consistent with the input tx out-ref.
