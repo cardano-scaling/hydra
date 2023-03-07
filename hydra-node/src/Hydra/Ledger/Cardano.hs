@@ -271,7 +271,8 @@ genUTxOSized numUTxO =
   gen = (,) <$> arbitrary <*> genTxOut
 
 -- | Generate a 'Babbage' era 'TxOut', which may contain arbitrary assets
--- addressed to public keys and scripts, as well as reference scripts.
+-- addressed to public keys and scripts, as well as datums and reference
+-- scripts.
 --
 -- NOTE: This generator does not produce byron addresses as most of the cardano
 -- ecosystem dropped support for that (including plutus). Also no stake pointers

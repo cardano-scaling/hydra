@@ -89,7 +89,7 @@ import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
   genTxOutAdaOnly,
-  genUTxOAdaOnlyOfSize,
+  genUTxOSized,
   genValue,
  )
 import Hydra.Ledger.Cardano.Evaluate (
@@ -125,7 +125,7 @@ import Test.QuickCheck (
   (===),
   (==>),
  )
-import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
+import Test.QuickCheck.Monadic (monadicIO, monadicST)
 import qualified Prelude
 
 spec :: Spec
@@ -274,19 +274,19 @@ spec = parallel $ do
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
   let maxParties = 20
-  ctx@HydraContext{ctxContestationPeriod} <- pick $ genHydraContext maxParties
-  cctx <- pick $ pickChainContext ctx
+  ctx@HydraContext{ctxContestationPeriod} <- pickBlind $ genHydraContext maxParties
+  cctx <- pickBlind $ pickChainContext ctx
   -- Init
-  txInit <- pick $ genInitTx ctx
+  txInit <- pickBlind $ genInitTx ctx
   -- Commits
-  commits <- pick $ genCommits' (genUTxOAdaOnlyOfSize 1) ctx txInit
+  commits <- pickBlind $ genCommits' (genUTxOSized 1) ctx txInit
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
   -- Collect
   let initialUTxO = fold committed
   let txCollect = collect cctx stInitial
   stOpen <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
-  (closeLower, closeUpper) <- pick $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
+  (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
   let txClose = close cctx stOpen InitialSnapshot{initialUTxO} closeLower closeUpper
   (deadline, stClosed) <- case observeClose stOpen txClose of
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
