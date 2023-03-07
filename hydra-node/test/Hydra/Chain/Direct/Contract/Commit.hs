@@ -32,7 +32,7 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
  )
 import Hydra.Party (Party)
-import Test.QuickCheck (oneof, suchThat)
+import Test.QuickCheck (oneof, scale, suchThat)
 
 --
 -- CommitTx
@@ -107,8 +107,8 @@ genCommitMutation (tx, _utxo) =
     [ SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- genValue `suchThat` (/= commitOutputValue)
         pure $ commitTxOut{txOutValue = mutatedValue}
-    , SomeMutation Nothing MutateCommittedValue <$> do
-        mutatedValue <- genValue `suchThat` (/= committedOutputValue)
+    , SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
+        mutatedValue <- scale (`div` 2) genValue `suchThat` (/= committedOutputValue)
         let mutatedOutput = modifyTxOutValue (const mutatedValue) committedTxOut
         pure $ ChangeInput committedTxIn mutatedOutput Nothing
     , SomeMutation (Just $ toErrorCode MismatchCommittedTxOutInDatum) MutateCommittedAddress <$> do
