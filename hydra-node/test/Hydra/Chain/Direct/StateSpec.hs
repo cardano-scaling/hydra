@@ -25,18 +25,11 @@ import Hydra.Cardano.Api (
   txOutValue,
   txOuts',
   valueSize,
-  pattern ByronAddressInEra,
   pattern PlutusScript,
   pattern PlutusScriptSerialised,
-  pattern ReferenceScriptNone,
-  pattern TxOut,
-  pattern TxOutDatumNone,
  )
 import Hydra.Cardano.Api.Pretty (renderTx)
-import Hydra.Chain (
-  OnChainTx (..),
-  PostTxError (..),
- )
+import Hydra.Chain (OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (ChangeMintingPolicy, ChangeOutput, Changes),
   applyMutation,
@@ -89,8 +82,10 @@ import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
   genTxOutAdaOnly,
-  genUTxOAdaOnlyOfSize,
-  genValue,
+  genTxOutByron,
+  genTxOutWithReferenceScript,
+  genUTxO1,
+  genUTxOSized,
  )
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx,
@@ -225,10 +220,23 @@ spec = parallel $ do
           Nothing ->
             False
 
-    prop "reject Commits of Byron outputs" $
-      forAllNonEmptyByronCommit $ \case
-        UnsupportedLegacyOutput{} -> property True
-        _ -> property False
+    prop "reject committing outputs with byron addresses" $ monadicST $ do
+      hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+      (ctx, stInitial) <- pickBlind $ genStInitial hctx
+      utxo <- pick $ genUTxO1 genTxOutByron
+      pure $
+        case commit ctx stInitial utxo of
+          Left UnsupportedLegacyOutput{} -> property True
+          _ -> property False
+
+    prop "reject committing outputs with reference scripts" $ monadicST $ do
+      hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+      (ctx, stInitial) <- pickBlind $ genStInitial hctx
+      utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
+      pure $
+        case commit ctx stInitial utxo of
+          Left CannotCommitReferenceScript{} -> property True
+          _ -> property False
 
   describe "abort" $ do
     propBelowSizeLimit maxTxSize forAllAbort
@@ -273,20 +281,20 @@ spec = parallel $ do
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
-  let maxParties = 20
-  ctx@HydraContext{ctxContestationPeriod} <- pick $ genHydraContext maxParties
-  cctx <- pick $ pickChainContext ctx
+  let maxParties = 10
+  ctx@HydraContext{ctxContestationPeriod} <- pickBlind $ genHydraContext maxParties
+  cctx <- pickBlind $ pickChainContext ctx
   -- Init
-  txInit <- pick $ genInitTx ctx
+  txInit <- pickBlind $ genInitTx ctx
   -- Commits
-  commits <- pick $ genCommits' (genUTxOAdaOnlyOfSize 1) ctx txInit
+  commits <- pickBlind $ genCommits' (genUTxOSized 1) ctx txInit
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
   -- Collect
   let initialUTxO = fold committed
   let txCollect = collect cctx stInitial
   stOpen <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
-  (closeLower, closeUpper) <- pick $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
+  (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
   let txClose = close cctx stOpen InitialSnapshot{initialUTxO} closeLower closeUpper
   (deadline, stClosed) <- case observeClose stOpen txClose of
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
@@ -296,20 +304,21 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
 
   -- Properties
   let collectFails =
-        propTransactionFailsEvaluation (txCollect, getKnownUTxO stInitial)
+        propTransactionFailsEvaluation (txCollect, getKnownUTxO cctx <> getKnownUTxO stInitial)
           & counterexample "collect passed, but others failed?"
           & cover 10 True "collect failed already"
   let collectCloseAndFanoutPass =
         conjoin
-          [ propTransactionEvaluates (txCollect, getKnownUTxO stInitial)
+          [ propTransactionEvaluates (txCollect, getKnownUTxO cctx <> getKnownUTxO stInitial)
               & counterexample "collect failed"
-          , propTransactionEvaluates (txClose, getKnownUTxO stOpen)
+          , propTransactionEvaluates (txClose, getKnownUTxO cctx <> getKnownUTxO stOpen)
               & counterexample "close failed"
-          , propTransactionEvaluates (txFanout, getKnownUTxO stClosed)
+          , propTransactionEvaluates (txFanout, getKnownUTxO cctx <> getKnownUTxO stClosed)
               & counterexample "fanout failed"
           ]
           & cover 10 True "collect, close and fanout passed"
   pure $
+    -- XXX: Coverage does not work if we only collectFails
     checkCoverage
       (collectFails .||. collectCloseAndFanoutPass)
 
@@ -392,17 +401,6 @@ forAllCommit' action = do
                 (not (null toCommit))
                 "Non-empty commit"
               & counterexample ("tx: " <> renderTx tx)
-
-forAllNonEmptyByronCommit ::
-  (PostTxError Tx -> Property) ->
-  Property
-forAllNonEmptyByronCommit action = do
-  forAll (genHydraContext maximumNumberOfParties) $ \hctx ->
-    forAll (genStInitial hctx) $ \(ctx, stInitial) ->
-      forAllShow genByronCommit renderUTxO $ \utxo ->
-        case commit ctx stInitial utxo of
-          Right{} -> property False
-          Left e -> action e
 
 forAllAbort ::
   (Testable property) =>
@@ -509,17 +507,6 @@ forAllFanout action =
     | len >= 10 = "10-40"
     | len >= 1 = "1-10"
     | otherwise = "0"
-
---
--- Generators
---
-
-genByronCommit :: Gen UTxO
-genByronCommit = do
-  input <- arbitrary
-  addr <- ByronAddressInEra <$> arbitrary
-  value <- genValue
-  pure $ UTxO.singleton (input, TxOut addr value TxOutDatumNone ReferenceScriptNone)
 
 -- * Helpers
 

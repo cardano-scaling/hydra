@@ -270,22 +270,30 @@ genUTxOSized numUTxO =
  where
   gen = (,) <$> arbitrary <*> genTxOut
 
+-- | Genereate a 'UTxO' with a single entry using given 'TxOut' generator.
+genUTxO1 :: Gen (TxOut CtxUTxO) -> Gen UTxO
+genUTxO1 gen = do
+  txIn <- arbitrary
+  txOut <- gen
+  pure $ UTxO.singleton (txIn, txOut)
+
 -- | Generate a 'Babbage' era 'TxOut', which may contain arbitrary assets
--- addressed to public keys and scripts, as well as reference scripts.
+-- addressed to public keys and scripts, as well as datums.
 --
--- NOTE: This generator does not produce byron addresses as most of the cardano
--- ecosystem dropped support for that (including plutus). Also no stake pointers
--- are generated (replaced with `StakeRefNull`).
+-- NOTE: This generator does
+--  * not produce byron addresses as most of the cardano ecosystem dropped support for that (including plutus),
+--  * not produce reference scripts as they are not fully "visible" from plutus,
+--  * replace stake pointers with null references as nobody uses that.
 genTxOut :: Gen (TxOut ctx)
 genTxOut =
-  (tweakAddress . fromLedgerTxOut <$> arbitrary)
+  (noRefScripts . noStakeRefPtr . fromLedgerTxOut <$> arbitrary)
     `suchThat` notByronAddress
  where
   notByronAddress (TxOut addr _ _ _) = case addr of
     ByronAddressInEra{} -> False
     _ -> True
 
-  tweakAddress out@(TxOut addr val dat refScript) = case addr of
+  noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
     ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
       case sr of
         Ledger.StakeRefPtr _ ->
@@ -293,6 +301,27 @@ genTxOut =
         _ ->
           TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre sr)) val dat refScript
     _ -> out
+
+  noRefScripts out =
+    out{txOutReferenceScript = ReferenceScriptNone}
+
+-- | Generate a 'TxOut' with a byron address. This is usually not supported by
+-- Hydra or Plutus.
+genTxOutByron :: Gen (TxOut ctx)
+genTxOutByron = do
+  addr <- ByronAddressInEra <$> arbitrary
+  value <- genValue
+  pure $ TxOut addr value TxOutDatumNone ReferenceScriptNone
+
+-- | Generate a 'TxOut' with a reference script. The standard 'genTxOut' is not
+-- including reference scripts, use this generator if you are interested in
+-- these cases.
+genTxOutWithReferenceScript :: Gen (TxOut ctx)
+genTxOutWithReferenceScript = do
+  -- Have the ledger generate a TxOut with a reference script as instances are
+  -- not so easily accessible.
+  refScript <- (txOutReferenceScript . fromLedgerTxOut <$> arbitrary) `suchThat` (/= ReferenceScriptNone)
+  genTxOut <&> \out -> out{txOutReferenceScript = refScript}
 
 -- | Generate utxos owned by the given cardano key.
 genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO

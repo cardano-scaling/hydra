@@ -26,6 +26,7 @@ import Hydra.Cardano.Api (
   NetworkMagic (NetworkMagic),
   PaymentKey,
   PlutusScript,
+  Quantity (..),
   SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
   Tx,
@@ -35,9 +36,15 @@ import Hydra.Cardano.Api (
   UTxO' (UTxO),
   Value,
   chainPointToSlotNo,
+  modifyTxOutValue,
   txIns',
+  txOutReferenceScript,
   txOutValue,
+  valueFromList,
+  valueToList,
   pattern ByronAddressInEra,
+  pattern ReferenceScript,
+  pattern ReferenceScriptNone,
   pattern ShelleyAddressInEra,
   pattern TxOut,
  )
@@ -301,6 +308,7 @@ commit ctx st utxo = do
       case UTxO.pairs utxo of
         [aUTxO] -> do
           rejectByronAddress aUTxO
+          rejectReferenceScripts aUTxO
           Right $ commitTx networkId scriptRegistry headId ownParty (Just aUTxO) initial
         [] -> do
           Right $ commitTx networkId scriptRegistry headId ownParty Nothing initial
@@ -337,6 +345,12 @@ commit ctx st utxo = do
       Left (UnsupportedLegacyOutput addr)
     (_, TxOut ShelleyAddressInEra{} _ _ _) ->
       Right ()
+
+  rejectReferenceScripts :: (TxIn, TxOut CtxUTxO) -> Either (PostTxError Tx) ()
+  rejectReferenceScripts (_, out) =
+    case txOutReferenceScript out of
+      ReferenceScriptNone -> Right ()
+      ReferenceScript{} -> Left CannotCommitReferenceScript
 
 -- | Construct a collect transaction based on the 'InitialState'. This will
 -- reimburse all the already committed outputs.
@@ -793,6 +807,7 @@ genHydraContextFor n = do
 -- | Get all peer-specific 'ChainContext's from a 'HydraContext'. NOTE: This
 -- assumes that 'HydraContext' has same length 'ctxVerificationKeys' and
 -- 'ctxHydraSigningKeys'.
+-- XXX: This is actually a non-monadic function.
 deriveChainContexts :: HydraContext -> Gen [ChainContext]
 deriveChainContexts ctx = do
   pure $
@@ -852,10 +867,23 @@ genCommits' ::
   Tx ->
   Gen [Tx]
 genCommits' genUTxOToCommit ctx txInit = do
+  -- Prepare UTxO to commit. We need to scale down the quantities by number of
+  -- committed UTxOs to ensure we are not as easily hitting overflows of the max
+  -- bound (Word64) when collecting all the commits together later.
+  commitUTxOs <- forM (ctxParties ctx) $ \_p -> genUTxOToCommit
+  let scaledCommitUTxOs = scaleCommitUTxOs commitUTxOs
+
   allChainContexts <- deriveChainContexts ctx
-  forM allChainContexts $ \cctx -> do
+  forM (zip allChainContexts scaledCommitUTxOs) $ \(cctx, toCommit) -> do
     let stInitial = unsafeObserveInit cctx txInit
-    unsafeCommit cctx stInitial <$> genUTxOToCommit
+    pure $ unsafeCommit cctx stInitial toCommit
+ where
+  scaleCommitUTxOs commitUTxOs =
+    let numberOfUTxOs = length $ fold commitUTxOs
+     in map (fmap (modifyTxOutValue (scaleQuantitiesDownBy numberOfUTxOs))) commitUTxOs
+
+  scaleQuantitiesDownBy x =
+    valueFromList . map (\(an, Quantity q) -> (an, Quantity $ q `div` fromIntegral x)) . valueToList
 
 genCommit :: Gen UTxO
 genCommit =

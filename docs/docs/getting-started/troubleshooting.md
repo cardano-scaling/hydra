@@ -20,6 +20,18 @@
 
     + The head cannot be finalized if holding more than ~100 assets. See [cost of fanout transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-fanout-transaction) for latest numbers.
 
+- Comitting a `UTxO` with a `ReferenceScript` will make the head not finalizable.
+
+   + The `hydra-node` does prevent this from happening, but transactions in the
+     Head protocol done by other implementations may result in the Head be not
+     finalizable by `hydra-node`.
+
+   + Creating output with reference scripts on the layer 2 ledger is
+     non-problematic.
+
+   + If you run into this, file an issue and the Hydra team will be able to help
+     you finalize your head in a manual workaround.
+
 - Not an issue, but a workaround: The internal wallet of `hydra-node` requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](https://hydra.family/head-protocol/docs/getting-started/demo/with-docker/#seeding-the-network).
 
 ### hydra-tui

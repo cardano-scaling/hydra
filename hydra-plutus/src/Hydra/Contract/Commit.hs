@@ -75,7 +75,6 @@ deserializeCommit network Commit{input, preSerializedOutput} =
     Right dat -> do
       txOut <- fromPlutusTxOut network <$> fromData dat
       pure (fromPlutusTxOutRef input, txOut)
- where
 
 -- TODO: Party is not used on-chain but is needed off-chain while it's still
 -- based on mock crypto. When we move to real crypto we could simply use
