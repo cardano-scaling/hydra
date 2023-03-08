@@ -20,7 +20,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (AddressInEra, Key (SigningKey), NetworkId (Testnet), NetworkMagic (NetworkMagic), PaymentKey, Tx, TxId, TxIn (..), VerificationKey, lovelaceToValue, mkVkAddress, serialiseAddress, serialiseToRawBytesHexText, writeFileTextEnvelope)
-import Hydra.Chain (HeadParameters (HeadParameters, contestationPeriod, parties))
+import Hydra.Chain (HeadParameters (contestationPeriod, parties))
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
@@ -365,14 +365,6 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             let persistenceDir = dir </> "persistence"
-            openState :: OpenState Tx <- generate arbitrary
-
-            let nodeState = Open (openState{parameters = HeadParameters{contestationPeriod = UnsafeContestationPeriod 1, parties = []}})
-
-            void $ do
-              createDirectoryIfMissing True persistenceDir
-              BSL.writeFile (persistenceDir </> "state") (Aeson.encode nodeState)
-
             let cardanoSK = dir </> "cardano.sk"
             let hydraSK = dir </> "hydra.sk"
 
@@ -381,6 +373,29 @@ spec = around showLogsOnFailure $ do
 
             void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
             void $ writeFileTextEnvelope cardanoSK Nothing cardanoSKey
+
+            -- generate node state to save to a file
+            openState :: OpenState Tx <- generate arbitrary
+            let headParameters = parameters openState
+                UnsafeContestationPeriod stateContestationPeriod = contestationPeriod headParameters
+
+            -- grab one value for CP different from what we have in the state
+            let (differentContestationPeriod : _) =
+                  filter (\a -> a /= stateContestationPeriod) [1 .. stateContestationPeriod]
+
+            -- alter the state to trigger the errors
+            let alteredNodeState =
+                  Open
+                    ( openState
+                        { parameters =
+                            headParameters{contestationPeriod = UnsafeContestationPeriod differentContestationPeriod, parties = []}
+                        }
+                    )
+
+            -- save altered node state
+            void $ do
+              createDirectoryIfMissing True persistenceDir
+              BSL.writeFile (persistenceDir </> "state") (Aeson.encode alteredNodeState)
 
             let nodeArgs =
                   [ "-n"
@@ -392,7 +407,7 @@ spec = around showLogsOnFailure $ do
                   , "--hydra-signing-key"
                   , hydraSK
                   , "--contestation-period"
-                  , "100s"
+                  , show (contestationPeriod headParameters)
                   , "--persistence-dir"
                   , persistenceDir
                   , "--node-socket"
@@ -404,15 +419,18 @@ spec = around showLogsOnFailure $ do
                   , "--ledger-protocol-parameters"
                   , "config/protocol-parameters.json"
                   ]
+
             -- expecting misconfiguration
             withCreateProcess (proc "hydra-node" nodeArgs){std_out = CreatePipe, std_err = CreatePipe} $
               \_ (Just nodeStdout) (Just nodeStdErr) _ -> do
+                -- we should be able to observe the log
                 waitForLog 10 nodeStdout "Detect Misconfiguration log" $ \outline ->
                   outline ^? key "message" . key "tag" == Just (Aeson.String "Misconfiguration")
 
+                -- node should exit with appropriate exception
                 waitForLog 10 nodeStdErr "Detect PersistenceException" $ \errline ->
                   let allLogLines = lines errline
-                   in "hydra-node: PersistenceException \"OpenState : Contestation period does not match\"" `elem` allLogLines
+                   in "hydra-node: PersistenceException \"OpenState: Contestation period does not match. Parties mismatch. \"" `elem` allLogLines
 
 waitForLog :: NominalDiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
