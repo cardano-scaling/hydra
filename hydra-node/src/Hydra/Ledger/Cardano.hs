@@ -282,7 +282,7 @@ genUTxO1 gen = do
 --
 -- NOTE: This generator does
 --  * not produce byron addresses as most of the cardano ecosystem dropped support for that (including plutus),
---  * not produce reference scripts as they are nut fully "visible" from plutus,
+--  * not produce reference scripts as they are not fully "visible" from plutus,
 --  * replace stake pointers with null references as nobody uses that.
 genTxOut :: Gen (TxOut ctx)
 genTxOut =
