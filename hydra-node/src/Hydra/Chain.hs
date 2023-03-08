@@ -30,6 +30,10 @@ import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
 import Test.QuickCheck (vectorOf)
 import Test.QuickCheck.Instances.Time ()
 
+-- | Hardcoded limit for commit tx on mainnet
+maxMainnetLovelace :: Integer
+maxMainnetLovelace = 100_000_000
+
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
   { contestationPeriod :: ContestationPeriod
@@ -132,8 +136,9 @@ data PostTxError tx
     -- NOTE: PlutusDebugInfo does not have much available instances so we put it
     -- in Text form but it's lame
     PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
-  | -- | User tried to commit more than 100 ADA hardcoded limit on mainnet
-    ReachedMainnetHardcodedLimit
+  | -- | User tried to commit more than 'maxMainnetLovelace' hardcoded limit on mainnet
+    -- we keep track of both the hardcoded limit and what the user originally tried to commit
+    CommittedTooMuchADAForMainnet {userCommitted :: Integer, mainnetLimit :: Integer}
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)

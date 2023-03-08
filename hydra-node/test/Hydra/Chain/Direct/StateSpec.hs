@@ -22,7 +22,7 @@ import Hydra.Cardano.Api (
   UTxO,
   hashScript,
   lovelaceToValue,
-  mkVkAddress,
+  modifyTxOutValue,
   renderUTxO,
   scriptPolicyId,
   toPlutusCurrencySymbol,
@@ -34,7 +34,7 @@ import Hydra.Cardano.Api (
   pattern PlutusScriptSerialised,
  )
 import Hydra.Cardano.Api.Pretty (renderTx)
-import Hydra.Chain (OnChainTx (..), PostTxError (..))
+import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (ChangeMintingPolicy, ChangeOutput, Changes),
   applyMutation,
@@ -86,6 +86,7 @@ import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
+  genTxOut,
   genTxOutAdaOnly,
   genTxOutByron,
   genTxOutWithReferenceScript,
@@ -116,10 +117,10 @@ import Test.QuickCheck (
   forAll,
   forAllBlind,
   forAllShow,
+  getPositive,
   label,
   sized,
   sublistOf,
-  suchThat,
   tabulate,
   (.||.),
   (=/=),
@@ -246,10 +247,19 @@ spec = parallel $ do
             Left CannotCommitReferenceScript{} -> property True
             _ -> property False
 
-    prop "reject Commits with more than 100 ADA" $
-      forAllCommitWithMoreThan100ADA $ \case
-        ReachedMainnetHardcodedLimit -> property True
-        _ -> property False
+    prop "reject Commits with more than maxMainnetLovelace Lovelace" $
+      monadicST $ do
+        hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        utxo <- pickBlind $ genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit
+        let mainnetChainContext = ctx{networkId = Mainnet}
+        pure $
+          case commit mainnetChainContext stInitial utxo of
+            Left CommittedTooMuchADAForMainnet{userCommitted, mainnetLimit} ->
+              -- check that user committed more than our limit but also use 'maxMainnetLovelace'
+              -- to be sure we didn't construct 'CommittedTooMuchADAForMainnet' wrongly
+              property $ userCommitted > mainnetLimit && userCommitted > maxMainnetLovelace
+            _ -> property False
 
   describe "abort" $ do
     propBelowSizeLimit maxTxSize forAllAbort
@@ -289,6 +299,17 @@ spec = parallel $ do
   describe "acceptance" $ do
     it "can close & fanout every collected head" $ do
       prop_canCloseFanoutEveryCollect
+
+genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit :: Gen UTxO
+genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
+  adaAmount <- (+ maxMainnetLovelace) . getPositive <$> arbitrary
+  utxo <- genUTxO1 genTxOut
+  let utxoPairs =
+        ( \(a, b) ->
+            (a, modifyTxOutValue (const $ lovelaceToValue (Lovelace adaAmount)) b)
+        )
+          <$> UTxO.pairs utxo
+  pure . UTxO.UTxO $ Map.fromList utxoPairs
 
 -- * Properties
 
@@ -414,29 +435,6 @@ forAllCommit' action = do
                 (not (null toCommit))
                 "Non-empty commit"
               & counterexample ("tx: " <> renderTx tx)
-
-forAllCommitWithMoreThan100ADA ::
-  (PostTxError Tx -> Property) ->
-  Property
-forAllCommitWithMoreThan100ADA action = do
-  forAll (genHydraContext maximumNumberOfParties) $ \hctx ->
-    forAll (genStInitial hctx) $ \(ctx, stInitial) ->
-      forAll genAdaOnlyUTxOOnMainnetWithAmountBiggerThan100k $ \utxo ->
-        case commit (alterChainContextNetworkToMainnet ctx) stInitial utxo of
-          Right{} -> property False
-          Left e -> action e
- where
-  genAdaOnlyUTxOOnMainnetWithAmountBiggerThan100k :: Gen UTxO
-  genAdaOnlyUTxOOnMainnetWithAmountBiggerThan100k = do
-    vk <- arbitrary
-    adaAmount <- arbitrary `suchThat` (> 0)
-    let value = lovelaceToValue $ Lovelace (adaAmount + 100_000_000)
-    txIn <- arbitrary
-    pure . UTxO.UTxO $
-      Map.singleton txIn (TxOut (mkVkAddress Mainnet vk) value TxOutDatumNone ReferenceScriptNone)
-
-  alterChainContextNetworkToMainnet ctx =
-    ctx{networkId = Mainnet}
 
 forAllAbort ::
   (Testable property) =>

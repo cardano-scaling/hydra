@@ -22,6 +22,7 @@ import Hydra.Cardano.Api (
   CtxUTxO,
   Hash,
   Key (SigningKey, VerificationKey, verificationKeyHash),
+  Lovelace (..),
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
@@ -57,6 +58,7 @@ import Hydra.Chain (
   IsChainState (..),
   OnChainTx (..),
   PostTxError (..),
+  maxMainnetLovelace,
  )
 import Hydra.Chain.Direct.ScriptRegistry (
   ScriptRegistry (..),
@@ -310,7 +312,7 @@ commit ctx st utxo = do
         [aUTxO] -> do
           rejectByronAddress aUTxO
           rejectReferenceScripts aUTxO
-          rejectMoreThan100ADA networkId (snd aUTxO)
+          rejectMoreThanMainnetLimit networkId (snd aUTxO)
           Right $ commitTx networkId scriptRegistry headId ownParty (Just aUTxO) initial
         [] -> do
           Right $ commitTx networkId scriptRegistry headId ownParty Nothing initial
@@ -354,13 +356,14 @@ commit ctx st utxo = do
       ReferenceScriptNone -> Right ()
       ReferenceScript{} -> Left CannotCommitReferenceScript
 
+  -- Rejects outputs with more than 'maxMainnetLovelace' lovelace on mainnet
   -- NOTE: Remove this limit once we have more experiments on mainnet.
-  rejectMoreThan100ADA :: NetworkId -> TxOut CtxUTxO -> Either (PostTxError Tx) ()
-  rejectMoreThan100ADA Mainnet output =
-    if selectLovelace (txOutValue output) > 100_000_000
-      then Left $ ReachedMainnetHardcodedLimit
-      else return ()
-  rejectMoreThan100ADA _network _txOut = return ()
+  rejectMoreThanMainnetLimit :: NetworkId -> TxOut CtxUTxO -> Either (PostTxError Tx) ()
+  rejectMoreThanMainnetLimit network output =
+    when (network == Mainnet && lovelaceAmt > maxMainnetLovelace) $
+      Left $ CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
+   where
+    Lovelace lovelaceAmt = selectLovelace (txOutValue output)
 
 -- | Construct a collect transaction based on the 'InitialState'. This will
 -- reimburse all the already committed outputs.
