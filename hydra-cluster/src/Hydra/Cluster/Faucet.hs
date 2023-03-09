@@ -60,47 +60,30 @@ seedFromFaucet ::
   Marked ->
   Tracer IO FaucetLog ->
   IO UTxO
-seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
+seedFromFaucet cardanoNode@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retryOnExceptions $ submitSeedTx faucetVk faucetSk
+  retryOnExceptions tracer $
+    submitSeedTx cardanoNode lovelace marked receivingAddress faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
-  isResourceExhausted ex = case ioe_type ex of
-    ResourceExhausted -> True
-    _ -> False
-
-  retryOnExceptions action =
-    action
-      `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do
-                    threadDelay 1
-                    retryOnExceptions action
-                , Handler $ \(ex :: IOException) -> do
-                    unless (isResourceExhausted ex) $
-                      throwIO ex
-                    traceWith tracer $
-                      TraceResourceExhaustedHandled $
-                        "Expected exception raised from seedFromFaucet: " <> show ex
-                    threadDelay 1
-                    retryOnExceptions action
-                ]
-
-  submitSeedTx faucetVk faucetSk = do
-    faucetUTxO <- findUTxO faucetVk
-    let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
-    buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
-      Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-      Right body -> do
-        submitTransaction networkId nodeSocket (sign faucetSk body)
-
-  findUTxO faucetVk = do
-    faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
-    let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
-    when (null foundUTxO) $
-      throwIO $ FaucetHasNotEnoughFunds{faucetUTxO}
-    pure foundUTxO
-
   receivingAddress = buildAddress receivingVerificationKey networkId
 
+submitSeedTx ::
+  RunningNode ->
+  Lovelace ->
+  Marked ->
+  Address ShelleyAddr ->
+  VerificationKey PaymentKey ->
+  SigningKey PaymentKey ->
+  IO ()
+submitSeedTx cardanoNode@RunningNode{networkId, nodeSocket} lovelace marked receivingAddress faucetVk faucetSk = do
+  faucetUTxO <- findUTxO cardanoNode lovelace faucetVk
+  let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
+  buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
+    Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+    Right body -> do
+      submitTransaction networkId nodeSocket (sign faucetSk body)
+ where
   theOutput =
     TxOut
       (shelleyAddressInEra receivingAddress)
@@ -111,6 +94,37 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
   theOutputDatum = case marked of
     Fuel -> TxOutDatumHash markerDatumHash
     Normal -> TxOutDatumNone
+
+-- | Try to submit tx and retry when some caught exception/s take place.
+retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m () -> m ()
+retryOnExceptions tracer action =
+  action
+    `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do
+                  threadDelay 1
+                  retryOnExceptions tracer action
+              , Handler $ \(ex :: IOException) -> do
+                  unless (isResourceExhausted ex) $
+                    throwIO ex
+                  traceWith tracer $
+                    TraceResourceExhaustedHandled $
+                      "Expected exception raised from seedFromFaucet: " <> show ex
+                  threadDelay 1
+                  retryOnExceptions tracer action
+              ]
+ where
+  isResourceExhausted ex = case ioe_type ex of
+    ResourceExhausted -> True
+    _other -> False
+
+-- | Find the utxo for the corresponding verification key
+-- We expect proper utxo to have more 'Lovelace' than the @lovelace@ argument
+findUTxO :: RunningNode -> Lovelace -> VerificationKey PaymentKey -> IO UTxO
+findUTxO RunningNode{networkId, nodeSocket} lovelace faucetVk = do
+  faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
+  let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
+  when (null foundUTxO) $
+    throwIO $ FaucetHasNotEnoughFunds{faucetUTxO}
+  pure foundUTxO
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
