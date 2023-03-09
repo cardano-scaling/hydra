@@ -81,6 +81,7 @@ library
     Hydra.Contract.HeadTokens
     Hydra.Contract.HeadTokensError
     Hydra.Contract.Initial
+    Hydra.Contract.InitialError
     Hydra.Contract.MintAction
     Hydra.Contract.Util
     Hydra.Data.ContestationPeriod
