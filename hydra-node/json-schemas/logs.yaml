@@ -147,6 +147,21 @@ properties:
                   type: string
                   enum: ["LoadedState"]
 
+            - title: Misconfiguration
+              description: >-
+                Hydra node detected a difference between loaded state and the node arguments.
+              type: object
+              additionalProperties: false
+              required:
+                - tag
+                - misconfiguredItems
+              properties:
+                tag:
+                  type: string
+                  enum: ["Misconfiguration"]
+                misconfiguredItems:
+                  type: array
+
 definitions:
   APIServer:
     oneOf:

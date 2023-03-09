@@ -23,7 +23,7 @@ data HydraLog tx net
   | CreatedState
   | LoadedState
   | NodeOptions {runOptions :: RunOptions}
-  | Misconfiguration [String]
+  | Misconfiguration {misconfiguredItems :: [String]}
   deriving (Generic)
 
 deriving instance (Eq net, Eq (HydraNodeLog tx)) => Eq (HydraLog tx net)
