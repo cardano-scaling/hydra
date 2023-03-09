@@ -84,11 +84,11 @@ main = do
               pure $ Idle IdleState{chainState = initialChainState}
             Just headState -> do
               traceWith tracer LoadedState
+              let paramsMismatch = checkParamsAgainstExistingState headState env
+              when (not $ null paramsMismatch) $ do
+                traceWith tracer (Misconfiguration paramsMismatch)
+                throwIO $ PersistenceException $ concat paramsMismatch
               pure headState
-        let paramsMismatch = checkParamsAgainstExistingState hs env
-        when (not $ null paramsMismatch) $ do
-          traceWith tracer (Misconfiguration paramsMismatch)
-          throwIO $ PersistenceException $ concat paramsMismatch
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
