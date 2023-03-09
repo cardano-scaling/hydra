@@ -131,16 +131,19 @@ main = do
   checkParamsAgainstExistingState hs env =
     case hs of
       Idle _ -> []
-      Initial InitialState{parameters} -> "InitialState: " : validateParameters parameters
-      Open OpenState{parameters} -> "OpenState: " : validateParameters parameters
-      Closed ClosedState{parameters} -> "ClosedState: " : validateParameters parameters
+      Initial InitialState{parameters} -> validateParameters "InitialState: " parameters
+      Open OpenState{parameters} -> validateParameters "OpenState: " parameters
+      Closed ClosedState{parameters} -> validateParameters "ClosedState: " parameters
    where
-    validateParameters params =
-      flip execState [] $ do
-        when (Hydra.Chain.contestationPeriod params /= cp) $
-          modify (\s -> s <> ["Contestation period does not match. "])
-        when (Hydra.Chain.parties params /= envParties) $
-          modify (\s -> s <> ["Parties mismatch. "])
+    validateParameters st params =
+      let res = flip execState [] $ do
+            when (Hydra.Chain.contestationPeriod params /= cp) $
+              modify (\s -> s <> ["Contestation period does not match. "])
+            when (Hydra.Chain.parties params /= envParties) $
+              modify (\s -> s <> ["Parties mismatch. "])
+       in case res of
+            [] -> []
+            items -> st : items
 
     Environment{contestationPeriod = cp, otherParties, party} = env
     envParties = party : otherParties
