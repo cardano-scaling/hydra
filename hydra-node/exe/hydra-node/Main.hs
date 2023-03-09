@@ -127,6 +127,7 @@ main = do
     action (Ledger.cardanoLedger globals ledgerEnv)
 
   -- check if hydra-node parameters are matching with the hydra-node state.
+  -- REVIEW: Should we also check against items we receive on-chain here? e.g. 'OpenThreadOutput' if in Open state?
   checkParamsAgainstExistingState :: HeadState Ledger.Tx -> Environment -> [String]
   checkParamsAgainstExistingState hs env =
     case hs of
@@ -138,9 +139,9 @@ main = do
     validateParameters st params =
       let res = flip execState [] $ do
             when (Hydra.Chain.contestationPeriod params /= cp) $
-              modify (\s -> s <> ["Contestation period does not match. "])
+              modify (<> ["Contestation period does not match. "])
             when (sort (Hydra.Chain.parties params) /= sort envParties) $
-              modify (\s -> s <> ["Parties mismatch. "])
+              modify (<> ["Parties mismatch. "])
        in case res of
             [] -> []
             items -> st : items
