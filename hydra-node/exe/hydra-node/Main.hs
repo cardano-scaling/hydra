@@ -139,7 +139,7 @@ main = do
       let res = flip execState [] $ do
             when (Hydra.Chain.contestationPeriod params /= cp) $
               modify (\s -> s <> ["Contestation period does not match. "])
-            when (Hydra.Chain.parties params /= envParties) $
+            when (sort (Hydra.Chain.parties params) /= sort envParties) $
               modify (\s -> s <> ["Parties mismatch. "])
        in case res of
             [] -> []
