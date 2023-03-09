@@ -12,7 +12,7 @@ import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
-import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
+import Hydra.Cardano.Api (Lovelace, NetworkId (..), TxId, selectLovelace)
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
@@ -26,12 +26,18 @@ import Hydra.Party (Party)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
 import Test.Hspec.Expectations (shouldBe)
 
+-- | Determine the amount we want to grab from the faucet based on network
+seedFromFaucetAmount :: NetworkId -> Lovelace
+seedFromFaucetAmount Mainnet = 100_000_000
+seedFromFaucetAmount _ = 100_000_000
+
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
   let clients = [Alice, Bob]
   [(aliceCardanoVk, _), (bobCardanoVk, _)] <- forM clients keysFor
-  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+  let seedAmount = seedFromFaucetAmount networkId
+  seedFromFaucet_ cardanoNode aliceCardanoVk seedAmount Fuel (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode bobCardanoVk seedAmount Fuel (contramap FromFaucet tracer)
 
   let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
@@ -62,7 +68,8 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
 
 restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
-  refuelIfNeeded tracer cardanoNode Alice 100_000_000
+  let seedAmount = seedFromFaucetAmount networkId
+  refuelIfNeeded tracer cardanoNode Alice seedAmount
   let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket [] contestationPeriod
@@ -95,7 +102,8 @@ singlePartyHeadFullLifeCycle ::
   TxId ->
   IO ()
 singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScriptsTxId = do
-  refuelIfNeeded tracer node Alice 100_000_000
+  let seedAmount = seedFromFaucetAmount networkId
+  refuelIfNeeded tracer node Alice seedAmount
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
   let contestationPeriod = UnsafeContestationPeriod 100
@@ -143,7 +151,8 @@ canCloseWithLongContestationPeriod ::
   TxId ->
   IO ()
 canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hydraScriptsTxId = do
-  refuelIfNeeded tracer node Alice 100_000_000
+  let seedAmount = seedFromFaucetAmount networkId
+  refuelIfNeeded tracer node Alice seedAmount
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
   let oneWeek = UnsafeContestationPeriod (60 * 60 * 24 * 7)
