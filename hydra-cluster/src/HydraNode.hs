@@ -189,6 +189,7 @@ data EndToEndLog
   | StartingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
   | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, fuelUTxO :: UTxO}
   | RemainingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
+  | ReturningToFaucet {actor :: String, returnAmount :: Lovelace}
   | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
   | UsingHydraScriptsAt {hydraScriptsTxId :: TxId}
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)

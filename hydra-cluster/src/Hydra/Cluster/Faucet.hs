@@ -48,6 +48,25 @@ newtype FaucetLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+sendFundsTo ::
+  RunningNode ->
+  -- | Sender keys
+  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  -- | Receiving verification key
+  VerificationKey PaymentKey ->
+  -- | Amount to return to faucet
+  Lovelace ->
+  -- | Marked as fuel or normal output?
+  Marked ->
+  Tracer IO FaucetLog ->
+  IO UTxO
+sendFundsTo cardanoNode@RunningNode{networkId, nodeSocket} (senderVk, senderSk) receivingVerificationKey lovelace marked tracer = do
+  retryOnExceptions tracer $
+    buildAndSubmitTx cardanoNode lovelace marked receivingAddress senderVk senderSk
+  waitForPayment networkId nodeSocket lovelace receivingAddress
+ where
+  receivingAddress = buildAddress receivingVerificationKey networkId
+
 -- | Create a specially marked "seed" UTXO containing requested 'Lovelace' by
 -- redeeming funds available to the well-known faucet.
 seedFromFaucet ::
@@ -63,26 +82,31 @@ seedFromFaucet ::
 seedFromFaucet cardanoNode@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
   retryOnExceptions tracer $
-    submitSeedTx cardanoNode lovelace marked receivingAddress faucetVk faucetSk
+    buildAndSubmitTx cardanoNode lovelace marked receivingAddress faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   receivingAddress = buildAddress receivingVerificationKey networkId
 
-submitSeedTx ::
+buildAndSubmitTx ::
   RunningNode ->
+  -- | Amount of lovelace to send to the reciver
   Lovelace ->
+  -- | Marked as fuel or normal output?
   Marked ->
+  -- | Receiving address
   Address ShelleyAddr ->
+  -- | Sender verification key
   VerificationKey PaymentKey ->
+  -- | Sender signing key
   SigningKey PaymentKey ->
   IO ()
-submitSeedTx cardanoNode@RunningNode{networkId, nodeSocket} lovelace marked receivingAddress faucetVk faucetSk = do
-  faucetUTxO <- findUTxO cardanoNode lovelace faucetVk
-  let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
+buildAndSubmitTx cardanoNode@RunningNode{networkId, nodeSocket} lovelace marked receivingAddress senderVk senderSk = do
+  faucetUTxO <- findUTxO cardanoNode lovelace senderVk
+  let changeAddress = ShelleyAddressInEra (buildAddress senderVk networkId)
   buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
     Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
     Right body -> do
-      submitTransaction networkId nodeSocket (sign faucetSk body)
+      submitTransaction networkId nodeSocket (sign senderSk body)
  where
   theOutput =
     TxOut

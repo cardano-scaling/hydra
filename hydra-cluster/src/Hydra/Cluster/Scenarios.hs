@@ -14,7 +14,7 @@ import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (Lovelace, NetworkId (..), TxId, selectLovelace)
 import Hydra.Chain (HeadId)
-import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (Marked (Fuel, Normal), queryMarkedUTxO, seedFromFaucet_, sendFundsTo)
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -133,6 +133,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     waitFor tracer 600 [n1] $
       output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
   traceRemainingFunds Alice
+  returnAssetsToFaucet tracer node Alice
  where
   RunningNode{nodeSocket} = node
 
@@ -189,13 +190,28 @@ refuelIfNeeded ::
   Lovelace ->
   IO ()
 refuelIfNeeded tracer node actor amount = do
-  (actorVk, _) <- keysFor actor
-  (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
+  (receivingVk, _) <- keysFor actor
+  (senderVk, senderSk) <- keysFor Faucet
+  (fuelUTxO, otherUTxO) <- queryMarkedUTxO node receivingVk
   traceWith tracer $ StartingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
   let fuelBalance = selectLovelace $ balance @Tx fuelUTxO
   when (fuelBalance < amount) $ do
-    utxo <- seedFromFaucet node actorVk amount Fuel (contramap FromFaucet tracer)
+    utxo <- sendFundsTo node (senderVk, senderSk) receivingVk amount Fuel (contramap FromFaucet tracer)
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, fuelUTxO = utxo}
+
+-- | Return the remaining funds to the faucet
+returnAssetsToFaucet ::
+  Tracer IO EndToEndLog ->
+  RunningNode ->
+  Actor ->
+  IO ()
+returnAssetsToFaucet tracer node sender = do
+  (senderVk, senderSk) <- keysFor sender
+  (receivingVk, _) <- keysFor Faucet
+  (fuelUTxO, otherUTxO) <- queryMarkedUTxO node senderVk
+  let returnBalance = selectLovelace $ balance @Tx (otherUTxO <> fuelUTxO)
+  void $ sendFundsTo node (senderVk, senderSk) receivingVk returnBalance Normal (contramap FromFaucet tracer)
+  traceWith tracer $ ReturningToFaucet{actor = actorName sender, returnAmount = returnBalance}
 
 headIsInitializingWith :: Set Party -> Value -> Maybe HeadId
 headIsInitializingWith expectedParties v = do
