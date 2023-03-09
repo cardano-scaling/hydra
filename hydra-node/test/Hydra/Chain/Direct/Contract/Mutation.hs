@@ -337,9 +337,9 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         -- change the lookup UTXO
         fn o@(TxOut addr value _ refScript)
           | isHeadOutput o =
-              TxOut addr value datumHash refScript
+            TxOut addr value datumHash refScript
           | otherwise =
-              o
+            o
         -- change the datums in the tx
         ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
         newDatums = addDatum datum scriptData
@@ -587,12 +587,12 @@ alterTxIns fn tx =
   -- NOTE: This needs to be ordered, such that we can calculate the redeemer
   -- pointers correctly.
   newSortedInputs =
-    sortOn fst
-      $ fn
+    sortOn fst $
+      fn
         . resolveRedeemers
         . fmap fromLedgerTxIn
         . toList
-      $ Ledger.inputs ledgerBody
+        $ Ledger.inputs ledgerBody
 
   resolveRedeemers :: [TxIn] -> [(TxIn, Maybe ScriptData)]
   resolveRedeemers txInputs =

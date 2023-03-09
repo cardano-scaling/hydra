@@ -12,10 +12,9 @@ import Data.ByteString.Lazy (fromStrict, toStrict)
 import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import qualified Hydra.Cardano.Api as OffChain
 import Hydra.Cardano.Api.Network (Network)
-import Hydra.Contract.Error (ToErrorCode (..))
+import Hydra.Contract.CommitError (CommitError (..), errorCode)
 import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
-import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
@@ -95,9 +94,13 @@ validator (_party, _commit, headId) r ctx =
     -- NOTE: The reimbursement of the committed output 'commit' is
     -- delegated to the 'head' script who has more information to do it.
     ViaAbort ->
-      traceIfFalse "C01" (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
+      traceIfFalse
+        $(errorCode STNotBurnedError)
+        (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
     ViaCollectCom ->
-      traceIfFalse "C02" (hasST headId headOutputValue)
+      traceIfFalse
+        $(errorCode STIsMissingInTheOutput)
+        (hasST headId headOutputValue)
  where
   headOutputValue =
     txOutValue . head $ txInfoOutputs (scriptContextTxInfo ctx)
@@ -119,15 +122,3 @@ datum a = Datum (toBuiltinData a)
 
 redeemer :: RedeemerType -> Redeemer
 redeemer a = Redeemer (toBuiltinData a)
-
--- * Errors
-
-data CommitError
-  = STNotBurnedError
-  | STIsMissingInTheOutput
-  deriving (Show)
-
-instance ToErrorCode CommitError where
-  toErrorCode = \case
-    STNotBurnedError -> "C01"
-    STIsMissingInTheOutput -> "C02"

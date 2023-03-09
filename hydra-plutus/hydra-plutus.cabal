@@ -74,6 +74,7 @@ library
   exposed-modules:
     Hydra.Contract
     Hydra.Contract.Commit
+    Hydra.Contract.CommitError
     Hydra.Contract.Error
     Hydra.Contract.Hash
     Hydra.Contract.Head
