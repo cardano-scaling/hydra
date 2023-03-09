@@ -31,22 +31,7 @@ import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (fromChain)
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.Head (
-  HeadError (
-    ChangedParameters,
-    ClosedWithNonInitialHash,
-    ContestersNonEmpty,
-    HasBoundedValidityCheckFailed,
-    HeadValueIsNotPreserved,
-    IncorrectClosedContestationDeadline,
-    InfiniteLowerBound,
-    InfiniteUpperBound,
-    InvalidSnapshotSignature,
-    NoSigners,
-    SignerIsNotAParticipant,
-    TooManySigners
-  ),
- )
+import Hydra.Contract.HeadError (HeadError (..))
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))

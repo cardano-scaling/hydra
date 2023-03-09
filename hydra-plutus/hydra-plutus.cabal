@@ -78,6 +78,7 @@ library
     Hydra.Contract.Error
     Hydra.Contract.Hash
     Hydra.Contract.Head
+    Hydra.Contract.HeadError
     Hydra.Contract.HeadState
     Hydra.Contract.HeadTokens
     Hydra.Contract.HeadTokensError

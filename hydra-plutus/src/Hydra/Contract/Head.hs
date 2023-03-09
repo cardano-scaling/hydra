@@ -3,30 +3,17 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
-module Hydra.Contract.Head (
-  DatumType,
-  RedeemerType,
-  headValidator,
-  hashPreSerializedCommits,
-  hashTxOuts,
-  verifyPartySignature,
-  verifySnapshotSignature,
-  compiledValidator,
-  validatorScript,
-  validatorHash,
-  HeadError (..),
-) where
+module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
-import Hydra.Contract.Error (ToErrorCode (..))
+import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
 import Hydra.Contract.Util (hasST, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
-import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V1.Ledger.Time (fromMilliSeconds)
 import Plutus.V1.Ledger.Value (valueOf)
@@ -89,7 +76,7 @@ headValidator oldState input ctx =
     (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
     _ ->
-      traceError "H01"
+      traceError $(errorCode InvalidHeadStateTransition)
 
 -- | On-Chain verification for 'Abort' transition. It verifies that:
 --
@@ -110,7 +97,7 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
     && mustReimburseCommittedUTxO
  where
   mustBurnAllHeadTokens =
-    traceIfFalse "H02" $
+    traceIfFalse $(errorCode BurntTokenNumberMismatch) $
       burntTokens == length parties + 1
 
   minted = getValue $ txInfoMint txInfo
@@ -121,7 +108,7 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
       Just tokenMap -> negate $ sum tokenMap
 
   mustReimburseCommittedUTxO =
-    traceIfFalse "H03" $
+    traceIfFalse $(errorCode ReimbursedOutputsDontMatch) $
       hashOfCommittedUTxO == hashOfOutputs
 
   hashOfOutputs =
@@ -185,14 +172,14 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
     && mustNotChangeParameters
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
-    && traceIfFalse "H04" (hasST headId val)
+    && traceIfFalse $(errorCode STNotSpent) (hasST headId val)
  where
   mustCollectUtxoHash =
-    traceIfFalse "H05" $
+    traceIfFalse $(errorCode IncorrectUtxoHash) $
       utxoHash == hashPreSerializedCommits collectedCommits
 
   mustNotChangeParameters =
-    traceIfFalse "H06" $
+    traceIfFalse $(errorCode ChangedParameters) $
       parties' == parties
         && contestationPeriod' == contestationPeriod
         && headId' == headId
@@ -208,14 +195,15 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
           , headId = hId
           } ->
           (p, h, cp, hId)
-      _ -> traceError "H07"
+      _ -> traceError $(errorCode WrongStateInOutputDatum)
+
   headAddress = mkHeadAddress ctx
 
   val =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   everyoneHasCommitted =
-    traceIfFalse "H08" $
+    traceIfFalse $(errorCode MissingCommits) $
       nTotalCommits == length parties
 
   (collectedCommits, nTotalCommits) =
@@ -287,7 +275,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && mustNotChangeParameters
  where
   mustPreserveValue =
-    traceIfFalse "H09" $
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       val === val'
 
   val' = txOutValue . head $ txInfoOutputs txInfo
@@ -295,7 +283,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
   val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   hasBoundedValidity =
-    traceIfFalse "H10" $
+    traceIfFalse $(errorCode HasBoundedValidityCheckFailed) $
       tMax - tMin <= cp
 
   (closedSnapshotNumber, closedUtxoHash, parties', closedContestationDeadline, headId', contesters') =
@@ -310,37 +298,37 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
           , headId
           , contesters
           } -> (snapshotNumber, utxoHash, p, contestationDeadline, headId, contesters)
-      _ -> traceError "H07"
+      _ -> traceError $(errorCode WrongStateInOutputDatum)
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
-      traceIfFalse "H11" $
+      traceIfFalse $(errorCode InvalidSnapshotSignature) $
         verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
     | otherwise =
-      traceIfFalse "H12" $
+      traceIfFalse $(errorCode ClosedWithNonInitialHash) $
         closedUtxoHash == initialUtxoHash
 
   checkDeadline =
-    traceIfFalse "H13" $
+    traceIfFalse $(errorCode IncorrectClosedContestationDeadline) $
       closedContestationDeadline == makeContestationDeadline cperiod ctx
 
   cp = fromMilliSeconds (milliseconds cperiod)
 
   tMax = case ivTo $ txInfoValidRange txInfo of
     UpperBound (Finite t) _ -> t
-    _InfiniteBound -> traceError "H14"
+    _InfiniteBound -> traceError $(errorCode InfiniteUpperBound)
 
   tMin = case ivFrom $ txInfoValidRange txInfo of
     LowerBound (Finite t) _ -> t
-    _InfiniteBound -> traceError "H15"
+    _InfiniteBound -> traceError $(errorCode InfiniteLowerBound)
 
   mustNotChangeParameters =
-    traceIfFalse "H06" $
+    traceIfFalse $(errorCode ChangedParameters) $
       headId' == headPolicyId
         && parties' == parties
 
   mustInitializeContesters =
-    traceIfFalse "H16" $
+    traceIfFalse $(errorCode ContestersNonEmpty) $
       null contesters'
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
@@ -400,7 +388,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     && mustPreserveValue
  where
   mustPreserveValue =
-    traceIfFalse "H09" $
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       val === val'
 
   val' = txOutValue . head $ txInfoOutputs txInfo
@@ -408,7 +396,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
   val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   mustBeNewer =
-    traceIfFalse "H17" $
+    traceIfFalse $(errorCode TooOldSnapshot) $
       contestSnapshotNumber > closedSnapshotNumber
 
   mustBeMultiSigned =
@@ -417,11 +405,12 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange txInfo) of
       UpperBound (Finite time) _ ->
-        traceIfFalse "H18" $ time <= contestationDeadline
-      _ -> traceError "H19"
+        traceIfFalse $(errorCode UpperBoundBeyondContestationDeadline) $
+          time <= contestationDeadline
+      _ -> traceError $(errorCode ContestNoUpperBoundDefined)
 
   mustNotChangeParameters =
-    traceIfFalse "H06" $
+    traceIfFalse $(errorCode ChangedParameters) $
       parties' == parties
         && headId' == headId
         && contestationPeriod' == contestationPeriod
@@ -429,14 +418,14 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
   mustPushDeadline =
     if length contesters' == length parties'
       then
-        traceIfFalse "H20" $
+        traceIfFalse $(errorCode MustNotPushDeadline) $
           contestationDeadline' == contestationDeadline
       else
-        traceIfFalse "H21" $
+        traceIfFalse $(errorCode MustPushDeadline) $
           contestationDeadline' == addContestationPeriod contestationDeadline contestationPeriod
 
   mustUpdateContesters =
-    traceIfFalse "H22" $
+    traceIfFalse $(errorCode ContesterNotIncluded) $
       contesters' == contester : contesters
 
   (contestSnapshotNumber, contestUtxoHash, parties', contestationDeadline', contestationPeriod', headId', contesters') =
@@ -452,17 +441,17 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
           , headId = hid
           , contesters = cs
           } -> (snapshotNumber, utxoHash, p, dl, cp, hid, cs)
-      _ -> traceError "H07"
+      _ -> traceError $(errorCode WrongStateInOutputDatum)
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 
   contester =
     case txInfoSignatories txInfo of
       [signer] -> signer
-      _ -> traceError "H23"
+      _ -> traceError $(errorCode WrongNumberOfSigners)
 
   checkSignedParticipantContestOnlyOnce =
-    traceIfFalse "H24" $
+    traceIfFalse $(errorCode SignerAlreadyContested) $
       contester `notElem` contesters
 {-# INLINEABLE checkContest #-}
 
@@ -475,15 +464,20 @@ checkFanout ::
 checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
   hasSameUTxOHash && afterContestationDeadline
  where
-  hasSameUTxOHash = traceIfFalse "H25" $ fannedOutUtxoHash == utxoHash
+  hasSameUTxOHash =
+    traceIfFalse $(errorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) $
+      fannedOutUtxoHash == utxoHash
+
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
+
   TxInfo{txInfoOutputs} = txInfo
 
   afterContestationDeadline =
     case ivFrom (txInfoValidRange txInfo) of
       LowerBound (Finite time) _ ->
-        traceIfFalse "H26" $ time > contestationDeadline
-      _ -> traceError "H27"
+        traceIfFalse $(errorCode LowerBoundBeforeContestationDeadline) $
+          time > contestationDeadline
+      _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
 {-# INLINEABLE checkFanout #-}
 
 --------------------------------------------------------------------------------
@@ -506,14 +500,14 @@ makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
   case ivTo (txInfoValidRange scriptContextTxInfo) of
     UpperBound (Finite time) _ -> addContestationPeriod time cperiod
-    _ -> traceError "H28"
+    _ -> traceError $(errorCode CloseNoUpperBoundDefined)
 {-# INLINEABLE makeContestationDeadline #-}
 
 mkHeadAddress :: ScriptContext -> Address
 mkHeadAddress ctx =
   let headInput =
         fromMaybe
-          (traceError "H29")
+          (traceError $(errorCode ScriptNotSpendingAHeadInput))
           (findOwnInput ctx)
    in txOutAddress (txInInfoResolved headInput)
 {-# INLINEABLE mkHeadAddress #-}
@@ -526,12 +520,12 @@ mustBeSignedByParticipant ::
 mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol =
   case getPubKeyHash <$> txInfoSignatories txInfo of
     [signer] ->
-      traceIfFalse "H30" $
+      traceIfFalse $(errorCode SignerIsNotAParticipant) $
         signer `elem` (unTokenName <$> participationTokens)
     [] ->
-      traceError "H31"
+      traceError $(errorCode NoSigners)
     _ ->
-      traceError "H32"
+      traceError $(errorCode TooManySigners)
  where
   participationTokens = loop (txInfoInputs txInfo)
   loop = \case
@@ -559,8 +553,10 @@ headOutputDatum ctx =
 findTxOutDatum :: TxInfo -> TxOut -> Datum
 findTxOutDatum txInfo o =
   case txOutDatum o of
-    NoOutputDatum -> traceError "H33"
-    OutputDatumHash dh -> fromMaybe (traceError "H34") $ findDatum dh txInfo
+    NoOutputDatum -> traceError $(errorCode NoOutputDatumError)
+    OutputDatumHash dh ->
+      fromMaybe (traceError $(errorCode DatumNotFound)) $
+        findDatum dh txInfo
     OutputDatum d -> d
 {-# INLINEABLE findTxOutDatum #-}
 
@@ -589,14 +585,14 @@ hasPT headCurrencySymbol txOut =
 
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber utxoHash sigs =
-  traceIfFalse "H35" $
+  traceIfFalse $(errorCode SignatureVerificationFailed) $
     length parties == length sigs
       && all (uncurry $ verifyPartySignature snapshotNumber utxoHash) (zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 
 verifyPartySignature :: SnapshotNumber -> BuiltinByteString -> Party -> Signature -> Bool
 verifyPartySignature snapshotNumber utxoHash party signed =
-  traceIfFalse "H36" $
+  traceIfFalse $(errorCode PartySignatureVerificationFailed) $
     verifyEd25519Signature (vkey party) message signed
  where
   message =
@@ -623,85 +619,3 @@ validatorScript = getValidator $ mkValidatorScript compiledValidator
 
 validatorHash :: ValidatorHash
 validatorHash = scriptValidatorHash validatorScript
-
--- * Errors
-
-data HeadError
-  = InvalidHeadStateTransition
-  | BurntTokenNumberMismatch
-  | ReimbursedOutputsDontMatch
-  | STNotSpent
-  | IncorrectUtxoHash
-  | ChangedParameters
-  | WrongStateInOutputDatum
-  | MissingCommits
-  | HeadValueIsNotPreserved
-  | HasBoundedValidityCheckFailed
-  | InvalidSnapshotSignature
-  | ClosedWithNonInitialHash
-  | IncorrectClosedContestationDeadline
-  | InfiniteUpperBound
-  | InfiniteLowerBound
-  | ContestersNonEmpty
-  | TooOldSnapshot
-  | UpperBoundBeyondContestationDeadline
-  | ContestNoUpperBoundDefined
-  | MustNotPushDeadline
-  | MustPushDeadline
-  | ContesterNotIncluded
-  | WrongNumberOfSigners
-  | SignerAlreadyContested
-  | FannedOutUtxoHashNotEqualToClosedUtxoHash
-  | LowerBoundBeforeContestationDeadline
-  | FanoutNoLowerBoundDefined
-  | CloseNoUpperBoundDefined
-  | ScriptNotSpendingAHeadInput
-  | SignerIsNotAParticipant
-  | NoSigners
-  | TooManySigners
-  | NoOutputDatumError
-  | DatumNotFound
-  | SignatureVerificationFailed
-  | PartySignatureVerificationFailed
-  deriving (Show)
-
-instance ToErrorCode HeadError where
-  toErrorCode = \case
-    InvalidHeadStateTransition -> "H01"
-    BurntTokenNumberMismatch -> "H02"
-    ReimbursedOutputsDontMatch -> "H03"
-    STNotSpent -> "H04"
-    IncorrectUtxoHash -> "H05"
-    ChangedParameters -> "H06"
-    WrongStateInOutputDatum -> "H07"
-    MissingCommits -> "H08"
-    HeadValueIsNotPreserved -> "H09"
-    HasBoundedValidityCheckFailed -> "H10"
-    -- XXX: This error code is redundant and can be removed in favor of H35.
-    -- This will also make the close checks consistent with the contest's
-    InvalidSnapshotSignature -> "H11"
-    ClosedWithNonInitialHash -> "H12"
-    IncorrectClosedContestationDeadline -> "H13"
-    InfiniteUpperBound -> "H14"
-    InfiniteLowerBound -> "H15"
-    ContestersNonEmpty -> "H16"
-    TooOldSnapshot -> "H17"
-    UpperBoundBeyondContestationDeadline -> "H18"
-    ContestNoUpperBoundDefined -> "H19"
-    MustNotPushDeadline -> "H20"
-    MustPushDeadline -> "H21"
-    ContesterNotIncluded -> "H22"
-    WrongNumberOfSigners -> "H23"
-    SignerAlreadyContested -> "H24"
-    FannedOutUtxoHashNotEqualToClosedUtxoHash -> "H25"
-    LowerBoundBeforeContestationDeadline -> "H26"
-    FanoutNoLowerBoundDefined -> "H27"
-    CloseNoUpperBoundDefined -> "H28"
-    ScriptNotSpendingAHeadInput -> "H29"
-    SignerIsNotAParticipant -> "H30"
-    NoSigners -> "H31"
-    TooManySigners -> "H32"
-    NoOutputDatumError -> "H33"
-    DatumNotFound -> "H34"
-    SignatureVerificationFailed -> "H35"
-    PartySignatureVerificationFailed -> "H36"
