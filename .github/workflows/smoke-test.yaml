@@ -10,6 +10,8 @@ on:
         options:
         - preview
         - preprod
+        # Uncomment the following line when we feel ready to run smoke tests on mainnet
+        # - mainnet
 
       hydra-scripts-tx-id:
         description: "TxId of already published scripts (leave empty to publish)"
@@ -47,6 +49,12 @@ jobs:
     - name: 🚬 Cleanup hydra-node state
       run: |
         rm -rf state-${{inputs.network}}/state-*
+
+    - name: 🤐 Setup secret faucet key
+      if: ${{ inputs.network == 'mainnet' }}
+      run: |
+        echo "${{secrets.faucet_sk}}" | base64 -d >hydra-cluster/config/credentials/faucet.sk
+        echo "${{secrets.faucet_vk}}" | base64 -d >hydra-cluster/config/credentials/faucet.vk
 
     - name: 🚬 Run hydra-cluster smoke test
       run: |

@@ -40,11 +40,27 @@ to the `config/credentials/faucet.sk` on that network. The Hydra nodes
 can reference pre-existing contracts living at some well-known
 transaction or can post a new transaction to use those contracts.
 
+:warning: do not provide actual funds to this faucet address as the
+signing key is publicly available. Shall you want to run the smoke
+test with actual funds, you shall override these file to use a secret
+signing key safely stored. See how the C.I overrides these files in
+.github/workflows/smoke-test.yaml
+
 To run the smoke test against the official cardano testnet using a
 local `state-testnet` directory (to re-use the synchronized chain db):
 
 ```sh
 hydra-cluster --preview --state-directory state-testnet
+```
+
+:warning: the C.I. overrides these files for mainnet. On the C.I. the
+faucet secrets are base64 encoded. Shall you need to update them, you
+could do it with the following commands (if you're not sure, do not
+do this, you may loose access to faucet funds):
+
+```sh
+#> cat faucet.vk | base64 | gh secret set faucet_vk
+#> cat faucet.sk | base64 | gh secret set faucet_sk
 ```
 
 ## Local devnet
