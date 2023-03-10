@@ -68,8 +68,9 @@ jobs:
           --label org.opencontainers.image.version=${VERSION_NAME:-unstable} \
           --tag ${IMAGE_NAME}:unstable -
         # Also tag with semver and 'latest' if we are building a tag
-        [[ ${BUILDING_TAG} = true ]] && \
-          docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:${{github.ref_name}} \
+        [[ ${BUILDING_TAG} = true && ${{matrix.target}} != "hydraw" ]] && \
+          docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:${{github.ref_name}}
+        [[ ${BUILDING_TAG} = true] ]] && \
           docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:latest
         docker images
         docker inspect ${IMAGE_NAME}:unstable
