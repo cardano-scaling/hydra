@@ -37,7 +37,7 @@ import Hydra.Ledger.Cardano ()
 data Marked = Fuel | Normal
 
 data FaucetException
-  = NotEnoughFunds {utxo :: UTxO}
+  = NotEnoughFunds {utxos :: UTxO, requestedAmount :: Lovelace}
   | FailedToBuildTx {reason :: TxBodyErrorAutoBalance}
   deriving (Show)
 
@@ -144,10 +144,10 @@ retryOnExceptions tracer action =
 -- We expect proper utxo to have more 'Lovelace' than the @lovelace@ argument
 findUTxO :: RunningNode -> Lovelace -> VerificationKey PaymentKey -> IO UTxO
 findUTxO RunningNode{networkId, nodeSocket} lovelace faucetVk = do
-  utxo <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
-  let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) utxo
+  utxos <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
+  let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) utxos
   when (null foundUTxO) $
-    throwIO $ NotEnoughFunds{utxo}
+    throwIO $ NotEnoughFunds{utxos, requestedAmount = lovelace}
   pure foundUTxO
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.

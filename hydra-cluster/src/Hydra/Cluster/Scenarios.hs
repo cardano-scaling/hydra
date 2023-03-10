@@ -5,7 +5,7 @@ module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
 
-import CardanoClient (queryTip)
+import CardanoClient (QueryPoint (..), queryTip, queryUTxOFor)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
@@ -205,11 +205,11 @@ returnAssetsToFaucet ::
   RunningNode ->
   Actor ->
   IO ()
-returnAssetsToFaucet tracer node sender = do
+returnAssetsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
   (receivingVk, _) <- keysFor Faucet
   (senderVk, senderSk) <- keysFor sender
-  (fuelUTxO, otherUTxO) <- queryMarkedUTxO node senderVk
-  let returnBalance = selectLovelace $ balance @Tx (otherUTxO <> fuelUTxO)
+  utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
+  let returnBalance = selectLovelace $ balance @Tx utxo
   void $ sendFundsTo node (senderVk, senderSk) receivingVk returnBalance Normal (contramap FromFaucet tracer)
   traceWith tracer $ ReturningToFaucet{actor = actorName sender, returnAmount = returnBalance}
 
