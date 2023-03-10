@@ -213,15 +213,15 @@ data ContestMutation
   | -- | Invalidates the tx by changing the contest snapshot number too old.
     --
     -- This is achieved by updating the head input datum to be older, so the
-    -- healthy snapshot number becomes to old.
+    -- healthy snapshot number becomes too old.
     MutateToNonNewerSnapshot
-  | -- | Ensures close is authenticated by a single Head party by changing the signer
+  | -- | Ensures close is authenticated by one of the Head members by changing the signer
     -- used on the tx to be not one of PTs.
     MutateRequiredSigner
-  | -- | Ensures close is authenticated by a single Head party by changing the signer
+  | -- | Ensures close is authenticated by one of the Head members by changing the signer
     -- used on the tx to be empty.
     MutateNoRequiredSigner
-  | -- | Ensures close is authenticated by a single Head party by changing the signer
+  | -- | Ensures close is authenticated by one of the Head members by changing the signer
     -- used on the tx to have multiple signers (including the signer to not fail for
     -- SignerIsNotAParticipant).
     MutateMultipleRequiredSigner
@@ -248,7 +248,7 @@ data ContestMutation
     MutateInputContesters
   | -- | Ensures a the signer needs to be added to the head output datum.
     MutateContesters
-  | -- | Invalidates the tx by changing the output values arbitrarly to be
+  | -- | Invalidates the tx by changing the output values arbitrarily to be
     -- different (not preserved) from the head.
     --
     -- Ensures values are preserved between head input and output.
@@ -382,8 +382,9 @@ genContestMutation
           pure $ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContestationPeriod randomCP))
       , SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
           mutatedParties <-
-            -- XXX: we need to length of mutatedParties is the same as healthyOnChainParties
-            -- so to not fail because of `must not push contestation deadline`.
+            -- The length of mutatedParties must be the same as
+            -- healthyOnChainParties so to not fail because of
+            -- `must not push contestation deadline`.
             vectorOf
               (length healthyOnChainParties)
               ( partyFromVerificationKeyBytes <$> genHash

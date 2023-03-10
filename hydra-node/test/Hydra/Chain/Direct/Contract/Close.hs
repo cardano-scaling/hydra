@@ -245,15 +245,15 @@ data CloseMutation
     -- changing the parties in the input head datum. If they do not align the
     -- multisignature will not be valid anymore.
     SnapshotNotSignedByAllParties
-  | -- | Ensures close is authenticated by a single Head party by changing the signer
-    -- used on the tx to be not one of PTs.
+  | -- | Ensures close is authenticated by a one of the Head members by changing
+    --  the signer used on the tx to not be one of PTs.
     MutateRequiredSigner
-  | -- | Ensures close is authenticated by a single Head party by changing the signer
-    -- used on the tx to be empty.
+  | -- | Ensures close is authenticated by a one of the Head members by changing
+    --  the signer used on the tx to be empty.
     MutateNoRequiredSigner
-  | -- | Ensures close is authenticated by a single Head party by changing the signer
-    -- used on the tx to have multiple signers (including the signer to not fail for
-    -- SignerIsNotAParticipant).
+  | -- | Ensures close is authenticated by a one of the Head members by changing
+    --  the signer used on the tx to have multiple signers (including the signer
+    -- to not fail for SignerIsNotAParticipant).
     MutateMultipleRequiredSigner
   | -- | Invalidates the tx by changing the utxo hash in resulting head output.
     --
@@ -292,7 +292,7 @@ data CloseMutation
     MutateTokenMintingOrBurning
   | -- | Invalidates the tx by changing the contesters to be non empty.
     MutateContesters
-  | -- | Invalidates the tx by changing output values arbitrarly to be different
+  | -- | Invalidates the tx by changing output values arbitrarily to be different
     -- (not preserved) from the head.
     --
     -- Ensures values are preserved between head input and output.
@@ -399,8 +399,8 @@ data CloseInitialMutation
 -- We should probably validate all the mutation to this initial state but at
 -- least we keep this regression test as we stumbled upon problems with the following case.
 -- The nice thing to do would probably to generate either "normal" healthyCloseTx or
--- or healthyCloseInitialTx and apply all the mutation to it but we did'nt manage to do that
--- rightaway.
+-- or healthyCloseInitialTx and apply all the mutations to it but we didn't manage to do that
+-- right away.
 genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseInitialMutation (tx, _utxo) =
   oneof
