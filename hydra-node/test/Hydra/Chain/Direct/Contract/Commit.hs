@@ -22,6 +22,7 @@ import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadTokens (headPolicyId)
+import Hydra.Contract.Initial
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Ledger.Cardano (
@@ -31,7 +32,7 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
  )
 import Hydra.Party (Party)
-import Test.QuickCheck (oneof, suchThat)
+import Test.QuickCheck (oneof, scale, suchThat)
 
 --
 -- CommitTx
@@ -78,34 +79,51 @@ healthyCommittedUTxO = flip generateWith 42 $ do
   pure (txIn, txOut)
 
 data CommitMutation
-  = MutateCommitOutputValue
-  | MutateCommittedValue
-  | MutateCommittedAddress
-  | MutateRequiredSigner
-  | -- | Change the policy Id of the ST and PTs both in input and output
-    MutateHeadId
-  | -- | Minting or burning of the tokens should not be possible in v_initial when checking the commit
+  = -- | Invalidates the tx by changing the commit output value.
+    --
+    -- Ensures the committed value is consistent with the locked value by the
+    -- commit validator.
+    MutateCommitOutputValue
+  | -- | Invalidates the tx by changing the value of the input committed utxo.
+    --
+    -- Ensures the output committed utxo value is consistent with the input committed utxo value.
+    MutateCommittedValue
+  | -- | Invalidates the tx by changing the address of the input out-ref.
+    --
+    -- Ensures the output tx out-ref is consistent with the input tx out-ref.
+    MutateCommittedAddress
+  | -- | Ensures commit is authenticated by a Head party by changing the signer
+    -- used on the transaction to be the one in the PT.
+    MutateRequiredSigner
+  | -- | Change the head policy id to simulate commit using a PT and signer from
+    -- a different head. The signer shows a correct signature but from a
+    -- different head. This will cause the signer to not be present in the
+    -- participation tokens.
+    CommitFromDifferentHead
+  | -- | Minting or burning of the tokens should not be possible in commit.
     MutateTokenMintingOrBurning
   deriving (Generic, Show, Enum, Bounded)
 
 genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCommitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation Nothing MutateCommitOutputValue . ChangeOutput 0 <$> do
-        mutatedValue <- genValue `suchThat` (/= commitOutputValue)
+    [ SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
+        mutatedValue <- scale (`div` 2) genValue `suchThat` (/= commitOutputValue)
         pure $ commitTxOut{txOutValue = mutatedValue}
-    , SomeMutation Nothing MutateCommittedValue <$> do
-        mutatedValue <- genValue `suchThat` (/= committedOutputValue)
+    , SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
+        mutatedValue <- scale (`div` 2) genValue `suchThat` (/= committedOutputValue)
         let mutatedOutput = modifyTxOutValue (const mutatedValue) committedTxOut
         pure $ ChangeInput committedTxIn mutatedOutput Nothing
-    , SomeMutation Nothing MutateCommittedAddress <$> do
+    , SomeMutation (Just $ toErrorCode MismatchCommittedTxOutInDatum) MutateCommittedAddress <$> do
         mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= committedAddress)
         let mutatedOutput = modifyTxOutAddress (const mutatedAddress) committedTxOut
         pure $ ChangeInput committedTxIn mutatedOutput Nothing
-    , SomeMutation Nothing MutateRequiredSigner <$> do
+    , SomeMutation (Just $ toErrorCode MissingOrInvalidCommitAuthor) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation Nothing MutateHeadId <$> do
+    , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
+      -- This also seems to be covered by MutateRequiredSigner
+      SomeMutation (Just $ toErrorCode CouldNotFindTheCorrectCurrencySymbolInTokens) CommitFromDifferentHead <$> do
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyIntialTxIn))
         pure $
           Changes

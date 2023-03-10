@@ -21,6 +21,7 @@ import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
 import Hydra.Contract.Util (hasST, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
@@ -61,7 +62,6 @@ import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 import qualified PlutusTx.Builtins as Builtins
-import Hydra.Contract.Error (ToErrorCode (..))
 
 type DatumType = State
 type RedeemerType = Input
@@ -281,6 +281,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
     && mustInitializeContesters
+    -- XXX: missing to trace for this error code
     && hasST headPolicyId val
     && mustPreserveValue
     && mustNotChangeParameters
@@ -389,6 +390,10 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     && checkSignedParticipantContestOnlyOnce
     && mustBeWithinContestationPeriod
     && mustUpdateContesters
+    -- XXX: This check is redundant and can be removed,
+    -- because is enough to check that the value is preserved.
+    -- Remember we are comming from a valid Closed state,
+    -- having already checked that the ST is present.
     && hasST headId val
     && mustPushDeadline
     && mustNotChangeParameters
@@ -513,6 +518,7 @@ mkHeadAddress ctx =
    in txOutAddress (txInInfoResolved headInput)
 {-# INLINEABLE mkHeadAddress #-}
 
+-- XXX: We might not need to distinguish between the three cases here.
 mustBeSignedByParticipant ::
   ScriptContext ->
   CurrencySymbol ->
@@ -671,6 +677,8 @@ instance ToErrorCode HeadError where
     MissingCommits -> "H08"
     HeadValueIsNotPreserved -> "H09"
     HasBoundedValidityCheckFailed -> "H10"
+    -- XXX: This error code is redundant and can be removed in favor of H35.
+    -- This will also make the close checks consistent with the contest's
     InvalidSnapshotSignature -> "H11"
     ClosedWithNonInitialHash -> "H12"
     IncorrectClosedContestationDeadline -> "H13"
