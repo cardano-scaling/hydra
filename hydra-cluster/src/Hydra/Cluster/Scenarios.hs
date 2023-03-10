@@ -189,15 +189,15 @@ refuelIfNeeded ::
   Actor ->
   Lovelace ->
   IO ()
-refuelIfNeeded tracer node actor amount = do
-  (receivingVk, _) <- keysFor actor
+refuelIfNeeded tracer node receiver amount = do
+  (receivingVk, _) <- keysFor receiver
   (senderVk, senderSk) <- keysFor Faucet
   (fuelUTxO, otherUTxO) <- queryMarkedUTxO node receivingVk
-  traceWith tracer $ StartingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+  traceWith tracer $ StartingFunds{actor = actorName receiver, fuelUTxO, otherUTxO}
   let fuelBalance = selectLovelace $ balance @Tx fuelUTxO
   when (fuelBalance < amount) $ do
     utxo <- sendFundsTo node (senderVk, senderSk) receivingVk amount Fuel (contramap FromFaucet tracer)
-    traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, fuelUTxO = utxo}
+    traceWith tracer $ RefueledFunds{actor = actorName receiver, refuelingAmount = amount, fuelUTxO = utxo}
 
 -- | Return the remaining funds to the faucet
 returnAssetsToFaucet ::
@@ -206,8 +206,8 @@ returnAssetsToFaucet ::
   Actor ->
   IO ()
 returnAssetsToFaucet tracer node sender = do
-  (senderVk, senderSk) <- keysFor sender
   (receivingVk, _) <- keysFor Faucet
+  (senderVk, senderSk) <- keysFor sender
   (fuelUTxO, otherUTxO) <- queryMarkedUTxO node senderVk
   let returnBalance = selectLovelace $ balance @Tx (otherUTxO <> fuelUTxO)
   void $ sendFundsTo node (senderVk, senderSk) receivingVk returnBalance Normal (contramap FromFaucet tracer)

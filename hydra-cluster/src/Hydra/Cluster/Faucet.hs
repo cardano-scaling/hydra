@@ -37,8 +37,8 @@ import Hydra.Ledger.Cardano ()
 data Marked = Fuel | Normal
 
 data FaucetException
-  = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
-  | FaucetFailedToBuildTx {reason :: TxBodyErrorAutoBalance}
+  = NotEnoughFunds {utxo :: UTxO}
+  | FailedToBuildTx {reason :: TxBodyErrorAutoBalance}
   deriving (Show)
 
 instance Exception FaucetException
@@ -101,10 +101,10 @@ buildAndSubmitTx ::
   SigningKey PaymentKey ->
   IO ()
 buildAndSubmitTx cardanoNode@RunningNode{networkId, nodeSocket} lovelace marked receivingAddress senderVk senderSk = do
-  faucetUTxO <- findUTxO cardanoNode lovelace senderVk
+  utxo <- findUTxO cardanoNode lovelace senderVk
   let changeAddress = ShelleyAddressInEra (buildAddress senderVk networkId)
-  buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
-    Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+  buildTransaction networkId nodeSocket changeAddress utxo [] [theOutput] >>= \case
+    Left e -> throwIO $ FailedToBuildTx{reason = e}
     Right body -> do
       submitTransaction networkId nodeSocket (sign senderSk body)
  where
@@ -144,10 +144,10 @@ retryOnExceptions tracer action =
 -- We expect proper utxo to have more 'Lovelace' than the @lovelace@ argument
 findUTxO :: RunningNode -> Lovelace -> VerificationKey PaymentKey -> IO UTxO
 findUTxO RunningNode{networkId, nodeSocket} lovelace faucetVk = do
-  faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
-  let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
+  utxo <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
+  let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) utxo
   when (null foundUTxO) $
-    throwIO $ FaucetHasNotEnoughFunds{faucetUTxO}
+    throwIO $ NotEnoughFunds{utxo}
   pure foundUTxO
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
