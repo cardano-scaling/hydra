@@ -196,7 +196,7 @@ refuelIfNeeded tracer node receiver amount = do
   traceWith tracer $ StartingFunds{actor = actorName receiver, fuelUTxO, otherUTxO}
   let fuelBalance = selectLovelace $ balance @Tx fuelUTxO
   when (fuelBalance < amount) $ do
-    utxo <- sendFundsTo node (senderVk, senderSk) receivingVk amount Fuel (contramap FromFaucet tracer)
+    utxo <- sendFundsTo node (senderVk, senderSk) receivingVk amount Fuel (contramap FromFaucet tracer) True
     traceWith tracer $ RefueledFunds{actor = actorName receiver, refuelingAmount = amount, fuelUTxO = utxo}
 
 -- | Return the remaining funds to the faucet
@@ -209,8 +209,10 @@ returnAssetsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
   (receivingVk, _) <- keysFor Faucet
   (senderVk, senderSk) <- keysFor sender
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
-  let returnBalance = selectLovelace $ balance @Tx utxo
-  void $ sendFundsTo node (senderVk, senderSk) receivingVk returnBalance Normal (contramap FromFaucet tracer)
+  -- TODO: 'balance' here is just `foldMap txOutValue` so it doesn't actually ballance anything.
+  -- How to exclude the fees from the amount? This hardcoded subtraction needs to go away
+  let returnBalance = (selectLovelace $ balance @Tx utxo) - 2_000_000
+  void $ sendFundsTo node (senderVk, senderSk) receivingVk returnBalance Normal (contramap FromFaucet tracer) False
   traceWith tracer $ ReturningToFaucet{actor = actorName sender, returnAmount = returnBalance}
 
 headIsInitializingWith :: Set Party -> Value -> Maybe HeadId

@@ -59,10 +59,12 @@ sendFundsTo ::
   -- | Marked as fuel or normal output?
   Marked ->
   Tracer IO FaucetLog ->
+  -- | Should we filter utxo to find the one containing more lovelace than we want to send?
+  Bool ->
   IO UTxO
-sendFundsTo cardanoNode@RunningNode{networkId, nodeSocket} (senderVk, senderSk) receivingVerificationKey lovelace marked tracer = do
+sendFundsTo cardanoNode@RunningNode{networkId, nodeSocket} (senderVk, senderSk) receivingVerificationKey lovelace marked tracer shouldFilter = do
   retryOnExceptions tracer $
-    buildAndSubmitTx cardanoNode lovelace marked receivingAddress senderVk senderSk
+    buildAndSubmitTx cardanoNode lovelace marked receivingAddress senderVk senderSk shouldFilter
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   receivingAddress = buildAddress receivingVerificationKey networkId
@@ -82,7 +84,7 @@ seedFromFaucet ::
 seedFromFaucet cardanoNode@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
   retryOnExceptions tracer $
-    buildAndSubmitTx cardanoNode lovelace marked receivingAddress faucetVk faucetSk
+    buildAndSubmitTx cardanoNode lovelace marked receivingAddress faucetVk faucetSk True
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   receivingAddress = buildAddress receivingVerificationKey networkId
@@ -99,9 +101,11 @@ buildAndSubmitTx ::
   VerificationKey PaymentKey ->
   -- | Sender signing key
   SigningKey PaymentKey ->
+  -- | Should we filter utxo to find the one containing more lovelace than we want to send?
+  Bool ->
   IO ()
-buildAndSubmitTx cardanoNode@RunningNode{networkId, nodeSocket} lovelace marked receivingAddress senderVk senderSk = do
-  utxo <- findUTxO cardanoNode lovelace senderVk
+buildAndSubmitTx cardanoNode@RunningNode{networkId, nodeSocket} lovelace marked receivingAddress senderVk senderSk shouldFilter = do
+  utxo <- findUTxO cardanoNode lovelace senderVk shouldFilter
   let changeAddress = ShelleyAddressInEra (buildAddress senderVk networkId)
   buildTransaction networkId nodeSocket changeAddress utxo [] [theOutput] >>= \case
     Left e -> throwIO $ FailedToBuildTx{reason = e}
@@ -142,10 +146,13 @@ retryOnExceptions tracer action =
 
 -- | Find the utxo for the corresponding verification key
 -- We expect proper utxo to have more 'Lovelace' than the @lovelace@ argument
-findUTxO :: RunningNode -> Lovelace -> VerificationKey PaymentKey -> IO UTxO
-findUTxO RunningNode{networkId, nodeSocket} lovelace faucetVk = do
+findUTxO :: RunningNode -> Lovelace -> VerificationKey PaymentKey -> Bool -> IO UTxO
+findUTxO RunningNode{networkId, nodeSocket} lovelace faucetVk shouldFilter = do
   utxos <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
-  let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) utxos
+  let foundUTxO =
+        if shouldFilter
+          then UTxO.filter (\o -> txOutLovelace o >= lovelace) utxos
+          else utxos
   when (null foundUTxO) $
     throwIO $ NotEnoughFunds{utxos, requestedAmount = lovelace}
   pure foundUTxO
