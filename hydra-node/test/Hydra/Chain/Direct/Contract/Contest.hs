@@ -301,7 +301,7 @@ genContestMutation
                     }
               ]
       , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
-          newSigner <- verificationKeyHash <$> genVerificationKey
+          newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= healthyContesterVerificationKey)
           pure $ ChangeRequiredSigners [newSigner]
       , SomeMutation (Just $ toErrorCode NoSigners) MutateNoRequiredSigner <$> do
           pure $ ChangeRequiredSigners []
