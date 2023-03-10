@@ -42,6 +42,13 @@ in
     created = "now";
     config = {
       Entrypoint = [ "${hydraPackages.hydraw-static}/bin/hydraw" ];
+      WorkingDir = "/static";
     };
+    copyToRoot = [
+      (pkgs.runCommand "hydraw-static-files" { } ''
+        mkdir $out
+        ln -s ${../../hydraw/static} $out/static
+      '')
+    ];
   };
 }
