@@ -42,7 +42,7 @@ import qualified Hydra.Data.ContestationPeriod as OnChain
 import Hydra.Data.Party (partyFromVerificationKeyBytes)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
-import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
+import Hydra.Ledger.Cardano (genAddressInEra, genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
@@ -262,7 +262,10 @@ data ContestMutation
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
 genContestMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    [ SomeMutation Nothing NotContinueContract <$> do
+        mutatedAddress <- genAddressInEra testNetworkId
+        pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
         pure $
           Head.Contest
