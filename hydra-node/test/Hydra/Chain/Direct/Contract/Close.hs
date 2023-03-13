@@ -40,7 +40,7 @@ import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
-import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
+import Hydra.Ledger.Cardano (genAddressInEra, genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
@@ -212,7 +212,9 @@ healthyClosedUTxO =
   genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
 
 data CloseMutation
-  = -- | Ensures the snapshot signature is multisigned by all valid Head
+  = -- | Ensures collectCom does not allow any output address but νHead.
+    NotContinueContract
+  | -- | Ensures the snapshot signature is multisigned by all valid Head
     -- participants.
     --
     -- Invalidates the tx by changing the redeemer signature
@@ -287,7 +289,10 @@ data CloseMutation
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    [ SomeMutation Nothing NotContinueContract <$> do
+        mutatedAddress <- genAddressInEra testNetworkId
+        pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
+    , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
     , SomeMutation (Just $ toErrorCode ClosedWithNonInitialHash) MutateSnapshotNumberToLessThanEqualZero <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (<= 0)

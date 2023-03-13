@@ -42,7 +42,7 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genTxIn, genVerificationKey)
+import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genAddressInEra, genTxIn, genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
@@ -173,7 +173,9 @@ healthyCommitOutput party committed =
     mkCommitDatum party (Just committed) (toPlutusCurrencySymbol $ headPolicyId healthyHeadInput)
 
 data CollectComMutation
-  = MutateOpenUTxOHash
+  = -- | Ensures collectCom does not allow any output address but νHead.
+    NotContinueContract
+  | MutateOpenUTxOHash
   | -- | Ensures collectCom cannot collect from an initial UTxO.
     MutateCommitToInitial
   | -- | Every party should have commited and been taken into account for the
@@ -192,7 +194,10 @@ data CollectComMutation
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCollectComMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
+    [ SomeMutation Nothing NotContinueContract <$> do
+        mutatedAddress <- genAddressInEra testNetworkId
+        pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
+    , SomeMutation (Just $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
     , SomeMutation (Just $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
