@@ -20,6 +20,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput)
+import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadTokens (headPolicyId)
 import qualified Hydra.Contract.Initial as Initial
@@ -32,6 +33,7 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
  )
 import Hydra.Party (Party)
+import Plutus.V2.Ledger.Api (fromData, toData)
 import Test.QuickCheck (oneof, scale, suchThat)
 
 --
@@ -79,14 +81,17 @@ healthyCommittedUTxO = flip generateWith 42 $ do
   pure (txIn, txOut)
 
 data CommitMutation
-  = -- | Invalidates the tx by changing the commit output value.
+  = -- | The headId in the output datum must match the one from the input datum.
+    NonContinuousHeadId
+  | -- | Invalidates the tx by changing the commit output value.
     --
     -- Ensures the committed value is consistent with the locked value by the
     -- commit validator.
     MutateCommitOutputValue
   | -- | Invalidates the tx by changing the value of the input committed utxo.
     --
-    -- Ensures the output committed utxo value is consistent with the input committed utxo value.
+    -- Ensures the output committed utxo value is consistent with the input
+    -- committed utxo value.
     MutateCommittedValue
   | -- | Invalidates the tx by changing the address of the input out-ref.
     --
@@ -99,7 +104,7 @@ data CommitMutation
     -- a different head. The signer shows a correct signature but from a
     -- different head. This will cause the signer to not be present in the
     -- participation tokens.
-    CommitFromDifferentHead
+    UsePTFromDifferentHead
   | -- | Minting or burning of the tokens should not be possible in commit.
     MutateTokenMintingOrBurning
   deriving (Generic, Show, Enum, Bounded)
@@ -107,7 +112,17 @@ data CommitMutation
 genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCommitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
+    [ SomeMutation (Just $ toErrorCode WrongHeadIdInCommitDatum) NonContinuousHeadId <$> do
+        otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyIntialTxIn))
+        let mutateHeadId = modifyTxOutDatum $ \case
+              TxOutDatumInTx sd ->
+                case fromData $ toPlutusData sd of
+                  Just ((party, mCommit, _headId) :: Commit.DatumType) ->
+                    TxOutDatumInTx $ fromPlutusData $ toData (party, mCommit, toPlutusCurrencySymbol otherHeadId)
+                  Nothing -> error "Not a commit datum"
+              _ -> error "expected datum in tx"
+        pure $ ChangeOutput 0 $ mutateHeadId commitTxOut
+    , SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= commitOutputValue)
         pure $ commitTxOut{txOutValue = mutatedValue}
     , SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
@@ -123,7 +138,7 @@ genCommitMutation (tx, _utxo) =
         pure $ ChangeRequiredSigners [newSigner]
     , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
-      SomeMutation (Just $ toErrorCode CouldNotFindTheCorrectCurrencySymbolInTokens) CommitFromDifferentHead <$> do
+      SomeMutation (Just $ toErrorCode CouldNotFindTheCorrectCurrencySymbolInTokens) UsePTFromDifferentHead <$> do
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyIntialTxIn))
         pure $
           Changes

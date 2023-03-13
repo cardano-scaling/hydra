@@ -20,6 +20,7 @@ data InitialError
   | CouldNotFindDatum
   | ExpectedCommitDatumTypeGotSomethingElse
   | ExpectedSingleCommitOutput
+  | WrongHeadIdInCommitDatum
   deriving (Show)
 
 instance ToErrorCode InitialError where
@@ -37,3 +38,4 @@ instance ToErrorCode InitialError where
     CouldNotFindDatum -> "I11"
     ExpectedCommitDatumTypeGotSomethingElse -> "I12"
     ExpectedSingleCommitOutput -> "I13"
+    WrongHeadIdInCommitDatum -> "I14"
