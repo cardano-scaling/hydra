@@ -184,7 +184,9 @@ healthySignature number =
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation
-  = -- | Invalidates the tx by changing the redeemer signature but not the
+  = -- | Ensures collectCom does not allow any output address but νHead.
+    NotContinueContract
+  | -- | Invalidates the tx by changing the redeemer signature but not the
     -- snapshot number in resulting head output.
     --
     -- Ensures the snapshot signature is multisigned by all valid Head
@@ -258,130 +260,127 @@ data ContestMutation
   deriving (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
-genContestMutation
-  ( tx
-    , _utxo
-    ) =
-    oneof
-      [ SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-          mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
-          pure $
-            Head.Contest
-              { signature = toPlutusSignatures mutatedSignature
-              }
-      , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
-          mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
-          pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
-      , SomeMutation (Just $ toErrorCode TooOldSnapshot) MutateToNonNewerSnapshot <$> do
-          mutatedSnapshotNumber <- choose (toInteger healthyContestSnapshotNumber, toInteger healthyContestSnapshotNumber + 1)
-          pure $
-            Changes
-              [ ChangeInputHeadDatum $
-                  healthyClosedState & replaceSnapshotNumber mutatedSnapshotNumber
-              , ChangeHeadRedeemer $
-                  Head.Contest
-                    { signature =
-                        toPlutusSignatures $
-                          healthySignature (fromInteger mutatedSnapshotNumber)
-                    }
-              ]
-      , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
-          newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= healthyContesterVerificationKey)
-          pure $ ChangeRequiredSigners [newSigner]
-      , SomeMutation (Just $ toErrorCode NoSigners) MutateNoRequiredSigner <$> do
-          pure $ ChangeRequiredSigners []
-      , SomeMutation (Just $ toErrorCode TooManySigners) MutateMultipleRequiredSigner <$> do
-          otherSigners <- listOf1 (genVerificationKey `suchThat` (/= healthyContesterVerificationKey))
-          let signerAndOthers = healthyContesterVerificationKey : otherSigners
-          pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
-      , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
-          mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
-          pure $
-            changeHeadOutputDatum
-              (replaceUtxoHash (toBuiltin mutatedUTxOHash))
-              headTxOut
-      , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
-          mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
-          pure $
-            healthyClosedState & replaceParties mutatedParties
-      , SomeMutation (Just $ toErrorCode UpperBoundBeyondContestationDeadline) MutateValidityPastDeadline . ChangeValidityInterval <$> do
-          lb <- arbitrary
-          ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
-          pure (lb, ub)
-      , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
-        -- This also seems to be covered by MutateRequiredSigner
-        SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
-          otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
-          pure $
-            Changes
-              [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
-              , ChangeInput
-                  healthyClosedHeadTxIn
-                  (replacePolicyIdWith testPolicyId otherHeadId healthyClosedHeadTxOut)
-                  ( Just $
-                      toScriptData
-                        ( Head.Contest
-                            { signature =
-                                toPlutusSignatures $
-                                  healthySignature healthyContestSnapshotNumber
-                            }
-                        )
-                  )
-              ]
-      , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
-          <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-      , SomeMutation (Just $ toErrorCode SignerAlreadyContested) MutateInputContesters . ChangeInputHeadDatum <$> do
-          let contester = toPlutusKeyHash (verificationKeyHash healthyContesterVerificationKey)
-              contesterAndSomeOthers = do
-                contesters <- listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
-                pure (contester : contesters)
-          mutatedContesters <-
-            oneof
-              [ pure [contester]
-              , contesterAndSomeOthers
-              ]
-          pure $
-            healthyClosedState & replaceContesters mutatedContesters
-      , SomeMutation (Just $ toErrorCode ContesterNotIncluded) MutateContesters . ChangeOutput 0 <$> do
-          hashes <- listOf genHash
-          let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
-          pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut
-      , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
-          newValue <- genValue
-          pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-      , SomeMutation (Just $ toErrorCode MustPushDeadline) NotUpdateDeadlineAlthoughItShould . ChangeOutput 0 <$> do
-          let deadline = posixFromUTCTime healthyContestationDeadline
-          -- Here we are replacing the contestationDeadline using the previous so we are not _pushing it_ further
-          -- Remember the 'healthyContestTx' is already pushing out the deadline.
-          pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
-      , SomeMutation (Just $ toErrorCode MustNotPushDeadline) PushDeadlineAlthoughItShouldNot <$> do
-          alreadyContested <- vectorOf (length healthyParties - 1) $ Plutus.PubKeyHash . toBuiltin <$> genHash
-          let contester = toPlutusKeyHash $ verificationKeyHash healthyContesterVerificationKey
-          pure $
-            Changes
-              [ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContesters (contester : alreadyContested)))
-              , ChangeInputHeadDatum (healthyClosedState & replaceContesters alreadyContested)
-              ]
-      , SomeMutation (Just $ toErrorCode ChangedParameters) MutateOutputContestationPeriod <$> do
-          randomCP <- arbitrary `suchThat` (/= healthyOnChainContestationPeriod)
-          pure $ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContestationPeriod randomCP))
-      , SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
-          mutatedParties <-
-            -- The length of mutatedParties must be the same as
-            -- healthyOnChainParties so to not fail because of
-            -- `must not push contestation deadline`.
-            vectorOf
-              (length healthyOnChainParties)
-              ( partyFromVerificationKeyBytes <$> genHash
-              )
-              `suchThat` (/= healthyOnChainParties)
-          pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceParties mutatedParties) headTxOut
-      , SomeMutation (Just $ toErrorCode ChangedParameters) MutateHeadIdInOutput <$> do
-          otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
-          pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId otherHeadId) headTxOut
-      ]
-   where
-    headTxOut = fromJust $ txOuts' tx !!? 0
+genContestMutation (tx, _utxo) =
+  oneof
+    [ SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+        mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
+        pure $
+          Head.Contest
+            { signature = toPlutusSignatures mutatedSignature
+            }
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
+        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
+    , SomeMutation (Just $ toErrorCode TooOldSnapshot) MutateToNonNewerSnapshot <$> do
+        mutatedSnapshotNumber <- choose (toInteger healthyContestSnapshotNumber, toInteger healthyContestSnapshotNumber + 1)
+        pure $
+          Changes
+            [ ChangeInputHeadDatum $
+                healthyClosedState & replaceSnapshotNumber mutatedSnapshotNumber
+            , ChangeHeadRedeemer $
+                Head.Contest
+                  { signature =
+                      toPlutusSignatures $
+                        healthySignature (fromInteger mutatedSnapshotNumber)
+                  }
+            ]
+    , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
+        newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= healthyContesterVerificationKey)
+        pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation (Just $ toErrorCode NoSigners) MutateNoRequiredSigner <$> do
+        pure $ ChangeRequiredSigners []
+    , SomeMutation (Just $ toErrorCode TooManySigners) MutateMultipleRequiredSigner <$> do
+        otherSigners <- listOf1 (genVerificationKey `suchThat` (/= healthyContesterVerificationKey))
+        let signerAndOthers = healthyContesterVerificationKey : otherSigners
+        pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
+        mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
+        pure $
+          changeHeadOutputDatum
+            (replaceUtxoHash (toBuiltin mutatedUTxOHash))
+            headTxOut
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
+        mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
+        pure $
+          healthyClosedState & replaceParties mutatedParties
+    , SomeMutation (Just $ toErrorCode UpperBoundBeyondContestationDeadline) MutateValidityPastDeadline . ChangeValidityInterval <$> do
+        lb <- arbitrary
+        ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
+        pure (lb, ub)
+    , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
+      -- This also seems to be covered by MutateRequiredSigner
+      SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
+        otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
+        pure $
+          Changes
+            [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
+            , ChangeInput
+                healthyClosedHeadTxIn
+                (replacePolicyIdWith testPolicyId otherHeadId healthyClosedHeadTxOut)
+                ( Just $
+                    toScriptData
+                      ( Head.Contest
+                          { signature =
+                              toPlutusSignatures $
+                                healthySignature healthyContestSnapshotNumber
+                          }
+                      )
+                )
+            ]
+    , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
+        <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
+    , SomeMutation (Just $ toErrorCode SignerAlreadyContested) MutateInputContesters . ChangeInputHeadDatum <$> do
+        let contester = toPlutusKeyHash (verificationKeyHash healthyContesterVerificationKey)
+            contesterAndSomeOthers = do
+              contesters <- listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
+              pure (contester : contesters)
+        mutatedContesters <-
+          oneof
+            [ pure [contester]
+            , contesterAndSomeOthers
+            ]
+        pure $
+          healthyClosedState & replaceContesters mutatedContesters
+    , SomeMutation (Just $ toErrorCode ContesterNotIncluded) MutateContesters . ChangeOutput 0 <$> do
+        hashes <- listOf genHash
+        let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
+        pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut
+    , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
+        newValue <- genValue
+        pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
+    , SomeMutation (Just $ toErrorCode MustPushDeadline) NotUpdateDeadlineAlthoughItShould . ChangeOutput 0 <$> do
+        let deadline = posixFromUTCTime healthyContestationDeadline
+        -- Here we are replacing the contestationDeadline using the previous so we are not _pushing it_ further
+        -- Remember the 'healthyContestTx' is already pushing out the deadline.
+        pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
+    , SomeMutation (Just $ toErrorCode MustNotPushDeadline) PushDeadlineAlthoughItShouldNot <$> do
+        alreadyContested <- vectorOf (length healthyParties - 1) $ Plutus.PubKeyHash . toBuiltin <$> genHash
+        let contester = toPlutusKeyHash $ verificationKeyHash healthyContesterVerificationKey
+        pure $
+          Changes
+            [ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContesters (contester : alreadyContested)))
+            , ChangeInputHeadDatum (healthyClosedState & replaceContesters alreadyContested)
+            ]
+    , SomeMutation (Just $ toErrorCode ChangedParameters) MutateOutputContestationPeriod <$> do
+        randomCP <- arbitrary `suchThat` (/= healthyOnChainContestationPeriod)
+        pure $ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContestationPeriod randomCP))
+    , SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
+        mutatedParties <-
+          -- The length of mutatedParties must be the same as
+          -- healthyOnChainParties so to not fail because of
+          -- `must not push contestation deadline`.
+          vectorOf
+            (length healthyOnChainParties)
+            ( partyFromVerificationKeyBytes <$> genHash
+            )
+            `suchThat` (/= healthyOnChainParties)
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceParties mutatedParties) headTxOut
+    , SomeMutation (Just $ toErrorCode ChangedParameters) MutateHeadIdInOutput <$> do
+        otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId otherHeadId) headTxOut
+    ]
+ where
+  headTxOut = fromJust $ txOuts' tx !!? 0
 
-    slotOverContestationDeadline slotNo =
-      slotNoToUTCTime slotNo > healthyContestationDeadline
+  slotOverContestationDeadline slotNo =
+    slotNoToUTCTime slotNo > healthyContestationDeadline
