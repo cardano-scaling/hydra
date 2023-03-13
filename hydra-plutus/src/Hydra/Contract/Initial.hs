@@ -89,6 +89,7 @@ checkCommit ::
 checkCommit commitValidator headId committedRef context =
   checkCommittedValue
     && checkLockedCommit
+    && checkHeadId
     && mustBeSignedByParticipant
     && mustNotMintOrBurn txInfo
  where
@@ -108,6 +109,10 @@ checkCommit commitValidator headId committedRef context =
         traceIfFalse $(errorCode MismatchCommittedTxOutInDatum) $
           Builtins.serialiseData (toBuiltinData txOut) == preSerializedOutput
             && ref == input
+
+  checkHeadId =
+    traceIfFalse $(errorCode WrongHeadIdInCommitDatum) $
+      headId' == headId
 
   mustBeSignedByParticipant =
     traceIfFalse $(errorCode MissingOrInvalidCommitAuthor) $
@@ -133,7 +138,7 @@ checkCommit commitValidator headId committedRef context =
 
   lockedValue = valueLockedBy txInfo commitValidator
 
-  lockedCommit =
+  (lockedCommit, headId') =
     case scriptOutputsAt commitValidator txInfo of
       [(dat, _)] ->
         case dat of
@@ -145,9 +150,8 @@ checkCommit commitValidator headId committedRef context =
               Just da ->
                 case fromBuiltinData @Commit.DatumType $ getDatum da of
                   Nothing -> traceError $(errorCode ExpectedCommitDatumTypeGotSomethingElse)
-                  Just (_party, mCommit, _headId) ->
-                    -- FIXME: headId in output not checked!
-                    mCommit
+                  Just (_party, mCommit, hid) ->
+                    (mCommit, hid)
       _ -> traceError $(errorCode ExpectedSingleCommitOutput)
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
