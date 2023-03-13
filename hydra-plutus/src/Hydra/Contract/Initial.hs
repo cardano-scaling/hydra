@@ -146,6 +146,7 @@ checkCommit commitValidator headId committedRef context =
                 case fromBuiltinData @Commit.DatumType $ getDatum da of
                   Nothing -> traceError $(errorCode ExpectedCommitDatumTypeGotSomethingElse)
                   Just (_party, mCommit, _headId) ->
+                    -- FIXME: headId in output not checked!
                     mCommit
       _ -> traceError $(errorCode ExpectedSingleCommitOutput)
 
