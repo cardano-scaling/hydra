@@ -43,6 +43,7 @@ data HeadError
   | DatumNotFound
   | SignatureVerificationFailed
   | PartySignatureVerificationFailed
+  | NotPayingToHead
   deriving (Show)
 
 instance ToErrorCode HeadError where
@@ -85,3 +86,4 @@ instance ToErrorCode HeadError where
     DatumNotFound -> "H34"
     SignatureVerificationFailed -> "H35"
     PartySignatureVerificationFailed -> "H36"
+    NotPayingToHead -> "H37"
