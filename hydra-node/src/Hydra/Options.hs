@@ -10,7 +10,7 @@ import Hydra.Prelude
 import Control.Arrow (left)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
-import Data.IP (IP (IPv4), toIPv4w)
+import Data.IP (IP (IPv4), toIPv4, toIPv4w)
 import Data.Text (unpack)
 import qualified Data.Text as T
 import Data.Time.Clock (nominalDiffTimeToSeconds)
@@ -21,7 +21,7 @@ import Hydra.Cardano.Api (
   NetworkId (..),
   NetworkMagic (..),
   SlotNo (..),
-  TxId,
+  TxId (..),
   UsingRawBytesHex (..),
   deserialiseFromRawBytes,
   deserialiseFromRawBytesBase16,
@@ -34,6 +34,7 @@ import qualified Hydra.Contract as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
+import Hydra.Party (Party)
 import Hydra.Version (gitDescribe)
 import Options.Applicative (
   Parser,
@@ -78,6 +79,14 @@ import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
 -- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
 maximumNumberOfParties :: Int
 maximumNumberOfParties = 4
+
+data ParamMismatch
+  = ContestationPeriodMismatch {loadedCp :: ContestationPeriod, configuredCp :: ContestationPeriod}
+  | PartiesMismatch {loadedParties :: [Party], configuredParties :: [Party]}
+  deriving (Generic, Eq, Show, ToJSON)
+
+instance Arbitrary ParamMismatch where
+  arbitrary = genericArbitrary
 
 data Command
   = Run RunOptions
@@ -715,6 +724,27 @@ toArgs
       , startChainFrom
       , contestationPeriod
       } = chainConfig
+
+defaultRunOptions :: RunOptions
+defaultRunOptions =
+  RunOptions
+    { verbosity = Verbose "HydraNode"
+    , nodeId = NodeId "hydra-node-1"
+    , host = localhost
+    , port = 5001
+    , peers = []
+    , apiHost = localhost
+    , apiPort = 4001
+    , monitoringPort = Nothing
+    , hydraSigningKey = "hydra.sk"
+    , hydraVerificationKeys = []
+    , hydraScriptsTxId = TxId "0101010101010101010101010101010101010101010101010101010101010101"
+    , persistenceDir = "./"
+    , chainConfig = defaultChainConfig
+    , ledgerConfig = defaultLedgerConfig
+    }
+ where
+  localhost = IPv4 $ toIPv4 [127, 0, 0, 1]
 
 toArgNetworkId :: NetworkId -> [String]
 toArgNetworkId = \case

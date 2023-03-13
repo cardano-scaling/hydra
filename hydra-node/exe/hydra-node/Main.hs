@@ -49,13 +49,18 @@ import Hydra.Node (
 import Hydra.Options (
   Command (Publish, Run),
   LedgerConfig (..),
+  ParamMismatch (..),
   PublishOptions (..),
   RunOptions (..),
   explain,
   parseHydraCommand,
   validateRunOptions,
  )
-import Hydra.Persistence (Persistence (load), PersistenceException (..), createPersistence, createPersistenceIncremental)
+import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
+
+data ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
+
+instance Exception ParamMismatchError
 
 main :: IO ()
 main = do
@@ -87,7 +92,12 @@ main = do
               let paramsMismatch = checkParamsAgainstExistingState headState env
               when (not $ null paramsMismatch) $ do
                 traceWith tracer (Misconfiguration paramsMismatch)
-                throwIO $ PersistenceException $ concat paramsMismatch
+                throwIO $
+                  ParamMismatchError $
+                    "Loaded state does not match given command line options."
+                      <> " Please check the state in: "
+                      <> persistenceDir
+                      <> " against provided command line options."
               pure headState
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
@@ -127,27 +137,25 @@ main = do
     action (Ledger.cardanoLedger globals ledgerEnv)
 
   -- check if hydra-node parameters are matching with the hydra-node state.
-  -- REVIEW: Should we also check against items we receive on-chain here? e.g. 'OpenThreadOutput' if in Open state?
-  checkParamsAgainstExistingState :: HeadState Ledger.Tx -> Environment -> [String]
+  checkParamsAgainstExistingState :: HeadState Ledger.Tx -> Environment -> [ParamMismatch]
   checkParamsAgainstExistingState hs env =
     case hs of
       Idle _ -> []
-      Initial InitialState{parameters} -> validateParameters "InitialState: " parameters
-      Open OpenState{parameters} -> validateParameters "OpenState: " parameters
-      Closed ClosedState{parameters} -> validateParameters "ClosedState: " parameters
+      Initial InitialState{parameters} -> validateParameters parameters
+      Open OpenState{parameters} -> validateParameters parameters
+      Closed ClosedState{parameters} -> validateParameters parameters
    where
-    validateParameters st params =
-      let res = flip execState [] $ do
-            when (Hydra.Chain.contestationPeriod params /= cp) $
-              modify (<> ["Contestation period does not match. "])
-            when (sort (Hydra.Chain.parties params) /= sort envParties) $
-              modify (<> ["Parties mismatch. "])
-       in case res of
-            [] -> []
-            items -> st : items
+    validateParameters HeadParameters{contestationPeriod = loadedCp, parties} =
+      flip execState [] $ do
+        when (loadedCp /= configuredCp) $
+          modify (<> [ContestationPeriodMismatch{loadedCp, configuredCp}])
+        when (loadedParties /= configuredParties) $
+          modify (<> [PartiesMismatch{loadedParties, configuredParties}])
+     where
+      loadedParties = sort parties
 
-    Environment{contestationPeriod = cp, otherParties, party} = env
-    envParties = party : otherParties
+    Environment{contestationPeriod = configuredCp, otherParties, party} = env
+    configuredParties = sort (party : otherParties)
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
