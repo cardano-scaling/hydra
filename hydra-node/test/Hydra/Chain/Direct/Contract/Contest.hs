@@ -262,7 +262,7 @@ data ContestMutation
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
 genContestMutation (tx, _utxo) =
   oneof
-    [ SomeMutation Nothing NotContinueContract <$> do
+    [ SomeMutation (Just $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do

@@ -158,7 +158,6 @@ checkCollectCom ::
   (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
-  -- FIXME: does not ensure contract continuity
   mustNotMintOrBurn txInfo
     && mustCollectUtxoHash
     && mustNotChangeParameters
@@ -190,7 +189,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
           (p, h, cp, hId)
       _ -> traceError $(errorCode WrongStateInOutputDatum)
 
-  headAddress = mkHeadAddress ctx
+  headAddress = getHeadAddress ctx
 
   val =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
@@ -256,7 +255,6 @@ checkClose ::
   CurrencySymbol ->
   Bool
 checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
-  -- FIXME: does not ensure contract continuity
   mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
@@ -365,7 +363,6 @@ checkContest ::
   CurrencySymbol ->
   Bool
 checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber sig contesters headId =
-  -- FIXME: does not ensure contract continuity
   mustNotMintOrBurn txInfo
     && mustBeNewer
     && mustBeMultiSigned
@@ -498,14 +495,14 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
     _ -> traceError $(errorCode CloseNoUpperBoundDefined)
 {-# INLINEABLE makeContestationDeadline #-}
 
-mkHeadAddress :: ScriptContext -> Address
-mkHeadAddress ctx =
+getHeadAddress :: ScriptContext -> Address
+getHeadAddress ctx =
   let headInput =
         fromMaybe
           (traceError $(errorCode ScriptNotSpendingAHeadInput))
           (findOwnInput ctx)
    in txOutAddress (txInInfoResolved headInput)
-{-# INLINEABLE mkHeadAddress #-}
+{-# INLINEABLE getHeadAddress #-}
 
 -- XXX: We might not need to distinguish between the three cases here.
 mustBeSignedByParticipant ::
@@ -540,8 +537,13 @@ findParticipationTokens headCurrency (Value val) =
 
 headOutputDatum :: ScriptContext -> Datum
 headOutputDatum ctx =
-  findTxOutDatum txInfo (head $ txInfoOutputs txInfo)
+  case txInfoOutputs txInfo of
+    (o : _)
+      | txOutAddress o == headAddress -> findTxOutDatum txInfo o
+    _ -> traceError $(errorCode NotPayingToHead)
  where
+  headAddress = getHeadAddress ctx
+
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE headOutputDatum #-}
 
