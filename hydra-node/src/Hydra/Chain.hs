@@ -4,6 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Specifies the /Head-Chain Interaction/ part of the protocol
 --
@@ -20,6 +21,7 @@ import Hydra.Cardano.Api (
   Address,
   ByronAddr,
   HasTypeProxy (..),
+  Lovelace (..),
   SerialiseAsRawBytes (..),
   UsingRawBytesHex (..),
  )
@@ -27,11 +29,11 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
-import Test.QuickCheck (vectorOf)
+import Test.QuickCheck (scale, suchThat, vectorOf)
 import Test.QuickCheck.Instances.Time ()
 
 -- | Hardcoded limit for commit tx on mainnet
-maxMainnetLovelace :: Integer
+maxMainnetLovelace :: Lovelace
 maxMainnetLovelace = 100_000_000
 
 -- | Contains the head's parameters as established in the initial transaction.
@@ -138,7 +140,7 @@ data PostTxError tx
     PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
   | -- | User tried to commit more than 'maxMainnetLovelace' hardcoded limit on mainnet
     -- we keep track of both the hardcoded limit and what the user originally tried to commit
-    CommittedTooMuchADAForMainnet {userCommitted :: Integer, mainnetLimit :: Integer}
+    CommittedTooMuchADAForMainnet {userCommittedLovelace :: Lovelace, mainnetLimitLovelace :: Lovelace}
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)
@@ -147,6 +149,9 @@ deriving instance (IsTx tx, IsChainState tx) => ToJSON (PostTxError tx)
 deriving instance (IsTx tx, IsChainState tx) => FromJSON (PostTxError tx)
 
 instance (IsTx tx, IsChainState tx) => Exception (PostTxError tx)
+
+instance Arbitrary Lovelace where
+  arbitrary = Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary

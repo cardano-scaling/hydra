@@ -13,10 +13,8 @@ import Cardano.Binary (serialize)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect)
 import qualified Data.List as List
-import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
-  Lovelace (Lovelace),
   NetworkId (Mainnet),
   Tx,
   UTxO,
@@ -255,10 +253,10 @@ spec = parallel $ do
         let mainnetChainContext = ctx{networkId = Mainnet}
         pure $
           case commit mainnetChainContext stInitial utxo of
-            Left CommittedTooMuchADAForMainnet{userCommitted, mainnetLimit} ->
+            Left CommittedTooMuchADAForMainnet{userCommittedLovelace, mainnetLimitLovelace} ->
               -- check that user committed more than our limit but also use 'maxMainnetLovelace'
               -- to be sure we didn't construct 'CommittedTooMuchADAForMainnet' wrongly
-              property $ userCommitted > mainnetLimit && userCommitted > maxMainnetLovelace
+              property $ userCommittedLovelace > mainnetLimitLovelace && userCommittedLovelace > maxMainnetLovelace
             _ -> property False
 
   describe "abort" $ do
@@ -303,13 +301,7 @@ spec = parallel $ do
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit :: Gen UTxO
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
   adaAmount <- (+ maxMainnetLovelace) . getPositive <$> arbitrary
-  utxo <- genUTxO1 genTxOut
-  let utxoPairs =
-        ( \(a, b) ->
-            (a, modifyTxOutValue (const $ lovelaceToValue (Lovelace adaAmount)) b)
-        )
-          <$> UTxO.pairs utxo
-  pure . UTxO.UTxO $ Map.fromList utxoPairs
+  genUTxO1 (modifyTxOutValue (const $ lovelaceToValue adaAmount) <$> genTxOut)
 
 -- * Properties
 
