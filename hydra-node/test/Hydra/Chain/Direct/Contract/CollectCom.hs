@@ -46,7 +46,7 @@ import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genAddressInEra, genTxIn, genVerifi
 import Hydra.Party (Party, partyToChain)
 import Plutus.Orphans ()
 import Plutus.V2.Ledger.Api (toBuiltin, toData)
-import Test.QuickCheck (elements, oneof, suchThat)
+import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
 
@@ -200,9 +200,15 @@ genCollectComMutation (tx, _utxo) =
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (Just $ toErrorCode NotAllValueCollected) ExtractSomeValue <$> do
-        -- Remove one lovelace from headOutput, i.e. to "collect dust"
-        -- TODO: select a random asset and amount
-        let removedValue = lovelaceToValue 1
+        -- Remove a random asset and quantity from headOutput
+        removedValue <- do
+          let allAssets = valueToList $ txOutValue headTxOut
+              nonPTs = flip filter allAssets $ \case
+                (AssetId pid _, _) -> pid /= testPolicyId
+                _ -> True
+          (assetId, Quantity n) <- elements nonPTs
+          q <- Quantity <$> choose (0, n)
+          pure $ valueFromList [(assetId, q)]
         -- Add another output which would extract the 'removedValue'. The ledger
         -- would check for this, and this is needed because the way we implement
         -- collectCom checks.
