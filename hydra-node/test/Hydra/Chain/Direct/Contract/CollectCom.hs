@@ -175,6 +175,8 @@ healthyCommitOutput party committed =
 data CollectComMutation
   = -- | Ensures collectCom does not allow any output address but νHead.
     NotContinueContract
+  | -- | Needs to prevent that not all value is collected into the head output.
+    ExtractSomeValue
   | MutateOpenUTxOHash
   | -- | Ensures collectCom cannot collect from an initial UTxO.
     MutateCommitToInitial
@@ -197,6 +199,21 @@ genCollectComMutation (tx, _utxo) =
     [ SomeMutation (Just $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
+    , SomeMutation (Just $ toErrorCode NotAllValueCollected) ExtractSomeValue <$> do
+        -- Remove one lovelace from headOutput, i.e. to "collect dust"
+        -- TODO: select a random asset and amount
+        let removedValue = lovelaceToValue 1
+        -- Add another output which would extract the 'removedValue'. The ledger
+        -- would check for this, and this is needed because the way we implement
+        -- collectCom checks.
+        extractionTxOut <- do
+          someAddress <- genAddressInEra testNetworkId
+          pure $ TxOut someAddress removedValue TxOutDatumNone ReferenceScriptNone
+        pure $
+          Changes
+            [ ChangeOutput 0 $ modifyTxOutValue (\v -> v <> negateValue removedValue) headTxOut
+            , AddOutput extractionTxOut
+            ]
     , SomeMutation (Just $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
     , SomeMutation (Just $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
         moreParties <- (: healthyOnChainParties) <$> arbitrary
@@ -206,6 +223,9 @@ genCollectComMutation (tx, _utxo) =
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties headTxOut
             ]
     , SomeMutation (Just $ toErrorCode STNotSpent) MutateHeadId <$> do
+        -- XXX: This mutation is unrealistic. It would only change the headId in
+        -- the value, but not in the datum. This is not allowed by the protocol
+        -- prior to this transaction.
         illedHeadResolvedInput <-
           mkHeadOutput
             <$> pure testNetworkId

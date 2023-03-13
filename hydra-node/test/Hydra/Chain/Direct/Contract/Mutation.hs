@@ -265,8 +265,10 @@ data Mutation
     -- both the 'DatumHash' in the UTxO context and the map of 'DatumHash' to
     -- 'Datum' in the transaction's witnesses.
     ChangeInputHeadDatum Head.State
-  | -- | Adds given output to the transaction's outputs.
+  | -- | Adds given output as first transaction output.
     PrependOutput (TxOut CtxTx)
+  | -- | Adds given output as last transaction output.
+    AddOutput (TxOut CtxTx)
   | -- | Removes given output from the transaction's outputs.
     RemoveOutput Word
   | -- | Drops the given input from the transaction's inputs
@@ -347,6 +349,10 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
      in (Tx body' wits, fmap fn utxo)
   PrependOutput txOut ->
     ( alterTxOuts (txOut :) tx
+    , utxo
+    )
+  AddOutput txOut ->
+    ( alterTxOuts (<> [txOut]) tx
     , utxo
     )
   RemoveOutput ix ->

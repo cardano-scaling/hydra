@@ -44,6 +44,7 @@ data HeadError
   | SignatureVerificationFailed
   | PartySignatureVerificationFailed
   | NotPayingToHead
+  | NotAllValueCollected
   deriving (Show)
 
 instance ToErrorCode HeadError where
@@ -87,3 +88,4 @@ instance ToErrorCode HeadError where
     SignatureVerificationFailed -> "H35"
     PartySignatureVerificationFailed -> "H36"
     NotPayingToHead -> "H37"
+    NotAllValueCollected -> "H38"
