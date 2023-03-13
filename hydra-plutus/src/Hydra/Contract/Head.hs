@@ -146,32 +146,25 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
 --
 --   * All participants have committed (even empty commits)
 --
---   * All commits are properly collected and locked into the contract as a hash
+--   * All commits are properly collected and locked into η as a hash
 --     of serialized tx outputs in the same sequence as commit inputs!
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
 --
 --   * State token (ST) is present in the output
---
--- It must also initialize the on-chain state η* with a snapshot number and a
--- hash of committed outputs.
---
--- (*) In principle, η contains not a hash but a full UTXO set as well as a set
--- of dangling transactions. However, in the coordinated version of the
--- protocol, there can't be any dangling transactions and thus, it is no longer
--- required to check applicability of those transactions to the UTXO set. It
--- suffices to store a hash of the resulting outputs of that UTXO instead.
 checkCollectCom ::
   -- | Script execution context
   ScriptContext ->
   (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
+  -- FIXME: does not ensure contract continuity
   mustNotMintOrBurn txInfo
     && mustCollectUtxoHash
     && mustNotChangeParameters
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
+    -- FIXME: does not check all value collected
     && traceIfFalse $(errorCode STNotSpent) (hasST headId val)
  where
   mustCollectUtxoHash =
@@ -263,6 +256,7 @@ checkClose ::
   CurrencySymbol ->
   Bool
 checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
+  -- FIXME: does not ensure contract continuity
   mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
@@ -371,6 +365,7 @@ checkContest ::
   CurrencySymbol ->
   Bool
 checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber sig contesters headId =
+  -- FIXME: does not ensure contract continuity
   mustNotMintOrBurn txInfo
     && mustBeNewer
     && mustBeMultiSigned
