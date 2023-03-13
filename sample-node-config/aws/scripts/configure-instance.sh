@@ -48,4 +48,4 @@ echo "alias fuel='cd ~ && ./create-marker-utxo.sh'" >> .bashrc
 echo "alias up='cd ~ && ./hydraw-up.sh'" >> .bashrc
 echo "alias down='cd ~ && ./hydraw-down.sh'" >> .bashrc
 echo "alias tui='cd ~ && ./run-tui.sh'" >> .bashrc
-echo "alias sync='docker exec -it ubuntu-cardano-node-1 cardano-cli query tip --testnet-magic=2'" >> .bashrc
+echo "alias sync='docker exec -it ubuntu-cardano-node-1 cardano-cli query tip --testnet-magic=1'" >> .bashrc

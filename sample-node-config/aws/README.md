@@ -5,7 +5,7 @@
 
 # Example Hydra Node Infrastructure
 
-This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and AWS based infrastructure code to setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation) connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preview` testnet. It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
+This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and AWS based infrastructure code to setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation) connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preprod` testnet. It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
 
 ### Pre-requisites
 - you have access to an aws account with root priviledges.
@@ -93,15 +93,15 @@ instance_ip = "13.37.88.84"
 > execute `terraform destroy` to take it down
 
 # Using the Hydra Node
-Before you open a head you must have funds on the preview network and then
+Before you open a head you must have funds on the preprod network and then
 prepare the funds to be marked as fuel.
 
-To get some funds from the preview faucet to your address, you can either:
+To get some funds from the preprod faucet to your address, you can either:
     + claim them from site:
-        https://faucet.preview.world.dev.cardano.org/basic-faucet
+        https://faucet.preprod.world.dev.cardano.org/basic-faucet
     + or request them via http: 
         ```sh
-        $ curl -X POST -s "https://faucet.preview.world.dev.cardano.org/send-money/$(cat credentials/cardano.addr)?api_key="
+        $ curl -X POST -s "https://faucet.preprod.world.dev.cardano.org/send-money/$(cat credentials/cardano.addr)?api_key="
         ```
     
         > to request via http you must first obtain your api_key.
