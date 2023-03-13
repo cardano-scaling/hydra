@@ -22,7 +22,6 @@ import Hydra.Cardano.Api (
   CtxUTxO,
   Hash,
   Key (SigningKey, VerificationKey, verificationKeyHash),
-  Lovelace (..),
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
@@ -363,7 +362,7 @@ commit ctx st utxo = do
     when (network == Mainnet && lovelaceAmt > maxMainnetLovelace) $
       Left $ CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
    where
-    Lovelace lovelaceAmt = selectLovelace (txOutValue output)
+    lovelaceAmt = selectLovelace (txOutValue output)
 
 -- | Construct a collect transaction based on the 'InitialState'. This will
 -- reimburse all the already committed outputs.

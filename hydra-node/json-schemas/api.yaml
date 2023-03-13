@@ -1146,8 +1146,8 @@ components:
           additionalProperties: false
           required:
           - tag
-          - userCommitted
-          - mainnetLimit
+          - userCommittedLovelace
+          - mainnetLimitLovelace
           properties:
             userCommitted:
               type: number
