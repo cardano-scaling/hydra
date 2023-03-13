@@ -36,7 +36,7 @@ class ToErrorCode a where
   toErrorCode :: a -> Text
 
 -- | Get the string literal from given error 'e'. Use this with template haskell
--- splices, e.g. $(toErrorCode MyError)
+-- splices, e.g. $(errorCode MyError)
 errorCode :: ToErrorCode e => e -> Q Exp
 errorCode =
   pure . LitE . StringL . toString . toErrorCode
