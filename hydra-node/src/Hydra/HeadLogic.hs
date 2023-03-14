@@ -625,11 +625,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
               { coordinatedHeadState =
                   coordinatedHeadState
                     { seenTxs = seenTxs <> [tx]
-                    , -- FIXME: This is never reset otherwise. For example if
-                      -- some other party was not up for some txs, but is up
-                      -- again later and we would not agree with them on the
-                      -- seen ledger.
-                      seenUTxO = utxo'
+                    , seenUTxO = utxo'
                     }
               }
         )
@@ -674,7 +670,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
   requireReqSn $
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- Spec: wait U̅ ◦ T ̸= ⊥ combined with Û ← Ū̅ ◦ T
+      -- Spec: wait U̅ ◦ Tres = ⊥ combined with Û ← Ū̅ ◦ T
       waitApplyTxs $ \u -> do
         -- NOTE: confSn == seenSn == sn here
         let nextSnapshot = Snapshot (confSn + 1) u requestedTxs
@@ -705,11 +701,12 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
       then continue
       else Wait $ WaitOnSnapshotNumber seenSn
 
+  -- XXX: Wait for these transactions to apply is actually not needed. They must
+  -- be applicable already. This is a bit of a precursor for only submitting
+  -- transaction ids/hashes .. which we really should do.
   waitApplyTxs cont =
     case applyTransactions ledger confirmedUTxO requestedTxs of
       Left (_, err) ->
-        -- FIXME: this will not happen, as we are always comparing against the
-        -- confirmed snapshot utxo in NewTx?
         Wait $ WaitOnNotApplicableTx err
       Right u -> cont u
 
