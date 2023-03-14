@@ -2,7 +2,7 @@
 
 -- | Provides version numbers from git identifiers. Based on 'gitrev' package
 -- with a 'Maybe' interface around it.
-module Hydra.Node.Version where
+module Hydra.Version where
 
 import Hydra.Prelude
 

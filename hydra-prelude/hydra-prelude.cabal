@@ -15,7 +15,10 @@ source-repository head
 
 library
   hs-source-dirs:     src
-  exposed-modules:    Hydra.Prelude
+  exposed-modules:
+    Hydra.Prelude
+    Hydra.Version
+
   build-depends:
     , aeson
     , aeson-pretty
@@ -23,6 +26,7 @@ library
     , base16-bytestring
     , cardano-binary
     , generic-random
+    , gitrev
     , io-classes         <0.3.0.0
     , QuickCheck
     , relude

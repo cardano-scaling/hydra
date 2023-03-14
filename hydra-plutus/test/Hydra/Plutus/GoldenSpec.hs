@@ -28,6 +28,7 @@ import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
+import Hydra.Version (gitDescribe)
 import Plutus.V2.Ledger.Api (fromCompiledCode)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Hspec.Golden (Golden (..))
@@ -45,7 +46,7 @@ spec = do
 
 -- | Write a golden script on first run and ensure it stays the same on
 -- subsequent runs.
-goldenScript :: FilePath -> Plutus.Script -> Golden Script
+goldenScript :: String -> Plutus.Script -> Golden Script
 goldenScript name plutusScript =
   Golden
     { output = PlutusScript $ fromPlutusScript plutusScript
@@ -57,9 +58,10 @@ goldenScript name plutusScript =
     , failFirstTime = False
     }
  where
+  fullScriptName = "hydra-" <> name <> maybe "" ("-" <>) gitDescribe
+
   writeToFile fp script =
-    -- TODO: add description
-    void $ writeFileTextEnvelope fp Nothing script
+    void $ writeFileTextEnvelope fp (Just $ fromString fullScriptName) script
 
   readFromFile fp =
     either (die . show) pure

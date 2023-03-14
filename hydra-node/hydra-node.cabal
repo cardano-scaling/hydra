@@ -107,7 +107,6 @@ library
     Hydra.Network.Ouroboros.Server
     Hydra.Network.Ouroboros.Type
     Hydra.Node
-    Hydra.Node.Version
     Hydra.Options
     Hydra.Party
     Hydra.Persistence
@@ -145,7 +144,6 @@ library
     , filepath
     , flat
     , formatting
-    , gitrev
     , hedgehog-quickcheck
     , hydra-cardano-api
     , hydra-plutus
