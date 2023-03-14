@@ -24,14 +24,24 @@ import Hydra.Cardano.Api (
   writeFileTextEnvelope,
   pattern PlutusScript,
  )
+import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.HeadTokens as HeadTokens
+import qualified Hydra.Contract.Initial as Initial
+import Plutus.V2.Ledger.Api (fromCompiledCode)
 import qualified Plutus.V2.Ledger.Api as Plutus
 import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec
 spec = do
-  it "νHead script has not changed" $
-    goldenScript "νHead" Head.validatorScript
+  it "Initial validator script" $
+    goldenScript "vInitial" Initial.validatorScript
+  it "Commit validator script" $
+    goldenScript "vCommit" Commit.validatorScript
+  it "Head validator script" $
+    goldenScript "vHead" Head.validatorScript
+  it "Head minting policy script" $
+    goldenScript "mHead" (fromCompiledCode HeadTokens.unappliedMintingPolicy)
 
 -- | Write a golden script on first run and ensure it stays the same on
 -- subsequent runs.
