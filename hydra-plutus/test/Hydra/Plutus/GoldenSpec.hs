@@ -53,7 +53,7 @@ goldenScript name plutusScript =
     , writeToFile
     , readFromFile
     , goldenFile = "scripts/" <> name <> ".plutus"
-    , actualFile = Just $ "scripts/" <> name <> ".plutus.actual"
+    , actualFile = Nothing
     , failFirstTime = False
     }
  where
