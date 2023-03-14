@@ -133,7 +133,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     waitFor tracer 600 [n1] $
       output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
   traceRemainingFunds Alice
-  returnAssetsToFaucet tracer node Alice
+    `finally` returnAssetsToFaucet tracer node Alice
  where
   RunningNode{nodeSocket} = node
 
@@ -209,9 +209,9 @@ returnAssetsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
   (receivingVk, _) <- keysFor Faucet
   (senderVk, senderSk) <- keysFor sender
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
-  -- TODO: 'balance' here is just `foldMap txOutValue` so it doesn't actually ballance anything.
-  -- How to exclude the fees from the amount? This hardcoded subtraction needs to go away
-  let returnBalance = (selectLovelace $ balance @Tx utxo) - 2_000_000
+  -- Bit ugly bit we need to subtract the fees manually here.
+  -- TODO: Implement the fee calculation for our smoke-tests
+  let returnBalance = (selectLovelace $ balance @Tx utxo) - 1_200_000
   void $ sendFundsTo node (senderVk, senderSk) receivingVk returnBalance Normal (contramap FromFaucet tracer) False
   traceWith tracer $ ReturningToFaucet{actor = actorName sender, returnAmount = returnBalance}
 
