@@ -1139,6 +1139,24 @@ components:
             failureReason:
               type: string
 
+        - title: CommittedTooMuchADAForMainnet
+          description: |
+            Raised if the user tries to commit more than 100 ADA while on the mainnet network.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - userCommittedLovelace
+          - mainnetLimitLovelace
+          properties:
+            userCommittedLovelace:
+              type: number
+            mainnetLimitLovelace:
+              type: number
+            tag:
+              type: string
+              enum: ["CommittedTooMuchADAForMainnet"]
+
     Signature:
       type: string
       description: >-

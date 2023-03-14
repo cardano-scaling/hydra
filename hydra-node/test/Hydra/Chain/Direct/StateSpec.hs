@@ -15,9 +15,12 @@ import Data.List (intersect)
 import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
+  NetworkId (Mainnet),
   Tx,
   UTxO,
   hashScript,
+  lovelaceToValue,
+  modifyTxOutValue,
   renderUTxO,
   scriptPolicyId,
   toPlutusCurrencySymbol,
@@ -29,7 +32,7 @@ import Hydra.Cardano.Api (
   pattern PlutusScriptSerialised,
  )
 import Hydra.Cardano.Api.Pretty (renderTx)
-import Hydra.Chain (OnChainTx (..), PostTxError (..))
+import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (ChangeMintingPolicy, ChangeOutput, Changes),
   applyMutation,
@@ -81,6 +84,7 @@ import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genOutput,
   genTxIn,
+  genTxOut,
   genTxOutAdaOnly,
   genTxOutByron,
   genTxOutWithReferenceScript,
@@ -111,6 +115,7 @@ import Test.QuickCheck (
   forAll,
   forAllBlind,
   forAllShow,
+  getPositive,
   label,
   sized,
   sublistOf,
@@ -220,23 +225,39 @@ spec = parallel $ do
           Nothing ->
             False
 
-    prop "reject committing outputs with byron addresses" $ monadicST $ do
-      hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-      (ctx, stInitial) <- pickBlind $ genStInitial hctx
-      utxo <- pick $ genUTxO1 genTxOutByron
-      pure $
-        case commit ctx stInitial utxo of
-          Left UnsupportedLegacyOutput{} -> property True
-          _ -> property False
+    prop "reject committing outputs with byron addresses" $
+      monadicST $ do
+        hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        utxo <- pick $ genUTxO1 genTxOutByron
+        pure $
+          case commit ctx stInitial utxo of
+            Left UnsupportedLegacyOutput{} -> property True
+            _ -> property False
 
-    prop "reject committing outputs with reference scripts" $ monadicST $ do
-      hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-      (ctx, stInitial) <- pickBlind $ genStInitial hctx
-      utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
-      pure $
-        case commit ctx stInitial utxo of
-          Left CannotCommitReferenceScript{} -> property True
-          _ -> property False
+    prop "reject committing outputs with reference scripts" $
+      monadicST $ do
+        hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
+        pure $
+          case commit ctx stInitial utxo of
+            Left CannotCommitReferenceScript{} -> property True
+            _ -> property False
+
+    prop "reject Commits with more than maxMainnetLovelace Lovelace" $
+      monadicST $ do
+        hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        utxo <- pickBlind $ genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit
+        let mainnetChainContext = ctx{networkId = Mainnet}
+        pure $
+          case commit mainnetChainContext stInitial utxo of
+            Left CommittedTooMuchADAForMainnet{userCommittedLovelace, mainnetLimitLovelace} ->
+              -- check that user committed more than our limit but also use 'maxMainnetLovelace'
+              -- to be sure we didn't construct 'CommittedTooMuchADAForMainnet' wrongly
+              property $ userCommittedLovelace > mainnetLimitLovelace && userCommittedLovelace > maxMainnetLovelace
+            _ -> property False
 
   describe "abort" $ do
     propBelowSizeLimit maxTxSize forAllAbort
@@ -276,6 +297,11 @@ spec = parallel $ do
   describe "acceptance" $ do
     it "can close & fanout every collected head" $ do
       prop_canCloseFanoutEveryCollect
+
+genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit :: Gen UTxO
+genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
+  adaAmount <- (+ maxMainnetLovelace) . getPositive <$> arbitrary
+  genUTxO1 (modifyTxOutValue (const $ lovelaceToValue adaAmount) <$> genTxOut)
 
 -- * Properties
 
