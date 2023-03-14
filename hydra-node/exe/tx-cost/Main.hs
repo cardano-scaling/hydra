@@ -128,14 +128,17 @@ scriptSizes =
   , ""
   , "| Name   | Hash | Size (Bytes) "
   , "| :----- | :--- | -----------: "
-  , "| " <> "μHead" <> " | N/A | " <> show mintingScriptSize <> " | "
   , "| " <> "νInitial" <> " | " <> serialiseToRawBytesHexText initialScriptHash <> " | " <> show initialScriptSize <> " | "
   , "| " <> "νCommit" <> " | " <> serialiseToRawBytesHexText commitScriptHash <> " | " <> show commitScriptSize <> " | "
   , "| " <> "νHead" <> " | " <> serialiseToRawBytesHexText headScriptHash <> " | " <> show headScriptSize <> " | "
+  , "| " <> "μHead" <> " | " <> serialiseToRawBytesHexText mintingScriptHash <> "* | " <> show mintingScriptSize <> " | "
+  , ""
+  , "* The minting policy hash is only usable for comparison. As the script is parameterized, the actual script is unique per Head."
   ]
  where
   ScriptInfo
-    { mintingScriptSize
+    { mintingScriptHash
+    , mintingScriptSize
     , initialScriptHash
     , initialScriptSize
     , commitScriptHash
@@ -156,7 +159,8 @@ costOfInit = markdownInitCost <$> computeInitCost
       ]
         <> fmap
           ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
-              "| " <> show numParties
+              "| "
+                <> show numParties
                 <> "| "
                 <> show txSize
                 <> " | "
@@ -182,7 +186,8 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
       ]
         <> map
           ( \(ulen, txSize, mem, cpu, Lovelace minFee) ->
-              "| " <> show ulen
+              "| "
+                <> show ulen
                 <> "| "
                 <> show txSize
                 <> " | "
@@ -207,7 +212,8 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
       ]
         <> fmap
           ( \(numParties, utxoSize, txSize, mem, cpu, Lovelace minFee) ->
-              "| " <> show numParties
+              "| "
+                <> show numParties
                 <> " | "
                 <> show utxoSize
                 <> " | "
@@ -234,7 +240,8 @@ costOfClose = markdownClose <$> computeCloseCost
       ]
         <> fmap
           ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
-              "| " <> show numParties
+              "| "
+                <> show numParties
                 <> "| "
                 <> show txSize
                 <> " | "
@@ -259,7 +266,8 @@ costOfContest = markdownContest <$> computeContestCost
       ]
         <> fmap
           ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
-              "| " <> show numParties
+              "| "
+                <> show numParties
                 <> "| "
                 <> show txSize
                 <> " | "
@@ -285,7 +293,8 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
       ]
         <> fmap
           ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
-              "| " <> show numParties
+              "| "
+                <> show numParties
                 <> "| "
                 <> show txSize
                 <> " | "
@@ -311,7 +320,8 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
       ]
         <> fmap
           ( \(parties, numElems, utxoSize, txSize, mem, cpu, Lovelace minFee) ->
-              "| " <> show parties
+              "| "
+                <> show parties
                 <> " | "
                 <> show numElems
                 <> " | "

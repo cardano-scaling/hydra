@@ -22,8 +22,8 @@ import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Initial
 import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.InitialError (InitialError (..))
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Ledger.Cardano (
   genAddressInEra,

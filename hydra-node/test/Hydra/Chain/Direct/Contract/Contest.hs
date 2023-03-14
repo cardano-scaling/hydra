@@ -32,22 +32,7 @@ import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.Head (
-  HeadError (
-    ChangedParameters,
-    ContesterNotIncluded,
-    HeadValueIsNotPreserved,
-    MustNotPushDeadline,
-    MustPushDeadline,
-    NoSigners,
-    SignatureVerificationFailed,
-    SignerAlreadyContested,
-    SignerIsNotAParticipant,
-    TooManySigners,
-    TooOldSnapshot,
-    UpperBoundBeyondContestationDeadline
-  ),
- )
+import Hydra.Contract.HeadError (HeadError (..))
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))

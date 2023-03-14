@@ -21,10 +21,10 @@ import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState (headId, seed)
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
-import Hydra.Prelude (Show)
 import Plutus.Extras (wrapMintingPolicy)
 import Plutus.V2.Ledger.Api (
   Datum (getDatum),
@@ -43,7 +43,6 @@ import Plutus.V2.Ledger.Api (
 import Plutus.V2.Ledger.Contexts (findDatum, ownCurrencySymbol, scriptOutputsAt)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
-import Hydra.Contract.Error (ToErrorCode (..))
 
 validate ::
   -- | Head validator
@@ -80,32 +79,32 @@ validateTokensMinting initialValidator headValidator seedInput context =
     && checkDatum
  where
   seedInputIsConsumed =
-    traceIfFalse "M01" $
+    traceIfFalse $(errorCode SeedNotSpent) $
       seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkNumberOfTokens =
-    traceIfFalse "M02" $
+    traceIfFalse $(errorCode WrongNumberOfTokensMinted) $
       mintedTokenCount == nParties + 1
 
   singleSTIsPaidToTheHead =
-    traceIfFalse "M03" $
+    traceIfFalse $(errorCode MissingST) $
       hasST currency headValue
 
   allInitialOutsHavePTs =
-    traceIfFalse "M04" (nParties == length initialTxOutValues)
+    traceIfFalse $(errorCode WrongNumberOfInitialOutputs) (nParties == length initialTxOutValues)
       && all hasASinglePT initialTxOutValues
 
   checkDatum =
-    traceIfFalse "M05" $
+    traceIfFalse $(errorCode WrongDatum) $
       headId == currency && seed == seedInput
 
   hasASinglePT val =
     case Map.lookup currency (getValue val) of
-      Nothing -> traceError "M07"
+      Nothing -> traceError $(errorCode NoPT)
       (Just tokenMap) -> case Map.toList tokenMap of
         [(_, qty)]
           | qty == 1 -> True
-        _ -> traceError "M08"
+        _ -> traceError $(errorCode WrongQuantity)
 
   mintedTokenCount =
     maybe 0 sum
@@ -119,13 +118,13 @@ validateTokensMinting initialValidator headValidator seedInput context =
         case findDatum dh txInfo >>= fromBuiltinData @Head.DatumType . getDatum of
           Just Head.Initial{Head.parties = parties, headId = h, seed = s} ->
             (h, s, length parties)
-          _ -> traceError "M09"
-      _ -> traceError "M10"
+          _ -> traceError $(errorCode HeadDatum)
+      _ -> traceError $(errorCode NoDatum)
 
   (headDatum, headValue) =
     case scriptOutputsAt headValidator txInfo of
       [(dat, val)] -> (dat, val)
-      _ -> traceError "M11"
+      _ -> traceError $(errorCode MultipleHeadOutput)
 
   initialTxOutValues = snd <$> scriptOutputsAt initialValidator txInfo
 
@@ -142,7 +141,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
 -- 'validateTokensBurning' just makes sure all tokens have negative quantity.
 validateTokensBurning :: ScriptContext -> Bool
 validateTokensBurning context =
-  traceIfFalse "M06" burnHeadTokens
+  traceIfFalse $(errorCode MintingNotAllowed) burnHeadTokens
  where
   currency = ownCurrencySymbol context
 
@@ -177,33 +176,3 @@ headPolicyId =
 mkHeadTokenScript :: TxIn -> Api.PlutusScript
 mkHeadTokenScript =
   fromPlutusScript @PlutusScriptV2 . mintingPolicyScript . toPlutusTxOutRef
-
--- * Errors
-
-data HeadTokensError
-  = SeedNotSpent
-  | WrongNumberOfTokensMinted
-  | MissingST
-  | WrongNumberOfInitialOutputs
-  | WrongDatum
-  | MintingNotAllowed
-  | NoPT
-  | WrongQuantity
-  | HeadDatum
-  | NoDatum
-  | MultipleHeadOutput
-  deriving (Show)
-
-instance ToErrorCode HeadTokensError where
-  toErrorCode = \case
-    SeedNotSpent -> "M01"
-    WrongNumberOfTokensMinted -> "M02"
-    MissingST -> "M03"
-    WrongNumberOfInitialOutputs -> "M04"
-    WrongDatum -> "M05"
-    MintingNotAllowed -> "M06"
-    NoPT -> "M07"
-    WrongQuantity -> "M08"
-    HeadDatum -> "M09"
-    NoDatum -> "M10"
-    MultipleHeadOutput -> "M11"

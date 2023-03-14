@@ -14,12 +14,7 @@ import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.Head (
-  HeadError (
-    FannedOutUtxoHashNotEqualToClosedUtxoHash,
-    LowerBoundBeforeContestationDeadline
-  ),
- )
+import Hydra.Contract.HeadError (HeadError (..))
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod (posixFromUTCTime)

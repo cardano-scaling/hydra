@@ -9,8 +9,9 @@ import PlutusTx.Prelude
 
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Error (errorCode)
+import Hydra.Contract.InitialError (InitialError (..))
 import Hydra.Contract.Util (mustBurnST, mustNotMintOrBurn)
-import Hydra.Prelude (Show)
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
@@ -37,7 +38,6 @@ import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
 import qualified PlutusTx.Builtins as Builtins
-import Hydra.Contract.Error (ToErrorCode (..))
 
 data InitialRedeemer
   = ViaAbort
@@ -72,7 +72,9 @@ validator ::
 validator commitValidator headId red context =
   case red of
     ViaAbort ->
-      traceIfFalse "I01" (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
+      traceIfFalse
+        $(errorCode STNotBurned)
+        (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
     ViaCommit{committedRef} ->
       checkCommit commitValidator headId committedRef context
 
@@ -91,7 +93,7 @@ checkCommit commitValidator headId committedRef context =
     && mustNotMintOrBurn txInfo
  where
   checkCommittedValue =
-    traceIfFalse "I03" $
+    traceIfFalse $(errorCode LockedValueDoesNotMatch) $
       lockedValue == initialValue + committedValue
 
   checkLockedCommit =
@@ -99,25 +101,25 @@ checkCommit commitValidator headId committedRef context =
       (Nothing, Nothing) ->
         True
       (Nothing, Just{}) ->
-        traceError "I07"
+        traceError $(errorCode NothingCommittedButTxOutInOutputDatum)
       (Just{}, Nothing) ->
-        traceError "I08"
+        traceError $(errorCode CommittedTxOutButNothingInOutputDatum)
       (Just (ref, txOut), Just Commit{input, preSerializedOutput}) ->
-        traceIfFalse "I04" $
+        traceIfFalse $(errorCode MismatchCommittedTxOutInDatum) $
           Builtins.serialiseData (toBuiltinData txOut) == preSerializedOutput
             && ref == input
 
   mustBeSignedByParticipant =
-    traceIfFalse "I02" $
+    traceIfFalse $(errorCode MissingOrInvalidCommitAuthor) $
       unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
 
   ourParticipationTokenName =
     case AssocMap.lookup headId (getValue initialValue) of
-      Nothing -> traceError "I05"
+      Nothing -> traceError $(errorCode CouldNotFindTheCorrectCurrencySymbolInTokens)
       Just tokenMap ->
         case AssocMap.toList tokenMap of
           [(tk, q)] | q == 1 -> tk
-          _moreThanOneToken -> traceError "I06"
+          _moreThanOneToken -> traceError $(errorCode MultipleHeadTokensOrMoreThan1PTsFound)
 
   initialValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
@@ -135,17 +137,17 @@ checkCommit commitValidator headId committedRef context =
     case scriptOutputsAt commitValidator txInfo of
       [(dat, _)] ->
         case dat of
-          NoOutputDatum -> traceError "I09"
-          OutputDatum _ -> traceError "I10"
+          NoOutputDatum -> traceError $(errorCode MissingDatum)
+          OutputDatum _ -> traceError $(errorCode UnexpectedInlineDatum)
           OutputDatumHash dh ->
             case findDatum dh txInfo of
-              Nothing -> traceError "I11"
+              Nothing -> traceError $(errorCode CouldNotFindDatum)
               Just da ->
                 case fromBuiltinData @Commit.DatumType $ getDatum da of
-                  Nothing -> traceError "I12"
+                  Nothing -> traceError $(errorCode ExpectedCommitDatumTypeGotSomethingElse)
                   Just (_party, mCommit, _headId) ->
                     mCommit
-      _ -> traceError "I13"
+      _ -> traceError $(errorCode ExpectedSingleCommitOutput)
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
@@ -167,37 +169,3 @@ datum a = Datum (toBuiltinData a)
 
 redeemer :: RedeemerType -> Redeemer
 redeemer a = Redeemer (toBuiltinData a)
-
--- * Errors
-
-data InitialError
-  = STNotBurned
-  | MissingOrInvalidCommitAuthor
-  | LockedValueDoesNotMatch
-  | MismatchCommittedTxOutInDatum
-  | CouldNotFindTheCorrectCurrencySymbolInTokens
-  | MultipleHeadTokensOrMoreThan1PTsFound
-  | NothingCommittedButTxOutInOutputDatum
-  | CommittedTxOutButNothingInOutputDatum
-  | MissingDatum
-  | UnexpectedInlineDatum
-  | CouldNotFindDatum
-  | ExpectedCommitDatumTypeGotSomethingElse
-  | ExpectedSingleCommitOutput
-  deriving (Show)
-
-instance ToErrorCode InitialError where
-  toErrorCode = \case
-    STNotBurned -> "I01"
-    MissingOrInvalidCommitAuthor -> "I02"
-    LockedValueDoesNotMatch -> "I03"
-    MismatchCommittedTxOutInDatum -> "I04"
-    CouldNotFindTheCorrectCurrencySymbolInTokens -> "I05"
-    MultipleHeadTokensOrMoreThan1PTsFound -> "I06"
-    NothingCommittedButTxOutInOutputDatum -> "I07"
-    CommittedTxOutButNothingInOutputDatum -> "I08"
-    MissingDatum -> "I09"
-    UnexpectedInlineDatum -> "I10"
-    CouldNotFindDatum -> "I11"
-    ExpectedCommitDatumTypeGotSomethingElse -> "I12"
-    ExpectedSingleCommitOutput -> "I13"

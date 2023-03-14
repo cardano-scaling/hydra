@@ -32,21 +32,12 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import Hydra.ContestationPeriod (toChain)
 import qualified Hydra.Contract.Commit as Commit
-import Hydra.Contract.Head (
-  HeadError (
-    BurntTokenNumberMismatch,
-    ReimbursedOutputsDontMatch,
-    SignerIsNotAParticipant
-  ),
- )
-import qualified Hydra.Contract.HeadState as Head
-import Hydra.Contract.HeadTokens (
-  HeadTokensError (MintingNotAllowed),
-  headPolicyId,
-  mkHeadTokenScript,
- )
-import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.Error (toErrorCode)
+import Hydra.Contract.HeadError (HeadError (..))
+import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
+import Hydra.Contract.HeadTokensError (HeadTokensError (..))
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Test.Hydra.Fixture (cperiod)

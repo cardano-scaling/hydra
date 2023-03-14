@@ -36,15 +36,7 @@ import Hydra.Chain.Direct.Tx (
  )
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.Head (
-  HeadError (
-    DatumNotFound,
-    IncorrectUtxoHash,
-    MissingCommits,
-    STNotSpent,
-    SignerIsNotAParticipant
-  ),
- )
+import Hydra.Contract.HeadError (HeadError (..))
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
