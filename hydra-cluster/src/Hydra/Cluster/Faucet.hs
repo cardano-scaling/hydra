@@ -126,6 +126,14 @@ seedFromFaucet_ ::
 seedFromFaucet_ node vk ll marked tracer =
   void $ seedFromFaucet node vk ll marked tracer
 
+-- | Return the remaining funds to the faucet
+returnFundsToFaucet ::
+  Tracer IO FaucetLog ->
+  RunningNode ->
+  Actor ->
+  IO ()
+returnFundsToFaucet _tracer _node _actor = pure ()
+
 -- | Publish current Hydra scripts as scripts outputs for later referencing them.
 --
 -- The key of the given Actor is used to pay for fees in required transactions,

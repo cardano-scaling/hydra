@@ -15,6 +15,7 @@ import qualified Data.Set as Set
 import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
+import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -94,37 +95,38 @@ singlePartyHeadFullLifeCycle ::
   RunningNode ->
   TxId ->
   IO ()
-singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScriptsTxId = do
-  refuelIfNeeded tracer node Alice 100_000_000
-  -- Start hydra-node on chain tip
-  tip <- queryTip networkId nodeSocket
-  let contestationPeriod = UnsafeContestationPeriod 100
-  aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket [] contestationPeriod
-      <&> \config -> config{networkId, startChainFrom = Just tip}
-  withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-    -- Initialize & open head
-    send n1 $ input "Init" []
-    headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
-    -- Commit nothing for now
-    send n1 $ input "Commit" ["utxo" .= object mempty]
-    waitFor tracer 600 [n1] $
-      output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
-    -- Close head
-    send n1 $ input "Close" []
-    deadline <- waitMatch 600 n1 $ \v -> do
-      guard $ v ^? key "tag" == Just "HeadIsClosed"
-      guard $ v ^? key "headId" == Just (toJSON headId)
-      v ^? key "contestationDeadline" . _JSON
-    -- Expect to see ReadyToFanout within 600 seconds after deadline.
-    -- XXX: We still would like to have a network-specific time here
-    remainingTime <- diffUTCTime deadline <$> getCurrentTime
-    waitFor tracer (truncate $ remainingTime + 60) [n1] $
-      output "ReadyToFanout" ["headId" .= headId]
-    send n1 $ input "Fanout" []
-    waitFor tracer 600 [n1] $
-      output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
-  traceRemainingFunds Alice
+singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 100_000_000
+    -- Start hydra-node on chain tip
+    tip <- queryTip networkId nodeSocket
+    let contestationPeriod = UnsafeContestationPeriod 100
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket [] contestationPeriod
+        <&> \config -> config{networkId, startChainFrom = Just tip}
+    withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+      -- Initialize & open head
+      send n1 $ input "Init" []
+      headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
+      -- Commit nothing for now
+      send n1 $ input "Commit" ["utxo" .= object mempty]
+      waitFor tracer 600 [n1] $
+        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+      -- Close head
+      send n1 $ input "Close" []
+      deadline <- waitMatch 600 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "HeadIsClosed"
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        v ^? key "contestationDeadline" . _JSON
+      -- Expect to see ReadyToFanout within 600 seconds after deadline.
+      -- XXX: We still would like to have a network-specific time here
+      remainingTime <- diffUTCTime deadline <$> getCurrentTime
+      waitFor tracer (truncate $ remainingTime + 60) [n1] $
+        output "ReadyToFanout" ["headId" .= headId]
+      send n1 $ input "Fanout" []
+      waitFor tracer 600 [n1] $
+        output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
+    traceRemainingFunds Alice
  where
   RunningNode{nodeSocket} = node
 
@@ -187,6 +189,15 @@ refuelIfNeeded tracer node actor amount = do
   when (fuelBalance < amount) $ do
     utxo <- seedFromFaucet node actorVk amount Fuel (contramap FromFaucet tracer)
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, fuelUTxO = utxo}
+
+-- | Return the remaining funds to the faucet
+returnFundsToFaucet ::
+  Tracer IO EndToEndLog ->
+  RunningNode ->
+  Actor ->
+  IO ()
+returnFundsToFaucet tracer =
+  Faucet.returnFundsToFaucet (contramap FromFaucet tracer)
 
 headIsInitializingWith :: Set Party -> Value -> Maybe HeadId
 headIsInitializingWith expectedParties v = do
