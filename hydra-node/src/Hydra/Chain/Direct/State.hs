@@ -307,17 +307,11 @@ commit ctx st utxo = do
   case ownInitial of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
-    Just initial ->
-      case UTxO.pairs utxo of
-        [aUTxO] -> do
-          rejectByronAddress aUTxO
-          rejectReferenceScripts aUTxO
-          rejectMoreThanMainnetLimit networkId (snd aUTxO)
-          Right $ commitTx networkId scriptRegistry headId ownParty (Just aUTxO) initial
-        [] -> do
-          Right $ commitTx networkId scriptRegistry headId ownParty Nothing initial
-        _ ->
-          Left (MoreThanOneUTxOCommitted @Tx)
+    Just initial -> do
+      rejectByronAddress utxo
+      rejectReferenceScripts utxo
+      rejectMoreThanMainnetLimit networkId utxo
+      Right $ commitTx networkId scriptRegistry headId ownParty utxo initial
  where
   ChainContext{networkId, ownParty, ownVerificationKey, scriptRegistry} = ctx
 
@@ -343,28 +337,33 @@ commit ctx st utxo = do
       [(AssetName bs, 1)] -> bs == serialiseToRawBytes vkh
       _ -> False
 
-  rejectByronAddress :: (TxIn, TxOut CtxUTxO) -> Either (PostTxError Tx) ()
-  rejectByronAddress = \case
-    (_, TxOut (ByronAddressInEra addr) _ _ _) ->
-      Left (UnsupportedLegacyOutput addr)
-    (_, TxOut ShelleyAddressInEra{} _ _ _) ->
-      Right ()
+  rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
+  rejectByronAddress u = do
+    forM_ u $ \case
+      (TxOut (ByronAddressInEra addr) _ _ _) ->
+        Left (UnsupportedLegacyOutput addr)
+      (TxOut ShelleyAddressInEra{} _ _ _) ->
+        Right ()
 
-  rejectReferenceScripts :: (TxIn, TxOut CtxUTxO) -> Either (PostTxError Tx) ()
-  rejectReferenceScripts (_, out) =
-    case txOutReferenceScript out of
-      ReferenceScriptNone -> Right ()
-      ReferenceScript{} -> Left CannotCommitReferenceScript
+  rejectReferenceScripts :: UTxO -> Either (PostTxError Tx) ()
+  rejectReferenceScripts u =
+    when (any hasReferenceScript u) $
+      Left CannotCommitReferenceScript
+   where
+    hasReferenceScript out =
+      case txOutReferenceScript out of
+        ReferenceScript{} -> True
+        ReferenceScriptNone -> False
 
   -- Rejects outputs with more than 'maxMainnetLovelace' lovelace on mainnet
   -- NOTE: Remove this limit once we have more experiments on mainnet.
-  rejectMoreThanMainnetLimit :: NetworkId -> TxOut CtxUTxO -> Either (PostTxError Tx) ()
-  rejectMoreThanMainnetLimit network output =
+  rejectMoreThanMainnetLimit :: NetworkId -> UTxO -> Either (PostTxError Tx) ()
+  rejectMoreThanMainnetLimit network u = do
     when (network == Mainnet && lovelaceAmt > maxMainnetLovelace) $
       Left $
         CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
    where
-    lovelaceAmt = selectLovelace (txOutValue output)
+    lovelaceAmt = foldMap (selectLovelace . txOutValue) u
 
 -- | Construct a collect transaction based on the 'InitialState'. This will
 -- reimburse all the already committed outputs.

@@ -170,9 +170,8 @@ commitTx ::
   ScriptRegistry ->
   HeadId ->
   Party ->
-  -- | A single UTxO to commit to the Head
-  -- We currently limit committing one UTxO to the head because of size limitations.
-  Maybe (TxIn, TxOut CtxUTxO) ->
+  -- | The UTxO to commit to the Head
+  UTxO ->
   -- | The initial output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
@@ -182,7 +181,7 @@ commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
     emptyTxBody
       & addInputs [(initialInput, initialWitness)]
       & addReferenceInputs [initialScriptRef]
-      & addVkInputs (maybeToList mCommittedInput)
+      & addVkInputs committedTxIns
       & addExtraRequiredSigners [vkh]
       & addOutputs [commitOutput]
  where
@@ -198,9 +197,9 @@ commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
     mkScriptDatum $ Initial.datum (headIdToCurrencySymbol headId)
   initialRedeemer =
     toScriptData . Initial.redeemer $
-      Initial.ViaCommit (toPlutusTxOutRef <$> mCommittedInput)
-  mCommittedInput =
-    fst <$> utxo
+      Initial.ViaCommit (toPlutusTxOutRef <$> committedTxIns)
+  committedTxIns =
+    Set.toList $ UTxO.inputSet utxo
   commitOutput =
     TxOut commitAddress commitValue commitDatum ReferenceScriptNone
   commitScript =
@@ -208,19 +207,16 @@ commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
   commitAddress =
     mkScriptAddress @PlutusScriptV2 networkId commitScript
   commitValue =
-    txOutValue out <> maybe mempty (txOutValue . snd) utxo
+    txOutValue out <> foldMap txOutValue utxo
   commitDatum =
     mkTxOutDatum $ mkCommitDatum party utxo (headIdToCurrencySymbol headId)
 
-mkCommitDatum :: Party -> Maybe (TxIn, TxOut CtxUTxO) -> CurrencySymbol -> Plutus.Datum
+mkCommitDatum :: Party -> UTxO -> CurrencySymbol -> Plutus.Datum
 mkCommitDatum party utxo headId =
-  Commit.datum (partyToChain party, serializedUTxO, headId)
+  Commit.datum (partyToChain party, commits, headId)
  where
-  serializedUTxO = case utxo of
-    Nothing ->
-      Nothing
-    Just (i, o) ->
-      Commit.serializeCommit (i, o)
+  commits =
+    mapMaybe Commit.serializeCommit $ UTxO.pairs utxo
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -274,14 +270,13 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
         , headId = headIdToCurrencySymbol headId
         }
 
-  extractCommit d =
+  extractCommits d =
     case fromScriptData d of
       Nothing -> error "SNAFU"
-      Just ((_, Just o, _) :: Commit.DatumType) -> Just o
-      _ -> Nothing
+      Just ((_, cs, _) :: Commit.DatumType) -> cs
 
   utxoHash =
-    Head.hashPreSerializedCommits $ mapMaybe (extractCommit . snd . snd) $ Map.toList commits
+    Head.hashPreSerializedCommits $ foldMap (extractCommits . snd . snd) $ Map.toList commits
 
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( commitInput
@@ -774,22 +769,21 @@ observeCommitTx ::
   Maybe CommitObservation
 observeCommitTx networkId initials tx = do
   initialTxIn <- findInitialTxIn
-  mCommittedTxIn <- decodeInitialRedeemer initialTxIn
+  committedTxIns <- decodeInitialRedeemer initialTxIn
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- txOutScriptData commitOut
-  (onChainParty, onChainCommit, _headId) :: Commit.DatumType <- fromScriptData dat
+  (onChainParty, onChainCommits, _headId) :: Commit.DatumType <- fromScriptData dat
   party <- partyFromChain onChainParty
 
-  committed <-
+  committed <- do
     -- TODO: We could simplify this by just using the datum. However, we would
     -- need to ensure the commit is belonging to a head / is rightful. By just
     -- looking for some known initials we achieve this (a bit complicated) now.
-    case (mCommittedTxIn, onChainCommit >>= Commit.deserializeCommit (networkIdToNetwork networkId)) of
-      (Nothing, Nothing) -> Just mempty
-      (Just i, Just (_i, o)) -> Just $ UTxO.singleton (i, o)
-      (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
-      (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
+    committedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainCommits
+    when (map fst committedUTxO /= committedTxIns) $
+      error "TODO: commit redeemer not matching the serialized commits in commit datum"
+    pure . UTxO.fromPairs $ committedUTxO
 
   pure
     CommitObservation
@@ -807,8 +801,8 @@ observeCommitTx networkId initials tx = do
     findRedeemerSpending tx >=> \case
       Initial.ViaAbort ->
         Nothing
-      Initial.ViaCommit{committedRef} ->
-        Just (fromPlutusTxOutRef <$> committedRef)
+      Initial.ViaCommit{committedRefs} ->
+        Just (fromPlutusTxOutRef <$> committedRefs)
 
   commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
 
