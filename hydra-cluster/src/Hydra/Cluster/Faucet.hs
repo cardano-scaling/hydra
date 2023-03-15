@@ -30,7 +30,7 @@ import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
  )
 import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash)
-import Hydra.Cluster.Fixture (Actor (Faucet))
+import Hydra.Cluster.Fixture (Actor (Faucet), actorName)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano ()
@@ -44,8 +44,9 @@ data FaucetException
 
 instance Exception FaucetException
 
-newtype FaucetLog
+data FaucetLog
   = TraceResourceExhaustedHandled Text
+  | ReturnedFunds {actor :: String, returnAmount :: Lovelace}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -121,16 +122,17 @@ returnFundsToFaucet tracer RunningNode{networkId, nodeSocket} sender = do
   (senderVk, senderSk) <- keysFor sender
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
 
-  -- TODO: re-add? traceWith tracer $ ReturningFunds{actor = actorName sender, returnAmount = returnBalance}
   retryOnExceptions tracer $ do
     let allLovelace = selectLovelace $ balance @Tx utxo
     -- XXX: Using a hard-coded high-enough value to satisfy the min utxo value.
     -- NOTE: We use the faucet address as the change deliberately here.
     tx <- sign senderSk <$> buildTxBody utxo faucetAddress 1_000_000
     let fee = txFee' tx
-    tx' <- sign senderSk <$> buildTxBody utxo faucetAddress (allLovelace - fee)
+    let returnBalance = allLovelace - fee
+    tx' <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance
     submitTransaction networkId nodeSocket tx'
     void $ awaitTransaction networkId nodeSocket tx'
+    traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = returnBalance}
  where
   buildTxBody utxo faucetAddress lovelace =
     let theOutput = TxOut faucetAddress (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
