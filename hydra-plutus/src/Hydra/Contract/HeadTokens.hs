@@ -166,9 +166,7 @@ unappliedMintingPolicy =
 mintingPolicyScript :: TxOutRef -> Script
 mintingPolicyScript txOutRef =
   getMintingPolicy . mkMintingPolicyScript $
-    $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
-      `PlutusTx.applyCode` PlutusTx.liftCode Initial.validatorHash
-      `PlutusTx.applyCode` PlutusTx.liftCode Head.validatorHash
+    unappliedMintingPolicy
       `PlutusTx.applyCode` PlutusTx.liftCode txOutRef
 
 -- * Create PolicyId
