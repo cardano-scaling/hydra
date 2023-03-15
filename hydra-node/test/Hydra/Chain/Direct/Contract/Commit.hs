@@ -9,6 +9,7 @@ import Hydra.Prelude
 import Hydra.Chain.Direct.TxSpec ()
 
 import qualified Cardano.Api.UTxO as UTxO
+import qualified Data.List as List
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
@@ -44,7 +45,7 @@ healthyCommitTx =
  where
   lookupUTxO =
     UTxO.singleton (healthyIntialTxIn, toUTxOContext healthyInitialTxOut)
-      <> UTxO.singleton healthyCommittedUTxO
+      <> healthyCommittedUTxO
       <> registryUTxO scriptRegistry
   tx =
     commitTx
@@ -52,7 +53,7 @@ healthyCommitTx =
       scriptRegistry
       (mkHeadId Fixture.testPolicyId)
       commitParty
-      (Just healthyCommittedUTxO)
+      healthyCommittedUTxO
       (healthyIntialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
@@ -72,11 +73,11 @@ healthyInitialTxOut :: TxOut CtxTx
 healthyInitialTxOut = mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput commitVerificationKey
 
 -- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
-healthyCommittedUTxO :: (TxIn, TxOut CtxUTxO)
+healthyCommittedUTxO :: UTxO
 healthyCommittedUTxO = flip generateWith 42 $ do
   txIn <- arbitrary
   txOut <- modifyTxOutValue (const $ lovelaceToValue 8_000_000) <$> (genOutput =<< arbitrary)
-  pure (txIn, txOut)
+  pure $ UTxO.singleton (txIn, txOut)
 
 data CommitMutation
   = -- | The headId in the output datum must match the one from the input datum.
@@ -144,7 +145,7 @@ genCommitMutation (tx, _utxo) =
             , ChangeInput
                 healthyIntialTxIn
                 (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
-                (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef committedTxIn)
+                (Just $ toScriptData $ Initial.ViaCommit [toPlutusTxOutRef committedTxIn])
             ]
     , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
@@ -154,7 +155,7 @@ genCommitMutation (tx, _utxo) =
 
   commitTxOut = fromJust $ txOuts' tx !!? 0
 
-  (committedTxIn, committedTxOut) = healthyCommittedUTxO
+  (committedTxIn, committedTxOut) = List.head $ UTxO.pairs healthyCommittedUTxO
 
   committedAddress = txOutAddress committedTxOut
 
