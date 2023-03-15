@@ -82,8 +82,8 @@ computeInitCost = do
 
 computeCommitCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCommitCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [500, 499 .. 101]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 11]
   pure $ interesting <> limit
  where
   compute numUTxO = do
