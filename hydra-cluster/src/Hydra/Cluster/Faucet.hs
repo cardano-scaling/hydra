@@ -10,9 +10,14 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
+  SubmitTransactionException,
+  awaitTransaction,
   buildAddress,
+  buildTransaction,
   queryUTxO,
+  queryUTxOFor,
   sign,
+  submitTransaction,
   waitForPayment,
  )
 import CardanoNode (RunningNode (..))
@@ -21,12 +26,6 @@ import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import qualified Data.Map as Map
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
-import Hydra.Chain.CardanoClient (
-  SubmitTransactionException,
-  buildTransaction,
-  queryUTxOFor,
-  submitTransaction,
- )
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
  )
@@ -115,9 +114,9 @@ returnFundsToFaucet ::
   RunningNode ->
   Actor ->
   IO ()
-returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
+returnFundsToFaucet tracer RunningNode{networkId, nodeSocket} sender = do
   (faucetVk, _) <- keysFor Faucet
-  let faucetAddress = buildAddress faucetVk networkId
+  let faucetAddress = mkVkAddress networkId faucetVk
 
   (senderVk, senderSk) <- keysFor sender
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
@@ -127,35 +126,20 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
   let returnBalance = (selectLovelace $ balance @Tx utxo) - 1_500_000
 
   -- TODO: re-add? traceWith tracer $ ReturningFunds{actor = actorName sender, returnAmount = returnBalance}
-  retryOnExceptions tracer $
-    buildAndSubmitTx node returnBalance faucetAddress senderVk senderSk
-  void $ waitForPayment networkId nodeSocket returnBalance faucetAddress
-
-buildAndSubmitTx ::
-  RunningNode ->
-  -- | Amount of lovelace to send to the reciver
-  Lovelace ->
-  -- | Receiving address
-  Address ShelleyAddr ->
-  -- | Sender verification key
-  VerificationKey PaymentKey ->
-  -- | Sender signing key
-  SigningKey PaymentKey ->
-  IO ()
-buildAndSubmitTx RunningNode{networkId, nodeSocket} lovelace receivingAddress senderVk senderSk = do
-  utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
-  let changeAddress = ShelleyAddressInEra (buildAddress senderVk networkId)
-  buildTransaction networkId nodeSocket changeAddress utxo [] [theOutput] >>= \case
-    Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-    Right body -> do
-      submitTransaction networkId nodeSocket (sign senderSk body)
- where
-  theOutput =
-    TxOut
-      (shelleyAddressInEra receivingAddress)
-      (lovelaceToValue lovelace)
-      TxOutDatumNone
-      ReferenceScriptNone
+  retryOnExceptions tracer $ do
+    -- NOTE: We use the receiving address as the change
+    let theOutput =
+          TxOut
+            faucetAddress
+            (lovelaceToValue returnBalance)
+            TxOutDatumNone
+            ReferenceScriptNone
+    buildTransaction networkId nodeSocket faucetAddress utxo [] [theOutput] >>= \case
+      Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+      Right body -> do
+        let tx = sign senderSk body
+        submitTransaction networkId nodeSocket tx
+        void $ awaitTransaction networkId nodeSocket tx
 
 -- | Try to submit tx and retry when some caught exception/s take place.
 retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m () -> m ()
