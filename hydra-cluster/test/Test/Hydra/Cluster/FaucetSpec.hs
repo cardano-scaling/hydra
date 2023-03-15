@@ -3,9 +3,11 @@ module Test.Hydra.Cluster.FaucetSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO (pairs)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently_)
-import Hydra.Cardano.Api (txOutValue)
+import Hydra.Cardano.Api (AssetId (AdaAssetId), txOutValue)
+import Hydra.Cardano.Api.Prelude (selectAsset)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
 import Hydra.Cluster.Faucet (Marked (Normal), returnFundsToFaucet, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
@@ -35,10 +37,22 @@ spec = do
             let faucetTracer = contramap FromFaucet tracer
             actor <- generate $ elements [Alice, Bob, Carol]
             (vk, _) <- keysFor actor
-            _seeded <- seedFromFaucet node vk 100_000_000 Normal faucetTracer
+            (faucetVk, _) <- keysFor Faucet
+            initialFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
+            seeded <- seedFromFaucet node vk 100_000_000 Normal faucetTracer
             returnFundsToFaucet faucetTracer node actor
             remaining <- queryUTxOFor networkId nodeSocket QueryTip vk
-            -- TODO: check remaining funds for actor and faucet
+            finalFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
             foldMap txOutValue remaining `shouldBe` mempty
-            -- TODO: could ensure only one UTxO is added to the faucet.
-            pure ()
+
+            let seededUTxOLength = length (pairs seeded)
+            let remainingUTxOLength = length (pairs remaining)
+            -- check the faucet has one utxo extra in the end
+            seededUTxOLength `shouldBe` remainingUTxOLength + 1
+
+            let initialFaucetValue = selectAsset (foldMap txOutValue initialFaucetFunds) AdaAssetId
+            let finalFaucetValue = selectAsset (foldMap txOutValue finalFaucetFunds) AdaAssetId
+            let difference = initialFaucetValue - finalFaucetValue
+            -- difference between starting faucet amount and final one should
+            -- just be the amount of paid fees
+            difference `shouldSatisfy` (< 340_000)
