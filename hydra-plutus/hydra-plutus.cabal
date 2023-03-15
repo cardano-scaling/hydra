@@ -129,15 +129,19 @@ test-suite tests
   type:               exitcode-stdio-1.0
   other-modules:
     Hydra.Data.ContestationPeriodSpec
+    Hydra.Plutus.GoldenSpec
     Spec
 
   build-depends:
     , base
     , hspec
     , hspec-core
+    , hspec-golden
+    , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
+    , plutus-ledger-api
     , QuickCheck
     , time
 

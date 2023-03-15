@@ -11,7 +11,8 @@ changes.
 ## [0.10.0] - UNRELEASED
 
 - **BREAKING** Changed `hydra-node` and `hydra-tui` arguments:
-  + Instead of `--network-id` flag they now use `--testnet-magic` and we support also `--mainnet` flag.
+  + Instead of `--network-id` flag they now use `--testnet-magic` and we support
+    also `--mainnet` flag.
 
 - Changed interface of `Hydra.Ledger.Cardano.Evaluate` functions.
 
@@ -21,8 +22,14 @@ changes.
     scripts.
   + Reference scripts on the layer 2 ledger are non-problematic.
 
- - Introduced a hard-coded limit of 100 ADA for the commit tx on mainnet: help people to not shoot themselves in the foot too hard.
- - Added `CommittedTooMuchADAForMainnet` API error to signal that the hard-coded mainnet ADA limit is exceeded.
+- Introduced a hard-coded limit of 100 ADA for the commit tx on mainnet: help
+  people to not shoot themselves in the foot too hard.
+
+- Added `CommittedTooMuchADAForMainnet` API error to signal that the hard-coded
+  mainnet ADA limit is exceeded.
+
+- The hydra scripts are persisted in `hydra-plutus/scripts` and golden tests
+  ensure they are not changed accidentally.
 
 ## [0.9.0] - 2023-03-02
 

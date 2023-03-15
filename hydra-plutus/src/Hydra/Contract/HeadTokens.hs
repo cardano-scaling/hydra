@@ -25,7 +25,7 @@ import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
-import Plutus.Extras (wrapMintingPolicy)
+import Plutus.Extras (MintingPolicyType, wrapMintingPolicy)
 import Plutus.V2.Ledger.Api (
   Datum (getDatum),
   FromData (fromBuiltinData),
@@ -41,6 +41,7 @@ import Plutus.V2.Ledger.Api (
   mkMintingPolicyScript,
  )
 import Plutus.V2.Ledger.Contexts (findDatum, ownCurrencySymbol, scriptOutputsAt)
+import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 
@@ -154,20 +155,23 @@ validateTokensBurning context =
       Nothing -> False
       Just tokenMap -> all (< 0) tokenMap
 
-mintingPolicy :: TxOutRef -> MintingPolicy
-mintingPolicy txOutRef =
-  mkMintingPolicyScript $
-    $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
-      `PlutusTx.applyCode` PlutusTx.liftCode Initial.validatorHash
-      `PlutusTx.applyCode` PlutusTx.liftCode Head.validatorHash
-      `PlutusTx.applyCode` PlutusTx.liftCode txOutRef
+-- | Raw minting policy code where the 'TxOutRef' is still a parameter.
+unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
+unappliedMintingPolicy =
+  $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
+    `PlutusTx.applyCode` PlutusTx.liftCode Initial.validatorHash
+    `PlutusTx.applyCode` PlutusTx.liftCode Head.validatorHash
 
+-- | Get the applied head minting policy script given a seed 'TxOutRef'.
 mintingPolicyScript :: TxOutRef -> Script
-mintingPolicyScript = getMintingPolicy . mintingPolicy
+mintingPolicyScript txOutRef =
+  getMintingPolicy . mkMintingPolicyScript $
+    unappliedMintingPolicy
+      `PlutusTx.applyCode` PlutusTx.liftCode txOutRef
 
 -- * Create PolicyId
 
--- | Resolve the head policy id (a.k.a headId) given a seed 'TxIn'.
+-- | Get the head policy id (a.k.a headId) given a seed 'TxIn'.
 headPolicyId :: TxIn -> PolicyId
 headPolicyId =
   scriptPolicyId . PlutusScript . mkHeadTokenScript
