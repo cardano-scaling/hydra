@@ -121,25 +121,22 @@ returnFundsToFaucet tracer RunningNode{networkId, nodeSocket} sender = do
   (senderVk, senderSk) <- keysFor sender
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
 
-  -- Bit ugly bit we need to subtract the fees manually here.
-  -- TODO: Implement the fee calculation for our smoke-tests
-  let returnBalance = (selectLovelace $ balance @Tx utxo) - 1_500_000
-
   -- TODO: re-add? traceWith tracer $ ReturningFunds{actor = actorName sender, returnAmount = returnBalance}
   retryOnExceptions tracer $ do
-    -- NOTE: We use the receiving address as the change
-    let theOutput =
-          TxOut
-            faucetAddress
-            (lovelaceToValue returnBalance)
-            TxOutDatumNone
-            ReferenceScriptNone
-    buildTransaction networkId nodeSocket faucetAddress utxo [] [theOutput] >>= \case
-      Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-      Right body -> do
-        let tx = sign senderSk body
-        submitTransaction networkId nodeSocket tx
-        void $ awaitTransaction networkId nodeSocket tx
+    let allLovelace = selectLovelace $ balance @Tx utxo
+    -- XXX: Using a hard-coded high-enough value to satisfy the min utxo value.
+    -- NOTE: We use the faucet address as the change deliberately here.
+    tx <- sign senderSk <$> buildTxBody utxo faucetAddress 1_000_000
+    let fee = txFee' tx
+    tx' <- sign senderSk <$> buildTxBody utxo faucetAddress (allLovelace - fee)
+    submitTransaction networkId nodeSocket tx'
+    void $ awaitTransaction networkId nodeSocket tx'
+ where
+  buildTxBody utxo faucetAddress lovelace =
+    let theOutput = TxOut faucetAddress (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
+     in buildTransaction networkId nodeSocket faucetAddress utxo [] [theOutput] >>= \case
+          Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+          Right body -> pure body
 
 -- | Try to submit tx and retry when some caught exception/s take place.
 retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m () -> m ()

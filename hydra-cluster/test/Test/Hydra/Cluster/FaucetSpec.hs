@@ -40,3 +40,5 @@ spec = do
             remaining <- queryUTxOFor networkId nodeSocket QueryTip vk
             -- TODO: check remaining funds for actor and faucet
             foldMap txOutValue remaining `shouldBe` mempty
+            -- TODO: could ensure only one UTxO is added to the faucet.
+            pure ()
