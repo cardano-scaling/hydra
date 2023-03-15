@@ -115,7 +115,6 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) whe
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
   = NoSeedInput
-  | MoreThanOneUTxOCommitted
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
   | -- | Comitting byron addresses is not supported.
     UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}

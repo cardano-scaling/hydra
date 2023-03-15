@@ -968,20 +968,6 @@ components:
       description: |
         Provides more details about transaction submission failure.
       oneOf:
-        - title: MoreThanOneUTxOCommitted
-          type: object
-          additionalProperties: false
-          required:
-            - tag
-          description: |
-            A commit transaction tried to commit more than one UTxO on-chain.
-            **Note**: Due to transaction size constraints and the unbounded size of value carried in a UTxO,
-            it is a current limitation in the Head protocol that each participant can only commit one UTxO.
-            This restriction should be alleviated in future versions of the protocol.
-          properties:
-            tag:
-              type: string
-              enum: ["MoreThanOneUTxOCommitted"]
         - title: ScriptFailedInWallet
           type: object
           additionalProperties: false

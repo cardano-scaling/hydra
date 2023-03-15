@@ -186,13 +186,8 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
-            someUTxOA <- generate $ genOneUTxOFor aliceCardanoVk
-            someUTxOB <- generate $ genOneUTxOFor aliceCardanoVk
-
-            postTx (CommitTx alice (someUTxOA <> someUTxOB))
-              `shouldThrow` (== MoreThanOneUTxOCommitted @Tx)
-
-            postTx (CommitTx alice someUTxOA)
+            randomUTxO <- generate $ genOneUTxOFor aliceCardanoVk
+            postTx (CommitTx alice randomUTxO)
               `shouldThrow` \case
                 (InternalWalletError{} :: PostTxError Tx) -> True
                 _ -> False

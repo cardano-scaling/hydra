@@ -1,26 +1,68 @@
 {
     "samples": [
         {
+            "postChainTx": {
+                "tag": "CollectComTx",
+                "utxo": [
+                    -30,
+                    -27,
+                    -25,
+                    -23,
+                    -20,
+                    -18,
+                    -17,
+                    -15,
+                    -14,
+                    -11,
+                    -7,
+                    -6,
+                    -5,
+                    -4,
+                    1,
+                    2,
+                    7,
+                    14,
+                    15,
+                    16,
+                    18,
+                    20,
+                    22,
+                    27
+                ]
+            },
+            "postTxError": {
+                "plutusDebugInfo": "\u0001𢱯HE𨙥v\u001d=U栥\\@u𑦦􍂷U\u0011`󽽇3\\󺊌􎥟s\u0007\u0019*\u0002h\u0000",
+                "plutusFailure": "R㭭󽪉\u000cf9-K",
+                "tag": "PlutusValidationFailed"
+            },
+            "tag": "PostTxError"
+        },
+        {
             "clientInput": {
-                "tag": "Close"
+                "tag": "Abort"
             },
             "tag": "ClientEvent"
         },
         {
-            "chainEvent": {
-                "newChainState": {
-                    "slot": 5
-                },
-                "observedTx": {
-                    "tag": "OnFanoutTx"
-                },
-                "tag": "Observation"
+            "postChainTx": {
+                "tag": "AbortTx",
+                "utxo": [
+                    -26,
+                    -7,
+                    -2,
+                    7,
+                    16,
+                    26
+                ]
             },
-            "tag": "OnChainEvent"
+            "postTxError": {
+                "tag": "CannotCommitReferenceScript"
+            },
+            "tag": "PostTxError"
         },
         {
             "clientInput": {
-                "tag": "Contest"
+                "tag": "GetUTxO"
             },
             "tag": "ClientEvent"
         },
@@ -29,48 +71,24 @@
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "e54a9d28b5d06641b0f821c41a599cdd2e53b671a7fd6b8ba908ed3989ca8e2d0c6fcdd22aaa9094fcd57fd85f8f5950f2b3ef3ff2dfc097f2aaa46d4943c305",
-                            "9090b48836086c8920dd6a05629b71153ff97cb965358e535bbeda22455d7a1f493de27958d0eeef1e790d672c556c80fe6eec260422a1a1deb81318c604e205",
-                            "82c90cf3f8e01158bbfa44bb50580f0689979a0ee47805ea9268817e64d60a414964dd9f8b57dd041ed5c95ebfe1eba0a49e81e06ca46b6ae4ce80d6f496a502",
-                            "ec967c6737a855613f8db2cc142a87acfd015591a92fe6f39581ff40ae9997f9b582e246133594eb6594cfc09e97d8e368b85835fc579fbda24fda824ce2830d",
-                            "e8491ab150d557abd4d1d800f4f2d7d78bb0f824d6678c4f0e4b9c777bc8a51526e776c1d063a0857af51f968bd613a4b316f31738070f0f89ec27db94bdc403",
-                            "75520610d703b39c0b9ef512bc6b959ec550b2d1a0136546925f6a0fe1901e0a953be03acaf601b47753800068638bbf2ff907f8a3ee3c05354288e08a87d30a",
-                            "452408127edbde520b26d686289e1c63fbd53fb0513bf24759933e1f76f34c49ddd5542a055a0115f7fe10af0b0fe32d92049f7f55076e3593b308d636875b0b",
-                            "c830d9bb0ea03ce965a1a29d7d36c11ecf209253c2257fa3f0affc2b60bd6a71508f5a3e359fcc493c2d33216d57c5b16996acc83532b7e88c6319f13c799802",
-                            "67ecfe751c213725dbc61c1c3338bcdf8cdeb61362c16b1449aacf9cf045e129d1719352630eb2a6cae500e6a74330d6917f4e0d3db7bd607a969cc4f13a5502",
-                            "c830d9bb0ea03ce965a1a29d7d36c11ecf209253c2257fa3f0affc2b60bd6a71508f5a3e359fcc493c2d33216d57c5b16996acc83532b7e88c6319f13c799802",
-                            "afeaaa83db17f3cb8fb0d94e4a99b50d3bf02b13ca499d0853920a178bfcef0a1cb3a43bdebac7b5036b1029512f8b96c220a263ba69ce3b0da049e19a014606",
-                            "ec955f31aa45b2d47e3e8e684d42a3cfd104b35cd77b5c7d1ca4b9f80d2f4f1d182cfae5f8940004e19250a23f8c98b0d53fd668b2899b418e9fa16e0f8fc104",
-                            "19a354dde5fcef072ac0350fad2b38de2f252938463bc985909af942242adbb01b10c568819f98701799a208ae7acdd47dec8100c60c97fd39ba3fb83a5ee408",
-                            "50fd9457a3b9e92ad57d729aac444017cb5488d6d6afc0bee7e55854dad71923b9f0658735dffdd0d98484d173dc095c17ececb8077882b504795fb8bc437207",
-                            "28548c28e2e87fa296723abb7fff4fa645f3af15ebe1ba8eccd494e8dd9b8af81864b1ef8ec498a5a00c53434266a05f9f98a3592edba591e3e391c153f51202",
-                            "d52dcb663ad06796acf0a04c5020cac7d89449cf36d8077e799bca913b4bfe05f3f27bb24768fe286f40fb4d30625b1ac723fc5f51b68e095e4a209e6f976803",
-                            "b0078a9af73079f29e735f48cda37b200a2a180b5668e317472b7bbfedd2ec8b2ec937b0ee20d6636980bfc620e05c6bbb5fe56416d0222419dd001699877c04",
-                            "ae0f9218c165450b72d8441959d0c2d8141f78d4ebec645f3be302b34e94cda9d98c878f8b40558b8e1e83fffcfc58f38bd6f63f0bd0480152673a5f11ba0108",
-                            "481a929e010717465c88ada0d1f3b891a7ddf4a3d5ed33f3cb8a6bfa403153ba904959892138d2b6658a0898ca45903016364f4039ee60004cea27974913ea03",
-                            "9a629dd65694c7c3cc154ca5b008829904efba8888e8ef96736bf45e57357a16831bc9d2c1f4af2172a73609f89aa8a18f728aa2f8a61336fd719b1fafdc4e0b",
-                            "e88e0aa127c89630680e4bde56ed5c699394201a48890fe7be9377e44169bf7fb9d4b7e739023abbc85a6f2d2ce534c19b2793184c0f2f4458a1afb4e696b00e"
+                            "cca3562da7edf9dfbb3dc2a47940a81409deaab542489adf785eaf8c34a456e7f1c2ac315c7371f0447aa1266daebad212a4d481e3aa472fa2b4bfad1541bc0d",
+                            "384813aa093583885326f793f081694416b2f61f90567e8f307099ee9c0b999f760721aa1e416074b6a09033de3666967ae06719fe937be24b38dfba3342cb09",
+                            "a01cc8a9630075682c7e9e3eab3452cca8e9e82331ac7220c070951f8a8a293d31dfde34a93a2a2cd0b19634b4bef41185d72c1ab1a9bb5a0e8a721d0e631700"
                         ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "snapshotNumber": 13,
+                        "snapshotNumber": 26,
                         "utxo": [
-                            -24,
-                            -20,
-                            -10,
-                            -9,
-                            -2,
-                            -1,
-                            4,
-                            5,
-                            11,
+                            -28,
+                            -27,
+                            -21,
+                            -19,
+                            -11,
+                            -7,
+                            -5,
+                            2,
                             16,
-                            18,
-                            21,
-                            22,
-                            23,
-                            26,
                             27
                         ]
                     },
@@ -79,16 +97,11 @@
                 "tag": "ContestTx"
             },
             "postTxError": {
-                "tag": "MoreThanOneUTxOCommitted"
+                "failureReason": "􁕹𗲡e𐑷𗦩󲗆\"717\u001c?􂠠\u0019􈠉x]",
+                "tag": "FailedToPostTx"
             },
             "tag": "PostTxError"
-        },
-        {
-            "clientInput": {
-                "tag": "Contest"
-            },
-            "tag": "ClientEvent"
         }
     ],
-    "seed": -1629886451
+    "seed": -239346555
 }
