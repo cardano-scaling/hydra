@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Cluster.Faucet where
 
@@ -32,6 +33,7 @@ import Hydra.Chain.Direct.ScriptRegistry (
 import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
+import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano ()
 
 data Marked = Fuel | Normal
@@ -62,28 +64,9 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retryOnExceptions $ submitSeedTx faucetVk faucetSk
+  retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
-  isResourceExhausted ex = case ioe_type ex of
-    ResourceExhausted -> True
-    _ -> False
-
-  retryOnExceptions action =
-    action
-      `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do
-                    threadDelay 1
-                    retryOnExceptions action
-                , Handler $ \(ex :: IOException) -> do
-                    unless (isResourceExhausted ex) $
-                      throwIO ex
-                    traceWith tracer $
-                      TraceResourceExhaustedHandled $
-                        "Expected exception raised from seedFromFaucet: " <> show ex
-                    threadDelay 1
-                    retryOnExceptions action
-                ]
-
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findUTxO faucetVk
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
@@ -132,7 +115,68 @@ returnFundsToFaucet ::
   RunningNode ->
   Actor ->
   IO ()
-returnFundsToFaucet _tracer _node _actor = pure ()
+returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
+  (faucetVk, _) <- keysFor Faucet
+  let faucetAddress = buildAddress faucetVk networkId
+
+  (senderVk, senderSk) <- keysFor sender
+  utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
+
+  -- Bit ugly bit we need to subtract the fees manually here.
+  -- TODO: Implement the fee calculation for our smoke-tests
+  let returnBalance = (selectLovelace $ balance @Tx utxo) - 1_500_000
+
+  -- TODO: re-add? traceWith tracer $ ReturningFunds{actor = actorName sender, returnAmount = returnBalance}
+  retryOnExceptions tracer $
+    buildAndSubmitTx node returnBalance faucetAddress senderVk senderSk
+  void $ waitForPayment networkId nodeSocket returnBalance faucetAddress
+
+buildAndSubmitTx ::
+  RunningNode ->
+  -- | Amount of lovelace to send to the reciver
+  Lovelace ->
+  -- | Receiving address
+  Address ShelleyAddr ->
+  -- | Sender verification key
+  VerificationKey PaymentKey ->
+  -- | Sender signing key
+  SigningKey PaymentKey ->
+  IO ()
+buildAndSubmitTx RunningNode{networkId, nodeSocket} lovelace receivingAddress senderVk senderSk = do
+  utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
+  let changeAddress = ShelleyAddressInEra (buildAddress senderVk networkId)
+  buildTransaction networkId nodeSocket changeAddress utxo [] [theOutput] >>= \case
+    Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+    Right body -> do
+      submitTransaction networkId nodeSocket (sign senderSk body)
+ where
+  theOutput =
+    TxOut
+      (shelleyAddressInEra receivingAddress)
+      (lovelaceToValue lovelace)
+      TxOutDatumNone
+      ReferenceScriptNone
+
+-- | Try to submit tx and retry when some caught exception/s take place.
+retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m () -> m ()
+retryOnExceptions tracer action =
+  action
+    `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do
+                  threadDelay 1
+                  retryOnExceptions tracer action
+              , Handler $ \(ex :: IOException) -> do
+                  unless (isResourceExhausted ex) $
+                    throwIO ex
+                  traceWith tracer $
+                    TraceResourceExhaustedHandled $
+                      "Expected exception raised from seedFromFaucet: " <> show ex
+                  threadDelay 1
+                  retryOnExceptions tracer action
+              ]
+ where
+  isResourceExhausted ex = case ioe_type ex of
+    ResourceExhausted -> True
+    _other -> False
 
 -- | Publish current Hydra scripts as scripts outputs for later referencing them.
 --
