@@ -10,12 +10,12 @@ on:
         options:
         - preview
         - preprod
-        # Uncomment the following line when we feel ready to run smoke tests on mainnet
-        # - mainnet
+        - mainnet
 
       hydra-scripts-tx-id:
         description: "TxId of already published scripts (leave empty to publish)"
         required: false
+
 
 jobs:
   smoke-test:
