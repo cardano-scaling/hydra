@@ -115,7 +115,7 @@ returnFundsToFaucet ::
   RunningNode ->
   Actor ->
   IO ()
-returnFundsToFaucet tracer RunningNode{networkId, nodeSocket} sender = do
+returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
   (faucetVk, _) <- keysFor Faucet
   let faucetAddress = mkVkAddress networkId faucetVk
 
@@ -126,12 +126,11 @@ returnFundsToFaucet tracer RunningNode{networkId, nodeSocket} sender = do
     let allLovelace = selectLovelace $ balance @Tx utxo
     -- XXX: Using a hard-coded high-enough value to satisfy the min utxo value.
     -- NOTE: We use the faucet address as the change deliberately here.
-    tx <- sign senderSk <$> buildTxBody utxo faucetAddress 1_000_000
-    let fee = txFee' tx
+    fee <- calculateTxFee node senderSk utxo faucetAddress 1_000_000
     let returnBalance = allLovelace - fee
-    tx' <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance
-    submitTransaction networkId nodeSocket tx'
-    void $ awaitTransaction networkId nodeSocket tx'
+    tx <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance
+    submitTransaction networkId nodeSocket tx
+    void $ awaitTransaction networkId nodeSocket tx
     traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = returnBalance}
  where
   buildTxBody utxo faucetAddress lovelace =
@@ -139,6 +138,22 @@ returnFundsToFaucet tracer RunningNode{networkId, nodeSocket} sender = do
      in buildTransaction networkId nodeSocket faucetAddress utxo [] [theOutput] >>= \case
           Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
           Right body -> pure body
+
+-- | Build and sign tx and return the calculated fee.
+-- - Signing key should be the key of a sender
+-- - Address is used as a change address.
+calculateTxFee
+  :: RunningNode
+  -> SigningKey PaymentKey
+  -> UTxO
+  -> AddressInEra
+  -> Lovelace
+  -> IO Lovelace
+calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace =
+  let theOutput = TxOut addr (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
+   in buildTransaction networkId nodeSocket addr utxo [] [theOutput] >>= \case
+        Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+        Right body -> pure $ txFee' (sign secretKey body)
 
 -- | Try to submit tx and retry when some caught exception/s take place.
 retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m () -> m ()

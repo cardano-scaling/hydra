@@ -3,7 +3,6 @@ module Test.Hydra.Cluster.FaucetSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO (pairs)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently_)
 import Hydra.Cardano.Api (AssetId (AdaAssetId), txOutValue)
@@ -45,10 +44,8 @@ spec = do
             finalFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
             foldMap txOutValue remaining `shouldBe` mempty
 
-            let seededUTxOLength = length (pairs seeded)
-            let remainingUTxOLength = length (pairs remaining)
             -- check the faucet has one utxo extra in the end
-            seededUTxOLength `shouldBe` remainingUTxOLength + 1
+            length seeded `shouldBe` length remaining + 1
 
             let initialFaucetValue = selectAsset (foldMap txOutValue initialFaucetFunds) AdaAssetId
             let finalFaucetValue = selectAsset (foldMap txOutValue finalFaucetFunds) AdaAssetId
