@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Cluster.Faucet where
 
@@ -9,9 +10,14 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
+  SubmitTransactionException,
+  awaitTransaction,
   buildAddress,
+  buildTransaction,
   queryUTxO,
+  queryUTxOFor,
   sign,
+  submitTransaction,
   waitForPayment,
  )
 import CardanoNode (RunningNode (..))
@@ -20,18 +26,13 @@ import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import qualified Data.Map as Map
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
-import Hydra.Chain.CardanoClient (
-  SubmitTransactionException,
-  buildTransaction,
-  queryUTxOFor,
-  submitTransaction,
- )
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
  )
 import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash)
-import Hydra.Cluster.Fixture (Actor (Faucet))
+import Hydra.Cluster.Fixture (Actor (Faucet), actorName)
 import Hydra.Cluster.Util (keysFor)
+import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano ()
 
 data Marked = Fuel | Normal
@@ -43,8 +44,9 @@ data FaucetException
 
 instance Exception FaucetException
 
-newtype FaucetLog
+data FaucetLog
   = TraceResourceExhaustedHandled Text
+  | ReturnedFunds {actor :: String, returnAmount :: Lovelace}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -62,28 +64,9 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retryOnExceptions $ submitSeedTx faucetVk faucetSk
+  retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
-  isResourceExhausted ex = case ioe_type ex of
-    ResourceExhausted -> True
-    _ -> False
-
-  retryOnExceptions action =
-    action
-      `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do
-                    threadDelay 1
-                    retryOnExceptions action
-                , Handler $ \(ex :: IOException) -> do
-                    unless (isResourceExhausted ex) $
-                      throwIO ex
-                    traceWith tracer $
-                      TraceResourceExhaustedHandled $
-                        "Expected exception raised from seedFromFaucet: " <> show ex
-                    threadDelay 1
-                    retryOnExceptions action
-                ]
-
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findUTxO faucetVk
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
@@ -125,6 +108,73 @@ seedFromFaucet_ ::
   IO ()
 seedFromFaucet_ node vk ll marked tracer =
   void $ seedFromFaucet node vk ll marked tracer
+
+-- | Return the remaining funds to the faucet
+returnFundsToFaucet ::
+  Tracer IO FaucetLog ->
+  RunningNode ->
+  Actor ->
+  IO ()
+returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
+  (faucetVk, _) <- keysFor Faucet
+  let faucetAddress = mkVkAddress networkId faucetVk
+
+  (senderVk, senderSk) <- keysFor sender
+  utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
+
+  retryOnExceptions tracer $ do
+    let allLovelace = selectLovelace $ balance @Tx utxo
+    -- XXX: Using a hard-coded high-enough value to satisfy the min utxo value.
+    -- NOTE: We use the faucet address as the change deliberately here.
+    fee <- calculateTxFee node senderSk utxo faucetAddress 1_000_000
+    let returnBalance = allLovelace - fee
+    tx <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance
+    submitTransaction networkId nodeSocket tx
+    void $ awaitTransaction networkId nodeSocket tx
+    traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = returnBalance}
+ where
+  buildTxBody utxo faucetAddress lovelace =
+    let theOutput = TxOut faucetAddress (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
+     in buildTransaction networkId nodeSocket faucetAddress utxo [] [theOutput] >>= \case
+          Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+          Right body -> pure body
+
+-- | Build and sign tx and return the calculated fee.
+-- - Signing key should be the key of a sender
+-- - Address is used as a change address.
+calculateTxFee
+  :: RunningNode
+  -> SigningKey PaymentKey
+  -> UTxO
+  -> AddressInEra
+  -> Lovelace
+  -> IO Lovelace
+calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace =
+  let theOutput = TxOut addr (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
+   in buildTransaction networkId nodeSocket addr utxo [] [theOutput] >>= \case
+        Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+        Right body -> pure $ txFee' (sign secretKey body)
+
+-- | Try to submit tx and retry when some caught exception/s take place.
+retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m () -> m ()
+retryOnExceptions tracer action =
+  action
+    `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do
+                  threadDelay 1
+                  retryOnExceptions tracer action
+              , Handler $ \(ex :: IOException) -> do
+                  unless (isResourceExhausted ex) $
+                    throwIO ex
+                  traceWith tracer $
+                    TraceResourceExhaustedHandled $
+                      "Expected exception raised from seedFromFaucet: " <> show ex
+                  threadDelay 1
+                  retryOnExceptions tracer action
+              ]
+ where
+  isResourceExhausted ex = case ioe_type ex of
+    ResourceExhausted -> True
+    _other -> False
 
 -- | Publish current Hydra scripts as scripts outputs for later referencing them.
 --
