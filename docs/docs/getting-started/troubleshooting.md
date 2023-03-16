@@ -17,7 +17,7 @@
   - [Limit size/complexity of UTxOs in the Head](https://github.com/input-output-hk/hydra/issues/698)
   - [Only sign closable snapshots](https://github.com/input-output-hk/hydra/issues/370)
 
-* Not an issue, but a workaround: The internal wallet of `hydra-node` requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](https://hydra.family/head-protocol/docs/getting-started/demo/with-docker/#seeding-the-network).
+- Not an issue, but a workaround: The internal wallet of `hydra-node` requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](/docs/getting-started/demo/with-docker/#seeding-the-network).
 
 ### hydra-tui
 
