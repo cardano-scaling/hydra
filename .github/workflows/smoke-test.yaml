@@ -20,7 +20,10 @@ on:
 jobs:
   smoke-test:
     name: "Smoke test on ${{inputs.network}}"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cardano]
+    concurrency: cardano-${{inputs.network}}
+    env:
+      state_dir: /srv/var/cardano/state-${{inputs.network}}
     steps:
     - uses: actions/checkout@v3
       with:
@@ -34,21 +37,9 @@ jobs:
         extra_nix_config: |
           accept-flake-config = true
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v12
-      with:
-        name: hydra-node
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-
-    - name: 🔁 Github cache of state-directory
-      uses: actions/cache@v3
-      with:
-        path: state-${{inputs.network}}
-        key: state-${{inputs.network}}
-
     - name: 🚬 Cleanup hydra-node state
       run: |
-        rm -rf state-${{inputs.network}}/state-*
+        rm -rf ${state_dir}/state-*
 
     - name: 🤐 Setup secret faucet key
       if: ${{ inputs.network == 'mainnet' }}
@@ -59,9 +50,9 @@ jobs:
     - name: 🚬 Run hydra-cluster smoke test
       run: |
         if [ -n "${{inputs.hydra-scripts-tx-id}}" ]; then
-          nix develop ".?submodules=1#exes" --command bash -c "hydra-cluster --${{inputs.network}} --hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}} --state-directory state-${{inputs.network}}"
+          nix develop ".?submodules=1#exes" --command bash -c "hydra-cluster --${{inputs.network}} --hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}} --state-directory ${state_dir}"
         else
-          nix develop ".?submodules=1#exes" --command bash -c "hydra-cluster --${{inputs.network}} --publish-hydra-scripts --state-directory state-${{inputs.network}}"
+          nix develop ".?submodules=1#exes" --command bash -c "hydra-cluster --${{inputs.network}} --publish-hydra-scripts --state-directory ${state_dir}"
         fi
 
     - name: 💾 Upload logs
@@ -69,4 +60,4 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: hydra-cluster-logs
-        path: state-${{inputs.network}}/logs/**/*
+        path: ${state_dir}/logs/**/*
