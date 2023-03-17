@@ -104,7 +104,7 @@ withTracerOutputTo ::
   IO a
 withTracerOutputTo hdl namespace action = do
   msgQueue <- newTBQueueIO @_ @(Envelope msg) defaultQueueSize
-  withAsync (writeLogs msgQueue) $ \_ ->
+  withAsync (writeLogs msgQueue `finally` flushLogs msgQueue) $ \_ ->
     action (tracer msgQueue) `finally` flushLogs msgQueue
  where
   tracer queue =
