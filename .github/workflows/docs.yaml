@@ -23,14 +23,17 @@ jobs:
 
     - name: Get tag name
       id: latest_tag
-      run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
-
+      run: |
+        echo "RELEASE_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
+        echo $RELEASE_VERSION
+        echo ${{ env.RELEASE_VERSION }}
+    
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
       with:
         repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
-        ref: ${{ steps.latest_tag.outputs.VERSION }}
+        ref: ${{ env.RELEASE_VERSION }}
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v20
@@ -113,7 +116,7 @@ jobs:
       with:
         repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
-        ref: ${{ steps.latest_tag.outputs.VERSION }}
+        ref: ${{ env.RELEASE_VERSION }}
 
     - name: 📥 Download test results
       uses: actions/download-artifact@v3
@@ -143,7 +146,7 @@ jobs:
       with:
         repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
-        ref: ${{ steps.latest_tag.outputs.VERSION }}
+        ref: ${{ env.RELEASE_VERSION }}
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v20
@@ -197,7 +200,7 @@ jobs:
       with:
         repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
-        ref: ${{ steps.latest_tag.outputs.VERSION }}
+        ref: ${{ env.RELEASE_VERSION }}
 
     - name: 📥 Download generated documentation
       uses: actions/download-artifact@v3
@@ -242,7 +245,7 @@ jobs:
       with:
         repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
-        ref: ${{ steps.latest_tag.outputs.VERSION }}
+        ref: ${{ env.RELEASE_VERSION }}
 
     - name: 🚧 Setup Node.js
       uses: actions/setup-node@v3
