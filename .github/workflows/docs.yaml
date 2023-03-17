@@ -1,18 +1,11 @@
-name: "CI"
-
-# Limit concurrent runs of this workflow within a single PR
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+name: "Release Docs"
 
 on:
-  push:
-    branches:
-    - master
-  pull_request:
-  schedule:
-    # Everyday at 4:00 AM
-    - cron: "0 4 * * *"
+  workflow_run:
+    workflows: ["CI"]
+    branches: [master]
+    types: 
+      - completed
 
 jobs:
   build-test:
@@ -27,18 +20,17 @@ jobs:
           - package: hydra-node
           - package: hydra-cluster
     steps:
+
+    - name: Get tag name
+      id: latest_tag
+      run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
       with:
         repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
-        # On pull_request events, we want to check out the latest commit of the
-        # PR, which is different to github.ref (the default, which would point
-        # to a "fake merge" commit). On push events, the default is fine as it
-        # refers to the pushed commit.
-        ref: ${{ github.event.pull_request.head.sha || github.ref }}
-        # Also ensure we have all history with all tags
-        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.VERSION }}
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v20
@@ -86,7 +78,7 @@ jobs:
       env:
         TERM: "xterm"
       # TUI specs are flaky. They are failing because of SIGSEGV. 
-      # There is an open issue to tackle this problem. https://github.com/issues/590-poc/issues/590
+      # There is an open issue to tackle this problem. https://github.com/ffakenz/hydra/issues/590-poc
       continue-on-error: true
       run: |
         nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
@@ -94,53 +86,22 @@ jobs:
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: test-results
+        name: test-results-released
         path: |
           ./**/test-results.xml
           ./**/hspec-results.md
 
-  build-executables:
-    name: "Build using nix"
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
-      with:
-        repository: ffakenz/hydra-poc
-        token: ${{ secrets.MY_TOKEN || github.token }}
-        # On pull_request events, we want to check out the latest commit of the
-        # PR, which is different to github.ref (the default, which would point
-        # to a "fake merge" commit). On push events, the default is fine as it
-        # refers to the pushed commit.
-        ref: ${{ github.event.pull_request.head.sha || github.ref }}
-        # Also ensure we have all history with all tags
-        fetch-depth: 0
+# checkout to latest release branch/tag
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v20
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
+# build & publish test-results, haddock and benchmark-results
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v12
-      with:
-        name: hydra-node
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+# generate docs
 
-    - name: ❄ Build static executables
-      run: |
-        mkdir -p bin/
-        nix build .#hydra-node-static && cp result/bin/* bin/
-        nix build .#hydra-tools-static && cp result/bin/* bin/
-        nix build .#hydra-tui-static && cp result/bin/* bin/
+# download docs artifact from CI (unstable)
 
-    - name: 💾 Upload executables
-      uses: actions/upload-artifact@v3
-      with:
-        name: hydra-x86_64-unknown-linux-musl
-        path: |
-          ./bin
+# merge docs
+
+# upload artifact (debug locally) => then publish docs
 
   publish-test-results:
     name: Publish test results
@@ -152,11 +113,12 @@ jobs:
       with:
         repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
+        ref: ${{ steps.latest_tag.outputs.VERSION }}
 
     - name: 📥 Download test results
       uses: actions/download-artifact@v3
       with:
-        name: test-results
+        name: test-results-released
 
     - name: ✏ Publish test results to PR
       uses: EnricoMi/publish-unit-test-result-action@v2
@@ -181,6 +143,7 @@ jobs:
       with:
         repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
+        ref: ${{ steps.latest_tag.outputs.VERSION }}
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v20
@@ -219,7 +182,7 @@ jobs:
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: benchmarks-and-haddocks
+        name: benchmarks-and-haddocks-released
         path: ./docs
 
   publish-benchmark-results:
@@ -234,11 +197,12 @@ jobs:
       with:
         repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
+        ref: ${{ steps.latest_tag.outputs.VERSION }}
 
     - name: 📥 Download generated documentation
       uses: actions/download-artifact@v3
       with:
-        name: benchmarks-and-haddocks
+        name: benchmarks-and-haddocks-released
         path: artifact
 
     - name: ⚙ Prepare comment body
@@ -278,8 +242,7 @@ jobs:
       with:
         repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
-        # Ensure we have all history with all commits
-        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.VERSION }}
 
     - name: 🚧 Setup Node.js
       uses: actions/setup-node@v3
@@ -291,23 +254,22 @@ jobs:
     - name: 📥 Download generated documentation
       uses: actions/download-artifact@v3
       with:
-        name: benchmarks-and-haddocks
+        name: benchmarks-and-haddocks-released
         path: docs
 
     - name: 📥 Download test results
       uses: actions/download-artifact@v3
       with:
-        name: test-results
+        name: test-results-released
         path: docs/benchmarks/tests
 
     - name: 📚 Documentation (Docusaurus)
       working-directory: docs
       run: |
-        # TODO edit docusaurus.config.js baseUrl to "/head-protocol/unstable/"
         yarn && yarn build
         yarn validate
-        mkdir -p unstable/
-        mv build/* unstable/
+        mkdir -p released/
+        mv build/* released/
         echo "hydra.family" > public/CNAME
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
@@ -322,5 +284,5 @@ jobs:
     - name: 💾 Upload unstable docs as an artifact
       uses: actions/upload-artifact@v3
       with:
-        name: unstable
-        path: ./unstable
+        name: released
+        path: ./released
