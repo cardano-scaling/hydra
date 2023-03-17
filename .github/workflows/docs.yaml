@@ -250,16 +250,25 @@ jobs:
     needs: [documentation]
     runs-on: ubuntu-latest
     steps:
-    - name: Merge builds
+    - name: Debug
       run: |
         ls -la
         mkdir artifact
+        mkdir artifact/unstable
+
+        ls -la artifact
+        ls -la artifact/unstable
 
     - name: 📥 Download test results-released
       uses: actions/download-artifact@v3
       with:
         name: released
         path: artifact
+
+    - name: Debug
+      run: |
+        ls -la artifact
+        ls -la artifact/unstable
 
     - name: 📥 Download test results-unstable
       id: download-artifact
@@ -268,11 +277,12 @@ jobs:
         workflow: ci.yaml
         workflow_conclusion: success
         name: unstable
-        path: artifact
+        path: artifact/unstable
 
-    - name: Merge builds
+    - name: Debug
       run: |
         ls -la artifact
+        ls -la artifact/unstable
         
     # - name: 🚢 Publish Documentation
     #   if: github.event_name == 'push'
