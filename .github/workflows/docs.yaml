@@ -289,7 +289,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: head-protocol
-        path: ./artifact
+        path: ./head-protocol
         
     # - name: 🚢 Publish Documentation
     #   if: github.event_name == 'push'
