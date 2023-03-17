@@ -309,7 +309,7 @@ jobs:
         mkdir -p public/unstable
         mv build/* public/unstable
         echo "hydra.family" > public/CNAME
-        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
+        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol/unstable"></head></html>' > public/index.html
 
     - name: 💾 Upload unstable docs as an artifact
       uses: actions/upload-artifact@v3
