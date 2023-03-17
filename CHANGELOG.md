@@ -46,6 +46,13 @@ changes.
   + View the transactions in the server output encoded as CBOR
   + Prevent utxo display in `SnapshotConfirmed` server outputs
 
+- **BREAKING** Changed the `hydra-plutus` scripts to address short-comings:
+  + Check contract continuity of state machine, i.e. that the output with the
+    state datum and ST is actually owned by vHead.
+  + Collect the right value in `collect` transactions (had been dropped for cost
+    reasons, but found a constant cost way to do it).
+  + The right `headId` is enforced in `commit` transactions.
+
 - Replaced existing websocket server with production-grade one
 
 - Removed `Greetings` messages from hydra-node history
