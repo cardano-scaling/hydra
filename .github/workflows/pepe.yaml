@@ -3,7 +3,7 @@ name: "Test"
 on:
   push:
     branches:
-    - master
+    - pepe
 
 jobs:
   test:
@@ -11,46 +11,24 @@ jobs:
     runs-on: ubuntu-latest
   
     steps:
+    - name: 📥 Checkout repository to latest master
+      uses: actions/checkout@v3
+      with:
+        repository: ffakenz/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        
     - name: Get tag name
       id: latest_tag
       run: |
-        echo "RELEASE_VERSION=$(echo ${GITHUB_REF:10})" >> $GITHUB_OUTPUT
-        echo "pepe"
-        echo $RELEASE_VERSION
-        echo ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
-        
-        echo "RELEASE_VERSION2=$(echo ${GITHUB_REF#refs/*/})" >> $GITHUB_OUTPUT
-        echo "pepe2"
-        echo $RELEASE_VERSION2
-        echo ${{ steps.latest_tag.outputs.RELEASE_VERSION2 }}
-        
-        echo "RELEASE_VERSION3=$(echo ${GITHUB_REF#refs/tags/})" >> $GITHUB_OUTPUT
-        echo "pepe3"
-        echo $RELEASE_VERSION3
-        echo ${{ steps.latest_tag.outputs.RELEASE_VERSION3 }}
-        
-        echo "RELEASE_VERSIONV=$(echo ${GITHUB_REF:10})" >> $GITHUB_ENV
-        echo "pepeV"
-        echo $RELEASE_VERSIONV
-        echo ${{ env.RELEASE_VERSIONV }}
-        
-    - name: Read tag name
-      id: read_tag
-      run: |
-        echo ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
-        echo ${{ steps.latest_tag.outputs.RELEASE_VERSION2 }}
-        echo ${{ steps.latest_tag.outputs.RELEASE_VERSION3 }}
-        echo ${{ env.RELEASE_VERSIONV }}
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
 
-    # - name: 📥 Checkout repository
-    #   uses: actions/checkout@v3
-    #   with:
-    #     repository: ffakenz/hydra-poc
-    #     token: ${{ secrets.MY_TOKEN || github.token }}
-    #     # On pull_request events, we want to check out the latest commit of the
-    #     # PR, which is different to github.ref (the default, which would point
-    #     # to a "fake merge" commit). On push events, the default is fine as it
-    #     # refers to the pushed commit.
-    #     ref: ${{ github.event.pull_request.head.sha || github.ref }}
-    #     # Also ensure we have all history with all tags
-    #     fetch-depth: 0
+    - name: 📥 Checkout repository to latest released version
+      uses: actions/checkout@v3
+      with:
+        repository: ffakenz/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}

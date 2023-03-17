@@ -8,7 +8,7 @@ concurrency:
 on:
   push:
     branches:
-    - pepe
+    - master
   pull_request:
   schedule:
     # Everyday at 4:00 AM
@@ -23,14 +23,14 @@ jobs:
         include:
           - package: plutus-cbor
           - package: plutus-merkle-tree
-          - package: hydra-tui
-          - package: hydra-node
-          - package: hydra-cluster
+          # - package: hydra-tui
+          # - package: hydra-node
+          # - package: hydra-cluster
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
         # On pull_request events, we want to check out the latest commit of the
         # PR, which is different to github.ref (the default, which would point
@@ -86,7 +86,7 @@ jobs:
       env:
         TERM: "xterm"
       # TUI specs are flaky. They are failing because of SIGSEGV. 
-      # There is an open issue to tackle this problem. https://github.com/issues/590-poc/issues/590
+      # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
       continue-on-error: true
       run: |
         nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
@@ -99,48 +99,48 @@ jobs:
           ./**/test-results.xml
           ./**/hspec-results.md
 
-  build-executables:
-    name: "Build using nix"
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
-      with:
-        repository: ffakenz/hydra-poc
-        token: ${{ secrets.MY_TOKEN || github.token }}
-        # On pull_request events, we want to check out the latest commit of the
-        # PR, which is different to github.ref (the default, which would point
-        # to a "fake merge" commit). On push events, the default is fine as it
-        # refers to the pushed commit.
-        ref: ${{ github.event.pull_request.head.sha || github.ref }}
-        # Also ensure we have all history with all tags
-        fetch-depth: 0
+  # build-executables:
+  #   name: "Build using nix"
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: 📥 Checkout repository
+  #     uses: actions/checkout@v3
+  #     with:
+  #       repository: input-output-hk/hydra
+  #       token: ${{ secrets.MY_TOKEN || github.token }}
+  #       # On pull_request events, we want to check out the latest commit of the
+  #       # PR, which is different to github.ref (the default, which would point
+  #       # to a "fake merge" commit). On push events, the default is fine as it
+  #       # refers to the pushed commit.
+  #       ref: ${{ github.event.pull_request.head.sha || github.ref }}
+  #       # Also ensure we have all history with all tags
+  #       fetch-depth: 0
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v20
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
+  #   - name: ❄ Prepare nix
+  #     uses: cachix/install-nix-action@v20
+  #     with:
+  #       extra_nix_config: |
+  #         accept-flake-config = true
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v12
-      with:
-        name: hydra-node
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+  #   - name: ❄ Cachix cache of nix derivations
+  #     uses: cachix/cachix-action@v12
+  #     with:
+  #       name: hydra-node
+  #       authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-    - name: ❄ Build static executables
-      run: |
-        mkdir -p bin/
-        nix build .#hydra-node-static && cp result/bin/* bin/
-        nix build .#hydra-tools-static && cp result/bin/* bin/
-        nix build .#hydra-tui-static && cp result/bin/* bin/
+  #   - name: ❄ Build static executables
+  #     run: |
+  #       mkdir -p bin/
+  #       nix build .#hydra-node-static && cp result/bin/* bin/
+  #       nix build .#hydra-tools-static && cp result/bin/* bin/
+  #       nix build .#hydra-tui-static && cp result/bin/* bin/
 
-    - name: 💾 Upload executables
-      uses: actions/upload-artifact@v3
-      with:
-        name: hydra-x86_64-unknown-linux-musl
-        path: |
-          ./bin
+  #   - name: 💾 Upload executables
+  #     uses: actions/upload-artifact@v3
+  #     with:
+  #       name: hydra-x86_64-unknown-linux-musl
+  #       path: |
+  #         ./bin
 
   publish-test-results:
     name: Publish test results
@@ -150,7 +150,7 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
 
     - name: 📥 Download test results
@@ -171,15 +171,15 @@ jobs:
         include:
           - bench: tx-cost
             options: '--output-directory $(pwd)/docs/benchmarks'
-          - bench: hydra-cluster
-            options: '--scaling-factor 1'
+          # - bench: hydra-cluster
+          #   options: '--scaling-factor 1'
           - bench: plutus-merkle-tree
             options: '$(pwd)/docs/benchmarks'
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
 
     - name: ❄ Prepare nix
@@ -224,7 +224,7 @@ jobs:
 
   publish-benchmark-results:
     name: Publish benchmark results
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    # if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     # TODO: this is actually only requires the tx-cost benchmark results
     needs: [haddock-benchmarks]
     runs-on: ubuntu-latest
@@ -232,7 +232,7 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
 
     - name: 📥 Download generated documentation
@@ -276,7 +276,7 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Ensure we have all history with all commits
         fetch-depth: 0
@@ -306,21 +306,13 @@ jobs:
         # TODO edit docusaurus.config.js baseUrl to "/head-protocol/unstable/"
         yarn && yarn build
         yarn validate
-        mkdir -p unstable/
-        mv build/* unstable/
+        mkdir -p public/unstable
+        mv build/* public/unstable
         echo "hydra.family" > public/CNAME
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
-    # - name: 🚢 Publish Documentation
-    #   if: github.event_name == 'push'
-    #   uses: peaceiris/actions-gh-pages@v3
-    #   with:
-    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-    #     publish_dir: docs/public
-    #     enable_jekyll: true
-    #     force_orphan: true
     - name: 💾 Upload unstable docs as an artifact
       uses: actions/upload-artifact@v3
       with:
         name: unstable
-        path: ./unstable
+        path: public/unstable

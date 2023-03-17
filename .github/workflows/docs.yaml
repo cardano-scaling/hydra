@@ -11,29 +11,37 @@ jobs:
   build-test:
     name: "Build & test using cabal"
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       matrix:
         include:
           - package: plutus-cbor
           - package: plutus-merkle-tree
-          - package: hydra-tui
-          - package: hydra-node
-          - package: hydra-cluster
+          # - package: hydra-tui
+          # - package: hydra-node
+          # - package: hydra-cluster
     steps:
-
+    - name: 📥 Checkout repository to latest master
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        
     - name: Get tag name
       id: latest_tag
       run: |
-        echo "RELEASE_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
-        echo $RELEASE_VERSION
-        echo ${{ env.RELEASE_VERSION }}
-    
-    - name: 📥 Checkout repository
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
+
+    - name: 📥 Checkout repository to latest released version
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
-        ref: ${{ env.RELEASE_VERSION }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v20
@@ -81,7 +89,7 @@ jobs:
       env:
         TERM: "xterm"
       # TUI specs are flaky. They are failing because of SIGSEGV. 
-      # There is an open issue to tackle this problem. https://github.com/ffakenz/hydra/issues/590-poc
+      # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
       continue-on-error: true
       run: |
         nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
@@ -94,29 +102,33 @@ jobs:
           ./**/test-results.xml
           ./**/hspec-results.md
 
-# checkout to latest release branch/tag
-
-# build & publish test-results, haddock and benchmark-results
-
-# generate docs
-
-# download docs artifact from CI (unstable)
-
-# merge docs
-
-# upload artifact (debug locally) => then publish docs
-
   publish-test-results:
     name: Publish test results
     needs: [build-test]
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-    - name: 📥 Checkout repository
+    - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
-        ref: ${{ env.RELEASE_VERSION }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        
+    - name: Get tag name
+      id: latest_tag
+      run: |
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
+
+    - name: 📥 Checkout repository to latest released version
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
 
     - name: 📥 Download test results
       uses: actions/download-artifact@v3
@@ -131,22 +143,38 @@ jobs:
   haddock-benchmarks:
     name: "Haddock & benchmarks"
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       matrix:
         include:
           - bench: tx-cost
             options: '--output-directory $(pwd)/docs/benchmarks'
-          - bench: hydra-cluster
-            options: '--scaling-factor 1'
+          # - bench: hydra-cluster
+          #   options: '--scaling-factor 1'
           - bench: plutus-merkle-tree
             options: '$(pwd)/docs/benchmarks'
     steps:
-    - name: 📥 Checkout repository
+    - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
-        ref: ${{ env.RELEASE_VERSION }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        
+    - name: Get tag name
+      id: latest_tag
+      run: |
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
+
+    - name: 📥 Checkout repository to latest released version
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v20
@@ -190,17 +218,32 @@ jobs:
 
   publish-benchmark-results:
     name: Publish benchmark results
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.workflow_run.conclusion == 'success'
     # TODO: this is actually only requires the tx-cost benchmark results
     needs: [haddock-benchmarks]
     runs-on: ubuntu-latest
     steps:
-    - name: 📥 Checkout repository
+    - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
-        ref: ${{ env.RELEASE_VERSION }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        
+    - name: Get tag name
+      id: latest_tag
+      run: |
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
+
+    - name: 📥 Checkout repository to latest released version
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
 
     - name: 📥 Download generated documentation
       uses: actions/download-artifact@v3
@@ -239,13 +282,29 @@ jobs:
     name: Documentation
     needs: [haddock-benchmarks,build-test]
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-    - name: 📥 Checkout repository
+    - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
-        ref: ${{ env.RELEASE_VERSION }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        
+    - name: Get tag name
+      id: latest_tag
+      run: |
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
+
+    - name: 📥 Checkout repository to latest released version
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
 
     - name: 🚧 Setup Node.js
       uses: actions/setup-node@v3
@@ -271,8 +330,8 @@ jobs:
       run: |
         yarn && yarn build
         yarn validate
-        mkdir -p released/
-        mv build/* released/
+        mkdir -p public/released
+        mv build/* public/released
         echo "hydra.family" > public/CNAME
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
