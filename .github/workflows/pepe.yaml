@@ -28,6 +28,13 @@ jobs:
         echo "pepeV"
         echo $RELEASE_VERSIONV
         echo ${{ env.RELEASE_VERSIONV }}
+        
+    - name: Read tag name
+      id: read_tag
+      run: |
+        echo ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
+        echo ${{ steps.latest_tag.outputs.RELEASE_VERSION2 }}
+        echo ${{ env.RELEASE_VERSIONV }}
 
     # - name: 📥 Checkout repository
     #   uses: actions/checkout@v3
