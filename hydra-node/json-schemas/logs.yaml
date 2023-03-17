@@ -147,6 +147,23 @@ properties:
                   type: string
                   enum: ["LoadedState"]
 
+            - title: Misconfiguration
+              description: >-
+                Hydra node detected a difference between loaded state and the node arguments.
+              type: object
+              additionalProperties: false
+              required:
+                - tag
+                - misconfigurationErrors
+              properties:
+                tag:
+                  type: string
+                  enum: ["Misconfiguration"]
+                misconfigurationErrors:
+                  type: array
+                  items:
+                    $ref: "#definitions/ParamMismatch"
+
 definitions:
   APIServer:
     oneOf:
@@ -420,6 +437,53 @@ definitions:
   # are based on internal type 'TimeServerOutput', so basically just contain an
   # adtitional 'timestamp' and 'seq'.
   ServerOutput: {}
+
+  ParamMismatch:
+    oneOf:
+      - title: ContestationPeriodMismatch
+        description: >-
+          The configured contestation period does not match with the value from the loaded state.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - loadedCp
+          - configuredCp
+        properties:
+          tag:
+            type: string
+            enum: ["ContestationPeriodMismatch"]
+          loadedCp:
+            <<: { "$ref": "api.yaml#/components/schemas/ContestationPeriod" }
+            description: >-
+              Contestation period present in the node state.
+          configuredCp:
+            <<: { "$ref": "api.yaml#/components/schemas/ContestationPeriod" }
+            description: >-
+              Contestation period configured as the node argument.
+      - title: PartiesMismatch
+        description: >-
+          The configured parties do not match with the value from the loaded state.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - loadedParties
+          - configuredParties
+        properties:
+          tag:
+            type: string
+            enum: ["PartiesMismatch"]
+          loadedParties:
+            type: array
+            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            description: >-
+              Parties present in the node state.
+          configuredParties:
+            type: array
+            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            description: >-
+              Parties configured as the node argument.
 
   # TODO: Fill the gap!
   Network: {}

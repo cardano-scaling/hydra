@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
@@ -8,7 +9,7 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, waitForUTxO)
-import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
+import CardanoNode (RunningNode (..), generateCardanoKey, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^?))
@@ -16,14 +17,17 @@ import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, 
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _JSON)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Data.Text (pack)
 import Hydra.Cardano.Api (
   AddressInEra,
   Key (SigningKey),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
+  Tx,
   TxId,
   TxIn (..),
   VerificationKey,
@@ -32,6 +36,7 @@ import Hydra.Cardano.Api (
   serialiseAddress,
   writeFileTextEnvelope,
  )
+import Hydra.Chain (HeadParameters (contestationPeriod, parties))
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
@@ -60,10 +65,11 @@ import Hydra.Cluster.Scenarios (
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
+import Hydra.HeadLogic (HeadState (Open), OpenState (parameters))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Options (ChainConfig (startChainFrom))
+import Hydra.Options
 import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (..),
@@ -79,13 +85,13 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
  )
-import System.Directory (removeDirectoryRecursive)
+import System.Directory (createDirectoryIfMissing, removeDirectoryRecursive)
 import System.FilePath ((</>))
 import System.IO (hGetLine)
 import System.IO.Error (isEOFError)
 import System.Process (CreateProcess (..), StdStream (..), proc, readCreateProcess, withCreateProcess)
 import System.Timeout (timeout)
-import Test.QuickCheck (generate)
+import Test.QuickCheck (generate, suchThat)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
 import qualified Prelude
@@ -360,15 +366,88 @@ spec = around showLogsOnFailure $ do
           version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
 
-      it "logs its command line arguments" $ \_ -> do
+      it "logs its command line arguments" $ \tracer -> do
         withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
-          let hydraSK = dir </> "hydra.sk"
-          hydraSKey :: SigningKey HydraKey <- generate arbitrary
-          void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
-          withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--testnet-magic", "42", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
-            \_ (Just nodeStdout) _ _ ->
-              waitForLog 10 nodeStdout "JSON object with key NodeOptions" $ \line ->
-                line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \RunningNode{nodeSocket} -> do
+            let hydraSK = dir </> "hydra.sk"
+            let cardanoSK = dir </> "cardano.sk"
+            hydraSKey :: SigningKey HydraKey <- generate arbitrary
+            (_, cardanoSKey) <- generateCardanoKey
+            void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
+            void $ writeFileTextEnvelope cardanoSK Nothing cardanoSKey
+            withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--testnet-magic", "42", "--hydra-signing-key", hydraSK,"--cardano-signing-key", cardanoSK, "--node-socket", nodeSocket]){std_out = CreatePipe} $
+              \_ (Just nodeStdout) _ _ ->
+                waitForLog 10 nodeStdout "JSON object with key NodeOptions" $ \line ->
+                  line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
+
+      it "detects misconfiguration" $ \tracer -> do
+        withTempDir "temp-dir-to-check-hydra-misconfiguration" $ \dir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            let persistenceDir = dir </> "persistence"
+            let cardanoSK = dir </> "cardano.sk"
+            let hydraSK = dir </> "hydra.sk"
+
+            (_, cardanoSKey) <- generateCardanoKey
+            hydraSKey :: SigningKey HydraKey <- generate arbitrary
+
+            void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
+            void $ writeFileTextEnvelope cardanoSK Nothing cardanoSKey
+
+            -- generate node state to save to a file
+            openState :: OpenState Tx <- generate arbitrary
+            let headParameters = parameters openState
+                stateContestationPeriod = Hydra.Chain.contestationPeriod headParameters
+
+            -- generate one value for CP different from what we have in the state
+            differentContestationPeriod <- generate $ arbitrary `suchThat` (/= stateContestationPeriod)
+
+            -- alter the state to trigger the errors
+            let alteredNodeState =
+                  Open
+                    ( openState
+                        { parameters =
+                            headParameters{contestationPeriod = differentContestationPeriod, parties = []}
+                        }
+                    )
+
+            -- save altered node state
+            void $ do
+              createDirectoryIfMissing True persistenceDir
+              BSL.writeFile (persistenceDir </> "state") (Aeson.encode alteredNodeState)
+
+            let nodeArgs =
+                  toArgs
+                    defaultRunOptions
+                      { chainConfig =
+                          defaultChainConfig
+                            { cardanoSigningKey = cardanoSK
+                            , nodeSocket
+                            , contestationPeriod = Hydra.Chain.contestationPeriod headParameters
+                            }
+                      , hydraSigningKey = hydraSK
+                      , hydraScriptsTxId
+                      , persistenceDir
+                      , ledgerConfig =
+                          defaultLedgerConfig
+                            { cardanoLedgerGenesisFile = "config/devnet/genesis-shelley.json"
+                            , cardanoLedgerProtocolParametersFile = "config/protocol-parameters.json"
+                            }
+                      }
+
+            -- expecting misconfiguration
+            withCreateProcess (proc "hydra-node" nodeArgs){std_out = CreatePipe, std_err = CreatePipe} $
+              \_ (Just nodeStdout) (Just nodeStdErr) _ -> do
+                -- we should be able to observe the log
+                waitForLog 10 nodeStdout "Detect Misconfiguration log" $ \outline ->
+                  outline ^? key "message" . key "tag" == Just (Aeson.String "Misconfiguration")
+
+                -- node should exit with appropriate exception
+                waitForLog 10 nodeStdErr "Detect ParamMismatchError" $ \errline ->
+                  let allLogLines = lines errline
+                      expectedLog =
+                        "hydra-node: ParamMismatchError \"Loaded state does not match given command line options. Please check the state in: " <> pack persistenceDir <> " against provided command line options.\""
+                   in expectedLog `elem` allLogLines
 
 waitForLog :: NominalDiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
@@ -517,7 +596,7 @@ initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, netw
       case fromJSON $ toJSON newUTxO of
         Error err ->
           failure $ "newUTxO isn't valid JSON?: " <> err
-        Success u ->
+        Data.Aeson.Success u ->
           failAfter 5 $ waitForUTxO networkId nodeSocket u
 
 --
