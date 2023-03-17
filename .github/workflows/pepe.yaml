@@ -17,7 +17,7 @@ jobs:
         echo "RELEASE_VERSION=${GITHUB_REF/refs\/tags\//}" >>$GITHUB_OUTPUT
         echo "pepe"
         echo $RELEASE_VERSION
-        echo ${{ env.RELEASE_VERSION }}
+        echo ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
 
 
 
