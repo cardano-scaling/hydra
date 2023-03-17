@@ -234,6 +234,33 @@ jobs:
         echo "hydra.family" > public/CNAME
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol/released"></head></html>' > public/index.html
 
+    # TODO: Remove - only used for debugging
+    - name: 💾 Upload unstable docs as an artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: released
+        path: ./docs/public/released
+
+  merge-builds:
+    name: Publish versioned docs
+    needs: [documentation]
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Download test results-released
+      uses: actions/download-artifact@v3
+      with:
+        name: released
+        path: docs/public/released
+
+    - name: 📥 Download test results-unstable
+      uses: actions/download-artifact@v3
+      with:
+        name: unstable
+        path: docs/public/unstable
+    
+    - name: Merge builds
+      run: |
+        ls -la
     # - name: 🚢 Publish Documentation
     #   if: github.event_name == 'push'
     #   uses: peaceiris/actions-gh-pages@v3
@@ -242,8 +269,4 @@ jobs:
     #     publish_dir: docs/public
     #     enable_jekyll: true
     #     force_orphan: true
-    - name: 💾 Upload unstable docs as an artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: released
-        path: ./docs/public/released
+    
