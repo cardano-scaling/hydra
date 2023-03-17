@@ -366,15 +366,19 @@ spec = around showLogsOnFailure $ do
           version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
 
-      it "logs its command line arguments" $ \_ -> do
+      it "logs its command line arguments" $ \tracer -> do
         withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
-          let hydraSK = dir </> "hydra.sk"
-          hydraSKey :: SigningKey HydraKey <- generate arbitrary
-          void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
-          withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--testnet-magic", "42", "--hydra-signing-key", hydraSK]){std_out = CreatePipe} $
-            \_ (Just nodeStdout) _ _ ->
-              waitForLog 10 nodeStdout "JSON object with key NodeOptions" $ \line ->
-                line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \RunningNode{nodeSocket} -> do
+            let hydraSK = dir </> "hydra.sk"
+            let cardanoSK = dir </> "cardano.sk"
+            hydraSKey :: SigningKey HydraKey <- generate arbitrary
+            (_, cardanoSKey) <- generateCardanoKey
+            void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
+            void $ writeFileTextEnvelope cardanoSK Nothing cardanoSKey
+            withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--testnet-magic", "42", "--hydra-signing-key", hydraSK,"--cardano-signing-key", cardanoSK, "--node-socket", nodeSocket]){std_out = CreatePipe} $
+              \_ (Just nodeStdout) _ _ ->
+                waitForLog 10 nodeStdout "JSON object with key NodeOptions" $ \line ->
+                  line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
 
       it "detects misconfiguration" $ \tracer -> do
         withTempDir "temp-dir-to-check-hydra-misconfiguration" $ \dir -> do
