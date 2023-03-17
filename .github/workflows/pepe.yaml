@@ -14,7 +14,7 @@ jobs:
     - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -27,7 +27,7 @@ jobs:
     - name: 📥 Checkout repository to latest released version
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0

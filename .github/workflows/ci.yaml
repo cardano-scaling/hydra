@@ -142,26 +142,26 @@ jobs:
   #       path: |
   #         ./bin
 
-  publish-test-results:
-    name: Publish test results
-    needs: [build-test]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
+  # publish-test-results:
+  #   name: Publish test results
+  #   needs: [build-test]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: 📥 Checkout repository
+  #     uses: actions/checkout@v3
+  #     with:
+  #       repository: input-output-hk/hydra
+  #       token: ${{ secrets.MY_TOKEN || github.token }}
 
-    - name: 📥 Download test results
-      uses: actions/download-artifact@v3
-      with:
-        name: test-results
+  #   - name: 📥 Download test results
+  #     uses: actions/download-artifact@v3
+  #     with:
+  #       name: test-results
 
-    - name: ✏ Publish test results to PR
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      with:
-        junit_files: ./**/test-results.xml
+  #   - name: ✏ Publish test results to PR
+  #     uses: EnricoMi/publish-unit-test-result-action@v2
+  #     with:
+  #       junit_files: ./**/test-results.xml
 
   haddock-benchmarks:
     name: "Haddock & benchmarks"
@@ -224,7 +224,7 @@ jobs:
 
   publish-benchmark-results:
     name: Publish benchmark results
-    # if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     # TODO: this is actually only requires the tx-cost benchmark results
     needs: [haddock-benchmarks]
     runs-on: ubuntu-latest
@@ -312,6 +312,7 @@ jobs:
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
     - name: 💾 Upload unstable docs as an artifact
+      working-directory: docs
       uses: actions/upload-artifact@v3
       with:
         name: unstable

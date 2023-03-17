@@ -102,44 +102,6 @@ jobs:
           ./**/test-results.xml
           ./**/hspec-results.md
 
-  publish-test-results:
-    name: Publish test results
-    needs: [build-test]
-    runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    steps:
-    - name: 📥 Checkout repository to latest master
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-        # Also ensure we have all history with all tags
-        fetch-depth: 0
-        
-    - name: Get tag name
-      id: latest_tag
-      run: |
-        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
-
-    - name: 📥 Checkout repository to latest released version
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-        # Also ensure we have all history with all tags
-        fetch-depth: 0
-        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
-
-    - name: 📥 Download test results
-      uses: actions/download-artifact@v3
-      with:
-        name: test-results-released
-
-    - name: ✏ Publish test results to PR
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      with:
-        junit_files: ./**/test-results.xml
-
   haddock-benchmarks:
     name: "Haddock & benchmarks"
     runs-on: ubuntu-latest
@@ -216,73 +178,10 @@ jobs:
         name: benchmarks-and-haddocks-released
         path: ./docs
 
-  publish-benchmark-results:
-    name: Publish benchmark results
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.workflow_run.conclusion == 'success'
-    # TODO: this is actually only requires the tx-cost benchmark results
-    needs: [haddock-benchmarks]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository to latest master
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-        # Also ensure we have all history with all tags
-        fetch-depth: 0
-        
-    - name: Get tag name
-      id: latest_tag
-      run: |
-        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
-
-    - name: 📥 Checkout repository to latest released version
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-        # Also ensure we have all history with all tags
-        fetch-depth: 0
-        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
-
-    - name: 📥 Download generated documentation
-      uses: actions/download-artifact@v3
-      with:
-        name: benchmarks-and-haddocks-released
-        path: artifact
-
-    - name: ⚙ Prepare comment body
-      id: comment-body
-      run: |
-        # Drop first 5 header lines and demote headlines one level
-        body="$(cat artifact/benchmarks/transaction-cost.md | sed '1,5d;s/^#/##/')"
-        body="${body//'%'/'%25'}"
-        body="${body//$'\n'/'%0A'}"
-        body="${body//$'\r'/'%0D'}"
-        echo "::set-output name=body::$body"
-
-    - name: 🔎 Find Comment
-      uses: peter-evans/find-comment@v2
-      id: find-comment
-      with:
-        issue-number: ${{ github.event.pull_request.number }}
-        comment-author: 'github-actions[bot]'
-        body-includes: Transactions Costs
-
-    - name: ✏ Create or update comment
-      uses: peter-evans/create-or-update-comment@v2
-      with:
-        comment-id: ${{ steps.find-comment.outputs.comment-id }}
-        edit-mode: replace
-        issue-number: ${{ github.event.pull_request.number }}
-        body: ${{ steps.comment-body.outputs.body }}
-        reactions: rocket
-
   documentation:
     name: Documentation
     needs: [haddock-benchmarks,build-test]
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
     - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
