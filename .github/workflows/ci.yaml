@@ -8,7 +8,7 @@ concurrency:
 on:
   push:
     branches:
-    - pepe
+    - master
   pull_request:
   schedule:
     # Everyday at 4:00 AM
@@ -23,9 +23,9 @@ jobs:
         include:
           - package: plutus-cbor
           - package: plutus-merkle-tree
-          # - package: hydra-tui
-          # - package: hydra-node
-          # - package: hydra-cluster
+          - package: hydra-tui
+          - package: hydra-node
+          - package: hydra-cluster
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
@@ -99,69 +99,69 @@ jobs:
           ./**/test-results.xml
           ./**/hspec-results.md
 
-  # build-executables:
-  #   name: "Build using nix"
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: 📥 Checkout repository
-  #     uses: actions/checkout@v3
-  #     with:
-  #       repository: input-output-hk/hydra
-  #       token: ${{ secrets.MY_TOKEN || github.token }}
-  #       # On pull_request events, we want to check out the latest commit of the
-  #       # PR, which is different to github.ref (the default, which would point
-  #       # to a "fake merge" commit). On push events, the default is fine as it
-  #       # refers to the pushed commit.
-  #       ref: ${{ github.event.pull_request.head.sha || github.ref }}
-  #       # Also ensure we have all history with all tags
-  #       fetch-depth: 0
+  build-executables:
+    name: "Build using nix"
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # On pull_request events, we want to check out the latest commit of the
+        # PR, which is different to github.ref (the default, which would point
+        # to a "fake merge" commit). On push events, the default is fine as it
+        # refers to the pushed commit.
+        ref: ${{ github.event.pull_request.head.sha || github.ref }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
 
-  #   - name: ❄ Prepare nix
-  #     uses: cachix/install-nix-action@v20
-  #     with:
-  #       extra_nix_config: |
-  #         accept-flake-config = true
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v20
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
 
-  #   - name: ❄ Cachix cache of nix derivations
-  #     uses: cachix/cachix-action@v12
-  #     with:
-  #       name: hydra-node
-  #       authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v12
+      with:
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-  #   - name: ❄ Build static executables
-  #     run: |
-  #       mkdir -p bin/
-  #       nix build .#hydra-node-static && cp result/bin/* bin/
-  #       nix build .#hydra-tools-static && cp result/bin/* bin/
-  #       nix build .#hydra-tui-static && cp result/bin/* bin/
+    - name: ❄ Build static executables
+      run: |
+        mkdir -p bin/
+        nix build .#hydra-node-static && cp result/bin/* bin/
+        nix build .#hydra-tools-static && cp result/bin/* bin/
+        nix build .#hydra-tui-static && cp result/bin/* bin/
 
-  #   - name: 💾 Upload executables
-  #     uses: actions/upload-artifact@v3
-  #     with:
-  #       name: hydra-x86_64-unknown-linux-musl
-  #       path: |
-  #         ./bin
+    - name: 💾 Upload executables
+      uses: actions/upload-artifact@v3
+      with:
+        name: hydra-x86_64-unknown-linux-musl
+        path: |
+          ./bin
 
-  # publish-test-results:
-  #   name: Publish test results
-  #   needs: [build-test]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: 📥 Checkout repository
-  #     uses: actions/checkout@v3
-  #     with:
-  #       repository: input-output-hk/hydra
-  #       token: ${{ secrets.MY_TOKEN || github.token }}
+  publish-test-results:
+    name: Publish test results
+    needs: [build-test]
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
 
-  #   - name: 📥 Download test results
-  #     uses: actions/download-artifact@v3
-  #     with:
-  #       name: test-results
+    - name: 📥 Download test results
+      uses: actions/download-artifact@v3
+      with:
+        name: test-results
 
-  #   - name: ✏ Publish test results to PR
-  #     uses: EnricoMi/publish-unit-test-result-action@v2
-  #     with:
-  #       junit_files: ./**/test-results.xml
+    - name: ✏ Publish test results to PR
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      with:
+        junit_files: ./**/test-results.xml
 
   haddock-benchmarks:
     name: "Haddock & benchmarks"
@@ -171,8 +171,8 @@ jobs:
         include:
           - bench: tx-cost
             options: '--output-directory $(pwd)/docs/benchmarks'
-          # - bench: hydra-cluster
-          #   options: '--scaling-factor 1'
+          - bench: hydra-cluster
+            options: '--scaling-factor 1'
           - bench: plutus-merkle-tree
             options: '$(pwd)/docs/benchmarks'
     steps:

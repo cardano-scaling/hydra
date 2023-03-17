@@ -1,29 +1,25 @@
 name: "Release Docs"
 
 on:
-  push:
-    branches:
-    - master
-# on:
-#   workflow_run:
-#     workflows: ["CI"]
-#     branches: [master]
-#     types: 
-#       - completed
+  workflow_run:
+    workflows: ["CI"]
+    branches: [master]
+    types: 
+      - completed
 
 jobs:
   build-test:
     name: "Build & test using cabal"
     runs-on: ubuntu-latest
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       matrix:
         include:
           - package: plutus-cbor
           - package: plutus-merkle-tree
-          # - package: hydra-tui
-          # - package: hydra-node
-          # - package: hydra-cluster
+          - package: hydra-tui
+          - package: hydra-node
+          - package: hydra-cluster
     steps:
     - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
@@ -33,7 +29,7 @@ jobs:
         # Also ensure we have all history with all tags
         fetch-depth: 0
         
-    - name: Get tag name
+    - name: Get last relase version tag
       id: latest_tag
       run: |
         echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
@@ -98,7 +94,7 @@ jobs:
       run: |
         nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
 
-    - name: 💾 Upload build & test artifacts
+    - name: 💾 Upload build & test released artifacts
       uses: actions/upload-artifact@v3
       with:
         name: test-results-released
@@ -109,14 +105,14 @@ jobs:
   haddock-benchmarks:
     name: "Haddock & benchmarks"
     runs-on: ubuntu-latest
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       matrix:
         include:
           - bench: tx-cost
             options: '--output-directory $(pwd)/docs/benchmarks'
-          # - bench: hydra-cluster
-          #   options: '--scaling-factor 1'
+          - bench: hydra-cluster
+            options: '--scaling-factor 1'
           - bench: plutus-merkle-tree
             options: '$(pwd)/docs/benchmarks'
     steps:
@@ -128,7 +124,7 @@ jobs:
         # Also ensure we have all history with all tags
         fetch-depth: 0
         
-    - name: Get tag name
+    - name: Get last relase version tag
       id: latest_tag
       run: |
         echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
@@ -176,7 +172,7 @@ jobs:
       run: |
         nix develop .#ci --command bash -c '.github/workflows/ci-haddock.sh'
 
-    - name: 💾 Upload build & test artifacts
+    - name: 💾 Upload build & test released artifacts
       uses: actions/upload-artifact@v3
       with:
         name: benchmarks-and-haddocks-released
@@ -195,7 +191,7 @@ jobs:
         # Also ensure we have all history with all tags
         fetch-depth: 0
         
-    - name: Get tag name
+    - name: Get last relase version tag
       id: latest_tag
       run: |
         echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
@@ -216,13 +212,13 @@ jobs:
         cache: 'yarn'
         cache-dependency-path: docs/yarn.lock
 
-    - name: 📥 Download generated documentation
+    - name: 📥 Download generated released documentation
       uses: actions/download-artifact@v3
       with:
         name: benchmarks-and-haddocks-released
         path: docs
 
-    - name: 📥 Download test results
+    - name: 📥 Download test released results
       uses: actions/download-artifact@v3
       with:
         name: test-results-released
@@ -233,63 +229,26 @@ jobs:
       run: |
         yarn && yarn build
         yarn validate
-        mkdir -p public/released
-        mv build/* public/released
+        mkdir -p public/
+        mkdir -p public/unstable
+        mv build/* public/
         echo "hydra.family" > public/CNAME
-        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol/released"></head></html>' > public/index.html
+        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
-    # TODO: Remove - only used for debugging
-    - name: 💾 Upload unstable docs as an artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: released
-        path: ./docs/public/released
-
-  merge-builds:
-    name: Publish versioned docs
-    needs: [documentation]
-    runs-on: ubuntu-latest
-    steps:
-    - name: Debug
-      run: |
-        ls -la
-        mkdir artifact
-        mkdir artifact/unstable
-
-        ls -la artifact
-        ls -la artifact/unstable
-
-    - name: 📥 Download test results-released
-      uses: actions/download-artifact@v3
-      with:
-        name: released
-        path: artifact
-
-    - name: Debug
-      run: |
-        ls -la artifact
-        ls -la artifact/unstable
-
-    - name: 📥 Download test results-unstable
+    - name: 📥 Download & Merge unstable docs with released
       id: download-artifact
       uses: dawidd6/action-download-artifact@v2
       with:
         workflow: ci.yaml
         workflow_conclusion: success
         name: unstable
-        path: artifact/unstable
-
-    - name: Debug
-      run: |
-        ls -la artifact
-        ls -la artifact/unstable
-        mv artifact head-protocol
+        path: docs/public/unstable
 
     - name: 💾 Upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: head-protocol
-        path: ./head-protocol
+        path: docs/public
         
     # - name: 🚢 Publish Documentation
     #   if: github.event_name == 'push'
