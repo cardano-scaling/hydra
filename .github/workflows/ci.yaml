@@ -312,8 +312,8 @@ jobs:
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
     - name: 💾 Upload unstable docs as an artifact
-      working-directory: docs
       uses: actions/upload-artifact@v3
+      working-directory: docs
       with:
         name: unstable
         path: public/unstable
