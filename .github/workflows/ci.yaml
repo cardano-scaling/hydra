@@ -8,7 +8,7 @@ concurrency:
 on:
   push:
     branches:
-    - master
+    - pepe
   pull_request:
   schedule:
     # Everyday at 4:00 AM

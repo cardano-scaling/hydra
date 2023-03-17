@@ -1,0 +1,34 @@
+name: "Test"
+
+on:
+  push:
+    branches:
+    - master
+
+jobs:
+  test:
+    name: "Pepe"
+    runs-on: ubuntu-latest
+  
+    steps:
+    - name: Get tag name
+      id: latest_tag
+      run: |
+        echo RELEASE_VERSION=${GITHUB_REF/refs\/tags\//} >>$GITHUB_OUTPUT
+        echo $RELEASE_VERSION
+        echo ${{ env.RELEASE_VERSION }}
+
+
+
+    # - name: 📥 Checkout repository
+    #   uses: actions/checkout@v3
+    #   with:
+    #     repository: ffakenz/hydra-poc
+    #     token: ${{ secrets.MY_TOKEN || github.token }}
+    #     # On pull_request events, we want to check out the latest commit of the
+    #     # PR, which is different to github.ref (the default, which would point
+    #     # to a "fake merge" commit). On push events, the default is fine as it
+    #     # refers to the pushed commit.
+    #     ref: ${{ github.event.pull_request.head.sha || github.ref }}
+    #     # Also ensure we have all history with all tags
+    #     fetch-depth: 0
