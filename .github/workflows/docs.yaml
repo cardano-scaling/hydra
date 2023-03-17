@@ -262,11 +262,14 @@ jobs:
         path: artifact
 
     - name: 📥 Download test results-unstable
-      uses: actions/download-artifact@v3
+      id: download-artifact
+      uses: dawidd6/action-download-artifact@v2
       with:
+        workflow: ci.yaml
+        workflow_conclusion: success
         name: unstable
         path: artifact
-    
+
     - name: Merge builds
       run: |
         ls -la artifact
