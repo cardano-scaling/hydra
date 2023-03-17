@@ -313,7 +313,6 @@ jobs:
 
     - name: 💾 Upload unstable docs as an artifact
       uses: actions/upload-artifact@v3
-      working-directory: docs
       with:
         name: unstable
-        path: public/unstable
+        path: ./docs/public/unstable
