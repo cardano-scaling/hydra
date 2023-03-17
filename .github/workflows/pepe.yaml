@@ -24,6 +24,11 @@ jobs:
         echo $RELEASE_VERSION2
         echo ${{ steps.latest_tag.outputs.RELEASE_VERSION2 }}
         
+        echo "RELEASE_VERSION3=$(echo ${GITHUB_REF#refs/tags/})" >> $GITHUB_OUTPUT
+        echo "pepe3"
+        echo $RELEASE_VERSION3
+        echo ${{ steps.latest_tag.outputs.RELEASE_VERSION3 }}
+        
         echo "RELEASE_VERSIONV=$(echo ${GITHUB_REF:10})" >> $GITHUB_ENV
         echo "pepeV"
         echo $RELEASE_VERSIONV
@@ -34,6 +39,7 @@ jobs:
       run: |
         echo ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
         echo ${{ steps.latest_tag.outputs.RELEASE_VERSION2 }}
+        echo ${{ steps.latest_tag.outputs.RELEASE_VERSION3 }}
         echo ${{ env.RELEASE_VERSIONV }}
 
     # - name: 📥 Checkout repository
