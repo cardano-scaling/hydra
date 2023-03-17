@@ -283,6 +283,13 @@ jobs:
       run: |
         ls -la artifact
         ls -la artifact/unstable
+        mv artifact head-protocol
+
+    - name: 💾 Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: head-protocol
+        path: artifact/unstable
         
     # - name: 🚢 Publish Documentation
     #   if: github.event_name == 'push'
