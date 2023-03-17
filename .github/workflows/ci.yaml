@@ -303,7 +303,7 @@ jobs:
     - name: 📚 Documentation (Docusaurus)
       working-directory: docs
       run: |
-        # TODO edit docusaurus.config.js baseUrl to "/head-protocol/unstable/"
+        sed -i 's/head-protocol/head-protocol\/unstable/' docusaurus.config.js
         yarn && yarn build
         yarn validate
         mkdir -p public/unstable
