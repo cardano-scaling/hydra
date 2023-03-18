@@ -304,18 +304,16 @@ jobs:
     - name: 📚 Documentation (Docusaurus)
       working-directory: docs
       run: |
+        sed -i 's/head-protocol/head-protocol\/unstable/' docusaurus.config.js
         yarn && yarn build
         yarn validate
-        mkdir -p public/head-protocol
-        mv build/* public/head-protocol
+        mkdir -p public/unstable
+        mv build/* public/unstable
         echo "hydra.family" > public/CNAME
-        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
+        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol/unstable"></head></html>' > public/index.html
 
-    - name: 🚢 Publish Documentation
-      if: github.event_name == 'push'
-      uses: peaceiris/actions-gh-pages@v3
+    - name: 💾 Upload unstable docs as an artifact
+      uses: actions/upload-artifact@v3
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        publish_dir: docs/public
-        enable_jekyll: true
-        force_orphan: true
+        name: unstable
+        path: ./docs/public/unstable
