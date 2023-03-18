@@ -1,0 +1,263 @@
+name: "Release Docs"
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [master]
+    types: 
+      - completed
+
+jobs:
+  build-test:
+    name: "Build & test using cabal"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      matrix:
+        include:
+          - package: plutus-cbor
+          - package: plutus-merkle-tree
+          - package: hydra-tui
+          - package: hydra-node
+          - package: hydra-cluster
+    steps:
+    - name: 📥 Checkout repository to latest master
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        
+    - name: Get last relase version tag
+      id: latest_tag
+      run: |
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
+
+    - name: 📥 Checkout repository to latest released version
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v20
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v12
+      with:
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+    - name: 🔁 Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}-${{ matrix.package }}
+        restore-keys: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+
+    - name: 🧰 Prepare tools
+      run: |
+        nix develop .#ci --command bash -c 'cabal update'
+
+    - name: 🔨 Build
+      run: |
+        nix develop .#ci --command bash -c 'cabal build ${{ matrix.package }}'
+
+    - name: ❓ Test
+      if: ${{ matrix.package != 'hydra-tui' }}
+      run: |
+        nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
+
+    - name: ❓ Test (TUI)
+      id: test_tui
+      if: ${{ matrix.package == 'hydra-tui' }}
+      # https://giters.com/gfx/example-github-actions-with-tty
+      # The default shell does not allocate a TTY which breaks some tests
+      shell: 'script -q -e -c "bash {0}"'
+      env:
+        TERM: "xterm"
+      # TUI specs are flaky. They are failing because of SIGSEGV. 
+      # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
+      continue-on-error: true
+      run: |
+        nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
+
+    - name: 💾 Upload build & test released artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-released
+        path: |
+          ./**/test-results.xml
+          ./**/hspec-results.md
+
+  haddock-benchmarks:
+    name: "Haddock & benchmarks"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      matrix:
+        include:
+          - bench: tx-cost
+            options: '--output-directory $(pwd)/docs/benchmarks'
+          - bench: hydra-cluster
+            options: '--scaling-factor 1'
+          - bench: plutus-merkle-tree
+            options: '$(pwd)/docs/benchmarks'
+    steps:
+    - name: 📥 Checkout repository to latest master
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        
+    - name: Get last relase version tag
+      id: latest_tag
+      run: |
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
+
+    - name: 📥 Checkout repository to latest released version
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v20
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v12
+      with:
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+    - name: 🔁 Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+
+    - name: 🧰 Prepare tools
+      run: |
+        nix develop .#ci --command bash -c 'cabal update'
+
+    - name: 📈 Benchmark
+      run: |
+        nix develop .#ci --command bash -c 'cabal bench ${{ matrix.bench }} --benchmark-options "${{ matrix.options }}"'
+
+    - name: 📚 Documentation (Haddock)
+      run: |
+        nix develop .#ci --command bash -c '.github/workflows/ci-haddock.sh'
+
+    - name: 💾 Upload build & test released artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmarks-and-haddocks-released
+        path: ./docs
+
+  documentation:
+    name: Documentation
+    needs: [haddock-benchmarks,build-test]
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository to latest master
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        
+    - name: Get last relase version tag
+      id: latest_tag
+      run: |
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
+
+    - name: 📥 Checkout repository to latest released version
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
+
+    - name: 🚧 Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16
+        cache: 'yarn'
+        cache-dependency-path: docs/yarn.lock
+
+    - name: 📥 Download generated released documentation
+      uses: actions/download-artifact@v3
+      with:
+        name: benchmarks-and-haddocks-released
+        path: docs
+
+    - name: 📥 Download test released results
+      uses: actions/download-artifact@v3
+      with:
+        name: test-results-released
+        path: docs/benchmarks/tests
+
+    - name: 📚 Documentation (Docusaurus)
+      working-directory: docs
+      run: |
+        yarn && yarn build
+        yarn validate
+        mkdir -p public/
+        mkdir -p public/unstable
+        mv build/* public/
+        echo "hydra.family" > public/CNAME
+        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
+
+    - name: 📥 Download & Merge unstable docs with released
+      id: download-artifact
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        name: unstable
+        path: docs/public/unstable
+
+    # TODO remove as it is only used for debugging
+    - name: 💾 Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: head-protocol
+        path: docs/public
+        
+    # TODO enable this section
+    # - name: 🚢 Publish Documentation
+    #   if: github.event_name == 'push'
+    #   uses: peaceiris/actions-gh-pages@v3
+    #   with:
+    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+    #     publish_dir: docs/public
+    #     enable_jekyll: true
+    #     force_orphan: true
+    
