@@ -6,7 +6,7 @@
 
 - The current transaction size has a limit of ~16KB. This causes the following inconveniences:
 
-  - The protocol can only handle a maximum number of participants by Head. See [cost of collectcom transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-collectcom-transaction) or the `hydra-node` will inform you of the current configured maximum when trying to configure too many peers.
+  - The protocol can only handle a maximum number of participants by Head. See [cost of collectcom transaction](/benchmarks/transaction-cost/#cost-of-collectcom-transaction) or the `hydra-node` will inform you of the current configured maximum when trying to configure too many peers.
 
   - Each party can only commit zero or one utxo into a Head.
 

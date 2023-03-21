@@ -78,4 +78,4 @@ Finally, hydra-node exposes several useful functions to wait for output from the
 
 Remember the nodes will always produce output in JSON format, so all the assertions will expect some form of `Aeson.Value` to check against. For example, after we submit a transaction to the node, we can use `waitMatch` to parse the `SnaphotConfirmed` event and extract the transactions present in that snapshot to check if it contains the transaction we just sent.
 
-For more details about the `hydra-cluster` functions (i.e. `waitFor` and `waitMatch`), visit the [haddock](https://hydra.family/head-protocol/haddock/hydra-cluster/HydraNode.html)
+For more details about the `hydra-cluster` functions (i.e. `waitFor` and `waitMatch`), visit the [haddock](/haddock/hydra-cluster/HydraNode.html)
