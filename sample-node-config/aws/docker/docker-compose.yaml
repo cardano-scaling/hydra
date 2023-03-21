@@ -52,7 +52,8 @@ services:
       , "--hydra-signing-key", "/config/hydra-key.sk"
       , "--cardano-signing-key", "/config/cardano-key.sk"
       , "--ledger-protocol-parameters", "/config/protocol-parameters.json"
-      , "--testnet-magic", "${NETWORK_MAGIC}"
+      # , "--testnet-magic", "${NETWORK_MAGIC}"
+      , "--mainnet"
       , "--node-socket", "/devnet/node.socket"
       , "--persistence-dir", "/data/persistence"
       # hardcoded peers
