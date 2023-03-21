@@ -1,16 +1,16 @@
 name: "Release Docs"
 
-on:
-  push:
-    branches:
-    - master
-
 # on:
-#   workflow_run:
-#     workflows: ["CI"]
-#     branches: [master]
-#     types: 
-#       - completed
+#   push:
+#     branches:
+#     - master
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [master]
+    types: 
+      - completed
 
 jobs:
   build-test:
