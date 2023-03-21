@@ -3,9 +3,6 @@ sidebar_position: 2
 ---
 
 # Installation
-PEPE 
-[pepe2](/benchmarks/transaction-cost/)
-[pepe6](/haddock/hydra-plutus/Hydra-Contract-Commit.html)
 
 ```mdx-code-block
 import TerminalWindow from '@site/src/components/TerminalWindow';

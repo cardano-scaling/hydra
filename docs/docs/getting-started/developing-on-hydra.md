@@ -12,7 +12,7 @@ Here is where the differences will begin. Currently, there is no [support for th
 
 Instead, transactions will need to be constructed and submitted to the Hydra Node in CBOR format. The interface to speak to a Hydra Node is a websocket, and developers must build applications that connect to these websockets in order to send and receive events through them.
 
-The Hydra node will emit several commands through this websocket: the API is defined [here](https://hydra.family/head-protocol/api-reference).
+The Hydra node will emit several commands through this websocket: the API is defined [here](/api-reference).
 The API reference is divided into two sections: Pub and Sub.
 The first one describes the commands that a hydra node will accept, while the second one describes the events that will be emitted through the websocket.
 
@@ -78,4 +78,4 @@ Finally, hydra-node exposes several useful functions to wait for output from the
 
 Remember the nodes will always produce output in JSON format, so all the assertions will expect some form of `Aeson.Value` to check against. For example, after we submit a transaction to the node, we can use `waitMatch` to parse the `SnaphotConfirmed` event and extract the transactions present in that snapshot to check if it contains the transaction we just sent.
 
-For more details about the `hydra-cluster` functions (i.e. `waitFor` and `waitMatch`), visit the [haddock](https://hydra.family/head-protocol/haddock/hydra-cluster/HydraNode.html)
+For more details about the `hydra-cluster` functions (i.e. `waitFor` and `waitMatch`), visit the [haddock](/haddock/hydra-cluster/HydraNode.html)

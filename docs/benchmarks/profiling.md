@@ -3,9 +3,6 @@ sidebar_position: 10
 ---
 
 # Profiling Hydra scripts
-PEPE 
-[pepe2](/benchmarks/transaction-cost/)
-[pepe6](/haddock/hydra-plutus/Hydra-Contract-Commit.html)
 
 This is a quick tutorial how to profile Hydra scripts and is intended for
 contributors to the `hydra-node`.
@@ -13,7 +10,7 @@ contributors to the `hydra-node`.
 On every PR and also for the latest `master`, we do compute typical transaction
 costs in size, memory and cpu usage of the Hydra protocol transactions on
 Cardano. The latest results can be seen
-[here](https://hydra.family/head-protocol/benchmarks/transaction-cost/).
+[here](/benchmarks/transaction-cost/).
 
 Such benchmarks provide a great overview of what "fits" into a given transaction
 in terms of maximum transaction size, percent of maximum memory and cpu budget.
@@ -60,13 +57,13 @@ need to add
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:profile-all #-}
 ```
 
-to the corresponding modules [`Hydra.Contract.Commit`](https://hydra.family/head-protocol/haddock/hydra-plutus/Hydra-Contract-Commit.html) and
-[`Hydra.Contract.Head`](https://hydra.family/head-protocol/haddock/hydra-plutus/Hydra-Contract-Head.html).
+to the corresponding modules [`Hydra.Contract.Commit`](/haddock/hydra-plutus/Hydra-Contract-Commit.html) and
+[`Hydra.Contract.Head`](/haddock/hydra-plutus/Hydra-Contract-Head.html).
 
 ## Acquiring an executable script
 
 This can be now achieved using
-[`prepareTxScripts`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Ledger-Cardano-Evaluate.html#v:prepareTxScripts).
+[`prepareTxScripts`](/haddock/hydra-node/Hydra-Ledger-Cardano-Evaluate.html#v:prepareTxScripts).
 We can use this function to acquire and dump the fully applied scripts from the
 transaction onto disk.
 

@@ -14,11 +14,11 @@
 
 - The current transaction size has a limit of ~16KB. This causes the following inconveniences:
 
-    + The protocol can only handle a maximum number of participants by Head. See [cost of collectcom transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-collectcom-transaction) or the `hydra-node` will inform you of the current configured maximum when trying to configure too many peers.
+    + The protocol can only handle a maximum number of participants by Head. See [cost of collectcom transaction](/benchmarks/transaction-cost/#cost-of-collectcom-transaction) or the `hydra-node` will inform you of the current configured maximum when trying to configure too many peers.
 
     + Only one or no utxo can be committed by each party to a Head.
 
-    + The head cannot be finalized if holding more than ~100 assets. See [cost of fanout transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-fanout-transaction) for latest numbers.
+    + The head cannot be finalized if holding more than ~100 assets. See [cost of fanout transaction](/benchmarks/transaction-cost/#cost-of-fanout-transaction) for latest numbers.
 
 - Comitting a `UTxO` with a `ReferenceScript` will make the head not finalizable.
 
@@ -32,7 +32,7 @@
    + If you run into this, file an issue and the Hydra team will be able to help
      you finalize your head in a manual workaround.
 
-- Not an issue, but a workaround: The internal wallet of `hydra-node` requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](https://hydra.family/head-protocol/docs/getting-started/demo/with-docker/#seeding-the-network).
+- Not an issue, but a workaround: The internal wallet of `hydra-node` requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](/docs/getting-started/demo/with-docker/#seeding-the-network).
 
 ### hydra-tui
 
