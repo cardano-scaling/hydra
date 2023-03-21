@@ -3,6 +3,9 @@ sidebar_position: 10
 ---
 
 # Profiling Hydra scripts
+PEPE 
+[pepe2](/benchmarks/transaction-cost/)
+[pepe6](/haddock/hydra-plutus/Hydra-Contract-Commit.html)
 
 This is a quick tutorial how to profile Hydra scripts and is intended for
 contributors to the `hydra-node`.

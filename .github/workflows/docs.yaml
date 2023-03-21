@@ -22,14 +22,14 @@ jobs:
         include:
           - package: plutus-cbor
           - package: plutus-merkle-tree
-          - package: hydra-tui
-          - package: hydra-node
-          - package: hydra-cluster
+          # - package: hydra-tui
+          # - package: hydra-node
+          # - package: hydra-cluster
     steps:
     - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
-        repository: input-output-hk/hydra
+        repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -42,7 +42,7 @@ jobs:
     - name: 📥 Checkout repository to latest released version
       uses: actions/checkout@v3
       with:
-        repository: input-output-hk/hydra
+        repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -94,7 +94,7 @@ jobs:
       env:
         TERM: "xterm"
       # TUI specs are flaky. They are failing because of SIGSEGV. 
-      # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
+      # There is an open issue to tackle this problem. https://github.com/ffakenz/hydra-poc/issues/590
       continue-on-error: true
       run: |
         nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
@@ -116,15 +116,15 @@ jobs:
         include:
           - bench: tx-cost
             options: '--output-directory $(pwd)/docs/benchmarks'
-          - bench: hydra-cluster
-            options: '--scaling-factor 1'
+          # - bench: hydra-cluster
+          #   options: '--scaling-factor 1'
           - bench: plutus-merkle-tree
             options: '$(pwd)/docs/benchmarks'
     steps:
     - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
-        repository: input-output-hk/hydra
+        repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -137,7 +137,7 @@ jobs:
     - name: 📥 Checkout repository to latest released version
       uses: actions/checkout@v3
       with:
-        repository: input-output-hk/hydra
+        repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -191,7 +191,7 @@ jobs:
     - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
-        repository: input-output-hk/hydra
+        repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -204,7 +204,7 @@ jobs:
     - name: 📥 Checkout repository to latest released version
       uses: actions/checkout@v3
       with:
-        repository: input-output-hk/hydra
+        repository: ffakenz/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0

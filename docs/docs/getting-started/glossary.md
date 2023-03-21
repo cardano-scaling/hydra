@@ -1,5 +1,10 @@
 # Glossary
 
+### Links
+PEPE 
+[pepe2](/benchmarks/transaction-cost/)
+[pepe6](/haddock/hydra-plutus/Hydra-Contract-Commit.html)
+
 ### Contestation Period
 The time window between closing the head and the last time (deadline) a contest is possible by a head participant.
 
