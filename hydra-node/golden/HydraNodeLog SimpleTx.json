@@ -2,7 +2,7 @@
     "samples": [
         {
             "by": {
-                "vkey": "e0fd432241097de20e23c8539e7c75e9d23cfb95142203036d63dd9c86e7ec21"
+                "vkey": "4471f9f2aaeba619204d620cade7d446060fd3f634e1fa5700e2ba14397fff4c"
             },
             "event": {
                 "chainEvent": {
@@ -11,94 +11,100 @@
                 },
                 "tag": "OnChainEvent"
             },
-            "tag": "BeginEvent"
+            "tag": "EndEvent"
         },
         {
             "by": {
-                "vkey": "3bb9e29ecb946ea6cb64b16056bfa125de8177fafd6705f1cd1611123fa30546"
+                "vkey": "8180dc3a07388d29d46089032a604ade615eb20439fb6694fe03e416f1b3b21b"
             },
-            "event": {
-                "clientInput": {
-                    "tag": "NewTx",
+            "effect": {
+                "serverOutput": {
+                    "headId": "d36ecca5299cd71dac4669a5c6581c7b",
+                    "tag": "TxValid",
                     "transaction": {
-                        "id": 21,
+                        "id": -10,
                         "inputs": [
-                            -27,
-                            -26,
-                            -24,
-                            -22,
-                            -16,
-                            -14,
-                            -9,
-                            -8,
-                            -6,
-                            -5,
-                            -2,
-                            0,
-                            5,
-                            8,
-                            10,
-                            14,
-                            15,
-                            16,
-                            20,
-                            21,
-                            23,
-                            25,
-                            29
+                            28
                         ],
                         "outputs": [
-                            -27,
+                            -29,
                             -26,
-                            -23,
-                            -21,
                             -18,
-                            -17,
-                            -16,
-                            -15,
-                            -11,
-                            -9,
-                            -6,
+                            -5,
                             -4,
-                            -3,
-                            -2,
+                            -1,
                             1,
-                            6,
-                            9,
-                            18,
-                            19,
-                            24,
-                            25,
+                            3,
+                            7,
+                            11,
+                            15,
+                            16,
+                            22,
                             30
                         ]
                     }
                 },
-                "tag": "ClientEvent"
+                "tag": "ClientEffect"
             },
-            "tag": "EndEvent"
+            "tag": "BeginEffect"
         },
         {
             "by": {
-                "vkey": "16811b0eaf2a63175744ca75e3c4464348518cb8573152bb536a1d1032a51c5c"
+                "vkey": "98166012a02b70086f813f716a22bd812aa1e984f9318a51a8b41b4047bf1f66"
             },
-            "event": {
-                "chainEvent": {
-                    "newChainState": {
-                        "slot": 11
-                    },
-                    "observedTx": {
-                        "snapshotNumber": 11,
-                        "tag": "OnContestTx"
-                    },
-                    "tag": "Observation"
+            "effect": {
+                "chainState": {
+                    "blockHeaderHash": "𐨹䁥=]𧼯3\u001f/aJ",
+                    "slot": 14
                 },
-                "tag": "OnChainEvent"
+                "postChainTx": {
+                    "confirmedSnapshot": {
+                        "signatures": {
+                            "multiSignature": [
+                                "0de016edee8e17f27a9b538315f75d79ce4f169ad645ea359e5df4f4b72202c8014c3094f85648d7cd7b6492b13c6c4a5c62d0207528f755b74f7b4c301a5f0f",
+                                "29099c784b7b87fdd28749844abd492d87ac9f6e168071f6b8c09460ed9d8a8474f7cbdd09939b1c2950a3038f7a53992f79278f5339a21c1fcd394e31eb2201",
+                                "b693ceedfa8725baf47befec6b4be99ccb53c70a21645856a5102cad0e05e97c55a94385d3c032ea419e558e654b0b24285969f38564dfe073883c0a4823230f",
+                                "938131adde9a474d9e0550dc6d5f1e366423f46df32d23756d8c3fffcd7d1f34bd65be4bda1aed669e9e372c0eb70c984a6f05e8b96b0d801c21ff5703c1b803",
+                                "df78fa94b33468a2ea93a1ea51b92d12c11e9deb4c5f822e40c74842b8ea03faac4e5094fbc583dfbe208265d87eb6f07d5a73c52a4c42763af3a8388f613e07",
+                                "1850480610c192438e4285afbecfde3d27674184038f0a79908d01c87840daab794d3dc9ea150953cad2abd0c1c9a3e0beec91edf1e110efc6bb931f9dc25009",
+                                "3b1738afdc66eee6437783bfd79eced9b9a99d23e98ab9e685806a18dd071a8aa97d798d2b3daf1da72167e418b20dfd7d41e1bce0987c80bf5f9102dd68e406",
+                                "2379a18164d5dad62a2c1b91b419bbf70c8f0a3b55c5b844224da82a7b90a6099bfbbd6e540244d25dc7e87161a41dd47efb1a4b79725a53c02323996564ad02",
+                                "ad8ecfaa16461578c1a35b64663e980b3404bb8a31a7c1d242082a7053c154238b33d403261e34d5b865e5d4a2e67734fd5cfee70a270ba58e18caae8cf32b0f",
+                                "87372864e77f385ccfaf154c0ba9bbfe340075c41224b30eec2704d352940899dfe961fc364634fcdc2967066f54a599d81bf6843ec38fdf89279148baa4b708",
+                                "8c6bd4c5b3356d92b07e4fa097cd6bbe5ced5ab8ae35b2c19ba5bc9f5a455f370dd4681dfc63334deb9b3f2fdcef10379f6878f2a21c28a0a26d8ea0fbe26b0d"
+                            ]
+                        },
+                        "snapshot": {
+                            "confirmedTransactions": [],
+                            "snapshotNumber": 12,
+                            "utxo": [
+                                -21,
+                                -20,
+                                -18,
+                                -4,
+                                0,
+                                4,
+                                5,
+                                6,
+                                13,
+                                15,
+                                16,
+                                17,
+                                19,
+                                23
+                            ]
+                        },
+                        "tag": "ConfirmedSnapshot"
+                    },
+                    "tag": "ContestTx"
+                },
+                "tag": "OnChainEffect"
             },
-            "tag": "EndEvent"
+            "tag": "BeginEffect"
         },
         {
             "by": {
-                "vkey": "8954b941ddcb9291139b60a9d8bfa30092929f5f4d8f613d530386dfb45c654d"
+                "vkey": "bd620f851858b355a3362012811118d6bb34b0d880231b66704e039b6d39c395"
             },
             "effect": {
                 "message": {
@@ -107,58 +113,20 @@
                 },
                 "tag": "NetworkEffect"
             },
-            "tag": "BeginEffect"
+            "tag": "EndEffect"
         },
         {
             "by": {
-                "vkey": "f6d74e363529be8ea53086d44d916d3e73f7b1ae85a8218142466f2dfc65d511"
+                "vkey": "02f9478c31f30d727c81d32a80c8555814ce10a17253d8b5dd7b782b106ae2f6"
             },
-            "event": {
+            "effect": {
                 "message": {
-                    "party": {
-                        "vkey": "eec0b7d807689031b7146de858c74d1355fdb372a01832388fc30e1b0cbdc3e9"
-                    },
-                    "tag": "ReqTx",
-                    "transaction": {
-                        "id": 21,
-                        "inputs": [
-                            -29,
-                            -12,
-                            15,
-                            20,
-                            30
-                        ],
-                        "outputs": [
-                            -30,
-                            -27,
-                            -26,
-                            -25,
-                            -23,
-                            -21,
-                            -14,
-                            -12,
-                            -8,
-                            -6,
-                            0,
-                            1,
-                            2,
-                            7,
-                            11,
-                            14,
-                            15,
-                            17,
-                            18,
-                            20,
-                            22,
-                            27,
-                            29
-                        ]
-                    }
+                    "nodeId": "hnzowmsfjxhv",
+                    "tag": "Connected"
                 },
-                "tag": "NetworkEvent",
-                "ttl": 15
+                "tag": "NetworkEffect"
             },
-            "tag": "EndEvent"
+            "tag": "BeginEffect"
         }
     ],
     "seed": -2088440374

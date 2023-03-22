@@ -20,7 +20,7 @@ import Data.Aeson (
  )
 import Data.List (maximum)
 import qualified Data.Set as Set
-import Hydra.Chain (ChainSlot, ChainStateType, IsChainState (..))
+import Hydra.Chain (ChainBlockHeaderHash, ChainSlot, ChainStateType, IsChainState (..))
 import Hydra.Ledger
 import Test.QuickCheck (choose, getSize, sublistOf)
 
@@ -78,16 +78,18 @@ instance FromCBOR SimpleTx where
 
 -- * Simple chain state
 
-data SimpleChainState = SimpleChainState {slot :: ChainSlot}
+data SimpleChainState = SimpleChainState {slot :: ChainSlot, blockHeaderHash :: ChainBlockHeaderHash}
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance Arbitrary SimpleChainState where
-  arbitrary = SimpleChainState <$> arbitrary
+  arbitrary = SimpleChainState <$> arbitrary <*> arbitrary
 
 instance IsChainState SimpleTx where
   type ChainStateType SimpleTx = SimpleChainState
 
   chainStateSlot SimpleChainState{slot} = slot
+
+  chainStateBlockHeader SimpleChainState{blockHeaderHash} = blockHeaderHash
 
 --
 -- MockTxIn

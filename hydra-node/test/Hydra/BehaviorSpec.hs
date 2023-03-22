@@ -3,9 +3,6 @@
 
 module Hydra.BehaviorSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
-
 import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forConcurrently_)
 import Control.Monad.Class.MonadSTM (
   MonadLabelledSTM,
@@ -30,6 +27,7 @@ import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (ChainPoint (..), SigningKey, SlotNo (SlotNo), Tx)
 import Hydra.Chain (
   Chain (..),
+  ChainBlockHeaderHash (ChainBlockHeaderHash),
   ChainEvent (..),
   ChainSlot (ChainSlot),
   ChainStateType,
@@ -39,6 +37,8 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
   chainStateSlot,
+  genesisBlockHeaderHash,
+  nextChainBlockHeaderHash,
   nextChainSlot,
  )
 import Hydra.Chain.Direct.State (ChainStateAt (..))
@@ -68,9 +68,11 @@ import Hydra.Node (
  )
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
+import Hydra.Prelude
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
+import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
@@ -92,7 +94,9 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+            waitUntilMatch [n1] $ \case
+              HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice] -> True
+              _ -> False
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
 
@@ -101,7 +105,9 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+            waitUntilMatch [n1] $ \case
+              HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice] -> True
+              _ -> False
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
@@ -113,7 +119,9 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+            waitUntilMatch [n1] $ \case
+              HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice] -> True
+              _ -> False
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
@@ -125,7 +133,9 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+            waitUntilMatch [n1] $ \case
+              HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice] -> True
+              _ -> False
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
@@ -139,7 +149,9 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+            waitUntilMatch [n1] $ \case
+              HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice] -> True
+              _ -> False
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
@@ -156,7 +168,9 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
+              waitUntilMatch [n1, n2] $ \case
+                HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice, bob] -> True
+                _ -> False
 
               send n1 (Commit (utxoRef 1))
               waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
@@ -173,13 +187,17 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
+              waitUntilMatch [n1, n2] $ \case
+                HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice, bob] -> True
+                _ -> False
               send n1 (Commit (utxoRefs [1, 2]))
               waitUntil [n1, n2] $ Committed testHeadId alice (utxoRefs [1, 2])
               send n2 Abort
               waitUntil [n1, n2] $ HeadIsAborted{headId = testHeadId, utxo = utxoRefs [1, 2]}
               send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
+              waitUntilMatch [n1, n2] $ \case
+                HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice, bob] -> True
+                _ -> False
 
     it "cannot abort head when commits have been collected" $
       shouldRunInSim $ do
@@ -187,7 +205,9 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
+              waitUntilMatch [n1, n2] $ \case
+                HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice, bob] -> True
+                _ -> False
               send n1 (Commit (utxoRef 1))
               send n2 (Commit (utxoRef 2))
 
@@ -202,7 +222,9 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
+              waitUntilMatch [n1, n2] $ \case
+                HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice, bob] -> True
+                _ -> False
 
               send n1 (Commit (utxoRef 1))
               waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
@@ -223,7 +245,9 @@ spec = parallel $ do
             withHydraNode aliceSk [bob] chain $ \n1 ->
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 send n1 Init
-                waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
+                waitUntilMatch [n1, n2] $ \case
+                  HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice, bob] -> True
+                  _ -> False
                 send n1 (Commit (utxoRef 1))
 
                 waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
@@ -307,7 +331,7 @@ spec = parallel $ do
                 -- Expect secondTx to be valid, but not applicable and stay pending
                 send n2 (NewTx secondTx)
                 -- If we wait too long, secondTx will expire
-                threadDelay . realToFrac $ (fromIntegral defaultTTL) * waitDelay + 1
+                threadDelay . realToFrac $ fromIntegral defaultTTL * waitDelay + 1
                 waitUntilMatch [n1, n2] $ \case
                   TxInvalid{transaction} -> transaction == secondTx
                   _ -> False
@@ -412,8 +436,8 @@ spec = parallel $ do
               -- XXX: This is a bit cumbersome and maybe even incorrect (chain
               -- states), the simulated chain should provide a way to inject an
               -- 'OnChainTx' without providing a chain state?
-              injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-              injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+              injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0, blockHeaderHash = ChainBlockHeaderHash genesisBlockHeaderHash}}
+              injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0, blockHeaderHash = ChainBlockHeaderHash genesisBlockHeaderHash}}
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> snapshotNumber == 0
@@ -428,7 +452,9 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Init
-                waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+                waitUntilMatch [n1] $ \case
+                  HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice] -> True
+                  _ -> False
                 send n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
@@ -443,13 +469,15 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Init
-                waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+                waitUntilMatch [n1] $ \case
+                  HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice] -> True
+                  _ -> False
                 send n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-      logs `shouldContain` [BeginEffect alice (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
-      logs `shouldContain` [EndEffect alice (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
+      logs `shouldContain` [BeginEffect alice (ClientEffect $ HeadIsInitializing testHeadId (fromList [alice]) testNextChainSlot testNextChainBlockHeaderHash)]
+      logs `shouldContain` [EndEffect alice (ClientEffect $ HeadIsInitializing testHeadId (fromList [alice]) testNextChainSlot testNextChainBlockHeaderHash)]
 
     roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
@@ -459,18 +487,24 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+            waitUntilMatch [n1] $ \case
+              HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice] -> True
+              _ -> False
             -- We expect the Init to be rolled back and forward again
             rollbackAndForward chain 1
             waitUntil [n1] RolledBack
-            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+            waitUntilMatch [n1] $ \case
+              HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice] -> True
+              _ -> False
 
     it "does work for rollbacks past open" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+            waitUntilMatch [n1] $ \case
+              HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice] -> True
+              _ -> False
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
@@ -552,7 +586,7 @@ withSimulatedChainAndNetwork ::
   (ConnectToChain SimpleTx m -> m ()) ->
   m ()
 withSimulatedChainAndNetwork action = do
-  chain <- simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0}
+  chain <- simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0, blockHeaderHash = ChainBlockHeaderHash genesisBlockHeaderHash}
   action chain
   cancel $ tickThread chain
 
@@ -562,7 +596,7 @@ class IsChainState a => IsChainStateTest a where
   advanceSlot :: ChainStateType a -> ChainStateType a
 
 instance IsChainStateTest SimpleTx where
-  advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
+  advanceSlot SimpleChainState{slot, blockHeaderHash} = SimpleChainState{slot = nextChainSlot slot, blockHeaderHash = nextChainBlockHeaderHash blockHeaderHash}
 
 instance IsChainStateTest Tx where
   advanceSlot cs@ChainStateAt{recordedAt} =
@@ -691,6 +725,12 @@ testContestationPeriod = UnsafeContestationPeriod 3600
 testHeadId :: HeadId
 testHeadId = HeadId "1234"
 
+testNextChainSlot :: ChainSlot
+testNextChainSlot = ChainSlot 1
+
+testNextChainBlockHeaderHash :: ChainBlockHeaderHash
+testNextChainBlockHeaderHash = ChainBlockHeaderHash "d36a9936ae7a07f5f4bdc9ad0b23761cb7b14f35007e54947e27a1510f897f04"
+
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsChainState tx) =>
   TestHydraNode tx m ->
@@ -709,7 +749,7 @@ withHydraNode ::
 withHydraNode signingKey otherParties connectToChain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0, blockHeaderHash = ChainBlockHeaderHash genesisBlockHeaderHash}}
   node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory connectToChain testContestationPeriod
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraNode outputs outputHistory node)
@@ -776,7 +816,9 @@ openHead ::
   IOSim s ()
 openHead n1 n2 = do
   send n1 Init
-  waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
+  waitUntilMatch [n1, n2] $ \case
+    HeadIsInitializing{headId, parties} | headId == testHeadId && parties == fromList [alice, bob] -> True
+    _ -> False
   send n1 (Commit (utxoRef 1))
   waitUntil [n1, n2] $ Committed testHeadId alice (utxoRef 1)
   send n2 (Commit (utxoRef 2))

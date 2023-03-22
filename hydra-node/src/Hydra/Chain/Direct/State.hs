@@ -35,6 +35,7 @@ import Hydra.Cardano.Api (
   UTxO,
   UTxO' (UTxO),
   Value,
+  chainPointToHeaderHash,
   chainPointToSlotNo,
   modifyTxOutValue,
   selectLovelace,
@@ -50,6 +51,7 @@ import Hydra.Cardano.Api (
   pattern TxOut,
  )
 import Hydra.Chain (
+  ChainBlockHeaderHash (ChainBlockHeaderHash),
   ChainSlot (ChainSlot),
   ChainStateType,
   HeadId (..),
@@ -57,6 +59,7 @@ import Hydra.Chain (
   IsChainState (..),
   OnChainTx (..),
   PostTxError (..),
+  genesisBlockHeaderHash,
   maxMainnetLovelace,
  )
 import Hydra.Chain.Direct.ScriptRegistry (
@@ -142,6 +145,9 @@ instance IsChainState Tx where
   chainStateSlot ChainStateAt{recordedAt} =
     maybe (ChainSlot 0) chainSlotFromPoint recordedAt
 
+  chainStateBlockHeader ChainStateAt{recordedAt} =
+    maybe (ChainBlockHeaderHash genesisBlockHeaderHash) chainHeaderHashFromPoint recordedAt
+
 -- | Get a generic 'ChainSlot' from a Cardano 'ChainPoint'. Slot 0 is used for
 -- the genesis point.
 chainSlotFromPoint :: ChainPoint -> ChainSlot
@@ -149,6 +155,14 @@ chainSlotFromPoint p =
   case chainPointToSlotNo p of
     Nothing -> ChainSlot 0
     Just (SlotNo s) -> ChainSlot $ fromIntegral s
+
+-- | Get a generic 'ChainBlockHeaderHash' from a Cardano 'ChainPoint'.
+-- Genesis block hash on mainnet is used for the genesis point.
+chainHeaderHashFromPoint :: ChainPoint -> ChainBlockHeaderHash
+chainHeaderHashFromPoint p =
+  case chainPointToHeaderHash p of
+    Nothing -> ChainBlockHeaderHash genesisBlockHeaderHash
+    Just blockHeaderHash -> ChainBlockHeaderHash $ show blockHeaderHash
 
 -- | A definition of all transitions between 'ChainState's. Enumerable and
 -- bounded to be used as labels for checking coverage.

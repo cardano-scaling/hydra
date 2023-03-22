@@ -5,7 +5,7 @@ module Hydra.API.ServerOutput where
 import Data.Aeson (Value (..), withObject, (.:))
 import qualified Data.Aeson.KeyMap as KeyMap
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx, PostTxError)
+import Hydra.Chain (ChainBlockHeaderHash, ChainSlot, ChainStateType, HeadId, IsChainState, PostChainTx, PostTxError)
 import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
@@ -40,7 +40,7 @@ instance (FromJSON tx, IsChainState tx) => FromJSON (TimedServerOutput tx) where
 data ServerOutput tx
   = PeerConnected {peer :: NodeId}
   | PeerDisconnected {peer :: NodeId}
-  | HeadIsInitializing {headId :: HeadId, parties :: Set Party}
+  | HeadIsInitializing {headId :: HeadId, parties :: Set Party, chainSlot :: ChainSlot, chainBlockHeaderHash :: ChainBlockHeaderHash}
   | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsClosed
@@ -98,7 +98,8 @@ instance
   shrink = \case
     PeerConnected p -> PeerConnected <$> shrink p
     PeerDisconnected p -> PeerDisconnected <$> shrink p
-    HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
+    HeadIsInitializing headId parties chainSlot chainBlockHeaderHash ->
+      HeadIsInitializing <$> shrink headId <*> shrink parties <*> shrink chainSlot <*> shrink chainBlockHeaderHash
     Committed headId p u -> Committed <$> shrink headId <*> shrink p <*> shrink u
     HeadIsOpen headId u -> HeadIsOpen <$> shrink headId <*> shrink u
     HeadIsClosed headId s t -> HeadIsClosed <$> shrink headId <*> shrink s <*> shrink t

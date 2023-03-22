@@ -12,6 +12,7 @@ import Hydra.API.ServerOutput (ServerOutput (PostTxOnChainFailed))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
+  ChainBlockHeaderHash (ChainBlockHeaderHash),
   ChainEvent (..),
   ChainSlot (..),
   HeadId (HeadId),
@@ -20,6 +21,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (InitTx),
   PostTxError (NoSeedInput),
+  genesisBlockHeaderHash
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, sign)
@@ -141,7 +143,7 @@ eventsToOpenHead =
       { chainEvent =
           Observation
             { observedTx
-            , newChainState = SimpleChainState{slot = ChainSlot 0}
+            , newChainState = SimpleChainState{slot = ChainSlot 0, blockHeaderHash = ChainBlockHeaderHash genesisBlockHeaderHash}
             }
       }
 
@@ -166,7 +168,7 @@ createHydraNode ::
 createHydraNode signingKey otherParties contestationPeriod events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
-  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0, blockHeaderHash = ChainBlockHeaderHash genesisBlockHeaderHash}}
   pure $
     HydraNode
       { eq

@@ -30,7 +30,9 @@
                 "tag": "InitTx"
             },
             "postTxError": {
-                "tag": "NoSeedInput"
+                "plutusDebugInfo": "􈬭E?",
+                "plutusFailure": "rX󳗂I7)",
+                "tag": "PlutusValidationFailed"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -93,10 +95,18 @@
             "tag": "PeerDisconnected"
         },
         {
-            "headId": "00030603030307000101040702040300",
+            "chainBlockHeaderHash": "t9\u0014Q",
+            "chainSlot": 4,
+            "headId": "05070308040001070202050206080408",
             "parties": [
                 {
-                    "vkey": "0d41883906493b65115c85291ef98f86ddde829a59445055233facdff3e173e1"
+                    "vkey": "7bf5b8ad021ef0b130ee92c55d96f2534a792c694a62abe3dfa44196f80f45c1"
+                },
+                {
+                    "vkey": "7e636e7cc8e127a4f71ce00001ad62aa2a039e4683ff0720569a2dbd4dd140d2"
+                },
+                {
+                    "vkey": "f0a172267d441595f8177ee79acfea30a8cfe9812b53145443078db675450709"
                 }
             ],
             "tag": "HeadIsInitializing"
@@ -205,9 +215,7 @@
                 "tag": "CommitTx"
             },
             "postTxError": {
-                "failureReason": "ऽh",
-                "redeemerPtr": "\u0003Z? WS",
-                "tag": "ScriptFailedInWallet"
+                "tag": "NoFuelUTXOFound"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -399,25 +407,9 @@
                 "tag": "CloseTx"
             },
             "postTxError": {
-                "headUTxO": [
-                    -3,
-                    -2,
-                    -1,
-                    6
-                ],
-                "reason": "cd\u0002A",
-                "tag": "InternalWalletError",
-                "tx": {
-                    "id": -4,
-                    "inputs": [
-                        -5,
-                        -2
-                    ],
-                    "outputs": [
-                        -3,
-                        2
-                    ]
-                }
+                "failureReason": "};g\u0007",
+                "redeemerPtr": "\reVp󳙱",
+                "tag": "ScriptFailedInWallet"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -449,27 +441,9 @@
                 "tag": "InitTx"
             },
             "postTxError": {
-                "headUTxO": [
-                    -5,
-                    2
-                ],
-                "reason": "4\u0013;\nN|",
-                "tag": "InternalWalletError",
-                "tx": {
-                    "id": 1,
-                    "inputs": [
-                        -2,
-                        0,
-                        2,
-                        4
-                    ],
-                    "outputs": [
-                        -3,
-                        1,
-                        2,
-                        5
-                    ]
-                }
+                "failureReason": "&𱉼IX𐕓S",
+                "redeemerPtr": "𤨻P",
+                "tag": "ScriptFailedInWallet"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -493,37 +467,50 @@
             "tag": "PeerConnected"
         },
         {
-            "headId": "04040105040201050504010001050202",
+            "chainBlockHeaderHash": "",
+            "chainSlot": 1,
+            "headId": "05010007010504050706040005060107",
             "parties": [
                 {
-                    "vkey": "3e27318f2b5bda48bf6ccf42a003d38b618a8e6c248b3011d71138f010e75664"
+                    "vkey": "9672e0dca7aae6cbe43d02852db928a5f5390bda5e12fdb64702b4407a9ff7eb"
                 },
                 {
-                    "vkey": "c6ee28690462f799bc6faf1fdf422540484b1eb4dba99ac6f989bfadf61a2f10"
+                    "vkey": "9295efde17070f5dcf5d3d8a9bbcd09ef240dbfa72fc04ad30e53ec092d4eeca"
                 },
                 {
-                    "vkey": "be52e438a4c70d78c131ec8325e69542d58550c15419e6ebd0b9b403996b67e7"
+                    "vkey": "56d5b5e15441c26635b3008d008fd040a898c599282ea498feb42dd65aa1fe53"
                 },
                 {
-                    "vkey": "6f6a1d6eb49b1b4026949c05b83fa11d0798359784e8a22a1c41bb4936fe5fff"
+                    "vkey": "2300dea53228ebe58112a5a3ea76d876ca37c9177caf514b9eb0f1ece19f0433"
                 },
                 {
-                    "vkey": "7383509f885359c7a00d72eaa630f70d8dff144d56b95e260025f71775f3de6b"
+                    "vkey": "8fe771d36f70c55da82885016854dccaae5c20a113c4d213e7de815de0abc9b5"
                 }
             ],
             "tag": "HeadIsInitializing"
         },
         {
-            "headId": "06070802030204010103040303030708",
+            "chainBlockHeaderHash": "",
+            "chainSlot": 6,
+            "headId": "02070307080505070100070706080103",
             "parties": [
                 {
-                    "vkey": "1cc326ea3c4cc127eee2dbdd1e4189efb250d37740645f95c950696c300897ba"
+                    "vkey": "341386ad34b28d59f023778cf8924a3b6e64dc258e50102f1b773d09ee89501e"
                 },
                 {
-                    "vkey": "813b8dd3c138fc2f522a7ea6987ccc53a10d07ea49b87697a3f2c9935c772dba"
+                    "vkey": "dc400e277b37694fa04643aa28a07e8a473197ae82af772d4a4a7beab0e7f47a"
                 },
                 {
-                    "vkey": "0741d4c7522e3e46da8ff17c0a8616ff6b998f9d788ca84942852b5a6ccf56d6"
+                    "vkey": "3af1e963d98736b245966e30e2ab5dc71957eb85a63031b6589c5a9deba014aa"
+                },
+                {
+                    "vkey": "34ba8a5e863adbf88a74c9f4295618f38dfec840b667cd702e1240f485963359"
+                },
+                {
+                    "vkey": "ee2ceb20aab5614cb2894a5813892c522bba348ea7bb2f30bd571674798675f1"
+                },
+                {
+                    "vkey": "6f6397a60ae2991701a228ab810c35771cd29a5a1723f388116da6349ea74a5b"
                 }
             ],
             "tag": "HeadIsInitializing"
@@ -540,10 +527,24 @@
             ]
         },
         {
-            "headId": "06050802080301050707080504010101",
+            "chainBlockHeaderHash": "\u0005V𗂮𩼜q",
+            "chainSlot": 1,
+            "headId": "08020300010401030102010803020207",
             "parties": [
                 {
-                    "vkey": "a70f58a8d1bd73458cd244bb6250f7dab50c00d5156762b48b70561ec16e8a7a"
+                    "vkey": "ca1fc471e91afe81873f4e478c47e422f4e548bd8b44cf945f133404fe7c8479"
+                },
+                {
+                    "vkey": "9174083f0a01d0771f8ea6f3514b2fed719c8f04d1fe2a820b536c218b87c357"
+                },
+                {
+                    "vkey": "4c62dee1faabc1294de0bd1db6a9f448b559abbc17d73d63118ba21deeff50e2"
+                },
+                {
+                    "vkey": "c137df3ac508bd9211718b7cfdc4b707e805403967b132777b1d2225ba1707c0"
+                },
+                {
+                    "vkey": "24501a286bc1a15cf611223d9c60ec901ef3abf9bfa1da75d79dec79b35a2e09"
                 }
             ],
             "tag": "HeadIsInitializing"
@@ -587,8 +588,26 @@
             "tag": "PeerDisconnected"
         },
         {
-            "headId": "08050704040606050000020102020300",
-            "parties": [],
+            "chainBlockHeaderHash": "",
+            "chainSlot": 1,
+            "headId": "08010101020700030007030308070600",
+            "parties": [
+                {
+                    "vkey": "ad99648ea07c581856aaeac2037c59b5adf8f3730600491088bdef67f757b522"
+                },
+                {
+                    "vkey": "a59aca3f3412e62c179db45550974be7c1972f9a45cb30567c7de379d314935b"
+                },
+                {
+                    "vkey": "386283474242c5931e0eaaffcb816d42554dc1c03a0a025018a84d8927b28279"
+                },
+                {
+                    "vkey": "f6ca5025183efaef9c5e39ee5c099d3b639cabc01273027499adfb719585436c"
+                },
+                {
+                    "vkey": "508510afec7a138658b0e92c05b5d23b73f35749e0f205be07d71e8b49fe0eaa"
+                }
+            ],
             "tag": "HeadIsInitializing"
         },
         {
@@ -666,25 +685,9 @@
                 "tag": "ContestTx"
             },
             "postTxError": {
-                "headUTxO": [
-                    -4,
-                    -1
-                ],
-                "reason": "􋘱",
-                "tag": "InternalWalletError",
-                "tx": {
-                    "id": 4,
-                    "inputs": [
-                        -6,
-                        -3,
-                        0,
-                        2
-                    ],
-                    "outputs": [
-                        4,
-                        5
-                    ]
-                }
+                "plutusDebugInfo": "\u0005\u0015",
+                "plutusFailure": "'拘",
+                "tag": "PlutusValidationFailed"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -718,29 +721,9 @@
                 ]
             },
             "postTxError": {
-                "headUTxO": [
-                    -6,
-                    -1,
-                    0,
-                    2,
-                    3,
-                    4
-                ],
-                "reason": "3'",
-                "tag": "InternalWalletError",
-                "tx": {
-                    "id": -4,
-                    "inputs": [
-                        -6,
-                        -3
-                    ],
-                    "outputs": [
-                        -5,
-                        0,
-                        5,
-                        6
-                    ]
-                }
+                "failureReason": "J\u0018MB\n`",
+                "redeemerPtr": "𣷩𩋧\u001a(<􈖢",
+                "tag": "ScriptFailedInWallet"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -808,22 +791,12 @@
             "tag": "CommandFailed"
         },
         {
-            "headId": "05010000010103070205030201040108",
+            "chainBlockHeaderHash": "\u0018u\u0002\r",
+            "chainSlot": 1,
+            "headId": "06010005010508060106080203020201",
             "parties": [
                 {
-                    "vkey": "85d37f96ede7482705c13e2373472ea952285088594e09f65d0055ce06e1bde7"
-                },
-                {
-                    "vkey": "6bd010624152ea418e0dea5f763e30b880aad6aab3938de85f99fc2cbac6a058"
-                },
-                {
-                    "vkey": "5e969662e5ca4dc5202971735705af9ef798c2f4b3f9228239386af0f0ef8b34"
-                },
-                {
-                    "vkey": "d8270814cac762595273264bda7f7398867cf864a9662cfa80cf1de5ee49e62e"
-                },
-                {
-                    "vkey": "5d42aa14d6e674c5ed02cb337f1e8c4f943b8a3cbadfa7e4c5bf1b12a23d7b92"
+                    "vkey": "19a91c4de3bad4e68606bf8578302f6c9b3f3c87fb4720faf949748c033eda3b"
                 }
             ],
             "tag": "HeadIsInitializing"
@@ -1531,8 +1504,22 @@
                 "tag": "ContestTx"
             },
             "postTxError": {
-                "failureReason": "6􏾣]",
-                "tag": "FailedToPostTx"
+                "headUTxO": [
+                    -1,
+                    1
+                ],
+                "reason": "S",
+                "tag": "InternalWalletError",
+                "tx": {
+                    "id": 4,
+                    "inputs": [
+                        -1,
+                        1,
+                        2,
+                        4
+                    ],
+                    "outputs": []
+                }
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -1644,15 +1631,10 @@
             "tag": "HeadIsClosed"
         },
         {
-            "headId": "05080802080407060405040201000804",
-            "parties": [
-                {
-                    "vkey": "c8a134a454fe6c5d41a0dc099e7e1b8b7d8e5c8eda66fe67eb7571d011029cd3"
-                },
-                {
-                    "vkey": "c1dc9db941fddae762e3d5e1acd607e0c4d9aca28eb811d0330c67184570b221"
-                }
-            ],
+            "chainBlockHeaderHash": ";𫴝'",
+            "chainSlot": 1,
+            "headId": "06050100040401000601050308070203",
+            "parties": [],
             "tag": "HeadIsInitializing"
         },
         {
@@ -1675,8 +1657,14 @@
             "tag": "HeadIsContested"
         },
         {
-            "headId": "01070001040808040201050602060007",
-            "parties": [],
+            "chainBlockHeaderHash": "[\t",
+            "chainSlot": 2,
+            "headId": "02050301020407040308030504060803",
+            "parties": [
+                {
+                    "vkey": "75777778ff6b4e2ca0579f478a5fb2b8effbe83284db90d274ab1507304a02e6"
+                }
+            ],
             "tag": "HeadIsInitializing"
         },
         {
@@ -1695,8 +1683,21 @@
                 "tag": "InitTx"
             },
             "postTxError": {
-                "failureReason": "",
-                "tag": "FailedToPostTx"
+                "headUTxO": [
+                    -6
+                ],
+                "reason": "\u0003z",
+                "tag": "InternalWalletError",
+                "tx": {
+                    "id": -4,
+                    "inputs": [
+                        -3,
+                        2,
+                        4,
+                        6
+                    ],
+                    "outputs": []
+                }
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -1762,9 +1763,7 @@
                 ]
             },
             "postTxError": {
-                "failureReason": "ﰊ1:&",
-                "redeemerPtr": "q",
-                "tag": "ScriptFailedInWallet"
+                "tag": "NoFuelUTXOFound"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -1897,9 +1896,8 @@
                 "tag": "ContestTx"
             },
             "postTxError": {
-                "plutusDebugInfo": "(",
-                "plutusFailure": "",
-                "tag": "PlutusValidationFailed"
+                "failureReason": "d",
+                "tag": "FailedToPostTx"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -2202,19 +2200,15 @@
             }
         },
         {
-            "headId": "06050106030306000605070207000408",
+            "chainBlockHeaderHash": "",
+            "chainSlot": 0,
+            "headId": "07080401070101070407010002030205",
             "parties": [
                 {
-                    "vkey": "7d09fa03638fae7659c0f43c466da79c6699df279bca58862bd1a72f0bd2a0c5"
+                    "vkey": "92f1972389efba49429d13d4dfe29f8f1c118e941763a6bed4d092a0e54a76a9"
                 },
                 {
-                    "vkey": "fc41def2595bb4cac3342d9c8d6988056eee58c2e45fa53827151c0297af9af2"
-                },
-                {
-                    "vkey": "7029ff4afbb35480fae419a4cfd583aeb0f95caf1fa47c793f1340106a1c2fb5"
-                },
-                {
-                    "vkey": "ca6fde32e05c1f9685e7300f871a9f31839bebfd8bacf9e6a86e0ca5589b790c"
+                    "vkey": "e659252f9f90e2281e1519c730434a8204ec6a8116e02ae1e89c52e3a529443a"
                 }
             ],
             "tag": "HeadIsInitializing"

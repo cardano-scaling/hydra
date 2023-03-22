@@ -17,6 +17,7 @@ import Hydra.Prelude
 
 import qualified Data.ByteString as BS
 import Data.List (nub)
+import qualified Data.Text as Text
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
@@ -174,8 +175,16 @@ class
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: ChainStateType tx -> ChainSlot
 
+  -- | Get the chain block header hash for a chain state.
+  chainStateBlockHeader :: ChainStateType tx -> ChainBlockHeaderHash
+
 -- | A generic description for a chain slot all implementions need to use.
 newtype ChainSlot = ChainSlot Natural
+  deriving (Ord, Eq, Show, Generic)
+  deriving newtype (ToJSON, FromJSON)
+
+-- | A generic description for a chain block header hash implementions need to use.
+newtype ChainBlockHeaderHash = ChainBlockHeaderHash String
   deriving (Ord, Eq, Show, Generic)
   deriving newtype (ToJSON, FromJSON)
 
@@ -184,8 +193,22 @@ newtype ChainSlot = ChainSlot Natural
 nextChainSlot :: ChainSlot -> ChainSlot
 nextChainSlot (ChainSlot n) = ChainSlot (n + 1)
 
+-- | Get the hash of genesis block on mainnet
+genesisBlockHeaderHash :: String
+genesisBlockHeaderHash = "5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb"
+
+-- | Get the next chain block header hash.
+nextChainBlockHeaderHash :: ChainBlockHeaderHash -> ChainBlockHeaderHash
+nextChainBlockHeaderHash _ =
+  -- XXX: using random block header hash
+  ChainBlockHeaderHash "d36a9936ae7a07f5f4bdc9ad0b23761cb7b14f35007e54947e27a1510f897f04"
+
 instance Arbitrary ChainSlot where
   arbitrary = genericArbitrary
+
+instance Arbitrary ChainBlockHeaderHash where
+  arbitrary =
+    ChainBlockHeaderHash . Text.unpack . decodeUtf8 . BS.pack <$> vectorOf 32 arbitrary
 
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain

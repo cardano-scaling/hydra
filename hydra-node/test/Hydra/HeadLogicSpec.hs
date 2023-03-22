@@ -13,6 +13,7 @@ import Test.Hydra.Prelude
 import qualified Data.Set as Set
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
+  ChainBlockHeaderHash (ChainBlockHeaderHash),
   ChainEvent (..),
   ChainSlot (..),
   HeadId (..),
@@ -20,6 +21,7 @@ import Hydra.Chain (
   IsChainState,
   OnChainTx (..),
   PostChainTx (ContestTx),
+  genesisBlockHeaderHash
  )
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
@@ -314,12 +316,16 @@ spec = do
 -- Assertion utilities
 --
 
+-- | Create a simple chain state with fixed chain slot and block header hash.
+simpleChainState :: SimpleChainState
+simpleChainState = SimpleChainState{slot = ChainSlot 0, blockHeaderHash = ChainBlockHeaderHash genesisBlockHeaderHash}
+
 -- | Create a chain effect with fixed chain state and slot.
 chainEffect :: PostChainTx SimpleTx -> Effect SimpleTx
 chainEffect postChainTx =
   OnChainEffect
     { postChainTx
-    , chainState = SimpleChainState{slot = ChainSlot 0}
+    , chainState = simpleChainState
     }
 
 -- | Create an observation event with fixed chain state and slot.
@@ -329,7 +335,7 @@ observationEvent observedTx =
     { chainEvent =
         Observation
           { observedTx
-          , newChainState = SimpleChainState{slot = ChainSlot 0}
+          , newChainState = simpleChainState
           }
     }
 
@@ -374,14 +380,14 @@ inInitialState parties =
       , pendingCommits = Set.fromList parties
       , committed = mempty
       , previousRecoverableState = Idle idleState
-      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , chainState = simpleChainState
       , headId = testHeadId
       }
  where
   parameters = HeadParameters cperiod parties
 
   idleState =
-    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+    IdleState{chainState = simpleChainState}
 
 inOpenState ::
   [Party] ->
@@ -403,7 +409,7 @@ inOpenState' parties coordinatedHeadState =
       { parameters
       , coordinatedHeadState
       , previousRecoverableState
-      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , chainState = simpleChainState
       , headId = testHeadId
       }
  where
@@ -416,12 +422,12 @@ inOpenState' parties coordinatedHeadState =
         , pendingCommits = mempty
         , committed = mempty
         , previousRecoverableState = Idle idleState
-        , chainState = SimpleChainState{slot = ChainSlot 0}
+        , chainState = simpleChainState
         , headId = testHeadId
         }
 
   idleState =
-    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+    IdleState{chainState = simpleChainState}
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
@@ -438,7 +444,7 @@ inClosedState' parties confirmedSnapshot =
       , confirmedSnapshot
       , contestationDeadline
       , readyToFanoutSent = False
-      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , chainState = simpleChainState
       , headId = testHeadId
       }
  where

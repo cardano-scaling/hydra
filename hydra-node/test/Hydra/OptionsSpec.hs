@@ -245,7 +245,7 @@ spec = parallel $
       setFlags ["--start-chain-from", "0"]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = defaultChainConfig{startChainFrom = Just (ChainPointAtGenesis)}
+            { chainConfig = defaultChainConfig{startChainFrom = Just ChainPointAtGenesis}
             }
 
     prop "parses --hydra-scripts-tx-id as a tx id" $ \txId ->

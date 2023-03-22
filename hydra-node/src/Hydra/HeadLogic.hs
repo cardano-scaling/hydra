@@ -27,7 +27,7 @@ import Hydra.Chain (
   ChainStateType,
   HeadId,
   HeadParameters (..),
-  IsChainState (chainStateSlot),
+  IsChainState (chainStateBlockHeader, chainStateSlot),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError,
@@ -425,6 +425,7 @@ onIdleClientInit env st =
 --
 -- __Transition__: 'IdleState' → 'InitialState'
 onIdleChainInitTx ::
+  IsChainState tx =>
   IdleState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -444,7 +445,14 @@ onIdleChainInitTx idleState newChainState parties contestationPeriod headId =
           , headId
           }
     )
-    [ClientEffect $ HeadIsInitializing headId (fromList parties)]
+    [ ClientEffect $
+        HeadIsInitializing
+          { headId = headId
+          , parties = fromList parties
+          , chainSlot = chainStateSlot newChainState
+          , chainBlockHeaderHash = chainStateBlockHeader newChainState
+          }
+    ]
 
 -- | Client request to commit a UTxO entry to the head. Provided the client
 -- hasn't committed yet, this leads to a commit transaction on-chain containing
