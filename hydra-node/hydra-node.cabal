@@ -139,6 +139,7 @@ library
     , cborg
     , containers
     , contra-tracer
+    , modern-uri
     , data-default
     , directory
     , filepath

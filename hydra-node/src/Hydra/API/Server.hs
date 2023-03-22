@@ -13,6 +13,7 @@ import Hydra.Prelude hiding (TVar, readTVar, seq)
 
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
+import Text.URI
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
@@ -30,7 +31,7 @@ import Network.WebSockets (
   runServer,
   sendTextData,
   sendTextDatas,
-  withPingThread,
+  withPingThread, RequestHead (..), PendingConnection (pendingRequest)
  )
 import Test.QuickCheck (oneof)
 
@@ -86,7 +87,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   -- client.
   void $ appendToHistory history (Greetings party)
   race_
-    (runAPIServer host port tracer history callback responseChannel)
+    (runAPIServer host port party tracer history callback responseChannel)
     . action
     $ Server
       { sendOutput = \output -> do
@@ -117,22 +118,39 @@ runAPIServer ::
   (IsChainState tx) =>
   IP ->
   PortNumber ->
+  Party ->
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
   TChan (TimedServerOutput tx) ->
   IO ()
-runAPIServer host port tracer history callback responseChannel = do
+runAPIServer host port party tracer history callback responseChannel = do
   traceWith tracer (APIServerStarted port)
   handle onIOException $
     runServer (show host) (fromIntegral port) $ \pending -> do
+      let path = requestPath $ pendingRequest pending
+      queryParams <- uriQuery <$> mkURIBs path
       con <- acceptRequest pending
       chan <- STM.atomically $ dupTChan responseChannel
       traceWith tracer NewAPIConnection
-      forwardHistory con
+      dontServeHistory <- shouldNotServeHistory queryParams
+      if dontServeHistory
+        then do
+          time <- getCurrentTime
+          let greetingMsg =
+                TimedServerOutput {time, seq = 0, output = Greetings party :: ServerOutput tx}
+          sendTextData con $ Aeson.encode greetingMsg
+        else forwardHistory con
       withPingThread con 30 (pure ()) $
         race_ (receiveInputs con) (sendOutputs chan con)
  where
+
+  -- we want to serve the history unless client specifically asks us not to
+  shouldNotServeHistory qp = do
+    k <- mkQueryKey "history"
+    v <- mkQueryValue "0"
+    pure $ (QueryParam k v) `elem` qp
+
   onIOException ioException =
     throwIO $
       RunServerException
