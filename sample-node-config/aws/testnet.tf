@@ -34,7 +34,7 @@ resource "aws_instance" "this" {
 
   ebs_block_device {
     device_name = "/dev/sda1"
-    volume_size = 20
+    volume_size = 200
   }
 
   provisioner "file" {
