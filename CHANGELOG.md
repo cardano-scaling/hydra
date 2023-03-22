@@ -34,6 +34,8 @@ changes.
 - `hydra-node` detects misconfiguration and exits with the log item and
   exception if the provided arguments are not inline with persisted state.
 
+- All participants' `hydra-node` try to collect once seeing the last `commitTx`.
+
 ## [0.9.0] - 2023-03-02
 
 :dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/input-output-hk/hydra)!
