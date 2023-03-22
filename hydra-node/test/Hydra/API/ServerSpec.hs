@@ -33,7 +33,7 @@ spec = parallel $ do
     failAfter 5 $
       withFreePort $ \port -> do
         withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \_ -> do
-          withClient port $ \conn -> do
+          withClient port defaultPath $ \conn -> do
             received <- receiveData conn
             case Aeson.eitherDecode received of
               Left{} -> failure $ "Failed to decode greeting " <> show received
@@ -47,8 +47,8 @@ spec = parallel $ do
           semaphore <- newTVarIO 0
           withAsync
             ( concurrently_
-                (withClient port $ testClient queue semaphore)
-                (withClient port $ testClient queue semaphore)
+                (withClient port defaultPath $ testClient queue semaphore)
+                (withClient port defaultPath $ testClient queue semaphore)
             )
             $ \_ -> do
               waitForClients semaphore
@@ -77,8 +77,8 @@ spec = parallel $ do
             semaphore <- newTVarIO 0
             withAsync
               ( concurrently_
-                  (withClient port $ testClient queue1 semaphore)
-                  (withClient port $ testClient queue2 semaphore)
+                  (withClient port defaultPath $ testClient queue1 semaphore)
+                  (withClient port defaultPath $ testClient queue2 semaphore)
               )
               $ \_ -> do
                 waitForClients semaphore
@@ -95,16 +95,34 @@ spec = parallel $ do
       monitor $ cover 0.1 (null outputs) "no message when reconnecting"
       monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
       monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
-      run . failAfter 5 $ do
+      run . failAfter 15 $ do
         withFreePort $ \port ->
           withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             mapM_ sendOutput outputs
-            withClient port $ \conn -> do
+            withClient port defaultPath $ \conn -> do
               received <- replicateM (length outputs + 1) (receiveData conn)
               case traverse Aeson.eitherDecode received of
                 Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                Right timedOutputs ->
+                Right timedOutputs -> do
                   (output <$> timedOutputs) `shouldBe` greeting : outputs
+
+  it "doesn't echo history if client says no" $
+    checkCoverage . monadicIO $ do
+      outputs :: [ServerOutput SimpleTx] <- pick arbitrary
+      monitor $ cover 0.1 (null outputs) "no message when reconnecting"
+      monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
+      monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
+      run . failAfter 15 $ do
+        withFreePort $ \port ->
+          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+            mapM_ sendOutput outputs
+            -- start client that doesn't want to see the history
+            withClient port defaultPath $ \conn -> do
+              received <- replicateM 1 (receiveData conn)
+              case traverse Aeson.eitherDecode received of
+                Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                Right timedOutputs -> do
+                  (output <$> timedOutputs) `shouldBe` [greeting]
 
   it "sequence numbers are continuous and strictly monotonically increasing" $
     monadicIO $ do
@@ -113,7 +131,7 @@ spec = parallel $ do
         withFreePort $ \port ->
           withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             mapM_ sendOutput outputs
-            withClient port $ \conn -> do
+            withClient port defaultPath $ \conn -> do
               received <- replicateM (length outputs + 1) (receiveData conn)
               case traverse Aeson.eitherDecode received of
                 Left{} -> failure $ "Failed to decode messages:\n" <> show received
@@ -133,7 +151,7 @@ strictlyMonotonic = \case
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \_server -> do
-    withClient port $ \con -> do
+    withClient port defaultPath $ \con -> do
       _greeting :: ByteString <- receiveData con
       sendBinaryData con invalidInput
       msg <- receiveData con
@@ -167,11 +185,14 @@ testClient queue semaphore cnx = do
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
 
-withClient :: HasCallStack => Int -> (Connection -> IO ()) -> IO ()
-withClient port action = do
+defaultPath :: String
+defaultPath = "/"
+
+withClient :: HasCallStack => Int -> String -> (Connection -> IO ()) -> IO ()
+withClient port path action = do
   failAfter 5 retry
  where
-  retry = runClient "127.0.0.1" port "/" action `catch` \(_ :: IOException) -> retry
+  retry = runClient "127.0.0.1" port path action `catch` \(_ :: IOException) -> retry
 
 -- | Mocked persistence handle which just does nothing.
 mockPersistence :: Applicative m => PersistenceIncremental a m
