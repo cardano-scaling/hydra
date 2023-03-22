@@ -2,6 +2,9 @@
 
 ### Links
 
+[pepeOk](https://hydra.family/head-protocol/benchmarks/transaction-cost/)
+[pepeFail](https://family/head-protocol/benchmarks/transaction-cost/)
+
 ### Contestation Period
 The time window between closing the head and the last time (deadline) a contest is possible by a head participant.
 
