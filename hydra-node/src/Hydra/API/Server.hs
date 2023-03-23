@@ -19,7 +19,7 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..))
+import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..), replaceTxToCBOR)
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
@@ -133,18 +133,26 @@ runAPIServer host port party tracer history callback responseChannel = do
       con <- acceptRequest pending
       chan <- STM.atomically $ dupTChan responseChannel
       traceWith tracer NewAPIConnection
+      displayCBORTx <- shouldDisplayTxCBOR queryParams
       dontServeHistory <- shouldNotServeHistory queryParams
       if dontServeHistory
         then do
           time <- getCurrentTime
-          let greetingMsg =
-                TimedServerOutput {time, seq = 0, output = Greetings party :: ServerOutput tx}
-          sendTextData con $ Aeson.encode greetingMsg
+          sendTextData con $ Aeson.encode (greetingMsg time)
         else forwardHistory con
       withPingThread con 30 (pure ()) $
-        race_ (receiveInputs con) (sendOutputs chan con)
+        race_ (receiveInputs con) (sendOutputs chan con displayCBORTx)
  where
-
+  greetingMsg time =
+    TimedServerOutput
+      { time
+      , seq = 0
+      , output = Greetings party :: ServerOutput tx
+      }
+  shouldDisplayTxCBOR qp = do
+    k <- mkQueryKey "tx-output"
+    v <- mkQueryValue "cbor"
+    pure $ (QueryParam k v) `elem` qp
   -- we want to serve the history unless client specifically asks us not to
   shouldNotServeHistory qp = do
     k <- mkQueryKey "history"
@@ -159,9 +167,10 @@ runAPIServer host port party tracer history callback responseChannel = do
         , port
         }
 
-  sendOutputs chan con = forever $ do
+  sendOutputs chan con displayCBORTx = forever $ do
     response <- STM.atomically $ readTChan chan
-    let sentResponse = Aeson.encode response
+    let sentResponse = prepareResponse displayCBORTx response
+
     sendTextData con sentResponse
     traceWith tracer (APIOutputSent $ toJSON response)
 
@@ -185,6 +194,12 @@ runAPIServer host port party tracer history callback responseChannel = do
     hist <- STM.atomically (readTVar history)
     let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
     sendTextDatas con $ foldl' encodeAndReverse [] hist
+  prepareResponse displayCBORTx response =
+    let encodedResponse = Aeson.encode response
+    in
+      if displayCBORTx
+        then replaceTxToCBOR response encodedResponse
+        else encodedResponse
 
 data RunServerException = RunServerException
   { ioException :: IOException

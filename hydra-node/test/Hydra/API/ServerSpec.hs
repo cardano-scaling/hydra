@@ -17,7 +17,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import qualified Data.Aeson as Aeson
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..), input)
+import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput, RolledBack), TimedServerOutput (..), input)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
@@ -112,17 +112,32 @@ spec = parallel $ do
       monitor $ cover 0.1 (null outputs) "no message when reconnecting"
       monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
       monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
-      run . failAfter 15 $ do
+      run . failAfter 5 $ do
         withFreePort $ \port ->
           withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+            -- send arbitrary outputs from the server (which should be ignored by the client)
             mapM_ sendOutput outputs
             -- start client that doesn't want to see the history
-            withClient port defaultPath $ \conn -> do
-              received <- replicateM 1 (receiveData conn)
-              case traverse Aeson.eitherDecode received of
-                Left{} -> failure $ "Failed to decode messages:\n" <> show received
+            withClient port (defaultPath <> "?history=0") $ \conn -> do
+              -- receive only one message which should be the greeting one
+              receivedGreeting <- replicateM 1 (receiveData conn)
+
+              case traverse Aeson.eitherDecode receivedGreeting of
+                Left{} -> failure $ "Failed to decode messages:\n" <> show receivedGreeting
                 Right timedOutputs -> do
                   (output <$> timedOutputs) `shouldBe` [greeting]
+
+              -- send another message from server
+              sendOutput RolledBack
+              -- Receive one more message and expect it to be 'RolledBack'.
+              -- This means other messages we sent after the 'Greeting' are ignored as expected.
+              received <- replicateM 1 (receiveData conn)
+
+              case traverse Aeson.eitherDecode received of
+                Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                Right timedOutputs' -> do
+                  (output <$> timedOutputs') `shouldBe` [RolledBack :: ServerOutput SimpleTx]
+              return ()
 
   it "sequence numbers are continuous and strictly monotonically increasing" $
     monadicIO $ do
