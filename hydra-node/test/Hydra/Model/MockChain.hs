@@ -134,13 +134,18 @@ mockChainAndNetwork tr seedKeys nodes cp = do
   blockTime = 20 -- seconds
   simulateTicks queue = forever $ do
     threadDelay blockTime
+    transactions <- flushQueue queue []
+
+    let block = mkBlock transactions
+    allHandlers <- fmap chainHandler <$> readTVarIO nodes
+    forM_ allHandlers (`onRollForward` block)
+
+  flushQueue queue transactions = do
     hasTx <- atomically $ tryReadTQueue queue
     case hasTx of
       Just tx -> do
-        let block = mkBlock tx
-        allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        forM_ allHandlers (`onRollForward` block)
-      Nothing -> pure ()
+        flushQueue queue (tx:transactions)
+      Nothing -> pure transactions
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
@@ -150,10 +155,10 @@ findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for 
   csk <- getVerificationKey . signingKey . snd <$> find ((== me) . deriveParty . fst) seedKeys
   pure (csk, filter (/= csk) $ map (getVerificationKey . signingKey . snd) seedKeys)
 
-mkBlock :: Ledger.ValidatedTx LedgerEra -> Util.Block
-mkBlock ledgerTx =
+mkBlock :: [Ledger.ValidatedTx LedgerEra] -> Util.Block
+mkBlock transactions =
   let header = (arbitrary :: Gen (Praos.Header StandardCrypto)) `generateWith` 42
-      body = TxSeq . StrictSeq.fromList $ [ledgerTx]
+      body = TxSeq . StrictSeq.fromList $ transactions
    in BlockBabbage $ mkShelleyBlock $ Ledger.Block header body
 
 -- TODO: unify with BehaviorSpec's ?
