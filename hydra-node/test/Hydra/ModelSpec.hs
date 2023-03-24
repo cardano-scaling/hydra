@@ -224,15 +224,11 @@ prop_checkModel actions =
         -- now a "more active" simulated chain which ticks away and not simply
         -- detects a deadlock if we wait for infinity. Maybe cancelling the
         -- simulation's 'tickThread' and wait then could work?
-        run $ lift waitForADay
         let parties = Set.fromList $ deriveParty . fst <$> hydraParties
         nodes <- run $ gets nodes
         assert (parties == Map.keysSet nodes)
         forM_ parties $ \p -> do
           assertBalancesInOpenHeadAreConsistent hydraState nodes p
- where
-  waitForADay :: MonadDelay m => m ()
-  waitForADay = threadDelay $ 60 * 60 * 24
 
 assertBalancesInOpenHeadAreConsistent ::
   GlobalState ->
