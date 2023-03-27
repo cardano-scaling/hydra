@@ -23,6 +23,7 @@ jobs:
         # optional:
         honorRobotExclusions: true
         ignorePatterns: 'github,google'
-        recursiveLinks: false
+        recursiveLinks: true
+        ignorePatterns: 'https://www.overleaf.com/*'
     - name: Get the result
       run: echo "${{steps.link-report.outputs.result}}"
