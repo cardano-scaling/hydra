@@ -27,6 +27,12 @@ jobs:
         # TODO: we would like to check recursive links in the future
         recursiveLinks: true
     - name: Get the result
-      run: echo "${{steps.link-report.outputs.result}}"
+      run: 
+        echo "${{steps.link-report.outputs.result}}" |& tee link-checker-report.txt
 
-    
+    - name: 💾 Upload link-checker report
+      uses: actions/upload-artifact@v3
+      with:
+        name: link-checker-report
+        path: |
+          ./link-checker-report.txt
