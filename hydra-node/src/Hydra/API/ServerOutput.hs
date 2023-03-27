@@ -122,12 +122,25 @@ instance
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     RolledBack -> []
 
--- | Replaces json encoded tx field to its cbor representation
+-- | Possible transaction formats in the api server output
+data TxDisplay
+  = TxCBOR
+  | TxJSON
+  deriving (Eq, Show)
+
+-- | Replaces the json encoded tx field with it's cbor representation.
 -- NOTE: we deliberately pattern match on all 'ServerOutput' constructors
 -- so that we don't forget to update this function if they change.
-prepareServerOutputResponse :: IsChainState tx => Bool -> TimedServerOutput tx -> LBS.ByteString
-prepareServerOutputResponse False response = encode response
-prepareServerOutputResponse True response =
+prepareServerOutput ::
+  IsChainState tx =>
+  -- | Decide on tx representation
+  TxDisplay ->
+  -- | Server output
+  TimedServerOutput tx ->
+  -- | Final output
+  LBS.ByteString
+prepareServerOutput TxJSON response = encode response
+prepareServerOutput TxCBOR response =
   case output response of
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse

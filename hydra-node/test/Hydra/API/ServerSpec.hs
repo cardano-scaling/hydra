@@ -113,7 +113,7 @@ spec = parallel $ do
                 Right timedOutputs -> do
                   (output <$> timedOutputs) `shouldBe` greeting : outputs
 
-  it "doesn't echo history if client says no" $
+  it "does not echo history if client says no" $
     checkCoverage . monadicIO $ do
       outputs :: [ServerOutput SimpleTx] <- pick arbitrary
       monitor $ cover 0.1 (null outputs) "no message when reconnecting"

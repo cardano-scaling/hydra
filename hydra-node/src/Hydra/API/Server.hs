@@ -18,7 +18,12 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..), prepareServerOutputResponse)
+import Hydra.API.ServerOutput (
+  ServerOutput (Greetings, InvalidInput),
+  TimedServerOutput (..),
+  TxDisplay (..),
+  prepareServerOutput,
+ )
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
@@ -135,30 +140,40 @@ runAPIServer host port party tracer history callback responseChannel = do
       con <- acceptRequest pending
       chan <- STM.atomically $ dupTChan responseChannel
       traceWith tracer NewAPIConnection
-      displayCBORTx <- shouldDisplayTxCBOR queryParams
-      dontServeHistory <- shouldNotServeHistory queryParams
-      if dontServeHistory
-        then do
-          time <- getCurrentTime
-          sendTextData con $ Aeson.encode (greetingMsg time)
-        else forwardHistory con
+
+      -- api client can decide if they want to see the past history of server outputs
+      serveHistory <- shouldServeHistory queryParams
+      if serveHistory
+        then forwardHistory con
+        else forwardGreetingOnly con
+
+      -- api client can decides if they want tx's to be displayed as CBOR instead of plain json
+      txDisplay <- decideOnTxDisplay queryParams
+
       withPingThread con 30 (pure ()) $
-        race_ (receiveInputs con) (sendOutputs chan con displayCBORTx)
+        race_ (receiveInputs con) (sendOutputs chan con txDisplay)
  where
-  greetingMsg time =
-    TimedServerOutput
-      { time
-      , seq = 0
-      , output = Greetings party :: ServerOutput tx
-      }
-  shouldDisplayTxCBOR qp = do
+  forwardGreetingOnly con = do
+    time <- getCurrentTime
+    sendTextData con $
+      Aeson.encode
+        TimedServerOutput
+          { time
+          , seq = 0
+          , output = Greetings party :: ServerOutput tx
+          }
+
+  decideOnTxDisplay qp = do
     k <- mkQueryKey "tx-output"
     v <- mkQueryValue "cbor"
-    pure $ (QueryParam k v) `elem` qp
-  -- we want to serve the history unless client specifically asks us not to
-  shouldNotServeHistory qp = do
+    pure $
+      case (QueryParam k v) `elem` qp of
+        True -> TxCBOR
+        False -> TxJSON
+
+  shouldServeHistory qp = do
     k <- mkQueryKey "history"
-    v <- mkQueryValue "0"
+    v <- mkQueryValue "1"
     pure $ (QueryParam k v) `elem` qp
 
   onIOException ioException =
@@ -169,9 +184,10 @@ runAPIServer host port party tracer history callback responseChannel = do
         , port
         }
 
-  sendOutputs chan con displayCBORTx = forever $ do
+  sendOutputs chan con txDisplay = forever $ do
     response <- STM.atomically $ readTChan chan
-    let sentResponse = prepareServerOutputResponse displayCBORTx response
+    let sentResponse =
+          prepareServerOutput txDisplay response
 
     sendTextData con sentResponse
     traceWith tracer (APIOutputSent $ toJSON response)
