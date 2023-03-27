@@ -9,6 +9,7 @@ import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx, PostTxErr
 import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
+import qualified Data.ByteString.Lazy as LBS
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
@@ -115,3 +116,36 @@ instance
     Greetings me -> Greetings <$> shrink me
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     RolledBack -> []
+
+-- grab response json and just replace tx field encoded as CBOR
+replaceTxToCBOR :: TimedServerOutput tx -> LBS.ByteString -> LBS.ByteString
+replaceTxToCBOR timedOutput encodedResponse =
+  case output timedOutput of
+    PeerConnected {} -> encodedResponse
+    PeerDisconnected {} -> encodedResponse
+    HeadIsInitializing {} -> encodedResponse
+    Committed {} -> encodedResponse
+    HeadIsOpen {} -> encodedResponse
+    HeadIsClosed {} -> encodedResponse
+    HeadIsContested {} -> encodedResponse
+    ReadyToFanout {} -> encodedResponse
+    HeadIsAborted {} -> encodedResponse
+    HeadIsFinalized {} -> encodedResponse
+    CommandFailed {clientInput} ->
+      case clientInput of
+        Init -> encodedResponse
+        Abort -> encodedResponse
+        Commit {} -> encodedResponse
+        NewTx {Hydra.API.ClientInput.transaction} -> undefined
+        GetUTxO -> encodedResponse
+        Close -> encodedResponse
+        Contest -> encodedResponse
+        Fanout -> encodedResponse
+    TxValid {Hydra.API.ServerOutput.transaction} -> undefined
+    TxInvalid {Hydra.API.ServerOutput.transaction} -> undefined
+    SnapshotConfirmed {} -> encodedResponse
+    GetUTxOResponse {} -> encodedResponse
+    InvalidInput {} -> encodedResponse
+    Greetings {} -> encodedResponse
+    PostTxOnChainFailed {} -> encodedResponse
+    RolledBack -> encodedResponse
