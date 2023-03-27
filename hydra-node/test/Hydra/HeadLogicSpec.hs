@@ -19,7 +19,7 @@ import Hydra.Chain (
   HeadParameters (..),
   IsChainState,
   OnChainTx (..),
-  PostChainTx (ContestTx),
+  PostChainTx (CollectComTx, ContestTx),
  )
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
@@ -238,6 +238,18 @@ spec = do
         update bobEnv ledger (inOpenState threeParties ledger) (NetworkEvent defaultTTL $ Connected nodeId)
           `hasEffect` ClientEffect (PeerConnected nodeId)
 
+      it "everyone does collect on last commit after collect com" $ do
+        let s0 = inInitialState threeParties
+            aliceCommit = OnCommitTx alice (utxoRef 1)
+            bobCommit = OnCommitTx bob (utxoRef 2)
+            carolCommit = OnCommitTx carol (utxoRef 3)
+        s1 <- assertNewState $ update bobEnv ledger s0 (observeEventAtSlot 1 aliceCommit)
+        s2 <- assertNewState $ update bobEnv ledger s1 (observeEventAtSlot 2 bobCommit)
+        -- Bob is not the last party, but still does post a collect
+        update bobEnv ledger s2 (observeEventAtSlot 3 carolCommit) `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = CollectComTx{}} -> True
+          _ -> False
+
       it "cannot observe abort after collect com" $ do
         let s0 = inInitialState threeParties
         s1 <- assertNewState $ update bobEnv ledger s0 (observationEvent OnCollectComTx)
@@ -320,6 +332,16 @@ chainEffect postChainTx =
   OnChainEffect
     { postChainTx
     , chainState = SimpleChainState{slot = ChainSlot 0}
+    }
+
+observeEventAtSlot :: Natural -> OnChainTx SimpleTx -> Event SimpleTx
+observeEventAtSlot slot observedTx =
+  OnChainEvent
+    { chainEvent =
+        Observation
+          { observedTx
+          , newChainState = SimpleChainState{slot = ChainSlot slot}
+          }
     }
 
 -- | Create an observation event with fixed chain state and slot.

@@ -477,7 +477,6 @@ onInitialClientCommit env st clientInput =
 -- __Transition__: 'InitialState' → 'InitialState'
 onInitialChainCommitTx ::
   Monoid (UTxOType tx) =>
-  Environment ->
   InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
@@ -486,7 +485,7 @@ onInitialChainCommitTx ::
   -- | Committed UTxO
   UTxOType tx ->
   Outcome tx
-onInitialChainCommitTx env st newChainState pt utxo =
+onInitialChainCommitTx st newChainState pt utxo =
   NewState newState $
     notifyClient :
       [postCollectCom | canCollectCom]
@@ -512,13 +511,11 @@ onInitialChainCommitTx env st newChainState pt utxo =
       , postChainTx = CollectComTx $ fold newCommitted
       }
 
-  canCollectCom = null remainingParties && pt == us
+  canCollectCom = null remainingParties
 
   remainingParties = Set.delete pt pendingCommits
 
   InitialState{parameters, pendingCommits, committed, headId} = st
-
-  Environment{party = us} = env
 
 -- | Client request to abort the head. This leads to an abort transaction on
 -- chain, reimbursing already committed UTxOs.
@@ -1009,7 +1006,7 @@ update env ledger st ev = case (st, ev) of
   (Initial idleState, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit env idleState clientInput
   (Initial initialState, OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}) ->
-    onInitialChainCommitTx env initialState newChainState pt utxo
+    onInitialChainCommitTx initialState newChainState pt utxo
   (Initial initialState, ClientEvent Abort) ->
     onInitialClientAbort initialState
   (Initial initialState, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState}) ->
