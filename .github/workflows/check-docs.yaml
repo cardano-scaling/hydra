@@ -1,11 +1,5 @@
 name: "Check documentation"
-
 # on:
-#   workflow_run:
-#     workflows: ["Release Docs"]
-#     branches: [master]
-#     types: 
-#       - completed
 #   schedule:
 #     # Everyday at 5:00 AM UTC
 #     - cron: "0 5 * * *"
@@ -32,7 +26,6 @@ jobs:
         ignorePatterns: 'github,google'
         # TODO: we would like to check recursive links in the future
         recursiveLinks: true
-
     - name: Get the result
       run: 
         echo "${{steps.link-report.outputs.result}}" |& tee link-checker-report.txt
@@ -43,3 +36,14 @@ jobs:
         name: link-checker-report
         path: |
           ./link-checker-report.txt
+
+    - name: Get the result (manually)
+      run: 
+        wget --spider --recursive --no-directories --no-verbose -w 2 -o link-checker-report.log https://hydra.family/
+
+    - name: 💾 Upload link-checker report log
+      uses: actions/upload-artifact@v3
+      with:
+        name: link-checker-report-log
+        path: |
+          ./link-checker-report.log
