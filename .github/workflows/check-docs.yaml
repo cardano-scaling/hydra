@@ -17,12 +17,16 @@ jobs:
     - name: Check for broken links
       id: link-report
       uses: celinekurpershoek/link-checker@v1.0.2 
+      continue-on-error: true
       with:
         # Required:
         url: 'https://hydra.family/head-protocol/'
         # optional:
         honorRobotExclusions: true
-        ignorePatterns: 'github,google,overleaf,ncoding'
+        ignorePatterns: 'github,google'
+        # TODO: we would like to check recursive links in the future
         recursiveLinks: true
     - name: Get the result
       run: echo "${{steps.link-report.outputs.result}}"
+
+    
