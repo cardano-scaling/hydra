@@ -1,35 +1,30 @@
 name: "Release Docs"
 
 on:
-  push:
-    branches:
-    - pepe
-
-# on:
-#   workflow_run:
-#     workflows: ["CI"]
-#     branches: [master]
-#     types: 
-#       - completed
+  workflow_run:
+    workflows: ["CI"]
+    branches: [master]
+    types: 
+      - completed
 
 jobs:
   build-test:
     name: "Build & test using cabal"
     runs-on: ubuntu-latest
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       matrix:
         include:
           - package: plutus-cbor
           - package: plutus-merkle-tree
-          # - package: hydra-tui
-          # - package: hydra-node
-          # - package: hydra-cluster
+          - package: hydra-tui
+          - package: hydra-node
+          - package: hydra-cluster
     steps:
     - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -42,7 +37,7 @@ jobs:
     - name: 📥 Checkout repository to latest released version
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -94,7 +89,7 @@ jobs:
       env:
         TERM: "xterm"
       # TUI specs are flaky. They are failing because of SIGSEGV. 
-      # There is an open issue to tackle this problem. https://github.com/ffakenz/hydra-poc/issues/590
+      # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
       continue-on-error: true
       run: |
         nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
@@ -110,21 +105,21 @@ jobs:
   haddock-benchmarks:
     name: "Haddock & benchmarks"
     runs-on: ubuntu-latest
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       matrix:
         include:
           - bench: tx-cost
             options: '--output-directory $(pwd)/docs/benchmarks'
-          # - bench: hydra-cluster
-          #   options: '--scaling-factor 1'
+          - bench: hydra-cluster
+            options: '--scaling-factor 1'
           - bench: plutus-merkle-tree
             options: '$(pwd)/docs/benchmarks'
     steps:
     - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -137,7 +132,7 @@ jobs:
     - name: 📥 Checkout repository to latest released version
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -191,7 +186,7 @@ jobs:
     - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -204,7 +199,7 @@ jobs:
     - name: 📥 Checkout repository to latest released version
       uses: actions/checkout@v3
       with:
-        repository: ffakenz/hydra-poc
+        repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -249,13 +244,14 @@ jobs:
         name: unstable
         path: docs/public/unstable
 
-    # TODO Remove - only used for debugging
+    # TODO remove as it is only used for debugging
     - name: 💾 Upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: head-protocol
         path: docs/public
         
+    # TODO enable this section
     # - name: 🚢 Publish Documentation
     #   if: github.event_name == 'push'
     #   uses: peaceiris/actions-gh-pages@v3
