@@ -13,6 +13,7 @@ import Control.Monad.Class.MonadAsync (Async, async)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Control.Monad.Class.MonadSTM (
   MonadLabelledSTM,
+  MonadSTM (newTVarIO, writeTVar),
   labelTQueueIO,
   modifyTVar,
   newTQueueIO,
@@ -20,13 +21,15 @@ import Control.Monad.Class.MonadSTM (
   tryReadTQueue,
   writeTQueue,
  )
+import Data.Sequence (Seq (Empty, (:|>)))
+import qualified Data.Sequence as Seq
 import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.BehaviorSpec (
   ConnectToChain (..),
  )
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Chain.Direct.Handlers (ChainSyncHandler, DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollForward)
+import Hydra.Chain.Direct.Handlers (ChainSyncHandler, DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollBackward, onRollForward)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..))
 import qualified Hydra.Chain.Direct.State as S
@@ -54,6 +57,7 @@ import Hydra.Node (
   putEvent,
  )
 import Hydra.Party (Party (..), deriveParty)
+import Ouroboros.Consensus.Block (blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
@@ -76,8 +80,9 @@ mockChainAndNetwork ::
   m (ConnectToChain Tx m, Async m ())
 mockChainAndNetwork tr seedKeys nodes cp = do
   queue <- newTQueueIO
+  chain <- newTVarIO (0, Empty)
   labelTQueueIO queue "chain-queue"
-  tickThread <- async (labelThisThread "chain" >> simulateTicks queue)
+  tickThread <- async (labelThisThread "chain" >> simulateTicks queue chain)
   let chainComponent = \node -> do
         let Environment{party = ownParty, otherParties} = env node
         let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
@@ -132,20 +137,49 @@ mockChainAndNetwork tr seedKeys nodes cp = do
   return (ConnectToChain{..}, tickThread)
  where
   blockTime = 20 -- seconds
-  simulateTicks queue = forever $ do
+  simulateTicks queue chain = forever $ do
     threadDelay blockTime
     transactions <- flushQueue queue []
+    addNewBlockToChain chain transactions
+    sendRollForward chain
 
-    let block = mkBlock transactions
-    allHandlers <- fmap chainHandler <$> readTVarIO nodes
-    forM_ allHandlers (`onRollForward` block)
+    threadDelay blockTime
+    transactions' <- flushQueue queue []
+    addNewBlockToChain chain transactions'
+    sendRollForward chain
+
+    sendRollBackward chain
 
   flushQueue queue transactions = do
     hasTx <- atomically $ tryReadTQueue queue
     case hasTx of
       Just tx -> do
-        flushQueue queue (tx:transactions)
+        flushQueue queue (tx : transactions)
       Nothing -> pure transactions
+  appendToChain block (cursor, blocks) =
+    (cursor, blocks :|> block)
+  sendRollForward chain = do
+    (position, blocks) <- atomically $ readTVar chain
+    case Seq.lookup position blocks of
+      Just block -> do
+        allHandlers <- fmap chainHandler <$> readTVarIO nodes
+        forM_ allHandlers (`onRollForward` block)
+        atomically $ writeTVar chain (position + 1, blocks)
+      Nothing ->
+        pure ()
+  sendRollBackward chain = do
+    (position, blocks) <- atomically $ readTVar chain
+    case Seq.lookup (position - 1) blocks of
+      Just block -> do
+        allHandlers <- fmap chainHandler <$> readTVarIO nodes
+        let point = blockPoint block
+        forM_ allHandlers (`onRollBackward` point)
+        atomically $ writeTVar chain (position - 1, blocks)
+      Nothing ->
+        pure ()
+
+  addNewBlockToChain chain transactions =
+    atomically $ modifyTVar chain $ appendToChain $ mkBlock transactions
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
