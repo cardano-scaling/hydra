@@ -41,6 +41,10 @@ changes.
   bleeding-edge from `master` branch is available at
   https://hydra.family/head-protocol/unstable.
 
+- API clients can decide if they want to:
+  + Skip observing history of events before they connected
+  + View the transactions in the server output encoded as CBOR
+
 ## [0.9.0] - 2023-03-02
 
 :dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/input-output-hk/hydra)!

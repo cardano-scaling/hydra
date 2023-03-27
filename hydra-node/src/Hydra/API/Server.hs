@@ -142,12 +142,12 @@ runAPIServer host port party tracer history callback responseChannel = do
       traceWith tracer NewAPIConnection
 
       -- api client can decide if they want to see the past history of server outputs
-      serveHistory <- shouldServeHistory queryParams
-      if serveHistory
-        then forwardHistory con
-        else forwardGreetingOnly con
+      dontServeHistory <- shouldNotServeHistory queryParams
+      if dontServeHistory
+        then forwardGreetingOnly con
+        else forwardHistory con
 
-      -- api client can decides if they want tx's to be displayed as CBOR instead of plain json
+      -- api client can decide if they want tx's to be displayed as CBOR instead of plain json
       txDisplay <- decideOnTxDisplay queryParams
 
       withPingThread con 30 (pure ()) $
@@ -171,9 +171,9 @@ runAPIServer host port party tracer history callback responseChannel = do
         True -> TxCBOR
         False -> TxJSON
 
-  shouldServeHistory qp = do
+  shouldNotServeHistory qp = do
     k <- mkQueryKey "history"
-    v <- mkQueryValue "1"
+    v <- mkQueryValue "0"
     pure $ (QueryParam k v) `elem` qp
 
   onIOException ioException =

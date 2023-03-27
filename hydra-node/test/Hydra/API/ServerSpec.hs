@@ -167,9 +167,7 @@ spec = parallel $ do
             -- if client doesn't specify anything they will get tx encoded as JSON
             withClient port defaultPath $ \conn -> do
               sendOutput txValidMessage
-              -- receive greetings + one more message
               received :: [ByteString] <- replicateM 2 (receiveData conn)
-              -- make sure tx output is valid tx cbor
               (received List.!! 1) ^? key "transaction" . nonNull
                 `shouldBe` Just (toJSON tx)
 
