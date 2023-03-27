@@ -2,10 +2,12 @@
 
 module Hydra.API.ServerSpec where
 
-import Hydra.Prelude hiding (seq)
+import Hydra.Prelude hiding (decodeUtf8, seq)
 import Test.Hydra.Prelude
 
+import Codec.CBOR.Write (toStrictByteString)
 import Control.Exception (IOException)
+import Control.Lens ((^?))
 import Control.Monad.Class.MonadSTM (
   check,
   modifyTVar',
@@ -16,8 +18,13 @@ import Control.Monad.Class.MonadSTM (
   writeTQueue,
  )
 import qualified Data.Aeson as Aeson
+import Data.Aeson.Lens (key, nonNull)
+import Data.ByteString.Char8 (unpack)
+import qualified Data.List as List
+import Data.Text (pack)
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput, RolledBack), TimedServerOutput (..), input)
+import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), input)
+import Hydra.Chain (HeadId (HeadId))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
@@ -128,16 +135,43 @@ spec = parallel $ do
                   (output <$> timedOutputs) `shouldBe` [greeting]
 
               -- send another message from server
-              sendOutput RolledBack
-              -- Receive one more message and expect it to be 'RolledBack'.
+              newOutput :: ServerOutput SimpleTx <- generate arbitrary
+              sendOutput newOutput
+
+              -- Receive one more message and expect it to be the same as sent one.
               -- This means other messages we sent after the 'Greeting' are ignored as expected.
               received <- replicateM 1 (receiveData conn)
 
               case traverse Aeson.eitherDecode received of
                 Left{} -> failure $ "Failed to decode messages:\n" <> show received
                 Right timedOutputs' -> do
-                  (output <$> timedOutputs') `shouldBe` [RolledBack :: ServerOutput SimpleTx]
+                  (output <$> timedOutputs') `shouldBe` [newOutput]
               return ()
+
+  it "outputs tx as cbor if client says so" $
+    monadicIO $ do
+      tx :: SimpleTx <- pick arbitrary
+      run . failAfter 5 $ do
+        withFreePort $ \port ->
+          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+            let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
+            -- client is able to specify they want tx output to be encoded as CBOR
+            withClient port (defaultPath <> "?tx-output=cbor") $ \conn -> do
+              sendOutput txValidMessage
+              -- receive greetings + one more message
+              received :: [ByteString] <- replicateM 2 (receiveData conn)
+              -- make sure tx output is valid tx cbor
+              (received List.!! 1) ^? key "transaction" . nonNull
+                `shouldBe` Just (Aeson.String . pack . unpack . toStrictByteString $ toCBOR tx)
+
+            -- if client doesn't specify anything they will get tx encoded as JSON
+            withClient port defaultPath $ \conn -> do
+              sendOutput txValidMessage
+              -- receive greetings + one more message
+              received :: [ByteString] <- replicateM 2 (receiveData conn)
+              -- make sure tx output is valid tx cbor
+              (received List.!! 1) ^? key "transaction" . nonNull
+                `shouldBe` Just (toJSON tx)
 
   it "sequence numbers are continuous and strictly monotonically increasing" $
     monadicIO $ do

@@ -139,7 +139,6 @@ library
     , cborg
     , containers
     , contra-tracer
-    , modern-uri
     , data-default
     , directory
     , filepath
@@ -152,7 +151,10 @@ library
     , io-classes
     , iohk-monitoring
     , iproute
+    , lens
+    , lens-aeson
     , memory
+    , modern-uri
     , network
     , network-mux
     , optparse-applicative

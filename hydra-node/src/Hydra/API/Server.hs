@@ -13,27 +13,29 @@ import Hydra.Prelude hiding (TVar, readTVar, seq)
 
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
-import Text.URI
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..), replaceTxToCBOR)
+import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..), prepareServerOutputResponse)
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.WebSockets (
+  PendingConnection (pendingRequest),
+  RequestHead (..),
   acceptRequest,
   receiveData,
   runServer,
   sendTextData,
   sendTextDatas,
-  withPingThread, RequestHead (..), PendingConnection (pendingRequest)
+  withPingThread,
  )
 import Test.QuickCheck (oneof)
+import Text.URI
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
@@ -169,7 +171,7 @@ runAPIServer host port party tracer history callback responseChannel = do
 
   sendOutputs chan con displayCBORTx = forever $ do
     response <- STM.atomically $ readTChan chan
-    let sentResponse = prepareResponse displayCBORTx response
+    let sentResponse = prepareServerOutputResponse displayCBORTx response
 
     sendTextData con sentResponse
     traceWith tracer (APIOutputSent $ toJSON response)
@@ -194,12 +196,6 @@ runAPIServer host port party tracer history callback responseChannel = do
     hist <- STM.atomically (readTVar history)
     let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
     sendTextDatas con $ foldl' encodeAndReverse [] hist
-  prepareResponse displayCBORTx response =
-    let encodedResponse = Aeson.encode response
-    in
-      if displayCBORTx
-        then replaceTxToCBOR response encodedResponse
-        else encodedResponse
 
 data RunServerException = RunServerException
   { ioException :: IOException

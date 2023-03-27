@@ -2,14 +2,19 @@
 
 module Hydra.API.ServerOutput where
 
-import Data.Aeson (Value (..), withObject, (.:))
+import Cardano.Binary (toStrictByteString)
+import Control.Lens ((?~))
+import Data.Aeson (Value (..), encode, withObject, (.:))
 import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Aeson.Lens (atKey)
+import Data.ByteString.Char8 (unpack)
+import qualified Data.ByteString.Lazy as LBS
+import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx, PostTxError)
 import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
-import qualified Data.ByteString.Lazy as LBS
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
@@ -117,35 +122,42 @@ instance
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     RolledBack -> []
 
--- grab response json and just replace tx field encoded as CBOR
-replaceTxToCBOR :: TimedServerOutput tx -> LBS.ByteString -> LBS.ByteString
-replaceTxToCBOR timedOutput encodedResponse =
-  case output timedOutput of
-    PeerConnected {} -> encodedResponse
-    PeerDisconnected {} -> encodedResponse
-    HeadIsInitializing {} -> encodedResponse
-    Committed {} -> encodedResponse
-    HeadIsOpen {} -> encodedResponse
-    HeadIsClosed {} -> encodedResponse
-    HeadIsContested {} -> encodedResponse
-    ReadyToFanout {} -> encodedResponse
-    HeadIsAborted {} -> encodedResponse
-    HeadIsFinalized {} -> encodedResponse
-    CommandFailed {clientInput} ->
+-- | Replaces json encoded tx field to its cbor representation
+-- NOTE: we deliberately pattern match on all 'ServerOutput' constructors
+-- so that we don't forget to update this function if they change.
+prepareServerOutputResponse :: IsChainState tx => Bool -> TimedServerOutput tx -> LBS.ByteString
+prepareServerOutputResponse False response = encode response
+prepareServerOutputResponse True response =
+  case output response of
+    PeerConnected{} -> encodedResponse
+    PeerDisconnected{} -> encodedResponse
+    HeadIsInitializing{} -> encodedResponse
+    Committed{} -> encodedResponse
+    HeadIsOpen{} -> encodedResponse
+    HeadIsClosed{} -> encodedResponse
+    HeadIsContested{} -> encodedResponse
+    ReadyToFanout{} -> encodedResponse
+    HeadIsAborted{} -> encodedResponse
+    HeadIsFinalized{} -> encodedResponse
+    CommandFailed{clientInput} ->
       case clientInput of
         Init -> encodedResponse
         Abort -> encodedResponse
-        Commit {} -> encodedResponse
-        NewTx {Hydra.API.ClientInput.transaction} -> undefined
+        Commit{} -> encodedResponse
+        NewTx{Hydra.API.ClientInput.transaction = tx} -> replacedResponse tx
         GetUTxO -> encodedResponse
         Close -> encodedResponse
         Contest -> encodedResponse
         Fanout -> encodedResponse
-    TxValid {Hydra.API.ServerOutput.transaction} -> undefined
-    TxInvalid {Hydra.API.ServerOutput.transaction} -> undefined
-    SnapshotConfirmed {} -> encodedResponse
-    GetUTxOResponse {} -> encodedResponse
-    InvalidInput {} -> encodedResponse
-    Greetings {} -> encodedResponse
-    PostTxOnChainFailed {} -> encodedResponse
+    TxValid{Hydra.API.ServerOutput.transaction = tx} -> replacedResponse tx
+    TxInvalid{Hydra.API.ServerOutput.transaction = tx} -> replacedResponse tx
+    SnapshotConfirmed{} -> encodedResponse
+    GetUTxOResponse{} -> encodedResponse
+    InvalidInput{} -> encodedResponse
+    Greetings{} -> encodedResponse
+    PostTxOnChainFailed{} -> encodedResponse
     RolledBack -> encodedResponse
+ where
+  encodedResponse = encode response
+  replacedResponse tx =
+    encodedResponse & atKey "transaction" ?~ String (pack . unpack $ toStrictByteString $ toCBOR tx)
