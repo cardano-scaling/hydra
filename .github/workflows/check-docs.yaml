@@ -1,5 +1,11 @@
 name: "Check documentation"
+
 # on:
+#   workflow_run:
+#     workflows: ["Release Docs"]
+#     branches: [master]
+#     types: 
+#       - completed
 #   schedule:
 #     # Everyday at 5:00 AM UTC
 #     - cron: "0 5 * * *"
@@ -26,6 +32,7 @@ jobs:
         ignorePatterns: 'github,google'
         # TODO: we would like to check recursive links in the future
         recursiveLinks: true
+
     - name: Get the result
       run: 
         echo "${{steps.link-report.outputs.result}}" |& tee link-checker-report.txt
