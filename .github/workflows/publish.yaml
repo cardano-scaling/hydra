@@ -1,0 +1,50 @@
+name: "Publish Docs"
+
+on:
+  workflow_run:
+    workflows: ["CI", "Release Docs"]
+    branches: [master]
+    types: 
+      - completed
+
+jobs:
+  documentation:
+    name: Documentation
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+    - name: 📥 Download stable docs with released
+      id: download-artifact
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: release.yaml
+        workflow_conclusion: success
+        name: stable
+        path: docs/public/
+
+    - name: 📥 Download & merge unstable docs with released
+      id: download-artifact
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        name: unstable
+        path: docs/public/unstable
+
+    # TODO remove as it is only used for debugging
+    - name: 💾 Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: head-protocol
+        path: docs/public
+        
+    # TODO enable this section
+    # - name: 🚢 Publish Documentation
+    #   if: github.event_name == 'push'
+    #   uses: peaceiris/actions-gh-pages@v3
+    #   with:
+    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+    #     publish_dir: docs/public
+    #     enable_jekyll: true
+    #     force_orphan: true
+    

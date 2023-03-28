@@ -1,17 +1,19 @@
 name: "Release Docs"
 
+# on:
+#   release:
+#     types: [published]
+
 on:
-  workflow_run:
-    workflows: ["CI"]
-    branches: [master]
-    types: 
-      - completed
+  push:
+    branches:
+    - master
+  pull_request:
 
 jobs:
   build-test:
     name: "Build & test using cabal"
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       matrix:
         include:
@@ -105,7 +107,6 @@ jobs:
   haddock-benchmarks:
     name: "Haddock & benchmarks"
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       matrix:
         include:
@@ -230,34 +231,13 @@ jobs:
         yarn && yarn build
         yarn validate
         mkdir -p public/
-        mkdir -p public/unstable
         mv build/* public/
         echo "hydra.family" > public/CNAME
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
-    - name: 📥 Download & Merge unstable docs with released
-      id: download-artifact
-      uses: dawidd6/action-download-artifact@v2
-      with:
-        workflow: ci.yaml
-        workflow_conclusion: success
-        name: unstable
-        path: docs/public/unstable
-
-    # TODO remove as it is only used for debugging
-    - name: 💾 Upload artifact
+    - name: 💾 Upload stable docs artifact
       uses: actions/upload-artifact@v3
       with:
-        name: head-protocol
+        name: stable
         path: docs/public
         
-    # TODO enable this section
-    # - name: 🚢 Publish Documentation
-    #   if: github.event_name == 'push'
-    #   uses: peaceiris/actions-gh-pages@v3
-    #   with:
-    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-    #     publish_dir: docs/public
-    #     enable_jekyll: true
-    #     force_orphan: true
-    
