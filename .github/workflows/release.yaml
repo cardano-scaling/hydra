@@ -1,8 +1,9 @@
 name: "Release Docs"
 
-on:
-  release:
-    types: [published]
+on:  
+  push:
+    tags:
+      - '*'
 
 jobs:
   build-test:
