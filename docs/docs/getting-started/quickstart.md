@@ -218,7 +218,7 @@ For now, this is managed internally by the Hydra's wallet, but it needs some hel
 a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3
 ```
 
-Conveniently (at least, as much as it can possibly be right now), we provide a [create-marker-utxo.sh](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/scripts/create-marker-utxo.sh) script that uses the cardano-cli to convert a normal UTxO into a marked fuel UTxO. Note that the marker is necessary because, the Cardano keys are expected to hold funds necessary for commits as well, however unmarked.
+Conveniently (at least, as much as it can possibly be right now), we provide a [create-marker-utxo.sh](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/scripts/create-marker-utxo.sh) script that uses the cardano-cli to convert a normal UTxO into a marked fuel UTxO. Note that the marker is necessary because, the Cardano keys are expected to hold funds necessary for commits as well, however unmarked. As a secondary note, this is meant to be used for local devnet, for mainnet usage you would need to adapt the script.
 
 For easy scripting purpose, `hydra-tools` provide a dedicated command to output the current marker datum hash:
 
