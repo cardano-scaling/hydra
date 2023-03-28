@@ -1,8 +1,9 @@
 name: "Publish Docs"
 
+# FIX
 on:
   workflow_run:
-    workflows: ["CI", "Release Docs"]
+    workflows: ["Release Docs"]
     branches: [master]
     types: 
       - completed

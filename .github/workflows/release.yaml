@@ -1,14 +1,8 @@
 name: "Release Docs"
 
-# on:
-#   release:
-#     types: [published]
-
 on:
-  push:
-    branches:
-    - master
-  pull_request:
+  release:
+    types: [published]
 
 jobs:
   build-test:
