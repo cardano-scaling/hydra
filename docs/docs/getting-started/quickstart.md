@@ -276,3 +276,11 @@ E.g.:
 ### Google Cloud w/ Terraform
 
 We provide sample node configurations that will help you get started hosting a Hydra node on virtual machines in the Cloud in the [`sample-node-config/` directory](https://github.com/input-output-hk/hydra/tree/master/sample-node-config/gcp/). In particular, this setup contains a [docker-compose.yaml](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/docker-compose.yaml) specification which gives a good template for configuring cardano-node + hydra-node services. It also offers various useful scripts to setup your cluster.
+
+> Note: This setup is meant to configure your cluster for devnet network. If you want to run the node on mainnet check out _Running on Mainnet_ paragraph.
+
+## Running on Mainnet
+
+Hydra node is compatible with the mainnet network. To choose this network you need to specify `--mainnet` flag for the network id in the hydra-node arguments. On each release we are alredy pre-publishing the hydra scripts and you can find them on the [release page](https://github.com/input-output-hk/hydra/releases) (look for section _Hydra Scripts_).
+You would need to match the hydra-node version with the appropriate scripts published for this release and make sure to choose the correct network.
+Currently there is a hard-coded limit on mainnet network where you can only commit up to 100 ADA into the Hydra head which is meant to prevent the users from _shooting themselves in the foot_ until we have more experiments on the mainnet.
