@@ -1,9 +1,8 @@
 name: "Publish Docs"
 
-# FIX
 on:
   workflow_run:
-    workflows: ["Release Docs"]
+    workflows: ["Release Docs", "CI"]
     branches: [master]
     types: 
       - completed
@@ -32,14 +31,13 @@ jobs:
         name: unstable
         path: docs/public/unstable
 
-    # TODO remove as it is only used for debugging
     - name: 💾 Upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: head-protocol
         path: docs/public
         
-    # TODO enable this section
+    # TODO enable this section before merge
     # - name: 🚢 Publish Documentation
     #   if: github.event_name == 'push'
     #   uses: peaceiris/actions-gh-pages@v3
