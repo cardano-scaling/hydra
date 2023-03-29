@@ -16,7 +16,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
 import Hydra.Chain.CardanoClient (
-  QueryPoint (QueryAt),
+  QueryPoint (QueryTip),
   queryEraHistory,
   querySystemStart,
   queryTip,
@@ -107,8 +107,8 @@ mkTimeHandle currentSlotNo systemStart eraHistory = do
 queryTimeHandle :: NetworkId -> FilePath -> IO TimeHandle
 queryTimeHandle networkId socketPath = do
   tip <- queryTip networkId socketPath
-  systemStart <- querySystemStart networkId socketPath (QueryAt tip)
-  eraHistory <- queryEraHistory networkId socketPath (QueryAt tip)
+  systemStart <- querySystemStart networkId socketPath QueryTip
+  eraHistory <- queryEraHistory networkId socketPath QueryTip
   currentTipSlot <-
     case tip of
       ChainPointAtGenesis -> pure $ SlotNo 0
