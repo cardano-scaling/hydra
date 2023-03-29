@@ -309,8 +309,8 @@ jobs:
         echo "hydra.family" > public/CNAME
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol/unstable"></head></html>' > public/index.html
 
-    - name: 💾 Upload unstable docs as an artifact
+    - name: 💾 Upload unstable docs artifact
       uses: actions/upload-artifact@v3
       with:
         name: unstable
-        path: ./docs/public/unstable
+        path: docs/public/unstable

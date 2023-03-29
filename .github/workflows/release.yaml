@@ -1,17 +1,14 @@
 name: "Release Docs"
 
-on:
-  workflow_run:
-    workflows: ["CI"]
-    branches: [master]
-    types: 
-      - completed
+on:  
+  push:
+    tags:
+      - '*'
 
 jobs:
   build-test:
     name: "Build & test using cabal"
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       matrix:
         include:
@@ -105,7 +102,6 @@ jobs:
   haddock-benchmarks:
     name: "Haddock & benchmarks"
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       matrix:
         include:
@@ -230,13 +226,28 @@ jobs:
         yarn && yarn build
         yarn validate
         mkdir -p public/
-        mkdir -p public/unstable
         mv build/* public/
         echo "hydra.family" > public/CNAME
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
-    - name: 📥 Download & Merge unstable docs with released
-      id: download-artifact
+    - name: 💾 Upload stable docs artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: stable
+        path: docs/public
+        
+  publishing:
+    name: Publish Documentation
+    needs: [documentation]
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Download stable docs released
+      uses: actions/download-artifact@v3
+      with:
+        name: stable
+        path: docs/public/
+
+    - name: 📥 Download & merge latest unstable docs unreleased
       uses: dawidd6/action-download-artifact@v2
       with:
         workflow: ci.yaml
@@ -244,14 +255,13 @@ jobs:
         name: unstable
         path: docs/public/unstable
 
-    # TODO remove as it is only used for debugging
     - name: 💾 Upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: head-protocol
         path: docs/public
         
-    # TODO enable this section
+    # TODO enable this section before merge
     # - name: 🚢 Publish Documentation
     #   if: github.event_name == 'push'
     #   uses: peaceiris/actions-gh-pages@v3
