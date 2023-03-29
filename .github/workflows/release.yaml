@@ -1,9 +1,12 @@
 name: "Release Docs"
 
+# TODO choose one of
 on:  
   push:
     tags:
       - '*'
+  release:
+    types: [published]
 
 jobs:
   build-test:
@@ -236,3 +239,37 @@ jobs:
         name: stable
         path: docs/public
         
+  publishing:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Download stable docs released
+      uses: actions/download-artifact@v3
+      with:
+        name: stable
+        path: docs/public/
+
+    - name: 📥 Download & merge latest unstable docs unreleased
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        name: unstable
+        path: docs/public/unstable
+
+    - name: 💾 Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: head-protocol
+        path: docs/public
+        
+    # TODO enable this section before merge
+    # - name: 🚢 Publish Documentation
+    #   if: github.event_name == 'push'
+    #   uses: peaceiris/actions-gh-pages@v3
+    #   with:
+    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+    #     publish_dir: docs/public
+    #     enable_jekyll: true
+    #     force_orphan: true
+    
