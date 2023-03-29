@@ -2,8 +2,12 @@ name: "Publish Docs"
 
 on:
   workflow_run:
-    workflows: ["Release Docs", "CI"]
+    workflows: ["CI"]
     branches: [master]
+    types: 
+      - completed
+  workflow_run:
+    workflows: ["Release Docs"]
     types: 
       - completed
 
