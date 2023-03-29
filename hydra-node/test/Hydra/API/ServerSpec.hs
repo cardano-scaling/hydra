@@ -138,8 +138,9 @@ spec = parallel $ do
               newOutput :: ServerOutput SimpleTx <- generate arbitrary
               sendOutput newOutput
 
-              -- Receive one more message and expect it to be the same as sent one.
-              -- This means other messages we sent after the 'Greeting' are ignored as expected.
+              -- Receive one more message. The messages we sent
+              -- before client connected are ignored as expected and client can
+              -- see only this last sent message.
               received <- replicateM 1 (receiveData conn)
 
               case traverse Aeson.eitherDecode received of
@@ -160,6 +161,9 @@ spec = parallel $ do
               sendOutput txValidMessage
               -- receive greetings + one more message
               received :: [ByteString] <- replicateM 2 (receiveData conn)
+              -- expect the first message to be Greeting
+              (received List.!! 0) ^? key "me" . nonNull
+                `shouldBe` Just (Aeson.Object (fromList [("vkey", Aeson.String "d5bf4a3fcce717b0388bcc2749ebc148ad9969b23f45ee1b605fd58778576ac4")]))
               -- make sure tx output is valid tx cbor
               (received List.!! 1) ^? key "transaction" . nonNull
                 `shouldBe` Just (Aeson.String . pack . unpack . toStrictByteString $ toCBOR tx)
