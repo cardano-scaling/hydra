@@ -1,12 +1,9 @@
 name: "Release Docs"
 
-# TODO choose one of
 on:  
   push:
     tags:
       - '*'
-  release:
-    types: [published]
 
 jobs:
   build-test:
@@ -240,7 +237,8 @@ jobs:
         path: docs/public
         
   publishing:
-    name: Documentation
+    name: Publish Documentation
+    needs: [documentation]
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Download stable docs released
