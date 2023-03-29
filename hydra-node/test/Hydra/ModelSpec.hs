@@ -126,13 +126,16 @@ import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Model (
-  Action (ObserveConfirmedTx, Wait),
+  Action (ObserveConfirmedTx, ObserveHeadIsOpen, Wait),
   GlobalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
   RunMonad,
   WorldState (..),
+  genCommit',
+  genInit,
   genPayment,
+  genSeed,
   runMonad,
  )
 import qualified Hydra.Model as Model
@@ -151,7 +154,7 @@ import Test.QuickCheck.DynamicLogic (
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, Step ((:=)), runActions, stateAfter, pattern Actions)
-import Test.Util (printTrace, traceInIOSim)
+import Test.Util (printTrace, traceDebug, traceInIOSim)
 
 spec :: Spec
 spec = do
@@ -161,11 +164,17 @@ spec = do
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
   prop "implementation respects model" $ forAll arbitrary prop_checkModel
   prop "check conflict-free liveness" prop_checkConflictFreeLiveness
+  prop "check head opens if all participants commit" $ withMaxSuccess 2 prop_checkHeadOpensIfAllPartiesCommit
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
   within 50000000 $
     forAllDL_ conflictFreeLiveness prop_HydraModel
+
+prop_checkHeadOpensIfAllPartiesCommit :: Property
+prop_checkHeadOpensIfAllPartiesCommit =
+  within 50000000 $
+    forAllDL_ headOpensIfAllPartiesCommit prop_HydraModel
 
 prop_HydraModel :: Actions WorldState -> Property
 prop_HydraModel actions = property $
@@ -191,7 +200,28 @@ conflictFreeLiveness = do
   action Model.StopTheWorld
  where
   nonConflictingTx st = withGenQ (genPayment st) (const [])
-  eventually a = action (Wait 10) >> action a
+  eventually a = action (Wait 100) >> action a
+
+headOpensIfAllPartiesCommit :: DL WorldState ()
+headOpensIfAllPartiesCommit = do
+  seedTheWorld
+  initHead
+  everybodyCommit
+
+  -- assertModel "Head should be open" isHeadOpen
+
+  eventually ObserveHeadIsOpen
+ where
+  eventually a = action (Wait 1000) >> action a
+  -- isHeadOpen = isOpenState . hydraState
+  seedTheWorld = forAllQ (withGenQ genSeed (const [])) >>= action
+  initHead = do
+    WorldState{hydraParties} <- getModelStateDL
+    forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action
+  everybodyCommit = do
+    WorldState{hydraParties} <- getModelStateDL
+    forM_ hydraParties $ \party ->
+      forAllQ (withGenQ (genCommit' hydraParties party) (const [])) >>= action
 
 prop_generateTraces :: Actions WorldState -> Property
 prop_generateTraces actions =
@@ -287,7 +317,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
 runIOSimProp :: Testable a => (forall s. PropertyM (RunMonad (IOSim s)) a) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  let tr = runSimTrace $ evalStateT (runMonad $ eval $ monadic' p) (Nodes mempty traceInIOSim mempty)
+  let tr = runSimTrace $ evalStateT (runMonad $ eval $ monadic' p) (Nodes mempty (traceInIOSim <> traceDebug) mempty)
       traceDump = printTrace (Proxy :: Proxy Tx) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
   case traceResult False tr of

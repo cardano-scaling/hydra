@@ -174,7 +174,7 @@ mockChainAndNetwork tr seedKeys nodes cp = do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         let point = blockPoint block
         forM_ allHandlers (`onRollBackward` point)
-        atomically $ writeTVar chain (position - 1, blocks)
+        atomically $ writeTVar chain (position - 1 + 1, blocks)
       Nothing ->
         pure ()
 
