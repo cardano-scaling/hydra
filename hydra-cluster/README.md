@@ -53,7 +53,7 @@ local `state-testnet` directory (to re-use the synchronized chain db):
 hydra-cluster --preview --state-directory state-testnet
 ```
 
-> Note: If you want to do it against mainnet
+> Note: If you want to do it on mainnet
 > ```sh
 > hydra-cluster --mainnet --state-directory state-mainnet
 > ```
