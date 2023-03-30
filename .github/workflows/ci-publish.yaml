@@ -35,13 +35,12 @@ jobs:
         name: head-protocol
         path: docs/public
         
-    # TODO enable this section before merge
-    # - name: 🚢 Publish Documentation
-    #   if: github.event_name == 'push'
-    #   uses: peaceiris/actions-gh-pages@v3
-    #   with:
-    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-    #     publish_dir: docs/public
-    #     enable_jekyll: true
-    #     force_orphan: true
+    - name: 🚢 Publish Documentation
+      if: github.event_name == 'push'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        publish_dir: docs/public
+        enable_jekyll: true
+        force_orphan: true
     
