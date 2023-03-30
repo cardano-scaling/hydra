@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -19,9 +20,9 @@ import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (
+  OutputFormat (..),
   ServerOutput (Greetings, InvalidInput),
   TimedServerOutput (..),
-  TxDisplay (..),
   prepareServerOutput,
  )
 import Hydra.Chain (IsChainState)
@@ -41,6 +42,7 @@ import Network.WebSockets (
  )
 import Test.QuickCheck (oneof)
 import Text.URI
+import Text.URI.QQ (queryKey, queryValue)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
@@ -142,13 +144,12 @@ runAPIServer host port party tracer history callback responseChannel = do
       traceWith tracer NewAPIConnection
 
       -- api client can decide if they want to see the past history of server outputs
-      dontServeHistory <- shouldNotServeHistory queryParams
-      if dontServeHistory
+      if shouldNotServeHistory queryParams
         then forwardGreetingOnly con
         else forwardHistory con
 
       -- api client can decide if they want tx's to be displayed as CBOR instead of plain json
-      txDisplay <- decideOnTxDisplay queryParams
+      let txDisplay = decideOnTxDisplay queryParams
 
       withPingThread con 30 (pure ()) $
         race_ (receiveInputs con) (sendOutputs chan con txDisplay)
@@ -162,19 +163,19 @@ runAPIServer host port party tracer history callback responseChannel = do
           , seq = 0
           , output = Greetings party :: ServerOutput tx
           }
+  decideOnTxDisplay qp =
+    let k = [queryKey|tx-output|]
+        v = [queryValue|cbor|]
+        queryP = QueryParam k v
+     in case queryP `elem` qp of
+          True -> OutputCBOR
+          False -> OutputJSON
 
-  decideOnTxDisplay qp = do
-    k <- mkQueryKey "tx-output"
-    v <- mkQueryValue "cbor"
-    pure $
-      case (QueryParam k v) `elem` qp of
-        True -> TxCBOR
-        False -> TxJSON
-
-  shouldNotServeHistory qp = do
-    k <- mkQueryKey "history"
-    v <- mkQueryValue "0"
-    pure $ (QueryParam k v) `elem` qp
+  shouldNotServeHistory qp =
+    flip any qp $ \case
+      (QueryParam key val)
+        | key == [queryKey|history|] -> val == [queryValue|no|]
+      _other -> False
 
   onIOException ioException =
     throwIO $

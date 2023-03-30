@@ -151,8 +151,6 @@ library
     , io-classes
     , iohk-monitoring
     , iproute
-    , lens
-    , lens-aeson
     , memory
     , modern-uri
     , network

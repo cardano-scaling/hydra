@@ -2,14 +2,11 @@
 
 module Hydra.API.ServerOutput where
 
-import Cardano.Binary (toStrictByteString)
-import Control.Lens ((?~))
+import Cardano.Binary (serialize')
 import Data.Aeson (Value (..), encode, withObject, (.:))
 import qualified Data.Aeson.KeyMap as KeyMap
-import Data.Aeson.Lens (atKey)
-import Data.ByteString.Char8 (unpack)
+import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as LBS
-import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx, PostTxError)
 import Hydra.Crypto (MultiSignature)
@@ -123,9 +120,9 @@ instance
     RolledBack -> []
 
 -- | Possible transaction formats in the api server output
-data TxDisplay
-  = TxCBOR
-  | TxJSON
+data OutputFormat
+  = OutputCBOR
+  | OutputJSON
   deriving (Eq, Show)
 
 -- | Replaces the json encoded tx field with it's cbor representation.
@@ -134,13 +131,13 @@ data TxDisplay
 prepareServerOutput ::
   IsChainState tx =>
   -- | Decide on tx representation
-  TxDisplay ->
+  OutputFormat ->
   -- | Server output
   TimedServerOutput tx ->
   -- | Final output
   LBS.ByteString
-prepareServerOutput TxJSON response = encode response
-prepareServerOutput TxCBOR response =
+prepareServerOutput OutputJSON response = encode response
+prepareServerOutput OutputCBOR response =
   case output response of
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
@@ -173,4 +170,6 @@ prepareServerOutput TxCBOR response =
  where
   encodedResponse = encode response
   replacedResponse tx =
-    encodedResponse & atKey "transaction" ?~ String (pack . unpack $ toStrictByteString $ toCBOR tx)
+    case toJSON response of
+      Object km -> encode $ Object $ KeyMap.insert "transaction" (String . decodeUtf8 . Base16.encode $ serialize' tx) km
+      _other -> encodedResponse
