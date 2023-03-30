@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Create a 'fuel' UTXO for spending into a Hydra Head
-# Assume NETWORK_MAGIC environment variable is set
+# Assume NETWORK environment variable is set. It should be either `--mainnet` or `--testnet-magic MAGIC`
 
 set -evx
 
 [ $# -eq 1 ] || { echo "need signing key file" ; exit 1 ; }
 
-[ -z "${NETWORK_MAGIC}" ] && { echo "no NETWORK_MAGIC defined" ; exit 2 ; }
+[ -z "${NETWORK}" ] && { echo "no NETWORK defined" ; exit 2 ; }
 
 ccli () {
         docker run -it -v$(pwd):/work -w /work -u $(id -u) -e CARDANO_NODE_SOCKET_PATH=/work/ipc/node.socket --entrypoint cardano-cli inputoutput/cardano-node:latest ${@}
@@ -26,12 +26,12 @@ ccli key verification-key \
     --signing-key-file $sk \
     --verification-key-file $vk
 
-addr=$(ccli address build --testnet-magic ${NETWORK_MAGIC} --payment-verification-key-file $vk)
+addr=$(ccli address build ${NETWORK} --payment-verification-key-file $vk)
 
 utxo=temp.utxo
 ccli query utxo \
     --cardano-mode --epoch-slots 21600 \
-    --testnet-magic ${NETWORK_MAGIC} \
+    ${NETWORK} \
     --address $addr \
     --out-file $utxo.out
 jq "to_entries|sort_by(.value.value.lovelace)|last" $utxo.out > $utxo
@@ -43,7 +43,7 @@ tx=temp.tx
 ccli transaction build \
     --alonzo-era \
     --cardano-mode --epoch-slots 21600 \
-    --testnet-magic ${NETWORK_MAGIC} \
+    ${NETWORK} \
     --script-valid \
     --tx-in $input \
     --tx-out $addr+$fuel_amount \
@@ -61,5 +61,5 @@ ccli transaction view \
 
 ccli transaction submit \
     --cardano-mode --epoch-slots 21600 \
-    --testnet-magic ${NETWORK_MAGIC} \
+    ${NETWORK} \
     --tx-file $tx.signed
