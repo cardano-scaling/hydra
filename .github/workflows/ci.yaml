@@ -97,6 +97,15 @@ jobs:
           ./**/test-results.xml
           ./**/hspec-results.md
 
+
+    # NOTE: This depends on the path used in hydra-cluster e2e tests
+    - name: 💾 Upload logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: hydra-cluster-e2e-test-logs
+        path: /tmp/hydra-cluster-e2e-*/logs/**/*
+
   build-executables:
     name: "Build using nix"
     runs-on: ubuntu-latest

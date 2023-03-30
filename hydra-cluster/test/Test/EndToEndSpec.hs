@@ -99,17 +99,25 @@ import qualified Prelude
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]
 
+-- | Like 'withTempDir', busing a common prefix to keep hydra-cluster logs more
+-- easily on CI.
+--
+-- NOTE: The ci.yaml workflow depends on this.
+withClusterTempDir :: MonadIO m => String -> (FilePath -> m a) -> m a
+withClusterTempDir name =
+  withTempDir ("hydra-cluster-e2e-" <> name)
+
 spec :: Spec
 spec = around showLogsOnFailure $ do
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
       it "full head life-cycle" $ \tracer -> do
-        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
+        withClusterTempDir "single-full-life-cycle" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyHeadFullLifeCycle tracer tmpDir node
       it "can close with long deadline" $ \tracer -> do
-        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
+        withClusterTempDir "close-long-deadline" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canCloseWithLongContestationPeriod tracer tmpDir node
@@ -117,14 +125,14 @@ spec = around showLogsOnFailure $ do
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $
-          withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
+          withClusterTempDir "three-full-life-cycle" $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               initAndClose tracer 1 hydraScriptsTxId node
 
       it "inits a Head and closes it immediately " $ \tracer ->
         failAfter 60 $
-          withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
+          withClusterTempDir "three-init-close-immediately" $ \tmpDir -> do
             let clusterIx = 0
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
               aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
@@ -182,19 +190,19 @@ spec = around showLogsOnFailure $ do
 
     describe "restarting nodes" $ do
       it "can abort head after restart" $ \tracer -> do
-        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
+        withClusterTempDir "abort-after-restart" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= restartedNodeCanAbort tracer tmpDir node
 
       it "can observe a commit tx after a restart, even when a tx happened while down" $ \tracer -> do
-        withTempDir "hydra-cluster-end-to-end" $ \tmpDir -> do
+        withClusterTempDir "commit-after-restart" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= restartedNodeCanObserveCommitTx tracer tmpDir node
 
       it "can start chain from the past and replay on-chain events" $ \tracer ->
-        withTempDir "end-to-end-chain-observer" $ \tmp ->
+        withClusterTempDir "replay-chain-events" $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             let contestationPeriod = UnsafeContestationPeriod 10
@@ -224,7 +232,7 @@ spec = around showLogsOnFailure $ do
               headId' `shouldBe` aliceHeadId
 
       it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
-        withTempDir "end-to-end-chain-observer" $ \tmp ->
+        withClusterTempDir "contest-after-restart" $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
 
@@ -298,7 +306,7 @@ spec = around showLogsOnFailure $ do
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
         failAfter 60 $
-          withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
+          withClusterTempDir "two-heads-no-conflict" $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               concurrently_
@@ -307,7 +315,7 @@ spec = around showLogsOnFailure $ do
 
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
-          withTempDir "end-to-end-two-heads" $ \tmpDir -> do
+          withClusterTempDir "two-heads-cant-abort" $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
@@ -340,7 +348,7 @@ spec = around showLogsOnFailure $ do
 
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
-        withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
+        withClusterTempDir "prometheus-metrics" $ \tmpDir -> do
           (aliceCardanoVk, _) <- keysFor Alice
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
@@ -367,7 +375,7 @@ spec = around showLogsOnFailure $ do
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
 
       it "logs its command line arguments" $ \tracer -> do
-        withTempDir "temp-dir-to-check-hydra-logs" $ \dir -> do
+        withClusterTempDir "logs-options" $ \dir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \RunningNode{nodeSocket} -> do
             let hydraSK = dir </> "hydra.sk"
             let cardanoSK = dir </> "cardano.sk"
@@ -375,13 +383,13 @@ spec = around showLogsOnFailure $ do
             (_, cardanoSKey) <- generateCardanoKey
             void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
             void $ writeFileTextEnvelope cardanoSK Nothing cardanoSKey
-            withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--testnet-magic", "42", "--hydra-signing-key", hydraSK,"--cardano-signing-key", cardanoSK, "--node-socket", nodeSocket]){std_out = CreatePipe} $
+            withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--testnet-magic", "42", "--hydra-signing-key", hydraSK, "--cardano-signing-key", cardanoSK, "--node-socket", nodeSocket]){std_out = CreatePipe} $
               \_ (Just nodeStdout) _ _ ->
                 waitForLog 10 nodeStdout "JSON object with key NodeOptions" $ \line ->
                   line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
 
       it "detects misconfiguration" $ \tracer -> do
-        withTempDir "temp-dir-to-check-hydra-misconfiguration" $ \dir -> do
+        withClusterTempDir "detect-misconfiguration" $ \dir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             let persistenceDir = dir </> "persistence"
@@ -478,7 +486,7 @@ waitForLog delay nodeOutput failureMessage predicate = do
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
-  withTempDir "end-to-end-init-and-close" $ \tmpDir -> do
+  withClusterTempDir "init-and-close" $ \tmpDir -> do
     aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
     bobKeys@(bobCardanoVk, _) <- generate genKeyPair
     carolKeys@(carolCardanoVk, _) <- generate genKeyPair
