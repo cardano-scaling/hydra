@@ -53,6 +53,11 @@ local `state-testnet` directory (to re-use the synchronized chain db):
 hydra-cluster --preview --state-directory state-testnet
 ```
 
+> Note: If you want to do it on mainnet
+> ```sh
+> hydra-cluster --mainnet --state-directory state-mainnet
+> ```
+
 :warning: the C.I. overrides these files for mainnet. On the C.I. the
 faucet secrets are base64 encoded. Shall you need to update them, you
 could do it with the following commands (if you're not sure, do not
