@@ -4,6 +4,8 @@ sidebar_position: 3
 
 # QuickStart
 
+PEPE
+
 ```mdx-code-block
 import TerminalWindow from '@site/src/components/TerminalWindow';
 ```
