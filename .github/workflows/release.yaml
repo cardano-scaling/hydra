@@ -1,15 +1,9 @@
-name: "CI"
+name: "Release Docs"
 
-# Limit concurrent runs of this workflow within a single PR
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
-on:
+on:  
   push:
-    branches:
-    - master
-  pull_request:
+    tags:
+      - '*'
 
 jobs:
   build-test:
@@ -20,23 +14,31 @@ jobs:
         include:
           - package: plutus-cbor
           - package: plutus-merkle-tree
-          - package: hydra-plutus
           - package: hydra-tui
           - package: hydra-node
           - package: hydra-cluster
     steps:
-    - name: 📥 Checkout repository
+    - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
         repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
-        # On pull_request events, we want to check out the latest commit of the
-        # PR, which is different to github.ref (the default, which would point
-        # to a "fake merge" commit). On push events, the default is fine as it
-        # refers to the pushed commit.
-        ref: ${{ github.event.pull_request.head.sha || github.ref }}
         # Also ensure we have all history with all tags
         fetch-depth: 0
+        
+    - name: Get last relase version tag
+      id: latest_tag
+      run: |
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
+
+    - name: 📥 Checkout repository to latest released version
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v20
@@ -89,77 +91,13 @@ jobs:
       run: |
         nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
 
-    - name: 💾 Upload build & test artifacts
+    - name: 💾 Upload build & test released artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: test-results
+        name: test-results-released
         path: |
           ./**/test-results.xml
           ./**/hspec-results.md
-
-  build-executables:
-    name: "Build using nix"
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-        # On pull_request events, we want to check out the latest commit of the
-        # PR, which is different to github.ref (the default, which would point
-        # to a "fake merge" commit). On push events, the default is fine as it
-        # refers to the pushed commit.
-        ref: ${{ github.event.pull_request.head.sha || github.ref }}
-        # Also ensure we have all history with all tags
-        fetch-depth: 0
-
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v20
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v12
-      with:
-        name: hydra-node
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-
-    - name: ❄ Build static executables
-      run: |
-        mkdir -p bin/
-        nix build .#hydra-node-static && cp result/bin/* bin/
-        nix build .#hydra-tools-static && cp result/bin/* bin/
-        nix build .#hydra-tui-static && cp result/bin/* bin/
-
-    - name: 💾 Upload executables
-      uses: actions/upload-artifact@v3
-      with:
-        name: hydra-x86_64-unknown-linux-musl
-        path: |
-          ./bin
-
-  publish-test-results:
-    name: Publish test results
-    needs: [build-test]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-
-    - name: 📥 Download test results
-      uses: actions/download-artifact@v3
-      with:
-        name: test-results
-
-    - name: ✏ Publish test results to PR
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      with:
-        junit_files: ./**/test-results.xml
 
   haddock-benchmarks:
     name: "Haddock & benchmarks"
@@ -174,11 +112,27 @@ jobs:
           - bench: plutus-merkle-tree
             options: '$(pwd)/docs/benchmarks'
     steps:
-    - name: 📥 Checkout repository
+    - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
         repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        
+    - name: Get last relase version tag
+      id: latest_tag
+      run: |
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
+
+    - name: 📥 Checkout repository to latest released version
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v20
@@ -214,70 +168,38 @@ jobs:
       run: |
         nix develop .#ci --command bash -c '.github/workflows/ci-haddock.sh'
 
-    - name: 💾 Upload build & test artifacts
+    - name: 💾 Upload build & test released artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: benchmarks-and-haddocks
+        name: benchmarks-and-haddocks-released
         path: ./docs
-
-  publish-benchmark-results:
-    name: Publish benchmark results
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    # TODO: this is actually only requires the tx-cost benchmark results
-    needs: [haddock-benchmarks]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-
-    - name: 📥 Download generated documentation
-      uses: actions/download-artifact@v3
-      with:
-        name: benchmarks-and-haddocks
-        path: artifact
-
-    - name: ⚙ Prepare comment body
-      id: comment-body
-      run: |
-        # Drop first 5 header lines and demote headlines one level
-        body="$(cat artifact/benchmarks/transaction-cost.md | sed '1,5d;s/^#/##/')"
-        body="${body//'%'/'%25'}"
-        body="${body//$'\n'/'%0A'}"
-        body="${body//$'\r'/'%0D'}"
-        echo "::set-output name=body::$body"
-
-    - name: 🔎 Find Comment
-      uses: peter-evans/find-comment@v2
-      id: find-comment
-      with:
-        issue-number: ${{ github.event.pull_request.number }}
-        comment-author: 'github-actions[bot]'
-        body-includes: Transactions Costs
-
-    - name: ✏ Create or update comment
-      uses: peter-evans/create-or-update-comment@v2
-      with:
-        comment-id: ${{ steps.find-comment.outputs.comment-id }}
-        edit-mode: replace
-        issue-number: ${{ github.event.pull_request.number }}
-        body: ${{ steps.comment-body.outputs.body }}
-        reactions: rocket
 
   documentation:
     name: Documentation
     needs: [haddock-benchmarks,build-test]
     runs-on: ubuntu-latest
     steps:
-    - name: 📥 Checkout repository
+    - name: 📥 Checkout repository to latest master
       uses: actions/checkout@v3
       with:
         repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
-        # Ensure we have all history with all commits
+        # Also ensure we have all history with all tags
         fetch-depth: 0
+        
+    - name: Get last relase version tag
+      id: latest_tag
+      run: |
+        echo "RELEASE_VERSION=$(echo $(git describe --abbrev=0 --tags))" >> $GITHUB_OUTPUT
+
+    - name: 📥 Checkout repository to latest released version
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+        ref: ${{ steps.latest_tag.outputs.RELEASE_VERSION }}
 
     - name: 🚧 Setup Node.js
       uses: actions/setup-node@v3
@@ -286,31 +208,65 @@ jobs:
         cache: 'yarn'
         cache-dependency-path: docs/yarn.lock
 
-    - name: 📥 Download generated documentation
+    - name: 📥 Download generated released documentation
       uses: actions/download-artifact@v3
       with:
-        name: benchmarks-and-haddocks
+        name: benchmarks-and-haddocks-released
         path: docs
 
-    - name: 📥 Download test results
+    - name: 📥 Download test released results
       uses: actions/download-artifact@v3
       with:
-        name: test-results
+        name: test-results-released
         path: docs/benchmarks/tests
 
     - name: 📚 Documentation (Docusaurus)
       working-directory: docs
       run: |
-        sed -i 's/head-protocol/head-protocol\/unstable/' docusaurus.config.js
         yarn && yarn build
         yarn validate
-        mkdir -p public/unstable
-        mv build/* public/unstable
+        mkdir -p public/
+        mv build/* public/
         echo "hydra.family" > public/CNAME
-        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol/unstable"></head></html>' > public/index.html
+        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
-    - name: 💾 Upload unstable docs artifact
+    - name: 💾 Upload stable docs artifact
       uses: actions/upload-artifact@v3
       with:
+        name: stable
+        path: docs/public
+        
+  publishing:
+    name: Publish Documentation
+    needs: [documentation]
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Download stable docs released
+      uses: actions/download-artifact@v3
+      with:
+        name: stable
+        path: docs/public/
+
+    - name: 📥 Download & merge latest unstable docs unreleased
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
         name: unstable
         path: docs/public/unstable
+
+    - name: 💾 Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: head-protocol
+        path: docs/public
+        
+    - name: 🚢 Publish Documentation
+      if: github.event_name == 'push'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        publish_dir: docs/public
+        enable_jekyll: true
+        force_orphan: true
+    

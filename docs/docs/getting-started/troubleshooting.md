@@ -6,7 +6,7 @@
 
 - The current transaction size has a limit of ~16KB. This causes the following inconveniences:
 
-  - The protocol can only handle a maximum number of participants by Head. See [cost of collectcom transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-collectcom-transaction) or the `hydra-node` will inform you of the current configured maximum when trying to configure too many peers.
+  - The protocol can only handle a maximum number of participants by Head. See [cost of collectcom transaction](/benchmarks/transaction-cost/#cost-of-collectcom-transaction) or the `hydra-node` will inform you of the current configured maximum when trying to configure too many peers.
 
   - Each party can only commit zero or one utxo into a Head.
 
@@ -17,7 +17,7 @@
   - [Limit size/complexity of UTxOs in the Head](https://github.com/input-output-hk/hydra/issues/698)
   - [Only sign closable snapshots](https://github.com/input-output-hk/hydra/issues/370)
 
-* Not an issue, but a workaround: The internal wallet of `hydra-node` requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](https://hydra.family/head-protocol/docs/getting-started/demo/with-docker/#seeding-the-network).
+- Not an issue, but a workaround: The internal wallet of `hydra-node` requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](/docs/getting-started/demo/with-docker/#seeding-the-network).
 
 ### hydra-tui
 

@@ -16,7 +16,7 @@ Essential building block and executable piece of software that is used to form a
 Reuses the existing smart contract system and code for offchain computations. This guarantees that onchain and offchain semantics coincide, leading to significant engineering simplifications.
 
 ### Layer 2
-Layer 2 refers to a secondary framework or protocol that is built on top of an existing blockchain system. See this [page](../../core-concepts/layer-two) for more details.
+Layer 2 refers to a secondary framework or protocol that is built on top of an existing blockchain system. See this [page](/core-concepts/layer-two) for more details.
 
 ### Marker Datum
 Its a [datum](https://docs.cardano.org/glossary/#datum) used for the sole purpose of identifying a [UTxO](https://docs.cardano.org/glossary/#utxo).
@@ -37,7 +37,7 @@ A member of a Hydra network, identified by an IP address and a TCP port.
 See this [page](./quickstart#reference-scripts) for more details.
 
 ### Rollback
-The manifestation of a chain switch on the base layer, causing the recent history to change. It is a multi-step process between the head and L1. See this [page](../../core-concepts/rollbacks) for more details.
+The manifestation of a chain switch on the base layer, causing the recent history to change. It is a multi-step process between the head and L1. See this [page](/core-concepts/rollbacks) for more details.
 
 ### Signing key
 See a reference in [cardano glossary](https://docs.cardano.org/glossary/#keypair) for more details.
@@ -46,7 +46,7 @@ See a reference in [cardano glossary](https://docs.cardano.org/glossary/#keypair
 Some state of a Hydra head; When multi-signed by all parties, a snapshot is said "confirmed".
 
 ### State Channel
-A common kind of layer two solution. See this [page](../../core-concepts/layer-two#state-channels) for more details.
+A common kind of layer two solution. See this [page](/core-concepts/layer-two#state-channels) for more details.
 
 ### State Thread Token
 An on-chain token representing the state of a Hydra head.
