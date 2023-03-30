@@ -97,7 +97,6 @@ jobs:
           ./**/test-results.xml
           ./**/hspec-results.md
 
-
     # NOTE: This depends on the path used in hydra-cluster e2e tests
     - name: 💾 Upload logs
       if: always()
