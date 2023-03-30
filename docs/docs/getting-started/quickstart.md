@@ -281,6 +281,6 @@ We provide sample node configurations that will help you get started hosting a H
 
 ## Running on Mainnet
 
-Hydra node is compatible with the mainnet network. To choose this network you need to specify `--mainnet` flag for the network id in the hydra-node arguments. On each release we are alredy pre-publishing the hydra scripts and you can find them on the [release page](https://github.com/input-output-hk/hydra/releases) (look for section _Hydra Scripts_).
+Hydra node is compatible with the mainnet network. To choose this network you need to specify `--mainnet` flag for the network id in the hydra-node arguments. We publish the hydra scripts on each new release and you can find them on the [release page](https://github.com/input-output-hk/hydra/releases) (look for section _Hydra Scripts_).
 You would need to match the hydra-node version with the appropriate scripts published for this release and make sure to choose the correct network.
 Currently there is a hard-coded limit on mainnet network where you can only commit up to 100 ADA into the Hydra head which is meant to prevent the users from _shooting themselves in the foot_ until we have more experiments on the mainnet.
