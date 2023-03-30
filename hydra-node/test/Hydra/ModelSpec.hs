@@ -219,20 +219,19 @@ prop_checkModel actions =
     property $
       runIOSimProp $ do
         (WorldState{hydraParties, hydraState}, _symEnv) <- runActions actions
-        -- XXX: In the past we waited until the end of time here, which would
-        -- robustly catch all the remaining asynchronous actions, but we have
-        -- now a "more active" simulated chain which ticks away and not simply
-        -- detects a deadlock if we wait for infinity. Maybe cancelling the
-        -- simulation's 'tickThread' and wait then could work?
-        run $ lift waitForADay
+        -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
+        -- the underlying simulated chain which produces a block every 20s. It
+        -- should be enough to ensure all nodes' threads terminate their actions
+        -- and those gets picked up by the chain
+        run $ lift waitForAMinute
         let parties = Set.fromList $ deriveParty . fst <$> hydraParties
         nodes <- run $ gets nodes
         assert (parties == Map.keysSet nodes)
         forM_ parties $ \p -> do
           assertBalancesInOpenHeadAreConsistent hydraState nodes p
  where
-  waitForADay :: MonadDelay m => m ()
-  waitForADay = threadDelay $ 60 * 60 * 24
+  waitForAMinute :: MonadDelay m => m ()
+  waitForAMinute = threadDelay 60
 
 assertBalancesInOpenHeadAreConsistent ::
   GlobalState ->
