@@ -39,13 +39,14 @@
           (hsPkgs."base16-bytestring" or (errorHandler.buildDepError "base16-bytestring"))
           (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
           (hsPkgs."generic-random" or (errorHandler.buildDepError "generic-random"))
+          (hsPkgs."gitrev" or (errorHandler.buildDepError "gitrev"))
           (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
           (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
           (hsPkgs."relude" or (errorHandler.buildDepError "relude"))
           (hsPkgs."transformers" or (errorHandler.buildDepError "transformers"))
           ];
         buildable = true;
-        modules = [ "Hydra/Prelude" ];
+        modules = [ "Hydra/Prelude" "Hydra/Version" ];
         hsSourceDirs = [ "src" ];
         };
       };

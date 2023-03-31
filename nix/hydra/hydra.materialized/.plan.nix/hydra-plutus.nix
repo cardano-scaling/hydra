@@ -60,12 +60,16 @@
         modules = [
           "Hydra/Contract"
           "Hydra/Contract/Commit"
+          "Hydra/Contract/CommitError"
           "Hydra/Contract/Error"
           "Hydra/Contract/Hash"
           "Hydra/Contract/Head"
+          "Hydra/Contract/HeadError"
           "Hydra/Contract/HeadState"
           "Hydra/Contract/HeadTokens"
+          "Hydra/Contract/HeadTokensError"
           "Hydra/Contract/Initial"
+          "Hydra/Contract/InitialError"
           "Hydra/Contract/MintAction"
           "Hydra/Contract/Util"
           "Hydra/Data/ContestationPeriod"
@@ -109,9 +113,12 @@
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
             (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
+            (hsPkgs."hspec-golden" or (errorHandler.buildDepError "hspec-golden"))
+            (hsPkgs."hydra-cardano-api" or (errorHandler.buildDepError "hydra-cardano-api"))
             (hsPkgs."hydra-plutus" or (errorHandler.buildDepError "hydra-plutus"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."hydra-test-utils" or (errorHandler.buildDepError "hydra-test-utils"))
+            (hsPkgs."plutus-ledger-api" or (errorHandler.buildDepError "plutus-ledger-api"))
             (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
             (hsPkgs."time" or (errorHandler.buildDepError "time"))
             ];
@@ -119,7 +126,11 @@
             (hsPkgs.buildPackages.hspec-discover.components.exes.hspec-discover or (pkgs.buildPackages.hspec-discover or (errorHandler.buildToolDepError "hspec-discover:hspec-discover")))
             ];
           buildable = true;
-          modules = [ "Hydra/Data/ContestationPeriodSpec" "Spec" ];
+          modules = [
+            "Hydra/Data/ContestationPeriodSpec"
+            "Hydra/Plutus/GoldenSpec"
+            "Spec"
+            ];
           hsSourceDirs = [ "test" ];
           mainPath = [ "Main.hs" ];
           };

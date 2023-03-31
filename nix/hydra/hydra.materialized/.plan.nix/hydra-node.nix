@@ -11,7 +11,7 @@
     flags = { hydra-development = false; };
     package = {
       specVersion = "3.0";
-      identifier = { name = "hydra-node"; version = "0.9.0"; };
+      identifier = { name = "hydra-node"; version = "0.10.0"; };
       license = "Apache-2.0";
       copyright = "2022 IOG";
       maintainer = "";
@@ -63,7 +63,6 @@
           (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
           (hsPkgs."flat" or (errorHandler.buildDepError "flat"))
           (hsPkgs."formatting" or (errorHandler.buildDepError "formatting"))
-          (hsPkgs."gitrev" or (errorHandler.buildDepError "gitrev"))
           (hsPkgs."hedgehog-quickcheck" or (errorHandler.buildDepError "hedgehog-quickcheck"))
           (hsPkgs."hydra-cardano-api" or (errorHandler.buildDepError "hydra-cardano-api"))
           (hsPkgs."hydra-plutus" or (errorHandler.buildDepError "hydra-plutus"))
@@ -137,7 +136,6 @@
           "Hydra/Network/Ouroboros/Server"
           "Hydra/Network/Ouroboros/Type"
           "Hydra/Node"
-          "Hydra/Node/Version"
           "Hydra/Options"
           "Hydra/Party"
           "Hydra/Persistence"
@@ -228,6 +226,7 @@
             (hsPkgs."ouroboros-network" or (errorHandler.buildDepError "ouroboros-network"))
             (hsPkgs."ouroboros-network-framework" or (errorHandler.buildDepError "ouroboros-network-framework"))
             (hsPkgs."plutus-ledger-api" or (errorHandler.buildDepError "plutus-ledger-api"))
+            (hsPkgs."plutus-tx" or (errorHandler.buildDepError "plutus-tx"))
             (hsPkgs."process" or (errorHandler.buildDepError "process"))
             (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
             (hsPkgs."quickcheck-dynamic" or (errorHandler.buildDepError "quickcheck-dynamic"))

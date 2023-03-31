@@ -56,6 +56,7 @@
           depends = [
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."http-types" or (errorHandler.buildDepError "http-types"))
+            (hsPkgs."hydra-cardano-api" or (errorHandler.buildDepError "hydra-cardano-api"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."hydraw" or (errorHandler.buildDepError "hydraw"))

@@ -11,7 +11,7 @@
     flags = { hydra-development = false; };
     package = {
       specVersion = "2.2";
-      identifier = { name = "hydra-tui"; version = "0.9.0"; };
+      identifier = { name = "hydra-tui"; version = "0.10.0"; };
       license = "Apache-2.0";
       copyright = "2022 IOG";
       maintainer = "";

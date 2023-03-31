@@ -135,6 +135,7 @@
         byron-spec-ledger.revision = import ./cabal-files/byron-spec-ledger.nix;
         time-manager.revision = import ./cabal-files/time-manager.nix;
         base16-bytestring.revision = import ./cabal-files/base16-bytestring.nix;
+        hspec-golden.revision = import ./cabal-files/hspec-golden.nix;
         unliftio-core.revision = import ./cabal-files/unliftio-core.nix;
         memory.revision = import ./cabal-files/memory.nix;
         memory.flags.support_deepseq = true;
@@ -888,6 +889,7 @@
           "utf8-string".components.library.planned = lib.mkOverride 900 true;
           "pretty-simple".components.library.planned = lib.mkOverride 900 true;
           "ouroboros-consensus-cardano".components.library.planned = lib.mkOverride 900 true;
+          "hspec-golden".components.exes."hgold".planned = lib.mkOverride 900 true;
           "typerep-map".components.sublibs."typerep-extra-impls".planned = lib.mkOverride 900 true;
           "plutus-tx".components.sublibs."plutus-tx-testlib".planned = lib.mkOverride 900 true;
           "Cabal".components.library.planned = lib.mkOverride 900 true;
@@ -944,6 +946,7 @@
           "old-time".components.library.planned = lib.mkOverride 900 true;
           "size-based".components.library.planned = lib.mkOverride 900 true;
           "dlist".components.library.planned = lib.mkOverride 900 true;
+          "hspec-golden".components.library.planned = lib.mkOverride 900 true;
           "time-manager".components.library.planned = lib.mkOverride 900 true;
           "snap-core".components.library.planned = lib.mkOverride 900 true;
           "ghc-prim".components.library.planned = lib.mkOverride 900 true;

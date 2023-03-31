@@ -11,7 +11,7 @@
     flags = { hydra-development = false; };
     package = {
       specVersion = "3.0";
-      identifier = { name = "hydra-cluster"; version = "0.9.0"; };
+      identifier = { name = "hydra-cluster"; version = "0.10.0"; };
       license = "Apache-2.0";
       copyright = "2022 IOG";
       maintainer = "";
@@ -26,6 +26,11 @@
       licenseFiles = [ "LICENSE" "NOTICE" ];
       dataDir = ".";
       dataFiles = [
+        "config/cardano-configurations/network/mainnet/cardano-node/config.json"
+        "config/cardano-configurations/network/mainnet/cardano-node/topology.json"
+        "config/cardano-configurations/network/mainnet/genesis/alonzo.json"
+        "config/cardano-configurations/network/mainnet/genesis/byron.json"
+        "config/cardano-configurations/network/mainnet/genesis/shelley.json"
         "config/cardano-configurations/network/preprod/cardano-node/config.json"
         "config/cardano-configurations/network/preprod/cardano-node/topology.json"
         "config/cardano-configurations/network/preprod/genesis/alonzo.json"
