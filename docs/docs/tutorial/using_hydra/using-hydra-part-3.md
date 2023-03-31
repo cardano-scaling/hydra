@@ -14,7 +14,7 @@ Now that the nodes are running, we can use them. Each node opened a Web Socket A
 
 ![postman-setup-view.png](../images/postman-setup-view.png)
 
-Now that we are connected, we can use this API to communicate with each Hydra head. For a detailed API reference, see the [documentation](https://hydra.family/head-protocol/api-reference).
+Now that we are connected, we can use this API to communicate with each Hydra head. For a detailed API reference, see the [documentation](/api-reference).
 
 To open a head, one of the two parties first has to initialize the state channel. This can be done via the following API call
 
