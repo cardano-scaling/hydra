@@ -7,13 +7,13 @@ tags: [monthly]
 
 This report summarizes the work on Hydra since February 2023. It serves as
 preparation for the monthly review meeting
-([slides](https://docs.google.com/presentation/d/1yZ4AqUQ8OBMG9ARMYvj3IOjaIAqglf7kZei4vsLMrbs/edit#slide=id.g1f87a7454a5_0_1392)/[recording](https://www.youtube.com/watch?v=mA9lMV0tKN8))
-, where the team updates major project stakeholders on recent developments to
+[slides](https://docs.google.com/presentation/d/1yZ4AqUQ8OBMG9ARMYvj3IOjaIAqglf7kZei4vsLMrbs/edit#slide=id.g1f87a7454a5_0_1392)/[recording](https://www.youtube.com/watch?v=mA9lMV0tKN8)
+, where the teams update major project stakeholders on recent developments to
 gather their feedback on proposed plans.
 
 ## Roadmap
 
-We had one release this month and also updated several items on our
+The team had one release this month and also updated several things on the
 [roadmap](https://github.com/orgs/input-output-hk/projects/21).
 
 #### Released version 0.9.0
@@ -21,44 +21,41 @@ We had one release this month and also updated several items on our
 - This release brought in on-chain and off-chain changes that are now also fully
   reflected in our specification.
 
-- We managed to decrease costs of our plutus scripts by using new error code
+- We managed to decrease the costs of our plutus scripts by using a new error code
   framework.
 
-- Our mutation test suite is now complete and we made sure it checks our tests
-  are failing for the right reason.
+- The mutation test suite is improved. Now, if tests fail they show the correct reason.
 
 - The contestation deadline is now pushed out by each contesting party, so the
   contestation period parameter can be chosen irrespective of number of parties.
 
-- We have added a tutorial contributed by [@perturbing](https://github.com/perturbing/).
+- The team has added a tutorial contributed by [@perturbing](https://github.com/perturbing/).
 
 - [Full release notes](https://github.com/input-output-hk/hydra/releases/tag/0.9.0) and list of [delivered features](https://github.com/input-output-hk/hydra/milestone/9?closed=1)
 
-![](./img/2023-03-roadmap.png) <small><center>The latest roadmap many items marked as idea.</center></small>
+![](./img/2023-03-roadmap.png) <small><center>The latest roadmap, with many items marked as idea.</center></small>
 
 #### Notable roadmap updates
 
-- With 0.9.0 released, we continue focusing on mainnet compatiblity. And the
-  next, planned version **0.10.0** will be the first `hydra-node` which is
+- Now that 0.9.0 is released, the focus is on mainnet compatiblity. The
+  next planned version **0.10.0** will be the first `hydra-node` to be
   mainnet compatible.
 
 - Also prioritized [API configurability
-  #380](https://github.com/input-output-hk/hydra/issues/380) higher and planned
+  #380](https://github.com/input-output-hk/hydra/issues/380) higher and planned it
   into 0.10.0 as more users were requesting this.
 
-- We aim for several more **0.x.0** versions to incorporate user-wished features
-  before reaching a 1.0.0, which would represent a fully maintained release
+- We aim for several more **0.x.0** versions to incorporate user-requested features
+  before reaching a 1.0.0, which will be a fully maintained release
   where features can be considered stable and won't be removed without
   appropriate deprecation cycles.
 
-- Labelled many features as 💭 _idea_ to re-discuss them. Many have been on the
+- Many features are labeled as 💭 _idea_ for discussion. Many have been on the
   roadmap for long time without actual user input, while others are incubating
   as [github idea
   discussion](https://github.com/input-output-hk/hydra/discussions/categories/ideas).
-  We are planning to convert these idea issues to actual github discussions as
-  these provide better dicussion tools and allow to gauge interest in topics. In
-  turn, it will also provide more more room for the most popular ideas to be
-  planned onto the roadmap more timely.
+  We are planning to convert these idea issues to discussions to provide more
+  room for popular ideas from discussions instead.
 
 - In short, if you want to see some feature added, **show your support** on the
   corresponding [idea
@@ -77,15 +74,15 @@ report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupd
 This month, the team worked on the following:
 
 - **Making Hydra mainnet compatible.** Besides making it technically possible to
-  run on mainnet, this is about safe guard our users and prevent them from
+  run on mainnet, this is about safeguarding our users and preventing them from
   shooting themselves in the foot with a mainnet gun. That is why we
   [limited](https://github.com/input-output-hk/hydra/issues/762) the amount of
   ADA you can commit to a head on mainnet. Our smoke tests should be running on
-  mainnet also so we made sure to
+  mainnet also, so we made sure to
   [return](https://github.com/input-output-hk/hydra/pull/770) the leftover funds
   back to our faucet. There was also
   [work](https://github.com/input-output-hk/hydra/pull/775) on our CI that
-  actually enables running the tests on mainnet using a dedicated github runner.
+  enables running the tests on mainnet using a dedicated github runner.
 
 - **Improving the Hydra UX.** We noticed a possible pitfall when restarting the
   `hydra-node` using different parameters than in the persisted state. Now, the
@@ -102,11 +99,11 @@ This month, the team worked on the following:
   corresponding error codes
   [#705](https://github.com/input-output-hk/hydra/issues/705) and new [golden
   test suite ](https://github.com/input-output-hk/hydra/pull/772) ensures the
-  scripts hashes don't change accidentially.
+  script hashes don't change accidentially.
 
   Furthermore, we addressed a problem discovered in our property tests
-  [#724](https://github.com/input-output-hk/hydra/pull/724) by preventing to
-  commit outputs with reference scripts to a Head
+  [#724](https://github.com/input-output-hk/hydra/pull/724) by preventing
+  committing outputs with reference scripts to a Head
   [#766](https://github.com/input-output-hk/hydra/pull/766). This is still a
   documented known issue, but a workaround is available.
 
@@ -136,20 +133,19 @@ The monthly review meeting for March was conducted on 2023-03-27 via Google
 Meet - [slides](https://docs.google.com/presentation/d/1yZ4AqUQ8OBMG9ARMYvj3IOjaIAqglf7kZei4vsLMrbs/edit#slide=id.g1f87a7454a5_0_1392)/[recording](https://www.youtube.com/watch?v=mA9lMV0tKN8).
 
 This month was very important for the project and culminated in the first
-demonstration of a Hydra Head on mainnet! The demo was well received and we
-received positive feedback in the meeting, on following twitter announcements
-and on the published recording on youtube. Inspired by this, we saw multiple people
-reach out how they could help and collaborate on communicating, educating and
-ultimately spreading the love. The invitation via the new discord category
-worked well - we had about 40 community members in the call - and we will
-continue with this workflow. Make sure to follow the Hydra
-[#announcements](discord.gg/Bwdy2jNdm2) on the IOG Technical discord server.
+demonstration of a Hydra Head on mainnet! The demo was well received in
+the meeting, on following twitter announcements, and the published recording on
+youtube. Inspired by this, we saw multiple people offer to help
+and collaborate on communicating, educating, and ultimately spreading the love.
+The invitation via the new discord category worked well - we had about 40
+community members in the call - and we will continue with this workflow. Make
+sure to follow the Hydra [#announcements](discord.gg/Bwdy2jNdm2) on the IOG
+Technical discord server.
 
 While being mainnet compatible is a major milestone for the project, there are
-still many known issues, short-comings and requested features. The roadmap
-changes of this month should make it clear that we are serious about the
+still many known issues, shortcomings and requested features. The roadmap
+changes this month should make it clear that we are serious about the
 latter - Hydra will only reach 1.0.0 if it is used by an application on mainnet.
-Hence, we will focus on adding features required for payments, voting, auctions,
-.. and eventually, your use case.
+Hence, we will focus on adding features required for payments, voting, auctions... and your use case.
 
-Hydra Head is ready to be used on mainnet .. are you?
+Hydra Head is ready to be used on mainnet. Are you ready to use it?
