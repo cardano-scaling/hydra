@@ -316,7 +316,8 @@ jobs:
         mkdir -p public/unstable
         mv build/* public/unstable
 
-    - name: 💾 Upload docs artifact (unstable)
+    - name: 💾 Upload docs artifact (unstable) - only master branch
+      if: github.ref_name == 'master'
       uses: actions/upload-artifact@v3
       with:
         name: docs-unstable
