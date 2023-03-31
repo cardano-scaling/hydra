@@ -290,7 +290,7 @@ jobs:
         cache: 'yarn'
         cache-dependency-path: docs/yarn.lock
 
-    - name: ❓ Test api reference
+    - name: ❓ Test API reference
       working-directory: docs
       run: |
         yarn
@@ -309,6 +309,7 @@ jobs:
         path: docs/benchmarks/tests
 
     - name: 📚 Documentation (unstable)
+      if: github.ref_name != 'release'
       working-directory: docs
       run: |
         sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
