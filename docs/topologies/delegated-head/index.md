@@ -22,7 +22,7 @@ A _Delegated Hydra Head Network_ comprises the following type of actors:
   />
 </p>
 
-Client nodes want to be able to interact with each other efficiently, at a low cost, using standard Cardano (L1) transactions. They are willing to trust *at least one* _Operator_ to run a full Hydra and Cardano node on their behalf, in effect trading some trust for efficiency. They interact with other _clients_ in a single head using the Hydra [API](https://hydra.family/head-protocol/api-reference) and retain ownership of signing keys for transactions submitted to the Head.
+Client nodes want to be able to interact with each other efficiently, at a low cost, using standard Cardano (L1) transactions. They are willing to trust *at least one* _Operator_ to run a full Hydra and Cardano node on their behalf, in effect trading some trust for efficiency. They interact with other _clients_ in a single head using the Hydra [API](/api-reference) and retain ownership of signing keys for transactions submitted to the Head.
 
 Client nodes, may come and go offline without hampering progress of the Hydra Head. The safety of their funds rely on having at least one honest _Operator_ node with whom they can interact but importantly, they do not relinquish keys for spending funds inside the Head.
 

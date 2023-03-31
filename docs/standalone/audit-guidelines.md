@@ -85,7 +85,7 @@ The outcome of the review could also include, without being limited to:
 * a validation that the Hydra plutus scripts validators do check the transaction constraints defined in the Hydra Head specification;
 * a review and comment on the mutation-based tests applied to the Hydra plutus scripts and, in particular, any adversarial situation that would not be covered by them but should be.
 
-See the documentation of our [Mutation-Based tests](https://hydra.family/head-protocol/haddock/hydra-node/tests/Hydra-Chain-Direct-Contract-Mutation.html).
+See the documentation of our [Mutation-Based tests](/haddock/hydra-node/tests/Hydra-Chain-Direct-Contract-Mutation.html).
 
 See [Common Weaknesses](https://plutus.readthedocs.io/en/latest/reference/writing-scripts/common-weaknesses/index.html) and [Vulnerabilities](https://github.com/Plutonomicon/plutonomicon/blob/main/vulnerabilities.md).
 
