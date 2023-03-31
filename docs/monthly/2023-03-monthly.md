@@ -7,13 +7,13 @@ tags: [monthly]
 
 This report summarizes the work on Hydra since February 2023. It serves as
 preparation for the monthly review meeting
-[slides](https://docs.google.com/presentation/d/1yZ4AqUQ8OBMG9ARMYvj3IOjaIAqglf7kZei4vsLMrbs/edit#slide=id.g1f87a7454a5_0_1392)/[recording](https://www.youtube.com/watch?v=mA9lMV0tKN8)
-, where the teams update major project stakeholders on recent developments to
+([slides](https://docs.google.com/presentation/d/1yZ4AqUQ8OBMG9ARMYvj3IOjaIAqglf7kZei4vsLMrbs/edit#slide=id.g1f87a7454a5_0_1392)/[recording](https://www.youtube.com/watch?v=mA9lMV0tKN8))
+, where the team updates major project stakeholders on recent developments to
 gather their feedback on proposed plans.
 
 ## Roadmap
 
-We had one release this month and also updated several things on our
+We had one release this month and also updated several items on our
 [roadmap](https://github.com/orgs/input-output-hk/projects/21).
 
 #### Released version 0.9.0
@@ -55,8 +55,10 @@ We had one release this month and also updated several things on our
   roadmap for long time without actual user input, while others are incubating
   as [github idea
   discussion](https://github.com/input-output-hk/hydra/discussions/categories/ideas).
-  We are planning to convert these idea issues to discussions to provide more
-  room for popular ideas from discussions instead.
+  We are planning to convert these idea issues to actual github discussions as
+  these provide better dicussion tools and allow to gauge interest in topics. In
+  turn, it will also provide more more room for the most popular ideas to be
+  planned onto the roadmap more timely.
 
 - In short, if you want to see some feature added, **show your support** on the
   corresponding [idea
@@ -103,8 +105,8 @@ This month, the team worked on the following:
   scripts hashes don't change accidentially.
 
   Furthermore, we addressed a problem discovered in our property tests
-  [#724](https://github.com/input-output-hk/hydra/pull/724) by prevent
-  committing outputs with reference scripts to a Head
+  [#724](https://github.com/input-output-hk/hydra/pull/724) by preventing to
+  commit outputs with reference scripts to a Head
   [#766](https://github.com/input-output-hk/hydra/pull/766). This is still a
   documented known issue, but a workaround is available.
 
@@ -134,19 +136,20 @@ The monthly review meeting for March was conducted on 2023-03-27 via Google
 Meet - [slides](https://docs.google.com/presentation/d/1yZ4AqUQ8OBMG9ARMYvj3IOjaIAqglf7kZei4vsLMrbs/edit#slide=id.g1f87a7454a5_0_1392)/[recording](https://www.youtube.com/watch?v=mA9lMV0tKN8).
 
 This month was very important for the project and culminated in the first
-demonstration of a Hydra Head on mainnet! The demo was well received and we in
-the meeting, on following twitter announcements and the published recording on
-youtube. Inspired by this, we saw multiple people reach out how they could help
-and collaborate on communicating, educating and ultimately spreading the love.
-The invitation via the new discord category worked well - we had about 40
-community members in the call - and we will continue with this workflow. Make
-sure to follow the Hydra [#announcements](discord.gg/Bwdy2jNdm2) on the IOG
-Technical discord server.
+demonstration of a Hydra Head on mainnet! The demo was well received and we
+received positive feedback in the meeting, on following twitter announcements
+and on the published recording on youtube. Inspired by this, we saw multiple people
+reach out how they could help and collaborate on communicating, educating and
+ultimately spreading the love. The invitation via the new discord category
+worked well - we had about 40 community members in the call - and we will
+continue with this workflow. Make sure to follow the Hydra
+[#announcements](discord.gg/Bwdy2jNdm2) on the IOG Technical discord server.
 
 While being mainnet compatible is a major milestone for the project, there are
-still many known issues, short-coming and requested features. The roadmap
+still many known issues, short-comings and requested features. The roadmap
 changes of this month should make it clear that we are serious about the
 latter - Hydra will only reach 1.0.0 if it is used by an application on mainnet.
-Hence, we will focus on adding features required for payments, voting, auctions, .. and your use case.
+Hence, we will focus on adding features required for payments, voting, auctions,
+.. and eventually, your use case.
 
 Hydra Head is ready to be used on mainnet .. are you?
