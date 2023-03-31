@@ -319,7 +319,7 @@ jobs:
     - name: 💾 Upload docs artifact (unstable)
       uses: actions/upload-artifact@v3
       with:
-        name: unstable
+        name: docs-unstable
         path: docs/public/unstable
 
     - name: 📚 Documentation (stable) - only release branch
@@ -334,5 +334,5 @@ jobs:
       if: github.ref_name == 'release'
       uses: actions/upload-artifact@v3
       with:
-        name: stable
+        name: docs-stable
         path: docs/public

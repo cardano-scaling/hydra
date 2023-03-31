@@ -19,7 +19,7 @@ jobs:
         workflow: ci.yaml
         workflow_conclusion: success
         branch: release
-        name: stable
+        name: docs-stable
         path: docs/public/
 
     - name: 📥 Download & merge unstable docs with released
@@ -28,7 +28,7 @@ jobs:
         workflow: ci.yaml
         workflow_conclusion: success
         branch: master
-        name: unstable
+        name: docs-unstable
         path: docs/public/unstable
 
     # TODO: remove debugging steps
