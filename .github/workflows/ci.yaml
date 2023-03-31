@@ -10,9 +10,6 @@ on:
     branches:
     - master
   pull_request:
-  schedule:
-    # Everyday at 4:00 AM
-    - cron: "0 4 * * *"
 
 jobs:
   build-test:
