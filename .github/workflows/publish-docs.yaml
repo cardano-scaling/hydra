@@ -31,18 +31,6 @@ jobs:
         name: docs-unstable
         path: docs/public/unstable
 
-    # TODO: remove debugging steps
-
-    - name: DEBUG contents
-      run: |
-        find docs/
-
-    - name: DEBUG contents
-      uses: actions/upload-artifact@v3
-      with:
-        name: head-protocol
-        path: docs/public
-        
     - name: 🚢 Publish Documentation
       if: github.event_name == 'push'
       uses: peaceiris/actions-gh-pages@v3
