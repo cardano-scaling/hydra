@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -18,13 +19,20 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..))
+import Hydra.API.ServerOutput (
+  OutputFormat (..),
+  ServerOutput (Greetings, InvalidInput),
+  TimedServerOutput (..),
+  prepareServerOutput,
+ )
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.WebSockets (
+  PendingConnection (pendingRequest),
+  RequestHead (..),
   acceptRequest,
   receiveData,
   runServer,
@@ -33,6 +41,8 @@ import Network.WebSockets (
   withPingThread,
  )
 import Test.QuickCheck (oneof)
+import Text.URI
+import Text.URI.QQ (queryKey, queryValue)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
@@ -86,7 +96,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   -- client.
   void $ appendToHistory history (Greetings party)
   race_
-    (runAPIServer host port tracer history callback responseChannel)
+    (runAPIServer host port party tracer history callback responseChannel)
     . action
     $ Server
       { sendOutput = \output -> do
@@ -117,22 +127,56 @@ runAPIServer ::
   (IsChainState tx) =>
   IP ->
   PortNumber ->
+  Party ->
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
   TChan (TimedServerOutput tx) ->
   IO ()
-runAPIServer host port tracer history callback responseChannel = do
+runAPIServer host port party tracer history callback responseChannel = do
   traceWith tracer (APIServerStarted port)
   handle onIOException $
     runServer (show host) (fromIntegral port) $ \pending -> do
+      let path = requestPath $ pendingRequest pending
+      queryParams <- uriQuery <$> mkURIBs path
       con <- acceptRequest pending
       chan <- STM.atomically $ dupTChan responseChannel
       traceWith tracer NewAPIConnection
-      forwardHistory con
+
+      -- api client can decide if they want to see the past history of server outputs
+      if shouldNotServeHistory queryParams
+        then forwardGreetingOnly con
+        else forwardHistory con
+
+      -- api client can decide if they want tx's to be displayed as CBOR instead of plain json
+      let txDisplay = decideOnTxDisplay queryParams
+
       withPingThread con 30 (pure ()) $
-        race_ (receiveInputs con) (sendOutputs chan con)
+        race_ (receiveInputs con) (sendOutputs chan con txDisplay)
  where
+  forwardGreetingOnly con = do
+    time <- getCurrentTime
+    sendTextData con $
+      Aeson.encode
+        TimedServerOutput
+          { time
+          , seq = 0
+          , output = Greetings party :: ServerOutput tx
+          }
+  decideOnTxDisplay qp =
+    let k = [queryKey|tx-output|]
+        v = [queryValue|cbor|]
+        queryP = QueryParam k v
+     in case queryP `elem` qp of
+          True -> OutputCBOR
+          False -> OutputJSON
+
+  shouldNotServeHistory qp =
+    flip any qp $ \case
+      (QueryParam key val)
+        | key == [queryKey|history|] -> val == [queryValue|no|]
+      _other -> False
+
   onIOException ioException =
     throwIO $
       RunServerException
@@ -141,9 +185,11 @@ runAPIServer host port tracer history callback responseChannel = do
         , port
         }
 
-  sendOutputs chan con = forever $ do
+  sendOutputs chan con txDisplay = forever $ do
     response <- STM.atomically $ readTChan chan
-    let sentResponse = Aeson.encode response
+    let sentResponse =
+          prepareServerOutput txDisplay response
+
     sendTextData con sentResponse
     traceWith tracer (APIOutputSent $ toJSON response)
 

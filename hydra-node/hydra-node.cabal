@@ -152,6 +152,7 @@ library
     , iohk-monitoring
     , iproute
     , memory
+    , modern-uri
     , network
     , network-mux
     , optparse-applicative

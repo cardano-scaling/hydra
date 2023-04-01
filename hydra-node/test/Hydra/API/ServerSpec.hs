@@ -2,9 +2,10 @@
 
 module Hydra.API.ServerSpec where
 
-import Hydra.Prelude hiding (seq)
+import Hydra.Prelude hiding (decodeUtf8, seq)
 import Test.Hydra.Prelude
 
+import Cardano.Binary (serialize')
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (
   check,
@@ -12,16 +13,23 @@ import Control.Monad.Class.MonadSTM (
   newTQueue,
   newTVarIO,
   readTQueue,
+  readTVarIO,
   tryReadTQueue,
   writeTQueue,
  )
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.KeyMap as KeyMap
+import qualified Data.ByteString.Base16 as Base16
+import qualified Data.Text as T
+import Data.Text.Encoding (decodeUtf8)
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (Greetings, InvalidInput), TimedServerOutput (..), input)
+import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), input)
+import Hydra.Chain (HeadId (HeadId))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
+import System.Timeout (timeout)
 import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
@@ -33,7 +41,7 @@ spec = parallel $ do
     failAfter 5 $
       withFreePort $ \port -> do
         withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \_ -> do
-          withClient port $ \conn -> do
+          withClient port "/" $ \conn -> do
             received <- receiveData conn
             case Aeson.eitherDecode received of
               Left{} -> failure $ "Failed to decode greeting " <> show received
@@ -47,8 +55,8 @@ spec = parallel $ do
           semaphore <- newTVarIO 0
           withAsync
             ( concurrently_
-                (withClient port $ testClient queue semaphore)
-                (withClient port $ testClient queue semaphore)
+                (withClient port "/" $ testClient queue semaphore)
+                (withClient port "/" $ testClient queue semaphore)
             )
             $ \_ -> do
               waitForClients semaphore
@@ -77,8 +85,8 @@ spec = parallel $ do
             semaphore <- newTVarIO 0
             withAsync
               ( concurrently_
-                  (withClient port $ testClient queue1 semaphore)
-                  (withClient port $ testClient queue2 semaphore)
+                  (withClient port "/" $ testClient queue1 semaphore)
+                  (withClient port "/" $ testClient queue2 semaphore)
               )
               $ \_ -> do
                 waitForClients semaphore
@@ -99,12 +107,73 @@ spec = parallel $ do
         withFreePort $ \port ->
           withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             mapM_ sendOutput outputs
-            withClient port $ \conn -> do
+            withClient port "/" $ \conn -> do
               received <- replicateM (length outputs + 1) (receiveData conn)
               case traverse Aeson.eitherDecode received of
                 Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                Right timedOutputs ->
+                Right timedOutputs -> do
                   (output <$> timedOutputs) `shouldBe` greeting : outputs
+
+  it "does not echo history if client says no" $
+    checkCoverage . monadicIO $ do
+      history :: [ServerOutput SimpleTx] <- pick arbitrary
+      monitor $ cover 0.1 (null history) "no message when reconnecting"
+      monitor $ cover 0.1 (length history == 1) "only one message when reconnecting"
+      monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
+      run $ do
+        withFreePort $ \port ->
+          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+            let sendFromApiServer = sendOutput
+            mapM_ sendFromApiServer history
+            -- start client that doesn't want to see the history
+            withClient port "/?history=no" $ \conn -> do
+              -- wait on the greeting message
+              waitMatch 5 conn $ \v ->
+                case Aeson.fromJSON v of
+                  Aeson.Success timedOutput ->
+                    guard $ output timedOutput == greeting
+                  _other -> Nothing
+
+              notHistoryMessage :: ServerOutput SimpleTx <- generate arbitrary
+              sendFromApiServer notHistoryMessage
+
+              -- Receive one more message. The messages we sent
+              -- before client connected are ignored as expected and client can
+              -- see only this last sent message.
+              received <- replicateM 1 (receiveData conn)
+
+              case traverse Aeson.eitherDecode received of
+                Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                Right timedOutputs' -> do
+                  (output <$> timedOutputs') `shouldBe` [notHistoryMessage]
+              return ()
+
+  it "outputs tx as cbor or json depending on the client" $
+    monadicIO $ do
+      tx :: SimpleTx <- pick arbitrary
+      run $ do
+        withFreePort $ \port ->
+          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+            let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
+                guardForValue v expected =
+                  case v of
+                    Aeson.Object km ->
+                      guard . (expected ==) =<< KeyMap.lookup "transaction" km
+                    _other -> Nothing
+
+            -- client is able to specify they want tx output to be encoded as CBOR
+            withClient port "/?tx-output=cbor" $ \conn -> do
+              sendOutput txValidMessage
+
+              waitMatch 5 conn $ \v ->
+                guardForValue v (Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx)
+
+            -- spawn another client but this one wants to see txs in json format
+            withClient port "/" $ \conn -> do
+              sendOutput txValidMessage
+
+              waitMatch 5 conn $ \v ->
+                guardForValue v (toJSON tx)
 
   it "sequence numbers are continuous and strictly monotonically increasing" $
     monadicIO $ do
@@ -113,7 +182,7 @@ spec = parallel $ do
         withFreePort $ \port ->
           withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             mapM_ sendOutput outputs
-            withClient port $ \conn -> do
+            withClient port "/" $ \conn -> do
               received <- replicateM (length outputs + 1) (receiveData conn)
               case traverse Aeson.eitherDecode received of
                 Left{} -> failure $ "Failed to decode messages:\n" <> show received
@@ -133,7 +202,7 @@ strictlyMonotonic = \case
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \_server -> do
-    withClient port $ \con -> do
+    withClient port "/" $ \con -> do
       _greeting :: ByteString <- receiveData con
       sendBinaryData con invalidInput
       msg <- receiveData con
@@ -167,11 +236,11 @@ testClient queue semaphore cnx = do
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
 
-withClient :: HasCallStack => Int -> (Connection -> IO ()) -> IO ()
-withClient port action = do
+withClient :: HasCallStack => Int -> String -> (Connection -> IO ()) -> IO ()
+withClient port path action = do
   failAfter 5 retry
  where
-  retry = runClient "127.0.0.1" port "/" action `catch` \(_ :: IOException) -> retry
+  retry = runClient "127.0.0.1" port path action `catch` \(_ :: IOException) -> retry
 
 -- | Mocked persistence handle which just does nothing.
 mockPersistence :: Applicative m => PersistenceIncremental a m
@@ -180,3 +249,33 @@ mockPersistence =
     { append = \_ -> pure ()
     , loadAll = pure []
     }
+
+-- | Wait up to some time for an API server output to match the given predicate.
+waitMatch :: HasCallStack => Natural -> Connection -> (Aeson.Value -> Maybe a) -> IO a
+waitMatch delay con match = do
+  seenMsgs <- newTVarIO []
+  timeout (fromIntegral delay * 1_000_000) (go seenMsgs) >>= \case
+    Just x -> pure x
+    Nothing -> do
+      msgs <- readTVarIO seenMsgs
+      failure $
+        toString $
+          unlines
+            [ "waitMatch did not match a message within " <> show delay <> "s"
+            , padRight ' ' 20 "  seen messages:"
+                <> unlines (align 20 (decodeUtf8 . toStrict . Aeson.encode <$> msgs))
+            ]
+ where
+  go seenMsgs = do
+    msg <- waitNext con
+    atomically (modifyTVar' seenMsgs (msg :))
+    maybe (go seenMsgs) pure (match msg)
+
+  align _ [] = []
+  align n (h : q) = h : fmap (T.replicate n " " <>) q
+
+  waitNext connection = do
+    bytes <- receiveData connection
+    case Aeson.eitherDecode' bytes of
+      Left err -> failure $ "WaitNext failed to decode msg: " <> err
+      Right value -> pure value
