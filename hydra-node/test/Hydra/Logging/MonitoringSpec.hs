@@ -29,7 +29,7 @@ spec =
   it "provides prometheus metrics from traces" $ do
     failAfter 3 $ do
       [p] <- randomUnusedTCPPorts 1
-      withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
+      withMonitoring (Just p) nullTracer $ \tracer -> do
         traceWith tracer (Node $ BeginEvent alice (NetworkEvent defaultTTL (ReqTx alice (aValidTx 42))))
         traceWith tracer (Node $ BeginEvent alice (NetworkEvent defaultTTL (ReqTx alice (aValidTx 43))))
         threadDelay 0.1

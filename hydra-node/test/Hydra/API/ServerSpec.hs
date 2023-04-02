@@ -46,7 +46,7 @@ spec = describe "ServerSpec" $ do
   it "greets" $ do
     failAfter 5 $
       withFreePort $ \port -> do
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \_ -> do
+        withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \_ -> do
           withClient port "/" $ \conn -> do
             received <- receiveData conn
             case Aeson.eitherDecode received of
@@ -57,7 +57,7 @@ spec = describe "ServerSpec" $ do
     queue <- atomically newTQueue
     showLogsOnFailure $ \tracer -> failAfter 5 $
       withFreePort $ \port -> do
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+        withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
           semaphore <- newTVarIO 0
           withAsync
             ( concurrently_
@@ -80,14 +80,14 @@ spec = describe "ServerSpec" $ do
 
         persistence <- createPersistenceIncremental persistentFile
         withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice persistence tracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice persistence tracer noop $ \Server{sendOutput} -> do
             sendOutput arbitraryMsg
 
         queue1 <- atomically newTQueue
         queue2 <- atomically newTQueue
         persistence' <- createPersistenceIncremental persistentFile
         withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice persistence' tracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice persistence' tracer noop $ \Server{sendOutput} -> do
             semaphore <- newTVarIO 0
             withAsync
               ( concurrently_
@@ -111,7 +111,7 @@ spec = describe "ServerSpec" $ do
       monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
       run . failAfter 5 $ do
         withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             mapM_ sendOutput outputs
             withClient port "/" $ \conn -> do
               received <- replicateM (length outputs + 1) (receiveData conn)
@@ -128,7 +128,7 @@ spec = describe "ServerSpec" $ do
       monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
       run $ do
         withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             let sendFromApiServer = sendOutput
             mapM_ sendFromApiServer history
             -- start client that doesn't want to see the history
@@ -160,8 +160,7 @@ spec = describe "ServerSpec" $ do
       generatedSnapshot :: Snapshot SimpleTx <- pick arbitrary
       run $ do
         withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
-            let snapshot = generatedSnapshot { confirmed = [tx] }
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
             let snapShotConfirmedMessage = SnapshotConfirmed {headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot, Hydra.API.ServerOutput.signatures = mempty}
             let postTxFailedMessage =
@@ -183,7 +182,7 @@ spec = describe "ServerSpec" $ do
                     _other -> Nothing
 
             -- client is able to specify they want tx output to be encoded as CBOR
-            withClient port "/?tx-output=cbor" $ \conn -> do
+            withClient port "/?history=no&tx-output=cbor" $ \conn -> do
               sendOutput txValidMessage
 
               waitMatch 5 conn $ \v ->
@@ -208,7 +207,7 @@ spec = describe "ServerSpec" $ do
                 in guard $ result == Just expected
 
             -- spawn another client but this one wants to see txs in json format
-            withClient port "/" $ \conn -> do
+            withClient port "/?history=no" $ \conn -> do
               sendOutput txValidMessage
 
               waitMatch 5 conn $ \v ->
@@ -219,7 +218,7 @@ spec = describe "ServerSpec" $ do
       outputs :: [ServerOutput SimpleTx] <- pick arbitrary
       run . failAfter 5 $ do
         withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             mapM_ sendOutput outputs
             withClient port "/" $ \conn -> do
               received <- replicateM (length outputs + 1) (receiveData conn)
@@ -240,7 +239,7 @@ strictlyMonotonic = \case
 
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
-  withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \_server -> do
+  withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \_server -> do
     withClient port "/" $ \con -> do
       _greeting :: ByteString <- receiveData con
       sendBinaryData con invalidInput

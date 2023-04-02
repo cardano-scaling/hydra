@@ -19,7 +19,6 @@ import GHC.IO.Exception (
  )
 import Network.Socket (
   Family (AF_INET),
-  PortNumber,
   SockAddr (..),
   SocketType (Stream),
   close',
@@ -27,7 +26,7 @@ import Network.Socket (
   socket,
   tupleToHostAddress,
  )
-import Network.Wai.Handler.Warp (openFreePort)
+import Network.Wai.Handler.Warp (openFreePort, Port)
 import System.Random.Shuffle (
   shuffleM,
  )
@@ -40,7 +39,7 @@ import System.Random.Shuffle (
 -- port returned by 'getRandomPort' before this process does.
 --
 -- Do not use this unless you have no other option.
-getRandomPort :: IO PortNumber
+getRandomPort :: IO Port
 getRandomPort = do
   (port, sock) <- openFreePort
   liftIO $ close' sock
@@ -70,20 +69,12 @@ isPortOpen sockAddr = do
         | "WSAECONNREFUSED" `isInfixOf` show e -> pure False
         | otherwise -> throwIO e
 
--- | Get the underlying port number for the given socket address. Fails for UNIX
--- socket addresses which aren't bound to any TCP port.
-unsafePortNumber :: SockAddr -> PortNumber
-unsafePortNumber = \case
-  SockAddrInet p _ -> p
-  SockAddrInet6 p _ _ _ -> p
-  SockAddrUnix _ -> error "unsafePortNumber: no port for unix sockets."
-
 -- | Creates a `SockAttr` from host IP and port number.
 --
 -- Example:
 -- > simpleSockAddr (127,0,0,1) 8000
-simpleSockAddr :: (Word8, Word8, Word8, Word8) -> PortNumber -> SockAddr
-simpleSockAddr addr port = SockAddrInet port (tupleToHostAddress addr)
+simpleSockAddr :: (Word8, Word8, Word8, Word8) -> Port -> SockAddr
+simpleSockAddr addr port = SockAddrInet (fromIntegral port) (tupleToHostAddress addr)
 
 -- | Get a list of random TCPv4 ports that currently do not have any servers
 -- listening on them. It may return less than the requested number of ports.

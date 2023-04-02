@@ -74,6 +74,7 @@ library
   hs-source-dirs:  src
   exposed-modules:
     Hydra.API.ClientInput
+    Hydra.API.Host
     Hydra.API.Server
     Hydra.API.ServerOutput
     Hydra.Chain
@@ -145,6 +146,7 @@ library
     , flat
     , formatting
     , hedgehog-quickcheck
+    , http-types
     , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
@@ -174,6 +176,7 @@ library
     , serialise
     , small-steps
     , stm
+    , streaming-commons
     , strict-containers
     , text
     , time
@@ -182,6 +185,9 @@ library
     , typed-protocols-cborg           ==0.1.0.0
     , unliftio
     , websockets
+    , wai-websockets
+    , wai
+    , warp
 
   ghc-options:     -haddock
 

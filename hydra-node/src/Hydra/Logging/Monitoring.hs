@@ -24,7 +24,6 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (IsTx (TxIdType), txId)
 import Hydra.Logging.Messages (HydraLog (..))
-import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (BeginEvent, EndEffect, EndEvent))
 import Hydra.Snapshot (Snapshot (confirmed))
@@ -34,6 +33,7 @@ import System.Metrics.Prometheus.Metric.Counter (add, inc)
 import System.Metrics.Prometheus.Metric.Histogram (observe)
 import System.Metrics.Prometheus.MetricId (Name (Name))
 import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, registerHistogram, sample)
+import Network.Wai.Handler.Warp (Port)
 
 -- | Wraps a monadic action using a `Tracer` and capture metrics based on traces.
 -- Given a `portNumber`, this wrapper starts a Prometheus-compliant server on this port.
@@ -41,14 +41,14 @@ import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, regis
 -- messages because it needs to understand them in order to provide meaningful metrics.
 withMonitoring ::
   (MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTime m) =>
-  Maybe PortNumber ->
+  Maybe Port ->
   Tracer m (HydraLog tx net) ->
   (Tracer m (HydraLog tx net) -> m ()) ->
   m ()
 withMonitoring Nothing tracer action = action tracer
 withMonitoring (Just monitoringPort) (Tracer tracer) action = do
   (traceMetric, registry) <- prepareRegistry
-  withAsync (serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry)) $ \_ ->
+  withAsync (serveMetrics monitoringPort ["metrics"] (sample registry)) $ \_ ->
     let wrappedTracer = Tracer $ \msg -> do
           traceMetric msg
           tracer msg

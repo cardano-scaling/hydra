@@ -33,7 +33,7 @@ import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import qualified Hydra.Contract as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
+import Hydra.Network (Host, NodeId (NodeId), readHost, readPort)
 import Hydra.Party (Party)
 import Hydra.Version (gitDescribe)
 import Options.Applicative (
@@ -72,7 +72,8 @@ import Options.Applicative (
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
-import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
+import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf, getPositive)
+import Network.Wai.Handler.Warp (Port)
 
 -- | Hardcoded limit for maximum number of parties in a head protocol
 -- The value is obtained from calculating the costs of running the scripts
@@ -149,11 +150,11 @@ data RunOptions = RunOptions
   , nodeId :: NodeId
   , -- NOTE: Why not a 'Host'?
     host :: IP
-  , port :: PortNumber
+  , port :: Port
   , peers :: [Host]
   , apiHost :: IP
-  , apiPort :: PortNumber
-  , monitoringPort :: Maybe PortNumber
+  , apiPort :: Port
+  , monitoringPort :: Maybe Port
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
   , hydraScriptsTxId :: TxId
@@ -168,11 +169,11 @@ instance Arbitrary RunOptions where
     verbosity <- elements [Quiet, Verbose "HydraNode"]
     nodeId <- arbitrary
     host <- IPv4 . toIPv4w <$> arbitrary
-    port <- arbitrary
+    port <- getPositive <$> arbitrary
     peers <- reasonablySized arbitrary
     apiHost <- IPv4 . toIPv4w <$> arbitrary
-    apiPort <- arbitrary
-    monitoringPort <- arbitrary
+    apiPort <- getPositive <$> arbitrary
+    monitoringPort <- oneof [Just . getPositive <$> arbitrary, pure Nothing]
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
     hydraScriptsTxId <- arbitrary
@@ -460,7 +461,7 @@ hostParser =
         <> help "Listen address for incoming Hydra network connections."
     )
 
-portParser :: Parser PortNumber
+portParser :: Parser Port
 portParser =
   option
     (maybeReader readPort)
@@ -483,7 +484,7 @@ apiHostParser =
         <> help "Listen address for incoming client API connections."
     )
 
-apiPortParser :: Parser PortNumber
+apiPortParser :: Parser Port
 apiPortParser =
   option
     (maybeReader readPort)
@@ -494,7 +495,7 @@ apiPortParser =
         <> help "Listen port for incoming client API connections."
     )
 
-monitoringPortParser :: Parser PortNumber
+monitoringPortParser :: Parser Port
 monitoringPortParser =
   option
     (maybeReader readPort)

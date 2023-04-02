@@ -194,7 +194,7 @@ setupNodeAndTUI' lovelace action =
                     { hydraNodeHost =
                         Host
                           { hostname = "127.0.0.1"
-                          , port = 4000 + fromIntegral hydraNodeId
+                          , port = 4000 + hydraNodeId
                           }
                     , cardanoNodeSocket =
                         nodeSocket

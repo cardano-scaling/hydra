@@ -289,11 +289,11 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                   { verbosity = Verbose "HydraNode"
                   , nodeId = NodeId $ show hydraNodeId
                   , host = "127.0.0.1"
-                  , port = fromIntegral $ 5000 + hydraNodeId
+                  , port = 5000 + hydraNodeId
                   , peers
                   , apiHost = "127.0.0.1"
-                  , apiPort = fromIntegral $ 4000 + hydraNodeId
-                  , monitoringPort = Just $ fromIntegral $ 6000 + hydraNodeId
+                  , apiPort = 4000 + hydraNodeId
+                  , monitoringPort = Just $ 6000 + hydraNodeId
                   , hydraSigningKey
                   , hydraVerificationKeys
                   , hydraScriptsTxId
@@ -319,7 +319,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
   peers =
     [ Host
       { Network.hostname = "127.0.0.1"
-      , Network.port = fromIntegral $ 5000 + i
+      , Network.port = 5000 + i
       }
     | i <- allNodeIds
     , i /= hydraNodeId

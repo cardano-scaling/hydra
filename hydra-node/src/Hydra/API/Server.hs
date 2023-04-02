@@ -18,6 +18,7 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
+import Hydra.API.Host (ipToHostPreference)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (
   OutputFormat (..),
@@ -27,7 +28,7 @@ import Hydra.API.ServerOutput (
  )
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (IP, PortNumber)
+import Hydra.Network (IP)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.WebSockets (
@@ -35,17 +36,20 @@ import Network.WebSockets (
   RequestHead (..),
   acceptRequest,
   receiveData,
-  runServer,
   sendTextData,
   sendTextDatas,
-  withPingThread,
+  withPingThread, defaultConnectionOptions, ConnectionException (..), sendClose, fromLazyByteString
  )
+import Network.HTTP.Types (status400)
+import Network.Wai.Handler.WebSockets (websocketsOr)
+import Network.Wai (responseLBS)
+import Network.Wai.Handler.Warp (runSettings, defaultSettings, setHost, setPort, Port)
 import Test.QuickCheck (oneof)
-import Text.URI
+import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
 
 data APIServerLog
-  = APIServerStarted {listeningPort :: PortNumber}
+  = APIServerStarted {listeningPort :: Port}
   | NewAPIConnection
   | APIOutputSent {sentOutput :: Aeson.Value}
   | APIInputReceived {receivedInput :: Aeson.Value}
@@ -79,7 +83,7 @@ withAPIServer ::
   forall tx.
   (IsChainState tx) =>
   IP ->
-  PortNumber ->
+  Port ->
   Party ->
   PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
@@ -126,7 +130,7 @@ runAPIServer ::
   forall tx.
   (IsChainState tx) =>
   IP ->
-  PortNumber ->
+  Port ->
   Party ->
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
@@ -136,24 +140,31 @@ runAPIServer ::
 runAPIServer host port party tracer history callback responseChannel = do
   traceWith tracer (APIServerStarted port)
   handle onIOException $
-    runServer (show host) (fromIntegral port) $ \pending -> do
-      let path = requestPath $ pendingRequest pending
-      queryParams <- uriQuery <$> mkURIBs path
-      con <- acceptRequest pending
-      chan <- STM.atomically $ dupTChan responseChannel
-      traceWith tracer NewAPIConnection
-
-      -- api client can decide if they want to see the past history of server outputs
-      if shouldNotServeHistory queryParams
-        then forwardGreetingOnly con
-        else forwardHistory con
-
-      -- api client can decide if they want tx's to be displayed as CBOR instead of plain json
-      let txDisplay = decideOnTxDisplay queryParams
-
-      withPingThread con 30 (pure ()) $
-        race_ (receiveInputs con) (sendOutputs chan con txDisplay)
+    let serverSettings = setHost (ipToHostPreference host) $ setPort port $ defaultSettings
+    in runSettings serverSettings $ websocketsOr defaultConnectionOptions wsApp httpApp
  where
+  wsApp pending = do
+    let path = requestPath $ pendingRequest pending
+    queryParams <- uriQuery <$> mkURIBs path
+    con <- acceptRequest pending
+    chan <- STM.atomically $ dupTChan responseChannel
+    traceWith tracer NewAPIConnection
+
+    -- api client can decide if they want to see the past history of server outputs
+    if shouldNotServeHistory queryParams
+      then forwardGreetingOnly con
+      else forwardHistory con
+
+    -- api client can decide if they want tx's to be displayed as CBOR instead of plain json
+    let txDisplay = decideOnTxDisplay queryParams
+
+    withPingThread con 30 (pure ()) $
+      race_ (receiveInputs con) (sendOutputs chan con txDisplay)
+        `catch` onServerException con
+
+  httpApp _ respond =
+    respond $ responseLBS status400 [] "Currently Hydra supports only WebSocket requests."
+
   forwardGreetingOnly con = do
     time <- getCurrentTime
     sendTextData con $
@@ -184,7 +195,21 @@ runAPIServer host port party tracer history callback responseChannel = do
         , host
         , port
         }
-
+  onServerException con exc =
+    case exc of
+      -- ignoring 'ConnectionClosed' exceptions since they appear when client
+      -- doesn't send 'Close' meaning it doesn't close the connection cleanly
+      ConnectionClosed -> return ()
+      -- on 'CloseRequest' properly close connection
+      CloseRequest _ _ ->
+        sendClose con
+          (Aeson.encode . Aeson.String $ fromLazyByteString "Client closed connection")
+      pe@(ParseException e) -> do
+        traceWith tracer (APIInvalidInput e "")
+        throwIO pe
+      ue@(UnicodeException e) -> do
+        traceWith tracer (APIInvalidInput e "")
+        throwIO ue
   sendOutputs chan con txDisplay = forever $ do
     response <- STM.atomically $ readTChan chan
     let sentResponse =
@@ -217,7 +242,7 @@ runAPIServer host port party tracer history callback responseChannel = do
 data RunServerException = RunServerException
   { ioException :: IOException
   , host :: IP
-  , port :: PortNumber
+  , port :: Port
   }
   deriving (Show)
 
