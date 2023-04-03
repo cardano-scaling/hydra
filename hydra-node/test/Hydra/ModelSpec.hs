@@ -154,7 +154,7 @@ import Test.QuickCheck.DynamicLogic (
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, Step ((:=)), runActions, stateAfter, pattern Actions)
-import Test.Util (printTrace, traceDebug, traceInIOSim)
+import Test.Util (printTrace, traceInIOSim)
 
 spec :: Spec
 spec = do
@@ -317,7 +317,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
 runIOSimProp :: Testable a => (forall s. PropertyM (RunMonad (IOSim s)) a) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  let tr = runSimTrace $ evalStateT (runMonad $ eval $ monadic' p) (Nodes mempty (traceInIOSim <> traceDebug) mempty)
+  let tr = runSimTrace $ evalStateT (runMonad $ eval $ monadic' p) (Nodes mempty traceInIOSim mempty)
       traceDump = printTrace (Proxy :: Proxy Tx) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
   case traceResult False tr of
