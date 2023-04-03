@@ -59,6 +59,7 @@ import Hydra.Node (
 import Hydra.Party (Party (..), deriveParty)
 import Ouroboros.Consensus.Block (blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
+import Ouroboros.Consensus.Protocol.Praos.Header (HeaderBody (..))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Consensus.Cardano.Generators ()
@@ -80,7 +81,7 @@ mockChainAndNetwork ::
   m (ConnectToChain Tx m, Async m ())
 mockChainAndNetwork tr seedKeys nodes cp = do
   queue <- newTQueueIO
-  chain <- newTVarIO (0, Empty)
+  chain <- newTVarIO (0, 0, Empty)
   labelTQueueIO queue "chain-queue"
   tickThread <- async (labelThisThread "chain" >> simulateTicks queue chain)
   let chainComponent = \node -> do
@@ -136,19 +137,32 @@ mockChainAndNetwork tr seedKeys nodes cp = do
       rollbackAndForward = error "Not implemented, should never be called"
   return (ConnectToChain{..}, tickThread)
  where
-  blockTime = 20 -- seconds
+  blockTime :: Int = 20 -- seconds
   simulateTicks queue chain = forever $ do
-    threadDelay blockTime
+    threadDelay $ fromIntegral blockTime
     transactions <- flushQueue queue []
     addNewBlockToChain chain transactions
     sendRollForward chain
 
-    threadDelay blockTime
+    sendRollBackward chain
+
+    threadDelay $ fromIntegral blockTime
     transactions' <- flushQueue queue []
     addNewBlockToChain chain transactions'
     sendRollForward chain
-
-    sendRollBackward chain
+  -- INIT 0 []
+  --------------------
+  -- NB.F 0 [b1] => b1
+  --      1 [b1]
+  -- R.B  0 [b1]
+  -- NB.F 0 [b1 b2] => b1
+  --      1 [b1 b2]
+  ----------------------
+  -- NB.F 1 [b1 b2 b3] => b2
+  --      2 [b1 b2 b3]
+  -- R.B  1 [b1 b2 b3]
+  -- NB.F 1 [b1 b2 b3 b4] => b2
+  --      2 [b1 b2 b3 b4]
 
   flushQueue queue transactions = do
     hasTx <- atomically $ tryReadTQueue queue
@@ -156,30 +170,36 @@ mockChainAndNetwork tr seedKeys nodes cp = do
       Just tx -> do
         flushQueue queue (tx : transactions)
       Nothing -> pure transactions
-  appendToChain block (cursor, blocks) =
-    (cursor, blocks :|> block)
+  appendToChain block (slotNum, cursor, blocks) =
+    (slotNum, cursor, blocks :|> block)
   sendRollForward chain = do
-    (position, blocks) <- atomically $ readTVar chain
+    (slotNum, position, blocks) <- atomically $ readTVar chain
     case Seq.lookup position blocks of
       Just block -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         forM_ allHandlers (`onRollForward` block)
-        atomically $ writeTVar chain (position + 1, blocks)
+        atomically $ writeTVar chain (slotNum, position + 1, blocks)
       Nothing ->
         pure ()
+  -- 2 [b1 b2 b3 b4]
+  -- => b3
+  -- 3 [b1 b2 b3 b4]
+  -- => point b3
+  -- 2 [b1 b2 b3 b4]
+  -- => b4
   sendRollBackward chain = do
-    (position, blocks) <- atomically $ readTVar chain
+    (slotNum, position, blocks) <- atomically $ readTVar chain
     case Seq.lookup (position - 1) blocks of
       Just block -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         let point = blockPoint block
         forM_ allHandlers (`onRollBackward` point)
-        atomically $ writeTVar chain (position - 1 + 1, blocks)
+        atomically $ writeTVar chain (slotNum, position - 1 + 1, blocks)
       Nothing ->
         pure ()
 
   addNewBlockToChain chain transactions =
-    atomically $ modifyTVar chain $ appendToChain $ mkBlock transactions
+    atomically $ modifyTVar chain $ \(slotNum, position, blocks) -> appendToChain (mkBlock transactions (fromIntegral $ slotNum + blockTime) (fromIntegral position)) (slotNum + blockTime, position, blocks)
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
@@ -189,9 +209,10 @@ findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for 
   csk <- getVerificationKey . signingKey . snd <$> find ((== me) . deriveParty . fst) seedKeys
   pure (csk, filter (/= csk) $ map (getVerificationKey . signingKey . snd) seedKeys)
 
-mkBlock :: [Ledger.ValidatedTx LedgerEra] -> Util.Block
-mkBlock transactions =
-  let header = (arbitrary :: Gen (Praos.Header StandardCrypto)) `generateWith` 42
+mkBlock :: [Ledger.ValidatedTx LedgerEra] -> SlotNo -> BlockNo -> Util.Block
+mkBlock transactions slotNum blockNum =
+  let Praos.Header{headerBody, headerSig} = (arbitrary :: Gen (Praos.Header StandardCrypto)) `generateWith` fromIntegral (unSlotNo slotNum)
+      header = Praos.Header{headerBody = headerBody{hbBlockNo = blockNum, hbSlotNo = slotNum}, headerSig}
       body = TxSeq . StrictSeq.fromList $ transactions
    in BlockBabbage $ mkShelleyBlock $ Ledger.Block header body
 
