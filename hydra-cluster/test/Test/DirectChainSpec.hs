@@ -438,12 +438,13 @@ withDirectChainTest tracer config ctx action = do
   let callback = \cont -> do
         cs <- readTVarIO stateVar
         case cont cs of
+          [] -> pure ()
           [ev] -> atomically $ do
             putTMVar eventMVar ev
             case ev of
               Observation{newChainState} -> writeTVar stateVar newChainState
               _OtherEvent -> pure ()
-          err  -> failure $ "expected only one chain event produced: "<> show err
+          err -> failure $ "expected only one chain event produced: " <> show err
 
   wallet <- mkTinyWallet tracer config
 
