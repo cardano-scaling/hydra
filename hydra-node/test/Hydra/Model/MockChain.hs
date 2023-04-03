@@ -144,25 +144,22 @@ mockChainAndNetwork tr seedKeys nodes cp = do
     addNewBlockToChain chain transactions
     sendRollForward chain
 
-    sendRollBackward chain
-
     threadDelay $ fromIntegral blockTime
     transactions' <- flushQueue queue []
     addNewBlockToChain chain transactions'
     sendRollForward chain
-  -- INIT 0 []
-  --------------------
-  -- NB.F 0 [b1] => b1
-  --      1 [b1]
-  -- R.B  0 [b1]
-  -- NB.F 0 [b1 b2] => b1
-  --      1 [b1 b2]
-  ----------------------
-  -- NB.F 1 [b1 b2 b3] => b2
-  --      2 [b1 b2 b3]
-  -- R.B  1 [b1 b2 b3]
-  -- NB.F 1 [b1 b2 b3 b4] => b2
-  --      2 [b1 b2 b3 b4]
+
+    threadDelay $ fromIntegral blockTime
+    transactions'' <- flushQueue queue []
+    addNewBlockToChain chain transactions''
+    sendRollForward chain
+
+    threadDelay $ fromIntegral blockTime
+    transactions''' <- flushQueue queue []
+    addNewBlockToChain chain transactions'''
+    sendRollForward chain
+
+    sendRollBackward chain 2
 
   flushQueue queue transactions = do
     hasTx <- atomically $ tryReadTQueue queue
@@ -181,20 +178,14 @@ mockChainAndNetwork tr seedKeys nodes cp = do
         atomically $ writeTVar chain (slotNum, position + 1, blocks)
       Nothing ->
         pure ()
-  -- 2 [b1 b2 b3 b4]
-  -- => b3
-  -- 3 [b1 b2 b3 b4]
-  -- => point b3
-  -- 2 [b1 b2 b3 b4]
-  -- => b4
-  sendRollBackward chain = do
+  sendRollBackward chain nbBlocks = do
     (slotNum, position, blocks) <- atomically $ readTVar chain
-    case Seq.lookup (position - 1) blocks of
+    case Seq.lookup (position - nbBlocks) blocks of
       Just block -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         let point = blockPoint block
         forM_ allHandlers (`onRollBackward` point)
-        atomically $ writeTVar chain (slotNum, position - 1 + 1, blocks)
+        atomically $ writeTVar chain (slotNum, position - nbBlocks + 1, blocks)
       Nothing ->
         pure ()
 
