@@ -225,7 +225,7 @@ instance
 
 -- | A callback indicating receival of a potential Hydra transaction which is Maybe
 -- observing a relevant 'ChainEvent tx'.
-type ChainCallback tx m = (ChainStateType tx -> Maybe (ChainEvent tx)) -> m ()
+type ChainCallback tx m = (ChainStateType tx -> [ChainEvent tx]) -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.
 type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a
