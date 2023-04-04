@@ -20,7 +20,7 @@ jobs:
         workflow_conclusion: success
         branch: release
         name: docs-stable
-        path: docs/public/
+        path: public/head-protocol/
 
     - name: 📥 Download & merge unstable docs with released
       uses: dawidd6/action-download-artifact@v2
@@ -29,13 +29,18 @@ jobs:
         workflow_conclusion: success
         branch: master
         name: docs-unstable
-        path: docs/public/unstable
+        path: public/head-protocol/unstable/
+
+    - name: 👉 Create redirect
+      run: |
+        echo "hydra.family" > public/CNAME
+        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
     - name: 🚢 Publish Documentation
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        publish_dir: docs/public
+        publish_dir: public
         enable_jekyll: true
         force_orphan: true
     
