@@ -564,9 +564,10 @@ performNewTx ::
 performNewTx party tx = do
   let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
   nodes <- gets nodes
+  let thisNode = nodes ! party
 
   let waitForOpen = do
-        outs <- lift $ serverOutputs (nodes ! party)
+        outs <- lift $ serverOutputs thisNode
         -- TODO refactor with headIsOpen
         let matchHeadIsOpen = \case
               Output.HeadIsOpen{} -> True
@@ -577,7 +578,7 @@ performNewTx party tx = do
   waitForOpen
 
   (i, o) <-
-    lift (waitForUTxOToSpend mempty (from tx) (value tx) (nodes ! party)) >>= \case
+    lift (waitForUTxOToSpend mempty (from tx) (value tx) thisNode) >>= \case
       Left u -> error $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
       Right ok -> pure ok
 
@@ -589,10 +590,11 @@ performNewTx party tx = do
 
   party `sendsInput` Input.NewTx realTx
   lift $
-    waitUntilMatch [nodes ! party] $ \case
+    waitUntilMatch [thisNode] $ \case
       SnapshotConfirmed{Output.snapshot = snapshot} ->
         realTx `elem` Snapshot.confirmed snapshot
       err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
+      err@Output.InvalidCommand{} -> error ("expected command to succeed: " <> show err)
       _ -> False
 
 sendsInput :: Monad m => Party -> ClientInput Tx -> RunMonad m ()

@@ -16,6 +16,7 @@ module Hydra.HeadLogic where
 import Hydra.Prelude
 
 import Data.List (elemIndex)
+import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import GHC.Records (getField)
@@ -1062,8 +1063,8 @@ update env ledger st ev = case (st, ev) of
     OnlyEffects [ClientEffect $ PeerDisconnected{peer = nodeId}]
   (_, PostTxError{postChainTx, postTxError}) ->
     OnlyEffects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
-  (_, ClientEvent{clientInput}) ->
-    OnlyEffects [ClientEffect $ CommandFailed clientInput]
+  (invalidState, ClientEvent{clientInput}) ->
+    OnlyEffects [ClientEffect $ InvalidCommand (List.head $ words $ show invalidState) clientInput]
   _ ->
     Error $ InvalidEvent ev st
 

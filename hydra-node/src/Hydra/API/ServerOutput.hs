@@ -58,6 +58,7 @@ data ServerOutput tx
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
   | CommandFailed {clientInput :: ClientInput tx}
+  | InvalidCommand {state :: Text, clientInput :: ClientInput tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
     TxValid {headId :: HeadId, transaction :: tx}
@@ -106,6 +107,7 @@ instance
     ReadyToFanout headId -> ReadyToFanout <$> shrink headId
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
+    InvalidCommand t i -> InvalidCommand t <$> shrink i
     CommandFailed i -> CommandFailed <$> shrink i
     TxValid headId tx -> TxValid <$> shrink headId <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
