@@ -36,7 +36,7 @@ import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
 spec :: Spec
-spec = parallel $ do
+spec = do
   it "greets" $ do
     failAfter 5 $
       withFreePort $ \port -> do
