@@ -19,7 +19,7 @@
 module Hydra.Model where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (Any, label)
+import Hydra.Prelude hiding (Any, gets, label)
 
 import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
@@ -28,8 +28,10 @@ import Control.Monad.Class.MonadFork (labelThisThread)
 import Control.Monad.Class.MonadSTM (
   MonadLabelledSTM,
   labelTVarIO,
+  modifyTVar,
   newTQueue,
   newTVarIO,
+  readTVarIO,
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Data.List (nub)
@@ -357,6 +359,9 @@ data Nodes m = Nodes
     threads :: [Async m ()]
   }
 
+-- NOTE: This newtype is needed to allow its use in typeclass instances
+newtype RunState m = RunState {nodesState :: TVar m (Nodes m)}
+
 -- | Our execution `MonadTrans`former.
 --
 -- This type is needed in order to keep the execution monad `m` abstract  and thus
@@ -366,14 +371,23 @@ data Nodes m = Nodes
 --
 -- We could perhaps getaway with it and just have a type based on `IOSim` monad
 -- but this is cumbersome to write.
-newtype RunMonad m a = RunMonad {runMonad :: StateT (Nodes m) m a}
-  deriving newtype (Functor, Applicative, Monad, MonadState (Nodes m))
+newtype RunMonad m a = RunMonad {runMonad :: ReaderT (RunState m) m a}
+  deriving newtype (Functor, Applicative, Monad, MonadReader (RunState m), MonadThrow)
 
 instance MonadTrans RunMonad where
   lift r = RunMonad $
-    StateT $ \s -> do
+    ReaderT $ \_ -> do
       a <- r
-      pure (a, s)
+      pure a
+
+data RunException
+  = TransactionNotObserved Payment UTxO
+  | UnexpectedParty Party
+  | UnknownAddress AddressInEra [(AddressInEra, CardanoSigningKey)]
+  | CannotFindSpendableUTxO Payment UTxO
+  deriving (Eq, Show)
+
+instance Exception RunException
 
 -- | This type family is needed to link the _actual_ output from runnign actions
 -- with the ones that are modelled.
@@ -429,7 +443,7 @@ instance
         nodes <- Map.toList <$> gets nodes
         forM_ nodes $ \(_, node) -> do
           lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
-            Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
+            Left u -> throwIO $ TransactionNotObserved tx u
             Right _ -> pure ()
       StopTheWorld ->
         stopTheWorld
@@ -474,11 +488,17 @@ seedWorld seedKeys seedCP = do
       pure (party, testNode, nodeThread)
     pure (res, tickThread)
 
-  modify $ \n ->
-    n
-      { nodes = Map.fromList $ (\(p, t, _) -> (p, t)) <$> fst nodes
-      , threads = snd nodes : ((\(_, _, t) -> t) <$> fst nodes)
-      }
+  s <- ask
+  lift $
+    atomically $
+      modifyTVar (nodesState s) $ \n ->
+        n
+          { nodes = Map.fromList $ (\(p, t, _) -> (p, t)) <$> fst nodes
+          , threads = snd nodes : ((\(_, _, t) -> t) <$> fst nodes)
+          }
+
+gets :: MonadSTM m => (Nodes m -> a) -> RunMonad m a
+gets f = f <$> (ask >>= lift . readTVarIO . nodesState)
 
 performCommit ::
   (MonadThrow m, MonadTimer m) =>
@@ -489,7 +509,7 @@ performCommit ::
 performCommit parties party paymentUTxO = do
   nodes <- gets nodes
   case Map.lookup party nodes of
-    Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
+    Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> do
       lift $ waitForHeadIsInitializing party nodes
       let realUTxO =
@@ -517,7 +537,7 @@ performCommit parties party paymentUTxO = do
   findSigningKey :: (AddressInEra, Value) -> (CardanoSigningKey, Value)
   findSigningKey (addr, value) =
     case List.lookup addr knownAddresses of
-      Nothing -> error $ "cannot invert address:  " <> show addr
+      Nothing -> error $ show $ UnknownAddress addr knownAddresses
       Just sk -> (sk, value)
 
   makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
@@ -544,7 +564,7 @@ performNewTx party tx = do
 
   (i, o) <-
     lift (waitForUTxOToSpend mempty (from tx) (value tx) (nodes ! party)) >>= \case
-      Left u -> error $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
+      Left u -> throwIO $ CannotFindSpendableUTxO tx u
       Right ok -> pure ok
 
   let realTx =
@@ -561,16 +581,16 @@ performNewTx party tx = do
       err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
 
-sendsInput :: Monad m => Party -> ClientInput Tx -> RunMonad m ()
+sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
   nodes <- gets nodes
   case Map.lookup party nodes of
-    Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
+    Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> lift $ actorNode `send` command
 
-performAbort :: MonadDelay m => Party -> RunMonad m ()
+performAbort :: (MonadDelay m, MonadSTM m, MonadThrow m) => Party -> RunMonad m ()
 performAbort party = do
-  Nodes{nodes} <- get
+  nodes <- gets nodes
   lift $ waitForHeadIsInitializing party nodes
   party `sendsInput` Input.Abort
 
