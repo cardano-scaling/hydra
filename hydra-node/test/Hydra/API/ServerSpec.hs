@@ -35,8 +35,11 @@ import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
+-- NOTE: It is important to not run these tests using 'parallel' since we will
+-- end up with _flaky_ tests because in the threaded environment we can't easily
+-- guess which port is opened.
 spec :: Spec
-spec = parallel $ do
+spec = do
   it "greets" $ do
     failAfter 5 $
       withFreePort $ \port -> do
