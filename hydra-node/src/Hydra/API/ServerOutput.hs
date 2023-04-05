@@ -4,19 +4,19 @@ module Hydra.API.ServerOutput where
 
 import Cardano.Binary (serialize')
 import Data.Aeson (Value (..), encode, withObject, (.:))
-import Control.Lens ((?~))
-import Data.Aeson.Lens (atKey)
+import Control.Lens ((.~), at)
+import Data.Aeson.Lens (atKey, key, _Object)
 import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx, PostTxError)
+import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx (..), PostTxError)
 import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
-import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Hydra.Snapshot (Snapshot, SnapshotNumber, confirmed, ConfirmedSnapshot (..))
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -163,13 +163,46 @@ prepareServerOutput OutputCBOR response =
         Fanout -> encodedResponse
     TxValid{Hydra.API.ServerOutput.transaction = tx} -> replacedResponse tx
     TxInvalid{Hydra.API.ServerOutput.transaction = tx} -> replacedResponse tx
-    SnapshotConfirmed{} -> encodedResponse
+    SnapshotConfirmed{Hydra.API.ServerOutput.snapshot} ->
+      replacedSnapshotTxResponse (confirmed snapshot)
     GetUTxOResponse{} -> encodedResponse
     InvalidInput{} -> encodedResponse
     Greetings{} -> encodedResponse
-    PostTxOnChainFailed{} -> encodedResponse
+    PostTxOnChainFailed{postChainTx} ->
+      case postChainTx of
+        CloseTx{confirmedSnapshot} ->
+          case confirmedSnapshot of
+            InitialSnapshot{} -> encodedResponse
+            ConfirmedSnapshot{Hydra.Snapshot.snapshot} ->
+              replacedSnapshotTxInPostTxOnChainFailedResponse (confirmed snapshot)
+        ContestTx{confirmedSnapshot} ->
+          case confirmedSnapshot of
+            InitialSnapshot{} -> encodedResponse
+            ConfirmedSnapshot{Hydra.Snapshot.snapshot} ->
+              replacedSnapshotTxInPostTxOnChainFailedResponse (confirmed snapshot)
+        _other -> encodedResponse
     RolledBack -> encodedResponse
  where
   encodedResponse = encode response
+
   replacedResponse tx =
-    encodedResponse & atKey "transaction" ?~ (String . decodeUtf8 . Base16.encode $ serialize' tx)
+    encodedResponse &
+      atKey "transaction" .~
+        (Just $ String . decodeUtf8 . Base16.encode $ serialize' tx)
+
+  replacedSnapshotTxResponse txs =
+    let cborTxs = Just . Array $ fromList (String . decodeUtf8 . Base16.encode . serialize' <$> txs)
+    in encodedResponse &
+         key "snapshot" .
+         _Object .
+         at "confirmedTransactions"
+         .~ cborTxs
+
+  replacedSnapshotTxInPostTxOnChainFailedResponse txs =
+    let cborTxs = Just . Array $ fromList (String . decodeUtf8 . Base16.encode . serialize' <$> txs)
+    in encodedResponse &
+          key "postChainTx" .
+          key "confirmedSnapshot" .
+          key "snapshot" .
+          _Object .
+          at "confirmedTransactions" .~ cborTxs
