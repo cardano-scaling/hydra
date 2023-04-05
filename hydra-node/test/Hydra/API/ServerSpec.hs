@@ -214,6 +214,27 @@ spec = describe "ServerSpec" $ do
               waitMatch 5 conn $ \v ->
                 guardForValue v (toJSON tx)
 
+  it "removes UTXO from snapshot when clients request it " $
+    monadicIO $ do
+      run $ do
+        withFreePort $ \port ->
+          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+            snapshot <- generate arbitrary
+            let snapshotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", snapshot, signatures = mempty}
+
+            withClient port "/?snapshot-utxo=no" $ \conn -> do
+              sendOutput snapshotConfirmedMessage
+
+              waitMatch 5 conn $ \v ->
+                  case v of
+                    Aeson.Object km ->
+                      let sn = KeyMap.lookup "snapshot" km
+                      in case sn of
+                           Just (Aeson.Object km') ->
+                             guard $ Nothing == KeyMap.lookup "utxo" km'
+                           _ -> Nothing
+                    _other -> Nothing
+
   it "sequence numbers are continuous and strictly monotonically increasing" $
     monadicIO $ do
       outputs :: [ServerOutput SimpleTx] <- pick arbitrary

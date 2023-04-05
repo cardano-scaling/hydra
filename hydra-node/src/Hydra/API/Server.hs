@@ -23,7 +23,7 @@ import Hydra.API.ServerOutput (
   OutputFormat (..),
   ServerOutput (Greetings, InvalidInput),
   TimedServerOutput (..),
-  prepareServerOutput,
+  prepareServerOutput, ServerOutputConfig (..), WithUTxO (..)
  )
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
@@ -184,8 +184,8 @@ runAPIServer host port party tracer history callback responseChannel = do
         v = [queryValue|cbor|]
         queryP = QueryParam k v
      in case queryP `elem` qp of
-          True -> OutputCBOR
-          False -> OutputJSON
+          True -> ServerOutputConfig { txOutputFormat = OutputCBOR, utxoInSnapshot = WithUTxO }
+          False -> ServerOutputConfig { txOutputFormat = OutputJSON, utxoInSnapshot = WithUTxO }
 
   shouldNotServeHistory qp =
     flip any qp $ \case
