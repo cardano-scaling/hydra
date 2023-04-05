@@ -214,26 +214,24 @@ spec = describe "ServerSpec" $ do
               waitMatch 5 conn $ \v ->
                 guardForValue v (toJSON tx)
 
-  it "removes UTXO from snapshot when clients request it " $
+  it "removes UTXO from snapshot when clients request it" $
     monadicIO $ do
       run $ do
         withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             snapshot <- generate arbitrary
-            let snapshotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", snapshot, signatures = mempty}
+            let snapshotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot, Hydra.API.ServerOutput.signatures = mempty}
 
             withClient port "/?snapshot-utxo=no" $ \conn -> do
               sendOutput snapshotConfirmedMessage
 
               waitMatch 5 conn $ \v ->
-                  case v of
-                    Aeson.Object km ->
-                      let sn = KeyMap.lookup "snapshot" km
-                      in case sn of
-                           Just (Aeson.Object km') ->
-                             guard $ Nothing == KeyMap.lookup "utxo" km'
-                           _ -> Nothing
-                    _other -> Nothing
+                case v of
+                  Aeson.Object km -> do
+                    case KeyMap.lookup "snapshot" km of
+                      Just (Aeson.Object km') -> guard $ isNothing $ KeyMap.lookup "utxo" km'
+                      _other -> Nothing
+                  _other -> Nothing
 
   it "sequence numbers are continuous and strictly monotonically increasing" $
     monadicIO $ do

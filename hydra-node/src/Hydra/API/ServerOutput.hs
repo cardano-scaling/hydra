@@ -148,10 +148,35 @@ prepareServerOutput ::
   TimedServerOutput tx ->
   -- | Final output
   LBS.ByteString
-prepareServerOutput ServerOutputConfig{txOutputFormat} response =
-  cookUtxoInclusion $ cookTxOutput
+prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response =
+  cookUtxoInclusion cookTxOutput
  where
-  cookUtxoInclusion = id
+  cookUtxoInclusion bs =
+    case utxoInSnapshot of
+      WithUTxO -> bs
+      WithoutUTxO ->
+        case output response of
+          PeerConnected{} -> bs
+          PeerDisconnected{} -> bs
+          HeadIsInitializing{} -> bs
+          Committed{} -> bs
+          HeadIsOpen{} -> bs
+          HeadIsClosed{} -> bs
+          HeadIsContested{} -> bs
+          ReadyToFanout{} -> bs
+          HeadIsAborted{} -> bs
+          HeadIsFinalized{} -> bs
+          CommandFailed{} -> bs
+          TxValid{} -> bs
+          TxInvalid{} -> bs
+          SnapshotConfirmed{} -> removeSnapshotUtxo
+          GetUTxOResponse{} -> bs
+          InvalidInput{} -> bs
+          Greetings{} -> bs
+          PostTxOnChainFailed{} -> bs
+          RolledBack -> bs
+
+  cookTxOutput :: LBS.ByteString
   cookTxOutput =
     case txOutputFormat of
       OutputJSON -> encodedResponse
@@ -219,3 +244,12 @@ prepareServerOutput ServerOutputConfig{txOutputFormat} response =
 
   txToCbor =
     String . decodeUtf8 . Base16.encode . serialize'
+
+  removeSnapshotUtxo =
+    case toJSON response of
+      Object km ->
+        case KeyMap.lookup "snapshot" km of
+          Just (Object sn) ->
+            encode $ Object $ KeyMap.insert "snapshot" (Object $ KeyMap.delete "utxo" sn) km
+          _other -> encodedResponse
+      _other -> encodedResponse
