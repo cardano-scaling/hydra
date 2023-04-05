@@ -46,8 +46,17 @@ jobs:
         mv docs-release public/head-protocol
         mv docs-master-unstable public/head-protocol/unstable
         # Always use monthly reports from master
+        # XXX: This depends on languages and assets are annoying
         rm -r public/head-protocol/monthly
         mv docs-master/monthly public/head-protocol/monthly
+        rm -r public/head-protocol/ja/monthly
+        mv docs-master/ja/monthly public/head-protocol/ja/monthly
+        rm -r public/head-protocol/fr/monthly
+        mv docs-master/fr/monthly public/head-protocol/fr/monthly
+        # XXX: Need to copy assets as well. This will also litter with unrelated assets (js)
+        cp -r docs-master/assets/* public/head-protocol/assets/
+        cp -r docs-master/ja/assets/* public/head-protocol/ja/assets/
+        cp -r docs-master/fr/assets/* public/head-protocol/fr/assets/
 
     - name: 👉 Create redirect
       run: |
