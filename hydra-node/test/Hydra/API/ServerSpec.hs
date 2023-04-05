@@ -194,7 +194,8 @@ spec = describe "ServerSpec" $ do
               waitMatch 5 conn $ \v ->
                 let expected =
                       Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
-                    result = Aeson.encode v ^? key "snapshot" . key "confirmedTransactions" . nonNull
+                    result =
+                      Aeson.encode v ^? key "snapshot" . key "confirmedTransactions" . nonNull
                 in guard $ result == Just expected
 
               sendOutput postTxFailedMessage
@@ -202,8 +203,9 @@ spec = describe "ServerSpec" $ do
               waitMatch 5 conn $ \v ->
                 let expected =
                       Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
-                    result = traceShow (Aeson.encode v) $ Aeson.encode v ^? key "postChainTx" . key "confirmedSnapshot" . key "snapshot" . key "confirmedTransactions" . nonNull
-                in traceShow "result" $ traceShow result $ guard $ result == Just expected
+                    result =
+                      Aeson.encode v ^? key "postChainTx" . key "confirmedSnapshot" . key "snapshot" . key "confirmedTransactions" . nonNull
+                in guard $ result == Just expected
 
             -- spawn another client but this one wants to see txs in json format
             withClient port "/" $ \conn -> do
