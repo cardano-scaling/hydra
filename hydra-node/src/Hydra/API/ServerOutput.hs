@@ -4,6 +4,8 @@ module Hydra.API.ServerOutput where
 
 import Cardano.Binary (serialize')
 import Data.Aeson (Value (..), encode, withObject, (.:))
+import Control.Lens ((?~))
+import Data.Aeson.Lens (atKey)
 import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as LBS
@@ -170,6 +172,4 @@ prepareServerOutput OutputCBOR response =
  where
   encodedResponse = encode response
   replacedResponse tx =
-    case toJSON response of
-      Object km -> encode $ Object $ KeyMap.insert "transaction" (String . decodeUtf8 . Base16.encode $ serialize' tx) km
-      _other -> encodedResponse
+    encodedResponse & atKey "transaction" ?~ (String . decodeUtf8 . Base16.encode $ serialize' tx)
