@@ -23,7 +23,7 @@ import Test.QuickCheck (
 import Test.QuickCheck.Instances.ByteString ()
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   let lo = "127.0.0.1"
 
   describe "Ouroboros Network" $ do
