@@ -19,6 +19,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Aeson.Lens (nonNull, key)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
@@ -34,12 +35,14 @@ import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
+import Hydra.Snapshot (Snapshot, confirmed)
+import Control.Lens ((^?))
 
 -- NOTE: It is important to not run these tests using 'parallel' since we will
 -- end up with _flaky_ tests because in the threaded environment we can't easily
 -- guess which port is opened.
 spec :: Spec
-spec = do
+spec = describe "ServerSpec" $ do
   it "greets" $ do
     failAfter 5 $
       withFreePort $ \port -> do
@@ -154,10 +157,13 @@ spec = do
   it "outputs tx as cbor or json depending on the client" $
     monadicIO $ do
       tx :: SimpleTx <- pick arbitrary
+      generatedSnapshot :: Snapshot SimpleTx <- pick arbitrary
       run $ do
         withFreePort $ \port ->
           withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+            let snapshot = generatedSnapshot { confirmed = [tx] }
             let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
+            let snapShotConfirmedMessage = SnapshotConfirmed {headId = HeadId "some-head-id", snapshot, signatures = mempty}
                 guardForValue v expected =
                   case v of
                     Aeson.Object km ->
@@ -170,6 +176,14 @@ spec = do
 
               waitMatch 5 conn $ \v ->
                 guardForValue v (Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx)
+
+              sendOutput snapShotConfirmedMessage
+
+              waitMatch 5 conn $ \v ->
+                let expected =
+                      Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
+                    result = Aeson.encode v ^? key "snapshot" . key "confirmedTransactions" . nonNull
+                in traceShow "v" $ traceShow v $ guard $ result == Just expected
 
             -- spawn another client but this one wants to see txs in json format
             withClient port "/" $ \conn -> do
