@@ -36,7 +36,7 @@ import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
-import Hydra.Snapshot (Snapshot, confirmed, ConfirmedSnapshot (ConfirmedSnapshot, signatures, snapshot))
+import Hydra.Snapshot (Snapshot, confirmed, ConfirmedSnapshot (ConfirmedSnapshot, signatures))
 import Control.Lens ((^?))
 
 -- NOTE: It is important to not run these tests using 'parallel' since we will
@@ -163,14 +163,14 @@ spec = describe "ServerSpec" $ do
         withFreePort $ \port ->
           withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
-            let snapShotConfirmedMessage = SnapshotConfirmed {headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot, Hydra.API.ServerOutput.signatures = mempty}
+            let snapShotConfirmedMessage = SnapshotConfirmed {headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot = generatedSnapshot, Hydra.API.ServerOutput.signatures = mempty}
             let postTxFailedMessage =
                   PostTxOnChainFailed
                     {postChainTx =
                       CloseTx
                         { confirmedSnapshot =
                             ConfirmedSnapshot
-                              { Hydra.Snapshot.snapshot = snapshot
+                              { Hydra.Snapshot.snapshot = generatedSnapshot
                               , Hydra.Snapshot.signatures = mempty
                               }
                         }
