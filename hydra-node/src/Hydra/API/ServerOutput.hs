@@ -3,18 +3,20 @@
 module Hydra.API.ServerOutput where
 
 import Cardano.Binary (serialize')
+import Control.Lens ( (.~))
 import Data.Aeson (Value (..), encode, withObject, (.:))
 import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Aeson.Lens (key)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx, PostTxError)
+import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx (..), PostTxError)
 import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
-import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot, SnapshotNumber, confirmed)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -125,7 +127,7 @@ data OutputFormat
   | OutputJSON
   deriving (Eq, Show)
 
--- | Replaces the json encoded tx field with it's cbor representation.
+-- | Replaces the json encoded tx fields with it's cbor representation.
 -- NOTE: we deliberately pattern match on all 'ServerOutput' constructors
 -- so that we don't forget to update this function if they change.
 prepareServerOutput ::
@@ -154,22 +156,50 @@ prepareServerOutput OutputCBOR response =
         Init -> encodedResponse
         Abort -> encodedResponse
         Commit{} -> encodedResponse
-        NewTx{Hydra.API.ClientInput.transaction = tx} -> replacedResponse tx
+        NewTx{Hydra.API.ClientInput.transaction = tx} ->
+          encodedResponse & key "transaction" .~ txToCbor tx
         GetUTxO -> encodedResponse
         Close -> encodedResponse
         Contest -> encodedResponse
         Fanout -> encodedResponse
-    TxValid{Hydra.API.ServerOutput.transaction = tx} -> replacedResponse tx
-    TxInvalid{Hydra.API.ServerOutput.transaction = tx} -> replacedResponse tx
-    SnapshotConfirmed{} -> encodedResponse
+    TxValid{Hydra.API.ServerOutput.transaction = tx} ->
+      encodedResponse & key "transaction" .~ txToCbor tx
+    TxInvalid{Hydra.API.ServerOutput.transaction = tx} ->
+      encodedResponse & key "transaction" .~ txToCbor tx
+    SnapshotConfirmed{Hydra.API.ServerOutput.snapshot} ->
+      encodedResponse
+        & key "snapshot"
+          . key "confirmedTransactions"
+          .~ toJSON (txToCbor <$> confirmed snapshot)
     GetUTxOResponse{} -> encodedResponse
     InvalidInput{} -> encodedResponse
     Greetings{} -> encodedResponse
-    PostTxOnChainFailed{} -> encodedResponse
+    PostTxOnChainFailed{postChainTx} ->
+      case postChainTx of
+        CloseTx{confirmedSnapshot} ->
+          case confirmedSnapshot of
+            InitialSnapshot{} -> encodedResponse
+            ConfirmedSnapshot{Hydra.Snapshot.snapshot} ->
+              encodedResponse
+                & key "postChainTx"
+                  . key "confirmedSnapshot"
+                  . key "snapshot"
+                  . key "confirmedTransactions"
+                  .~ (toJSON $ txToCbor <$> confirmed snapshot)
+        ContestTx{confirmedSnapshot} ->
+          case confirmedSnapshot of
+            InitialSnapshot{} -> encodedResponse
+            ConfirmedSnapshot{Hydra.Snapshot.snapshot} ->
+              encodedResponse
+                & key "postChainTx"
+                  . key "confirmedSnapshot"
+                  . key "snapshot"
+                  . key "confirmedTransactions"
+                  .~ (toJSON $ txToCbor <$> confirmed snapshot)
+        _other -> encodedResponse
     RolledBack -> encodedResponse
  where
   encodedResponse = encode response
-  replacedResponse tx =
-    case toJSON response of
-      Object km -> encode $ Object $ KeyMap.insert "transaction" (String . decodeUtf8 . Base16.encode $ serialize' tx) km
-      _other -> encodedResponse
+
+  txToCbor =
+    String . decodeUtf8 . Base16.encode . serialize'
