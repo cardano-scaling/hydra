@@ -145,7 +145,7 @@ runAPIServer host port party tracer history callback responseChannel = do
     let serverSettings =
           setHost (fromString $ show host) $
             setPort (fromIntegral port) $
-              setOnException (\_ _ -> pure ()) defaultSettings
+              setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e}) defaultSettings
      in runSettings serverSettings $ websocketsOr defaultConnectionOptions wsApp httpApp
  where
   wsApp pending = do
