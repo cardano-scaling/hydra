@@ -74,7 +74,6 @@ library
   hs-source-dirs:  src
   exposed-modules:
     Hydra.API.ClientInput
-    Hydra.API.Host
     Hydra.API.Server
     Hydra.API.ServerOutput
     Hydra.Chain
@@ -184,10 +183,10 @@ library
     , typed-protocols                 ==0.1.0.0
     , typed-protocols-cborg           ==0.1.0.0
     , unliftio
-    , websockets
-    , wai-websockets
     , wai
+    , wai-websockets
     , warp
+    , websockets
 
   ghc-options:     -haddock
 

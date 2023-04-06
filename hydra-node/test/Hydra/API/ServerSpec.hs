@@ -28,6 +28,7 @@ import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), input)
 import Hydra.Chain (HeadId (HeadId), PostChainTx (CloseTx), confirmedSnapshot, PostTxError (NoSeedInput))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
+import Hydra.Network (PortNumber)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.Timeout (timeout)
@@ -237,7 +238,7 @@ strictlyMonotonic = \case
   [_] -> True
   (a : b : as) -> a + 1 == b && strictlyMonotonic (b : as)
 
-sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
+sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \_server -> do
     withClient port "/" $ \con -> do
@@ -274,11 +275,11 @@ testClient queue semaphore cnx = do
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
 
-withClient :: HasCallStack => Int -> String -> (Connection -> IO ()) -> IO ()
+withClient :: HasCallStack => PortNumber -> String -> (Connection -> IO ()) -> IO ()
 withClient port path action = do
   failAfter 5 retry
  where
-  retry = runClient "127.0.0.1" port path action `catch` \(_ :: IOException) -> retry
+  retry = runClient "127.0.0.1" (fromIntegral port) path action `catch` \(_ :: IOException) -> retry
 
 -- | Mocked persistence handle which just does nothing.
 mockPersistence :: Applicative m => PersistenceIncremental a m

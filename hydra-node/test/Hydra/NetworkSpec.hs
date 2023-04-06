@@ -30,7 +30,7 @@ spec = parallel $ do
     it "broadcasts messages to single connected peer" $ do
       received <- atomically newTQueue
       showLogsOnFailure $ \tracer -> failAfter 30 $ do
-        [port1, port2] <- randomUnusedTCPPorts 2
+        [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
         withOuroborosNetwork tracer (Host lo port1) [Host lo port2] (const @_ @Integer $ pure ()) $ \hn1 ->
           withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \_ -> do
             withNodeBroadcastingForever hn1 1 $
@@ -41,7 +41,7 @@ spec = parallel $ do
       node2received <- atomically newTQueue
       node3received <- atomically newTQueue
       showLogsOnFailure $ \tracer -> failAfter 30 $ do
-        [port1, port2, port3] <- randomUnusedTCPPorts 3
+        [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
         withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
           withOuroborosNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 -> do
             withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do

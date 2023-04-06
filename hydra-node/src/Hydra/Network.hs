@@ -33,10 +33,9 @@ import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
 import Network.TypedProtocol.Pipelined ()
-import Test.QuickCheck (elements, listOf, suchThat, getPositive)
+import Test.QuickCheck (elements, listOf, suchThat)
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
-import Network.Wai.Handler.Warp (Port)
 
 deriving instance ToJSON IP
 deriving instance FromJSON IP
@@ -97,7 +96,7 @@ instance ToCBOR NodeId where
 -- REVIEW(SN): This is also used in hydra-tui
 data Host = Host
   { hostname :: Text
-  , port :: Port
+  , port :: PortNumber
   }
   deriving (Ord, Generic, Eq, ToJSON, FromJSON)
 
@@ -112,7 +111,7 @@ instance Read Host where
 instance Arbitrary Host where
   arbitrary = do
     ip <- toIPv4w <$> arbitrary
-    Host (toText $ show ip) <$> fmap getPositive arbitrary
+    Host (toText $ show ip) <$> arbitrary
 
 instance ToCBOR Host where
   toCBOR Host{hostname, port} =
@@ -137,7 +136,7 @@ readHost s =
     (h, ':' : p) -> Host (pack h) <$> readPort p
     _ -> fail $ "readHost: missing : in " <> s
 
-readPort :: MonadFail m => String -> m Port
+readPort :: MonadFail m => String -> m PortNumber
 readPort s =
   case readMaybe s of
     Nothing -> fail "cannot read port"

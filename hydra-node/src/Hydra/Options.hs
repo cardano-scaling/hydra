@@ -33,7 +33,7 @@ import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import qualified Hydra.Contract as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, NodeId (NodeId), readHost, readPort)
+import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
 import Hydra.Party (Party)
 import Hydra.Version (gitDescribe)
 import Options.Applicative (
@@ -73,7 +73,6 @@ import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf, getPositive)
-import Network.Wai.Handler.Warp (Port)
 
 -- | Hardcoded limit for maximum number of parties in a head protocol
 -- The value is obtained from calculating the costs of running the scripts
@@ -150,11 +149,11 @@ data RunOptions = RunOptions
   , nodeId :: NodeId
   , -- NOTE: Why not a 'Host'?
     host :: IP
-  , port :: Port
+  , port :: PortNumber
   , peers :: [Host]
   , apiHost :: IP
-  , apiPort :: Port
-  , monitoringPort :: Maybe Port
+  , apiPort :: PortNumber
+  , monitoringPort :: Maybe PortNumber
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
   , hydraScriptsTxId :: TxId
@@ -461,7 +460,7 @@ hostParser =
         <> help "Listen address for incoming Hydra network connections."
     )
 
-portParser :: Parser Port
+portParser :: Parser PortNumber
 portParser =
   option
     (maybeReader readPort)
@@ -484,7 +483,7 @@ apiHostParser =
         <> help "Listen address for incoming client API connections."
     )
 
-apiPortParser :: Parser Port
+apiPortParser :: Parser PortNumber
 apiPortParser =
   option
     (maybeReader readPort)
@@ -495,7 +494,7 @@ apiPortParser =
         <> help "Listen port for incoming client API connections."
     )
 
-monitoringPortParser :: Parser Port
+monitoringPortParser :: Parser PortNumber
 monitoringPortParser =
   option
     (maybeReader readPort)

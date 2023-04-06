@@ -45,8 +45,7 @@ changes.
   + Skip observing history of events before they connected
   + View the transactions in the server output encoded as CBOR
 
-- Replaced existing websocket server with production-grade one. This change also
-  enables serving HTTP API responses if needed.
+- Replaced existing websocket server with production-grade one
 
 ## [0.9.0] - 2023-03-02
 

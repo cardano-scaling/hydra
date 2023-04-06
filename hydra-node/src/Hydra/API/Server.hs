@@ -18,7 +18,6 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
-import Hydra.API.Host (ipToHostPreference)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (
   OutputFormat (..),
@@ -28,7 +27,7 @@ import Hydra.API.ServerOutput (
  )
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (IP)
+import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.WebSockets (
@@ -43,13 +42,13 @@ import Network.WebSockets (
 import Network.HTTP.Types (status400)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.Wai (responseLBS)
-import Network.Wai.Handler.Warp (runSettings, defaultSettings, setHost, setPort, Port)
+import Network.Wai.Handler.Warp (runSettings, defaultSettings, setHost, setPort)
 import Test.QuickCheck (oneof)
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
 
 data APIServerLog
-  = APIServerStarted {listeningPort :: Port}
+  = APIServerStarted {listeningPort :: PortNumber}
   | NewAPIConnection
   | APIOutputSent {sentOutput :: Aeson.Value}
   | APIInputReceived {receivedInput :: Aeson.Value}
@@ -83,7 +82,7 @@ withAPIServer ::
   forall tx.
   (IsChainState tx) =>
   IP ->
-  Port ->
+  PortNumber ->
   Party ->
   PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
@@ -130,7 +129,7 @@ runAPIServer ::
   forall tx.
   (IsChainState tx) =>
   IP ->
-  Port ->
+  PortNumber ->
   Party ->
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
@@ -140,7 +139,7 @@ runAPIServer ::
 runAPIServer host port party tracer history callback responseChannel = do
   traceWith tracer (APIServerStarted port)
   handle onIOException $
-    let serverSettings = setHost (ipToHostPreference host) $ setPort port $ defaultSettings
+    let serverSettings = setHost (fromString $ show host) $ setPort (fromIntegral port) $ defaultSettings
     in runSettings serverSettings $ websocketsOr defaultConnectionOptions wsApp httpApp
  where
   wsApp pending = do
@@ -163,7 +162,7 @@ runAPIServer host port party tracer history callback responseChannel = do
         `catch` onServerException con
 
   httpApp _ respond =
-    respond $ responseLBS status400 [] "Currently Hydra supports only WebSocket requests."
+    respond $ responseLBS status400 [] "only WebSocket connections supported"
 
   forwardGreetingOnly con = do
     time <- getCurrentTime
@@ -242,7 +241,7 @@ runAPIServer host port party tracer history callback responseChannel = do
 data RunServerException = RunServerException
   { ioException :: IOException
   , host :: IP
-  , port :: Port
+  , port :: PortNumber
   }
   deriving (Show)
 

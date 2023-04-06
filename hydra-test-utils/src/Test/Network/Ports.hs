@@ -21,12 +21,13 @@ import Network.Socket (
   Family (AF_INET),
   SockAddr (..),
   SocketType (Stream),
+  PortNumber,
   close',
   connect,
   socket,
   tupleToHostAddress,
  )
-import Network.Wai.Handler.Warp (openFreePort, Port)
+import Network.Wai.Handler.Warp (openFreePort)
 import System.Random.Shuffle (
   shuffleM,
  )
@@ -39,7 +40,7 @@ import System.Random.Shuffle (
 -- port returned by 'getRandomPort' before this process does.
 --
 -- Do not use this unless you have no other option.
-getRandomPort :: IO Port
+getRandomPort :: IO PortNumber
 getRandomPort = do
   (port, sock) <- openFreePort
   liftIO $ close' sock
@@ -48,8 +49,8 @@ getRandomPort = do
 -- | Find a free TCPv4 port and pass it to the given 'action'.
 --
 -- Should be used only for testing, see 'getRandomPort' for limitations.
-withFreePort :: (Int -> IO ()) -> IO ()
-withFreePort action = getRandomPort >>= action . fromIntegral
+withFreePort :: (PortNumber -> IO ()) -> IO ()
+withFreePort action = getRandomPort >>= action
 
 -- | Checks whether @connect()@ to a given TCPv4 `SockAddr` succeeds or
 -- returns `eCONNREFUSED`.
@@ -73,7 +74,7 @@ isPortOpen sockAddr = do
 --
 -- Example:
 -- > simpleSockAddr (127,0,0,1) 8000
-simpleSockAddr :: (Word8, Word8, Word8, Word8) -> Port -> SockAddr
+simpleSockAddr :: (Word8, Word8, Word8, Word8) -> PortNumber -> SockAddr
 simpleSockAddr addr port = SockAddrInet (fromIntegral port) (tupleToHostAddress addr)
 
 -- | Get a list of random TCPv4 ports that currently do not have any servers
