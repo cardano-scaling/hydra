@@ -112,7 +112,7 @@
 module Hydra.ModelSpec where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (gets)
+import Hydra.Prelude
 import Test.Hydra.Prelude hiding (after)
 
 import qualified Cardano.Api.UTxO as UTxO
@@ -133,7 +133,7 @@ import Hydra.Model (
   RunMonad,
   WorldState (..),
   genPayment,
-  runMonad, RunState (..), gets
+  runMonad, RunState (..)
  )
 import qualified Hydra.Model as Model
 import qualified Hydra.Model.Payment as Payment

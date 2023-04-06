@@ -19,7 +19,7 @@
 module Hydra.Model where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (Any, gets, label)
+import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
@@ -375,10 +375,12 @@ newtype RunMonad m a = RunMonad {runMonad :: ReaderT (RunState m) m a}
   deriving newtype (Functor, Applicative, Monad, MonadReader (RunState m), MonadThrow)
 
 instance MonadTrans RunMonad where
-  lift r = RunMonad $
-    ReaderT $ \_ -> do
-      a <- r
-      pure a
+  lift = RunMonad . lift
+
+instance (MonadSTM m) => MonadState (Nodes m) (RunMonad m) where
+  get = ask >>= lift . readTVarIO . nodesState
+
+  put n = ask >>= lift . atomically . flip modifyTVar (const n) . nodesState
 
 data RunException
   = TransactionNotObserved Payment UTxO
@@ -488,17 +490,11 @@ seedWorld seedKeys seedCP = do
       pure (party, testNode, nodeThread)
     pure (res, tickThread)
 
-  s <- ask
-  lift $
-    atomically $
-      modifyTVar (nodesState s) $ \n ->
+  modify $ \n ->
         n
           { nodes = Map.fromList $ (\(p, t, _) -> (p, t)) <$> fst nodes
           , threads = snd nodes : ((\(_, _, t) -> t) <$> fst nodes)
           }
-
-gets :: MonadSTM m => (Nodes m -> a) -> RunMonad m a
-gets f = f <$> (ask >>= lift . readTVarIO . nodesState)
 
 performCommit ::
   (MonadThrow m, MonadTimer m) =>
