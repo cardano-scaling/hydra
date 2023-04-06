@@ -114,7 +114,8 @@ spec = do
 
       chainContext <- pickBlind arbitrary
       let chainSyncCallback = \_cont -> failure "Unexpected callback"
-          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext
+          chainSyncCallback' = \_cont -> failure "Unexpected callback"
+          handler = chainSyncHandler nullTracer chainSyncCallback' chainSyncCallback (pure timeHandle) chainContext
 
       run $
         onRollForward handler blk
@@ -131,12 +132,7 @@ spec = do
     let callback cont =
           -- Give chain state in which we expect the 'tx' to yield an 'Observation'.
           case cont chainState of
-            [Rollback{}] ->
-              failure "rolled back but expected roll forward."
-            [ Tick{}] -> pure ()
-            [Observation{observedTx}] ->
-              fst <$> observeSomeTx ctx st tx `shouldBe` Just observedTx
-            _ ->
+            Nothing ->
               -- XXX: We need this to debug as 'failure' (via 'run') does not
               -- yield counter examples.
               failure . toString $
@@ -145,8 +141,16 @@ spec = do
                   , "transition: " <> show transition
                   , "chainState: " <> show st
                   ]
+            Just Rollback{} ->
+              failure "rolled back but expected roll forward."
+            Just Tick{} -> pure ()
+            Just Observation{observedTx} ->
+              fst <$> observeSomeTx ctx st tx `shouldBe` Just observedTx
 
-    let handler = chainSyncHandler nullTracer callback (pure timeHandle) ctx
+    let callback' _cont =
+          failure "not yet implemented"
+
+    let handler = chainSyncHandler nullTracer callback' callback (pure timeHandle) ctx
     run $ onRollForward handler blk
 
   prop "yields rollback events onRollBackward" . monadicIO $ do
@@ -157,17 +161,20 @@ spec = do
     -- Mock callback which keeps the chain state in a tvar
     stateVar <- run $ newTVarIO chainState
     rolledBackTo <- run newEmptyTMVarIO
+    let callback' _cont = failure "not yet implemented"
     let callback cont = do
           cs <- readTVarIO stateVar
           case cont cs of
-            [Tick{}] -> pure ()
-            [Rollback slot] -> atomically $ putTMVar rolledBackTo slot
-            [Observation{newChainState}] -> atomically $ writeTVar stateVar newChainState
-            _ -> failure "expected continuation to yield observation"
+            Nothing -> do
+              failure "expected continuation to yield observation"
+            Just Tick{} -> pure ()
+            Just (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
+            Just Observation{newChainState} -> atomically $ writeTVar stateVar newChainState
 
     let handler =
           chainSyncHandler
             nullTracer
+            callback'
             callback
             (pure timeHandle)
             chainContext
@@ -188,7 +195,8 @@ spec = do
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newTVarIO []
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx
+  let callback' _cont = failure "not yet implemented"
+      handler = chainSyncHandler nullTracer callback' (recordEvents eventsVar) getTimeHandle ctx
   pure (handler, getEvents eventsVar)
  where
   getEvents = readTVarIO
@@ -196,7 +204,8 @@ recordEventsHandler ctx cs getTimeHandle = do
   recordEvents :: TVar IO [ChainEvent Tx] -> ChainCallback Tx IO
   recordEvents var cont = do
     case cont cs of
-      es -> atomically $ modifyTVar var (es <>)
+      Nothing -> pure ()
+      Just e -> atomically $ modifyTVar var (e :)
 
 withCounterExample :: [Block] -> TVar IO ChainStateAt -> IO a -> PropertyM IO a
 withCounterExample blks headState step = do

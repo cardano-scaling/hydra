@@ -35,6 +35,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   Chain (..),
   ChainCallback,
+  ChainCallback',
   ChainEvent (..),
   ChainStateType,
   PostChainTx (..),
@@ -185,6 +186,7 @@ chainSyncHandler ::
   (MonadSTM m, MonadThrow m) =>
   -- | Tracer for logging
   Tracer m DirectChainLog ->
+  ChainCallback' Tx m ->
   ChainCallback Tx m ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
@@ -192,7 +194,7 @@ chainSyncHandler ::
   ChainContext ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx =
+chainSyncHandler tracer callback' callback getTimeHandle ctx =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -202,7 +204,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
   onRollBackward rollbackPoint = do
     let point = fromConsensusPointInMode CardanoMode rollbackPoint
     traceWith tracer $ RolledBackward{point}
-    callback (const . (:[]) $ Rollback $ chainSlotFromPoint point)
+    callback (const . Just $ Rollback $ chainSlotFromPoint point)
 
   onRollForward :: Block -> m ()
   onRollForward blk = do
@@ -222,24 +224,39 @@ chainSyncHandler tracer callback getTimeHandle ctx =
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime ->
-            callback (const . (:[]) $ Tick utcTime)
+            callback (const . Just $ Tick utcTime)
 
+    forM_ receivedTxs $ \tx ->
+      callback $ \ChainStateAt{chainState = cs} ->
+        case observeSomeTx ctx cs tx of
+          Nothing -> Nothing
+          Just (observedTx, cs') ->
+            Just $
+              Observation
+                { observedTx
+                , newChainState =
+                    ChainStateAt
+                      { chainState = cs'
+                      , recordedAt = Just point
+                      }
+                }
 
-    let observe = \(css@ChainStateAt{chainState = cs}, obs) tx ->
-              case observeSomeTx ctx cs tx of
-                Nothing -> (css, obs)
-                Just (observedTx, cs') ->
-                  let newChainState =
-                        ChainStateAt
-                          { chainState = cs'
-                          , recordedAt = Just point
-                          }
-                   in ( newChainState
-                      , Observation{observedTx, newChainState} : obs
-                      )
-        observeBlock initialChainState =  snd $ foldl' observe (initialChainState, []) receivedTxs
-
-    callback observeBlock
+    forM_ receivedTxs $ \tx -> do
+      callback' $ \ChainStateAt{chainState = cs} ->
+        case observeSomeTx ctx cs tx of
+          Nothing -> Nothing
+          Just (observedTx, cs') ->
+            let newChainState =
+                  ChainStateAt
+                    { chainState = cs'
+                    , recordedAt = Just point
+                    }
+                _event =
+                  Observation
+                    { observedTx
+                    , newChainState
+                    }
+             in Just newChainState
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>

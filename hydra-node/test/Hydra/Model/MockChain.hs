@@ -119,8 +119,9 @@ mockChainAndNetwork tr seedKeys nodes cp = do
         let seedInput = genTxIn `generateWith` 42
         nodeState <- createNodeState $ Idle IdleState{chainState}
         let HydraNode{eq} = node
+        let callback' = error "not yet implemented"
         let callback = chainCallback nodeState eq
-        let chainHandler = chainSyncHandler tr callback getTimeHandle ctx
+        let chainHandler = chainSyncHandler tr callback' callback getTimeHandle ctx
         let node' =
               node
                 { hn =

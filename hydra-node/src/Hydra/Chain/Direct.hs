@@ -27,6 +27,7 @@ import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (
+  MonadSTM (newTVarIO, writeTVar),
   newEmptyTMVar,
   newTQueueIO,
   putTMVar,
@@ -52,6 +53,7 @@ import Hydra.Cardano.Api (
  )
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain (
+  ChainCallback',
   ChainComponent,
   ChainStateType,
   PostTxError (..),
@@ -213,9 +215,11 @@ withDirectChain ::
   -- | Last known point on chain as loaded from persistence.
   Maybe ChainPoint ->
   TinyWallet IO ->
+  ChainStateType Tx ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx persistedPoint wallet callback action = do
+withDirectChain tracer config ctx persistedPoint wallet startingChainState callback action = do
   queue <- newTQueueIO
+  theChainState <- newTVarIO startingChainState
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
     (min <$> startChainFrom <*> persistedPoint)
@@ -232,7 +236,7 @@ withDirectChain tracer config ctx persistedPoint wallet callback action = do
   res <-
     race
       ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback getTimeHandle ctx
+          let handler = chainSyncHandler tracer (callback' theChainState) callback getTimeHandle ctx
           let intersection = toConsensusPointInMode CardanoMode chainPoint
           let client = ouroborosApplication tracer intersection queue handler wallet
           withIOManager $ \iocp ->
@@ -248,6 +252,13 @@ withDirectChain tracer config ctx persistedPoint wallet callback action = do
     Right a -> pure a
  where
   DirectChainConfig{networkId, nodeSocket, startChainFrom} = config
+
+  callback' :: MonadSTM m => TVar m (ChainStateType Tx) -> ChainCallback' Tx m
+  callback' theChainState observeChainEvents = do
+    previousState <- atomically $ readTVar theChainState
+    case observeChainEvents previousState of
+      Nothing -> pure ()
+      Just newState -> atomically $ writeTVar theChainState newState
 
   submitTx queue vtx = do
     response <- atomically $ do

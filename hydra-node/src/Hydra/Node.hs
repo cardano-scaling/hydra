@@ -38,7 +38,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), ChainCallback, ChainStateType, IsChainState, PostTxError)
+import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (Observation), ChainStateType, IsChainState, PostTxError, newChainState)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
@@ -49,6 +49,7 @@ import Hydra.HeadLogic (
   Outcome (..),
   defaultTTL,
   getChainState,
+  setChainState,
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
@@ -260,19 +261,41 @@ createNodeState initialState = do
       , queryHeadState = readTVar tv
       }
 
+-- chainCallback ::
+--   MonadSTM m =>
+--   NodeState tx m ->
+--   EventQueue m (Event tx) ->
+--   ChainCallback tx m
+-- chainCallback NodeState{queryHeadState} eq observeChainEvents = do
+--   events <- atomically $ do
+--     headState <- queryHeadState
+--     pure $ observeChainEvents (getChainState headState)
+--   -- FIXME: we still have a race condition here, because if a new block arrives
+--   -- before the event get processed, it might read a chain state which is
+--   -- invalid. In practice, the probabilities are low because the chain advances
+--   -- slowly but this is still problematic and highlights the fact keeping the
+--   -- on-chain state as part of the head logic while decoupling the observation
+--   -- is problematic.
+--   forM_ events (putEvent eq . OnChainEvent)
+
 chainCallback ::
   MonadSTM m =>
   NodeState tx m ->
   EventQueue m (Event tx) ->
   ChainCallback tx m
-chainCallback NodeState{queryHeadState} eq observeChainEvents = do
-  events <- atomically $ do
-    headState <- queryHeadState
-    pure $ observeChainEvents (getChainState headState)
-  -- FIXME: we still have a race condition here, because if a new block arrives
-  -- before the event get processed, it might read a chain state which is
-  -- invalid. In practice, the probabilities are low because the chain advances
-  -- slowly but this is still problematic and highlights the fact keeping the
-  -- on-chain state as part of the head logic while decoupling the observation
-  -- is problematic.
-  forM_ events (putEvent eq . OnChainEvent)
+chainCallback NodeState{modifyHeadState} eq cont = do
+  -- Provide chain state to continuation and update it when we get a newState
+  -- NOTE: Although we do handle the chain state explictly in the 'HeadLogic',
+  -- this is required as multiple transactions may be observed and the chain
+  -- state shall accumulate the state changes coming with those observations.
+  mEvent <- atomically . modifyHeadState $ \hs ->
+    case cont $ getChainState hs of
+      Nothing ->
+        (Nothing, hs)
+      Just ev@Observation{newChainState} ->
+        (Just ev, setChainState newChainState hs)
+      Just ev ->
+        (Just ev, hs)
+  case mEvent of
+    Nothing -> pure ()
+    Just chainEvent -> putEvent eq $ OnChainEvent{chainEvent}
