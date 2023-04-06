@@ -72,7 +72,7 @@ import Options.Applicative (
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
-import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf, getPositive)
+import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
 
 -- | Hardcoded limit for maximum number of parties in a head protocol
 -- The value is obtained from calculating the costs of running the scripts
@@ -168,11 +168,11 @@ instance Arbitrary RunOptions where
     verbosity <- elements [Quiet, Verbose "HydraNode"]
     nodeId <- arbitrary
     host <- IPv4 . toIPv4w <$> arbitrary
-    port <- getPositive <$> arbitrary
+    port <- arbitrary
     peers <- reasonablySized arbitrary
     apiHost <- IPv4 . toIPv4w <$> arbitrary
-    apiPort <- getPositive <$> arbitrary
-    monitoringPort <- oneof [Just . getPositive <$> arbitrary, pure Nothing]
+    apiPort <- arbitrary
+    monitoringPort <- arbitrary
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
     hydraScriptsTxId <- arbitrary

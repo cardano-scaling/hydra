@@ -30,19 +30,20 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
+import Network.HTTP.Types (status400)
+import Network.Wai (responseLBS)
+import Network.Wai.Handler.Warp (defaultSettings, runSettings, setHost, setOnException, setPort)
+import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),
   acceptRequest,
+  defaultConnectionOptions,
   receiveData,
   sendTextData,
   sendTextDatas,
-  withPingThread, defaultConnectionOptions, ConnectionException (..), sendClose, fromLazyByteString
+  withPingThread,
  )
-import Network.HTTP.Types (status400)
-import Network.Wai.Handler.WebSockets (websocketsOr)
-import Network.Wai (responseLBS)
-import Network.Wai.Handler.Warp (runSettings, defaultSettings, setHost, setPort)
 import Test.QuickCheck (oneof)
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
@@ -53,6 +54,8 @@ data APIServerLog
   | APIOutputSent {sentOutput :: Aeson.Value}
   | APIInputReceived {receivedInput :: Aeson.Value}
   | APIInvalidInput {reason :: String, inputReceived :: Text}
+  | APIConnectionError {reason :: String}
+  | APIHandshakeError {reason :: String}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -139,8 +142,11 @@ runAPIServer ::
 runAPIServer host port party tracer history callback responseChannel = do
   traceWith tracer (APIServerStarted port)
   handle onIOException $
-    let serverSettings = setHost (fromString $ show host) $ setPort (fromIntegral port) $ defaultSettings
-    in runSettings serverSettings $ websocketsOr defaultConnectionOptions wsApp httpApp
+    let serverSettings =
+          setHost (fromString $ show host) $
+            setPort (fromIntegral port) $
+              setOnException (\_ _ -> pure ()) defaultSettings
+     in runSettings serverSettings $ websocketsOr defaultConnectionOptions wsApp httpApp
  where
   wsApp pending = do
     let path = requestPath $ pendingRequest pending
@@ -159,7 +165,6 @@ runAPIServer host port party tracer history callback responseChannel = do
 
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con txDisplay)
-        `catch` onServerException con
 
   httpApp _ respond =
     respond $ responseLBS status400 [] "only WebSocket connections supported"
@@ -194,21 +199,7 @@ runAPIServer host port party tracer history callback responseChannel = do
         , host
         , port
         }
-  onServerException con exc =
-    case exc of
-      -- ignoring 'ConnectionClosed' exceptions since they appear when client
-      -- doesn't send 'Close' meaning it doesn't close the connection cleanly
-      ConnectionClosed -> return ()
-      -- on 'CloseRequest' properly close connection
-      CloseRequest _ _ ->
-        sendClose con
-          (Aeson.encode . Aeson.String $ fromLazyByteString "Client closed connection")
-      pe@(ParseException e) -> do
-        traceWith tracer (APIInvalidInput e "")
-        throwIO pe
-      ue@(UnicodeException e) -> do
-        traceWith tracer (APIInvalidInput e "")
-        throwIO ue
+
   sendOutputs chan con txDisplay = forever $ do
     response <- STM.atomically $ readTChan chan
     let sentResponse =

@@ -5,7 +5,7 @@
                 "ipv4": "0.0.35.80",
                 "tag": "IPv4"
             },
-            "apiPort": 4,
+            "apiPort": 18239,
             "chainConfig": {
                 "cardanoSigningKey": "c/b/c..sk",
                 "cardanoVerificationKeys": [
@@ -38,16 +38,16 @@
                 "cardanoLedgerGenesisFile": "c/b/c/b/b/b..json",
                 "cardanoLedgerProtocolParametersFile": "b..json"
             },
-            "monitoringPort": null,
+            "monitoringPort": 10,
             "nodeId": "ibqamqhmfggaqsj",
             "peers": [
                 {
                     "hostname": "0.0.0.2",
-                    "port": 5
+                    "port": 7
                 }
             ],
             "persistenceDir": "c/c",
-            "port": 13,
+            "port": 32737,
             "verbosity": {
                 "contents": "HydraNode",
                 "tag": "Verbose"
@@ -58,7 +58,7 @@
                 "ipv4": "0.0.33.245",
                 "tag": "IPv4"
             },
-            "apiPort": 13,
+            "apiPort": 18822,
             "chainConfig": {
                 "cardanoSigningKey": "c/b/c/c/c..sk",
                 "cardanoVerificationKeys": [
@@ -89,16 +89,16 @@
                 "cardanoLedgerGenesisFile": "a/b/c/a/b/b..json",
                 "cardanoLedgerProtocolParametersFile": "c/a/c/b/b..json"
             },
-            "monitoringPort": 18,
+            "monitoringPort": null,
             "nodeId": "spdagobgcblquqlviwbymhcdr",
             "peers": [
                 {
                     "hostname": "0.0.0.7",
-                    "port": 5
+                    "port": 0
                 }
             ],
             "persistenceDir": "c/a",
-            "port": 12,
+            "port": 25301,
             "verbosity": {
                 "contents": "HydraNode",
                 "tag": "Verbose"
@@ -109,7 +109,7 @@
                 "ipv4": "0.0.111.127",
                 "tag": "IPv4"
             },
-            "apiPort": 21,
+            "apiPort": 14839,
             "chainConfig": {
                 "cardanoSigningKey": "c/c..sk",
                 "cardanoVerificationKeys": [
@@ -146,36 +146,36 @@
                 "cardanoLedgerGenesisFile": "b/b/a/b/c/c..json",
                 "cardanoLedgerProtocolParametersFile": "b/a/c..json"
             },
-            "monitoringPort": 8,
+            "monitoringPort": 19746,
             "nodeId": "icqna",
             "peers": [
                 {
                     "hostname": "0.0.0.4",
-                    "port": 5
-                },
-                {
-                    "hostname": "0.0.0.1",
                     "port": 3
                 },
                 {
+                    "hostname": "0.0.0.1",
+                    "port": 5
+                },
+                {
                     "hostname": "0.0.0.4",
-                    "port": 1
+                    "port": 7
                 },
                 {
                     "hostname": "0.0.0.2",
-                    "port": 1
+                    "port": 8
                 },
                 {
                     "hostname": "0.0.0.5",
-                    "port": 5
+                    "port": 2
                 },
                 {
                     "hostname": "0.0.0.7",
-                    "port": 5
+                    "port": 1
                 }
             ],
             "persistenceDir": "b/b",
-            "port": 7,
+            "port": 19742,
             "verbosity": {
                 "contents": "HydraNode",
                 "tag": "Verbose"
@@ -186,7 +186,7 @@
                 "ipv4": "0.0.34.253",
                 "tag": "IPv4"
             },
-            "apiPort": 14,
+            "apiPort": 19670,
             "chainConfig": {
                 "cardanoSigningKey": "b/a..sk",
                 "cardanoVerificationKeys": [
@@ -218,11 +218,11 @@
                 "cardanoLedgerGenesisFile": "a/c/c..json",
                 "cardanoLedgerProtocolParametersFile": "c/a/b/a/b..json"
             },
-            "monitoringPort": null,
+            "monitoringPort": 6616,
             "nodeId": "ip",
             "peers": [],
             "persistenceDir": "b/b/c",
-            "port": 14,
+            "port": 12529,
             "verbosity": {
                 "contents": "HydraNode",
                 "tag": "Verbose"
@@ -233,7 +233,7 @@
                 "ipv4": "0.0.68.169",
                 "tag": "IPv4"
             },
-            "apiPort": 30,
+            "apiPort": 1338,
             "chainConfig": {
                 "cardanoSigningKey": "c/b/a/c/c/a..sk",
                 "cardanoVerificationKeys": [
@@ -267,32 +267,32 @@
                 "cardanoLedgerGenesisFile": "c/b/b/c..json",
                 "cardanoLedgerProtocolParametersFile": "a/c/a/a/a/b..json"
             },
-            "monitoringPort": null,
+            "monitoringPort": 9885,
             "nodeId": "vgnfmvtyrtutqozcjppmpaab",
             "peers": [
                 {
                     "hostname": "0.0.0.0",
-                    "port": 1
+                    "port": 0
                 },
                 {
                     "hostname": "0.0.0.3",
-                    "port": 6
+                    "port": 0
                 },
                 {
                     "hostname": "0.0.0.6",
-                    "port": 5
+                    "port": 4
                 },
                 {
                     "hostname": "0.0.0.6",
-                    "port": 6
+                    "port": 3
                 },
                 {
                     "hostname": "0.0.0.6",
-                    "port": 5
+                    "port": 7
                 }
             ],
             "persistenceDir": "a/c/c/a",
-            "port": 1,
+            "port": 2932,
             "verbosity": {
                 "tag": "Quiet"
             }

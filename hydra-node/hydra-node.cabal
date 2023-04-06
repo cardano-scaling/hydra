@@ -175,7 +175,6 @@ library
     , serialise
     , small-steps
     , stm
-    , streaming-commons
     , strict-containers
     , text
     , time
