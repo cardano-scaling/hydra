@@ -127,7 +127,7 @@ data OutputFormat
   | OutputJSON
   deriving (Eq, Show)
 
--- | Replaces the json encoded tx field with it's cbor representation.
+-- | Replaces the json encoded tx fields with it's cbor representation.
 -- NOTE: we deliberately pattern match on all 'ServerOutput' constructors
 -- so that we don't forget to update this function if they change.
 prepareServerOutput ::
@@ -164,7 +164,11 @@ prepareServerOutput OutputCBOR response =
     TxValid{Hydra.API.ServerOutput.transaction = tx} -> replacedResponse tx
     TxInvalid{Hydra.API.ServerOutput.transaction = tx} -> replacedResponse tx
     SnapshotConfirmed{Hydra.API.ServerOutput.snapshot} ->
-      replacedSnapshotTxResponse (confirmed snapshot)
+      encodedResponse &
+        key "snapshot" .
+        _Object .
+        at "confirmedTransactions"
+        .~ (Just . Array $ fromList (txToCbor <$> confirmed snapshot))
     GetUTxOResponse{} -> encodedResponse
     InvalidInput{} -> encodedResponse
     Greetings{} -> encodedResponse
@@ -174,35 +178,29 @@ prepareServerOutput OutputCBOR response =
           case confirmedSnapshot of
             InitialSnapshot{} -> encodedResponse
             ConfirmedSnapshot{Hydra.Snapshot.snapshot} ->
-              replacedSnapshotTxInPostTxOnChainFailedResponse (confirmed snapshot)
+              replaceConfirmedTxs (Just . Array $ fromList (txToCbor <$> confirmed snapshot))
         ContestTx{confirmedSnapshot} ->
           case confirmedSnapshot of
             InitialSnapshot{} -> encodedResponse
             ConfirmedSnapshot{Hydra.Snapshot.snapshot} ->
-              replacedSnapshotTxInPostTxOnChainFailedResponse (confirmed snapshot)
+              replaceConfirmedTxs (Just . Array $ fromList (txToCbor <$> confirmed snapshot))
         _other -> encodedResponse
     RolledBack -> encodedResponse
  where
+  txToCbor =
+    String . decodeUtf8 . Base16.encode . serialize'
+
+  replaceConfirmedTxs u =
+    encodedResponse &
+      key "postChainTx" .
+      key "confirmedSnapshot" .
+      key "snapshot" .
+      _Object .
+      at "confirmedTransactions" .~ u
   encodedResponse = encode response
 
   replacedResponse tx =
     encodedResponse &
       atKey "transaction" .~
-        (Just $ String . decodeUtf8 . Base16.encode $ serialize' tx)
+        (Just $ txToCbor tx)
 
-  replacedSnapshotTxResponse txs =
-    let cborTxs = Just . Array $ fromList (String . decodeUtf8 . Base16.encode . serialize' <$> txs)
-    in encodedResponse &
-         key "snapshot" .
-         _Object .
-         at "confirmedTransactions"
-         .~ cborTxs
-
-  replacedSnapshotTxInPostTxOnChainFailedResponse txs =
-    let cborTxs = Just . Array $ fromList (String . decodeUtf8 . Base16.encode . serialize' <$> txs)
-    in encodedResponse &
-          key "postChainTx" .
-          key "confirmedSnapshot" .
-          key "snapshot" .
-          _Object .
-          at "confirmedTransactions" .~ cborTxs
