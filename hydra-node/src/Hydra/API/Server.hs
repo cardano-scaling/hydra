@@ -18,11 +18,13 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
+import qualified Data.List as List
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (
   OutputFormat (..),
   ServerOutput (Greetings, InvalidInput),
   TimedServerOutput (..),
+  me,
   prepareServerOutput,
  )
 import Hydra.Chain (IsChainState)
@@ -97,18 +99,19 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   -- list in memory but in order on disk
   history <- newTVarIO (reverse h)
 
-  -- NOTE: We will add a 'Greetings' message on each API server start. This is
-  -- important to make sure the latest configured 'party' is reaching the
-  -- client.
-  void $ appendToHistory history (Greetings party)
   race_
     (runAPIServer host port party tracer history callback responseChannel)
     . action
     $ Server
       { sendOutput = \output -> do
-          timedOutput <- appendToHistory history output
-          atomically $
-            writeTChan responseChannel timedOutput
+          case output of
+            -- we don't want to include our own 'Greeting' message into history
+            -- since this message will be sent upon each re-connect
+            Greetings{me} | me == party -> pure ()
+            _other -> do
+              timedOutput <- appendToHistory history output
+              atomically $
+                writeTChan responseChannel timedOutput
       }
  where
   appendToHistory :: TVar [TimedServerOutput tx] -> ServerOutput tx -> IO (TimedServerOutput tx)
@@ -156,9 +159,11 @@ runAPIServer host port party tracer history callback responseChannel = do
     traceWith tracer NewAPIConnection
 
     -- api client can decide if they want to see the past history of server outputs
-    if shouldNotServeHistory queryParams
-      then forwardGreetingOnly con
-      else forwardHistory con
+    let noHistory = shouldNotServeHistory queryParams
+    unless noHistory $
+      forwardHistory con
+
+    forwardGreetingOnly con noHistory
 
     -- api client can decide if they want tx's to be displayed as CBOR instead of plain json
     let txDisplay = decideOnTxDisplay queryParams
@@ -169,13 +174,18 @@ runAPIServer host port party tracer history callback responseChannel = do
   httpApp _ respond =
     respond $ responseLBS status400 [] "only WebSocket connections supported"
 
-  forwardGreetingOnly con = do
+  -- NOTE: We will add a 'Greetings' message on each API server start. This is
+  -- important to make sure the latest configured 'party' is reaching the
+  -- client.
+  forwardGreetingOnly con noHistory = do
+    hist <- STM.atomically (readTVar history)
+    let seqNo = bool (fromIntegral $ List.length hist) 0 noHistory
     time <- getCurrentTime
     sendTextData con $
       Aeson.encode
         TimedServerOutput
           { time
-          , seq = 0
+          , seq = seqNo
           , output = Greetings party :: ServerOutput tx
           }
   decideOnTxDisplay qp =
