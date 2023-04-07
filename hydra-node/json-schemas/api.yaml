@@ -1202,7 +1202,9 @@ components:
         confirmedTransactions:
           type: array
           items:
-            $ref: "#/components/schemas/Transaction"
+            oneOf:
+              - $ref: "#/components/schemas/Transaction"
+              - $ref: "#/components/schemas/RawTransaction"
 
     SnapshotNumber:
       type: integer
