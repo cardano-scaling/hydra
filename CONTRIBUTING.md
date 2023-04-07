@@ -180,3 +180,35 @@ To perform a release of next `<version>`:
    - The released changes (formatted) and giving credit where credit is due
    - Attach static binaries to the release (or link the CI artifact)
    - The just published `hydra-scripts-tx-id` from step 1
+
+## Communication
+
+We have several reporting and communication practices within the Hydra project.
+Becoming one of the core contributors of the project includes participation in
+core communication processes.
+
+### Weekly update
+
+At the end of each week, we provide updates to
+[cardano-updates](https://input-output-hk.github.io/cardano-updates/tags/hydra),
+which also serve as a basis for our monthly reports.
+
+To write such an update:
+
+1. Use the contributors tactical meeting agenda to collect bullet points on
+   - **What did the team achieve this week**: past tense summary of done things
+     (good: "Implemented..", bad: "Started working on.."); use the backlog and
+     calendars to collect
+
+   - **What are the goals of next week**: a short look-out onto the backlog and/or
+     roadmap; ask each contributor what they would like to get done next week
+
+2. Enrich the content with useful links and write a high-level summary. This
+   should use a passive or "they"-style of writing. Tip: check out older updates
+   for examples and/or use an AI language model to write it.
+
+3. Create a entry blog and pull request it on
+   [cardano-updates](https://github.com/input-output-hk/cardano-updates),
+   putting other Hydra contributors as reviewers.
+   
+   - Don't forget to add yourself as author in the `authors.yml`.
