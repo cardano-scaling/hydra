@@ -30,18 +30,22 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
+import Network.HTTP.Types (status400)
+import Network.Wai (responseLBS)
+import Network.Wai.Handler.Warp (defaultSettings, runSettings, setHost, setOnException, setPort)
+import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),
   acceptRequest,
+  defaultConnectionOptions,
   receiveData,
-  runServer,
   sendTextData,
   sendTextDatas,
   withPingThread,
  )
 import Test.QuickCheck (oneof)
-import Text.URI
+import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
 
 data APIServerLog
@@ -50,6 +54,8 @@ data APIServerLog
   | APIOutputSent {sentOutput :: Aeson.Value}
   | APIInputReceived {receivedInput :: Aeson.Value}
   | APIInvalidInput {reason :: String, inputReceived :: Text}
+  | APIConnectionError {reason :: String}
+  | APIHandshakeError {reason :: String}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -136,24 +142,33 @@ runAPIServer ::
 runAPIServer host port party tracer history callback responseChannel = do
   traceWith tracer (APIServerStarted port)
   handle onIOException $
-    runServer (show host) (fromIntegral port) $ \pending -> do
-      let path = requestPath $ pendingRequest pending
-      queryParams <- uriQuery <$> mkURIBs path
-      con <- acceptRequest pending
-      chan <- STM.atomically $ dupTChan responseChannel
-      traceWith tracer NewAPIConnection
-
-      -- api client can decide if they want to see the past history of server outputs
-      if shouldNotServeHistory queryParams
-        then forwardGreetingOnly con
-        else forwardHistory con
-
-      -- api client can decide if they want tx's to be displayed as CBOR instead of plain json
-      let txDisplay = decideOnTxDisplay queryParams
-
-      withPingThread con 30 (pure ()) $
-        race_ (receiveInputs con) (sendOutputs chan con txDisplay)
+    let serverSettings =
+          setHost (fromString $ show host) $
+            setPort (fromIntegral port) $
+              setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e}) defaultSettings
+     in runSettings serverSettings $ websocketsOr defaultConnectionOptions wsApp httpApp
  where
+  wsApp pending = do
+    let path = requestPath $ pendingRequest pending
+    queryParams <- uriQuery <$> mkURIBs path
+    con <- acceptRequest pending
+    chan <- STM.atomically $ dupTChan responseChannel
+    traceWith tracer NewAPIConnection
+
+    -- api client can decide if they want to see the past history of server outputs
+    if shouldNotServeHistory queryParams
+      then forwardGreetingOnly con
+      else forwardHistory con
+
+    -- api client can decide if they want tx's to be displayed as CBOR instead of plain json
+    let txDisplay = decideOnTxDisplay queryParams
+
+    withPingThread con 30 (pure ()) $
+      race_ (receiveInputs con) (sendOutputs chan con txDisplay)
+
+  httpApp _ respond =
+    respond $ responseLBS status400 [] "only WebSocket connections supported"
+
   forwardGreetingOnly con = do
     time <- getCurrentTime
     sendTextData con $

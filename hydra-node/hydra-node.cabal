@@ -145,6 +145,7 @@ library
     , flat
     , formatting
     , hedgehog-quickcheck
+    , http-types
     , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
@@ -181,6 +182,9 @@ library
     , typed-protocols                 ==0.1.0.0
     , typed-protocols-cborg           ==0.1.0.0
     , unliftio
+    , wai
+    , wai-websockets
+    , warp
     , websockets
 
   ghc-options:     -haddock

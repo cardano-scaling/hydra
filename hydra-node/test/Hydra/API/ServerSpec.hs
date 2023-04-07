@@ -7,6 +7,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize')
 import Control.Exception (IOException)
+import Control.Lens ((^?))
 import Control.Monad.Class.MonadSTM (
   check,
   modifyTVar',
@@ -19,24 +20,24 @@ import Control.Monad.Class.MonadSTM (
  )
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
-import Data.Aeson.Lens (nonNull, key)
+import Data.Aeson.Lens (key, nonNull)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), input)
-import Hydra.Chain (HeadId (HeadId), PostChainTx (CloseTx), confirmedSnapshot, PostTxError (NoSeedInput))
+import Hydra.Chain (HeadId (HeadId), PostChainTx (CloseTx), PostTxError (NoSeedInput), confirmedSnapshot)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
+import Hydra.Network (PortNumber)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot, confirmed)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.Timeout (timeout)
 import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
-import Hydra.Snapshot (Snapshot, confirmed, ConfirmedSnapshot (ConfirmedSnapshot, signatures, snapshot))
-import Control.Lens ((^?))
 
 -- NOTE: It is important to not run these tests using 'parallel' since we will
 -- end up with _flaky_ tests because in the threaded environment we can't easily
@@ -46,7 +47,7 @@ spec = describe "ServerSpec" $ do
   it "greets" $ do
     failAfter 5 $
       withFreePort $ \port -> do
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \_ -> do
+        withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \_ -> do
           withClient port "/" $ \conn -> do
             received <- receiveData conn
             case Aeson.eitherDecode received of
@@ -57,7 +58,7 @@ spec = describe "ServerSpec" $ do
     queue <- atomically newTQueue
     showLogsOnFailure $ \tracer -> failAfter 5 $
       withFreePort $ \port -> do
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+        withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
           semaphore <- newTVarIO 0
           withAsync
             ( concurrently_
@@ -80,14 +81,14 @@ spec = describe "ServerSpec" $ do
 
         persistence <- createPersistenceIncremental persistentFile
         withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice persistence tracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice persistence tracer noop $ \Server{sendOutput} -> do
             sendOutput arbitraryMsg
 
         queue1 <- atomically newTQueue
         queue2 <- atomically newTQueue
         persistence' <- createPersistenceIncremental persistentFile
         withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice persistence' tracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice persistence' tracer noop $ \Server{sendOutput} -> do
             semaphore <- newTVarIO 0
             withAsync
               ( concurrently_
@@ -111,7 +112,7 @@ spec = describe "ServerSpec" $ do
       monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
       run . failAfter 5 $ do
         withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             mapM_ sendOutput outputs
             withClient port "/" $ \conn -> do
               received <- replicateM (length outputs + 1) (receiveData conn)
@@ -128,7 +129,7 @@ spec = describe "ServerSpec" $ do
       monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
       run $ do
         withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             let sendFromApiServer = sendOutput
             mapM_ sendFromApiServer history
             -- start client that doesn't want to see the history
@@ -160,22 +161,22 @@ spec = describe "ServerSpec" $ do
       generatedSnapshot :: Snapshot SimpleTx <- pick arbitrary
       run $ do
         withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
-            let snapshot = generatedSnapshot { confirmed = [tx] }
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
-            let snapShotConfirmedMessage = SnapshotConfirmed {headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot, Hydra.API.ServerOutput.signatures = mempty}
+            let sn = generatedSnapshot{confirmed = [tx]}
+            let snapShotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot = sn, Hydra.API.ServerOutput.signatures = mempty}
             let postTxFailedMessage =
                   PostTxOnChainFailed
-                    {postChainTx =
-                      CloseTx
-                        { confirmedSnapshot =
-                            ConfirmedSnapshot
-                              { Hydra.Snapshot.snapshot = snapshot
-                              , Hydra.Snapshot.signatures = mempty
-                              }
-                        }
-                     , postTxError = NoSeedInput
-                     }
+                    { postChainTx =
+                        CloseTx
+                          { confirmedSnapshot =
+                              ConfirmedSnapshot
+                                { Hydra.Snapshot.snapshot = sn
+                                , Hydra.Snapshot.signatures = mempty
+                                }
+                          }
+                    , postTxError = NoSeedInput
+                    }
                 guardForValue v expected =
                   case v of
                     Aeson.Object km ->
@@ -183,7 +184,7 @@ spec = describe "ServerSpec" $ do
                     _other -> Nothing
 
             -- client is able to specify they want tx output to be encoded as CBOR
-            withClient port "/?tx-output=cbor" $ \conn -> do
+            withClient port "/?history=no&tx-output=cbor" $ \conn -> do
               sendOutput txValidMessage
 
               waitMatch 5 conn $ \v ->
@@ -196,7 +197,7 @@ spec = describe "ServerSpec" $ do
                       Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
                     result =
                       Aeson.encode v ^? key "snapshot" . key "confirmedTransactions" . nonNull
-                in guard $ result == Just expected
+                 in guard $ result == Just expected
 
               sendOutput postTxFailedMessage
 
@@ -205,10 +206,10 @@ spec = describe "ServerSpec" $ do
                       Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
                     result =
                       Aeson.encode v ^? key "postChainTx" . key "confirmedSnapshot" . key "snapshot" . key "confirmedTransactions" . nonNull
-                in guard $ result == Just expected
+                 in guard $ result == Just expected
 
             -- spawn another client but this one wants to see txs in json format
-            withClient port "/" $ \conn -> do
+            withClient port "/?history=no" $ \conn -> do
               sendOutput txValidMessage
 
               waitMatch 5 conn $ \v ->
@@ -219,7 +220,7 @@ spec = describe "ServerSpec" $ do
       outputs :: [ServerOutput SimpleTx] <- pick arbitrary
       run . failAfter 5 $ do
         withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
             mapM_ sendOutput outputs
             withClient port "/" $ \conn -> do
               received <- replicateM (length outputs + 1) (receiveData conn)
@@ -238,9 +239,9 @@ strictlyMonotonic = \case
   [_] -> True
   (a : b : as) -> a + 1 == b && strictlyMonotonic (b : as)
 
-sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
+sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
-  withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) alice mockPersistence nullTracer noop $ \_server -> do
+  withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \_server -> do
     withClient port "/" $ \con -> do
       _greeting :: ByteString <- receiveData con
       sendBinaryData con invalidInput
@@ -275,11 +276,11 @@ testClient queue semaphore cnx = do
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
 
-withClient :: HasCallStack => Int -> String -> (Connection -> IO ()) -> IO ()
+withClient :: HasCallStack => PortNumber -> String -> (Connection -> IO ()) -> IO ()
 withClient port path action = do
   failAfter 5 retry
  where
-  retry = runClient "127.0.0.1" port path action `catch` \(_ :: IOException) -> retry
+  retry = runClient "127.0.0.1" (fromIntegral port) path action `catch` \(_ :: IOException) -> retry
 
 -- | Mocked persistence handle which just does nothing.
 mockPersistence :: Applicative m => PersistenceIncremental a m

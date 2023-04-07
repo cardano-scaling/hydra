@@ -19,9 +19,9 @@ import GHC.IO.Exception (
  )
 import Network.Socket (
   Family (AF_INET),
-  PortNumber,
   SockAddr (..),
   SocketType (Stream),
+  PortNumber,
   close',
   connect,
   socket,
@@ -49,8 +49,8 @@ getRandomPort = do
 -- | Find a free TCPv4 port and pass it to the given 'action'.
 --
 -- Should be used only for testing, see 'getRandomPort' for limitations.
-withFreePort :: (Int -> IO ()) -> IO ()
-withFreePort action = getRandomPort >>= action . fromIntegral
+withFreePort :: (PortNumber -> IO ()) -> IO ()
+withFreePort action = getRandomPort >>= action
 
 -- | Checks whether @connect()@ to a given TCPv4 `SockAddr` succeeds or
 -- returns `eCONNREFUSED`.
@@ -70,20 +70,12 @@ isPortOpen sockAddr = do
         | "WSAECONNREFUSED" `isInfixOf` show e -> pure False
         | otherwise -> throwIO e
 
--- | Get the underlying port number for the given socket address. Fails for UNIX
--- socket addresses which aren't bound to any TCP port.
-unsafePortNumber :: SockAddr -> PortNumber
-unsafePortNumber = \case
-  SockAddrInet p _ -> p
-  SockAddrInet6 p _ _ _ -> p
-  SockAddrUnix _ -> error "unsafePortNumber: no port for unix sockets."
-
 -- | Creates a `SockAttr` from host IP and port number.
 --
 -- Example:
 -- > simpleSockAddr (127,0,0,1) 8000
 simpleSockAddr :: (Word8, Word8, Word8, Word8) -> PortNumber -> SockAddr
-simpleSockAddr addr port = SockAddrInet port (tupleToHostAddress addr)
+simpleSockAddr addr port = SockAddrInet (fromIntegral port) (tupleToHostAddress addr)
 
 -- | Get a list of random TCPv4 ports that currently do not have any servers
 -- listening on them. It may return less than the requested number of ports.
