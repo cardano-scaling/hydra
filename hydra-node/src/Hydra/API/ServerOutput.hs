@@ -138,8 +138,10 @@ data ServerOutputConfig = ServerOutputConfig
   deriving (Eq, Show)
 
 -- | Replaces the json encoded tx field with it's cbor representation.
--- NOTE: we deliberately pattern match on all 'ServerOutput' constructors
--- so that we don't forget to update this function if they change.
+--
+-- NOTE: we deliberately pattern match on all 'ServerOutput' constructors in
+-- 'cookTxOutput' so that we don't forget to update this function if they
+-- change.
 prepareServerOutput ::
   IsChainState tx =>
   -- | Decide on tx representation
@@ -156,25 +158,8 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
       WithUTxO -> bs
       WithoutUTxO ->
         case output response of
-          PeerConnected{} -> bs
-          PeerDisconnected{} -> bs
-          HeadIsInitializing{} -> bs
-          Committed{} -> bs
-          HeadIsOpen{} -> bs
-          HeadIsClosed{} -> bs
-          HeadIsContested{} -> bs
-          ReadyToFanout{} -> bs
-          HeadIsAborted{} -> bs
-          HeadIsFinalized{} -> bs
-          CommandFailed{} -> bs
-          TxValid{} -> bs
-          TxInvalid{} -> bs
           SnapshotConfirmed{} -> removeSnapshotUtxo
-          GetUTxOResponse{} -> bs
-          InvalidInput{} -> bs
-          Greetings{} -> bs
-          PostTxOnChainFailed{} -> bs
-          RolledBack -> bs
+          _other -> bs
 
   cookTxOutput :: LBS.ByteString
   cookTxOutput =
