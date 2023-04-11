@@ -18,13 +18,11 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
-import qualified Data.List as List
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (
   OutputFormat (..),
   ServerOutput (Greetings, InvalidInput),
   TimedServerOutput (..),
-  me,
   prepareServerOutput,
  )
 import Hydra.Chain (IsChainState)
@@ -104,32 +102,27 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
     . action
     $ Server
       { sendOutput = \output -> do
-          case output of
-            -- we don't want to include our own 'Greeting' message into history
-            -- since this message will be sent upon each re-connect
-            Greetings{me} | me == party -> pure ()
-            _other -> do
-              timedOutput <- appendToHistory history output
-              atomically $
-                writeTChan responseChannel timedOutput
+          timedOutput <- appendToHistory history output
+          atomically $
+            writeTChan responseChannel timedOutput
       }
  where
   appendToHistory :: TVar [TimedServerOutput tx] -> ServerOutput tx -> IO (TimedServerOutput tx)
   appendToHistory history output = do
     time <- getCurrentTime
     timedOutput <- atomically $ do
-      seq <- nextSequenceNumber <$> readTVar history
+      seq <- nextSequenceNumber history
       let timedOutput = TimedServerOutput{output, time, seq}
       modifyTVar' history (timedOutput :)
       pure timedOutput
     append timedOutput
     pure timedOutput
 
-nextSequenceNumber :: [TimedServerOutput tx] -> Natural
+nextSequenceNumber :: TVar [TimedServerOutput tx] -> STM.STM Natural
 nextSequenceNumber historyList =
-  case historyList of
-    [] -> 0
-    (TimedServerOutput{seq} : _) -> seq + 1
+  STM.readTVar historyList >>= \case
+    [] -> pure 0
+    (TimedServerOutput{seq} : _) -> pure (seq + 1)
 
 runAPIServer ::
   forall tx.
@@ -159,11 +152,10 @@ runAPIServer host port party tracer history callback responseChannel = do
     traceWith tracer NewAPIConnection
 
     -- api client can decide if they want to see the past history of server outputs
-    let noHistory = shouldNotServeHistory queryParams
-    unless noHistory $
+    unless (shouldNotServeHistory queryParams) $
       forwardHistory con
 
-    forwardGreetingOnly con noHistory
+    forwardGreetingOnly con
 
     -- api client can decide if they want tx's to be displayed as CBOR instead of plain json
     let txDisplay = decideOnTxDisplay queryParams
@@ -177,15 +169,14 @@ runAPIServer host port party tracer history callback responseChannel = do
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
-  forwardGreetingOnly con noHistory = do
-    hist <- STM.atomically (readTVar history)
-    let seqNo = bool (fromIntegral $ List.length hist) 0 noHistory
+  forwardGreetingOnly con = do
+    seq <- STM.atomically $ nextSequenceNumber history
     time <- getCurrentTime
     sendTextData con $
       Aeson.encode
         TimedServerOutput
           { time
-          , seq = seqNo
+          , seq
           , output = Greetings party :: ServerOutput tx
           }
   decideOnTxDisplay qp =
@@ -229,7 +220,7 @@ runAPIServer host port party tracer history callback responseChannel = do
         -- message to memory
         let clientInput = decodeUtf8With lenientDecode $ toStrict msg
         time <- getCurrentTime
-        seq <- atomically $ nextSequenceNumber <$> readTVar history
+        seq <- atomically $ nextSequenceNumber history
         let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time, seq}
         sendTextData con $ Aeson.encode timedOutput
         traceWith tracer (APIInvalidInput e clientInput)
